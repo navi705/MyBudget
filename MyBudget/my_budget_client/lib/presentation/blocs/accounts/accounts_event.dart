@@ -1,0 +1,37 @@
+part of 'accounts_bloc.dart';
+
+abstract class AccountsEvent extends Equatable {
+  const AccountsEvent();
+
+  @override
+  List<Object> get props => [];
+}
+
+class LoadAccounts extends AccountsEvent {}
+
+class AddAccount extends AccountsEvent {
+  final Account account;
+
+  const AddAccount(this.account);
+
+  @override
+  List<Object> get props => [account];
+}
+
+class DeleteAccount extends AccountsEvent {
+  final int id;
+
+  const DeleteAccount(this.id);
+
+  @override
+  List<Object> get props => [id];
+}
+
+class _AccountsUpdated extends AccountsEvent {
+  final List<Account> accounts;
+
+  const _AccountsUpdated(this.accounts);
+
+  @override
+  List<Object> get props => [accounts];
+}
