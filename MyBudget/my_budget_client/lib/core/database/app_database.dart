@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:my_budget_client/data/seed_data/account_styles_data.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
@@ -32,11 +33,20 @@ class Categories extends Table {
   IntColumn get parentId => integer().nullable().references(Categories, #id)();
 }
 
+@DataClassName('AccountStyle')
+class AccountStyles extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text().withLength(min: 1, max: 50)();
+  TextColumn get iconName => text()();
+  TextColumn get colorHex => text()();
+}
+
 class Accounts extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 50)();
   RealColumn get balance => real()();
   IntColumn get currencyId => integer().references(Currencies, #id)();
+  IntColumn get styleId => integer().nullable().references(AccountStyles, #id)();
 }
 
 class Transactions extends Table {
@@ -99,6 +109,17 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMi
   Future<int> deleteCategory(CategoriesCompanion category) => delete(categories).delete(category);
 }
 
+@DriftAccessor(tables: [AccountStyles])
+class AccountStylesDao extends DatabaseAccessor<AppDatabase> with _$AccountStylesDaoMixin {
+  AccountStylesDao(super.db);
+
+  Future<List<AccountStyle>> getAllStyles() => select(accountStyles).get();
+  Stream<List<AccountStyle>> watchAllStyles() => select(accountStyles).watch();
+  Future<int> insertStyle(AccountStylesCompanion style) => into(accountStyles).insert(style);
+  Future<bool> updateStyle(AccountStylesCompanion style) => update(accountStyles).replace(style);
+  Future<int> deleteStyle(AccountStylesCompanion style) => delete(accountStyles).delete(style);
+}
+
 @DriftAccessor(tables: [Accounts])
 class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin {
   AccountsDao(super.db);
@@ -138,6 +159,7 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin 
   CurrencyDesignations,
   Currencies,
   Categories,
+  AccountStyles,
   Accounts,
   Transactions,
   // Technical Tables
@@ -146,6 +168,7 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin 
   CurrencyDesignationsDao,
   CurrenciesDao,
   CategoriesDao,
+  AccountStylesDao,
   AccountsDao,
   TransactionsDao,
   SettingsDao,
@@ -167,9 +190,10 @@ class AppDatabase extends _$AppDatabase {
         await _seedCurrencyDesignations(this);
         await _seedCurrencies(this);
         await _seedSettings(this);
+        await _seedAccountStyles(this);
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        // Handle schema upgrades here if schemaVersion changes
+        // No-op for development, we re-create the DB
       },
     );
   }
@@ -191,6 +215,12 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _seedSettings(AppDatabase db) async {
     for (final setting in defaultSettings) {
       await db.settingsDao.setSetting(setting);
+    }
+  }
+
+  Future<void> _seedAccountStyles(AppDatabase db) async {
+    for (final style in defaultAccountStyles) {
+      await db.into(db.accountStyles).insert(style);
     }
   }
 }

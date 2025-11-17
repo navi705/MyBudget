@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/account_list_item.dart';
 import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
 
 class AccountsScreen extends StatelessWidget {
@@ -58,7 +59,24 @@ class AccountsScreen extends StatelessWidget {
                   key: ValueKey(account.id),
                   direction: DismissDirection.endToStart,
                   onDismissed: (direction) {
+                    // Dispatch the delete event immediately
                     context.read<AccountsBloc>().add(DeleteAccount(account.id!));
+
+                    // Then, show a SnackBar with an Undo action
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        SnackBar(
+                          content: Text('${account.name} deleted'), // TODO: Localize
+                          action: SnackBarAction(
+                            label: 'Undo', // TODO: Localize
+                            onPressed: () {
+                              // If undo is pressed, dispatch an event to re-add the account
+                              context.read<AccountsBloc>().add(AddAccount(account));
+                            },
+                          ),
+                        ),
+                      );
                   },
                   background: Container(
                     color: Colors.red,
@@ -66,12 +84,7 @@ class AccountsScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: const Icon(Icons.delete, color: Colors.white),
                   ),
-                  child: ListTile(
-                    title: Text(account.name),
-                    subtitle: Text(
-                      l10n.accountsBalanceLabel(account.balance.toString()),
-                    ),
-                  ),
+                  child: AccountListItem(account: account),
                 );
               },
             );

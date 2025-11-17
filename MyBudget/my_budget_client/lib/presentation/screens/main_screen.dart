@@ -1,65 +1,82 @@
 import 'package:flutter/material.dart';
-import 'package:my_budget_client/l10n/app_localizations.dart';
-import 'package:my_budget_client/presentation/screens/accounts_screen.dart';
-import 'package:my_budget_client/presentation/screens/categories_screen.dart';
-import 'package:my_budget_client/presentation/screens/settings_screen.dart';
-import 'package:my_budget_client/presentation/screens/transactions_screen.dart';
+import 'package:go_router/go_router.dart';
+import 'package:my_budget_client/presentation/routes/app_routes.dart';
 
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+class MainScreen extends StatelessWidget {
+  const MainScreen({
+    required this.child,
+    super.key,
+  });
 
-  @override
-  State<MainScreen> createState() => _MainScreenState();
-}
-
-class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0;
-
-  static final List<Widget> _widgetOptions = <Widget>[
-    const AccountsScreen(),
-    const CategoriesScreen(),
-    const TransactionsScreen(),
-    const SettingsScreen(),
-  ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    // This is where you could use a BlocBuilder<SettingsBloc, ...>
+    // to decide which navigation type to show (e.g., bottom bar, rail, drawer).
+    // For now, we'll default to BottomNavigationBar.
+
     return Scaffold(
-      body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
-      ),
+      body: child,
       bottomNavigationBar: BottomNavigationBar(
-        items: <BottomNavigationBarItem>[
+        // This makes the selected item pop with color, while others are grey.
+        type: BottomNavigationBarType.fixed,
+        // Determine the current index by checking the current route location.
+        currentIndex: _calculateSelectedIndex(context),
+        onTap: (int index) => _onItemTapped(index, context),
+        items: const [
           BottomNavigationBarItem(
-            icon: const Icon(Icons.account_balance_wallet),
-            label: l10n.accountsAppBarTitle,
+            icon: Icon(Icons.account_balance_wallet),
+            label: 'Accounts',
           ),
           BottomNavigationBarItem(
-            icon: const Icon(Icons.category),
-            label: l10n.categoriesAppBarTitle,
+            icon: Icon(Icons.swap_horiz),
+            label: 'Transactions',
           ),
           BottomNavigationBarItem(
-            icon: const Icon(Icons.compare_arrows),
-            label: l10n.transactionsAppBarTitle,
+            icon: Icon(Icons.category),
+            label: 'Categories',
           ),
           BottomNavigationBarItem(
-            icon: const Icon(Icons.settings),
-            label: l10n.settingsAppBarTitle,
+            icon: Icon(Icons.settings),
+            label: 'Settings',
           ),
         ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
       ),
     );
+  }
+
+  int _calculateSelectedIndex(BuildContext context) {
+    final String location = GoRouterState.of(context).uri.toString();
+    if (location == AppRoutes.accounts) {
+      return 0;
+    }
+    if (location == AppRoutes.transactions) {
+      return 1;
+    }
+    if (location == AppRoutes.categories) {
+      return 2;
+    }
+    if (location == AppRoutes.settings) {
+      return 3;
+    }
+    return 0; // Default to the first item
+  }
+
+  void _onItemTapped(int index, BuildContext context) {
+    switch (index) {
+      case 0:
+        context.go(AppRoutes.accounts);
+        break;
+      case 1:
+        context.go(AppRoutes.transactions);
+        break;
+      case 2:
+        context.go(AppRoutes.categories);
+        break;
+      case 3:
+        context.go(AppRoutes.settings);
+        break;
+    }
   }
 }

@@ -17,6 +17,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         super(AccountsInitial()) {
     on<LoadAccounts>(_onLoadAccounts);
     on<AddAccount>(_onAddAccount);
+    on<UpdateAccount>(_onUpdateAccount);
     on<DeleteAccount>(_onDeleteAccount);
     on<_AccountsUpdated>(_onAccountsUpdated);
   }
@@ -37,6 +38,13 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     Emitter<AccountsState> emit,
   ) async {
     await _accountRepository.addAccount(event.account);
+  }
+
+  Future<void> _onUpdateAccount(
+    UpdateAccount event,
+    Emitter<AccountsState> emit,
+  ) async {
+    await _accountRepository.updateAccount(event.account);
   }
 
   Future<void> _onDeleteAccount(

@@ -1,24 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
 import 'package:my_budget_client/presentation/blocs/account_styles/account_styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 
-class AddAccountDialog extends StatefulWidget {
-  const AddAccountDialog({super.key});
+class EditAccountScreen extends StatefulWidget {
+  final String accountId;
+
+  const EditAccountScreen({super.key, required this.accountId});
 
   @override
-  State<AddAccountDialog> createState() => _AddAccountDialogState();
+  State<EditAccountScreen> createState() => _EditAccountScreenState();
 }
 
-class _AddAccountDialogState extends State<AddAccountDialog> {
+class _EditAccountScreenState extends State<EditAccountScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _balanceController = TextEditingController();
+  late TextEditingController _nameController;
+  late TextEditingController _balanceController;
   int? _selectedCurrencyId;
   int? _selectedStyleId;
+
+  Account? _initialAccount;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _balanceController = TextEditingController();
+
+    final accountsState = context.read<AccountsBloc>().state;
+    if (accountsState is AccountsLoadSuccess) {
+      try {
+        _initialAccount = accountsState.accounts.firstWhere(
+          (acc) => acc.id.toString() == widget.accountId,
+        );
+        _nameController.text = _initialAccount!.name;
+        _balanceController.text = _initialAccount!.balance.toString();
+        _selectedCurrencyId = _initialAccount!.currencyId;
+        _selectedStyleId = _initialAccount!.styleId;
+      } catch (e) {
+        // Account not found, handle appropriately
+        _initialAccount = null;
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -27,23 +55,48 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
     super.dispose();
   }
 
+  void _onSave() {
+    if (_formKey.currentState!.validate()) {
+      final updatedAccount = Account(
+        id: _initialAccount!.id, // Crucially, use the original ID
+        name: _nameController.text,
+        balance: double.parse(_balanceController.text),
+        currencyId: _selectedCurrencyId!,
+        styleId: _selectedStyleId,
+      );
+      context.read<AccountsBloc>().add(UpdateAccount(updatedAccount));
+      context.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return AlertDialog(
-      title: Text(l10n.addAccountDialogTitle),
-      content: Form(
+    if (_initialAccount == null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: Text('Account not found.')),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Edit: ${_initialAccount!.name}'),
+      ),
+      body: Form(
         key: _formKey,
         child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextFormField(
                 controller: _nameController,
                 decoration: InputDecoration(labelText: l10n.accountNameHint),
                 validator: (value) => (value == null || value.isEmpty) ? l10n.formValidationPleaseEnterName : null,
               ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _balanceController,
                 decoration: InputDecoration(labelText: l10n.initialBalanceHint),
@@ -54,10 +107,10 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                   return null;
                 },
               ),
+              const SizedBox(height: 16),
               BlocBuilder<CurrencyBloc, CurrencyState>(
                 builder: (context, state) {
                   if (state is CurrencyLoadSuccess) {
-                    _selectedCurrencyId ??= state.currencies.first.id;
                     return DropdownButtonFormField<int>(
                       initialValue: _selectedCurrencyId,
                       decoration: InputDecoration(labelText: l10n.currencyLabel),
@@ -66,13 +119,13 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                       validator: (v) => v == null ? l10n.formValidationPleaseSelectCurrency : null,
                     );
                   }
-                  return const Center(child: CircularProgressIndicator());
+                  return const SizedBox.shrink();
                 },
               ),
+              const SizedBox(height: 16),
               BlocBuilder<AccountStylesBloc, AccountStylesState>(
                 builder: (context, state) {
                   if (state is AccountStylesLoadSuccess) {
-                    _selectedStyleId ??= state.styles.first.id;
                     return DropdownButtonFormField<int>(
                       initialValue: _selectedStyleId,
                       decoration: const InputDecoration(labelText: 'Style'), // TODO: Localize
@@ -84,31 +137,16 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                   return const SizedBox.shrink();
                 },
               ),
+              const SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: _onSave,
+                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                child: Text(l10n.saveButton),
+              )
             ],
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.cancelButton),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              final newAccount = Account(
-                name: _nameController.text,
-                balance: double.parse(_balanceController.text),
-                currencyId: _selectedCurrencyId!,
-                styleId: _selectedStyleId,
-              );
-              context.read<AccountsBloc>().add(AddAccount(newAccount));
-              Navigator.of(context).pop();
-            }
-          },
-          child: Text(l10n.saveButton),
-        ),
-      ],
     );
   }
 }

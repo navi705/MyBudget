@@ -9,6 +9,7 @@ extension AccountMapper on drift.Account {
       name: name,
       balance: balance,
       currencyId: currencyId,
+      styleId: styleId,
     );
   }
 }
@@ -20,6 +21,7 @@ extension AccountCompanionMapper on Account {
       name: Value(name),
       balance: Value(balance),
       currencyId: Value(currencyId),
+      styleId: Value(styleId),
     );
   }
 }

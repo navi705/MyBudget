@@ -1,8 +1,11 @@
 import 'package:get_it/get_it.dart';
+import 'package:my_budget_client/data/repositories/local_db/local_account_style_repository.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_category_repository.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_settings_repository.dart';
+import 'package:my_budget_client/domain/repositories/account_style_repository.dart';
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
+import 'package:my_budget_client/presentation/blocs/account_styles/account_styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
@@ -26,6 +29,7 @@ Future<void> init() async {
   sl.registerFactory(() => AccountsBloc(accountRepository: sl()));
   sl.registerFactory(() => SettingsBloc(settingsRepository: sl()));
   sl.registerFactory(() => CurrencyBloc(currencyRepository: sl()));
+  sl.registerFactory(() => AccountStylesBloc(accountStyleRepository: sl()));
 
   // Repositories
   sl.registerLazySingleton<AccountRepository>(() => LocalAccountRepository(sl()));
@@ -37,6 +41,8 @@ Future<void> init() async {
       () => LocalCurrencyDesignationRepository(sl()));
   sl.registerLazySingleton<SettingsRepository>(
       () => LocalSettingsRepository(sl()));
+  sl.registerLazySingleton<AccountStyleRepository>(
+      () => LocalAccountStyleRepository(sl()));
   sl.registerLazySingleton<TransactionRepository>(
     () => TransactionRepositoryImpl(
       localRepository: sl(),

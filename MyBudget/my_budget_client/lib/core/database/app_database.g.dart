@@ -15,16 +15,21 @@ mixin _$CurrenciesDaoMixin on DatabaseAccessor<AppDatabase> {
 mixin _$CategoriesDaoMixin on DatabaseAccessor<AppDatabase> {
   $CategoriesTable get categories => attachedDatabase.categories;
 }
+mixin _$AccountStylesDaoMixin on DatabaseAccessor<AppDatabase> {
+  $AccountStylesTable get accountStyles => attachedDatabase.accountStyles;
+}
 mixin _$AccountsDaoMixin on DatabaseAccessor<AppDatabase> {
   $CurrencyDesignationsTable get currencyDesignations =>
       attachedDatabase.currencyDesignations;
   $CurrenciesTable get currencies => attachedDatabase.currencies;
+  $AccountStylesTable get accountStyles => attachedDatabase.accountStyles;
   $AccountsTable get accounts => attachedDatabase.accounts;
 }
 mixin _$TransactionsDaoMixin on DatabaseAccessor<AppDatabase> {
   $CurrencyDesignationsTable get currencyDesignations =>
       attachedDatabase.currencyDesignations;
   $CurrenciesTable get currencies => attachedDatabase.currencies;
+  $AccountStylesTable get accountStyles => attachedDatabase.accountStyles;
   $AccountsTable get accounts => attachedDatabase.accounts;
   $CategoriesTable get categories => attachedDatabase.categories;
   $TransactionsTable get transactions => attachedDatabase.transactions;
@@ -804,6 +809,308 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   }
 }
 
+class $AccountStylesTable extends AccountStyles
+    with TableInfo<$AccountStylesTable, AccountStyle> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AccountStylesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 50,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _iconNameMeta = const VerificationMeta(
+    'iconName',
+  );
+  @override
+  late final GeneratedColumn<String> iconName = GeneratedColumn<String>(
+    'icon_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _colorHexMeta = const VerificationMeta(
+    'colorHex',
+  );
+  @override
+  late final GeneratedColumn<String> colorHex = GeneratedColumn<String>(
+    'color_hex',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, iconName, colorHex];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'account_styles';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AccountStyle> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('icon_name')) {
+      context.handle(
+        _iconNameMeta,
+        iconName.isAcceptableOrUnknown(data['icon_name']!, _iconNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_iconNameMeta);
+    }
+    if (data.containsKey('color_hex')) {
+      context.handle(
+        _colorHexMeta,
+        colorHex.isAcceptableOrUnknown(data['color_hex']!, _colorHexMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_colorHexMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AccountStyle map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AccountStyle(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      iconName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon_name'],
+      )!,
+      colorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color_hex'],
+      )!,
+    );
+  }
+
+  @override
+  $AccountStylesTable createAlias(String alias) {
+    return $AccountStylesTable(attachedDatabase, alias);
+  }
+}
+
+class AccountStyle extends DataClass implements Insertable<AccountStyle> {
+  final int id;
+  final String name;
+  final String iconName;
+  final String colorHex;
+  const AccountStyle({
+    required this.id,
+    required this.name,
+    required this.iconName,
+    required this.colorHex,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    map['icon_name'] = Variable<String>(iconName);
+    map['color_hex'] = Variable<String>(colorHex);
+    return map;
+  }
+
+  AccountStylesCompanion toCompanion(bool nullToAbsent) {
+    return AccountStylesCompanion(
+      id: Value(id),
+      name: Value(name),
+      iconName: Value(iconName),
+      colorHex: Value(colorHex),
+    );
+  }
+
+  factory AccountStyle.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AccountStyle(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      iconName: serializer.fromJson<String>(json['iconName']),
+      colorHex: serializer.fromJson<String>(json['colorHex']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'iconName': serializer.toJson<String>(iconName),
+      'colorHex': serializer.toJson<String>(colorHex),
+    };
+  }
+
+  AccountStyle copyWith({
+    int? id,
+    String? name,
+    String? iconName,
+    String? colorHex,
+  }) => AccountStyle(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    iconName: iconName ?? this.iconName,
+    colorHex: colorHex ?? this.colorHex,
+  );
+  AccountStyle copyWithCompanion(AccountStylesCompanion data) {
+    return AccountStyle(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      iconName: data.iconName.present ? data.iconName.value : this.iconName,
+      colorHex: data.colorHex.present ? data.colorHex.value : this.colorHex,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AccountStyle(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('iconName: $iconName, ')
+          ..write('colorHex: $colorHex')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, iconName, colorHex);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AccountStyle &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.iconName == this.iconName &&
+          other.colorHex == this.colorHex);
+}
+
+class AccountStylesCompanion extends UpdateCompanion<AccountStyle> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<String> iconName;
+  final Value<String> colorHex;
+  const AccountStylesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.iconName = const Value.absent(),
+    this.colorHex = const Value.absent(),
+  });
+  AccountStylesCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    required String iconName,
+    required String colorHex,
+  }) : name = Value(name),
+       iconName = Value(iconName),
+       colorHex = Value(colorHex);
+  static Insertable<AccountStyle> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<String>? iconName,
+    Expression<String>? colorHex,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (iconName != null) 'icon_name': iconName,
+      if (colorHex != null) 'color_hex': colorHex,
+    });
+  }
+
+  AccountStylesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<String>? iconName,
+    Value<String>? colorHex,
+  }) {
+    return AccountStylesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      iconName: iconName ?? this.iconName,
+      colorHex: colorHex ?? this.colorHex,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (iconName.present) {
+      map['icon_name'] = Variable<String>(iconName.value);
+    }
+    if (colorHex.present) {
+      map['color_hex'] = Variable<String>(colorHex.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AccountStylesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('iconName: $iconName, ')
+          ..write('colorHex: $colorHex')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -860,8 +1167,28 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
       'REFERENCES currencies (id)',
     ),
   );
+  static const VerificationMeta _styleIdMeta = const VerificationMeta(
+    'styleId',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, name, balance, currencyId];
+  late final GeneratedColumn<int> styleId = GeneratedColumn<int>(
+    'style_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES account_styles (id)',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    balance,
+    currencyId,
+    styleId,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -901,6 +1228,12 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     } else if (isInserting) {
       context.missing(_currencyIdMeta);
     }
+    if (data.containsKey('style_id')) {
+      context.handle(
+        _styleIdMeta,
+        styleId.isAcceptableOrUnknown(data['style_id']!, _styleIdMeta),
+      );
+    }
     return context;
   }
 
@@ -926,6 +1259,10 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
         DriftSqlType.int,
         data['${effectivePrefix}currency_id'],
       )!,
+      styleId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}style_id'],
+      ),
     );
   }
 
@@ -940,11 +1277,13 @@ class Account extends DataClass implements Insertable<Account> {
   final String name;
   final double balance;
   final int currencyId;
+  final int? styleId;
   const Account({
     required this.id,
     required this.name,
     required this.balance,
     required this.currencyId,
+    this.styleId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -953,6 +1292,9 @@ class Account extends DataClass implements Insertable<Account> {
     map['name'] = Variable<String>(name);
     map['balance'] = Variable<double>(balance);
     map['currency_id'] = Variable<int>(currencyId);
+    if (!nullToAbsent || styleId != null) {
+      map['style_id'] = Variable<int>(styleId);
+    }
     return map;
   }
 
@@ -962,6 +1304,9 @@ class Account extends DataClass implements Insertable<Account> {
       name: Value(name),
       balance: Value(balance),
       currencyId: Value(currencyId),
+      styleId: styleId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(styleId),
     );
   }
 
@@ -975,6 +1320,7 @@ class Account extends DataClass implements Insertable<Account> {
       name: serializer.fromJson<String>(json['name']),
       balance: serializer.fromJson<double>(json['balance']),
       currencyId: serializer.fromJson<int>(json['currencyId']),
+      styleId: serializer.fromJson<int?>(json['styleId']),
     );
   }
   @override
@@ -985,16 +1331,23 @@ class Account extends DataClass implements Insertable<Account> {
       'name': serializer.toJson<String>(name),
       'balance': serializer.toJson<double>(balance),
       'currencyId': serializer.toJson<int>(currencyId),
+      'styleId': serializer.toJson<int?>(styleId),
     };
   }
 
-  Account copyWith({int? id, String? name, double? balance, int? currencyId}) =>
-      Account(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        balance: balance ?? this.balance,
-        currencyId: currencyId ?? this.currencyId,
-      );
+  Account copyWith({
+    int? id,
+    String? name,
+    double? balance,
+    int? currencyId,
+    Value<int?> styleId = const Value.absent(),
+  }) => Account(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    balance: balance ?? this.balance,
+    currencyId: currencyId ?? this.currencyId,
+    styleId: styleId.present ? styleId.value : this.styleId,
+  );
   Account copyWithCompanion(AccountsCompanion data) {
     return Account(
       id: data.id.present ? data.id.value : this.id,
@@ -1003,6 +1356,7 @@ class Account extends DataClass implements Insertable<Account> {
       currencyId: data.currencyId.present
           ? data.currencyId.value
           : this.currencyId,
+      styleId: data.styleId.present ? data.styleId.value : this.styleId,
     );
   }
 
@@ -1012,13 +1366,14 @@ class Account extends DataClass implements Insertable<Account> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('balance: $balance, ')
-          ..write('currencyId: $currencyId')
+          ..write('currencyId: $currencyId, ')
+          ..write('styleId: $styleId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, balance, currencyId);
+  int get hashCode => Object.hash(id, name, balance, currencyId, styleId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1026,7 +1381,8 @@ class Account extends DataClass implements Insertable<Account> {
           other.id == this.id &&
           other.name == this.name &&
           other.balance == this.balance &&
-          other.currencyId == this.currencyId);
+          other.currencyId == this.currencyId &&
+          other.styleId == this.styleId);
 }
 
 class AccountsCompanion extends UpdateCompanion<Account> {
@@ -1034,17 +1390,20 @@ class AccountsCompanion extends UpdateCompanion<Account> {
   final Value<String> name;
   final Value<double> balance;
   final Value<int> currencyId;
+  final Value<int?> styleId;
   const AccountsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.balance = const Value.absent(),
     this.currencyId = const Value.absent(),
+    this.styleId = const Value.absent(),
   });
   AccountsCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     required double balance,
     required int currencyId,
+    this.styleId = const Value.absent(),
   }) : name = Value(name),
        balance = Value(balance),
        currencyId = Value(currencyId);
@@ -1053,12 +1412,14 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Expression<String>? name,
     Expression<double>? balance,
     Expression<int>? currencyId,
+    Expression<int>? styleId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (balance != null) 'balance': balance,
       if (currencyId != null) 'currency_id': currencyId,
+      if (styleId != null) 'style_id': styleId,
     });
   }
 
@@ -1067,12 +1428,14 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Value<String>? name,
     Value<double>? balance,
     Value<int>? currencyId,
+    Value<int?>? styleId,
   }) {
     return AccountsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       balance: balance ?? this.balance,
       currencyId: currencyId ?? this.currencyId,
+      styleId: styleId ?? this.styleId,
     );
   }
 
@@ -1091,6 +1454,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     if (currencyId.present) {
       map['currency_id'] = Variable<int>(currencyId.value);
     }
+    if (styleId.present) {
+      map['style_id'] = Variable<int>(styleId.value);
+    }
     return map;
   }
 
@@ -1100,7 +1466,8 @@ class AccountsCompanion extends UpdateCompanion<Account> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('balance: $balance, ')
-          ..write('currencyId: $currencyId')
+          ..write('currencyId: $currencyId, ')
+          ..write('styleId: $styleId')
           ..write(')'))
         .toString();
   }
@@ -1790,6 +2157,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $CurrencyDesignationsTable(this);
   late final $CurrenciesTable currencies = $CurrenciesTable(this);
   late final $CategoriesTable categories = $CategoriesTable(this);
+  late final $AccountStylesTable accountStyles = $AccountStylesTable(this);
   late final $AccountsTable accounts = $AccountsTable(this);
   late final $TransactionsTable transactions = $TransactionsTable(this);
   late final $SettingsTable settings = $SettingsTable(this);
@@ -1797,6 +2165,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       CurrencyDesignationsDao(this as AppDatabase);
   late final CurrenciesDao currenciesDao = CurrenciesDao(this as AppDatabase);
   late final CategoriesDao categoriesDao = CategoriesDao(this as AppDatabase);
+  late final AccountStylesDao accountStylesDao = AccountStylesDao(
+    this as AppDatabase,
+  );
   late final AccountsDao accountsDao = AccountsDao(this as AppDatabase);
   late final TransactionsDao transactionsDao = TransactionsDao(
     this as AppDatabase,
@@ -1810,6 +2181,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     currencyDesignations,
     currencies,
     categories,
+    accountStyles,
     accounts,
     transactions,
     settings,
@@ -2935,12 +3307,294 @@ typedef $$CategoriesTableProcessedTableManager =
       Category,
       PrefetchHooks Function({bool parentId, bool transactionsRefs})
     >;
+typedef $$AccountStylesTableCreateCompanionBuilder =
+    AccountStylesCompanion Function({
+      Value<int> id,
+      required String name,
+      required String iconName,
+      required String colorHex,
+    });
+typedef $$AccountStylesTableUpdateCompanionBuilder =
+    AccountStylesCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<String> iconName,
+      Value<String> colorHex,
+    });
+
+final class $$AccountStylesTableReferences
+    extends BaseReferences<_$AppDatabase, $AccountStylesTable, AccountStyle> {
+  $$AccountStylesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<$AccountsTable, List<Account>> _accountsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.accounts,
+    aliasName: $_aliasNameGenerator(db.accountStyles.id, db.accounts.styleId),
+  );
+
+  $$AccountsTableProcessedTableManager get accountsRefs {
+    final manager = $$AccountsTableTableManager(
+      $_db,
+      $_db.accounts,
+    ).filter((f) => f.styleId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_accountsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$AccountStylesTableFilterComposer
+    extends Composer<_$AppDatabase, $AccountStylesTable> {
+  $$AccountStylesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get iconName => $composableBuilder(
+    column: $table.iconName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get colorHex => $composableBuilder(
+    column: $table.colorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> accountsRefs(
+    Expression<bool> Function($$AccountsTableFilterComposer f) f,
+  ) {
+    final $$AccountsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.styleId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableFilterComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$AccountStylesTableOrderingComposer
+    extends Composer<_$AppDatabase, $AccountStylesTable> {
+  $$AccountStylesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get iconName => $composableBuilder(
+    column: $table.iconName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get colorHex => $composableBuilder(
+    column: $table.colorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AccountStylesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AccountStylesTable> {
+  $$AccountStylesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get iconName =>
+      $composableBuilder(column: $table.iconName, builder: (column) => column);
+
+  GeneratedColumn<String> get colorHex =>
+      $composableBuilder(column: $table.colorHex, builder: (column) => column);
+
+  Expression<T> accountsRefs<T extends Object>(
+    Expression<T> Function($$AccountsTableAnnotationComposer a) f,
+  ) {
+    final $$AccountsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.styleId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$AccountStylesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AccountStylesTable,
+          AccountStyle,
+          $$AccountStylesTableFilterComposer,
+          $$AccountStylesTableOrderingComposer,
+          $$AccountStylesTableAnnotationComposer,
+          $$AccountStylesTableCreateCompanionBuilder,
+          $$AccountStylesTableUpdateCompanionBuilder,
+          (AccountStyle, $$AccountStylesTableReferences),
+          AccountStyle,
+          PrefetchHooks Function({bool accountsRefs})
+        > {
+  $$AccountStylesTableTableManager(_$AppDatabase db, $AccountStylesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AccountStylesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AccountStylesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AccountStylesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> iconName = const Value.absent(),
+                Value<String> colorHex = const Value.absent(),
+              }) => AccountStylesCompanion(
+                id: id,
+                name: name,
+                iconName: iconName,
+                colorHex: colorHex,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                required String iconName,
+                required String colorHex,
+              }) => AccountStylesCompanion.insert(
+                id: id,
+                name: name,
+                iconName: iconName,
+                colorHex: colorHex,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$AccountStylesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({accountsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (accountsRefs) db.accounts],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (accountsRefs)
+                    await $_getPrefetchedData<
+                      AccountStyle,
+                      $AccountStylesTable,
+                      Account
+                    >(
+                      currentTable: table,
+                      referencedTable: $$AccountStylesTableReferences
+                          ._accountsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$AccountStylesTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).accountsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.styleId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$AccountStylesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AccountStylesTable,
+      AccountStyle,
+      $$AccountStylesTableFilterComposer,
+      $$AccountStylesTableOrderingComposer,
+      $$AccountStylesTableAnnotationComposer,
+      $$AccountStylesTableCreateCompanionBuilder,
+      $$AccountStylesTableUpdateCompanionBuilder,
+      (AccountStyle, $$AccountStylesTableReferences),
+      AccountStyle,
+      PrefetchHooks Function({bool accountsRefs})
+    >;
 typedef $$AccountsTableCreateCompanionBuilder =
     AccountsCompanion Function({
       Value<int> id,
       required String name,
       required double balance,
       required int currencyId,
+      Value<int?> styleId,
     });
 typedef $$AccountsTableUpdateCompanionBuilder =
     AccountsCompanion Function({
@@ -2948,6 +3602,7 @@ typedef $$AccountsTableUpdateCompanionBuilder =
       Value<String> name,
       Value<double> balance,
       Value<int> currencyId,
+      Value<int?> styleId,
     });
 
 final class $$AccountsTableReferences
@@ -2967,6 +3622,25 @@ final class $$AccountsTableReferences
       $_db.currencies,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_currencyIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $AccountStylesTable _styleIdTable(_$AppDatabase db) =>
+      db.accountStyles.createAlias(
+        $_aliasNameGenerator(db.accounts.styleId, db.accountStyles.id),
+      );
+
+  $$AccountStylesTableProcessedTableManager? get styleId {
+    final $_column = $_itemColumn<int>('style_id');
+    if ($_column == null) return null;
+    final manager = $$AccountStylesTableTableManager(
+      $_db,
+      $_db.accountStyles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_styleIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -3030,6 +3704,29 @@ class $$AccountsTableFilterComposer
           }) => $$CurrenciesTableFilterComposer(
             $db: $db,
             $table: $db.currencies,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$AccountStylesTableFilterComposer get styleId {
+    final $$AccountStylesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.styleId,
+      referencedTable: $db.accountStyles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountStylesTableFilterComposer(
+            $db: $db,
+            $table: $db.accountStyles,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3111,6 +3808,29 @@ class $$AccountsTableOrderingComposer
     );
     return composer;
   }
+
+  $$AccountStylesTableOrderingComposer get styleId {
+    final $$AccountStylesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.styleId,
+      referencedTable: $db.accountStyles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountStylesTableOrderingComposer(
+            $db: $db,
+            $table: $db.accountStyles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$AccountsTableAnnotationComposer
@@ -3145,6 +3865,29 @@ class $$AccountsTableAnnotationComposer
           }) => $$CurrenciesTableAnnotationComposer(
             $db: $db,
             $table: $db.currencies,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$AccountStylesTableAnnotationComposer get styleId {
+    final $$AccountStylesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.styleId,
+      referencedTable: $db.accountStyles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountStylesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.accountStyles,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3193,7 +3936,11 @@ class $$AccountsTableTableManager
           $$AccountsTableUpdateCompanionBuilder,
           (Account, $$AccountsTableReferences),
           Account,
-          PrefetchHooks Function({bool currencyId, bool transactionsRefs})
+          PrefetchHooks Function({
+            bool currencyId,
+            bool styleId,
+            bool transactionsRefs,
+          })
         > {
   $$AccountsTableTableManager(_$AppDatabase db, $AccountsTable table)
     : super(
@@ -3212,11 +3959,13 @@ class $$AccountsTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<double> balance = const Value.absent(),
                 Value<int> currencyId = const Value.absent(),
+                Value<int?> styleId = const Value.absent(),
               }) => AccountsCompanion(
                 id: id,
                 name: name,
                 balance: balance,
                 currencyId: currencyId,
+                styleId: styleId,
               ),
           createCompanionCallback:
               ({
@@ -3224,11 +3973,13 @@ class $$AccountsTableTableManager
                 required String name,
                 required double balance,
                 required int currencyId,
+                Value<int?> styleId = const Value.absent(),
               }) => AccountsCompanion.insert(
                 id: id,
                 name: name,
                 balance: balance,
                 currencyId: currencyId,
+                styleId: styleId,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -3239,7 +3990,11 @@ class $$AccountsTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({currencyId = false, transactionsRefs = false}) {
+              ({
+                currencyId = false,
+                styleId = false,
+                transactionsRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
@@ -3270,6 +4025,19 @@ class $$AccountsTableTableManager
                                         ._currencyIdTable(db),
                                     referencedColumn: $$AccountsTableReferences
                                         ._currencyIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+                        if (styleId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.styleId,
+                                    referencedTable: $$AccountsTableReferences
+                                        ._styleIdTable(db),
+                                    referencedColumn: $$AccountsTableReferences
+                                        ._styleIdTable(db)
                                         .id,
                                   )
                                   as T;
@@ -3320,7 +4088,11 @@ typedef $$AccountsTableProcessedTableManager =
       $$AccountsTableUpdateCompanionBuilder,
       (Account, $$AccountsTableReferences),
       Account,
-      PrefetchHooks Function({bool currencyId, bool transactionsRefs})
+      PrefetchHooks Function({
+        bool currencyId,
+        bool styleId,
+        bool transactionsRefs,
+      })
     >;
 typedef $$TransactionsTableCreateCompanionBuilder =
     TransactionsCompanion Function({
@@ -4005,6 +4777,8 @@ class $AppDatabaseManager {
       $$CurrenciesTableTableManager(_db, _db.currencies);
   $$CategoriesTableTableManager get categories =>
       $$CategoriesTableTableManager(_db, _db.categories);
+  $$AccountStylesTableTableManager get accountStyles =>
+      $$AccountStylesTableTableManager(_db, _db.accountStyles);
   $$AccountsTableTableManager get accounts =>
       $$AccountsTableTableManager(_db, _db.accounts);
   $$TransactionsTableTableManager get transactions =>
