@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:my_budget_client/app.dart';
@@ -10,7 +11,7 @@ import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart'
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // await dotenv.load();
+  await dotenv.load(fileName: ".env");
   await sl.init();
   runApp(const MainApp());
 }

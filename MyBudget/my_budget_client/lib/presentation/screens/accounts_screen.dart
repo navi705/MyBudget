@@ -12,40 +12,63 @@ class AccountsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.accountsAppBarTitle),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.brightness_6),
-            tooltip: 'Toggle Theme', // TODO: Localize
-            onPressed: () {
-              final currentMode = context.read<SettingsBloc>().state.themeMode;
-              final nextMode = switch (currentMode) {
-                ThemeMode.system => ThemeMode.light,
-                ThemeMode.light => ThemeMode.dark,
-                ThemeMode.dark => ThemeMode.system,
-              };
-              context.read<SettingsBloc>().add(UpdateThemeMode(nextMode));
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: l10n.accountsRefreshTooltip,
-            onPressed: () {
-              context.read<AccountsBloc>().add(LoadAccounts());
-            },
-          ),
-        ],
-      ),
-      body: BlocBuilder<AccountsBloc, AccountsState>(
-        builder: (context, state) {
-          if (state is AccountsLoadInProgress) {
-            return const Center(
-              child: CircularProgressIndicator(),
+    return BlocListener<AccountsBloc, AccountsState>(
+      listener: (context, state) {
+        if (state.recentlyDeletedAccount != null) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(
+                  '${state.recentlyDeletedAccount!.name} deleted', // TODO: Proper localization with variable
+                ),
+                action: SnackBarAction(
+                  label: 'Undo', // TODO: Localize
+                  onPressed: () {
+                    context.read<AccountsBloc>().add(UndoDeleteAccount());
+                  },
+                ),
+              ),
             );
-          }
-          if (state is AccountsLoadSuccess) {
+        }
+      },
+      listenWhen: (previous, current) {
+        return previous.recentlyDeletedAccount != current.recentlyDeletedAccount &&
+            current.recentlyDeletedAccount != null;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(l10n.accountsAppBarTitle),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.brightness_6),
+              tooltip: 'Toggle Theme', // TODO: Localize
+              onPressed: () {
+                final currentMode = context.read<SettingsBloc>().state.themeMode;
+                final nextMode = switch (currentMode) {
+                  ThemeMode.system => ThemeMode.light,
+                  ThemeMode.light => ThemeMode.dark,
+                  ThemeMode.dark => ThemeMode.system,
+                };
+                context.read<SettingsBloc>().add(UpdateThemeMode(nextMode));
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: l10n.accountsRefreshTooltip,
+              onPressed: () {
+                context.read<AccountsBloc>().add(LoadAccounts());
+              },
+            ),
+          ],
+        ),
+        body: BlocBuilder<AccountsBloc, AccountsState>(
+          builder: (context, state) {
+            if (state is AccountsLoadInProgress) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
             if (state.accounts.isEmpty) {
               return Center(
                 child: Text(l10n.accountsEmptyState),
@@ -59,24 +82,7 @@ class AccountsScreen extends StatelessWidget {
                   key: ValueKey(account.id),
                   direction: DismissDirection.endToStart,
                   onDismissed: (direction) {
-                    // Dispatch the delete event immediately
                     context.read<AccountsBloc>().add(DeleteAccount(account.id!));
-
-                    // Then, show a SnackBar with an Undo action
-                    ScaffoldMessenger.of(context)
-                      ..hideCurrentSnackBar()
-                      ..showSnackBar(
-                        SnackBar(
-                          content: Text('${account.name} deleted'), // TODO: Localize
-                          action: SnackBarAction(
-                            label: 'Undo', // TODO: Localize
-                            onPressed: () {
-                              // If undo is pressed, dispatch an event to re-add the account
-                              context.read<AccountsBloc>().add(AddAccount(account));
-                            },
-                          ),
-                        ),
-                      );
                   },
                   background: Container(
                     color: Colors.red,
@@ -88,29 +94,21 @@ class AccountsScreen extends StatelessWidget {
                 );
               },
             );
-          }
-          if (state is AccountsLoadFailure) {
-            return Center(
-              child: Text(l10n.accountsLoadFailure),
+          },
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (dialogContext) => BlocProvider.value(
+                value: BlocProvider.of<AccountsBloc>(context),
+                child: const AddAccountDialog(),
+              ),
             );
-          }
-          return Center(
-            child: Text(l10n.accountsEmptyState),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (dialogContext) => BlocProvider.value(
-              value: BlocProvider.of<AccountsBloc>(context),
-              child: const AddAccountDialog(),
-            ),
-          );
-        },
-        tooltip: l10n.accountsAddTooltip,
-        child: const Icon(Icons.add),
+          },
+          tooltip: l10n.accountsAddTooltip,
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }

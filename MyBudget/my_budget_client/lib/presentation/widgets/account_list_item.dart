@@ -87,7 +87,7 @@ class AccountListItem extends StatelessWidget {
             trailing: const Icon(Icons.more_vert),
             onTap: () {
               if (account.id != null) {
-                context.go(
+                context.push(
                   AppRoutes.editAccount.replaceFirst(':id', account.id!.toString()),
                 );
               }

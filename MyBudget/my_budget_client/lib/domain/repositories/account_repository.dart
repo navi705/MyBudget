@@ -7,4 +7,5 @@ abstract class AccountRepository {
   Future<void> addAccount(Account account);
   Future<void> updateAccount(Account account);
   Future<void> deleteAccount(int id);
+  Future<void> restoreAccount(Account account);
 }

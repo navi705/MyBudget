@@ -36,6 +36,8 @@ class DeleteAccount extends AccountsEvent {
   List<Object> get props => [id];
 }
 
+class UndoDeleteAccount extends AccountsEvent {}
+
 class _AccountsUpdated extends AccountsEvent {
   final List<Account> accounts;
 

@@ -19,6 +19,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     on<AddAccount>(_onAddAccount);
     on<UpdateAccount>(_onUpdateAccount);
     on<DeleteAccount>(_onDeleteAccount);
+    on<UndoDeleteAccount>(_onUndoDeleteAccount);
     on<_AccountsUpdated>(_onAccountsUpdated);
   }
 
@@ -30,6 +31,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     _accountsSubscription?.cancel();
     _accountsSubscription = _accountRepository.watchAccounts().listen(
           (accounts) => add(_AccountsUpdated(accounts)),
+          onError: (_) => emit(AccountsLoadFailure()),
         );
   }
 
@@ -51,14 +53,38 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     DeleteAccount event,
     Emitter<AccountsState> emit,
   ) async {
-    await _accountRepository.deleteAccount(event.id);
+    final currentState = state;
+    if (currentState is AccountsLoadSuccess) {
+      final accountToDelete =
+          currentState.accounts.firstWhere((acc) => acc.id == event.id);
+      emit(currentState.copyWith(recentlyDeletedAccount: accountToDelete));
+      await _accountRepository.deleteAccount(event.id);
+    }
+  }
+
+  Future<void> _onUndoDeleteAccount(
+    UndoDeleteAccount event,
+    Emitter<AccountsState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState.recentlyDeletedAccount != null) {
+      await _accountRepository.restoreAccount(currentState.recentlyDeletedAccount!);
+      if (currentState is AccountsLoadSuccess) {
+        emit(currentState.copyWith(clearRecentlyDeleted: true));
+      }
+    }
   }
 
   void _onAccountsUpdated(
     _AccountsUpdated event,
     Emitter<AccountsState> emit,
   ) {
-    emit(AccountsLoadSuccess(event.accounts));
+    final currentState = state;
+    if (currentState is AccountsLoadSuccess) {
+      emit(currentState.copyWith(accounts: event.accounts));
+    } else {
+      emit(AccountsLoadSuccess(accounts: event.accounts));
+    }
   }
 
   @override

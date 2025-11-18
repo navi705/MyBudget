@@ -128,6 +128,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
   Future<Account?> getAccountById(int id) => (select(accounts)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
   Stream<List<Account>> watchAllAccounts() => select(accounts).watch();
   Future<int> insertAccount(AccountsCompanion account) => into(accounts).insert(account);
+  Future<int> restoreAccount(AccountsCompanion account) => into(accounts).insert(account, mode: InsertMode.insertOrReplace);
   Future<bool> updateAccount(AccountsCompanion account) => update(accounts).replace(account);
   Future<int> deleteAccount(AccountsCompanion account) => delete(accounts).delete(account);
 }

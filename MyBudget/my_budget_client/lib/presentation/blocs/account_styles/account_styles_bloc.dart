@@ -30,6 +30,7 @@ class AccountStylesBloc extends Bloc<AccountStylesEvent, AccountStylesState> {
     _stylesSubscription?.cancel();
     _stylesSubscription = _accountStyleRepository.watchAllStyles().listen(
           (styles) => add(_AccountStylesUpdated(styles)),
+          onError: (_) => emit(AccountStylesLoadFailure()),
         );
   }
 

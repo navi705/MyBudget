@@ -58,13 +58,19 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   void _onSave() {
     if (_formKey.currentState!.validate()) {
       final updatedAccount = Account(
-        id: _initialAccount!.id, // Crucially, use the original ID
+        id: _initialAccount!.id,
         name: _nameController.text,
         balance: double.parse(_balanceController.text),
         currencyId: _selectedCurrencyId!,
         styleId: _selectedStyleId,
       );
-      context.read<AccountsBloc>().add(UpdateAccount(updatedAccount));
+
+      // Only dispatch an update if the account has actually changed.
+      // This now works correctly due to Equatable.
+      if (updatedAccount != _initialAccount) {
+        context.read<AccountsBloc>().add(UpdateAccount(updatedAccount));
+      }
+      // Always pop the screen after the save attempt (or no-op save).
       context.pop();
     }
   }

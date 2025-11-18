@@ -44,4 +44,9 @@ class LocalAccountRepository implements AccountRepository {
   Future<void> updateAccount(Account account) async {
     await database.accountsDao.updateAccount(account.toCompanion());
   }
+
+  @override
+  Future<void> restoreAccount(Account account) async {
+    await database.accountsDao.restoreAccount(account.toCompanion());
+  }
 }

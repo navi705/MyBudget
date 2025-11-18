@@ -1,4 +1,6 @@
-class Account {
+import 'package:equatable/equatable.dart';
+
+class Account extends Equatable {
   final int? id;
   final String name;
   final double balance;
@@ -28,4 +30,13 @@ class Account {
       styleId: styleId ?? this.styleId,
     );
   }
+
+  @override
+  List<Object?> get props => [
+        id,
+        name,
+        balance,
+        currencyId,
+        styleId,
+      ];
 }
