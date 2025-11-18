@@ -16,15 +16,24 @@ class AddAccountDialog extends StatefulWidget {
 class _AddAccountDialogState extends State<AddAccountDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _descriptionController = TextEditingController(); // ADDED
   final _balanceController = TextEditingController();
   int? _selectedCurrencyId;
-  int? _selectedCurrencyDesignationId; // ADDED
+  int? _selectedCurrencyDesignationId;
   int? _selectedStyleId;
+  int? _selectedAccountTypeId; // ADDED
+
+  @override
+  void initState() {
+    super.initState();
+    _descriptionController.text = ''; // Initialize
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _balanceController.dispose();
+    _descriptionController.dispose(); // ADDED
     super.dispose();
   }
 
@@ -44,6 +53,12 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                 controller: _nameController,
                 decoration: InputDecoration(labelText: l10n.accountNameHint),
                 validator: (value) => (value == null || value.isEmpty) ? l10n.formValidationPleaseEnterName : null,
+              ),
+              TextFormField(
+                controller: _descriptionController, // ADDED
+                decoration: const InputDecoration(labelText: 'Description'), // TODO: Localize
+                maxLines: 3,
+                keyboardType: TextInputType.multiline,
               ),
               TextFormField(
                 controller: _balanceController,
@@ -110,6 +125,23 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                   return const Center(child: CircularProgressIndicator());
                 },
               ),
+              BlocBuilder<AccountsBloc, AccountsState>( // NEW BLOC BUILDER FOR AccountTypes
+                builder: (context, state) {
+                  if (state is AccountsLoadSuccess) {
+                    if (_selectedAccountTypeId == null && state.accountTypes.isNotEmpty) {
+                      _selectedAccountTypeId = state.accountTypes.first.id;
+                    }
+                    return DropdownButtonFormField<int>(
+                      initialValue: _selectedAccountTypeId,
+                      decoration: const InputDecoration(labelText: 'Account Type'), // TODO: Localize
+                      items: state.accountTypes.map((type) => DropdownMenuItem<int>(value: type.id, child: Text(type.name))).toList(),
+                      onChanged: (v) => setState(() => _selectedAccountTypeId = v),
+                      validator: (v) => v == null ? 'Please select an account type' : null, // TODO: Localize
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
               BlocBuilder<AccountStylesBloc, AccountStylesState>(
                 builder: (context, state) {
                   if (state is AccountStylesLoadSuccess) {
@@ -139,10 +171,12 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
             if (_formKey.currentState!.validate()) {
               final newAccount = Account(
                 name: _nameController.text,
+                description: _descriptionController.text.isEmpty ? null : _descriptionController.text, // ADDED
                 balance: double.parse(_balanceController.text),
                 currencyId: _selectedCurrencyId!,
-                currencyDesignationId: _selectedCurrencyDesignationId!, // ADDED
+                currencyDesignationId: _selectedCurrencyDesignationId!,
                 styleId: _selectedStyleId,
+                accountTypeId: _selectedAccountTypeId!, // ADDED
               );
               context.read<AccountsBloc>().add(AddAccount(newAccount));
               Navigator.of(context).pop();

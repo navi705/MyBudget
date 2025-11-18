@@ -66,6 +66,16 @@ class AccountListItem extends StatelessWidget {
             final color = _getColorFromHex(style?.colorHex);
             final iconData = _getIconData(style?.iconName);
 
+            // Determine balance color
+            Color balanceColor;
+            if (account.balance > 0) {
+              balanceColor = Colors.green;
+            } else if (account.balance < 0) {
+              balanceColor = Colors.red;
+            } else {
+              balanceColor = Colors.grey[600]!; // Default or specific for zero
+            }
+
             return Card(
               elevation: 2.0,
               margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -92,7 +102,7 @@ class AccountListItem extends StatelessWidget {
                 subtitle: Text(
                   '${designation?.value ?? ''} ${account.balance.toStringAsFixed(2)}', // Updated to use designation.value
                   style: TextStyle(
-                    color: Colors.grey[600],
+                    color: balanceColor, // Apply determined color
                     fontSize: 14,
                   ),
                 ),

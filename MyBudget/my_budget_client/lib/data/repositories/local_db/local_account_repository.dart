@@ -1,7 +1,9 @@
 import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/core/mappers/account_mapper.dart';
+import 'package:my_budget_client/core/mappers/account_type_mapper.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
+import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
 
 class LocalAccountRepository implements AccountRepository {
@@ -48,5 +50,24 @@ class LocalAccountRepository implements AccountRepository {
   @override
   Future<void> restoreAccount(Account account) async {
     await database.accountsDao.restoreAccount(account.toCompanion());
+  }
+
+  @override
+  Future<List<AccountType>> getAccountTypes() async {
+    final accountTypes = await database.accountTypesDao.getAllAccountTypes();
+    return accountTypes.map((at) => at.toDomain()).toList();
+  }
+
+  @override
+  Stream<List<AccountType>> watchAccountTypes() {
+    return database.accountTypesDao
+        .watchAllAccountTypes()
+        .map((accountTypes) => accountTypes.map((at) => at.toDomain()).toList());
+  }
+
+  @override
+  Future<AccountType?> getAccountTypeById(int id) async {
+    final accountType = await database.accountTypesDao.getAccountTypeById(id);
+    return accountType?.toDomain();
   }
 }

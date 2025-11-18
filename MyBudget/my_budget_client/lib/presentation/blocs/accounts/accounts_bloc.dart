@@ -1,9 +1,10 @@
 import 'dart:async';
-
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
+import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
+import 'package:rxdart/rxdart.dart';
 
 part 'accounts_event.dart';
 part 'accounts_state.dart';
@@ -11,6 +12,7 @@ part 'accounts_state.dart';
 class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   final AccountRepository _accountRepository;
   StreamSubscription? _accountsSubscription;
+  StreamSubscription? _accountTypesSubscription;
 
   AccountsBloc({required AccountRepository accountRepository})
       : _accountRepository = accountRepository,
@@ -20,7 +22,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     on<UpdateAccount>(_onUpdateAccount);
     on<DeleteAccount>(_onDeleteAccount);
     on<UndoDeleteAccount>(_onUndoDeleteAccount);
-    on<_AccountsUpdated>(_onAccountsUpdated);
+    on<_AccountsAndAccountTypesUpdated>(_onAccountsAndAccountTypesUpdated);
   }
 
   void _onLoadAccounts(
@@ -29,10 +31,19 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   ) {
     emit(AccountsLoadInProgress());
     _accountsSubscription?.cancel();
-    _accountsSubscription = _accountRepository.watchAccounts().listen(
-          (accounts) => add(_AccountsUpdated(accounts)),
-          onError: (_) => emit(AccountsLoadFailure()),
-        );
+    _accountTypesSubscription?.cancel();
+
+    _accountsSubscription = Rx.combineLatest2(
+      _accountRepository.watchAccounts(),
+      _accountRepository.watchAccountTypes(),
+      (List<Account> accounts, List<AccountType> accountTypes) =>
+          add(_AccountsAndAccountTypesUpdated(accounts, accountTypes)),
+    ).listen(
+      null,
+      onError: (error, stackTrace) {
+        emit(AccountsLoadFailure());
+      },
+    );
   }
 
   Future<void> _onAddAccount(
@@ -75,21 +86,20 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     }
   }
 
-  void _onAccountsUpdated(
-    _AccountsUpdated event,
+  void _onAccountsAndAccountTypesUpdated(
+    _AccountsAndAccountTypesUpdated event,
     Emitter<AccountsState> emit,
   ) {
-    final currentState = state;
-    if (currentState is AccountsLoadSuccess) {
-      emit(currentState.copyWith(accounts: event.accounts));
-    } else {
-      emit(AccountsLoadSuccess(accounts: event.accounts));
-    }
+    emit(AccountsLoadSuccess(
+      accounts: event.accounts,
+      accountTypes: event.accountTypes,
+    ));
   }
 
   @override
   Future<void> close() {
     _accountsSubscription?.cancel();
+    _accountTypesSubscription?.cancel();
     return super.close();
   }
 }

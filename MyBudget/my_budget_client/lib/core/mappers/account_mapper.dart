@@ -7,10 +7,12 @@ extension AccountMapper on drift.Account {
     return Account(
       id: id,
       name: name,
+      description: description,
       balance: balance,
       currencyId: currencyId,
       currencyDesignationId: currencyDesignationId,
       styleId: styleId,
+      accountTypeId: accountTypeId,
     );
   }
 }
@@ -20,10 +22,12 @@ extension AccountCompanionMapper on Account {
     return drift.AccountsCompanion(
       id: id == null ? const Value.absent() : Value(id!),
       name: Value(name),
+      description: Value(description),
       balance: Value(balance),
       currencyId: Value(currencyId),
       currencyDesignationId: Value(currencyDesignationId),
       styleId: Value(styleId),
+      accountTypeId: Value(accountTypeId),
     );
   }
 }

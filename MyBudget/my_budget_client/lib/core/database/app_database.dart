@@ -1,4 +1,5 @@
 
+
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -10,6 +11,7 @@ import 'package:path/path.dart' as p;
 import 'package:my_budget_client/data/seed_data/currency_designations_data.dart';
 import 'package:my_budget_client/data/seed_data/currencies_data.dart';
 import 'package:my_budget_client/data/seed_data/settings_data.dart';
+import 'package:my_budget_client/data/seed_data/account_types_data.dart'; // ADDED
 
 part 'app_database.g.dart';
 
@@ -25,7 +27,6 @@ class Currencies extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 50).unique()();
   TextColumn get code => text().withLength(min: 1, max: 5).unique()();
-  // Removed: IntColumn get designationId => integer().references(CurrencyDesignations, #id)();
 }
 
 class Categories extends Table {
@@ -42,13 +43,20 @@ class AccountStyles extends Table {
   TextColumn get colorHex => text()();
 }
 
+class AccountTypes extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text().withLength(min: 1, max: 50).unique()();
+}
+
 class Accounts extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 50)();
+  TextColumn get description => text().nullable()();
   RealColumn get balance => real()();
   IntColumn get currencyId => integer().references(Currencies, #id)();
   IntColumn get currencyDesignationId => integer().references(CurrencyDesignations, #id)();
   IntColumn get styleId => integer().nullable().references(AccountStyles, #id)();
+  IntColumn get accountTypeId => integer().references(AccountTypes, #id)();
 }
 
 class Transactions extends Table {
@@ -122,6 +130,19 @@ class AccountStylesDao extends DatabaseAccessor<AppDatabase> with _$AccountStyle
   Future<int> deleteStyle(AccountStylesCompanion style) => delete(accountStyles).delete(style);
 }
 
+@DriftAccessor(tables: [AccountTypes]) // ADDED
+class AccountTypesDao extends DatabaseAccessor<AppDatabase> with _$AccountTypesDaoMixin {
+  AccountTypesDao(super.db);
+
+  Future<List<AccountType>> getAllAccountTypes() => select(accountTypes).get();
+  Stream<List<AccountType>> watchAllAccountTypes() => select(accountTypes).watch();
+  Future<AccountType?> getAccountTypeById(int id) => (select(accountTypes)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+  Future<int> insertAccountType(AccountTypesCompanion accountType) => into(accountTypes).insert(accountType);
+  Future<bool> updateAccountType(AccountTypesCompanion accountType) => update(accountTypes).replace(accountType);
+  Future<int> deleteAccountType(AccountTypesCompanion accountType) => delete(accountTypes).delete(accountType);
+}
+
+
 @DriftAccessor(tables: [Accounts])
 class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin {
   AccountsDao(super.db);
@@ -165,6 +186,7 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin 
   AccountStyles,
   Accounts,
   Transactions,
+  AccountTypes, // ADDED
   // Technical Tables
   Settings,
 ], daos: [
@@ -172,6 +194,7 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin 
   CurrenciesDao,
   CategoriesDao,
   AccountStylesDao,
+  AccountTypesDao, // ADDED
   AccountsDao,
   TransactionsDao,
   SettingsDao,
@@ -182,7 +205,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3; // CHANGED from 2 to 3
 
   @override
   MigrationStrategy get migration {
@@ -194,6 +217,7 @@ class AppDatabase extends _$AppDatabase {
         await _seedCurrencies(this);
         await _seedSettings(this);
         await _seedAccountStyles(this);
+        await _seedAccountTypes(this); // ADDED
       },
       onUpgrade: (Migrator m, int from, int to) async {
         // No-op for development, we re-create the DB
@@ -224,6 +248,12 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _seedAccountStyles(AppDatabase db) async {
     for (final style in defaultAccountStyles) {
       await db.into(db.accountStyles).insert(style);
+    }
+  }
+
+  Future<void> _seedAccountTypes(AppDatabase db) async { // ADDED
+    for (final accountType in defaultAccountTypes) {
+      await db.into(db.accountTypes).insert(accountType);
     }
   }
 }

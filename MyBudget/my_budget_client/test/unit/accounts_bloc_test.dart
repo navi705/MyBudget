@@ -21,6 +21,9 @@ void main() {
     balance: 1000,
     currencyId: 1,
     currencyDesignationId: 1,
+    accountTypeId: 1,
+    styleId: 1,
+    description: 'Test account description'
   );
   final List<Account> testAccounts = [testAccount];
 

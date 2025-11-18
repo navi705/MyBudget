@@ -19,10 +19,12 @@ class EditAccountScreen extends StatefulWidget {
 class _EditAccountScreenState extends State<EditAccountScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
+  late TextEditingController _descriptionController; // ADDED
   late TextEditingController _balanceController;
   int? _selectedCurrencyId;
-  int? _selectedCurrencyDesignationId; // ADDED
+  int? _selectedCurrencyDesignationId;
   int? _selectedStyleId;
+  int? _selectedAccountTypeId; // ADDED
 
   Account? _initialAccount;
 
@@ -30,6 +32,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController();
+    _descriptionController = TextEditingController(); // ADDED
     _balanceController = TextEditingController();
 
     final accountsState = context.read<AccountsBloc>().state;
@@ -39,10 +42,12 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
           (acc) => acc.id.toString() == widget.accountId,
         );
         _nameController.text = _initialAccount!.name;
+        _descriptionController.text = _initialAccount!.description ?? ''; // ADDED
         _balanceController.text = _initialAccount!.balance.toString();
         _selectedCurrencyId = _initialAccount!.currencyId;
-        _selectedCurrencyDesignationId = _initialAccount!.currencyDesignationId; // ADDED
+        _selectedCurrencyDesignationId = _initialAccount!.currencyDesignationId;
         _selectedStyleId = _initialAccount!.styleId;
+        _selectedAccountTypeId = _initialAccount!.accountTypeId; // ADDED
       } catch (e) {
         // Account not found, handle appropriately
         _initialAccount = null;
@@ -53,6 +58,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _descriptionController.dispose(); // ADDED
     _balanceController.dispose();
     super.dispose();
   }
@@ -62,10 +68,12 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
       final updatedAccount = Account(
         id: _initialAccount!.id,
         name: _nameController.text,
+        description: _descriptionController.text.isEmpty ? null : _descriptionController.text, // ADDED
         balance: double.parse(_balanceController.text),
         currencyId: _selectedCurrencyId!,
-        currencyDesignationId: _selectedCurrencyDesignationId!, // ADDED
+        currencyDesignationId: _selectedCurrencyDesignationId!,
         styleId: _selectedStyleId,
+        accountTypeId: _selectedAccountTypeId!, // ADDED
       );
 
       // Only dispatch an update if the account has actually changed.
@@ -105,7 +113,13 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                 decoration: InputDecoration(labelText: l10n.accountNameHint),
                 validator: (value) => (value == null || value.isEmpty) ? l10n.formValidationPleaseEnterName : null,
               ),
-              const SizedBox(height: 16),
+              TextFormField( // ADDED
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: 'Description'), // TODO: Localize
+                maxLines: 3,
+                keyboardType: TextInputType.multiline,
+              ),
+              const SizedBox(height: 16), // Added spacing for new field
               TextFormField(
                 controller: _balanceController,
                 decoration: InputDecoration(labelText: l10n.initialBalanceHint),
@@ -164,6 +178,21 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                 },
               ),
               const SizedBox(height: 16),
+              BlocBuilder<AccountsBloc, AccountsState>( // NEW BLOC BUILDER FOR AccountTypes
+                builder: (context, state) {
+                  if (state is AccountsLoadSuccess) {
+                    return DropdownButtonFormField<int>(
+                      initialValue: _selectedAccountTypeId,
+                      decoration: const InputDecoration(labelText: 'Account Type'), // TODO: Localize
+                      items: state.accountTypes.map((type) => DropdownMenuItem<int>(value: type.id, child: Text(type.name))).toList(),
+                      onChanged: (v) => setState(() => _selectedAccountTypeId = v),
+                      validator: (v) => v == null ? 'Please select an account type' : null, // TODO: Localize
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+              const SizedBox(height: 16), // Added spacing for new field
               BlocBuilder<AccountStylesBloc, AccountStylesState>(
                 builder: (context, state) {
                   if (state is AccountStylesLoadSuccess) {

@@ -1,4 +1,5 @@
 import 'package:my_budget_client/domain/entities/account.dart';
+import 'package:my_budget_client/domain/entities/account_type.dart';
 
 abstract class AccountRepository {
   Future<List<Account>> getAccounts();
@@ -8,4 +9,8 @@ abstract class AccountRepository {
   Future<void> updateAccount(Account account);
   Future<void> deleteAccount(int id);
   Future<void> restoreAccount(Account account);
+
+  Future<List<AccountType>> getAccountTypes();
+  Stream<List<AccountType>> watchAccountTypes();
+  Future<AccountType?> getAccountTypeById(int id);
 }

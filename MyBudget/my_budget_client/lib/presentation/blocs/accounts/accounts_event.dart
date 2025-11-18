@@ -38,11 +38,12 @@ class DeleteAccount extends AccountsEvent {
 
 class UndoDeleteAccount extends AccountsEvent {}
 
-class _AccountsUpdated extends AccountsEvent {
+class _AccountsAndAccountTypesUpdated extends AccountsEvent {
   final List<Account> accounts;
+  final List<AccountType> accountTypes;
 
-  const _AccountsUpdated(this.accounts);
+  const _AccountsAndAccountTypesUpdated(this.accounts, this.accountTypes);
 
   @override
-  List<Object> get props => [accounts];
+  List<Object> get props => [accounts, accountTypes];
 }
