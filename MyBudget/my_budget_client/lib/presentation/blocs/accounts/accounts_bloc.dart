@@ -11,9 +11,6 @@ part 'accounts_state.dart';
 
 class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   final AccountRepository _accountRepository;
-  StreamSubscription? _accountsSubscription;
-  StreamSubscription? _accountTypesSubscription;
-
   AccountsBloc({required AccountRepository accountRepository})
       : _accountRepository = accountRepository,
         super(AccountsInitial()) {
@@ -22,27 +19,35 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     on<UpdateAccount>(_onUpdateAccount);
     on<DeleteAccount>(_onDeleteAccount);
     on<UndoDeleteAccount>(_onUndoDeleteAccount);
-    on<_AccountsAndAccountTypesUpdated>(_onAccountsAndAccountTypesUpdated);
   }
 
-  void _onLoadAccounts(
+  Future<void> _onLoadAccounts(
     LoadAccounts event,
     Emitter<AccountsState> emit,
-  ) {
+  ) async {
     emit(AccountsLoadInProgress());
-    _accountsSubscription?.cancel();
-    _accountTypesSubscription?.cancel();
-
-    _accountsSubscription = Rx.combineLatest2(
+    final stream = Rx.combineLatest2(
       _accountRepository.watchAccounts(),
       _accountRepository.watchAccountTypes(),
-      (List<Account> accounts, List<AccountType> accountTypes) =>
-          add(_AccountsAndAccountTypesUpdated(accounts, accountTypes)),
-    ).listen(
-      null,
-      onError: (error, stackTrace) {
-        emit(AccountsLoadFailure());
+      (List<Account> accounts, List<AccountType> accountTypes) {
+        Account? recentlyDeleted;
+        final currentState = state;
+        if (currentState is AccountsLoadSuccess) {
+          recentlyDeleted = currentState.recentlyDeletedAccount;
+        }
+
+        return AccountsLoadSuccess(
+          accounts: accounts,
+          accountTypes: accountTypes,
+          recentlyDeletedAccount: recentlyDeleted,
+        );
       },
+    );
+
+    await emit.forEach<AccountsState>(
+      stream,
+      onData: (state) => state,
+      onError: (_, __) => AccountsLoadFailure(),
     );
   }
 
@@ -86,20 +91,8 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     }
   }
 
-  void _onAccountsAndAccountTypesUpdated(
-    _AccountsAndAccountTypesUpdated event,
-    Emitter<AccountsState> emit,
-  ) {
-    emit(AccountsLoadSuccess(
-      accounts: event.accounts,
-      accountTypes: event.accountTypes,
-    ));
-  }
-
   @override
   Future<void> close() {
-    _accountsSubscription?.cancel();
-    _accountTypesSubscription?.cancel();
-    return super.close();
+   return super.close();
   }
 }
