@@ -1,16 +1,16 @@
 import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as drift;
 import 'package:my_budget_client/domain/entities/currency.dart';
-import 'package:my_budget_client/domain/entities/currency_designation.dart';
 
-// Этот маппер будет использоваться внутри репозитория для сборки объекта
-Currency toDomain(drift.Currency currency, CurrencyDesignation designation) {
-  return Currency(
-    id: currency.id,
-    name: currency.name,
-    code: currency.code,
-    designation: designation,
-  );
+// Create an extension on drift.Currency directly
+extension CurrencyMapper on drift.Currency {
+  Currency toDomain() {
+    return Currency(
+      id: id,
+      name: name,
+      code: code,
+    );
+  }
 }
 
 extension CurrencyCompanionMapper on Currency {
@@ -19,7 +19,6 @@ extension CurrencyCompanionMapper on Currency {
       id: Value(id),
       name: Value(name),
       code: Value(code),
-      // Связь с designation будет управляться через ID в репозитории
     );
   }
 }

@@ -7,6 +7,8 @@ import 'dart:async' as _i3;
 
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:my_budget_client/domain/entities/currency.dart' as _i4;
+import 'package:my_budget_client/domain/entities/currency_designation.dart'
+    as _i5;
 import 'package:my_budget_client/domain/repositories/currency_repository.dart'
     as _i2;
 
@@ -83,4 +85,55 @@ class MockCurrencyRepository extends _i1.Mock
             returnValueForMissingStub: _i3.Future<void>.value(),
           )
           as _i3.Future<void>);
+
+  @override
+  _i3.Stream<List<_i5.CurrencyDesignation>>
+  watchCurrencyDesignationsForCurrency(int? currencyId) =>
+      (super.noSuchMethod(
+            Invocation.method(#watchCurrencyDesignationsForCurrency, [
+              currencyId,
+            ]),
+            returnValue: _i3.Stream<List<_i5.CurrencyDesignation>>.empty(),
+          )
+          as _i3.Stream<List<_i5.CurrencyDesignation>>);
+
+  @override
+  _i3.Future<List<_i5.CurrencyDesignation>> getCurrencyDesignationsForCurrency(
+    int? currencyId,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#getCurrencyDesignationsForCurrency, [
+              currencyId,
+            ]),
+            returnValue: _i3.Future<List<_i5.CurrencyDesignation>>.value(
+              <_i5.CurrencyDesignation>[],
+            ),
+          )
+          as _i3.Future<List<_i5.CurrencyDesignation>>);
+
+  @override
+  _i3.Future<_i5.CurrencyDesignation?> getCurrencyDesignationById(int? id) =>
+      (super.noSuchMethod(
+            Invocation.method(#getCurrencyDesignationById, [id]),
+            returnValue: _i3.Future<_i5.CurrencyDesignation?>.value(),
+          )
+          as _i3.Future<_i5.CurrencyDesignation?>);
+
+  @override
+  _i3.Stream<List<_i5.CurrencyDesignation>> watchAllCurrencyDesignations() =>
+      (super.noSuchMethod(
+            Invocation.method(#watchAllCurrencyDesignations, []),
+            returnValue: _i3.Stream<List<_i5.CurrencyDesignation>>.empty(),
+          )
+          as _i3.Stream<List<_i5.CurrencyDesignation>>);
+
+  @override
+  _i3.Future<List<_i5.CurrencyDesignation>> getAllCurrencyDesignations() =>
+      (super.noSuchMethod(
+            Invocation.method(#getAllCurrencyDesignations, []),
+            returnValue: _i3.Future<List<_i5.CurrencyDesignation>>.value(
+              <_i5.CurrencyDesignation>[],
+            ),
+          )
+          as _i3.Future<List<_i5.CurrencyDesignation>>);
 }

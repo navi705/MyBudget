@@ -18,13 +18,14 @@ part 'app_database.g.dart';
 class CurrencyDesignations extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get value => text().withLength(min: 1, max: 5)();
+  IntColumn get currencyId => integer().references(Currencies, #id)();
 }
 
 class Currencies extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 50).unique()();
   TextColumn get code => text().withLength(min: 1, max: 5).unique()();
-  IntColumn get designationId => integer().references(CurrencyDesignations, #id)();
+  // Removed: IntColumn get designationId => integer().references(CurrencyDesignations, #id)();
 }
 
 class Categories extends Table {
@@ -46,6 +47,7 @@ class Accounts extends Table {
   TextColumn get name => text().withLength(min: 1, max: 50)();
   RealColumn get balance => real()();
   IntColumn get currencyId => integer().references(Currencies, #id)();
+  IntColumn get currencyDesignationId => integer().references(CurrencyDesignations, #id)();
   IntColumn get styleId => integer().nullable().references(AccountStyles, #id)();
 }
 
@@ -180,7 +182,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration {

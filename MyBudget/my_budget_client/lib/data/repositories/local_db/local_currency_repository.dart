@@ -1,11 +1,10 @@
 import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/core/mappers/currency_designation_mapper.dart';
-import 'package:my_budget_client/core/mappers/currency_mapper.dart'
-    as currency_mapper;
+import 'package:my_budget_client/core/mappers/currency_mapper.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
+import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
-import 'package:rxdart/rxdart.dart';
 
 class LocalCurrencyRepository implements CurrencyRepository {
   final db.AppDatabase database;
@@ -14,26 +13,32 @@ class LocalCurrencyRepository implements CurrencyRepository {
 
   @override
   Stream<List<Currency>> watchCurrencies() {
-    return Rx.combineLatest2(
-      database.currenciesDao.watchAllCurrencies(),
-      database.currencyDesignationsDao.watchAllDesignations(),
-      (List<db.Currency> driftCurrencies, List<db.CurrencyDesignation> driftDesignations) {
-        final designationMap = {for (var d in driftDesignations) d.id: d.toDomain()};
-        final List<Currency> result = [];
-        for (var c in driftCurrencies) {
-          final designation = designationMap[c.designationId];
-          if (designation != null) {
-            result.add(currency_mapper.toDomain(c, designation));
-          }
-        }
-        return result;
-      },
-    );
+    return database.currenciesDao.watchAllCurrencies().map((driftCurrencies) {
+      return driftCurrencies.map((c) => c.toDomain()).toList();
+    });
+  }
+
+  @override
+  Future<List<Currency>> getCurrencies() async {
+    final driftCurrencies = await database.currenciesDao.getAllCurrencies();
+    return driftCurrencies.map((c) => c.toDomain()).toList();
+  }
+
+  @override
+  Future<Currency?> getCurrencyById(int id) async {
+    final driftCurrency = await database.currenciesDao.getCurrencyById(id);
+    return driftCurrency?.toDomain();
   }
 
   @override
   Future<void> addCurrency(Currency currency) async {
     await database.currenciesDao.insertCurrency(currency.toCompanion());
+  }
+
+  @override
+  Future<void> updateCurrency(Currency currency) async {
+    final companion = currency.toCompanion();
+    await database.currenciesDao.updateCurrency(companion);
   }
 
   @override
@@ -44,50 +49,40 @@ class LocalCurrencyRepository implements CurrencyRepository {
   }
 
   @override
-  Future<Currency?> getCurrencyById(int id) async {
-    final currency = await database.currenciesDao.getCurrencyById(id);
-    if (currency == null) {
-      return null;
-    }
-
-    final designation = await database.currencyDesignationsDao
-        .getDesignationById(currency.designationId);
-    if (designation == null) {
-      // Data integrity issue. A currency must have a designation.
-      // For now, returning null as a safe fallback.
-      return null;
-    }
-
-    return currency_mapper.toDomain(currency, designation.toDomain());
+  Stream<List<CurrencyDesignation>> watchCurrencyDesignationsForCurrency(int currencyId) {
+    return database.currencyDesignationsDao.watchAllDesignations().map((driftDesignations) {
+      return driftDesignations
+          .where((d) => d.currencyId == currencyId)
+          .map((d) => d.toDomain())
+          .toList();
+    });
   }
 
   @override
-  Future<List<Currency>> getCurrencies() async {
-    final currencies = await database.currenciesDao.getAllCurrencies();
-    final designations = await database.currencyDesignationsDao
-        .getAllDesignations();
-
-    final designationMap = {for (var d in designations) d.id: d.toDomain()};
-
-    final List<Currency> result = [];
-    for (var c in currencies) {
-      final designation = designationMap[c.designationId];
-      if (designation != null) {
-        result.add(currency_mapper.toDomain(c, designation));
-      }
-      // else: data integrity issue, skip this currency.
-    }
-    return result;
+  Future<List<CurrencyDesignation>> getCurrencyDesignationsForCurrency(int currencyId) async {
+    final driftDesignations = await database.currencyDesignationsDao.getAllDesignations();
+    return driftDesignations
+        .where((d) => d.currencyId == currencyId)
+        .map((d) => d.toDomain())
+        .toList();
   }
 
   @override
-  Future<void> updateCurrency(Currency currency) async {
-    final companion = db.CurrenciesCompanion(
-      id: Value(currency.id),
-      name: Value(currency.name),
-      code: Value(currency.code),
-      designationId: Value(currency.designation.id),
-    );
-    await database.currenciesDao.updateCurrency(companion);
+  Future<CurrencyDesignation?> getCurrencyDesignationById(int id) async {
+    final driftDesignation = await database.currencyDesignationsDao.getDesignationById(id);
+    return driftDesignation?.toDomain();
+  }
+
+  @override
+  Stream<List<CurrencyDesignation>> watchAllCurrencyDesignations() {
+    return database.currencyDesignationsDao.watchAllDesignations().map((driftDesignations) {
+      return driftDesignations.map((d) => d.toDomain()).toList();
+    });
+  }
+
+  @override
+  Future<List<CurrencyDesignation>> getAllCurrencyDesignations() async {
+    final driftDesignations = await database.currencyDesignationsDao.getAllDesignations();
+    return driftDesignations.map((d) => d.toDomain()).toList();
   }
 }

@@ -24,46 +24,69 @@ void main() {
       currencyBloc.close();
     });
 
-    final tCurrencyDesignation = CurrencyDesignation(id: 1, value: '\$');
-    final tCurrency = Currency(
+    final tCurrencyDesignation =
+        const CurrencyDesignation(id: 1, value: '\$', currencyId: 1);
+    final tCurrencyDesignation2 =
+        const CurrencyDesignation(id: 2, value: '€', currencyId: 2);
+    final tCurrencyDesignation3 =
+        const CurrencyDesignation(id: 3, value: '₽', currencyId: 3);
+    final tCurrencyDesignationList = [
+      tCurrencyDesignation,
+      tCurrencyDesignation2,
+      tCurrencyDesignation3,
+    ];
+
+    final tCurrency = const Currency(
       id: 1,
       name: 'US Dollar',
       code: 'USD',
-      designation: tCurrencyDesignation,
     );
-    final tCurrencyList = [tCurrency];
+    final tCurrency2 = const Currency(
+      id: 2,
+      name: 'Euro',
+      code: 'EUR',
+    );
+    final tCurrencyList = [tCurrency, tCurrency2];
+
 
     blocTest<CurrencyBloc, CurrencyState>(
       'emits [CurrencyLoadInProgress, CurrencyLoadSuccess] when LoadCurrencies is added and repository returns data',
       build: () {
         when(mockCurrencyRepository.watchCurrencies())
             .thenAnswer((_) => Stream.value(tCurrencyList));
+        when(mockCurrencyRepository.watchAllCurrencyDesignations())
+            .thenAnswer((_) => Stream.value(tCurrencyDesignationList));
         return currencyBloc;
       },
       act: (bloc) => bloc.add(LoadCurrencies()),
       expect: () => [
         CurrencyLoadInProgress(),
-        CurrencyLoadSuccess(tCurrencyList),
+        CurrencyLoadSuccess(
+            currencies: tCurrencyList, designations: tCurrencyDesignationList),
       ],
       verify: (_) {
         verify(mockCurrencyRepository.watchCurrencies()).called(1);
+        verify(mockCurrencyRepository.watchAllCurrencyDesignations()).called(1);
       },
     );
 
     blocTest<CurrencyBloc, CurrencyState>(
-      'emits [CurrencyLoadInProgress, CurrencyLoadSuccess] with empty list when LoadCurrencies is added and repository returns empty data',
+      'emits [CurrencyLoadInProgress, CurrencyLoadSuccess] with empty lists when LoadCurrencies is added and repository returns empty data',
       build: () {
         when(mockCurrencyRepository.watchCurrencies())
+            .thenAnswer((_) => Stream.value([]));
+        when(mockCurrencyRepository.watchAllCurrencyDesignations())
             .thenAnswer((_) => Stream.value([]));
         return currencyBloc;
       },
       act: (bloc) => bloc.add(LoadCurrencies()),
       expect: () => [
         CurrencyLoadInProgress(),
-        const CurrencyLoadSuccess([]),
+        const CurrencyLoadSuccess(currencies: [], designations: []),
       ],
       verify: (_) {
         verify(mockCurrencyRepository.watchCurrencies()).called(1);
+        verify(mockCurrencyRepository.watchAllCurrencyDesignations()).called(1);
       },
     );
 
@@ -72,6 +95,8 @@ void main() {
       build: () {
         when(mockCurrencyRepository.watchCurrencies())
             .thenAnswer((_) => Stream.error('Error'));
+        when(mockCurrencyRepository.watchAllCurrencyDesignations())
+            .thenAnswer((_) => Stream.value(tCurrencyDesignationList));
         return currencyBloc;
       },
       act: (bloc) => bloc.add(LoadCurrencies()),
@@ -81,6 +106,7 @@ void main() {
       ],
       verify: (_) {
         verify(mockCurrencyRepository.watchCurrencies()).called(1);
+        verify(mockCurrencyRepository.watchAllCurrencyDesignations()).called(1);
       },
     );
   });

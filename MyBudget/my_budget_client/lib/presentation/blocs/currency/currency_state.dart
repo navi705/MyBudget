@@ -1,10 +1,16 @@
 part of 'currency_bloc.dart';
 
 abstract class CurrencyState extends Equatable {
-  const CurrencyState();
+  final List<Currency> currencies;
+  final List<CurrencyDesignation> designations;
+
+  const CurrencyState({
+    this.currencies = const [],
+    this.designations = const [],
+  });
 
   @override
-  List<Object> get props => [];
+  List<Object> get props => [currencies, designations];
 }
 
 class CurrencyInitial extends CurrencyState {}
@@ -12,12 +18,23 @@ class CurrencyInitial extends CurrencyState {}
 class CurrencyLoadInProgress extends CurrencyState {}
 
 class CurrencyLoadSuccess extends CurrencyState {
-  final List<Currency> currencies;
+  const CurrencyLoadSuccess({
+    super.currencies,
+    super.designations,
+  });
 
-  const CurrencyLoadSuccess([this.currencies = const []]);
+  CurrencyLoadSuccess copyWith({
+    List<Currency>? currencies,
+    List<CurrencyDesignation>? designations,
+  }) {
+    return CurrencyLoadSuccess(
+      currencies: currencies ?? this.currencies,
+      designations: designations ?? this.designations,
+    );
+  }
 
   @override
-  List<Object> get props => [currencies];
+  List<Object> get props => [currencies, designations];
 }
 
 class CurrencyLoadFailure extends CurrencyState {}

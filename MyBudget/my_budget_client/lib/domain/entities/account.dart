@@ -5,13 +5,15 @@ class Account extends Equatable {
   final String name;
   final double balance;
   final int currencyId;
+  final int currencyDesignationId;
   final int? styleId;
 
-  Account({
+  const Account({
     this.id,
     required this.name,
     required this.balance,
     required this.currencyId,
+    required this.currencyDesignationId,
     this.styleId,
   });
 
@@ -20,6 +22,7 @@ class Account extends Equatable {
     String? name,
     double? balance,
     int? currencyId,
+    int? currencyDesignationId,
     int? styleId,
   }) {
     return Account(
@@ -27,6 +30,7 @@ class Account extends Equatable {
       name: name ?? this.name,
       balance: balance ?? this.balance,
       currencyId: currencyId ?? this.currencyId,
+      currencyDesignationId: currencyDesignationId ?? this.currencyDesignationId,
       styleId: styleId ?? this.styleId,
     );
   }
@@ -37,6 +41,7 @@ class Account extends Equatable {
         name,
         balance,
         currencyId,
+        currencyDesignationId,
         styleId,
       ];
 }

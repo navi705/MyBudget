@@ -9,11 +9,12 @@ abstract class CurrencyEvent extends Equatable {
 
 class LoadCurrencies extends CurrencyEvent {}
 
-class _CurrenciesUpdated extends CurrencyEvent {
+class _CurrenciesAndDesignationsUpdated extends CurrencyEvent {
   final List<Currency> currencies;
+  final List<CurrencyDesignation> designations;
 
-  const _CurrenciesUpdated(this.currencies);
+  const _CurrenciesAndDesignationsUpdated(this.currencies, this.designations);
 
   @override
-  List<Object> get props => [currencies];
+  List<Object> get props => [currencies, designations];
 }

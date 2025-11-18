@@ -5,6 +5,8 @@ import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_style.dart';
 import 'package:my_budget_client/presentation/blocs/account_styles/account_styles_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
+import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart'; // Added
+import 'package:my_budget_client/domain/entities/currency_designation.dart'; // Added
 
 class AccountListItem extends StatelessWidget {
   final Account account;
@@ -39,60 +41,72 @@ class AccountListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AccountStylesBloc, AccountStylesState>(
-      builder: (context, state) {
-        AccountStyle? style;
-        if (state is AccountStylesLoadSuccess) {
+    return BlocBuilder<CurrencyBloc, CurrencyState>( // Outer builder for Currency
+      builder: (context, currencyState) {
+        CurrencyDesignation? designation;
+        if (currencyState is CurrencyLoadSuccess) {
           try {
-            style = state.styles.firstWhere((s) => s.id == account.styleId);
+            designation = currencyState.designations.firstWhere((d) => d.id == account.currencyDesignationId);
           } on StateError {
-            style = null; // Style not found, which is a valid case
+            designation = null; // Designation not found
           }
         }
 
-        final color = _getColorFromHex(style?.colorHex);
-        final iconData = _getIconData(style?.iconName);
+        return BlocBuilder<AccountStylesBloc, AccountStylesState>(
+          builder: (context, styleState) {
+            AccountStyle? style;
+            if (styleState is AccountStylesLoadSuccess) {
+              try {
+                style = styleState.styles.firstWhere((s) => s.id == account.styleId);
+              } on StateError {
+                style = null; // Style not found, which is a valid case
+              }
+            }
 
-        return Card(
-          elevation: 2.0,
-          margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.0),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-            leading: Container(
-              padding: const EdgeInsets.all(10.0),
-              decoration: BoxDecoration(
-                color: color.withAlpha((255 * 0.15).round()),
+            final color = _getColorFromHex(style?.colorHex);
+            final iconData = _getIconData(style?.iconName);
+
+            return Card(
+              elevation: 2.0,
+              margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12.0),
               ),
-              child: Icon(iconData, color: color, size: 30.0),
-            ),
-            title: Text(
-              account.name,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+                leading: Container(
+                  padding: const EdgeInsets.all(10.0),
+                  decoration: BoxDecoration(
+                    color: color.withAlpha((255 * 0.15).round()),
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                  child: Icon(iconData, color: color, size: 30.0),
+                ),
+                title: Text(
+                  account.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                subtitle: Text(
+                  '${designation?.value ?? ''} ${account.balance.toStringAsFixed(2)}', // Updated to use designation.value
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+                trailing: const Icon(Icons.more_vert),
+                onTap: () {
+                  if (account.id != null) {
+                    context.push(
+                      AppRoutes.editAccount.replaceFirst(':id', account.id!.toString()),
+                    );
+                  }
+                },
               ),
-            ),
-            subtitle: Text(
-              // TODO: Add currency formatting
-              'Balance: ${account.balance.toStringAsFixed(2)}',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
-              ),
-            ),
-            trailing: const Icon(Icons.more_vert),
-            onTap: () {
-              if (account.id != null) {
-                context.push(
-                  AppRoutes.editAccount.replaceFirst(':id', account.id!.toString()),
-                );
-              }
-            },
-          ),
+            );
+          },
         );
       },
     );

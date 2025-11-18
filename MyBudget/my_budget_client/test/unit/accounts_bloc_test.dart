@@ -15,11 +15,12 @@ void main() {
   late MockAccountRepository mockAccountRepository;
   late AccountsBloc accountsBloc;
 
-  final testAccount = Account(
+  final testAccount = const Account(
     id: 1,
     name: 'Test Account',
     balance: 1000,
     currencyId: 1,
+    currencyDesignationId: 1,
   );
   final List<Account> testAccounts = [testAccount];
 
