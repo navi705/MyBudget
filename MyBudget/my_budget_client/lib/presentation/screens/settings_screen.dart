@@ -17,7 +17,7 @@ class SettingsScreen extends StatelessWidget {
             leading: const Icon(Icons.palette),
             title: const Text('Manage Account Styles'),
             onTap: () {
-              context.go(AppRoutes.manageAccountStyles);
+              context.push(AppRoutes.manageAccountStyles);
             },
           ),
         ],

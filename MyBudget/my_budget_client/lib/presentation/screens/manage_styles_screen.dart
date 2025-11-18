@@ -61,7 +61,7 @@ class ManageStylesScreen extends StatelessWidget {
                         icon: const Icon(Icons.edit),
                         onPressed: () {
                           if (style.id != null) {
-                            context.go(
+                            context.push(
                               AppRoutes.editAccountStyle.replaceFirst(':id', style.id!.toString()),
                             );
                           }
