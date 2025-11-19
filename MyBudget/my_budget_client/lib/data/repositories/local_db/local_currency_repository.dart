@@ -2,8 +2,10 @@ import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/core/mappers/currency_designation_mapper.dart';
 import 'package:my_budget_client/core/mappers/currency_mapper.dart';
+import 'package:my_budget_client/core/mappers/exchange_rate_mapper.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
+import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 
 class LocalCurrencyRepository implements CurrencyRepository {
@@ -84,5 +86,18 @@ class LocalCurrencyRepository implements CurrencyRepository {
   Future<List<CurrencyDesignation>> getAllCurrencyDesignations() async {
     final driftDesignations = await database.currencyDesignationsDao.getAllDesignations();
     return driftDesignations.map((d) => d.toDomain()).toList();
+  }
+
+  @override
+  Stream<List<ExchangeRate>> watchAllExchangeRates() {
+    return database.exchangeRatesDao.watchAllExchangeRates().map((driftExchangeRates) {
+      return driftExchangeRates.map((r) => r.toDomain()).toList();
+    });
+  }
+
+  @override
+  Future<void> addExchangeRate(ExchangeRate exchangeRate) async {
+    await database.exchangeRatesDao.addExchangeRate(exchangeRate.toCompanion());
+
   }
 }

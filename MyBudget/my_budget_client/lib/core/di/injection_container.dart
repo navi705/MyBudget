@@ -8,6 +8,7 @@ import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/presentation/blocs/account_styles/account_styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 
 import '../../data/repositories/local_db/local_account_repository.dart';
@@ -30,6 +31,11 @@ Future<void> init() async {
   sl.registerFactory(() => SettingsBloc(settingsRepository: sl()));
   sl.registerFactory(() => CurrencyBloc(currencyRepository: sl()));
   sl.registerFactory(() => AccountStylesBloc(accountStyleRepository: sl()));
+  sl.registerFactory(() => CurrencyConverterBloc(
+        currencyRepository: sl(),
+        accountRepository: sl(),
+        settingsRepository: sl(),
+      ));
 
   // Repositories
   sl.registerLazySingleton<AccountRepository>(() => LocalAccountRepository(sl()));

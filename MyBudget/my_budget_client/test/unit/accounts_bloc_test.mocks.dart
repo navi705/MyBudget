@@ -7,6 +7,7 @@ import 'dart:async' as _i3;
 
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:my_budget_client/domain/entities/account.dart' as _i4;
+import 'package:my_budget_client/domain/entities/account_type.dart' as _i5;
 import 'package:my_budget_client/domain/repositories/account_repository.dart'
     as _i2;
 
@@ -91,4 +92,30 @@ class MockAccountRepository extends _i1.Mock implements _i2.AccountRepository {
             returnValueForMissingStub: _i3.Future<void>.value(),
           )
           as _i3.Future<void>);
+
+  @override
+  _i3.Future<List<_i5.AccountType>> getAccountTypes() =>
+      (super.noSuchMethod(
+            Invocation.method(#getAccountTypes, []),
+            returnValue: _i3.Future<List<_i5.AccountType>>.value(
+              <_i5.AccountType>[],
+            ),
+          )
+          as _i3.Future<List<_i5.AccountType>>);
+
+  @override
+  _i3.Stream<List<_i5.AccountType>> watchAccountTypes() =>
+      (super.noSuchMethod(
+            Invocation.method(#watchAccountTypes, []),
+            returnValue: _i3.Stream<List<_i5.AccountType>>.empty(),
+          )
+          as _i3.Stream<List<_i5.AccountType>>);
+
+  @override
+  _i3.Future<_i5.AccountType?> getAccountTypeById(int? id) =>
+      (super.noSuchMethod(
+            Invocation.method(#getAccountTypeById, [id]),
+            returnValue: _i3.Future<_i5.AccountType?>.value(),
+          )
+          as _i3.Future<_i5.AccountType?>);
 }

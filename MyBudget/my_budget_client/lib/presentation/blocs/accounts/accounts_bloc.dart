@@ -91,8 +91,4 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     }
   }
 
-  @override
-  Future<void> close() {
-   return super.close();
-  }
 }

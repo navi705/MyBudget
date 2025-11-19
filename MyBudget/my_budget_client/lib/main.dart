@@ -6,6 +6,7 @@ import 'package:my_budget_client/core/di/injection_container.dart' as sl;
 import 'package:my_budget_client/presentation/blocs/account_styles/account_styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 
 void main() async {
@@ -33,6 +34,9 @@ class MainApp extends StatelessWidget {
         ),
         BlocProvider(
           create: (context) => sl.sl<AccountStylesBloc>()..add(LoadAccountStyles()),
+        ),
+        BlocProvider(
+          create: (context) => sl.sl<CurrencyConverterBloc>()..add(LoadCurrencyConverter()),
         ),
       ],
       child: const App(),

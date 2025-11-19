@@ -1,5 +1,6 @@
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
+import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 
 abstract class CurrencyRepository {
   Future<List<Currency>> getCurrencies();
@@ -15,4 +16,7 @@ abstract class CurrencyRepository {
 
   Stream<List<CurrencyDesignation>> watchAllCurrencyDesignations();
   Future<List<CurrencyDesignation>> getAllCurrencyDesignations();
+
+  Stream<List<ExchangeRate>> watchAllExchangeRates();
+  Future<void> addExchangeRate(ExchangeRate exchangeRate);
 }

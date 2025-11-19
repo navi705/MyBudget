@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
+import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 
@@ -26,6 +27,7 @@ void main() {
     description: 'Test account description'
   );
   final List<Account> testAccounts = [testAccount];
+  final List<AccountType> testAccountTypes = [const AccountType(id: 1, name: 'Checking')];
 
   setUp(() {
     mockAccountRepository = MockAccountRepository();
@@ -47,16 +49,20 @@ void main() {
         setUp: () {
           when(mockAccountRepository.watchAccounts())
               .thenAnswer((_) => Stream.value(testAccounts));
+          when(mockAccountRepository.watchAccountTypes())
+              .thenAnswer((_) => Stream.value(testAccountTypes));
         },
         build: () => accountsBloc,
         act: (bloc) => bloc.add(LoadAccounts()),
         expect: () => [
           AccountsLoadInProgress(),
           isA<AccountsLoadSuccess>()
-              .having((s) => s.accounts, 'accounts', testAccounts),
+              .having((s) => s.accounts, 'accounts', testAccounts)
+              .having((s) => s.accountTypes, 'accountTypes', testAccountTypes),
         ],
         verify: (_) {
           verify(mockAccountRepository.watchAccounts()).called(1);
+          verify(mockAccountRepository.watchAccountTypes()).called(1);
         },
       );
 
@@ -65,6 +71,8 @@ void main() {
         setUp: () {
           when(mockAccountRepository.watchAccounts())
               .thenAnswer((_) => Stream.error(Exception('Failed to load')));
+          when(mockAccountRepository.watchAccountTypes())
+              .thenAnswer((_) => Stream.value(testAccountTypes));
         },
         build: () => accountsBloc,
         act: (bloc) => bloc.add(LoadAccounts()),

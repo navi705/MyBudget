@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:my_budget_client/data/seed_data/account_styles_data.dart';
+import 'package:my_budget_client/data/seed_data/exchange_rates_data.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
@@ -67,6 +68,16 @@ class Transactions extends Table {
   IntColumn get accountId => integer().references(Accounts, #id)();
   IntColumn get categoryId => integer().references(Categories, #id)();
   IntColumn get currencyId => integer().references(Currencies, #id)();
+}
+
+class ExchangeRates extends Table {
+  IntColumn get fromCurrencyId => integer().references(Currencies, #id)();
+  IntColumn get toCurrencyId => integer().references(Currencies, #id)();
+  RealColumn get rate => real()();
+  DateTimeColumn get date => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {fromCurrencyId, toCurrencyId, date};
 }
 
 // --- Technical Tables ---
@@ -173,8 +184,19 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin 
   SettingsDao(super.db);
 
   Stream<List<Setting>> watchAllSettings() => select(settings).watch();
+  Stream<Setting?> watchSetting(String key) {
+    return (select(settings)..where((tbl) => tbl.key.equals(key))).watchSingleOrNull();
+  }
   Future<Setting?> getSetting(String key) => (select(settings)..where((tbl) => tbl.key.equals(key))).getSingleOrNull();
   Future<void> setSetting(Setting setting) => into(settings).insert(setting, mode: InsertMode.insertOrReplace);
+}
+
+@DriftAccessor(tables: [ExchangeRates])
+class ExchangeRatesDao extends DatabaseAccessor<AppDatabase> with _$ExchangeRatesDaoMixin {
+  ExchangeRatesDao(super.db);
+
+  Stream<List<ExchangeRate>> watchAllExchangeRates() => select(exchangeRates).watch();
+  Future<void> addExchangeRate(ExchangeRatesCompanion rate) => into(exchangeRates).insert(rate);
 }
 
 
@@ -187,6 +209,7 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin 
   Accounts,
   Transactions,
   AccountTypes, // ADDED
+  ExchangeRates,
   // Technical Tables
   Settings,
 ], daos: [
@@ -198,6 +221,7 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin 
   AccountsDao,
   TransactionsDao,
   SettingsDao,
+  ExchangeRatesDao,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -205,7 +229,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 3; // CHANGED from 2 to 3
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -213,16 +237,26 @@ class AppDatabase extends _$AppDatabase {
       onCreate: (Migrator m) async {
         await m.createAll();
         // Seed initial data
-        await _seedCurrencyDesignations(this);
-        await _seedCurrencies(this);
-        await _seedSettings(this);
-        await _seedAccountStyles(this);
-        await _seedAccountTypes(this); // ADDED
+        await _seedData(this);
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        // No-op for development, we re-create the DB
+        // THIS IS A DESTRUCTIVE MIGRATION
+        for (final table in allTables) {
+          await m.deleteTable(table.actualTableName);
+          await m.createTable(table);
+        }
+        await _seedData(this);
       },
     );
+  }
+
+  Future<void> _seedData(AppDatabase db) async {
+    await _seedCurrencyDesignations(db);
+    await _seedCurrencies(db);
+    await _seedSettings(db);
+    await _seedAccountStyles(db);
+    await _seedAccountTypes(db);
+    await _seedExchangeRates(db);
   }
 
   // --- Seeding Methods ---
@@ -254,6 +288,12 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _seedAccountTypes(AppDatabase db) async { // ADDED
     for (final accountType in defaultAccountTypes) {
       await db.into(db.accountTypes).insert(accountType);
+    }
+  }
+
+  Future<void> _seedExchangeRates(AppDatabase db) async {
+    for (final rate in defaultExchangeRates) {
+      await db.into(db.exchangeRates).insert(rate);
     }
   }
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
+import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
+import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/account_list_item.dart';
 import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
@@ -22,6 +24,68 @@ class _AccountsScreenState extends State<AccountsScreen> {
   void initState() {
     super.initState();
     _selectedAccountTypeId = 0; // 0 for 'All' accounts
+  }
+
+  Future<void> _showCurrencySelectionDialog(BuildContext context) async {
+    final converterBloc = context.read<CurrencyConverterBloc>();
+    final currentState = converterBloc.state;
+    if (currentState is! CurrencyConverterLoadSuccess) return;
+
+    final tempSelectedCurrencies =
+        List<Currency>.from(currentState.selectedCurrencies);
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Select Currencies'),
+              content: SingleChildScrollView(
+                child: ListBody(
+                  children: currentState.allCurrencies.map((currency) {
+                    final isSelected = tempSelectedCurrencies.any((c) => c.id == currency.id);
+                    return CheckboxListTile(
+                      title: Text('${currency.name} (${currency.code})'),
+                      value: isSelected,
+                      onChanged: (bool? value) {
+                        setDialogState(() {
+                          if (value == true) {
+                            tempSelectedCurrencies.add(currency);
+                          } else {
+                            tempSelectedCurrencies.removeWhere((c) => c.id == currency.id);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  child: const Text('Cancel'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                TextButton(
+                  child: const Text('OK'),
+                  onPressed: () {
+                    // Clear current selections
+                    for (final currency in List<Currency>.from(currentState.selectedCurrencies)) {
+                      converterBloc.add(RemoveSelectedCurrency(currency));
+                    }
+                    // Add new selections
+                    for (final currency in tempSelectedCurrencies) {
+                      converterBloc.add(AddSelectedCurrency(currency));
+                    }
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -55,6 +119,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
         appBar: AppBar(
           title: Text(l10n.accountsAppBarTitle),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.calculate),
+              tooltip: 'Select Currencies for Total Balance',
+              onPressed: () => _showCurrencySelectionDialog(context),
+            ),
             IconButton(
               icon: const Icon(Icons.sort), // NEW: Sorting icon
               tooltip: 'Sort by Balance', // TODO: Localize
@@ -122,54 +191,68 @@ class _AccountsScreenState extends State<AccountsScreen> {
             ),
           ),
         ),
-        body: BlocBuilder<AccountsBloc, AccountsState>(
-          builder: (context, state) {
-            if (state is AccountsLoadInProgress) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
-            }
-            if (state is AccountsLoadSuccess) {
-              // Filter accounts based on selected type
-              final filteredAccounts = _selectedAccountTypeId == 0
-                  ? state.accounts
-                  : state.accounts.where((acc) => acc.accountTypeId == _selectedAccountTypeId).toList();
+        body: Column(
+          children: [
+            BlocBuilder<CurrencyConverterBloc, CurrencyConverterState>(
+              builder: (context, state) {
+                if (state is CurrencyConverterLoadSuccess) {
+                  return TotalBalanceCard(state: state);
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+            Expanded(
+              child: BlocBuilder<AccountsBloc, AccountsState>(
+                builder: (context, state) {
+                  if (state is AccountsLoadInProgress) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+                  if (state is AccountsLoadSuccess) {
+                    // Filter accounts based on selected type
+                    final filteredAccounts = _selectedAccountTypeId == 0
+                        ? state.accounts
+                        : state.accounts.where((acc) => acc.accountTypeId == _selectedAccountTypeId).toList();
 
-              if (filteredAccounts.isEmpty) {
-                return Center(
-                  child: Text(l10n.accountsEmptyState),
-                );
-              }
+                    if (filteredAccounts.isEmpty) {
+                      return Center(
+                        child: Text(l10n.accountsEmptyState),
+                      );
+                    }
 
-              // Apply sorting
-              filteredAccounts.sort((a, b) {
-                final comparison = a.balance.compareTo(b.balance);
-                return _sortAscending ? comparison : -comparison;
-              });
+                    // Apply sorting
+                    filteredAccounts.sort((a, b) {
+                      final comparison = a.balance.compareTo(b.balance);
+                      return _sortAscending ? comparison : -comparison;
+                    });
 
-              return ListView.builder(
-                itemCount: filteredAccounts.length,
-                itemBuilder: (context, index) {
-                  final account = filteredAccounts[index];
-                  return Dismissible(
-                    key: ValueKey(account.id),
-                    direction: DismissDirection.endToStart,
-                    onDismissed: (direction) {
-                      context.read<AccountsBloc>().add(DeleteAccount(account.id!));
-                    },
-                    background: Container(
-                      color: Colors.red,
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: const Icon(Icons.delete, color: Colors.white),
-                    ),
-                    child: AccountListItem(account: account),
-                  );
+                    return ListView.builder(
+                      itemCount: filteredAccounts.length,
+                      itemBuilder: (context, index) {
+                        final account = filteredAccounts[index];
+                        return Dismissible(
+                          key: ValueKey(account.id),
+                          direction: DismissDirection.endToStart,
+                          onDismissed: (direction) {
+                            context.read<AccountsBloc>().add(DeleteAccount(account.id!));
+                          },
+                          background: Container(
+                            color: Colors.red,
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          child: AccountListItem(account: account),
+                        );
+                      },
+                    );
+                  }
+                  return const SizedBox.shrink(); // Fallback for other states
                 },
-              );
-            }
-            return const SizedBox.shrink(); // Fallback for other states
-          },
+              ),
+            ),
+          ],
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () {
@@ -183,6 +266,45 @@ class _AccountsScreenState extends State<AccountsScreen> {
           },
           tooltip: l10n.accountsAddTooltip,
           child: const Icon(Icons.add),
+        ),
+      ),
+    );
+  }
+}
+
+class TotalBalanceCard extends StatelessWidget {
+  final CurrencyConverterLoadSuccess state;
+  const TotalBalanceCard({required this.state, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.all(8.0),
+      elevation: 4.0,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Total Balance', // TODO: Localize
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            if (state.selectedCurrencies.isEmpty)
+              const Text('No currencies selected.')
+            else
+              ...state.selectedCurrencies.map((currency) {
+                final total = state.totalBalanceFor(currency);
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Text(
+                    '${currency.code}: ${total.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                );
+              })
+          ],
         ),
       ),
     );

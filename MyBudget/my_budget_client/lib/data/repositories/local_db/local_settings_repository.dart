@@ -12,12 +12,8 @@ class LocalSettingsRepository implements SettingsRepository {
 
   @override
   Stream<ThemeMode> get themeMode {
-    return _database.settingsDao.watchAllSettings().map((settings) {
-      final themeModeSetting = settings.firstWhere(
-        (s) => s.key == themeModeKey,
-        orElse: () => const Setting(key: themeModeKey, value: 'system'),
-      );
-      return _stringToThemeMode(themeModeSetting.value);
+    return watchSetting(themeModeKey).map((setting) {
+      return _stringToThemeMode(setting?.value ?? 'system');
     }).startWith(ThemeMode.system);
   }
 
@@ -27,6 +23,16 @@ class LocalSettingsRepository implements SettingsRepository {
       key: themeModeKey,
       value: _themeModeToString(themeMode),
     );
+    return setSetting(setting);
+  }
+
+  @override
+  Stream<Setting?> watchSetting(String key) {
+    return _database.settingsDao.watchSetting(key);
+  }
+
+  @override
+  Future<void> setSetting(Setting setting) {
     return _database.settingsDao.setSetting(setting);
   }
 
