@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
-import 'package:my_budget_client/data/seed_data/account_styles_data.dart';
+import 'package:my_budget_client/data/seed_data/styles_data.dart';
 import 'package:my_budget_client/data/seed_data/exchange_rates_data.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
@@ -12,7 +12,7 @@ import 'package:path/path.dart' as p;
 import 'package:my_budget_client/data/seed_data/currency_designations_data.dart';
 import 'package:my_budget_client/data/seed_data/currencies_data.dart';
 import 'package:my_budget_client/data/seed_data/settings_data.dart';
-import 'package:my_budget_client/data/seed_data/account_types_data.dart'; // ADDED
+import 'package:my_budget_client/data/seed_data/account_types_data.dart'; 
 
 part 'app_database.g.dart';
 
@@ -34,10 +34,11 @@ class Categories extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 50)();
   IntColumn get parentId => integer().nullable().references(Categories, #id)();
+  IntColumn get styleId => integer().nullable().references(Styles, #id)();
 }
 
-@DataClassName('AccountStyle')
-class AccountStyles extends Table {
+@DataClassName('Style')
+class Styles extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 50)();
   TextColumn get iconName => text()();
@@ -56,7 +57,7 @@ class Accounts extends Table {
   RealColumn get balance => real()();
   IntColumn get currencyId => integer().references(Currencies, #id)();
   IntColumn get currencyDesignationId => integer().references(CurrencyDesignations, #id)();
-  IntColumn get styleId => integer().nullable().references(AccountStyles, #id)();
+  IntColumn get styleId => integer().nullable().references(Styles, #id)();
   IntColumn get accountTypeId => integer().references(AccountTypes, #id)();
 }
 
@@ -130,18 +131,18 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMi
   Future<int> deleteCategory(CategoriesCompanion category) => delete(categories).delete(category);
 }
 
-@DriftAccessor(tables: [AccountStyles])
-class AccountStylesDao extends DatabaseAccessor<AppDatabase> with _$AccountStylesDaoMixin {
-  AccountStylesDao(super.db);
+@DriftAccessor(tables: [Styles])
+class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
+  StylesDao(super.db);
 
-  Future<List<AccountStyle>> getAllStyles() => select(accountStyles).get();
-  Stream<List<AccountStyle>> watchAllStyles() => select(accountStyles).watch();
-  Future<int> insertStyle(AccountStylesCompanion style) => into(accountStyles).insert(style);
-  Future<bool> updateStyle(AccountStylesCompanion style) => update(accountStyles).replace(style);
-  Future<int> deleteStyle(AccountStylesCompanion style) => delete(accountStyles).delete(style);
+  Future<List<Style>> getAllStyles() => select(styles).get();
+  Stream<List<Style>> watchAllStyles() => select(styles).watch();
+  Future<int> insertStyle(StylesCompanion style) => into(styles).insert(style);
+  Future<bool> updateStyle(StylesCompanion style) => update(styles).replace(style);
+  Future<int> deleteStyle(StylesCompanion style) => delete(styles).delete(style);
 }
 
-@DriftAccessor(tables: [AccountTypes]) // ADDED
+@DriftAccessor(tables: [AccountTypes])
 class AccountTypesDao extends DatabaseAccessor<AppDatabase> with _$AccountTypesDaoMixin {
   AccountTypesDao(super.db);
 
@@ -205,10 +206,10 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase> with _$ExchangeRate
   CurrencyDesignations,
   Currencies,
   Categories,
-  AccountStyles,
+  Styles,
   Accounts,
   Transactions,
-  AccountTypes, // ADDED
+  AccountTypes,
   ExchangeRates,
   // Technical Tables
   Settings,
@@ -216,8 +217,8 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase> with _$ExchangeRate
   CurrencyDesignationsDao,
   CurrenciesDao,
   CategoriesDao,
-  AccountStylesDao,
-  AccountTypesDao, // ADDED
+  StylesDao,
+  AccountTypesDao,
   AccountsDao,
   TransactionsDao,
   SettingsDao,
@@ -229,18 +230,16 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
         await m.createAll();
-        // Seed initial data
         await _seedData(this);
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        // THIS IS A DESTRUCTIVE MIGRATION
         for (final table in allTables) {
           await m.deleteTable(table.actualTableName);
           await m.createTable(table);
@@ -254,7 +253,7 @@ class AppDatabase extends _$AppDatabase {
     await _seedCurrencyDesignations(db);
     await _seedCurrencies(db);
     await _seedSettings(db);
-    await _seedAccountStyles(db);
+    await _seedStyles(db);
     await _seedAccountTypes(db);
     await _seedExchangeRates(db);
   }
@@ -279,13 +278,13 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
-  Future<void> _seedAccountStyles(AppDatabase db) async {
-    for (final style in defaultAccountStyles) {
-      await db.into(db.accountStyles).insert(style);
+  Future<void> _seedStyles(AppDatabase db) async {
+    for (final style in defaultStyles) {
+      await db.into(db.styles).insert(style);
     }
   }
 
-  Future<void> _seedAccountTypes(AppDatabase db) async { // ADDED
+  Future<void> _seedAccountTypes(AppDatabase db) async {
     for (final accountType in defaultAccountTypes) {
       await db.into(db.accountTypes).insert(accountType);
     }
@@ -299,11 +298,9 @@ class AppDatabase extends _$AppDatabase {
 }
 
 LazyDatabase _openConnection() {
-  // the LazyDatabase util lets us find the right location for the file async.
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'db.sqlite'));
     return NativeDatabase(file);
   });
 }
-

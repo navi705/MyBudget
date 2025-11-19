@@ -10,6 +10,13 @@ class LocalCategoryRepository implements CategoryRepository {
   LocalCategoryRepository(this._appDatabase);
 
   @override
+  Stream<List<Category>> watchCategories() {
+    return _appDatabase.categoriesDao.watchAllCategories().map((categories) {
+      return categories.map((c) => c.toDomain()).toList();
+    });
+  }
+
+  @override
   Future<void> addCategory(Category category) async {
     final companion = drift.CategoriesCompanion.insert(
       name: category.name,

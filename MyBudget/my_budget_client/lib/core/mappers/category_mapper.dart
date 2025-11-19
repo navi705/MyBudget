@@ -8,6 +8,7 @@ extension CategoryMapper on drift.Category {
       id: id,
       name: name,
       parentId: parentId,
+      styleId: styleId,
     );
   }
 }
@@ -18,6 +19,7 @@ extension CategoryCompanionMapper on Category {
       id: Value(id!),
       name: Value(name),
       parentId: Value(parentId),
+      styleId: Value(styleId),
     );
   }
 }

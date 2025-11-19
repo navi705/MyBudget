@@ -10,6 +10,13 @@ class LocalTransactionRepository implements TransactionRepository {
   LocalTransactionRepository(this.database);
 
   @override
+  Stream<List<Transaction>> watchTransactions() {
+    return database.transactionsDao.watchAllTransactions().map((transactions) {
+      return transactions.map((t) => t.toDomain()).toList();
+    });
+  }
+
+  @override
   Future<void> addTransaction(Transaction transaction) async {
     await database.transactionsDao.insertTransaction(transaction.toCompanion());
   }

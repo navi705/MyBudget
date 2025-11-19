@@ -12,10 +12,11 @@ mixin _$CurrenciesDaoMixin on DatabaseAccessor<AppDatabase> {
   $CurrenciesTable get currencies => attachedDatabase.currencies;
 }
 mixin _$CategoriesDaoMixin on DatabaseAccessor<AppDatabase> {
+  $StylesTable get styles => attachedDatabase.styles;
   $CategoriesTable get categories => attachedDatabase.categories;
 }
-mixin _$AccountStylesDaoMixin on DatabaseAccessor<AppDatabase> {
-  $AccountStylesTable get accountStyles => attachedDatabase.accountStyles;
+mixin _$StylesDaoMixin on DatabaseAccessor<AppDatabase> {
+  $StylesTable get styles => attachedDatabase.styles;
 }
 mixin _$AccountTypesDaoMixin on DatabaseAccessor<AppDatabase> {
   $AccountTypesTable get accountTypes => attachedDatabase.accountTypes;
@@ -24,7 +25,7 @@ mixin _$AccountsDaoMixin on DatabaseAccessor<AppDatabase> {
   $CurrenciesTable get currencies => attachedDatabase.currencies;
   $CurrencyDesignationsTable get currencyDesignations =>
       attachedDatabase.currencyDesignations;
-  $AccountStylesTable get accountStyles => attachedDatabase.accountStyles;
+  $StylesTable get styles => attachedDatabase.styles;
   $AccountTypesTable get accountTypes => attachedDatabase.accountTypes;
   $AccountsTable get accounts => attachedDatabase.accounts;
 }
@@ -32,7 +33,7 @@ mixin _$TransactionsDaoMixin on DatabaseAccessor<AppDatabase> {
   $CurrenciesTable get currencies => attachedDatabase.currencies;
   $CurrencyDesignationsTable get currencyDesignations =>
       attachedDatabase.currencyDesignations;
-  $AccountStylesTable get accountStyles => attachedDatabase.accountStyles;
+  $StylesTable get styles => attachedDatabase.styles;
   $AccountTypesTable get accountTypes => attachedDatabase.accountTypes;
   $AccountsTable get accounts => attachedDatabase.accounts;
   $CategoriesTable get categories => attachedDatabase.categories;
@@ -558,268 +559,11 @@ class CurrencyDesignationsCompanion
   }
 }
 
-class $CategoriesTable extends Categories
-    with TableInfo<$CategoriesTable, Category> {
+class $StylesTable extends Styles with TableInfo<$StylesTable, Style> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $CategoriesTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
-    'id',
-    aliasedName,
-    false,
-    hasAutoIncrement: true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'PRIMARY KEY AUTOINCREMENT',
-    ),
-  );
-  static const VerificationMeta _nameMeta = const VerificationMeta('name');
-  @override
-  late final GeneratedColumn<String> name = GeneratedColumn<String>(
-    'name',
-    aliasedName,
-    false,
-    additionalChecks: GeneratedColumn.checkTextLength(
-      minTextLength: 1,
-      maxTextLength: 50,
-    ),
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _parentIdMeta = const VerificationMeta(
-    'parentId',
-  );
-  @override
-  late final GeneratedColumn<int> parentId = GeneratedColumn<int>(
-    'parent_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES categories (id)',
-    ),
-  );
-  @override
-  List<GeneratedColumn> get $columns => [id, name, parentId];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'categories';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<Category> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('name')) {
-      context.handle(
-        _nameMeta,
-        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_nameMeta);
-    }
-    if (data.containsKey('parent_id')) {
-      context.handle(
-        _parentIdMeta,
-        parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  Category map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Category(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}id'],
-      )!,
-      name: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}name'],
-      )!,
-      parentId: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}parent_id'],
-      ),
-    );
-  }
-
-  @override
-  $CategoriesTable createAlias(String alias) {
-    return $CategoriesTable(attachedDatabase, alias);
-  }
-}
-
-class Category extends DataClass implements Insertable<Category> {
-  final int id;
-  final String name;
-  final int? parentId;
-  const Category({required this.id, required this.name, this.parentId});
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
-    map['name'] = Variable<String>(name);
-    if (!nullToAbsent || parentId != null) {
-      map['parent_id'] = Variable<int>(parentId);
-    }
-    return map;
-  }
-
-  CategoriesCompanion toCompanion(bool nullToAbsent) {
-    return CategoriesCompanion(
-      id: Value(id),
-      name: Value(name),
-      parentId: parentId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(parentId),
-    );
-  }
-
-  factory Category.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Category(
-      id: serializer.fromJson<int>(json['id']),
-      name: serializer.fromJson<String>(json['name']),
-      parentId: serializer.fromJson<int?>(json['parentId']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
-      'name': serializer.toJson<String>(name),
-      'parentId': serializer.toJson<int?>(parentId),
-    };
-  }
-
-  Category copyWith({
-    int? id,
-    String? name,
-    Value<int?> parentId = const Value.absent(),
-  }) => Category(
-    id: id ?? this.id,
-    name: name ?? this.name,
-    parentId: parentId.present ? parentId.value : this.parentId,
-  );
-  Category copyWithCompanion(CategoriesCompanion data) {
-    return Category(
-      id: data.id.present ? data.id.value : this.id,
-      name: data.name.present ? data.name.value : this.name,
-      parentId: data.parentId.present ? data.parentId.value : this.parentId,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('Category(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('parentId: $parentId')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(id, name, parentId);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is Category &&
-          other.id == this.id &&
-          other.name == this.name &&
-          other.parentId == this.parentId);
-}
-
-class CategoriesCompanion extends UpdateCompanion<Category> {
-  final Value<int> id;
-  final Value<String> name;
-  final Value<int?> parentId;
-  const CategoriesCompanion({
-    this.id = const Value.absent(),
-    this.name = const Value.absent(),
-    this.parentId = const Value.absent(),
-  });
-  CategoriesCompanion.insert({
-    this.id = const Value.absent(),
-    required String name,
-    this.parentId = const Value.absent(),
-  }) : name = Value(name);
-  static Insertable<Category> custom({
-    Expression<int>? id,
-    Expression<String>? name,
-    Expression<int>? parentId,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (name != null) 'name': name,
-      if (parentId != null) 'parent_id': parentId,
-    });
-  }
-
-  CategoriesCompanion copyWith({
-    Value<int>? id,
-    Value<String>? name,
-    Value<int?>? parentId,
-  }) {
-    return CategoriesCompanion(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      parentId: parentId ?? this.parentId,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<int>(id.value);
-    }
-    if (name.present) {
-      map['name'] = Variable<String>(name.value);
-    }
-    if (parentId.present) {
-      map['parent_id'] = Variable<int>(parentId.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('CategoriesCompanion(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('parentId: $parentId')
-          ..write(')'))
-        .toString();
-  }
-}
-
-class $AccountStylesTable extends AccountStyles
-    with TableInfo<$AccountStylesTable, AccountStyle> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $AccountStylesTable(this.attachedDatabase, [this._alias]);
+  $StylesTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -874,10 +618,10 @@ class $AccountStylesTable extends AccountStyles
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'account_styles';
+  static const String $name = 'styles';
   @override
   VerificationContext validateIntegrity(
-    Insertable<AccountStyle> instance, {
+    Insertable<Style> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -915,9 +659,9 @@ class $AccountStylesTable extends AccountStyles
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  AccountStyle map(Map<String, dynamic> data, {String? tablePrefix}) {
+  Style map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return AccountStyle(
+    return Style(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -938,17 +682,17 @@ class $AccountStylesTable extends AccountStyles
   }
 
   @override
-  $AccountStylesTable createAlias(String alias) {
-    return $AccountStylesTable(attachedDatabase, alias);
+  $StylesTable createAlias(String alias) {
+    return $StylesTable(attachedDatabase, alias);
   }
 }
 
-class AccountStyle extends DataClass implements Insertable<AccountStyle> {
+class Style extends DataClass implements Insertable<Style> {
   final int id;
   final String name;
   final String iconName;
   final String colorHex;
-  const AccountStyle({
+  const Style({
     required this.id,
     required this.name,
     required this.iconName,
@@ -964,8 +708,8 @@ class AccountStyle extends DataClass implements Insertable<AccountStyle> {
     return map;
   }
 
-  AccountStylesCompanion toCompanion(bool nullToAbsent) {
-    return AccountStylesCompanion(
+  StylesCompanion toCompanion(bool nullToAbsent) {
+    return StylesCompanion(
       id: Value(id),
       name: Value(name),
       iconName: Value(iconName),
@@ -973,12 +717,12 @@ class AccountStyle extends DataClass implements Insertable<AccountStyle> {
     );
   }
 
-  factory AccountStyle.fromJson(
+  factory Style.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return AccountStyle(
+    return Style(
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       iconName: serializer.fromJson<String>(json['iconName']),
@@ -996,19 +740,15 @@ class AccountStyle extends DataClass implements Insertable<AccountStyle> {
     };
   }
 
-  AccountStyle copyWith({
-    int? id,
-    String? name,
-    String? iconName,
-    String? colorHex,
-  }) => AccountStyle(
-    id: id ?? this.id,
-    name: name ?? this.name,
-    iconName: iconName ?? this.iconName,
-    colorHex: colorHex ?? this.colorHex,
-  );
-  AccountStyle copyWithCompanion(AccountStylesCompanion data) {
-    return AccountStyle(
+  Style copyWith({int? id, String? name, String? iconName, String? colorHex}) =>
+      Style(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        iconName: iconName ?? this.iconName,
+        colorHex: colorHex ?? this.colorHex,
+      );
+  Style copyWithCompanion(StylesCompanion data) {
+    return Style(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       iconName: data.iconName.present ? data.iconName.value : this.iconName,
@@ -1018,7 +758,7 @@ class AccountStyle extends DataClass implements Insertable<AccountStyle> {
 
   @override
   String toString() {
-    return (StringBuffer('AccountStyle(')
+    return (StringBuffer('Style(')
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('iconName: $iconName, ')
@@ -1032,25 +772,25 @@ class AccountStyle extends DataClass implements Insertable<AccountStyle> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is AccountStyle &&
+      (other is Style &&
           other.id == this.id &&
           other.name == this.name &&
           other.iconName == this.iconName &&
           other.colorHex == this.colorHex);
 }
 
-class AccountStylesCompanion extends UpdateCompanion<AccountStyle> {
+class StylesCompanion extends UpdateCompanion<Style> {
   final Value<int> id;
   final Value<String> name;
   final Value<String> iconName;
   final Value<String> colorHex;
-  const AccountStylesCompanion({
+  const StylesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.iconName = const Value.absent(),
     this.colorHex = const Value.absent(),
   });
-  AccountStylesCompanion.insert({
+  StylesCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     required String iconName,
@@ -1058,7 +798,7 @@ class AccountStylesCompanion extends UpdateCompanion<AccountStyle> {
   }) : name = Value(name),
        iconName = Value(iconName),
        colorHex = Value(colorHex);
-  static Insertable<AccountStyle> custom({
+  static Insertable<Style> custom({
     Expression<int>? id,
     Expression<String>? name,
     Expression<String>? iconName,
@@ -1072,13 +812,13 @@ class AccountStylesCompanion extends UpdateCompanion<AccountStyle> {
     });
   }
 
-  AccountStylesCompanion copyWith({
+  StylesCompanion copyWith({
     Value<int>? id,
     Value<String>? name,
     Value<String>? iconName,
     Value<String>? colorHex,
   }) {
-    return AccountStylesCompanion(
+    return StylesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       iconName: iconName ?? this.iconName,
@@ -1106,11 +846,321 @@ class AccountStylesCompanion extends UpdateCompanion<AccountStyle> {
 
   @override
   String toString() {
-    return (StringBuffer('AccountStylesCompanion(')
+    return (StringBuffer('StylesCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('iconName: $iconName, ')
           ..write('colorHex: $colorHex')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CategoriesTable extends Categories
+    with TableInfo<$CategoriesTable, Category> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CategoriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 50,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _parentIdMeta = const VerificationMeta(
+    'parentId',
+  );
+  @override
+  late final GeneratedColumn<int> parentId = GeneratedColumn<int>(
+    'parent_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES categories (id)',
+    ),
+  );
+  static const VerificationMeta _styleIdMeta = const VerificationMeta(
+    'styleId',
+  );
+  @override
+  late final GeneratedColumn<int> styleId = GeneratedColumn<int>(
+    'style_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES styles (id)',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, parentId, styleId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'categories';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Category> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('parent_id')) {
+      context.handle(
+        _parentIdMeta,
+        parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta),
+      );
+    }
+    if (data.containsKey('style_id')) {
+      context.handle(
+        _styleIdMeta,
+        styleId.isAcceptableOrUnknown(data['style_id']!, _styleIdMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Category map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Category(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      parentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}parent_id'],
+      ),
+      styleId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}style_id'],
+      ),
+    );
+  }
+
+  @override
+  $CategoriesTable createAlias(String alias) {
+    return $CategoriesTable(attachedDatabase, alias);
+  }
+}
+
+class Category extends DataClass implements Insertable<Category> {
+  final int id;
+  final String name;
+  final int? parentId;
+  final int? styleId;
+  const Category({
+    required this.id,
+    required this.name,
+    this.parentId,
+    this.styleId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || parentId != null) {
+      map['parent_id'] = Variable<int>(parentId);
+    }
+    if (!nullToAbsent || styleId != null) {
+      map['style_id'] = Variable<int>(styleId);
+    }
+    return map;
+  }
+
+  CategoriesCompanion toCompanion(bool nullToAbsent) {
+    return CategoriesCompanion(
+      id: Value(id),
+      name: Value(name),
+      parentId: parentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentId),
+      styleId: styleId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(styleId),
+    );
+  }
+
+  factory Category.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Category(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      parentId: serializer.fromJson<int?>(json['parentId']),
+      styleId: serializer.fromJson<int?>(json['styleId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'parentId': serializer.toJson<int?>(parentId),
+      'styleId': serializer.toJson<int?>(styleId),
+    };
+  }
+
+  Category copyWith({
+    int? id,
+    String? name,
+    Value<int?> parentId = const Value.absent(),
+    Value<int?> styleId = const Value.absent(),
+  }) => Category(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    parentId: parentId.present ? parentId.value : this.parentId,
+    styleId: styleId.present ? styleId.value : this.styleId,
+  );
+  Category copyWithCompanion(CategoriesCompanion data) {
+    return Category(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      parentId: data.parentId.present ? data.parentId.value : this.parentId,
+      styleId: data.styleId.present ? data.styleId.value : this.styleId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Category(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('parentId: $parentId, ')
+          ..write('styleId: $styleId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, parentId, styleId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Category &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.parentId == this.parentId &&
+          other.styleId == this.styleId);
+}
+
+class CategoriesCompanion extends UpdateCompanion<Category> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<int?> parentId;
+  final Value<int?> styleId;
+  const CategoriesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.parentId = const Value.absent(),
+    this.styleId = const Value.absent(),
+  });
+  CategoriesCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.parentId = const Value.absent(),
+    this.styleId = const Value.absent(),
+  }) : name = Value(name);
+  static Insertable<Category> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<int>? parentId,
+    Expression<int>? styleId,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (parentId != null) 'parent_id': parentId,
+      if (styleId != null) 'style_id': styleId,
+    });
+  }
+
+  CategoriesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<int?>? parentId,
+    Value<int?>? styleId,
+  }) {
+    return CategoriesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      parentId: parentId ?? this.parentId,
+      styleId: styleId ?? this.styleId,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (parentId.present) {
+      map['parent_id'] = Variable<int>(parentId.value);
+    }
+    if (styleId.present) {
+      map['style_id'] = Variable<int>(styleId.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CategoriesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('parentId: $parentId, ')
+          ..write('styleId: $styleId')
           ..write(')'))
         .toString();
   }
@@ -1399,7 +1449,7 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES account_styles (id)',
+      'REFERENCES styles (id)',
     ),
   );
   static const VerificationMeta _accountTypeIdMeta = const VerificationMeta(
@@ -2862,8 +2912,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CurrenciesTable currencies = $CurrenciesTable(this);
   late final $CurrencyDesignationsTable currencyDesignations =
       $CurrencyDesignationsTable(this);
+  late final $StylesTable styles = $StylesTable(this);
   late final $CategoriesTable categories = $CategoriesTable(this);
-  late final $AccountStylesTable accountStyles = $AccountStylesTable(this);
   late final $AccountTypesTable accountTypes = $AccountTypesTable(this);
   late final $AccountsTable accounts = $AccountsTable(this);
   late final $TransactionsTable transactions = $TransactionsTable(this);
@@ -2873,9 +2923,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       CurrencyDesignationsDao(this as AppDatabase);
   late final CurrenciesDao currenciesDao = CurrenciesDao(this as AppDatabase);
   late final CategoriesDao categoriesDao = CategoriesDao(this as AppDatabase);
-  late final AccountStylesDao accountStylesDao = AccountStylesDao(
-    this as AppDatabase,
-  );
+  late final StylesDao stylesDao = StylesDao(this as AppDatabase);
   late final AccountTypesDao accountTypesDao = AccountTypesDao(
     this as AppDatabase,
   );
@@ -2894,8 +2942,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     currencies,
     currencyDesignations,
+    styles,
     categories,
-    accountStyles,
     accountTypes,
     accounts,
     transactions,
@@ -3755,17 +3803,385 @@ typedef $$CurrencyDesignationsTableProcessedTableManager =
       CurrencyDesignation,
       PrefetchHooks Function({bool currencyId, bool accountsRefs})
     >;
+typedef $$StylesTableCreateCompanionBuilder =
+    StylesCompanion Function({
+      Value<int> id,
+      required String name,
+      required String iconName,
+      required String colorHex,
+    });
+typedef $$StylesTableUpdateCompanionBuilder =
+    StylesCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<String> iconName,
+      Value<String> colorHex,
+    });
+
+final class $$StylesTableReferences
+    extends BaseReferences<_$AppDatabase, $StylesTable, Style> {
+  $$StylesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$CategoriesTable, List<Category>>
+  _categoriesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.categories,
+    aliasName: $_aliasNameGenerator(db.styles.id, db.categories.styleId),
+  );
+
+  $$CategoriesTableProcessedTableManager get categoriesRefs {
+    final manager = $$CategoriesTableTableManager(
+      $_db,
+      $_db.categories,
+    ).filter((f) => f.styleId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_categoriesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$AccountsTable, List<Account>> _accountsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.accounts,
+    aliasName: $_aliasNameGenerator(db.styles.id, db.accounts.styleId),
+  );
+
+  $$AccountsTableProcessedTableManager get accountsRefs {
+    final manager = $$AccountsTableTableManager(
+      $_db,
+      $_db.accounts,
+    ).filter((f) => f.styleId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_accountsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$StylesTableFilterComposer
+    extends Composer<_$AppDatabase, $StylesTable> {
+  $$StylesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get iconName => $composableBuilder(
+    column: $table.iconName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get colorHex => $composableBuilder(
+    column: $table.colorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> categoriesRefs(
+    Expression<bool> Function($$CategoriesTableFilterComposer f) f,
+  ) {
+    final $$CategoriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.categories,
+      getReferencedColumn: (t) => t.styleId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CategoriesTableFilterComposer(
+            $db: $db,
+            $table: $db.categories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> accountsRefs(
+    Expression<bool> Function($$AccountsTableFilterComposer f) f,
+  ) {
+    final $$AccountsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.styleId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableFilterComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$StylesTableOrderingComposer
+    extends Composer<_$AppDatabase, $StylesTable> {
+  $$StylesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get iconName => $composableBuilder(
+    column: $table.iconName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get colorHex => $composableBuilder(
+    column: $table.colorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$StylesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $StylesTable> {
+  $$StylesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get iconName =>
+      $composableBuilder(column: $table.iconName, builder: (column) => column);
+
+  GeneratedColumn<String> get colorHex =>
+      $composableBuilder(column: $table.colorHex, builder: (column) => column);
+
+  Expression<T> categoriesRefs<T extends Object>(
+    Expression<T> Function($$CategoriesTableAnnotationComposer a) f,
+  ) {
+    final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.categories,
+      getReferencedColumn: (t) => t.styleId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CategoriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.categories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> accountsRefs<T extends Object>(
+    Expression<T> Function($$AccountsTableAnnotationComposer a) f,
+  ) {
+    final $$AccountsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.styleId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$StylesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $StylesTable,
+          Style,
+          $$StylesTableFilterComposer,
+          $$StylesTableOrderingComposer,
+          $$StylesTableAnnotationComposer,
+          $$StylesTableCreateCompanionBuilder,
+          $$StylesTableUpdateCompanionBuilder,
+          (Style, $$StylesTableReferences),
+          Style,
+          PrefetchHooks Function({bool categoriesRefs, bool accountsRefs})
+        > {
+  $$StylesTableTableManager(_$AppDatabase db, $StylesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StylesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StylesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$StylesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> iconName = const Value.absent(),
+                Value<String> colorHex = const Value.absent(),
+              }) => StylesCompanion(
+                id: id,
+                name: name,
+                iconName: iconName,
+                colorHex: colorHex,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                required String iconName,
+                required String colorHex,
+              }) => StylesCompanion.insert(
+                id: id,
+                name: name,
+                iconName: iconName,
+                colorHex: colorHex,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) =>
+                    (e.readTable(table), $$StylesTableReferences(db, table, e)),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({categoriesRefs = false, accountsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (categoriesRefs) db.categories,
+                    if (accountsRefs) db.accounts,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (categoriesRefs)
+                        await $_getPrefetchedData<
+                          Style,
+                          $StylesTable,
+                          Category
+                        >(
+                          currentTable: table,
+                          referencedTable: $$StylesTableReferences
+                              ._categoriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$StylesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).categoriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.styleId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (accountsRefs)
+                        await $_getPrefetchedData<Style, $StylesTable, Account>(
+                          currentTable: table,
+                          referencedTable: $$StylesTableReferences
+                              ._accountsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$StylesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).accountsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.styleId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$StylesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $StylesTable,
+      Style,
+      $$StylesTableFilterComposer,
+      $$StylesTableOrderingComposer,
+      $$StylesTableAnnotationComposer,
+      $$StylesTableCreateCompanionBuilder,
+      $$StylesTableUpdateCompanionBuilder,
+      (Style, $$StylesTableReferences),
+      Style,
+      PrefetchHooks Function({bool categoriesRefs, bool accountsRefs})
+    >;
 typedef $$CategoriesTableCreateCompanionBuilder =
     CategoriesCompanion Function({
       Value<int> id,
       required String name,
       Value<int?> parentId,
+      Value<int?> styleId,
     });
 typedef $$CategoriesTableUpdateCompanionBuilder =
     CategoriesCompanion Function({
       Value<int> id,
       Value<String> name,
       Value<int?> parentId,
+      Value<int?> styleId,
     });
 
 final class $$CategoriesTableReferences
@@ -3785,6 +4201,24 @@ final class $$CategoriesTableReferences
       $_db.categories,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_parentIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $StylesTable _styleIdTable(_$AppDatabase db) => db.styles.createAlias(
+    $_aliasNameGenerator(db.categories.styleId, db.styles.id),
+  );
+
+  $$StylesTableProcessedTableManager? get styleId {
+    final $_column = $_itemColumn<int>('style_id');
+    if ($_column == null) return null;
+    final manager = $$StylesTableTableManager(
+      $_db,
+      $_db.styles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_styleIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -3846,6 +4280,29 @@ class $$CategoriesTableFilterComposer
           }) => $$CategoriesTableFilterComposer(
             $db: $db,
             $table: $db.categories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$StylesTableFilterComposer get styleId {
+    final $$StylesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.styleId,
+      referencedTable: $db.styles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StylesTableFilterComposer(
+            $db: $db,
+            $table: $db.styles,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3922,6 +4379,29 @@ class $$CategoriesTableOrderingComposer
     );
     return composer;
   }
+
+  $$StylesTableOrderingComposer get styleId {
+    final $$StylesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.styleId,
+      referencedTable: $db.styles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StylesTableOrderingComposer(
+            $db: $db,
+            $table: $db.styles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CategoriesTableAnnotationComposer
@@ -3953,6 +4433,29 @@ class $$CategoriesTableAnnotationComposer
           }) => $$CategoriesTableAnnotationComposer(
             $db: $db,
             $table: $db.categories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$StylesTableAnnotationComposer get styleId {
+    final $$StylesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.styleId,
+      referencedTable: $db.styles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StylesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.styles,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4001,7 +4504,11 @@ class $$CategoriesTableTableManager
           $$CategoriesTableUpdateCompanionBuilder,
           (Category, $$CategoriesTableReferences),
           Category,
-          PrefetchHooks Function({bool parentId, bool transactionsRefs})
+          PrefetchHooks Function({
+            bool parentId,
+            bool styleId,
+            bool transactionsRefs,
+          })
         > {
   $$CategoriesTableTableManager(_$AppDatabase db, $CategoriesTable table)
     : super(
@@ -4019,16 +4526,24 @@ class $$CategoriesTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<int?> parentId = const Value.absent(),
-              }) => CategoriesCompanion(id: id, name: name, parentId: parentId),
+                Value<int?> styleId = const Value.absent(),
+              }) => CategoriesCompanion(
+                id: id,
+                name: name,
+                parentId: parentId,
+                styleId: styleId,
+              ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required String name,
                 Value<int?> parentId = const Value.absent(),
+                Value<int?> styleId = const Value.absent(),
               }) => CategoriesCompanion.insert(
                 id: id,
                 name: name,
                 parentId: parentId,
+                styleId: styleId,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -4039,7 +4554,7 @@ class $$CategoriesTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({parentId = false, transactionsRefs = false}) {
+              ({parentId = false, styleId = false, transactionsRefs = false}) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
@@ -4071,6 +4586,20 @@ class $$CategoriesTableTableManager
                                     referencedColumn:
                                         $$CategoriesTableReferences
                                             ._parentIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (styleId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.styleId,
+                                    referencedTable: $$CategoriesTableReferences
+                                        ._styleIdTable(db),
+                                    referencedColumn:
+                                        $$CategoriesTableReferences
+                                            ._styleIdTable(db)
                                             .id,
                                   )
                                   as T;
@@ -4121,288 +4650,11 @@ typedef $$CategoriesTableProcessedTableManager =
       $$CategoriesTableUpdateCompanionBuilder,
       (Category, $$CategoriesTableReferences),
       Category,
-      PrefetchHooks Function({bool parentId, bool transactionsRefs})
-    >;
-typedef $$AccountStylesTableCreateCompanionBuilder =
-    AccountStylesCompanion Function({
-      Value<int> id,
-      required String name,
-      required String iconName,
-      required String colorHex,
-    });
-typedef $$AccountStylesTableUpdateCompanionBuilder =
-    AccountStylesCompanion Function({
-      Value<int> id,
-      Value<String> name,
-      Value<String> iconName,
-      Value<String> colorHex,
-    });
-
-final class $$AccountStylesTableReferences
-    extends BaseReferences<_$AppDatabase, $AccountStylesTable, AccountStyle> {
-  $$AccountStylesTableReferences(
-    super.$_db,
-    super.$_table,
-    super.$_typedResult,
-  );
-
-  static MultiTypedResultKey<$AccountsTable, List<Account>> _accountsRefsTable(
-    _$AppDatabase db,
-  ) => MultiTypedResultKey.fromTable(
-    db.accounts,
-    aliasName: $_aliasNameGenerator(db.accountStyles.id, db.accounts.styleId),
-  );
-
-  $$AccountsTableProcessedTableManager get accountsRefs {
-    final manager = $$AccountsTableTableManager(
-      $_db,
-      $_db.accounts,
-    ).filter((f) => f.styleId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_accountsRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
-}
-
-class $$AccountStylesTableFilterComposer
-    extends Composer<_$AppDatabase, $AccountStylesTable> {
-  $$AccountStylesTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<int> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get iconName => $composableBuilder(
-    column: $table.iconName,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get colorHex => $composableBuilder(
-    column: $table.colorHex,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  Expression<bool> accountsRefs(
-    Expression<bool> Function($$AccountsTableFilterComposer f) f,
-  ) {
-    final $$AccountsTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.accounts,
-      getReferencedColumn: (t) => t.styleId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$AccountsTableFilterComposer(
-            $db: $db,
-            $table: $db.accounts,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-}
-
-class $$AccountStylesTableOrderingComposer
-    extends Composer<_$AppDatabase, $AccountStylesTable> {
-  $$AccountStylesTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<int> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get iconName => $composableBuilder(
-    column: $table.iconName,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get colorHex => $composableBuilder(
-    column: $table.colorHex,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$AccountStylesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $AccountStylesTable> {
-  $$AccountStylesTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<int> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get name =>
-      $composableBuilder(column: $table.name, builder: (column) => column);
-
-  GeneratedColumn<String> get iconName =>
-      $composableBuilder(column: $table.iconName, builder: (column) => column);
-
-  GeneratedColumn<String> get colorHex =>
-      $composableBuilder(column: $table.colorHex, builder: (column) => column);
-
-  Expression<T> accountsRefs<T extends Object>(
-    Expression<T> Function($$AccountsTableAnnotationComposer a) f,
-  ) {
-    final $$AccountsTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.accounts,
-      getReferencedColumn: (t) => t.styleId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$AccountsTableAnnotationComposer(
-            $db: $db,
-            $table: $db.accounts,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-}
-
-class $$AccountStylesTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $AccountStylesTable,
-          AccountStyle,
-          $$AccountStylesTableFilterComposer,
-          $$AccountStylesTableOrderingComposer,
-          $$AccountStylesTableAnnotationComposer,
-          $$AccountStylesTableCreateCompanionBuilder,
-          $$AccountStylesTableUpdateCompanionBuilder,
-          (AccountStyle, $$AccountStylesTableReferences),
-          AccountStyle,
-          PrefetchHooks Function({bool accountsRefs})
-        > {
-  $$AccountStylesTableTableManager(_$AppDatabase db, $AccountStylesTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$AccountStylesTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$AccountStylesTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$AccountStylesTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<int> id = const Value.absent(),
-                Value<String> name = const Value.absent(),
-                Value<String> iconName = const Value.absent(),
-                Value<String> colorHex = const Value.absent(),
-              }) => AccountStylesCompanion(
-                id: id,
-                name: name,
-                iconName: iconName,
-                colorHex: colorHex,
-              ),
-          createCompanionCallback:
-              ({
-                Value<int> id = const Value.absent(),
-                required String name,
-                required String iconName,
-                required String colorHex,
-              }) => AccountStylesCompanion.insert(
-                id: id,
-                name: name,
-                iconName: iconName,
-                colorHex: colorHex,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable(table),
-                  $$AccountStylesTableReferences(db, table, e),
-                ),
-              )
-              .toList(),
-          prefetchHooksCallback: ({accountsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (accountsRefs) db.accounts],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (accountsRefs)
-                    await $_getPrefetchedData<
-                      AccountStyle,
-                      $AccountStylesTable,
-                      Account
-                    >(
-                      currentTable: table,
-                      referencedTable: $$AccountStylesTableReferences
-                          ._accountsRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$AccountStylesTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).accountsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.styleId == item.id),
-                      typedResults: items,
-                    ),
-                ];
-              },
-            );
-          },
-        ),
-      );
-}
-
-typedef $$AccountStylesTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $AccountStylesTable,
-      AccountStyle,
-      $$AccountStylesTableFilterComposer,
-      $$AccountStylesTableOrderingComposer,
-      $$AccountStylesTableAnnotationComposer,
-      $$AccountStylesTableCreateCompanionBuilder,
-      $$AccountStylesTableUpdateCompanionBuilder,
-      (AccountStyle, $$AccountStylesTableReferences),
-      AccountStyle,
-      PrefetchHooks Function({bool accountsRefs})
+      PrefetchHooks Function({
+        bool parentId,
+        bool styleId,
+        bool transactionsRefs,
+      })
     >;
 typedef $$AccountTypesTableCreateCompanionBuilder =
     AccountTypesCompanion Function({Value<int> id, required String name});
@@ -4705,17 +4957,16 @@ final class $$AccountsTableReferences
     );
   }
 
-  static $AccountStylesTable _styleIdTable(_$AppDatabase db) =>
-      db.accountStyles.createAlias(
-        $_aliasNameGenerator(db.accounts.styleId, db.accountStyles.id),
-      );
+  static $StylesTable _styleIdTable(_$AppDatabase db) => db.styles.createAlias(
+    $_aliasNameGenerator(db.accounts.styleId, db.styles.id),
+  );
 
-  $$AccountStylesTableProcessedTableManager? get styleId {
+  $$StylesTableProcessedTableManager? get styleId {
     final $_column = $_itemColumn<int>('style_id');
     if ($_column == null) return null;
-    final manager = $$AccountStylesTableTableManager(
+    final manager = $$StylesTableTableManager(
       $_db,
-      $_db.accountStyles,
+      $_db.styles,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_styleIdTable($_db));
     if (item == null) return manager;
@@ -4837,20 +5088,20 @@ class $$AccountsTableFilterComposer
     return composer;
   }
 
-  $$AccountStylesTableFilterComposer get styleId {
-    final $$AccountStylesTableFilterComposer composer = $composerBuilder(
+  $$StylesTableFilterComposer get styleId {
+    final $$StylesTableFilterComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.styleId,
-      referencedTable: $db.accountStyles,
+      referencedTable: $db.styles,
       getReferencedColumn: (t) => t.id,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$AccountStylesTableFilterComposer(
+          }) => $$StylesTableFilterComposer(
             $db: $db,
-            $table: $db.accountStyles,
+            $table: $db.styles,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4985,20 +5236,20 @@ class $$AccountsTableOrderingComposer
     return composer;
   }
 
-  $$AccountStylesTableOrderingComposer get styleId {
-    final $$AccountStylesTableOrderingComposer composer = $composerBuilder(
+  $$StylesTableOrderingComposer get styleId {
+    final $$StylesTableOrderingComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.styleId,
-      referencedTable: $db.accountStyles,
+      referencedTable: $db.styles,
       getReferencedColumn: (t) => t.id,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$AccountStylesTableOrderingComposer(
+          }) => $$StylesTableOrderingComposer(
             $db: $db,
-            $table: $db.accountStyles,
+            $table: $db.styles,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -5102,20 +5353,20 @@ class $$AccountsTableAnnotationComposer
     return composer;
   }
 
-  $$AccountStylesTableAnnotationComposer get styleId {
-    final $$AccountStylesTableAnnotationComposer composer = $composerBuilder(
+  $$StylesTableAnnotationComposer get styleId {
+    final $$StylesTableAnnotationComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.styleId,
-      referencedTable: $db.accountStyles,
+      referencedTable: $db.styles,
       getReferencedColumn: (t) => t.id,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$AccountStylesTableAnnotationComposer(
+          }) => $$StylesTableAnnotationComposer(
             $db: $db,
-            $table: $db.accountStyles,
+            $table: $db.styles,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -6467,10 +6718,10 @@ class $AppDatabaseManager {
       $$CurrenciesTableTableManager(_db, _db.currencies);
   $$CurrencyDesignationsTableTableManager get currencyDesignations =>
       $$CurrencyDesignationsTableTableManager(_db, _db.currencyDesignations);
+  $$StylesTableTableManager get styles =>
+      $$StylesTableTableManager(_db, _db.styles);
   $$CategoriesTableTableManager get categories =>
       $$CategoriesTableTableManager(_db, _db.categories);
-  $$AccountStylesTableTableManager get accountStyles =>
-      $$AccountStylesTableTableManager(_db, _db.accountStyles);
   $$AccountTypesTableTableManager get accountTypes =>
       $$AccountTypesTableTableManager(_db, _db.accountTypes);
   $$AccountsTableTableManager get accounts =>

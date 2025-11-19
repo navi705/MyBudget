@@ -1,23 +1,23 @@
-class AccountStyle {
+class Style {
   final int? id;
   final String name;
   final String iconName;
   final String colorHex;
 
-  AccountStyle({
+  Style({
     this.id,
     required this.name,
     required this.iconName,
     required this.colorHex,
   });
 
-  AccountStyle copyWith({
+  Style copyWith({
     int? id,
     String? name,
     String? iconName,
     String? colorHex,
   }) {
-    return AccountStyle(
+    return Style(
       id: id ?? this.id,
       name: name ?? this.name,
       iconName: iconName ?? this.iconName,

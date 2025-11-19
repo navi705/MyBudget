@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:my_budget_client/presentation/blocs/account_styles/account_styles_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/widgets/add_style_dialog.dart';
 
@@ -29,14 +29,14 @@ class ManageStylesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Account Styles'),
+        title: const Text('Manage Styles'),
       ),
-      body: BlocBuilder<AccountStylesBloc, AccountStylesState>(
+      body: BlocBuilder<StylesBloc, StylesState>(
         builder: (context, state) {
-          if (state is AccountStylesLoadInProgress) {
+          if (state is StylesLoadInProgress) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (state is AccountStylesLoadSuccess) {
+          if (state is StylesLoadSuccess) {
             if (state.styles.isEmpty) {
               return const Center(child: Text('No styles created yet.'));
             }
@@ -82,7 +82,7 @@ class ManageStylesScreen extends StatelessWidget {
                                 ),
                                 TextButton(
                                   onPressed: () {
-                                    context.read<AccountStylesBloc>().add(DeleteAccountStyle(style.id!));
+                                    context.read<StylesBloc>().add(DeleteStyle(style.id!));
                                     Navigator.of(dialogContext).pop();
                                   },
                                   child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
@@ -106,7 +106,7 @@ class ManageStylesScreen extends StatelessWidget {
           showDialog(
             context: context,
             builder: (_) => BlocProvider.value(
-              value: BlocProvider.of<AccountStylesBloc>(context),
+              value: BlocProvider.of<StylesBloc>(context),
               child: const AddStyleDialog(),
             ),
           );

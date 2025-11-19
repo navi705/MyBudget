@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:my_budget_client/domain/entities/account_style.dart';
-import 'package:my_budget_client/presentation/blocs/account_styles/account_styles_bloc.dart';
+import 'package:my_budget_client/domain/entities/style.dart';
+import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 
 class EditStyleScreen extends StatefulWidget {
   final String styleId;
@@ -19,7 +19,7 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
   String? _selectedIconName;
   String? _selectedColorHex;
 
-  AccountStyle? _initialStyle;
+  Style? _initialStyle;
 
   final List<String> _iconNames = ['wallet', 'savings', 'credit_card', 'account_balance'];
   final List<String> _colorHexes = ['#4CAF50', '#2196F3', '#F44336', '#FFC107', '#9C27B0', '#E91E63'];
@@ -29,8 +29,8 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
     super.initState();
     _nameController = TextEditingController();
 
-    final stylesState = context.read<AccountStylesBloc>().state;
-    if (stylesState is AccountStylesLoadSuccess) {
+    final stylesState = context.read<StylesBloc>().state;
+    if (stylesState is StylesLoadSuccess) {
       try {
         _initialStyle = stylesState.styles.firstWhere(
           (style) => style.id.toString() == widget.styleId,
@@ -69,13 +69,13 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
 
   void _onSave() {
     if (_formKey.currentState!.validate()) {
-      final updatedStyle = AccountStyle(
+      final updatedStyle = Style(
         id: _initialStyle!.id,
         name: _nameController.text,
         iconName: _selectedIconName!,
         colorHex: _selectedColorHex!,
       );
-      context.read<AccountStylesBloc>().add(UpdateAccountStyle(updatedStyle));
+      context.read<StylesBloc>().add(UpdateStyle(updatedStyle));
       context.pop();
     }
   }

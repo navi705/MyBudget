@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
-import 'package:my_budget_client/presentation/blocs/account_styles/account_styles_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 
@@ -142,9 +142,9 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                   return const SizedBox.shrink();
                 },
               ),
-              BlocBuilder<AccountStylesBloc, AccountStylesState>(
+              BlocBuilder<StylesBloc, StylesState>(
                 builder: (context, state) {
-                  if (state is AccountStylesLoadSuccess) {
+                  if (state is StylesLoadSuccess) {
                     _selectedStyleId ??= state.styles.first.id;
                     return DropdownButtonFormField<int>(
                       initialValue: _selectedStyleId,

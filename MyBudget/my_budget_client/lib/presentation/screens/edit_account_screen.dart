@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
-import 'package:my_budget_client/presentation/blocs/account_styles/account_styles_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 
@@ -193,9 +193,9 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                 },
               ),
               const SizedBox(height: 16), // Added spacing for new field
-              BlocBuilder<AccountStylesBloc, AccountStylesState>(
+              BlocBuilder<StylesBloc, StylesState>(
                 builder: (context, state) {
-                  if (state is AccountStylesLoadSuccess) {
+                  if (state is StylesLoadSuccess) {
                     return DropdownButtonFormField<int>(
                       initialValue: _selectedStyleId,
                       decoration: const InputDecoration(labelText: 'Style'), // TODO: Localize

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:my_budget_client/domain/entities/account_style.dart';
-import 'package:my_budget_client/presentation/blocs/account_styles/account_styles_bloc.dart';
+import 'package:my_budget_client/domain/entities/style.dart';
+import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 
 class AddStyleDialog extends StatefulWidget {
   const AddStyleDialog({super.key});
@@ -45,12 +45,12 @@ class _AddStyleDialogState extends State<AddStyleDialog> {
 
   void _onSave() {
     if (_formKey.currentState!.validate()) {
-      final newStyle = AccountStyle(
+      final newStyle = Style(
         name: _nameController.text,
         iconName: _selectedIconName,
         colorHex: _selectedColorHex,
       );
-      context.read<AccountStylesBloc>().add(AddAccountStyle(newStyle));
+      context.read<StylesBloc>().add(AddStyle(newStyle));
       Navigator.of(context).pop();
     }
   }

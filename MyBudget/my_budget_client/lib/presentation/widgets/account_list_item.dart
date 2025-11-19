@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
-import 'package:my_budget_client/domain/entities/account_style.dart';
-import 'package:my_budget_client/presentation/blocs/account_styles/account_styles_bloc.dart';
+import 'package:my_budget_client/domain/entities/style.dart';
+import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart'; // Added
 import 'package:my_budget_client/domain/entities/currency_designation.dart'; // Added
@@ -52,10 +52,10 @@ class AccountListItem extends StatelessWidget {
           }
         }
 
-        return BlocBuilder<AccountStylesBloc, AccountStylesState>(
+        return BlocBuilder<StylesBloc, StylesState>(
           builder: (context, styleState) {
-            AccountStyle? style;
-            if (styleState is AccountStylesLoadSuccess) {
+            Style? style;
+            if (styleState is StylesLoadSuccess) {
               try {
                 style = styleState.styles.firstWhere((s) => s.id == account.styleId);
               } on StateError {

@@ -3,11 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:my_budget_client/app.dart';
 import 'package:my_budget_client/core/di/injection_container.dart' as sl;
-import 'package:my_budget_client/presentation/blocs/account_styles/account_styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,7 +35,13 @@ class MainApp extends StatelessWidget {
           create: (context) => sl.sl<CurrencyBloc>()..add(LoadCurrencies()),
         ),
         BlocProvider(
-          create: (context) => sl.sl<AccountStylesBloc>()..add(LoadAccountStyles()),
+          create: (context) => sl.sl<StylesBloc>()..add(LoadStyles()),
+        ),
+        BlocProvider(
+          create: (context) => sl.sl<CategoriesBloc>()..add(LoadCategories()),
+        ),
+        BlocProvider(
+          create: (context) => sl.sl<TransactionsBloc>()..add(LoadTransactions()),
         ),
         BlocProvider(
           create: (context) => sl.sl<CurrencyConverterBloc>()..add(LoadCurrencyConverter()),
