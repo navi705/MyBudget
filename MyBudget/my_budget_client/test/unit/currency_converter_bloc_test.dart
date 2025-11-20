@@ -25,47 +25,54 @@ void main() {
   late MockSettingsRepository mockSettingsRepository;
   late CurrencyConverterBloc currencyConverterBloc;
 
+  final testAccounts = const [
+    Account(
+      id: 1,
+      name: 'Account 1',
+      balance: 100,
+      currencyId: 1,
+      currencyDesignationId: 1,
+      accountTypeId: 1,
+    ),
+    Account(
+      id: 2,
+      name: 'Account 2',
+      balance: 50,
+      currencyId: 2,
+      currencyDesignationId: 2,
+      accountTypeId: 1,
+    ),
+  ];
+
+  final testCurrencies = const [
+    Currency(id: 1, name: 'US Dollar', code: 'USD'),
+    Currency(id: 2, name: 'Euro', code: 'EUR'),
+  ];
+
+  final testExchangeRates = [
+    ExchangeRate(
+        fromCurrencyId: 1,
+        toCurrencyId: 2,
+        rate: 0.9,
+        date: DateTime.now()),
+  ];
+
+  final testSetting = const db.Setting(
+      key: 'conversion_base_currency_id', value: '1');
+
   setUp(() {
     mockCurrencyRepository = MockCurrencyRepository();
     mockAccountRepository = MockAccountRepository();
     mockSettingsRepository = MockSettingsRepository();
 
-    // Mock the streams
     when(mockCurrencyRepository.watchCurrencies())
-        .thenAnswer((_) => Stream.value(const [
-              Currency(id: 1, name: 'US Dollar', code: 'USD'),
-              Currency(id: 2, name: 'Euro', code: 'EUR'),
-            ]));
+        .thenAnswer((_) => Stream.value(testCurrencies));
     when(mockCurrencyRepository.watchAllExchangeRates())
-        .thenAnswer((_) => Stream.value([
-              ExchangeRate(
-                  fromCurrencyId: 1,
-                  toCurrencyId: 2,
-                  rate: 0.9,
-                  date: DateTime.now()),
-            ]));
+        .thenAnswer((_) => Stream.value(testExchangeRates));
     when(mockAccountRepository.watchAccounts())
-        .thenAnswer((_) => Stream.value(const [
-              Account(
-                id: 1,
-                name: 'Account 1',
-                balance: 100,
-                currencyId: 1,
-                currencyDesignationId: 1,
-                accountTypeId: 1,
-              ),
-              Account(
-                id: 2,
-                name: 'Account 2',
-                balance: 50,
-                currencyId: 2,
-                currencyDesignationId: 2,
-                accountTypeId: 1,
-              ),
-            ]));
+        .thenAnswer((_) => Stream.value(testAccounts));
     when(mockSettingsRepository.watchSetting('conversion_base_currency_id'))
-        .thenAnswer((_) => Stream.value(const db.Setting(
-            key: 'conversion_base_currency_id', value: '1')));
+        .thenAnswer((_) => Stream.value(testSetting));
     
     currencyConverterBloc = CurrencyConverterBloc(
       currencyRepository: mockCurrencyRepository,

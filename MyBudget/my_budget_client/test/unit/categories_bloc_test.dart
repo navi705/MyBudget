@@ -41,16 +41,20 @@ void main() {
         setUp: () {
           when(mockCategoryRepository.watchCategories())
               .thenAnswer((_) => Stream.value(testCategories));
+          when(mockCategoryRepository.watchCategoryTotals())
+              .thenAnswer((_) => Stream.value({1: 100.0}));
         },
         build: () => categoriesBloc,
         act: (bloc) => bloc.add(LoadCategories()),
         expect: () => [
           CategoriesLoadInProgress(),
           isA<CategoriesLoadSuccess>()
-              .having((s) => s.categories, 'categories', testCategories),
+              .having((s) => s.categories, 'categories', testCategories)
+              .having((s) => s.categoryTotals, 'categoryTotals', {1: 100.0}),
         ],
         verify: (_) {
           verify(mockCategoryRepository.watchCategories()).called(1);
+          verify(mockCategoryRepository.watchCategoryTotals()).called(1);
         },
       );
 
@@ -58,6 +62,8 @@ void main() {
         'emits [CategoriesLoadInProgress, CategoriesLoadFailure] when category stream throws error.',
         setUp: () {
           when(mockCategoryRepository.watchCategories())
+              .thenAnswer((_) => Stream.error(Exception('Failed to load')));
+          when(mockCategoryRepository.watchCategoryTotals())
               .thenAnswer((_) => Stream.error(Exception('Failed to load')));
         },
         build: () => categoriesBloc,
@@ -68,6 +74,7 @@ void main() {
         ],
         verify: (_) {
           verify(mockCategoryRepository.watchCategories()).called(1);
+          verify(mockCategoryRepository.watchCategoryTotals()).called(1);
         },
       );
     });

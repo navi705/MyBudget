@@ -14,6 +14,12 @@ mixin _$CurrenciesDaoMixin on DatabaseAccessor<AppDatabase> {
 mixin _$CategoriesDaoMixin on DatabaseAccessor<AppDatabase> {
   $StylesTable get styles => attachedDatabase.styles;
   $CategoriesTable get categories => attachedDatabase.categories;
+  $CurrenciesTable get currencies => attachedDatabase.currencies;
+  $CurrencyDesignationsTable get currencyDesignations =>
+      attachedDatabase.currencyDesignations;
+  $AccountTypesTable get accountTypes => attachedDatabase.accountTypes;
+  $AccountsTable get accounts => attachedDatabase.accounts;
+  $TransactionsTable get transactions => attachedDatabase.transactions;
 }
 mixin _$StylesDaoMixin on DatabaseAccessor<AppDatabase> {
   $StylesTable get styles => attachedDatabase.styles;
@@ -917,7 +923,17 @@ class $CategoriesTable extends Categories
     ),
   );
   @override
-  List<GeneratedColumn> get $columns => [id, name, parentId, styleId];
+  late final GeneratedColumnWithTypeConverter<CategoryType, int> type =
+      GeneratedColumn<int>(
+        'type',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      ).withConverter<CategoryType>($CategoriesTable.$convertertype);
+  @override
+  List<GeneratedColumn> get $columns => [id, name, parentId, styleId, type];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -978,6 +994,12 @@ class $CategoriesTable extends Categories
         DriftSqlType.int,
         data['${effectivePrefix}style_id'],
       ),
+      type: $CategoriesTable.$convertertype.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}type'],
+        )!,
+      ),
     );
   }
 
@@ -985,6 +1007,9 @@ class $CategoriesTable extends Categories
   $CategoriesTable createAlias(String alias) {
     return $CategoriesTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<CategoryType, int, int> $convertertype =
+      const EnumIndexConverter(CategoryType.values);
 }
 
 class Category extends DataClass implements Insertable<Category> {
@@ -992,11 +1017,13 @@ class Category extends DataClass implements Insertable<Category> {
   final String name;
   final int? parentId;
   final int? styleId;
+  final CategoryType type;
   const Category({
     required this.id,
     required this.name,
     this.parentId,
     this.styleId,
+    required this.type,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1008,6 +1035,9 @@ class Category extends DataClass implements Insertable<Category> {
     }
     if (!nullToAbsent || styleId != null) {
       map['style_id'] = Variable<int>(styleId);
+    }
+    {
+      map['type'] = Variable<int>($CategoriesTable.$convertertype.toSql(type));
     }
     return map;
   }
@@ -1022,6 +1052,7 @@ class Category extends DataClass implements Insertable<Category> {
       styleId: styleId == null && nullToAbsent
           ? const Value.absent()
           : Value(styleId),
+      type: Value(type),
     );
   }
 
@@ -1035,6 +1066,9 @@ class Category extends DataClass implements Insertable<Category> {
       name: serializer.fromJson<String>(json['name']),
       parentId: serializer.fromJson<int?>(json['parentId']),
       styleId: serializer.fromJson<int?>(json['styleId']),
+      type: $CategoriesTable.$convertertype.fromJson(
+        serializer.fromJson<int>(json['type']),
+      ),
     );
   }
   @override
@@ -1045,6 +1079,9 @@ class Category extends DataClass implements Insertable<Category> {
       'name': serializer.toJson<String>(name),
       'parentId': serializer.toJson<int?>(parentId),
       'styleId': serializer.toJson<int?>(styleId),
+      'type': serializer.toJson<int>(
+        $CategoriesTable.$convertertype.toJson(type),
+      ),
     };
   }
 
@@ -1053,11 +1090,13 @@ class Category extends DataClass implements Insertable<Category> {
     String? name,
     Value<int?> parentId = const Value.absent(),
     Value<int?> styleId = const Value.absent(),
+    CategoryType? type,
   }) => Category(
     id: id ?? this.id,
     name: name ?? this.name,
     parentId: parentId.present ? parentId.value : this.parentId,
     styleId: styleId.present ? styleId.value : this.styleId,
+    type: type ?? this.type,
   );
   Category copyWithCompanion(CategoriesCompanion data) {
     return Category(
@@ -1065,6 +1104,7 @@ class Category extends DataClass implements Insertable<Category> {
       name: data.name.present ? data.name.value : this.name,
       parentId: data.parentId.present ? data.parentId.value : this.parentId,
       styleId: data.styleId.present ? data.styleId.value : this.styleId,
+      type: data.type.present ? data.type.value : this.type,
     );
   }
 
@@ -1074,13 +1114,14 @@ class Category extends DataClass implements Insertable<Category> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('parentId: $parentId, ')
-          ..write('styleId: $styleId')
+          ..write('styleId: $styleId, ')
+          ..write('type: $type')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, parentId, styleId);
+  int get hashCode => Object.hash(id, name, parentId, styleId, type);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1088,7 +1129,8 @@ class Category extends DataClass implements Insertable<Category> {
           other.id == this.id &&
           other.name == this.name &&
           other.parentId == this.parentId &&
-          other.styleId == this.styleId);
+          other.styleId == this.styleId &&
+          other.type == this.type);
 }
 
 class CategoriesCompanion extends UpdateCompanion<Category> {
@@ -1096,29 +1138,34 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   final Value<String> name;
   final Value<int?> parentId;
   final Value<int?> styleId;
+  final Value<CategoryType> type;
   const CategoriesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.parentId = const Value.absent(),
     this.styleId = const Value.absent(),
+    this.type = const Value.absent(),
   });
   CategoriesCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     this.parentId = const Value.absent(),
     this.styleId = const Value.absent(),
+    this.type = const Value.absent(),
   }) : name = Value(name);
   static Insertable<Category> custom({
     Expression<int>? id,
     Expression<String>? name,
     Expression<int>? parentId,
     Expression<int>? styleId,
+    Expression<int>? type,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (parentId != null) 'parent_id': parentId,
       if (styleId != null) 'style_id': styleId,
+      if (type != null) 'type': type,
     });
   }
 
@@ -1127,12 +1174,14 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     Value<String>? name,
     Value<int?>? parentId,
     Value<int?>? styleId,
+    Value<CategoryType>? type,
   }) {
     return CategoriesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       parentId: parentId ?? this.parentId,
       styleId: styleId ?? this.styleId,
+      type: type ?? this.type,
     );
   }
 
@@ -1151,6 +1200,11 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     if (styleId.present) {
       map['style_id'] = Variable<int>(styleId.value);
     }
+    if (type.present) {
+      map['type'] = Variable<int>(
+        $CategoriesTable.$convertertype.toSql(type.value),
+      );
+    }
     return map;
   }
 
@@ -1160,7 +1214,8 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('parentId: $parentId, ')
-          ..write('styleId: $styleId')
+          ..write('styleId: $styleId, ')
+          ..write('type: $type')
           ..write(')'))
         .toString();
   }
@@ -4175,6 +4230,7 @@ typedef $$CategoriesTableCreateCompanionBuilder =
       required String name,
       Value<int?> parentId,
       Value<int?> styleId,
+      Value<CategoryType> type,
     });
 typedef $$CategoriesTableUpdateCompanionBuilder =
     CategoriesCompanion Function({
@@ -4182,6 +4238,7 @@ typedef $$CategoriesTableUpdateCompanionBuilder =
       Value<String> name,
       Value<int?> parentId,
       Value<int?> styleId,
+      Value<CategoryType> type,
     });
 
 final class $$CategoriesTableReferences
@@ -4265,6 +4322,12 @@ class $$CategoriesTableFilterComposer
     column: $table.name,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<CategoryType, CategoryType, int> get type =>
+      $composableBuilder(
+        column: $table.type,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   $$CategoriesTableFilterComposer get parentId {
     final $$CategoriesTableFilterComposer composer = $composerBuilder(
@@ -4357,6 +4420,11 @@ class $$CategoriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CategoriesTableOrderingComposer get parentId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -4418,6 +4486,9 @@ class $$CategoriesTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<CategoryType, int> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
 
   $$CategoriesTableAnnotationComposer get parentId {
     final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
@@ -4527,11 +4598,13 @@ class $$CategoriesTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<int?> parentId = const Value.absent(),
                 Value<int?> styleId = const Value.absent(),
+                Value<CategoryType> type = const Value.absent(),
               }) => CategoriesCompanion(
                 id: id,
                 name: name,
                 parentId: parentId,
                 styleId: styleId,
+                type: type,
               ),
           createCompanionCallback:
               ({
@@ -4539,11 +4612,13 @@ class $$CategoriesTableTableManager
                 required String name,
                 Value<int?> parentId = const Value.absent(),
                 Value<int?> styleId = const Value.absent(),
+                Value<CategoryType> type = const Value.absent(),
               }) => CategoriesCompanion.insert(
                 id: id,
                 name: name,
                 parentId: parentId,
                 styleId: styleId,
+                type: type,
               ),
           withReferenceMapper: (p0) => p0
               .map(

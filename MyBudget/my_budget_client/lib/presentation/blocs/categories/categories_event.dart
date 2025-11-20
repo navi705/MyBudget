@@ -38,9 +38,10 @@ class DeleteCategory extends CategoriesEvent {
 
 class _CategoriesUpdated extends CategoriesEvent {
   final List<Category> categories;
+  final Map<int, double> categoryTotals;
 
-  const _CategoriesUpdated(this.categories);
+  const _CategoriesUpdated(this.categories, this.categoryTotals);
 
   @override
-  List<Object> get props => [categories];
+  List<Object> get props => [categories, categoryTotals];
 }

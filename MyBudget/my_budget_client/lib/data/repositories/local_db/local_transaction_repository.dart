@@ -19,11 +19,16 @@ class LocalTransactionRepository implements TransactionRepository {
   @override
   Future<void> addTransaction(Transaction transaction) async {
     await database.transactionsDao.insertTransaction(transaction.toCompanion());
+    await _updateAccountBalance(transaction.accountId, transaction.amount);
   }
 
   @override
   Future<void> deleteTransaction(int id) async {
-    await database.transactionsDao.deleteTransaction(db.TransactionsCompanion(id: Value(id)));
+    final transaction = await getTransactionById(id);
+    if (transaction != null) {
+      await database.transactionsDao.deleteTransaction(db.TransactionsCompanion(id: Value(id)));
+      await _updateAccountBalance(transaction.accountId, -transaction.amount);
+    }
   }
 
   @override
@@ -41,6 +46,20 @@ class LocalTransactionRepository implements TransactionRepository {
 
   @override
   Future<void> updateTransaction(Transaction transaction) async {
-    await database.transactionsDao.updateTransaction(transaction.toCompanion());
+    final oldTransaction = await getTransactionById(transaction.id);
+    if (oldTransaction != null) {
+      final amountDifference = transaction.amount - oldTransaction.amount;
+      await database.transactionsDao.updateTransaction(transaction.toCompanion());
+      await _updateAccountBalance(transaction.accountId, amountDifference);
+    }
+  }
+
+  Future<void> _updateAccountBalance(int accountId, double amount) async {
+    final account = await database.accountsDao.getAccountById(accountId);
+    if (account != null) {
+      final newBalance = account.balance + amount;
+      final companion = account.toCompanion(false).copyWith(balance: Value(newBalance));
+      await database.accountsDao.updateAccount(companion);
+    }
   }
 }

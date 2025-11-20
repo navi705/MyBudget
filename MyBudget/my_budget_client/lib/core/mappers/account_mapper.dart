@@ -18,15 +18,19 @@ extension AccountMapper on drift.Account {
 }
 
 extension AccountCompanionMapper on Account {
-  drift.AccountsCompanion toCompanion() {
+  drift.AccountsCompanion toCompanion({bool nullToAbsent = false}) {
     return drift.AccountsCompanion(
       id: id == null ? const Value.absent() : Value(id!),
       name: Value(name),
-      description: Value(description),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
       balance: Value(balance),
       currencyId: Value(currencyId),
       currencyDesignationId: Value(currencyDesignationId),
-      styleId: Value(styleId),
+      styleId: styleId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(styleId),
       accountTypeId: Value(accountTypeId),
     );
   }

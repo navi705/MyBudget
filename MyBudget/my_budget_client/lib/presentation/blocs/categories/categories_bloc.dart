@@ -4,6 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
+import 'package:rxdart/rxdart.dart';
 
 part 'categories_event.dart';
 part 'categories_state.dart';
@@ -28,10 +29,15 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   ) {
     emit(CategoriesLoadInProgress());
     _categoriesSubscription?.cancel();
-    _categoriesSubscription = _categoryRepository.watchCategories().listen(
-          (categories) => add(_CategoriesUpdated(categories)),
-          onError: (_) => emit(CategoriesLoadFailure()),
-        );
+    _categoriesSubscription = Rx.combineLatest2(
+      _categoryRepository.watchCategories(),
+      _categoryRepository.watchCategoryTotals(),
+      (List<Category> categories, Map<int, double> totals) =>
+          _CategoriesUpdated(categories, totals),
+    ).listen(
+      (update) => add(update),
+      onError: (_) => emit(CategoriesLoadFailure()),
+    );
   }
 
   Future<void> _onAddCategory(
@@ -59,7 +65,10 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     _CategoriesUpdated event,
     Emitter<CategoriesState> emit,
   ) {
-    emit(CategoriesLoadSuccess(event.categories));
+    emit(CategoriesLoadSuccess(
+      categories: event.categories,
+      categoryTotals: event.categoryTotals,
+    ));
   }
 
   @override

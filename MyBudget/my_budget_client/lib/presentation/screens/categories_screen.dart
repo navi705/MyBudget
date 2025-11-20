@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
+import 'package:my_budget_client/presentation/routes/app_routes.dart';
 
 class CategoriesScreen extends StatelessWidget {
   const CategoriesScreen({super.key});
@@ -26,9 +29,14 @@ class CategoriesScreen extends StatelessWidget {
               itemCount: state.categories.length,
               itemBuilder: (context, index) {
                 final category = state.categories[index];
+                final total = state.categoryTotals[category.id] ?? 0.0;
                 return ListTile(
                   title: Text(category.name),
+                  subtitle: Text('Spent: ${total.toStringAsFixed(2)}'),
                   onTap: () {
+                    context.push(AppRoutes.addEditTransaction, extra: category);
+                  },
+                  onLongPress: () {
                     _showAddEditCategoryDialog(context, category: category);
                   },
                   trailing: IconButton(
@@ -57,8 +65,15 @@ class CategoriesScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (dialogContext) {
-        return BlocProvider.value(
-          value: BlocProvider.of<CategoriesBloc>(context),
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider.value(
+              value: BlocProvider.of<CategoriesBloc>(context),
+            ),
+            BlocProvider.value(
+              value: BlocProvider.of<StylesBloc>(context),
+            ),
+          ],
           child: AddEditCategoryDialog(category: category),
         );
       },
@@ -79,12 +94,14 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   int? _selectedStyleId;
+  CategoryType _selectedCategoryType = CategoryType.expense;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.category?.name);
     _selectedStyleId = widget.category?.styleId;
+    _selectedCategoryType = widget.category?.type ?? CategoryType.expense;
   }
 
   @override
@@ -99,13 +116,13 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
       if (widget.category == null) {
         context.read<CategoriesBloc>().add(
               AddCategory(
-                Category(name: name, styleId: _selectedStyleId),
+                Category(name: name, styleId: _selectedStyleId, type: _selectedCategoryType),
               ),
             );
       } else {
         context.read<CategoriesBloc>().add(
               UpdateCategory(
-                widget.category!.copyWith(name: name, styleId: _selectedStyleId),
+                widget.category!.copyWith(name: name, styleId: _selectedStyleId, type: _selectedCategoryType),
               ),
             );
       }
@@ -145,7 +162,18 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                 }
                 return const SizedBox.shrink();
               },
-            )
+            ),
+            DropdownButtonFormField<CategoryType>(
+              value: _selectedCategoryType,
+              decoration: const InputDecoration(labelText: 'Category Type'),
+              items: CategoryType.values
+                  .map((type) => DropdownMenuItem<CategoryType>(
+                        value: type,
+                        child: Text(type.toString().split('.').last),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedCategoryType = v!),
+            ),
           ],
         ),
       ),

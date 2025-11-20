@@ -1,5 +1,3 @@
-
-
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -13,6 +11,7 @@ import 'package:my_budget_client/data/seed_data/currency_designations_data.dart'
 import 'package:my_budget_client/data/seed_data/currencies_data.dart';
 import 'package:my_budget_client/data/seed_data/settings_data.dart';
 import 'package:my_budget_client/data/seed_data/account_types_data.dart'; 
+import 'package:my_budget_client/domain/entities/category_type.dart';
 
 part 'app_database.g.dart';
 
@@ -35,6 +34,7 @@ class Categories extends Table {
   TextColumn get name => text().withLength(min: 1, max: 50)();
   IntColumn get parentId => integer().nullable().references(Categories, #id)();
   IntColumn get styleId => integer().nullable().references(Styles, #id)();
+  IntColumn get type => integer().map(const EnumIndexConverter(CategoryType.values)).withDefault(const Constant(0))();
 }
 
 @DataClassName('Style')
@@ -119,7 +119,7 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase> with _$CurrenciesDaoMi
   Future<int> deleteCurrency(CurrenciesCompanion currency) => delete(currencies).delete(currency);
 }
 
-@DriftAccessor(tables: [Categories])
+@DriftAccessor(tables: [Categories, Transactions])
 class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMixin {
   CategoriesDao(super.db);
 
@@ -129,6 +129,22 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMi
   Future<int> insertCategory(CategoriesCompanion category) => into(categories).insert(category);
   Future<bool> updateCategory(CategoriesCompanion category) => update(categories).replace(category);
   Future<int> deleteCategory(CategoriesCompanion category) => delete(categories).delete(category);
+
+  Stream<Map<int, double>> watchCategoryTotals() {
+    final amount = attachedDatabase.transactions.amount.total();
+    final query = select(attachedDatabase.transactions).join([
+      innerJoin(categories, categories.id.equalsExp(attachedDatabase.transactions.categoryId))
+    ]);
+    query.groupBy([categories.id]);
+    
+    return query.watch().map((rows) {
+      final a = <int, double>{
+        for (final row in rows)
+          row.read(categories.id)!: row.read(amount)!
+      };
+      return a;
+    });
+  }
 }
 
 @DriftAccessor(tables: [Styles])
@@ -230,7 +246,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration {

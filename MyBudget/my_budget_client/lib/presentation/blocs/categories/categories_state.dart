@@ -13,11 +13,15 @@ class CategoriesLoadInProgress extends CategoriesState {}
 
 class CategoriesLoadSuccess extends CategoriesState {
   final List<Category> categories;
+  final Map<int, double> categoryTotals;
 
-  const CategoriesLoadSuccess([this.categories = const []]);
+  const CategoriesLoadSuccess({
+    this.categories = const [],
+    this.categoryTotals = const {},
+  });
 
   @override
-  List<Object> get props => [categories];
+  List<Object> get props => [categories, categoryTotals];
 }
 
 class CategoriesLoadFailure extends CategoriesState {}

@@ -21,6 +21,7 @@ class LocalCategoryRepository implements CategoryRepository {
     final companion = drift.CategoriesCompanion.insert(
       name: category.name,
       parentId: Value(category.parentId),
+      styleId: Value(category.styleId),
     );
     await _appDatabase.categoriesDao.insertCategory(companion);
   }
@@ -47,5 +48,10 @@ class LocalCategoryRepository implements CategoryRepository {
   @override
   Future<void> updateCategory(Category category) async {
     await _appDatabase.categoriesDao.updateCategory(category.toCompanion());
+  }
+
+  @override
+  Stream<Map<int, double>> watchCategoryTotals() {
+    return _appDatabase.categoriesDao.watchCategoryTotals();
   }
 }

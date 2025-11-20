@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/screens/accounts_screen.dart';
+import 'package:my_budget_client/presentation/screens/add_edit_transaction_screen.dart';
 import 'package:my_budget_client/presentation/screens/categories_screen.dart';
 import 'package:my_budget_client/presentation/screens/edit_account_screen.dart';
 import 'package:my_budget_client/presentation/screens/edit_style_screen.dart';
@@ -70,6 +73,22 @@ final GoRouter router = GoRouter(
       builder: (context, state) {
         final styleId = state.pathParameters['id']!;
         return EditStyleScreen(styleId: styleId);
+      },
+    ),
+    GoRoute(
+      path: AppRoutes.addEditTransaction,
+      builder: (context, state) {
+        Transaction? transaction;
+        Category? category;
+        if (state.extra is Transaction) {
+          transaction = state.extra as Transaction;
+        } else if (state.extra is Category) {
+          category = state.extra as Category;
+        }
+        return AddEditTransactionScreen(
+          transaction: transaction,
+          category: category,
+        );
       },
     ),
   ],
