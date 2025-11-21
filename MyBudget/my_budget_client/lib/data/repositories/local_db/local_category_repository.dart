@@ -18,12 +18,7 @@ class LocalCategoryRepository implements CategoryRepository {
 
   @override
   Future<void> addCategory(Category category) async {
-    final companion = drift.CategoriesCompanion.insert(
-      name: category.name,
-      parentId: Value(category.parentId),
-      styleId: Value(category.styleId),
-    );
-    await _appDatabase.categoriesDao.insertCategory(companion);
+    await _appDatabase.categoriesDao.insertCategory(category.toCompanion());
   }
 
   @override

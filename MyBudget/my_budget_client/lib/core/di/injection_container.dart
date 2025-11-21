@@ -9,6 +9,7 @@ import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart'
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
@@ -37,6 +38,11 @@ Future<void> init() async {
         currencyRepository: sl(),
         accountRepository: sl(),
         settingsRepository: sl(),
+      ));
+  sl.registerFactory(() => DashboardBloc(
+        accountRepository: sl(),
+        transactionRepository: sl(),
+        categoryRepository: sl(),
       ));
 
   // Repositories

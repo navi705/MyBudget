@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -18,6 +20,19 @@ class SettingsScreen extends StatelessWidget {
             title: const Text('Manage Account Styles'),
             onTap: () {
               context.push(AppRoutes.manageAccountStyles);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.brightness_6),
+            title: const Text('Toggle Theme'),
+            onTap: () {
+              final currentMode = context.read<SettingsBloc>().state.themeMode;
+              final nextMode = switch (currentMode) {
+                ThemeMode.system => ThemeMode.light,
+                ThemeMode.light => ThemeMode.dark,
+                ThemeMode.dark => ThemeMode.system,
+              };
+              context.read<SettingsBloc>().add(UpdateThemeMode(nextMode));
             },
           ),
         ],

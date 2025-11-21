@@ -44,15 +44,30 @@ class LocalTransactionRepository implements TransactionRepository {
     return transactions.map((t) => t.toDomain()).toList();
   }
 
+
   @override
   Future<void> updateTransaction(Transaction transaction) async {
-    final oldTransaction = await getTransactionById(transaction.id);
+    // We need to use `transaction.id!` because we know for an update, the id must exist.
+    final oldTransaction = await getTransactionById(transaction.id!);
     if (oldTransaction != null) {
-      final amountDifference = transaction.amount - oldTransaction.amount;
-      await database.transactionsDao.updateTransaction(transaction.toCompanion());
-      await _updateAccountBalance(transaction.accountId, amountDifference);
+      // Update the transaction in the database first
+      await database.transactionsDao
+          .updateTransaction(transaction.toCompanion());
+
+      // Check if the account has changed
+      if (oldTransaction.accountId != transaction.accountId) {
+        // Revert the amount from the old account
+        await _updateAccountBalance(oldTransaction.accountId, -oldTransaction.amount);
+        // Apply the new amount to the new account
+        await _updateAccountBalance(transaction.accountId, transaction.amount);
+      } else {
+        // If the account is the same, just update with the difference
+        final amountDifference = transaction.amount - oldTransaction.amount;
+        await _updateAccountBalance(transaction.accountId, amountDifference);
+      }
     }
   }
+
 
   Future<void> _updateAccountBalance(int accountId, double amount) async {
     final account = await database.accountsDao.getAccountById(accountId);

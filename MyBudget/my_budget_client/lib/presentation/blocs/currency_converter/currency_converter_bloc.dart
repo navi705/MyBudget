@@ -1,4 +1,5 @@
 import 'package:bloc/bloc.dart';
+import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
@@ -12,7 +13,8 @@ import 'package:rxdart/rxdart.dart';
 part 'currency_converter_event.dart';
 part 'currency_converter_state.dart';
 
-class CurrencyConverterBloc extends Bloc<CurrencyConverterEvent, CurrencyConverterState> {
+class CurrencyConverterBloc
+    extends Bloc<CurrencyConverterEvent, CurrencyConverterState> {
   final CurrencyRepository _currencyRepository;
   final AccountRepository _accountRepository;
   final SettingsRepository _settingsRepository;
@@ -40,7 +42,7 @@ class CurrencyConverterBloc extends Bloc<CurrencyConverterEvent, CurrencyConvert
       _currencyRepository.watchCurrencies(),
       _currencyRepository.watchAllExchangeRates(),
       _accountRepository.watchAccounts(),
-      _settingsRepository.watchSetting('conversion_base_currency_id'), // Assuming this method exists
+      _settingsRepository.watchSetting('conversion_base_currency_id'),
       (
         List<Currency> currencies,
         List<ExchangeRate> rates,
@@ -72,9 +74,12 @@ class CurrencyConverterBloc extends Bloc<CurrencyConverterEvent, CurrencyConvert
       selected = currentState.selectedCurrencies;
     } else if (event.allCurrencies.isNotEmpty) {
       // Add base currency by default on first load
-      selected.add(event.allCurrencies.firstWhere((c) => c.id == baseId));
+      final baseCurrency =
+          event.allCurrencies.firstWhereOrNull((c) => c.id == baseId);
+      if (baseCurrency != null) {
+        selected.add(baseCurrency);
+      }
     }
-
 
     emit(CurrencyConverterLoadSuccess(
       allCurrencies: event.allCurrencies,
@@ -91,8 +96,9 @@ class CurrencyConverterBloc extends Bloc<CurrencyConverterEvent, CurrencyConvert
   ) {
     final currentState = state;
     if (currentState is CurrencyConverterLoadSuccess) {
-      final updatedSelected = List<Currency>.from(currentState.selectedCurrencies)
-        ..add(event.currency);
+      final updatedSelected =
+          List<Currency>.from(currentState.selectedCurrencies)
+            ..add(event.currency);
       emit(currentState.copyWith(selectedCurrencies: updatedSelected));
     }
   }
@@ -103,8 +109,9 @@ class CurrencyConverterBloc extends Bloc<CurrencyConverterEvent, CurrencyConvert
   ) {
     final currentState = state;
     if (currentState is CurrencyConverterLoadSuccess) {
-      final updatedSelected = List<Currency>.from(currentState.selectedCurrencies)
-        ..remove(event.currency);
+      final updatedSelected =
+          List<Currency>.from(currentState.selectedCurrencies)
+            ..remove(event.currency);
       emit(currentState.copyWith(selectedCurrencies: updatedSelected));
     }
   }

@@ -17,7 +17,7 @@ extension CategoryMapper on drift.Category {
 extension CategoryCompanionMapper on Category {
   drift.CategoriesCompanion toCompanion() {
     return drift.CategoriesCompanion(
-      id: Value(id!),
+      id: id == null ? const Value.absent() : Value(id!),
       name: Value(name),
       parentId: Value(parentId),
       styleId: Value(styleId),

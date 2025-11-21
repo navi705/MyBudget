@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
@@ -52,11 +53,14 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
               TextFormField(
                 controller: _nameController,
                 decoration: InputDecoration(labelText: l10n.accountNameHint),
-                validator: (value) => (value == null || value.isEmpty) ? l10n.formValidationPleaseEnterName : null,
+                validator: (value) => (value == null || value.isEmpty)
+                    ? l10n.formValidationPleaseEnterName
+                    : null,
               ),
               TextFormField(
                 controller: _descriptionController, // ADDED
-                decoration: const InputDecoration(labelText: 'Description'), // TODO: Localize
+                decoration:
+                    const InputDecoration(labelText: 'Description'), // TODO: Localize
                 maxLines: 3,
                 keyboardType: TextInputType.multiline,
               ),
@@ -65,8 +69,12 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                 decoration: InputDecoration(labelText: l10n.initialBalanceHint),
                 keyboardType: TextInputType.number,
                 validator: (value) {
-                  if (value == null || value.isEmpty) return l10n.formValidationPleaseEnterBalance;
-                  if (double.tryParse(value) == null) return l10n.formValidationPleaseEnterValidNumber;
+                  if (value == null || value.isEmpty) {
+                    return l10n.formValidationPleaseEnterBalance;
+                  }
+                  if (double.tryParse(value) == null) {
+                    return l10n.formValidationPleaseEnterValidNumber;
+                  }
                   return null;
                 },
               ),
@@ -74,12 +82,14 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                 builder: (context, state) {
                   if (state is CurrencyLoadSuccess) {
                     // Initialize selected currency and designation
-                    if (_selectedCurrencyId == null && state.currencies.isNotEmpty) {
+                    if (_selectedCurrencyId == null &&
+                        state.currencies.isNotEmpty) {
                       _selectedCurrencyId = state.currencies.first.id;
                       // Find first designation for the default currency
                       final firstDesignation = state.designations
-                          .firstWhere((d) => d.currencyId == _selectedCurrencyId);
-                      _selectedCurrencyDesignationId = firstDesignation.id;
+                          .firstWhereOrNull(
+                              (d) => d.currencyId == _selectedCurrencyId);
+                      _selectedCurrencyDesignationId = firstDesignation?.id;
                     }
 
                     // Filter designations based on selected currency
@@ -89,35 +99,51 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
 
                     // Ensure a valid designation is selected if the current one is no longer available
                     if (_selectedCurrencyDesignationId != null &&
-                        !availableDesignations.any((d) => d.id == _selectedCurrencyDesignationId)) {
-                      _selectedCurrencyDesignationId = availableDesignations.first.id;
+                        !availableDesignations
+                            .any((d) => d.id == _selectedCurrencyDesignationId)) {
+                      _selectedCurrencyDesignationId =
+                          availableDesignations.first.id;
                     }
 
-
-                    return Column( // Wrap in Column to add designation dropdown
+                    return Column(
+                      // Wrap in Column to add designation dropdown
                       children: [
                         DropdownButtonFormField<int>(
                           initialValue: _selectedCurrencyId,
-                          decoration: InputDecoration(labelText: l10n.currencyLabel),
-                          items: state.currencies.map((c) => DropdownMenuItem<int>(value: c.id, child: Text(c.code))).toList(),
+                          decoration:
+                              InputDecoration(labelText: l10n.currencyLabel),
+                          items: state.currencies
+                              .map((c) => DropdownMenuItem<int>(
+                                  value: c.id, child: Text(c.code)))
+                              .toList(),
                           onChanged: (v) {
                             setState(() {
                               _selectedCurrencyId = v;
                               // Update selected designation when currency changes
-                              _selectedCurrencyDesignationId = state.designations
-                                  .firstWhere((d) => d.currencyId == _selectedCurrencyId)
-                                  .id;
+                              _selectedCurrencyDesignationId = state
+                                  .designations
+                                  .firstWhereOrNull(
+                                      (d) => d.currencyId == _selectedCurrencyId)
+                                  ?.id;
                             });
                           },
-                          validator: (v) => v == null ? l10n.formValidationPleaseSelectCurrency : null,
+                          validator: (v) => v == null
+                              ? l10n.formValidationPleaseSelectCurrency
+                              : null,
                         ),
                         const SizedBox(height: 16), // Spacing
                         DropdownButtonFormField<int>(
                           initialValue: _selectedCurrencyDesignationId,
-                          decoration: const InputDecoration(labelText: 'Currency Symbol'), // TODO: Localize
-                          items: availableDesignations.map((d) => DropdownMenuItem<int>(value: d.id, child: Text(d.value))).toList(),
-                          onChanged: (v) => setState(() => _selectedCurrencyDesignationId = v),
-                          validator: (v) => v == null ? 'Please select a symbol' : null, // TODO: Localize
+                          decoration: const InputDecoration(
+                              labelText: 'Currency Symbol'), // TODO: Localize
+                          items: availableDesignations
+                              .map((d) => DropdownMenuItem<int>(
+                                  value: d.id, child: Text(d.value)))
+                              .toList(),
+                          onChanged: (v) =>
+                              setState(() => _selectedCurrencyDesignationId = v),
+                          validator: (v) =>
+                              v == null ? 'Please select a symbol' : null, // TODO: Localize
                         ),
                       ],
                     );
@@ -125,18 +151,25 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                   return const Center(child: CircularProgressIndicator());
                 },
               ),
-              BlocBuilder<AccountsBloc, AccountsState>( // NEW BLOC BUILDER FOR AccountTypes
+              BlocBuilder<AccountsBloc, AccountsState>(
+                // NEW BLOC BUILDER FOR AccountTypes
                 builder: (context, state) {
                   if (state is AccountsLoadSuccess) {
-                    if (_selectedAccountTypeId == null && state.accountTypes.isNotEmpty) {
+                    if (_selectedAccountTypeId == null &&
+                        state.accountTypes.isNotEmpty) {
                       _selectedAccountTypeId = state.accountTypes.first.id;
                     }
                     return DropdownButtonFormField<int>(
                       initialValue: _selectedAccountTypeId,
-                      decoration: const InputDecoration(labelText: 'Account Type'), // TODO: Localize
-                      items: state.accountTypes.map((type) => DropdownMenuItem<int>(value: type.id, child: Text(type.name))).toList(),
+                      decoration: const InputDecoration(
+                          labelText: 'Account Type'), // TODO: Localize
+                      items: state.accountTypes
+                          .map((type) => DropdownMenuItem<int>(
+                              value: type.id, child: Text(type.name)))
+                          .toList(),
                       onChanged: (v) => setState(() => _selectedAccountTypeId = v),
-                      validator: (v) => v == null ? 'Please select an account type' : null, // TODO: Localize
+                      validator: (v) =>
+                          v == null ? 'Please select an account type' : null, // TODO: Localize
                     );
                   }
                   return const SizedBox.shrink();
@@ -148,10 +181,15 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                     _selectedStyleId ??= state.styles.first.id;
                     return DropdownButtonFormField<int>(
                       initialValue: _selectedStyleId,
-                      decoration: const InputDecoration(labelText: 'Style'), // TODO: Localize
-                      items: state.styles.map((s) => DropdownMenuItem<int>(value: s.id, child: Text(s.name))).toList(),
+                      decoration: const InputDecoration(
+                          labelText: 'Style'), // TODO: Localize
+                      items: state.styles
+                          .map((s) => DropdownMenuItem<int>(
+                              value: s.id, child: Text(s.name)))
+                          .toList(),
                       onChanged: (v) => setState(() => _selectedStyleId = v),
-                      validator: (v) => v == null ? 'Please select a style' : null, // TODO: Localize
+                      validator: (v) =>
+                          v == null ? 'Please select a style' : null, // TODO: Localize
                     );
                   }
                   return const SizedBox.shrink();
@@ -171,7 +209,9 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
             if (_formKey.currentState!.validate()) {
               final newAccount = Account(
                 name: _nameController.text,
-                description: _descriptionController.text.isEmpty ? null : _descriptionController.text, // ADDED
+                description: _descriptionController.text.isEmpty
+                    ? null
+                    : _descriptionController.text, // ADDED
                 balance: double.parse(_balanceController.text),
                 currencyId: _selectedCurrencyId!,
                 currencyDesignationId: _selectedCurrencyDesignationId!,

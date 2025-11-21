@@ -6,6 +6,7 @@ import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/screens/accounts_screen.dart';
 import 'package:my_budget_client/presentation/screens/add_edit_transaction_screen.dart';
 import 'package:my_budget_client/presentation/screens/categories_screen.dart';
+import 'package:my_budget_client/presentation/screens/dashboard_screen.dart';
 import 'package:my_budget_client/presentation/screens/edit_account_screen.dart';
 import 'package:my_budget_client/presentation/screens/edit_style_screen.dart';
 import 'package:my_budget_client/presentation/screens/main_screen.dart';
@@ -19,7 +20,7 @@ final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 /// The router configuration.
 final GoRouter router = GoRouter(
-  initialLocation: AppRoutes.accounts,
+  initialLocation: AppRoutes.dashboard,
   navigatorKey: _rootNavigatorKey,
   routes: <RouteBase>[
     /// MainWrapper
@@ -29,6 +30,12 @@ final GoRouter router = GoRouter(
         return MainScreen(child: child);
       },
       routes: <RouteBase>[
+        GoRoute(
+          path: AppRoutes.dashboard,
+          builder: (context, state) {
+            return const DashboardScreen();
+          },
+        ),
         GoRoute(
           path: AppRoutes.accounts,
           builder: (context, state) {

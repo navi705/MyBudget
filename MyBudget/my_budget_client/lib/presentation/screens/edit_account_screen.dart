@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -37,10 +38,11 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
 
     final accountsState = context.read<AccountsBloc>().state;
     if (accountsState is AccountsLoadSuccess) {
-      try {
-        _initialAccount = accountsState.accounts.firstWhere(
-          (acc) => acc.id.toString() == widget.accountId,
-        );
+      _initialAccount = accountsState.accounts.firstWhereOrNull(
+        (acc) => acc.id.toString() == widget.accountId,
+      );
+
+      if (_initialAccount != null) {
         _nameController.text = _initialAccount!.name;
         _descriptionController.text = _initialAccount!.description ?? ''; // ADDED
         _balanceController.text = _initialAccount!.balance.toString();
@@ -48,9 +50,6 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
         _selectedCurrencyDesignationId = _initialAccount!.currencyDesignationId;
         _selectedStyleId = _initialAccount!.styleId;
         _selectedAccountTypeId = _initialAccount!.accountTypeId; // ADDED
-      } catch (e) {
-        // Account not found, handle appropriately
-        _initialAccount = null;
       }
     }
   }
@@ -157,8 +156,8 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                               _selectedCurrencyId = v;
                               // Update selected designation when currency changes
                               _selectedCurrencyDesignationId = state.designations
-                                  .firstWhere((d) => d.currencyId == _selectedCurrencyId)
-                                  .id;
+                                  .firstWhereOrNull((d) => d.currencyId == _selectedCurrencyId)
+                                  ?.id;
                             });
                           },
                           validator: (v) => v == null ? l10n.formValidationPleaseSelectCurrency : null,

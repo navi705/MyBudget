@@ -1,5 +1,6 @@
 class AppRoutes {
-  static const String accounts = '/';
+  static const String dashboard = '/';
+  static const String accounts = '/accounts';
   static const String settings = '/settings';
   static const String categories = '/categories';
   static const String transactions = '/transactions';

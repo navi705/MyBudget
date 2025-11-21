@@ -51,16 +51,11 @@ class CurrencyConverterLoadSuccess extends CurrencyConverterState {
   }
 
   double? _findRate(int fromCurrencyId, int toCurrencyId) {
-    try {
-      // For simplicity, we're taking the most recent rate.
-      // A real implementation would consider the date.
-      final rate = exchangeRates
-          .lastWhere((r) => r.fromCurrencyId == fromCurrencyId && r.toCurrencyId == toCurrencyId)
-          .rate;
-      return rate;
-    } catch (e) {
-      return null;
-    }
+    // For simplicity, we're taking the most recent rate.
+    // A real implementation would consider the date.
+    final rate = exchangeRates.lastWhereOrNull(
+        (r) => r.fromCurrencyId == fromCurrencyId && r.toCurrencyId == toCurrencyId);
+    return rate?.rate;
   }
 
   CurrencyConverterLoadSuccess copyWith({

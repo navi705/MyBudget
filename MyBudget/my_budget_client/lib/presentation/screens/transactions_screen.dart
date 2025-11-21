@@ -39,7 +39,7 @@ class TransactionsScreen extends StatelessWidget {
                     onPressed: () {
                       context
                           .read<TransactionsBloc>()
-                          .add(DeleteTransaction(transaction.id));
+                          .add(DeleteTransaction(transaction.id!));
                     },
                   ),
                 );

@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
@@ -67,11 +68,20 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
       final accountsState = context.read<AccountsBloc>().state;
       if (accountsState is! AccountsLoadSuccess) return;
 
-      final selectedAccount = accountsState.accounts.firstWhere((acc) => acc.id == _selectedAccountId);
+      final selectedAccount = accountsState.accounts
+          .firstWhereOrNull((acc) => acc.id == _selectedAccountId);
+
+      if (selectedAccount == null) {
+        // This should not happen if form validation is correct, but it's a safe check.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not find selected account.')),
+        );
+        return;
+      }
 
       if (widget.transaction == null) {
+        // id is omitted, so the database can generate it.
         final newTransaction = Transaction(
-          id: DateTime.now().millisecondsSinceEpoch,
           description: description,
           amount: amount,
           date: _selectedDate,
@@ -82,6 +92,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
         context.read<TransactionsBloc>().add(AddTransaction(newTransaction));
       } else {
         final updatedTransaction = widget.transaction!.copyWith(
+          id: widget.transaction!.id,
           description: description,
           amount: amount,
           date: _selectedDate,

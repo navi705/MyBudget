@@ -19,7 +19,7 @@ extension TransactionMapper on drift.Transaction {
 extension TransactionCompanionMapper on Transaction {
   drift.TransactionsCompanion toCompanion() {
     return drift.TransactionsCompanion(
-      id: Value(id),
+      id: id == null ? const Value.absent() : Value(id!),
       description: Value(description),
       amount: Value(amount),
       date: Value(date),
