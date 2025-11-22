@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:my_budget_client/domain/entities/category.dart';
-import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/screens/accounts_screen.dart';
 import 'package:my_budget_client/presentation/screens/add_edit_transaction_screen.dart';
@@ -85,16 +83,18 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: AppRoutes.addEditTransaction,
       builder: (context, state) {
-        Transaction? transaction;
-        Category? category;
-        if (state.extra is Transaction) {
-          transaction = state.extra as Transaction;
-        } else if (state.extra is Category) {
-          category = state.extra as Category;
+        int? transactionId;
+        int? categoryId;
+
+        if (state.extra is Map<String, dynamic>) {
+          final extra = state.extra as Map<String, dynamic>;
+          transactionId = extra['transactionId'];
+          categoryId = extra['categoryId'];
         }
+
         return AddEditTransactionScreen(
-          transaction: transaction,
-          category: category,
+          transactionId: transactionId,
+          categoryId: categoryId,
         );
       },
     ),

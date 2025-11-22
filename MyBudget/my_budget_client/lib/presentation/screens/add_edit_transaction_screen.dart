@@ -5,14 +5,13 @@ import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
-import 'package:my_budget_client/domain/entities/category.dart';
-
 
 class AddEditTransactionScreen extends StatefulWidget {
-  final Transaction? transaction;
-  final Category? category;
+  final int? transactionId;
+  final int? categoryId;
 
-  const AddEditTransactionScreen({super.key, this.transaction, this.category});
+  const AddEditTransactionScreen(
+      {super.key, this.transactionId, this.categoryId});
 
   @override
   State<AddEditTransactionScreen> createState() =>
@@ -26,17 +25,28 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
   int? _selectedAccountId;
   int? _selectedCategoryId;
   DateTime _selectedDate = DateTime.now();
+  Transaction? _existingTransaction;
 
   @override
   void initState() {
     super.initState();
+
+    if (widget.transactionId != null) {
+      final state = context.read<TransactionsBloc>().state;
+      if (state is TransactionsLoadSuccess) {
+        _existingTransaction = state.transactions
+            .firstWhereOrNull((t) => t.id == widget.transactionId);
+      }
+    }
+
     _descriptionController =
-        TextEditingController(text: widget.transaction?.description);
+        TextEditingController(text: _existingTransaction?.description);
     _amountController =
-        TextEditingController(text: widget.transaction?.amount.toString());
-    _selectedAccountId = widget.transaction?.accountId;
-    _selectedCategoryId = widget.transaction?.categoryId ?? widget.category?.id;
-    _selectedDate = widget.transaction?.date ?? DateTime.now();
+        TextEditingController(text: _existingTransaction?.amount.toString());
+    _selectedAccountId = _existingTransaction?.accountId;
+    _selectedCategoryId =
+        _existingTransaction?.categoryId ?? widget.categoryId;
+    _selectedDate = _existingTransaction?.date ?? DateTime.now();
   }
 
   @override
@@ -72,15 +82,13 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
           .firstWhereOrNull((acc) => acc.id == _selectedAccountId);
 
       if (selectedAccount == null) {
-        // This should not happen if form validation is correct, but it's a safe check.
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not find selected account.')),
         );
         return;
       }
 
-      if (widget.transaction == null) {
-        // id is omitted, so the database can generate it.
+      if (_existingTransaction == null) {
         final newTransaction = Transaction(
           description: description,
           amount: amount,
@@ -91,8 +99,8 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
         );
         context.read<TransactionsBloc>().add(AddTransaction(newTransaction));
       } else {
-        final updatedTransaction = widget.transaction!.copyWith(
-          id: widget.transaction!.id,
+        final updatedTransaction = _existingTransaction!.copyWith(
+          id: _existingTransaction!.id,
           description: description,
           amount: amount,
           date: _selectedDate,
@@ -112,7 +120,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.transaction == null
+        title: Text(_existingTransaction == null
             ? 'Add Transaction'
             : 'Edit Transaction'),
       ),

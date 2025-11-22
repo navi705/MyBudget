@@ -34,16 +34,29 @@ class CategoriesScreen extends StatelessWidget {
                   title: Text(category.name),
                   subtitle: Text('Spent: ${total.toStringAsFixed(2)}'),
                   onTap: () {
-                    context.push(AppRoutes.addEditTransaction, extra: category);
+                    context.push(AppRoutes.addEditTransaction,
+                        extra: {'categoryId': category.id});
                   },
-                  onLongPress: () {
-                    _showAddEditCategoryDialog(context, category: category);
-                  },
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.redAccent),
-                    onPressed: () {
-                      context.read<CategoriesBloc>().add(DeleteCategory(category.id!));
-                    },
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () {
+                          _showAddEditCategoryDialog(context,
+                              category: category);
+                        },
+                      ),
+                      IconButton(
+                        icon:
+                            const Icon(Icons.delete, color: Colors.redAccent),
+                        onPressed: () {
+                          context
+                              .read<CategoriesBloc>()
+                              .add(DeleteCategory(category.id!));
+                        },
+                      ),
+                    ],
                   ),
                 );
               },
@@ -116,13 +129,19 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
       if (widget.category == null) {
         context.read<CategoriesBloc>().add(
               AddCategory(
-                Category(name: name, styleId: _selectedStyleId, type: _selectedCategoryType),
+                Category(
+                    name: name,
+                    styleId: _selectedStyleId,
+                    type: _selectedCategoryType),
               ),
             );
       } else {
         context.read<CategoriesBloc>().add(
               UpdateCategory(
-                widget.category!.copyWith(name: name, styleId: _selectedStyleId, type: _selectedCategoryType),
+                widget.category!.copyWith(
+                    name: name,
+                    styleId: _selectedStyleId,
+                    type: _selectedCategoryType),
               ),
             );
       }

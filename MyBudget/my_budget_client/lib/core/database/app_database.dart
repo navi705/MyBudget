@@ -135,6 +135,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMi
     final query = select(attachedDatabase.transactions).join([
       innerJoin(categories, categories.id.equalsExp(attachedDatabase.transactions.categoryId))
     ]);
+    query.addColumns([amount]);
     query.groupBy([categories.id]);
     
     return query.watch().map((rows) {

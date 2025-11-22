@@ -32,7 +32,8 @@ class TransactionsScreen extends StatelessWidget {
                   subtitle: Text(
                       '${transaction.amount} on ${DateFormat.yMd().add_Hms().format(transaction.date.toLocal())}'),
                   onTap: () {
-                    context.push(AppRoutes.addEditTransaction, extra: transaction);
+                    context.push(AppRoutes.addEditTransaction,
+                        extra: {'transactionId': transaction.id});
                   },
                   trailing: IconButton(
                     icon: const Icon(Icons.delete, color: Colors.redAccent),
