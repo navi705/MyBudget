@@ -32,7 +32,10 @@ Future<void> init() async {
   sl.registerFactory(() => SettingsBloc(settingsRepository: sl()));
   sl.registerFactory(() => CurrencyBloc(currencyRepository: sl()));
   sl.registerFactory(() => StylesBloc(styleRepository: sl()));
-  sl.registerFactory(() => CategoriesBloc(categoryRepository: sl()));
+  sl.registerFactory(() => CategoriesBloc(
+        categoryRepository: sl(),
+        transactionRepository: sl(),
+      ));
   sl.registerFactory(() => TransactionsBloc(transactionRepository: sl()));
   sl.registerFactory(() => CurrencyConverterBloc(
         currencyRepository: sl(),

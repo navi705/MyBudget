@@ -26,7 +26,8 @@ class LocalTransactionRepository implements TransactionRepository {
   Future<void> deleteTransaction(int id) async {
     final transaction = await getTransactionById(id);
     if (transaction != null) {
-      await database.transactionsDao.deleteTransaction(db.TransactionsCompanion(id: Value(id)));
+      await database.transactionsDao
+          .deleteTransaction(db.TransactionsCompanion(id: Value(id)));
       await _updateAccountBalance(transaction.accountId, -transaction.amount);
     }
   }
@@ -44,6 +45,12 @@ class LocalTransactionRepository implements TransactionRepository {
     return transactions.map((t) => t.toDomain()).toList();
   }
 
+  @override
+  Future<List<Transaction>> getTransactionsByCategoryId(int categoryId) async {
+    final transactions = await database.transactionsDao
+        .getTransactionsByCategoryId(categoryId);
+    return transactions.map((t) => t.toDomain()).toList();
+  }
 
   @override
   Future<void> updateTransaction(Transaction transaction) async {
@@ -57,7 +64,8 @@ class LocalTransactionRepository implements TransactionRepository {
       // Check if the account has changed
       if (oldTransaction.accountId != transaction.accountId) {
         // Revert the amount from the old account
-        await _updateAccountBalance(oldTransaction.accountId, -oldTransaction.amount);
+        await _updateAccountBalance(
+            oldTransaction.accountId, -oldTransaction.amount);
         // Apply the new amount to the new account
         await _updateAccountBalance(transaction.accountId, transaction.amount);
       } else {
@@ -68,12 +76,12 @@ class LocalTransactionRepository implements TransactionRepository {
     }
   }
 
-
   Future<void> _updateAccountBalance(int accountId, double amount) async {
     final account = await database.accountsDao.getAccountById(accountId);
     if (account != null) {
       final newBalance = account.balance + amount;
-      final companion = account.toCompanion(false).copyWith(balance: Value(newBalance));
+      final companion =
+          account.toCompanion(false).copyWith(balance: Value(newBalance));
       await database.accountsDao.updateAccount(companion);
     }
   }

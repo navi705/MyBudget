@@ -186,15 +186,25 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
 }
 
 @DriftAccessor(tables: [Transactions])
-class TransactionsDao extends DatabaseAccessor<AppDatabase> with _$TransactionsDaoMixin {
+class TransactionsDao extends DatabaseAccessor<AppDatabase>
+    with _$TransactionsDaoMixin {
   TransactionsDao(super.db);
 
   Future<List<Transaction>> getAllTransactions() => select(transactions).get();
-  Future<Transaction?> getTransactionById(int id) => (select(transactions)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
-  Stream<List<Transaction>> watchAllTransactions() => select(transactions).watch();
-  Future<int> insertTransaction(TransactionsCompanion transaction) => into(transactions).insert(transaction);
-  Future<bool> updateTransaction(TransactionsCompanion transaction) => update(transactions).replace(transaction);
-  Future<int> deleteTransaction(TransactionsCompanion transaction) => delete(transactions).delete(transaction);
+  Future<Transaction?> getTransactionById(int id) =>
+      (select(transactions)..where((tbl) => tbl.id.equals(id)))
+          .getSingleOrNull();
+  Future<List<Transaction>> getTransactionsByCategoryId(int categoryId) =>
+      (select(transactions)..where((tbl) => tbl.categoryId.equals(categoryId)))
+          .get();
+  Stream<List<Transaction>> watchAllTransactions() =>
+      select(transactions).watch();
+  Future<int> insertTransaction(TransactionsCompanion transaction) =>
+      into(transactions).insert(transaction);
+  Future<bool> updateTransaction(TransactionsCompanion transaction) =>
+      update(transactions).replace(transaction);
+  Future<int> deleteTransaction(TransactionsCompanion transaction) =>
+      delete(transactions).delete(transaction);
 }
 
 @DriftAccessor(tables: [Settings])

@@ -1197,6 +1197,18 @@ class MockTransactionsDao extends _i1.Mock implements _i3.TransactionsDao {
           as _i5.Future<_i3.Transaction?>);
 
   @override
+  _i5.Future<List<_i3.Transaction>> getTransactionsByCategoryId(
+    int? categoryId,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#getTransactionsByCategoryId, [categoryId]),
+            returnValue: _i5.Future<List<_i3.Transaction>>.value(
+              <_i3.Transaction>[],
+            ),
+          )
+          as _i5.Future<List<_i3.Transaction>>);
+
+  @override
   _i5.Stream<List<_i3.Transaction>> watchAllTransactions() =>
       (super.noSuchMethod(
             Invocation.method(#watchAllTransactions, []),

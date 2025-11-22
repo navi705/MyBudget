@@ -1,5 +1,8 @@
 import 'package:equatable/equatable.dart';
 
+/// Represents the symbol or abbreviation for a currency, e.g., "$", "€".
+/// This entity is intended to be independent and should not be coupled with
+/// styling information.
 class CurrencyDesignation extends Equatable {
   final int id;
   final String value;

@@ -36,6 +36,21 @@ class DeleteCategory extends CategoriesEvent {
   List<Object> get props => [id];
 }
 
+class DeleteCategoryConfirmed extends CategoriesEvent {
+  final Category categoryToDelete;
+  final bool deleteTransactions;
+  final int? newCategoryId;
+
+  const DeleteCategoryConfirmed({
+    required this.categoryToDelete,
+    required this.deleteTransactions,
+    this.newCategoryId,
+  });
+
+  @override
+  List<Object> get props => [categoryToDelete, deleteTransactions];
+}
+
 class _CategoriesUpdated extends CategoriesEvent {
   final List<Category> categories;
   final Map<int, double> categoryTotals;

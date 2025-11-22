@@ -7,8 +7,11 @@ import 'dart:async' as _i3;
 
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:my_budget_client/domain/entities/category.dart' as _i4;
+import 'package:my_budget_client/domain/entities/transaction.dart' as _i6;
 import 'package:my_budget_client/domain/repositories/category_repository.dart'
     as _i2;
+import 'package:my_budget_client/domain/repositories/transaction_repository.dart'
+    as _i5;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -91,4 +94,79 @@ class MockCategoryRepository extends _i1.Mock
             returnValue: _i3.Stream<Map<int, double>>.empty(),
           )
           as _i3.Stream<Map<int, double>>);
+}
+
+/// A class which mocks [TransactionRepository].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockTransactionRepository extends _i1.Mock
+    implements _i5.TransactionRepository {
+  MockTransactionRepository() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  _i3.Stream<List<_i6.Transaction>> watchTransactions() =>
+      (super.noSuchMethod(
+            Invocation.method(#watchTransactions, []),
+            returnValue: _i3.Stream<List<_i6.Transaction>>.empty(),
+          )
+          as _i3.Stream<List<_i6.Transaction>>);
+
+  @override
+  _i3.Future<List<_i6.Transaction>> getTransactions() =>
+      (super.noSuchMethod(
+            Invocation.method(#getTransactions, []),
+            returnValue: _i3.Future<List<_i6.Transaction>>.value(
+              <_i6.Transaction>[],
+            ),
+          )
+          as _i3.Future<List<_i6.Transaction>>);
+
+  @override
+  _i3.Future<List<_i6.Transaction>> getTransactionsByCategoryId(
+    int? categoryId,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#getTransactionsByCategoryId, [categoryId]),
+            returnValue: _i3.Future<List<_i6.Transaction>>.value(
+              <_i6.Transaction>[],
+            ),
+          )
+          as _i3.Future<List<_i6.Transaction>>);
+
+  @override
+  _i3.Future<_i6.Transaction?> getTransactionById(int? id) =>
+      (super.noSuchMethod(
+            Invocation.method(#getTransactionById, [id]),
+            returnValue: _i3.Future<_i6.Transaction?>.value(),
+          )
+          as _i3.Future<_i6.Transaction?>);
+
+  @override
+  _i3.Future<void> addTransaction(_i6.Transaction? transaction) =>
+      (super.noSuchMethod(
+            Invocation.method(#addTransaction, [transaction]),
+            returnValue: _i3.Future<void>.value(),
+            returnValueForMissingStub: _i3.Future<void>.value(),
+          )
+          as _i3.Future<void>);
+
+  @override
+  _i3.Future<void> updateTransaction(_i6.Transaction? transaction) =>
+      (super.noSuchMethod(
+            Invocation.method(#updateTransaction, [transaction]),
+            returnValue: _i3.Future<void>.value(),
+            returnValueForMissingStub: _i3.Future<void>.value(),
+          )
+          as _i3.Future<void>);
+
+  @override
+  _i3.Future<void> deleteTransaction(int? id) =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteTransaction, [id]),
+            returnValue: _i3.Future<void>.value(),
+            returnValueForMissingStub: _i3.Future<void>.value(),
+          )
+          as _i3.Future<void>);
 }

@@ -24,4 +24,17 @@ class CategoriesLoadSuccess extends CategoriesState {
   List<Object> get props => [categories, categoryTotals];
 }
 
+class CategoryDeletionConfirmationNeeded extends CategoriesState {
+  final Category categoryToDelete;
+  final List<Category> allCategories;
+
+  const CategoryDeletionConfirmationNeeded({
+    required this.categoryToDelete,
+    required this.allCategories,
+  });
+
+  @override
+  List<Object> get props => [categoryToDelete, allCategories];
+}
+
 class CategoriesLoadFailure extends CategoriesState {}
