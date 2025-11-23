@@ -42,9 +42,12 @@ class DebugScreen extends StatelessWidget {
               ElevatedButton(
                 onPressed: () async {
                   await DebugDataSeeder.clearAllData();
+                  if (!context.mounted) return;
                   _reloadAllBlocs(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('All data cleared and re-seeded with defaults.')),
+                    const SnackBar(
+                        content: Text(
+                            'All data cleared and re-seeded with defaults.')),
                   );
                 },
                 child: const Text('Clear All Data (and re-seed defaults)'),
@@ -53,6 +56,7 @@ class DebugScreen extends StatelessWidget {
               ElevatedButton(
                 onPressed: () async {
                   await DebugDataSeeder.seedMinimumData();
+                  if (!context.mounted) return;
                   _reloadAllBlocs(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Minimum data seeded.')),
@@ -64,6 +68,7 @@ class DebugScreen extends StatelessWidget {
               ElevatedButton(
                 onPressed: () async {
                   await DebugDataSeeder.seedMediumData();
+                  if (!context.mounted) return;
                   _reloadAllBlocs(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Medium data seeded.')),
@@ -75,6 +80,7 @@ class DebugScreen extends StatelessWidget {
               ElevatedButton(
                 onPressed: () async {
                   await DebugDataSeeder.seedMaximumData();
+                  if (!context.mounted) return;
                   _reloadAllBlocs(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Maximum data seeded.')),

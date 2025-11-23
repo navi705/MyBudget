@@ -39,48 +39,58 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
 
     return AlertDialog(
       title: Text('Delete ${widget.categoryToDelete.name}?'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-              'This category has associated transactions. What would you like to do?'),
-          RadioListTile<DeleteCategoryOption>(
-            title: const Text('Reassign transactions to another category'),
-            value: DeleteCategoryOption.reassign,
-            groupValue: _selectedOption,
-            onChanged: (value) {
-              setState(() {
-                _selectedOption = value!;
-              });
-            },
-          ),
-          if (_selectedOption == DeleteCategoryOption.reassign)
-            DropdownButtonFormField<String>(
-              value: _newCategoryId,
-              items: availableCategories
-                  .map((c) => DropdownMenuItem(
-                        value: c.id,
-                        child: Text(c.name),
-                      ))
-                  .toList(),
-              onChanged: (value) {
+      content: RadioGroup<DeleteCategoryOption>(
+        groupValue: _selectedOption,
+        onChanged: (value) {
+          setState(() {
+            _selectedOption = value!;
+          });
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+                'This category has associated transactions. What would you like to do?'),
+            ListTile(
+              title: const Text('Reassign transactions to another category'),
+              leading: Radio<DeleteCategoryOption>(
+                value: DeleteCategoryOption.reassign,
+              ),
+              onTap: () {
                 setState(() {
-                  _newCategoryId = value;
+                  _selectedOption = DeleteCategoryOption.reassign;
                 });
               },
-              decoration: const InputDecoration(labelText: 'New Category'),
             ),
-          RadioListTile<DeleteCategoryOption>(
-            title: const Text('Delete all associated transactions'),
-            value: DeleteCategoryOption.delete,
-            groupValue: _selectedOption,
-            onChanged: (value) {
-              setState(() {
-                _selectedOption = value!;
-              });
-            },
-          ),
-        ],
+            if (_selectedOption == DeleteCategoryOption.reassign)
+              DropdownButtonFormField<String>(
+                initialValue: _newCategoryId,
+                items: availableCategories
+                    .map((c) => DropdownMenuItem(
+                          value: c.id,
+                          child: Text(c.name),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _newCategoryId = value;
+                  });
+                },
+                decoration: const InputDecoration(labelText: 'New Category'),
+              ),
+            ListTile(
+              title: const Text('Delete all associated transactions'),
+              leading: Radio<DeleteCategoryOption>(
+                value: DeleteCategoryOption.delete,
+              ),
+              onTap: () {
+                setState(() {
+                  _selectedOption = DeleteCategoryOption.delete;
+                });
+              },
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(

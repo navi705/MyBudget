@@ -109,7 +109,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                       // Wrap in Column to add designation dropdown
                       children: [
                         DropdownButtonFormField<String>(
-                          value: _selectedCurrencyCode,
+                          initialValue: _selectedCurrencyCode,
                           decoration:
                               InputDecoration(labelText: l10n.currencyLabel),
                           items: state.currencies
@@ -133,7 +133,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                         ),
                         const SizedBox(height: 16), // Spacing
                         DropdownButtonFormField<String>(
-                          value: _selectedCurrencyDesignationId,
+                          initialValue: _selectedCurrencyDesignationId,
                           decoration: const InputDecoration(
                               labelText: 'Currency Symbol'), // TODO: Localize
                           items: availableDesignations
@@ -160,7 +160,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                       _selectedAccountTypeId = state.accountTypes.first.id;
                     }
                     return DropdownButtonFormField<String>(
-                      value: _selectedAccountTypeId,
+                      initialValue: _selectedAccountTypeId,
                       decoration: const InputDecoration(
                           labelText: 'Account Type'), // TODO: Localize
                       items: state.accountTypes
@@ -181,7 +181,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                   if (state is StylesLoadSuccess) {
                     _selectedStyleId ??= state.styles.first.id;
                     return DropdownButtonFormField<String>(
-                      value: _selectedStyleId,
+                      initialValue: _selectedStyleId,
                       decoration: const InputDecoration(
                           labelText: 'Style'), // TODO: Localize
                       items: state.styles

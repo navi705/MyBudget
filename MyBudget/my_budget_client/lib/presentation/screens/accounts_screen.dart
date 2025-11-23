@@ -154,7 +154,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 12),
                     ),
-                    value: _selectedAccountTypeId,
+                    initialValue: _selectedAccountTypeId,
                     items: allAccountTypes.map((type) => DropdownMenuItem<String>(
                       value: type.id,
                       child: Text(type.name),

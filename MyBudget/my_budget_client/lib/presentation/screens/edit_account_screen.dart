@@ -161,7 +161,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                       // Wrap in Column to add designation dropdown
                       children: [
                         DropdownButtonFormField<String>(
-                          value: _selectedCurrencyCode,
+                          initialValue: _selectedCurrencyCode,
                           decoration:
                               InputDecoration(labelText: l10n.currencyLabel),
                           items: state.currencies
@@ -186,7 +186,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                         const SizedBox(height: 16),
                         // Spacing
                         DropdownButtonFormField<String>(
-                          value: _selectedCurrencyDesignationId,
+                          initialValue: _selectedCurrencyDesignationId,
                           decoration: const InputDecoration(
                               labelText: 'Currency Symbol'),
                           // TODO: Localize
@@ -211,7 +211,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                 builder: (context, state) {
                   if (state is AccountsLoadSuccess) {
                     return DropdownButtonFormField<String>(
-                      value: _selectedAccountTypeId,
+                      initialValue: _selectedAccountTypeId,
                       decoration:
                           const InputDecoration(labelText: 'Account Type'),
                       // TODO: Localize
@@ -234,7 +234,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                 builder: (context, state) {
                   if (state is StylesLoadSuccess) {
                     return DropdownButtonFormField<String>(
-                      value: _selectedStyleId,
+                      initialValue: _selectedStyleId,
                       decoration: const InputDecoration(labelText: 'Style'),
                       // TODO: Localize
                       items: state.styles

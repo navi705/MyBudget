@@ -149,7 +149,7 @@ class _CategoryListItem extends StatelessWidget {
 
     final listTile = ListTile(
       leading: CircleAvatar(
-        backgroundColor: color.withOpacity(0.2),
+        backgroundColor: color.withAlpha((255 * 0.2).round()),
         child: Icon(iconData, color: color),
       ),
       title: Text(category.name),
@@ -377,7 +377,7 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
 
                   return DropdownButtonFormField<String>(
 
-                    value: _selectedStyleId,
+                    initialValue: _selectedStyleId,
 
                     decoration: const InputDecoration(labelText: 'Style'),
 
@@ -415,7 +415,7 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
 
                   return DropdownButtonFormField<String>(
 
-                    value: _selectedParentId,
+                    initialValue: _selectedParentId,
 
                     decoration:
 
@@ -461,7 +461,7 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
 
             DropdownButtonFormField<CategoryType>(
 
-              value: _selectedCategoryType,
+              initialValue: _selectedCategoryType,
 
               decoration: const InputDecoration(labelText: 'Category Type'),
 

@@ -156,7 +156,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
                 builder: (context, state) {
                   if (state is AccountsLoadSuccess) {
                     return DropdownButtonFormField<String>(
-                      value: _selectedAccountId,
+                      initialValue: _selectedAccountId,
                       decoration: const InputDecoration(labelText: 'Account'),
                       items: state.accounts
                           .map((acc) => DropdownMenuItem<String>(
@@ -176,7 +176,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
                 builder: (context, state) {
                   if (state is CategoriesLoadSuccess) {
                     return DropdownButtonFormField<String>(
-                      value: _selectedCategoryId,
+                      initialValue: _selectedCategoryId,
                       decoration: const InputDecoration(labelText: 'Category'),
                       items: state.categories
                           .map((cat) => DropdownMenuItem<String>(
