@@ -57,7 +57,7 @@ class DebugDataSeeder {
 
   static Future<void> seedMediumData() async {
     await clearAllData();
-    await _seedData(accountCount: 50, categoryCount: 20, transactionCount: 1000);
+    await _seedData(accountCount: 100, categoryCount: 50, transactionCount: 5000);
   }
 
   static Future<void> seedMaximumData() async {
@@ -106,7 +106,6 @@ class DebugDataSeeder {
     insertedAccounts.addAll(await accountRepo.getAccounts());
 
     // 2. Create Categories
-    final List<Category> insertedCategories = [];
     for (int i = 0; i < categoryCount; i++) {
       final style =
           prerequisites.styles[_random.nextInt(prerequisites.styles.length)];
@@ -118,7 +117,30 @@ class DebugDataSeeder {
       );
       await categoryRepo.addCategory(category);
     }
-    insertedCategories.addAll(await categoryRepo.getCategories());
+    
+    final allCategories = await categoryRepo.getCategories();
+    
+    // Make ~50% of categories into subcategories
+    final int subCategoryCount = (allCategories.length * 0.5).round();
+    final subCategoryCandidates = List.of(allCategories)..shuffle();
+    final parentCategories = allCategories.where((c) => c.parentId == null).toList();
+
+    for(int i = 0; i < subCategoryCount; i++) {
+      final subCategory = subCategoryCandidates[i];
+
+      // Ensure we have parents and the subcategory is not already a subcategory
+      if (parentCategories.isEmpty || subCategory.parentId != null) continue;
+
+      // Find a parent that is not the same category
+      var potentialParents = parentCategories.where((p) => p.id != subCategory.id).toList();
+      if (potentialParents.isEmpty) continue;
+      
+      final parent = potentialParents[_random.nextInt(potentialParents.length)];
+      
+      await categoryRepo.updateCategory(subCategory.copyWith(parentId: parent.id));
+    }
+
+    final insertedCategories = await categoryRepo.getCategories();
 
     // 3. Create Transactions
     if (transactionCount > 10000) {
