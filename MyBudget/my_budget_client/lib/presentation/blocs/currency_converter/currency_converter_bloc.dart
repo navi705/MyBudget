@@ -42,7 +42,7 @@ class CurrencyConverterBloc
       _currencyRepository.watchCurrencies(),
       _currencyRepository.watchAllExchangeRates(),
       _accountRepository.watchAccounts(),
-      _settingsRepository.watchSetting('conversion_base_currency_id'),
+      _settingsRepository.watchSetting('conversion_base_currency_code'),
       (
         List<Currency> currencies,
         List<ExchangeRate> rates,
@@ -67,7 +67,7 @@ class CurrencyConverterBloc
     _CurrencyConverterDataUpdated event,
     Emitter<CurrencyConverterState> emit,
   ) {
-    final baseId = int.tryParse(event.baseCurrencySetting?.value ?? '1') ?? 1;
+    final baseCode = event.baseCurrencySetting?.value ?? 'USD';
     final currentState = state;
     List<Currency> selected = [];
     if (currentState is CurrencyConverterLoadSuccess) {
@@ -75,7 +75,7 @@ class CurrencyConverterBloc
     } else if (event.allCurrencies.isNotEmpty) {
       // Add base currency by default on first load
       final baseCurrency =
-          event.allCurrencies.firstWhereOrNull((c) => c.id == baseId);
+          event.allCurrencies.firstWhereOrNull((c) => c.code == baseCode);
       if (baseCurrency != null) {
         selected.add(baseCurrency);
       }
@@ -85,7 +85,7 @@ class CurrencyConverterBloc
       allCurrencies: event.allCurrencies,
       exchangeRates: event.exchangeRates,
       accounts: event.accounts,
-      baseCurrencyId: baseId,
+      baseCurrencyCode: baseCode,
       selectedCurrencies: selected,
     ));
   }

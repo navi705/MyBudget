@@ -4,28 +4,28 @@ import 'package:equatable/equatable.dart';
 /// This entity is intended to be independent and should not be coupled with
 /// styling information.
 class CurrencyDesignation extends Equatable {
-  final int id;
+  final String id;
   final String value;
-  final int currencyId;
+  final String currencyCode;
 
   const CurrencyDesignation({
     required this.id,
     required this.value,
-    required this.currencyId,
+    required this.currencyCode,
   });
 
   CurrencyDesignation copyWith({
-    int? id,
+    String? id,
     String? value,
-    int? currencyId,
+    String? currencyCode,
   }) {
     return CurrencyDesignation(
       id: id ?? this.id,
       value: value ?? this.value,
-      currencyId: currencyId ?? this.currencyId,
+      currencyCode: currencyCode ?? this.currencyCode,
     );
   }
 
   @override
-  List<Object?> get props => [id, value, currencyId];
+  List<Object?> get props => [id, value, currencyCode];
 }

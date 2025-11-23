@@ -28,7 +28,7 @@ class UpdateTransaction extends TransactionsEvent {
 }
 
 class DeleteTransaction extends TransactionsEvent {
-  final int id;
+  final String id;
 
   const DeleteTransaction(this.id);
 

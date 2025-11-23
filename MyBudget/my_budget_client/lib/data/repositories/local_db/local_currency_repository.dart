@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/core/mappers/currency_designation_mapper.dart';
 import 'package:my_budget_client/core/mappers/currency_mapper.dart';
@@ -27,8 +26,8 @@ class LocalCurrencyRepository implements CurrencyRepository {
   }
 
   @override
-  Future<Currency?> getCurrencyById(int id) async {
-    final driftCurrency = await database.currenciesDao.getCurrencyById(id);
+  Future<Currency?> getCurrencyByCode(String code) async {
+    final driftCurrency = await database.currenciesDao.getCurrencyByCode(code);
     return driftCurrency?.toDomain();
   }
 
@@ -44,60 +43,70 @@ class LocalCurrencyRepository implements CurrencyRepository {
   }
 
   @override
-  Future<void> deleteCurrency(int id) async {
-    await database.currenciesDao.deleteCurrency(
-      db.CurrenciesCompanion(id: Value(id)),
-    );
+  Future<void> deleteCurrency(Currency currency) async {
+    final companion = currency.toCompanion();
+    await database.currenciesDao.deleteCurrency(companion);
   }
 
   @override
-  Stream<List<CurrencyDesignation>> watchCurrencyDesignationsForCurrency(int currencyId) {
-    return database.currencyDesignationsDao.watchAllDesignations().map((driftDesignations) {
+  Stream<List<CurrencyDesignation>> watchCurrencyDesignationsForCurrency(
+      String currencyCode) {
+    return database.currencyDesignationsDao
+        .watchAllDesignations()
+        .map((driftDesignations) {
       return driftDesignations
-          .where((d) => d.currencyId == currencyId)
+          .where((d) => d.currencyCode == currencyCode)
           .map((d) => d.toDomain())
           .toList();
     });
   }
 
   @override
-  Future<List<CurrencyDesignation>> getCurrencyDesignationsForCurrency(int currencyId) async {
-    final driftDesignations = await database.currencyDesignationsDao.getAllDesignations();
+  Future<List<CurrencyDesignation>> getCurrencyDesignationsForCurrency(
+      String currencyCode) async {
+    final driftDesignations =
+        await database.currencyDesignationsDao.getAllDesignations();
     return driftDesignations
-        .where((d) => d.currencyId == currencyId)
+        .where((d) => d.currencyCode == currencyCode)
         .map((d) => d.toDomain())
         .toList();
   }
 
   @override
-  Future<CurrencyDesignation?> getCurrencyDesignationById(int id) async {
-    final driftDesignation = await database.currencyDesignationsDao.getDesignationById(id);
+  Future<CurrencyDesignation?> getCurrencyDesignationById(String id) async {
+    final driftDesignation =
+        await database.currencyDesignationsDao.getDesignationById(id);
     return driftDesignation?.toDomain();
   }
 
   @override
   Stream<List<CurrencyDesignation>> watchAllCurrencyDesignations() {
-    return database.currencyDesignationsDao.watchAllDesignations().map((driftDesignations) {
+    return database.currencyDesignationsDao
+        .watchAllDesignations()
+        .map((driftDesignations) {
       return driftDesignations.map((d) => d.toDomain()).toList();
     });
   }
 
   @override
   Future<List<CurrencyDesignation>> getAllCurrencyDesignations() async {
-    final driftDesignations = await database.currencyDesignationsDao.getAllDesignations();
+    final driftDesignations =
+        await database.currencyDesignationsDao.getAllDesignations();
     return driftDesignations.map((d) => d.toDomain()).toList();
   }
 
   @override
   Stream<List<ExchangeRate>> watchAllExchangeRates() {
-    return database.exchangeRatesDao.watchAllExchangeRates().map((driftExchangeRates) {
+    return database.exchangeRatesDao
+        .watchAllExchangeRates()
+        .map((driftExchangeRates) {
       return driftExchangeRates.map((r) => r.toDomain()).toList();
     });
   }
 
   @override
   Future<void> addExchangeRate(ExchangeRate exchangeRate) async {
-    await database.exchangeRatesDao.addExchangeRate(exchangeRate.toCompanion());
-
+    await database.exchangeRatesDao
+        .addExchangeRate(exchangeRate.toCompanion());
   }
 }

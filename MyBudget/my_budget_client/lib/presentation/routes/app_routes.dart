@@ -1,5 +1,6 @@
 class AppRoutes {
   static const String dashboard = '/';
+  static const String debug = '/debug';
   static const String accounts = '/accounts';
   static const String settings = '/settings';
   static const String categories = '/categories';

@@ -27,7 +27,7 @@ class LocalStyleRepository implements StyleRepository {
   }
 
   @override
-  Future<void> deleteStyle(int id) async {
+  Future<void> deleteStyle(String id) async {
     await database.stylesDao.deleteStyle(
       db.StylesCompanion(id: Value(id)),
     );

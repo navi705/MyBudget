@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 class AccountType extends Equatable {
-  final int id;
+  final String id;
   final String name;
 
   const AccountType({
@@ -10,7 +10,7 @@ class AccountType extends Equatable {
   });
 
   AccountType copyWith({
-    int? id,
+    String? id,
     String? name,
   }) {
     return AccountType(

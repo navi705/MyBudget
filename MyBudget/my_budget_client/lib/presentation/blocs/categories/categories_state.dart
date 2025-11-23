@@ -13,7 +13,7 @@ class CategoriesLoadInProgress extends CategoriesState {}
 
 class CategoriesLoadSuccess extends CategoriesState {
   final List<Category> categories;
-  final Map<int, double> categoryTotals;
+  final Map<String, double> categoryTotals;
 
   const CategoriesLoadSuccess({
     this.categories = const [],

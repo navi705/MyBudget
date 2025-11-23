@@ -1,10 +1,10 @@
 import 'package:my_budget_client/domain/entities/category_type.dart';
 
 class Category {
-  final int? id;
+  final String? id;
   final String name;
-  final int? parentId;
-  final int? styleId;
+  final String? parentId;
+  final String? styleId;
   final CategoryType type;
 
   Category({
@@ -16,10 +16,10 @@ class Category {
   });
 
   Category copyWith({
-    int? id,
+    String? id,
     String? name,
-    int? parentId,
-    int? styleId,
+    String? parentId,
+    String? styleId,
     CategoryType? type,
   }) {
     return Category(

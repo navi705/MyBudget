@@ -28,7 +28,7 @@ class UpdateCategory extends CategoriesEvent {
 }
 
 class DeleteCategory extends CategoriesEvent {
-  final int id;
+  final String id;
 
   const DeleteCategory(this.id);
 
@@ -39,7 +39,7 @@ class DeleteCategory extends CategoriesEvent {
 class DeleteCategoryConfirmed extends CategoriesEvent {
   final Category categoryToDelete;
   final bool deleteTransactions;
-  final int? newCategoryId;
+  final String? newCategoryId;
 
   const DeleteCategoryConfirmed({
     required this.categoryToDelete,
@@ -53,7 +53,7 @@ class DeleteCategoryConfirmed extends CategoriesEvent {
 
 class _CategoriesUpdated extends CategoriesEvent {
   final List<Category> categories;
-  final Map<int, double> categoryTotals;
+  final Map<String, double> categoryTotals;
 
   const _CategoriesUpdated(this.categories, this.categoryTotals);
 

@@ -1,43 +1,44 @@
 import 'package:equatable/equatable.dart';
 
 class Account extends Equatable {
-  final int? id;
+  final String? id;
   final String name;
   final String? description;
   final double balance;
-  final int currencyId;
-  final int currencyDesignationId;
-  final int? styleId;
-  final int accountTypeId;
+  final String currencyCode;
+  final String currencyDesignationId;
+  final String? styleId;
+  final String accountTypeId;
 
   const Account({
     this.id,
     required this.name,
     this.description,
     required this.balance,
-    required this.currencyId,
+    required this.currencyCode,
     required this.currencyDesignationId,
     this.styleId,
     required this.accountTypeId,
   });
 
   Account copyWith({
-    int? id,
+    String? id,
     String? name,
     String? description,
     double? balance,
-    int? currencyId,
-    int? currencyDesignationId,
-    int? styleId,
-    int? accountTypeId,
+    String? currencyCode,
+    String? currencyDesignationId,
+    String? styleId,
+    String? accountTypeId,
   }) {
     return Account(
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
       balance: balance ?? this.balance,
-      currencyId: currencyId ?? this.currencyId,
-      currencyDesignationId: currencyDesignationId ?? this.currencyDesignationId,
+      currencyCode: currencyCode ?? this.currencyCode,
+      currencyDesignationId:
+          currencyDesignationId ?? this.currencyDesignationId,
       styleId: styleId ?? this.styleId,
       accountTypeId: accountTypeId ?? this.accountTypeId,
     );
@@ -49,7 +50,7 @@ class Account extends Equatable {
         name,
         description,
         balance,
-        currencyId,
+        currencyCode,
         currencyDesignationId,
         styleId,
         accountTypeId,

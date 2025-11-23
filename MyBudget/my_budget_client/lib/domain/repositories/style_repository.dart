@@ -4,5 +4,5 @@ abstract class StyleRepository {
   Stream<List<Style>> watchAllStyles();
   Future<void> addStyle(Style style);
   Future<void> updateStyle(Style style);
-  Future<void> deleteStyle(int id);
+  Future<void> deleteStyle(String id);
 }

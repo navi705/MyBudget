@@ -1,5 +1,7 @@
 import 'package:get_it/get_it.dart';
+import 'package:my_budget_client/data/repositories/db_repository.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_category_repository.dart';
+import 'package:my_budget_client/data/repositories/local_db/local_db_repository.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_settings_repository.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_style_repository.dart';
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
@@ -62,6 +64,8 @@ Future<void> init() async {
       () => LocalStyleRepository(sl()));
   sl.registerLazySingleton<TransactionRepository>(
       () => LocalTransactionRepository(sl()));
+  sl.registerLazySingleton<DbRepository>(
+      () => LocalDbRepository(sl()));    
 
   // Core
   sl.registerLazySingleton(() => AppDatabase());

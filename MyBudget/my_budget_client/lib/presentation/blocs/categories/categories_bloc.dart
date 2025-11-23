@@ -40,7 +40,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       _categoryRepository.watchCategories(),
       _transactionRepository.watchTransactions(),
       (List<Category> categories, List<Transaction> transactions) {
-        final categoryTotals = <int, double>{};
+        final categoryTotals = <String, double>{};
         for (var transaction in transactions) {
           categoryTotals.update(
             transaction.categoryId,
@@ -60,9 +60,9 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     );
   }
 
-  Map<int, double> _calculateRecursiveTotals(
-      List<Category> categories, Map<int, double> totals) {
-    final newTotals = Map<int, double>.from(totals);
+  Map<String, double> _calculateRecursiveTotals(
+      List<Category> categories, Map<String, double> totals) {
+    final newTotals = Map<String, double>.from(totals);
 
     for (final category in categories.where((c) => c.parentId != null)) {
       var parentId = category.parentId;
@@ -75,7 +75,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         final parent =
             categories.firstWhere((c) => c.id == parentId, orElse: () {
           // This should not happen in a consistent database
-          return Category(id: -1, name: "Not Found", type: category.type);
+          return Category(id: "not_found", name: "Not Found", type: category.type);
         });
 
         parentId = parent.parentId;

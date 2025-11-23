@@ -7,8 +7,8 @@ import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.d
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 
 class AddEditTransactionScreen extends StatefulWidget {
-  final int? transactionId;
-  final int? categoryId;
+  final String? transactionId;
+  final String? categoryId;
 
   const AddEditTransactionScreen(
       {super.key, this.transactionId, this.categoryId});
@@ -22,8 +22,8 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _descriptionController;
   late TextEditingController _amountController;
-  int? _selectedAccountId;
-  int? _selectedCategoryId;
+  String? _selectedAccountId;
+  String? _selectedCategoryId;
   DateTime _selectedDate = DateTime.now();
   Transaction? _existingTransaction;
 
@@ -95,7 +95,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
           date: _selectedDate,
           accountId: _selectedAccountId!,
           categoryId: _selectedCategoryId!,
-          currencyId: selectedAccount.currencyId,
+          currencyCode: selectedAccount.currencyCode,
         );
         context.read<TransactionsBloc>().add(AddTransaction(newTransaction));
       } else {
@@ -106,7 +106,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
           date: _selectedDate,
           accountId: _selectedAccountId,
           categoryId: _selectedCategoryId,
-          currencyId: selectedAccount.currencyId,
+          currencyCode: selectedAccount.currencyCode,
         );
         context
             .read<TransactionsBloc>()
@@ -155,11 +155,11 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
               BlocBuilder<AccountsBloc, AccountsState>(
                 builder: (context, state) {
                   if (state is AccountsLoadSuccess) {
-                    return DropdownButtonFormField<int>(
-                      initialValue: _selectedAccountId,
+                    return DropdownButtonFormField<String>(
+                      value: _selectedAccountId,
                       decoration: const InputDecoration(labelText: 'Account'),
                       items: state.accounts
-                          .map((acc) => DropdownMenuItem<int>(
+                          .map((acc) => DropdownMenuItem<String>(
                                 value: acc.id,
                                 child: Text(acc.name),
                               ))
@@ -175,11 +175,11 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
               BlocBuilder<CategoriesBloc, CategoriesState>(
                 builder: (context, state) {
                   if (state is CategoriesLoadSuccess) {
-                    return DropdownButtonFormField<int>(
-                      initialValue: _selectedCategoryId,
+                    return DropdownButtonFormField<String>(
+                      value: _selectedCategoryId,
                       decoration: const InputDecoration(labelText: 'Category'),
                       items: state.categories
-                          .map((cat) => DropdownMenuItem<int>(
+                          .map((cat) => DropdownMenuItem<String>(
                                 value: cat.id,
                                 child: Text(cat.name),
                               ))

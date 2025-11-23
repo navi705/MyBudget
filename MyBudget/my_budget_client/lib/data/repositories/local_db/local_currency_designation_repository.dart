@@ -16,14 +16,14 @@ class LocalCurrencyDesignationRepository
   }
 
   @override
-  Future<void> deleteDesignation(int id) async {
+  Future<void> deleteDesignation(String id) async {
     await database.currencyDesignationsDao.deleteDesignation(
       db.CurrencyDesignationsCompanion(id: Value(id)),
     );
   }
 
   @override
-  Future<CurrencyDesignation?> getDesignationById(int id) async {
+  Future<CurrencyDesignation?> getDesignationById(String id) async {
     final designation = await database.currencyDesignationsDao
         .getDesignationById(id);
     return designation?.toDomain();

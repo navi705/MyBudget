@@ -1,13 +1,13 @@
 import 'package:equatable/equatable.dart';
 
 class Transaction extends Equatable {
-  final int? id;
+  final String? id;
   final String description;
   final double amount;
   final DateTime date;
-  final int accountId;
-  final int categoryId;
-  final int currencyId;
+  final String accountId;
+  final String categoryId;
+  final String currencyCode;
 
   const Transaction({
     this.id,
@@ -16,17 +16,17 @@ class Transaction extends Equatable {
     required this.date,
     required this.accountId,
     required this.categoryId,
-    required this.currencyId,
+    required this.currencyCode,
   });
 
   Transaction copyWith({
-    int? id,
+    String? id,
     String? description,
     double? amount,
     DateTime? date,
-    int? accountId,
-    int? categoryId,
-    int? currencyId,
+    String? accountId,
+    String? categoryId,
+    String? currencyCode,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -35,7 +35,7 @@ class Transaction extends Equatable {
       date: date ?? this.date,
       accountId: accountId ?? this.accountId,
       categoryId: categoryId ?? this.categoryId,
-      currencyId: currencyId ?? this.currencyId,
+      currencyCode: currencyCode ?? this.currencyCode,
     );
   }
 
@@ -47,6 +47,6 @@ class Transaction extends Equatable {
         date,
         accountId,
         categoryId,
-        currencyId,
+        currencyCode,
       ];
 }

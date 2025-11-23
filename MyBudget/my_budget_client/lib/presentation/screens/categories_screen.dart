@@ -104,7 +104,7 @@ class CategoriesScreen extends StatelessWidget {
 class _CategoryListItem extends StatelessWidget {
   final Category category;
   final List<Category> allCategories;
-  final Map<int, double> categoryTotals;
+  final Map<String, double> categoryTotals;
   final List<Style> styles;
 
   const _CategoryListItem({
@@ -218,150 +218,297 @@ class _CategoryListItem extends StatelessWidget {
 }
 
 class AddEditCategoryDialog extends StatefulWidget {
+
   final Category? category;
+
+
 
   const AddEditCategoryDialog({super.key, this.category});
 
+
+
   @override
+
   State<AddEditCategoryDialog> createState() => _AddEditCategoryDialogState();
+
 }
 
+
+
 class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
+
   final _formKey = GlobalKey<FormState>();
+
   late TextEditingController _nameController;
-  int? _selectedStyleId;
-  int? _selectedParentId;
+
+  String? _selectedStyleId;
+
+  String? _selectedParentId;
+
   CategoryType _selectedCategoryType = CategoryType.expense;
 
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.category?.name);
-    _selectedStyleId = widget.category?.styleId;
-    _selectedParentId = widget.category?.parentId;
-    _selectedCategoryType = widget.category?.type ?? CategoryType.expense;
-  }
+
 
   @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
+
+  void initState() {
+
+    super.initState();
+
+    _nameController = TextEditingController(text: widget.category?.name);
+
+    _selectedStyleId = widget.category?.styleId;
+
+    _selectedParentId = widget.category?.parentId;
+
+    _selectedCategoryType = widget.category?.type ?? CategoryType.expense;
+
   }
+
+
+
+  @override
+
+  void dispose() {
+
+    _nameController.dispose();
+
+    super.dispose();
+
+  }
+
+
 
   void _onSave() {
+
     if (_formKey.currentState!.validate()) {
+
       final name = _nameController.text;
+
       if (widget.category == null) {
+
         context.read<CategoriesBloc>().add(
+
               AddCategory(
+
                 Category(
+
                   name: name,
+
                   styleId: _selectedStyleId,
+
                   type: _selectedCategoryType,
+
                   parentId: _selectedParentId,
+
                 ),
+
               ),
+
             );
+
       } else {
+
         context.read<CategoriesBloc>().add(
+
               UpdateCategory(
+
                 widget.category!.copyWith(
+
                   name: name,
+
                   styleId: _selectedStyleId,
+
                   type: _selectedCategoryType,
+
                   parentId: _selectedParentId,
+
                 ),
+
               ),
+
             );
+
       }
+
       Navigator.of(context).pop();
+
     }
+
   }
 
+
+
   @override
+
   Widget build(BuildContext context) {
+
     return AlertDialog(
+
       title: Text(widget.category == null ? 'Add Category' : 'Edit Category'),
+
       content: Form(
+
         key: _formKey,
+
         child: Column(
+
           mainAxisSize: MainAxisSize.min,
+
           children: [
+
             TextFormField(
+
               controller: _nameController,
+
               decoration: const InputDecoration(labelText: 'Category Name'),
+
               validator: (value) =>
+
                   (value == null || value.isEmpty) ? 'Please enter a name' : null,
+
             ),
+
             BlocBuilder<StylesBloc, StylesState>(
+
               builder: (context, state) {
+
                 if (state is StylesLoadSuccess) {
-                  return DropdownButtonFormField<int>(
-                    initialValue: _selectedStyleId,
+
+                  return DropdownButtonFormField<String>(
+
+                    value: _selectedStyleId,
+
                     decoration: const InputDecoration(labelText: 'Style'),
+
                     items: state.styles
-                        .map((s) => DropdownMenuItem<int>(
+
+                        .map((s) => DropdownMenuItem<String>(
+
                               value: s.id,
+
                               child: Text(s.name),
+
                             ))
+
                         .toList(),
+
                     onChanged: (v) => setState(() => _selectedStyleId = v),
+
                   );
+
                 }
+
                 return const SizedBox.shrink();
+
               },
+
             ),
+
             BlocBuilder<CategoriesBloc, CategoriesState>(
+
               builder: (context, state) {
+
                 if (state is CategoriesLoadSuccess) {
+
                   final categories = state.categories;
-                  return DropdownButtonFormField<int>(
+
+                  return DropdownButtonFormField<String>(
+
                     value: _selectedParentId,
+
                     decoration:
+
                         const InputDecoration(labelText: 'Parent Category'),
+
                     items: [
-                      const DropdownMenuItem<int>(
+
+                      const DropdownMenuItem<String>(
+
                         value: null,
+
                         child: Text('None'),
+
                       ),
+
                       ...categories
+
                           .where((c) => c.id != widget.category?.id)
-                          .map((c) => DropdownMenuItem<int>(
+
+                          .map((c) => DropdownMenuItem<String>(
+
                                 value: c.id,
+
                                 child: Text(c.name),
+
                               ))
-                          .toList(),
+
+                          ,
+
                     ],
+
                     onChanged: (v) => setState(() => _selectedParentId = v),
+
                   );
+
                 }
+
                 return const SizedBox.shrink();
+
               },
+
             ),
+
             DropdownButtonFormField<CategoryType>(
+
               value: _selectedCategoryType,
+
               decoration: const InputDecoration(labelText: 'Category Type'),
+
               items: CategoryType.values
+
                   .map((type) => DropdownMenuItem<CategoryType>(
+
                         value: type,
+
                         child: Text(type.toString().split('.').last),
+
                       ))
+
                   .toList(),
+
               onChanged: (v) => setState(() => _selectedCategoryType = v!),
+
             ),
+
           ],
+
         ),
+
       ),
+
       actions: [
+
         TextButton(
+
           onPressed: () => Navigator.of(context).pop(),
+
           child: const Text('Cancel'),
+
         ),
+
         ElevatedButton(
+
           onPressed: _onSave,
+
           child: const Text('Save'),
+
         ),
+
       ],
+
     );
+
   }
+
 }

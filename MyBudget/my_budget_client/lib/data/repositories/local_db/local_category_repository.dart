@@ -22,7 +22,7 @@ class LocalCategoryRepository implements CategoryRepository {
   }
 
   @override
-  Future<void> deleteCategory(int id) async {
+  Future<void> deleteCategory(String id) async {
     await _appDatabase.categoriesDao.deleteCategory(
       drift.CategoriesCompanion(id: Value(id)),
     );
@@ -35,7 +35,7 @@ class LocalCategoryRepository implements CategoryRepository {
   }
 
   @override
-  Future<Category?> getCategoryById(int id) async {
+  Future<Category?> getCategoryById(String id) async {
     final driftCategory = await _appDatabase.categoriesDao.getCategoryById(id);
     return driftCategory?.toDomain();
   }
@@ -46,7 +46,7 @@ class LocalCategoryRepository implements CategoryRepository {
   }
 
   @override
-  Stream<Map<int, double>> watchCategoryTotals() {
+  Stream<Map<String, double>> watchCategoryTotals() {
     return _appDatabase.categoriesDao.watchCategoryTotals();
   }
 }

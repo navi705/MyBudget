@@ -19,13 +19,13 @@ class AccountsScreen extends StatefulWidget {
 }
 
 class _AccountsScreenState extends State<AccountsScreen> {
-  int? _selectedAccountTypeId; // State variable for selected account type filter
+  String? _selectedAccountTypeId; // State variable for selected account type filter
   bool _sortAscending = true; // NEW: Sorting order (ascending by default)
 
   @override
   void initState() {
     super.initState();
-    _selectedAccountTypeId = 0; // 0 for 'All' accounts
+    _selectedAccountTypeId = 'all'; // 0 for 'All' accounts
   }
 
   Future<void> _showCurrencySelectionDialog(BuildContext context) async {
@@ -46,7 +46,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
               content: SingleChildScrollView(
                 child: ListBody(
                   children: currentState.allCurrencies.map((currency) {
-                    final isSelected = tempSelectedCurrencies.any((c) => c.id == currency.id);
+                    final isSelected =
+                        tempSelectedCurrencies.any((c) => c.code == currency.code);
                     return CheckboxListTile(
                       title: Text('${currency.name} (${currency.code})'),
                       value: isSelected,
@@ -55,7 +56,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           if (value == true) {
                             tempSelectedCurrencies.add(currency);
                           } else {
-                            tempSelectedCurrencies.removeWhere((c) => c.id == currency.id);
+                            tempSelectedCurrencies
+                                .removeWhere((c) => c.code == currency.code);
                           }
                         });
                       },
@@ -72,7 +74,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   child: const Text('OK'),
                   onPressed: () {
                     // Clear current selections
-                    for (final currency in List<Currency>.from(currentState.selectedCurrencies)) {
+                    for (final currency
+                        in List<Currency>.from(currentState.selectedCurrencies)) {
                       converterBloc.add(RemoveSelectedCurrency(currency));
                     }
                     // Add new selections
@@ -139,20 +142,20 @@ class _AccountsScreenState extends State<AccountsScreen> {
               if (state is AccountsLoadSuccess) {
                 // Create a list of all account types, including an "All" option
                 final allAccountTypes = [
-                  const AccountType(id: 0, name: 'All'), // "All" option
+                  const AccountType(id: 'all', name: 'All'), // "All" option
                   ...state.accountTypes,
                 ];
 
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                  child: DropdownButtonFormField<int>(
+                  child: DropdownButtonFormField<String>(
                     isExpanded: true,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 12),
                     ),
                     value: _selectedAccountTypeId,
-                    items: allAccountTypes.map((type) => DropdownMenuItem<int>(
+                    items: allAccountTypes.map((type) => DropdownMenuItem<String>(
                       value: type.id,
                       child: Text(type.name),
                     )).toList(),
@@ -213,7 +216,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   }
                   if (state is AccountsLoadSuccess) {
                     // Filter accounts based on selected type
-                    final filteredAccounts = _selectedAccountTypeId == 0
+                    final filteredAccounts = _selectedAccountTypeId == 'all'
                         ? state.accounts
                         : state.accounts.where((acc) => acc.accountTypeId == _selectedAccountTypeId).toList();
 

@@ -7,7 +7,7 @@ extension CurrencyDesignationMapper on drift.CurrencyDesignation {
     return CurrencyDesignation(
       id: id,
       value: value,
-      currencyId: currencyId,
+      currencyCode: currencyCode,
     );
   }
 }
@@ -17,7 +17,7 @@ extension CurrencyDesignationCompanionMapper on CurrencyDesignation {
     return drift.CurrencyDesignationsCompanion(
       id: Value(id),
       value: Value(value),
-      currencyId: Value(currencyId),
+      currencyCode: Value(currencyCode),
     );
   }
 }

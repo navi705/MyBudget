@@ -21,7 +21,7 @@ class DeleteCategoryDialog extends StatefulWidget {
 
 class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
   DeleteCategoryOption _selectedOption = DeleteCategoryOption.reassign;
-  int? _newCategoryId;
+  String? _newCategoryId;
 
   @override
   void initState() {
@@ -55,7 +55,7 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
             },
           ),
           if (_selectedOption == DeleteCategoryOption.reassign)
-            DropdownButtonFormField<int>(
+            DropdownButtonFormField<String>(
               value: _newCategoryId,
               items: availableCategories
                   .map((c) => DropdownMenuItem(

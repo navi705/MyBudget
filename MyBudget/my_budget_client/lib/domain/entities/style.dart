@@ -1,5 +1,5 @@
 class Style {
-  final int? id;
+  final String? id;
   final String name;
   final String iconName;
   final String colorHex;
@@ -12,7 +12,7 @@ class Style {
   });
 
   Style copyWith({
-    int? id,
+    String? id,
     String? name,
     String? iconName,
     String? colorHex,

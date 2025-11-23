@@ -19,10 +19,10 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController(); // ADDED
   final _balanceController = TextEditingController();
-  int? _selectedCurrencyId;
-  int? _selectedCurrencyDesignationId;
-  int? _selectedStyleId;
-  int? _selectedAccountTypeId; // ADDED
+  String? _selectedCurrencyCode;
+  String? _selectedCurrencyDesignationId;
+  String? _selectedStyleId;
+  String? _selectedAccountTypeId; // ADDED
 
   @override
   void initState() {
@@ -82,25 +82,25 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                 builder: (context, state) {
                   if (state is CurrencyLoadSuccess) {
                     // Initialize selected currency and designation
-                    if (_selectedCurrencyId == null &&
+                    if (_selectedCurrencyCode == null &&
                         state.currencies.isNotEmpty) {
-                      _selectedCurrencyId = state.currencies.first.id;
+                      _selectedCurrencyCode = state.currencies.first.code;
                       // Find first designation for the default currency
                       final firstDesignation = state.designations
                           .firstWhereOrNull(
-                              (d) => d.currencyId == _selectedCurrencyId);
+                              (d) => d.currencyCode == _selectedCurrencyCode);
                       _selectedCurrencyDesignationId = firstDesignation?.id;
                     }
 
                     // Filter designations based on selected currency
                     final availableDesignations = state.designations
-                        .where((d) => d.currencyId == _selectedCurrencyId)
+                        .where((d) => d.currencyCode == _selectedCurrencyCode)
                         .toList();
 
                     // Ensure a valid designation is selected if the current one is no longer available
                     if (_selectedCurrencyDesignationId != null &&
-                        !availableDesignations
-                            .any((d) => d.id == _selectedCurrencyDesignationId)) {
+                        !availableDesignations.any(
+                            (d) => d.id == _selectedCurrencyDesignationId)) {
                       _selectedCurrencyDesignationId =
                           availableDesignations.first.id;
                     }
@@ -108,22 +108,22 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                     return Column(
                       // Wrap in Column to add designation dropdown
                       children: [
-                        DropdownButtonFormField<int>(
-                          initialValue: _selectedCurrencyId,
+                        DropdownButtonFormField<String>(
+                          value: _selectedCurrencyCode,
                           decoration:
                               InputDecoration(labelText: l10n.currencyLabel),
                           items: state.currencies
-                              .map((c) => DropdownMenuItem<int>(
-                                  value: c.id, child: Text(c.code)))
+                              .map((c) => DropdownMenuItem<String>(
+                                  value: c.code, child: Text(c.code)))
                               .toList(),
                           onChanged: (v) {
                             setState(() {
-                              _selectedCurrencyId = v;
+                              _selectedCurrencyCode = v;
                               // Update selected designation when currency changes
                               _selectedCurrencyDesignationId = state
                                   .designations
                                   .firstWhereOrNull(
-                                      (d) => d.currencyId == _selectedCurrencyId)
+                                      (d) => d.currencyCode == _selectedCurrencyCode)
                                   ?.id;
                             });
                           },
@@ -132,12 +132,12 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                               : null,
                         ),
                         const SizedBox(height: 16), // Spacing
-                        DropdownButtonFormField<int>(
-                          initialValue: _selectedCurrencyDesignationId,
+                        DropdownButtonFormField<String>(
+                          value: _selectedCurrencyDesignationId,
                           decoration: const InputDecoration(
                               labelText: 'Currency Symbol'), // TODO: Localize
                           items: availableDesignations
-                              .map((d) => DropdownMenuItem<int>(
+                              .map((d) => DropdownMenuItem<String>(
                                   value: d.id, child: Text(d.value)))
                               .toList(),
                           onChanged: (v) =>
@@ -159,15 +159,16 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                         state.accountTypes.isNotEmpty) {
                       _selectedAccountTypeId = state.accountTypes.first.id;
                     }
-                    return DropdownButtonFormField<int>(
-                      initialValue: _selectedAccountTypeId,
+                    return DropdownButtonFormField<String>(
+                      value: _selectedAccountTypeId,
                       decoration: const InputDecoration(
                           labelText: 'Account Type'), // TODO: Localize
                       items: state.accountTypes
-                          .map((type) => DropdownMenuItem<int>(
+                          .map((type) => DropdownMenuItem<String>(
                               value: type.id, child: Text(type.name)))
                           .toList(),
-                      onChanged: (v) => setState(() => _selectedAccountTypeId = v),
+                      onChanged: (v) =>
+                          setState(() => _selectedAccountTypeId = v),
                       validator: (v) =>
                           v == null ? 'Please select an account type' : null, // TODO: Localize
                     );
@@ -179,12 +180,12 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                 builder: (context, state) {
                   if (state is StylesLoadSuccess) {
                     _selectedStyleId ??= state.styles.first.id;
-                    return DropdownButtonFormField<int>(
-                      initialValue: _selectedStyleId,
+                    return DropdownButtonFormField<String>(
+                      value: _selectedStyleId,
                       decoration: const InputDecoration(
                           labelText: 'Style'), // TODO: Localize
                       items: state.styles
-                          .map((s) => DropdownMenuItem<int>(
+                          .map((s) => DropdownMenuItem<String>(
                               value: s.id, child: Text(s.name)))
                           .toList(),
                       onChanged: (v) => setState(() => _selectedStyleId = v),
@@ -211,9 +212,9 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                 name: _nameController.text,
                 description: _descriptionController.text.isEmpty
                     ? null
-                    : _descriptionController.text, // ADDED
+                    : _descriptionController.text,
                 balance: double.parse(_balanceController.text),
-                currencyId: _selectedCurrencyId!,
+                currencyCode: _selectedCurrencyCode!,
                 currencyDesignationId: _selectedCurrencyDesignationId!,
                 styleId: _selectedStyleId,
                 accountTypeId: _selectedAccountTypeId!, // ADDED

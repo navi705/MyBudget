@@ -28,7 +28,7 @@ class UpdateAccount extends AccountsEvent {
 }
 
 class DeleteAccount extends AccountsEvent {
-  final int id;
+  final String id;
 
   const DeleteAccount(this.id);
 

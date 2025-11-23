@@ -28,7 +28,7 @@ class UpdateStyle extends StylesEvent {
 }
 
 class DeleteStyle extends StylesEvent {
-  final int id;
+  final String id;
 
   const DeleteStyle(this.id);
 

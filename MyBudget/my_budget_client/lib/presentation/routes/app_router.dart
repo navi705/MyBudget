@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:my_budget_client/presentation/debug/debug_screen.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/screens/accounts_screen.dart';
 import 'package:my_budget_client/presentation/screens/add_edit_transaction_screen.dart';
@@ -58,6 +60,11 @@ final GoRouter router = GoRouter(
             return const SettingsScreen();
           },
         ),
+        if (kDebugMode)
+          GoRoute(
+            path: AppRoutes.debug,
+            builder: (context, state) => const DebugScreen(),
+          ),
       ],
     ),
     GoRoute(
@@ -83,8 +90,8 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: AppRoutes.addEditTransaction,
       builder: (context, state) {
-        int? transactionId;
-        int? categoryId;
+        String? transactionId;
+        String? categoryId;
 
         if (state.extra is Map<String, dynamic>) {
           final extra = state.extra as Map<String, dynamic>;

@@ -23,7 +23,7 @@ class LocalTransactionRepository implements TransactionRepository {
   }
 
   @override
-  Future<void> deleteTransaction(int id) async {
+  Future<void> deleteTransaction(String id) async {
     final transaction = await getTransactionById(id);
     if (transaction != null) {
       await database.transactionsDao
@@ -33,7 +33,7 @@ class LocalTransactionRepository implements TransactionRepository {
   }
 
   @override
-  Future<Transaction?> getTransactionById(int id) async {
+  Future<Transaction?> getTransactionById(String id) async {
     final transaction =
         await database.transactionsDao.getTransactionById(id);
     return transaction?.toDomain();
@@ -46,7 +46,7 @@ class LocalTransactionRepository implements TransactionRepository {
   }
 
   @override
-  Future<List<Transaction>> getTransactionsByCategoryId(int categoryId) async {
+  Future<List<Transaction>> getTransactionsByCategoryId(String categoryId) async {
     final transactions = await database.transactionsDao
         .getTransactionsByCategoryId(categoryId);
     return transactions.map((t) => t.toDomain()).toList();
@@ -76,7 +76,7 @@ class LocalTransactionRepository implements TransactionRepository {
     }
   }
 
-  Future<void> _updateAccountBalance(int accountId, double amount) async {
+  Future<void> _updateAccountBalance(String accountId, double amount) async {
     final account = await database.accountsDao.getAccountById(accountId);
     if (account != null) {
       final newBalance = account.balance + amount;

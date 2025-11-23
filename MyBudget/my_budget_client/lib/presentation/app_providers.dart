@@ -32,10 +32,17 @@ class AppProviders extends StatelessWidget {
         BlocProvider(
             create: (context) =>
                 di.sl<TransactionsBloc>()..add(LoadTransactions())),
-        BlocProvider(create: (context) => di.sl<CurrencyConverterBloc>()),
-        BlocProvider(create: (context) => di.sl<DashboardBloc>()),
+        BlocProvider(
+            create: (context) =>
+                di.sl<CurrencyConverterBloc>()..add(LoadCurrencyConverter())),
+        BlocProvider(
+            create: (context) => di.sl<DashboardBloc>()..add(LoadDashboard())),
       ],
-      child: child,
+      child: BlocBuilder<SettingsBloc, SettingsState>(
+        builder: (context, state) {
+          return child;
+        },
+      ),
     );
   }
 }

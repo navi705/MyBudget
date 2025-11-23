@@ -6,7 +6,6 @@ import 'package:my_budget_client/domain/entities/currency.dart';
 extension CurrencyMapper on drift.Currency {
   Currency toDomain() {
     return Currency(
-      id: id,
       name: name,
       code: code,
     );
@@ -16,7 +15,6 @@ extension CurrencyMapper on drift.Currency {
 extension CurrencyCompanionMapper on Currency {
   drift.CurrenciesCompanion toCompanion() {
     return drift.CurrenciesCompanion(
-      id: Value(id),
       name: Value(name),
       code: Value(code),
     );

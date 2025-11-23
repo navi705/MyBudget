@@ -11,7 +11,7 @@ extension TransactionMapper on drift.Transaction {
       date: date,
       accountId: accountId,
       categoryId: categoryId,
-      currencyId: currencyId,
+      currencyCode: currencyCode,
     );
   }
 }
@@ -25,7 +25,7 @@ extension TransactionCompanionMapper on Transaction {
       date: Value(date),
       accountId: Value(accountId),
       categoryId: Value(categoryId),
-      currencyId: Value(currencyId),
+      currencyCode: Value(currencyCode),
     );
   }
 }

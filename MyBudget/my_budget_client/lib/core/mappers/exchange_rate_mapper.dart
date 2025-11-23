@@ -5,8 +5,8 @@ import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 extension ExchangeRateMapper on drift.ExchangeRate {
   ExchangeRate toDomain() {
     return ExchangeRate(
-      fromCurrencyId: fromCurrencyId,
-      toCurrencyId: toCurrencyId,
+      fromCurrencyCode: fromCurrencyCode,
+      toCurrencyCode: toCurrencyCode,
       rate: rate,
       date: date,
     );
@@ -16,8 +16,8 @@ extension ExchangeRateMapper on drift.ExchangeRate {
 extension ExchangeRateCompanionMapper on ExchangeRate {
   drift.ExchangeRatesCompanion toCompanion() {
     return drift.ExchangeRatesCompanion(
-      fromCurrencyId: Value(fromCurrencyId),
-      toCurrencyId: Value(toCurrencyId),
+      fromCurrencyCode: Value(fromCurrencyCode),
+      toCurrencyCode: Value(toCurrencyCode),
       rate: Value(rate),
       date: Value(date),
     );
