@@ -18,10 +18,11 @@ class LocalSettingsRepository implements SettingsRepository {
   }
 
   @override
-  Future<void> setThemeMode(ThemeMode themeMode) {
+  Future<void> setThemeMode(ThemeMode themeMode, String device) {
     final setting = Setting(
       key: themeModeKey,
       value: _themeModeToString(themeMode),
+      device: device
     );
     return setSetting(setting);
   }

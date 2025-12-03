@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/data/seed_data/styles_data.dart';
 import 'package:my_budget_client/data/seed_data/exchange_rates_data.dart';
 import 'package:path_provider/path_provider.dart';
@@ -9,6 +10,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:my_budget_client/data/seed_data/currency_designations_data.dart';
 import 'package:my_budget_client/data/seed_data/currencies_data.dart';
+import 'package:my_budget_client/data/seed_data/languages_data.dart';
 import 'package:my_budget_client/data/seed_data/settings_data.dart';
 import 'package:my_budget_client/data/seed_data/account_types_data.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
@@ -19,6 +21,15 @@ part 'app_database.g.dart';
 const _uuid = Uuid();
 
 // --- Business Tables ---
+
+@DataClassName('Language')
+class Languages extends Table {
+  TextColumn get language => text().withLength(min: 1, max: 50)();
+  TextColumn get languageCode => text().withLength(min: 1, max: 50)();
+
+  @override
+  Set<Column> get primaryKey => {languageCode};
+}
 
 class CurrencyDesignations extends Table {
   TextColumn get id => text().clientDefault(() => _uuid.v4())();
@@ -32,6 +43,7 @@ class CurrencyDesignations extends Table {
 class Currencies extends Table {
   TextColumn get name => text().withLength(min: 1, max: 50).unique()();
   TextColumn get code => text().withLength(min: 1, max: 5)();
+  TextColumn get languageCode => text().references(Languages, #languageCode)();
 
   @override
   Set<Column> get primaryKey => {code};
@@ -64,6 +76,7 @@ class Styles extends Table {
 class AccountTypes extends Table {
   TextColumn get id => text().clientDefault(() => _uuid.v4())();
   TextColumn get name => text().withLength(min: 1, max: 50).unique()();
+  TextColumn get languageCode => text().references(Languages, #languageCode)();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -100,8 +113,10 @@ class Transactions extends Table {
 
 class ExchangeRates extends Table {
   TextColumn get fromCurrencyCode => text().references(Currencies, #code)();
+  @ReferenceName('ToCurrencyRates')
   TextColumn get toCurrencyCode => text().references(Currencies, #code)();
   RealColumn get rate => real()();
+  IntColumn get preset => integer()();
   DateTimeColumn get date => dateTime()();
 
   @override
@@ -114,6 +129,7 @@ class ExchangeRates extends Table {
 class Settings extends Table {
   TextColumn get key => text()();
   TextColumn get value => text()();
+  TextColumn get device => text()();
 
   @override
   Set<Column> get primaryKey => {key};
@@ -121,6 +137,22 @@ class Settings extends Table {
 
 
 // --- Data Access Objects (DAOs) ---
+
+
+@DriftAccessor(tables: [Languages])
+class LanguageDao extends DatabaseAccessor<AppDatabase>
+    with _$LanguageDaoMixin {
+  LanguageDao(super.db);
+
+  Future<List<Language>> getAllLanguages() => select(languages).get();
+  Stream<List<Language>> watchAllLanguages() => select(languages).watch();
+  Future<void> insertLanguage(LanguagesCompanion lang) =>
+      into(languages).insert(lang);
+  Future<bool> updateLanguage(LanguagesCompanion lang) =>
+      update(languages).replace(lang);
+  Future<int> deleteLanguage(LanguagesCompanion lang) =>
+      delete(languages).delete(lang);
+}
 
 @DriftAccessor(tables: [CurrencyDesignations])
 class CurrencyDesignationsDao extends DatabaseAccessor<AppDatabase>
@@ -281,6 +313,9 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin 
       (select(settings)..where((tbl) => tbl.key.equals(key))).getSingleOrNull();
   Future<void> setSetting(Setting setting) =>
       into(settings).insert(setting, mode: InsertMode.insertOrReplace);
+  Future<List<Setting>> getAllSettings() => select(settings).get();
+  Future<List<Setting>> getRecentSettings(int limit) { return (select(settings)
+    ..orderBy([(t) => OrderingTerm(expression: t.key, mode: OrderingMode.desc)])..limit(limit)).get();}
 }
 
 @DriftAccessor(tables: [ExchangeRates])
@@ -306,9 +341,11 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   Transactions,
   AccountTypes,
   ExchangeRates,
+  Languages,
   // Technical Tables
   Settings,
 ], daos: [
+  LanguageDao,
   CurrencyDesignationsDao,
   CurrenciesDao,
   CategoriesDao,
@@ -345,6 +382,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> _seedData(AppDatabase db) async {
+    await _seedLanguages(db);
     await _seedCurrencyDesignations(db);
     await _seedCurrencies(db);
     await _seedSettings(db);
@@ -354,6 +392,12 @@ class AppDatabase extends _$AppDatabase {
   }
 
   // --- Seeding Methods ---
+
+  Future<void> _seedLanguages(AppDatabase db) async {
+    for (final language in defaultLanguages) {
+      await db.into(db.languages).insert(language);
+    }
+  }
 
   Future<void> _seedCurrencyDesignations(AppDatabase db) async {
     for (final designation in defaultCurrencyDesignations) {
@@ -368,7 +412,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> _seedSettings(AppDatabase db) async {
-    for (final setting in defaultSettings) {
+    final deviceName = await getDeviceName();
+    final settingsToSeed = getDefaultSettings(deviceName);
+    for (final setting in settingsToSeed) {
       await db.settingsDao.setSetting(setting);
     }
   }

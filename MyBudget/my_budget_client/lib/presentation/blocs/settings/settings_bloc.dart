@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 
 part 'settings_event.dart';
@@ -30,7 +31,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     UpdateThemeMode event,
     Emitter<SettingsState> emit,
   ) async {
-    await _settingsRepository.setThemeMode(event.themeMode);
+    await _settingsRepository.setThemeMode(event.themeMode, await getDeviceName());
   }
 
   void _onSettingsUpdated(

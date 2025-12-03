@@ -7,6 +7,7 @@ extension AccountTypeMapper on drift.AccountType {
     return AccountType(
       id: id,
       name: name,
+      languageCode: languageCode,
     );
   }
 }
@@ -16,6 +17,7 @@ extension AccountTypeCompanionMapper on AccountType {
     return drift.AccountTypesCompanion(
       id: Value(id),
       name: Value(name),
+      languageCode: Value(languageCode)
     );
   }
 }

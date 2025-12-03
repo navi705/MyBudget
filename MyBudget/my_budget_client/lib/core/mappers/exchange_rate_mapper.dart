@@ -7,6 +7,7 @@ extension ExchangeRateMapper on drift.ExchangeRate {
     return ExchangeRate(
       fromCurrencyCode: fromCurrencyCode,
       toCurrencyCode: toCurrencyCode,
+      preset: preset,
       rate: rate,
       date: date,
     );

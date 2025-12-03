@@ -3,17 +3,23 @@
 part of 'app_database.dart';
 
 // ignore_for_file: type=lint
+mixin _$LanguageDaoMixin on DatabaseAccessor<AppDatabase> {
+  $LanguagesTable get languages => attachedDatabase.languages;
+}
 mixin _$CurrencyDesignationsDaoMixin on DatabaseAccessor<AppDatabase> {
+  $LanguagesTable get languages => attachedDatabase.languages;
   $CurrenciesTable get currencies => attachedDatabase.currencies;
   $CurrencyDesignationsTable get currencyDesignations =>
       attachedDatabase.currencyDesignations;
 }
 mixin _$CurrenciesDaoMixin on DatabaseAccessor<AppDatabase> {
+  $LanguagesTable get languages => attachedDatabase.languages;
   $CurrenciesTable get currencies => attachedDatabase.currencies;
 }
 mixin _$CategoriesDaoMixin on DatabaseAccessor<AppDatabase> {
   $StylesTable get styles => attachedDatabase.styles;
   $CategoriesTable get categories => attachedDatabase.categories;
+  $LanguagesTable get languages => attachedDatabase.languages;
   $CurrenciesTable get currencies => attachedDatabase.currencies;
   $CurrencyDesignationsTable get currencyDesignations =>
       attachedDatabase.currencyDesignations;
@@ -25,9 +31,11 @@ mixin _$StylesDaoMixin on DatabaseAccessor<AppDatabase> {
   $StylesTable get styles => attachedDatabase.styles;
 }
 mixin _$AccountTypesDaoMixin on DatabaseAccessor<AppDatabase> {
+  $LanguagesTable get languages => attachedDatabase.languages;
   $AccountTypesTable get accountTypes => attachedDatabase.accountTypes;
 }
 mixin _$AccountsDaoMixin on DatabaseAccessor<AppDatabase> {
+  $LanguagesTable get languages => attachedDatabase.languages;
   $CurrenciesTable get currencies => attachedDatabase.currencies;
   $CurrencyDesignationsTable get currencyDesignations =>
       attachedDatabase.currencyDesignations;
@@ -36,6 +44,7 @@ mixin _$AccountsDaoMixin on DatabaseAccessor<AppDatabase> {
   $AccountsTable get accounts => attachedDatabase.accounts;
 }
 mixin _$TransactionsDaoMixin on DatabaseAccessor<AppDatabase> {
+  $LanguagesTable get languages => attachedDatabase.languages;
   $CurrenciesTable get currencies => attachedDatabase.currencies;
   $CurrencyDesignationsTable get currencyDesignations =>
       attachedDatabase.currencyDesignations;
@@ -49,8 +58,239 @@ mixin _$SettingsDaoMixin on DatabaseAccessor<AppDatabase> {
   $SettingsTable get settings => attachedDatabase.settings;
 }
 mixin _$ExchangeRatesDaoMixin on DatabaseAccessor<AppDatabase> {
+  $LanguagesTable get languages => attachedDatabase.languages;
   $CurrenciesTable get currencies => attachedDatabase.currencies;
   $ExchangeRatesTable get exchangeRates => attachedDatabase.exchangeRates;
+}
+
+class $LanguagesTable extends Languages
+    with TableInfo<$LanguagesTable, Language> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LanguagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _languageMeta = const VerificationMeta(
+    'language',
+  );
+  @override
+  late final GeneratedColumn<String> language = GeneratedColumn<String>(
+    'language',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 50,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _languageCodeMeta = const VerificationMeta(
+    'languageCode',
+  );
+  @override
+  late final GeneratedColumn<String> languageCode = GeneratedColumn<String>(
+    'language_code',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 50,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [language, languageCode];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'languages';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Language> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('language')) {
+      context.handle(
+        _languageMeta,
+        language.isAcceptableOrUnknown(data['language']!, _languageMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_languageMeta);
+    }
+    if (data.containsKey('language_code')) {
+      context.handle(
+        _languageCodeMeta,
+        languageCode.isAcceptableOrUnknown(
+          data['language_code']!,
+          _languageCodeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_languageCodeMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {languageCode};
+  @override
+  Language map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Language(
+      language: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language'],
+      )!,
+      languageCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language_code'],
+      )!,
+    );
+  }
+
+  @override
+  $LanguagesTable createAlias(String alias) {
+    return $LanguagesTable(attachedDatabase, alias);
+  }
+}
+
+class Language extends DataClass implements Insertable<Language> {
+  final String language;
+  final String languageCode;
+  const Language({required this.language, required this.languageCode});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['language'] = Variable<String>(language);
+    map['language_code'] = Variable<String>(languageCode);
+    return map;
+  }
+
+  LanguagesCompanion toCompanion(bool nullToAbsent) {
+    return LanguagesCompanion(
+      language: Value(language),
+      languageCode: Value(languageCode),
+    );
+  }
+
+  factory Language.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Language(
+      language: serializer.fromJson<String>(json['language']),
+      languageCode: serializer.fromJson<String>(json['languageCode']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'language': serializer.toJson<String>(language),
+      'languageCode': serializer.toJson<String>(languageCode),
+    };
+  }
+
+  Language copyWith({String? language, String? languageCode}) => Language(
+    language: language ?? this.language,
+    languageCode: languageCode ?? this.languageCode,
+  );
+  Language copyWithCompanion(LanguagesCompanion data) {
+    return Language(
+      language: data.language.present ? data.language.value : this.language,
+      languageCode: data.languageCode.present
+          ? data.languageCode.value
+          : this.languageCode,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Language(')
+          ..write('language: $language, ')
+          ..write('languageCode: $languageCode')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(language, languageCode);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Language &&
+          other.language == this.language &&
+          other.languageCode == this.languageCode);
+}
+
+class LanguagesCompanion extends UpdateCompanion<Language> {
+  final Value<String> language;
+  final Value<String> languageCode;
+  final Value<int> rowid;
+  const LanguagesCompanion({
+    this.language = const Value.absent(),
+    this.languageCode = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LanguagesCompanion.insert({
+    required String language,
+    required String languageCode,
+    this.rowid = const Value.absent(),
+  }) : language = Value(language),
+       languageCode = Value(languageCode);
+  static Insertable<Language> custom({
+    Expression<String>? language,
+    Expression<String>? languageCode,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (language != null) 'language': language,
+      if (languageCode != null) 'language_code': languageCode,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LanguagesCompanion copyWith({
+    Value<String>? language,
+    Value<String>? languageCode,
+    Value<int>? rowid,
+  }) {
+    return LanguagesCompanion(
+      language: language ?? this.language,
+      languageCode: languageCode ?? this.languageCode,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (language.present) {
+      map['language'] = Variable<String>(language.value);
+    }
+    if (languageCode.present) {
+      map['language_code'] = Variable<String>(languageCode.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LanguagesCompanion(')
+          ..write('language: $language, ')
+          ..write('languageCode: $languageCode, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
 }
 
 class $CurrenciesTable extends Currencies
@@ -86,8 +326,22 @@ class $CurrenciesTable extends Currencies
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _languageCodeMeta = const VerificationMeta(
+    'languageCode',
+  );
   @override
-  List<GeneratedColumn> get $columns => [name, code];
+  late final GeneratedColumn<String> languageCode = GeneratedColumn<String>(
+    'language_code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES languages (language_code)',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [name, code, languageCode];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -116,6 +370,17 @@ class $CurrenciesTable extends Currencies
     } else if (isInserting) {
       context.missing(_codeMeta);
     }
+    if (data.containsKey('language_code')) {
+      context.handle(
+        _languageCodeMeta,
+        languageCode.isAcceptableOrUnknown(
+          data['language_code']!,
+          _languageCodeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_languageCodeMeta);
+    }
     return context;
   }
 
@@ -133,6 +398,10 @@ class $CurrenciesTable extends Currencies
         DriftSqlType.string,
         data['${effectivePrefix}code'],
       )!,
+      languageCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language_code'],
+      )!,
     );
   }
 
@@ -145,17 +414,27 @@ class $CurrenciesTable extends Currencies
 class Currency extends DataClass implements Insertable<Currency> {
   final String name;
   final String code;
-  const Currency({required this.name, required this.code});
+  final String languageCode;
+  const Currency({
+    required this.name,
+    required this.code,
+    required this.languageCode,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['name'] = Variable<String>(name);
     map['code'] = Variable<String>(code);
+    map['language_code'] = Variable<String>(languageCode);
     return map;
   }
 
   CurrenciesCompanion toCompanion(bool nullToAbsent) {
-    return CurrenciesCompanion(name: Value(name), code: Value(code));
+    return CurrenciesCompanion(
+      name: Value(name),
+      code: Value(code),
+      languageCode: Value(languageCode),
+    );
   }
 
   factory Currency.fromJson(
@@ -166,6 +445,7 @@ class Currency extends DataClass implements Insertable<Currency> {
     return Currency(
       name: serializer.fromJson<String>(json['name']),
       code: serializer.fromJson<String>(json['code']),
+      languageCode: serializer.fromJson<String>(json['languageCode']),
     );
   }
   @override
@@ -174,15 +454,23 @@ class Currency extends DataClass implements Insertable<Currency> {
     return <String, dynamic>{
       'name': serializer.toJson<String>(name),
       'code': serializer.toJson<String>(code),
+      'languageCode': serializer.toJson<String>(languageCode),
     };
   }
 
-  Currency copyWith({String? name, String? code}) =>
-      Currency(name: name ?? this.name, code: code ?? this.code);
+  Currency copyWith({String? name, String? code, String? languageCode}) =>
+      Currency(
+        name: name ?? this.name,
+        code: code ?? this.code,
+        languageCode: languageCode ?? this.languageCode,
+      );
   Currency copyWithCompanion(CurrenciesCompanion data) {
     return Currency(
       name: data.name.present ? data.name.value : this.name,
       code: data.code.present ? data.code.value : this.code,
+      languageCode: data.languageCode.present
+          ? data.languageCode.value
+          : this.languageCode,
     );
   }
 
@@ -190,42 +478,52 @@ class Currency extends DataClass implements Insertable<Currency> {
   String toString() {
     return (StringBuffer('Currency(')
           ..write('name: $name, ')
-          ..write('code: $code')
+          ..write('code: $code, ')
+          ..write('languageCode: $languageCode')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(name, code);
+  int get hashCode => Object.hash(name, code, languageCode);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is Currency && other.name == this.name && other.code == this.code);
+      (other is Currency &&
+          other.name == this.name &&
+          other.code == this.code &&
+          other.languageCode == this.languageCode);
 }
 
 class CurrenciesCompanion extends UpdateCompanion<Currency> {
   final Value<String> name;
   final Value<String> code;
+  final Value<String> languageCode;
   final Value<int> rowid;
   const CurrenciesCompanion({
     this.name = const Value.absent(),
     this.code = const Value.absent(),
+    this.languageCode = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CurrenciesCompanion.insert({
     required String name,
     required String code,
+    required String languageCode,
     this.rowid = const Value.absent(),
   }) : name = Value(name),
-       code = Value(code);
+       code = Value(code),
+       languageCode = Value(languageCode);
   static Insertable<Currency> custom({
     Expression<String>? name,
     Expression<String>? code,
+    Expression<String>? languageCode,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (name != null) 'name': name,
       if (code != null) 'code': code,
+      if (languageCode != null) 'language_code': languageCode,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -233,11 +531,13 @@ class CurrenciesCompanion extends UpdateCompanion<Currency> {
   CurrenciesCompanion copyWith({
     Value<String>? name,
     Value<String>? code,
+    Value<String>? languageCode,
     Value<int>? rowid,
   }) {
     return CurrenciesCompanion(
       name: name ?? this.name,
       code: code ?? this.code,
+      languageCode: languageCode ?? this.languageCode,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -251,6 +551,9 @@ class CurrenciesCompanion extends UpdateCompanion<Currency> {
     if (code.present) {
       map['code'] = Variable<String>(code.value);
     }
+    if (languageCode.present) {
+      map['language_code'] = Variable<String>(languageCode.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -262,6 +565,7 @@ class CurrenciesCompanion extends UpdateCompanion<Currency> {
     return (StringBuffer('CurrenciesCompanion(')
           ..write('name: $name, ')
           ..write('code: $code, ')
+          ..write('languageCode: $languageCode, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1248,8 +1552,22 @@ class $AccountTypesTable extends AccountTypes
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
+  static const VerificationMeta _languageCodeMeta = const VerificationMeta(
+    'languageCode',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, name];
+  late final GeneratedColumn<String> languageCode = GeneratedColumn<String>(
+    'language_code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES languages (language_code)',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, languageCode];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1273,6 +1591,17 @@ class $AccountTypesTable extends AccountTypes
     } else if (isInserting) {
       context.missing(_nameMeta);
     }
+    if (data.containsKey('language_code')) {
+      context.handle(
+        _languageCodeMeta,
+        languageCode.isAcceptableOrUnknown(
+          data['language_code']!,
+          _languageCodeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_languageCodeMeta);
+    }
     return context;
   }
 
@@ -1290,6 +1619,10 @@ class $AccountTypesTable extends AccountTypes
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      languageCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language_code'],
+      )!,
     );
   }
 
@@ -1302,17 +1635,27 @@ class $AccountTypesTable extends AccountTypes
 class AccountType extends DataClass implements Insertable<AccountType> {
   final String id;
   final String name;
-  const AccountType({required this.id, required this.name});
+  final String languageCode;
+  const AccountType({
+    required this.id,
+    required this.name,
+    required this.languageCode,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['name'] = Variable<String>(name);
+    map['language_code'] = Variable<String>(languageCode);
     return map;
   }
 
   AccountTypesCompanion toCompanion(bool nullToAbsent) {
-    return AccountTypesCompanion(id: Value(id), name: Value(name));
+    return AccountTypesCompanion(
+      id: Value(id),
+      name: Value(name),
+      languageCode: Value(languageCode),
+    );
   }
 
   factory AccountType.fromJson(
@@ -1323,6 +1666,7 @@ class AccountType extends DataClass implements Insertable<AccountType> {
     return AccountType(
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
+      languageCode: serializer.fromJson<String>(json['languageCode']),
     );
   }
   @override
@@ -1331,15 +1675,23 @@ class AccountType extends DataClass implements Insertable<AccountType> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
+      'languageCode': serializer.toJson<String>(languageCode),
     };
   }
 
-  AccountType copyWith({String? id, String? name}) =>
-      AccountType(id: id ?? this.id, name: name ?? this.name);
+  AccountType copyWith({String? id, String? name, String? languageCode}) =>
+      AccountType(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        languageCode: languageCode ?? this.languageCode,
+      );
   AccountType copyWithCompanion(AccountTypesCompanion data) {
     return AccountType(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
+      languageCode: data.languageCode.present
+          ? data.languageCode.value
+          : this.languageCode,
     );
   }
 
@@ -1347,41 +1699,51 @@ class AccountType extends DataClass implements Insertable<AccountType> {
   String toString() {
     return (StringBuffer('AccountType(')
           ..write('id: $id, ')
-          ..write('name: $name')
+          ..write('name: $name, ')
+          ..write('languageCode: $languageCode')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name);
+  int get hashCode => Object.hash(id, name, languageCode);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is AccountType && other.id == this.id && other.name == this.name);
+      (other is AccountType &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.languageCode == this.languageCode);
 }
 
 class AccountTypesCompanion extends UpdateCompanion<AccountType> {
   final Value<String> id;
   final Value<String> name;
+  final Value<String> languageCode;
   final Value<int> rowid;
   const AccountTypesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
+    this.languageCode = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AccountTypesCompanion.insert({
     this.id = const Value.absent(),
     required String name,
+    required String languageCode,
     this.rowid = const Value.absent(),
-  }) : name = Value(name);
+  }) : name = Value(name),
+       languageCode = Value(languageCode);
   static Insertable<AccountType> custom({
     Expression<String>? id,
     Expression<String>? name,
+    Expression<String>? languageCode,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
+      if (languageCode != null) 'language_code': languageCode,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1389,11 +1751,13 @@ class AccountTypesCompanion extends UpdateCompanion<AccountType> {
   AccountTypesCompanion copyWith({
     Value<String>? id,
     Value<String>? name,
+    Value<String>? languageCode,
     Value<int>? rowid,
   }) {
     return AccountTypesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
+      languageCode: languageCode ?? this.languageCode,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1407,6 +1771,9 @@ class AccountTypesCompanion extends UpdateCompanion<AccountType> {
     if (name.present) {
       map['name'] = Variable<String>(name.value);
     }
+    if (languageCode.present) {
+      map['language_code'] = Variable<String>(languageCode.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1418,6 +1785,7 @@ class AccountTypesCompanion extends UpdateCompanion<AccountType> {
     return (StringBuffer('AccountTypesCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('languageCode: $languageCode, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2502,6 +2870,15 @@ class $ExchangeRatesTable extends ExchangeRates
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _presetMeta = const VerificationMeta('preset');
+  @override
+  late final GeneratedColumn<int> preset = GeneratedColumn<int>(
+    'preset',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _dateMeta = const VerificationMeta('date');
   @override
   late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
@@ -2516,6 +2893,7 @@ class $ExchangeRatesTable extends ExchangeRates
     fromCurrencyCode,
     toCurrencyCode,
     rate,
+    preset,
     date,
   ];
   @override
@@ -2560,6 +2938,14 @@ class $ExchangeRatesTable extends ExchangeRates
     } else if (isInserting) {
       context.missing(_rateMeta);
     }
+    if (data.containsKey('preset')) {
+      context.handle(
+        _presetMeta,
+        preset.isAcceptableOrUnknown(data['preset']!, _presetMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_presetMeta);
+    }
     if (data.containsKey('date')) {
       context.handle(
         _dateMeta,
@@ -2593,6 +2979,10 @@ class $ExchangeRatesTable extends ExchangeRates
         DriftSqlType.double,
         data['${effectivePrefix}rate'],
       )!,
+      preset: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}preset'],
+      )!,
       date: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}date'],
@@ -2610,11 +3000,13 @@ class ExchangeRate extends DataClass implements Insertable<ExchangeRate> {
   final String fromCurrencyCode;
   final String toCurrencyCode;
   final double rate;
+  final int preset;
   final DateTime date;
   const ExchangeRate({
     required this.fromCurrencyCode,
     required this.toCurrencyCode,
     required this.rate,
+    required this.preset,
     required this.date,
   });
   @override
@@ -2623,6 +3015,7 @@ class ExchangeRate extends DataClass implements Insertable<ExchangeRate> {
     map['from_currency_code'] = Variable<String>(fromCurrencyCode);
     map['to_currency_code'] = Variable<String>(toCurrencyCode);
     map['rate'] = Variable<double>(rate);
+    map['preset'] = Variable<int>(preset);
     map['date'] = Variable<DateTime>(date);
     return map;
   }
@@ -2632,6 +3025,7 @@ class ExchangeRate extends DataClass implements Insertable<ExchangeRate> {
       fromCurrencyCode: Value(fromCurrencyCode),
       toCurrencyCode: Value(toCurrencyCode),
       rate: Value(rate),
+      preset: Value(preset),
       date: Value(date),
     );
   }
@@ -2645,6 +3039,7 @@ class ExchangeRate extends DataClass implements Insertable<ExchangeRate> {
       fromCurrencyCode: serializer.fromJson<String>(json['fromCurrencyCode']),
       toCurrencyCode: serializer.fromJson<String>(json['toCurrencyCode']),
       rate: serializer.fromJson<double>(json['rate']),
+      preset: serializer.fromJson<int>(json['preset']),
       date: serializer.fromJson<DateTime>(json['date']),
     );
   }
@@ -2655,6 +3050,7 @@ class ExchangeRate extends DataClass implements Insertable<ExchangeRate> {
       'fromCurrencyCode': serializer.toJson<String>(fromCurrencyCode),
       'toCurrencyCode': serializer.toJson<String>(toCurrencyCode),
       'rate': serializer.toJson<double>(rate),
+      'preset': serializer.toJson<int>(preset),
       'date': serializer.toJson<DateTime>(date),
     };
   }
@@ -2663,11 +3059,13 @@ class ExchangeRate extends DataClass implements Insertable<ExchangeRate> {
     String? fromCurrencyCode,
     String? toCurrencyCode,
     double? rate,
+    int? preset,
     DateTime? date,
   }) => ExchangeRate(
     fromCurrencyCode: fromCurrencyCode ?? this.fromCurrencyCode,
     toCurrencyCode: toCurrencyCode ?? this.toCurrencyCode,
     rate: rate ?? this.rate,
+    preset: preset ?? this.preset,
     date: date ?? this.date,
   );
   ExchangeRate copyWithCompanion(ExchangeRatesCompanion data) {
@@ -2679,6 +3077,7 @@ class ExchangeRate extends DataClass implements Insertable<ExchangeRate> {
           ? data.toCurrencyCode.value
           : this.toCurrencyCode,
       rate: data.rate.present ? data.rate.value : this.rate,
+      preset: data.preset.present ? data.preset.value : this.preset,
       date: data.date.present ? data.date.value : this.date,
     );
   }
@@ -2689,13 +3088,15 @@ class ExchangeRate extends DataClass implements Insertable<ExchangeRate> {
           ..write('fromCurrencyCode: $fromCurrencyCode, ')
           ..write('toCurrencyCode: $toCurrencyCode, ')
           ..write('rate: $rate, ')
+          ..write('preset: $preset, ')
           ..write('date: $date')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(fromCurrencyCode, toCurrencyCode, rate, date);
+  int get hashCode =>
+      Object.hash(fromCurrencyCode, toCurrencyCode, rate, preset, date);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2703,6 +3104,7 @@ class ExchangeRate extends DataClass implements Insertable<ExchangeRate> {
           other.fromCurrencyCode == this.fromCurrencyCode &&
           other.toCurrencyCode == this.toCurrencyCode &&
           other.rate == this.rate &&
+          other.preset == this.preset &&
           other.date == this.date);
 }
 
@@ -2710,12 +3112,14 @@ class ExchangeRatesCompanion extends UpdateCompanion<ExchangeRate> {
   final Value<String> fromCurrencyCode;
   final Value<String> toCurrencyCode;
   final Value<double> rate;
+  final Value<int> preset;
   final Value<DateTime> date;
   final Value<int> rowid;
   const ExchangeRatesCompanion({
     this.fromCurrencyCode = const Value.absent(),
     this.toCurrencyCode = const Value.absent(),
     this.rate = const Value.absent(),
+    this.preset = const Value.absent(),
     this.date = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -2723,16 +3127,19 @@ class ExchangeRatesCompanion extends UpdateCompanion<ExchangeRate> {
     required String fromCurrencyCode,
     required String toCurrencyCode,
     required double rate,
+    required int preset,
     required DateTime date,
     this.rowid = const Value.absent(),
   }) : fromCurrencyCode = Value(fromCurrencyCode),
        toCurrencyCode = Value(toCurrencyCode),
        rate = Value(rate),
+       preset = Value(preset),
        date = Value(date);
   static Insertable<ExchangeRate> custom({
     Expression<String>? fromCurrencyCode,
     Expression<String>? toCurrencyCode,
     Expression<double>? rate,
+    Expression<int>? preset,
     Expression<DateTime>? date,
     Expression<int>? rowid,
   }) {
@@ -2740,6 +3147,7 @@ class ExchangeRatesCompanion extends UpdateCompanion<ExchangeRate> {
       if (fromCurrencyCode != null) 'from_currency_code': fromCurrencyCode,
       if (toCurrencyCode != null) 'to_currency_code': toCurrencyCode,
       if (rate != null) 'rate': rate,
+      if (preset != null) 'preset': preset,
       if (date != null) 'date': date,
       if (rowid != null) 'rowid': rowid,
     });
@@ -2749,6 +3157,7 @@ class ExchangeRatesCompanion extends UpdateCompanion<ExchangeRate> {
     Value<String>? fromCurrencyCode,
     Value<String>? toCurrencyCode,
     Value<double>? rate,
+    Value<int>? preset,
     Value<DateTime>? date,
     Value<int>? rowid,
   }) {
@@ -2756,6 +3165,7 @@ class ExchangeRatesCompanion extends UpdateCompanion<ExchangeRate> {
       fromCurrencyCode: fromCurrencyCode ?? this.fromCurrencyCode,
       toCurrencyCode: toCurrencyCode ?? this.toCurrencyCode,
       rate: rate ?? this.rate,
+      preset: preset ?? this.preset,
       date: date ?? this.date,
       rowid: rowid ?? this.rowid,
     );
@@ -2773,6 +3183,9 @@ class ExchangeRatesCompanion extends UpdateCompanion<ExchangeRate> {
     if (rate.present) {
       map['rate'] = Variable<double>(rate.value);
     }
+    if (preset.present) {
+      map['preset'] = Variable<int>(preset.value);
+    }
     if (date.present) {
       map['date'] = Variable<DateTime>(date.value);
     }
@@ -2788,6 +3201,7 @@ class ExchangeRatesCompanion extends UpdateCompanion<ExchangeRate> {
           ..write('fromCurrencyCode: $fromCurrencyCode, ')
           ..write('toCurrencyCode: $toCurrencyCode, ')
           ..write('rate: $rate, ')
+          ..write('preset: $preset, ')
           ..write('date: $date, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -2818,8 +3232,17 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _deviceMeta = const VerificationMeta('device');
   @override
-  List<GeneratedColumn> get $columns => [key, value];
+  late final GeneratedColumn<String> device = GeneratedColumn<String>(
+    'device',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [key, value, device];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2848,6 +3271,14 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     } else if (isInserting) {
       context.missing(_valueMeta);
     }
+    if (data.containsKey('device')) {
+      context.handle(
+        _deviceMeta,
+        device.isAcceptableOrUnknown(data['device']!, _deviceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceMeta);
+    }
     return context;
   }
 
@@ -2865,6 +3296,10 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.string,
         data['${effectivePrefix}value'],
       )!,
+      device: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device'],
+      )!,
     );
   }
 
@@ -2877,17 +3312,23 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
 class Setting extends DataClass implements Insertable<Setting> {
   final String key;
   final String value;
-  const Setting({required this.key, required this.value});
+  final String device;
+  const Setting({required this.key, required this.value, required this.device});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['key'] = Variable<String>(key);
     map['value'] = Variable<String>(value);
+    map['device'] = Variable<String>(device);
     return map;
   }
 
   SettingsCompanion toCompanion(bool nullToAbsent) {
-    return SettingsCompanion(key: Value(key), value: Value(value));
+    return SettingsCompanion(
+      key: Value(key),
+      value: Value(value),
+      device: Value(device),
+    );
   }
 
   factory Setting.fromJson(
@@ -2898,6 +3339,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     return Setting(
       key: serializer.fromJson<String>(json['key']),
       value: serializer.fromJson<String>(json['value']),
+      device: serializer.fromJson<String>(json['device']),
     );
   }
   @override
@@ -2906,15 +3348,20 @@ class Setting extends DataClass implements Insertable<Setting> {
     return <String, dynamic>{
       'key': serializer.toJson<String>(key),
       'value': serializer.toJson<String>(value),
+      'device': serializer.toJson<String>(device),
     };
   }
 
-  Setting copyWith({String? key, String? value}) =>
-      Setting(key: key ?? this.key, value: value ?? this.value);
+  Setting copyWith({String? key, String? value, String? device}) => Setting(
+    key: key ?? this.key,
+    value: value ?? this.value,
+    device: device ?? this.device,
+  );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
       key: data.key.present ? data.key.value : this.key,
       value: data.value.present ? data.value.value : this.value,
+      device: data.device.present ? data.device.value : this.device,
     );
   }
 
@@ -2922,42 +3369,52 @@ class Setting extends DataClass implements Insertable<Setting> {
   String toString() {
     return (StringBuffer('Setting(')
           ..write('key: $key, ')
-          ..write('value: $value')
+          ..write('value: $value, ')
+          ..write('device: $device')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(key, value);
+  int get hashCode => Object.hash(key, value, device);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is Setting && other.key == this.key && other.value == this.value);
+      (other is Setting &&
+          other.key == this.key &&
+          other.value == this.value &&
+          other.device == this.device);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<String> key;
   final Value<String> value;
+  final Value<String> device;
   final Value<int> rowid;
   const SettingsCompanion({
     this.key = const Value.absent(),
     this.value = const Value.absent(),
+    this.device = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SettingsCompanion.insert({
     required String key,
     required String value,
+    required String device,
     this.rowid = const Value.absent(),
   }) : key = Value(key),
-       value = Value(value);
+       value = Value(value),
+       device = Value(device);
   static Insertable<Setting> custom({
     Expression<String>? key,
     Expression<String>? value,
+    Expression<String>? device,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (key != null) 'key': key,
       if (value != null) 'value': value,
+      if (device != null) 'device': device,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2965,11 +3422,13 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   SettingsCompanion copyWith({
     Value<String>? key,
     Value<String>? value,
+    Value<String>? device,
     Value<int>? rowid,
   }) {
     return SettingsCompanion(
       key: key ?? this.key,
       value: value ?? this.value,
+      device: device ?? this.device,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2983,6 +3442,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (value.present) {
       map['value'] = Variable<String>(value.value);
     }
+    if (device.present) {
+      map['device'] = Variable<String>(device.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2994,6 +3456,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     return (StringBuffer('SettingsCompanion(')
           ..write('key: $key, ')
           ..write('value: $value, ')
+          ..write('device: $device, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3003,6 +3466,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
+  late final $LanguagesTable languages = $LanguagesTable(this);
   late final $CurrenciesTable currencies = $CurrenciesTable(this);
   late final $CurrencyDesignationsTable currencyDesignations =
       $CurrencyDesignationsTable(this);
@@ -3013,6 +3477,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TransactionsTable transactions = $TransactionsTable(this);
   late final $ExchangeRatesTable exchangeRates = $ExchangeRatesTable(this);
   late final $SettingsTable settings = $SettingsTable(this);
+  late final LanguageDao languageDao = LanguageDao(this as AppDatabase);
   late final CurrencyDesignationsDao currencyDesignationsDao =
       CurrencyDesignationsDao(this as AppDatabase);
   late final CurrenciesDao currenciesDao = CurrenciesDao(this as AppDatabase);
@@ -3034,6 +3499,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
+    languages,
     currencies,
     currencyDesignations,
     styles,
@@ -3046,22 +3512,396 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   ];
 }
 
+typedef $$LanguagesTableCreateCompanionBuilder =
+    LanguagesCompanion Function({
+      required String language,
+      required String languageCode,
+      Value<int> rowid,
+    });
+typedef $$LanguagesTableUpdateCompanionBuilder =
+    LanguagesCompanion Function({
+      Value<String> language,
+      Value<String> languageCode,
+      Value<int> rowid,
+    });
+
+final class $$LanguagesTableReferences
+    extends BaseReferences<_$AppDatabase, $LanguagesTable, Language> {
+  $$LanguagesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$CurrenciesTable, List<Currency>>
+  _currenciesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.currencies,
+    aliasName: $_aliasNameGenerator(
+      db.languages.languageCode,
+      db.currencies.languageCode,
+    ),
+  );
+
+  $$CurrenciesTableProcessedTableManager get currenciesRefs {
+    final manager = $$CurrenciesTableTableManager($_db, $_db.currencies).filter(
+      (f) => f.languageCode.languageCode.sqlEquals(
+        $_itemColumn<String>('language_code')!,
+      ),
+    );
+
+    final cache = $_typedResult.readTableOrNull(_currenciesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$AccountTypesTable, List<AccountType>>
+  _accountTypesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.accountTypes,
+    aliasName: $_aliasNameGenerator(
+      db.languages.languageCode,
+      db.accountTypes.languageCode,
+    ),
+  );
+
+  $$AccountTypesTableProcessedTableManager get accountTypesRefs {
+    final manager = $$AccountTypesTableTableManager($_db, $_db.accountTypes)
+        .filter(
+          (f) => f.languageCode.languageCode.sqlEquals(
+            $_itemColumn<String>('language_code')!,
+          ),
+        );
+
+    final cache = $_typedResult.readTableOrNull(_accountTypesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$LanguagesTableFilterComposer
+    extends Composer<_$AppDatabase, $LanguagesTable> {
+  $$LanguagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get language => $composableBuilder(
+    column: $table.language,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> currenciesRefs(
+    Expression<bool> Function($$CurrenciesTableFilterComposer f) f,
+  ) {
+    final $$CurrenciesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.languageCode,
+      referencedTable: $db.currencies,
+      getReferencedColumn: (t) => t.languageCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CurrenciesTableFilterComposer(
+            $db: $db,
+            $table: $db.currencies,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> accountTypesRefs(
+    Expression<bool> Function($$AccountTypesTableFilterComposer f) f,
+  ) {
+    final $$AccountTypesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.languageCode,
+      referencedTable: $db.accountTypes,
+      getReferencedColumn: (t) => t.languageCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountTypesTableFilterComposer(
+            $db: $db,
+            $table: $db.accountTypes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$LanguagesTableOrderingComposer
+    extends Composer<_$AppDatabase, $LanguagesTable> {
+  $$LanguagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get language => $composableBuilder(
+    column: $table.language,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LanguagesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LanguagesTable> {
+  $$LanguagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get language =>
+      $composableBuilder(column: $table.language, builder: (column) => column);
+
+  GeneratedColumn<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => column,
+  );
+
+  Expression<T> currenciesRefs<T extends Object>(
+    Expression<T> Function($$CurrenciesTableAnnotationComposer a) f,
+  ) {
+    final $$CurrenciesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.languageCode,
+      referencedTable: $db.currencies,
+      getReferencedColumn: (t) => t.languageCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CurrenciesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.currencies,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> accountTypesRefs<T extends Object>(
+    Expression<T> Function($$AccountTypesTableAnnotationComposer a) f,
+  ) {
+    final $$AccountTypesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.languageCode,
+      referencedTable: $db.accountTypes,
+      getReferencedColumn: (t) => t.languageCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountTypesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.accountTypes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$LanguagesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LanguagesTable,
+          Language,
+          $$LanguagesTableFilterComposer,
+          $$LanguagesTableOrderingComposer,
+          $$LanguagesTableAnnotationComposer,
+          $$LanguagesTableCreateCompanionBuilder,
+          $$LanguagesTableUpdateCompanionBuilder,
+          (Language, $$LanguagesTableReferences),
+          Language,
+          PrefetchHooks Function({bool currenciesRefs, bool accountTypesRefs})
+        > {
+  $$LanguagesTableTableManager(_$AppDatabase db, $LanguagesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LanguagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LanguagesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LanguagesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> language = const Value.absent(),
+                Value<String> languageCode = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LanguagesCompanion(
+                language: language,
+                languageCode: languageCode,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String language,
+                required String languageCode,
+                Value<int> rowid = const Value.absent(),
+              }) => LanguagesCompanion.insert(
+                language: language,
+                languageCode: languageCode,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$LanguagesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({currenciesRefs = false, accountTypesRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (currenciesRefs) db.currencies,
+                    if (accountTypesRefs) db.accountTypes,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (currenciesRefs)
+                        await $_getPrefetchedData<
+                          Language,
+                          $LanguagesTable,
+                          Currency
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LanguagesTableReferences
+                              ._currenciesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LanguagesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).currenciesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.languageCode == item.languageCode,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (accountTypesRefs)
+                        await $_getPrefetchedData<
+                          Language,
+                          $LanguagesTable,
+                          AccountType
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LanguagesTableReferences
+                              ._accountTypesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LanguagesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).accountTypesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.languageCode == item.languageCode,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$LanguagesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LanguagesTable,
+      Language,
+      $$LanguagesTableFilterComposer,
+      $$LanguagesTableOrderingComposer,
+      $$LanguagesTableAnnotationComposer,
+      $$LanguagesTableCreateCompanionBuilder,
+      $$LanguagesTableUpdateCompanionBuilder,
+      (Language, $$LanguagesTableReferences),
+      Language,
+      PrefetchHooks Function({bool currenciesRefs, bool accountTypesRefs})
+    >;
 typedef $$CurrenciesTableCreateCompanionBuilder =
     CurrenciesCompanion Function({
       required String name,
       required String code,
+      required String languageCode,
       Value<int> rowid,
     });
 typedef $$CurrenciesTableUpdateCompanionBuilder =
     CurrenciesCompanion Function({
       Value<String> name,
       Value<String> code,
+      Value<String> languageCode,
       Value<int> rowid,
     });
 
 final class $$CurrenciesTableReferences
     extends BaseReferences<_$AppDatabase, $CurrenciesTable, Currency> {
   $$CurrenciesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $LanguagesTable _languageCodeTable(_$AppDatabase db) =>
+      db.languages.createAlias(
+        $_aliasNameGenerator(
+          db.currencies.languageCode,
+          db.languages.languageCode,
+        ),
+      );
+
+  $$LanguagesTableProcessedTableManager get languageCode {
+    final $_column = $_itemColumn<String>('language_code')!;
+
+    final manager = $$LanguagesTableTableManager(
+      $_db,
+      $_db.languages,
+    ).filter((f) => f.languageCode.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_languageCodeTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
 
   static MultiTypedResultKey<
     $CurrencyDesignationsTable,
@@ -3134,6 +3974,49 @@ final class $$CurrenciesTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$ExchangeRatesTable, List<ExchangeRate>>
+  _exchangeRatesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.exchangeRates,
+    aliasName: $_aliasNameGenerator(
+      db.currencies.code,
+      db.exchangeRates.fromCurrencyCode,
+    ),
+  );
+
+  $$ExchangeRatesTableProcessedTableManager get exchangeRatesRefs {
+    final manager = $$ExchangeRatesTableTableManager($_db, $_db.exchangeRates)
+        .filter(
+          (f) =>
+              f.fromCurrencyCode.code.sqlEquals($_itemColumn<String>('code')!),
+        );
+
+    final cache = $_typedResult.readTableOrNull(_exchangeRatesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ExchangeRatesTable, List<ExchangeRate>>
+  _ToCurrencyRatesTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.exchangeRates,
+    aliasName: $_aliasNameGenerator(
+      db.currencies.code,
+      db.exchangeRates.toCurrencyCode,
+    ),
+  );
+
+  $$ExchangeRatesTableProcessedTableManager get ToCurrencyRates {
+    final manager = $$ExchangeRatesTableTableManager($_db, $_db.exchangeRates)
+        .filter(
+          (f) => f.toCurrencyCode.code.sqlEquals($_itemColumn<String>('code')!),
+        );
+
+    final cache = $_typedResult.readTableOrNull(_ToCurrencyRatesTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$CurrenciesTableFilterComposer
@@ -3154,6 +4037,29 @@ class $$CurrenciesTableFilterComposer
     column: $table.code,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$LanguagesTableFilterComposer get languageCode {
+    final $$LanguagesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.languageCode,
+      referencedTable: $db.languages,
+      getReferencedColumn: (t) => t.languageCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LanguagesTableFilterComposer(
+            $db: $db,
+            $table: $db.languages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
   Expression<bool> currencyDesignationsRefs(
     Expression<bool> Function($$CurrencyDesignationsTableFilterComposer f) f,
@@ -3229,6 +4135,56 @@ class $$CurrenciesTableFilterComposer
     );
     return f(composer);
   }
+
+  Expression<bool> exchangeRatesRefs(
+    Expression<bool> Function($$ExchangeRatesTableFilterComposer f) f,
+  ) {
+    final $$ExchangeRatesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.code,
+      referencedTable: $db.exchangeRates,
+      getReferencedColumn: (t) => t.fromCurrencyCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExchangeRatesTableFilterComposer(
+            $db: $db,
+            $table: $db.exchangeRates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> ToCurrencyRates(
+    Expression<bool> Function($$ExchangeRatesTableFilterComposer f) f,
+  ) {
+    final $$ExchangeRatesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.code,
+      referencedTable: $db.exchangeRates,
+      getReferencedColumn: (t) => t.toCurrencyCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExchangeRatesTableFilterComposer(
+            $db: $db,
+            $table: $db.exchangeRates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$CurrenciesTableOrderingComposer
@@ -3249,6 +4205,29 @@ class $$CurrenciesTableOrderingComposer
     column: $table.code,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$LanguagesTableOrderingComposer get languageCode {
+    final $$LanguagesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.languageCode,
+      referencedTable: $db.languages,
+      getReferencedColumn: (t) => t.languageCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LanguagesTableOrderingComposer(
+            $db: $db,
+            $table: $db.languages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CurrenciesTableAnnotationComposer
@@ -3265,6 +4244,29 @@ class $$CurrenciesTableAnnotationComposer
 
   GeneratedColumn<String> get code =>
       $composableBuilder(column: $table.code, builder: (column) => column);
+
+  $$LanguagesTableAnnotationComposer get languageCode {
+    final $$LanguagesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.languageCode,
+      referencedTable: $db.languages,
+      getReferencedColumn: (t) => t.languageCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LanguagesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.languages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
   Expression<T> currencyDesignationsRefs<T extends Object>(
     Expression<T> Function($$CurrencyDesignationsTableAnnotationComposer a) f,
@@ -3341,6 +4343,56 @@ class $$CurrenciesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> exchangeRatesRefs<T extends Object>(
+    Expression<T> Function($$ExchangeRatesTableAnnotationComposer a) f,
+  ) {
+    final $$ExchangeRatesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.code,
+      referencedTable: $db.exchangeRates,
+      getReferencedColumn: (t) => t.fromCurrencyCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExchangeRatesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.exchangeRates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> ToCurrencyRates<T extends Object>(
+    Expression<T> Function($$ExchangeRatesTableAnnotationComposer a) f,
+  ) {
+    final $$ExchangeRatesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.code,
+      referencedTable: $db.exchangeRates,
+      getReferencedColumn: (t) => t.toCurrencyCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExchangeRatesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.exchangeRates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$CurrenciesTableTableManager
@@ -3357,9 +4409,12 @@ class $$CurrenciesTableTableManager
           (Currency, $$CurrenciesTableReferences),
           Currency,
           PrefetchHooks Function({
+            bool languageCode,
             bool currencyDesignationsRefs,
             bool accountsRefs,
             bool transactionsRefs,
+            bool exchangeRatesRefs,
+            bool ToCurrencyRates,
           })
         > {
   $$CurrenciesTableTableManager(_$AppDatabase db, $CurrenciesTable table)
@@ -3377,16 +4432,24 @@ class $$CurrenciesTableTableManager
               ({
                 Value<String> name = const Value.absent(),
                 Value<String> code = const Value.absent(),
+                Value<String> languageCode = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
-              }) => CurrenciesCompanion(name: name, code: code, rowid: rowid),
+              }) => CurrenciesCompanion(
+                name: name,
+                code: code,
+                languageCode: languageCode,
+                rowid: rowid,
+              ),
           createCompanionCallback:
               ({
                 required String name,
                 required String code,
+                required String languageCode,
                 Value<int> rowid = const Value.absent(),
               }) => CurrenciesCompanion.insert(
                 name: name,
                 code: code,
+                languageCode: languageCode,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -3399,9 +4462,12 @@ class $$CurrenciesTableTableManager
               .toList(),
           prefetchHooksCallback:
               ({
+                languageCode = false,
                 currencyDesignationsRefs = false,
                 accountsRefs = false,
                 transactionsRefs = false,
+                exchangeRatesRefs = false,
+                ToCurrencyRates = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -3409,8 +4475,42 @@ class $$CurrenciesTableTableManager
                     if (currencyDesignationsRefs) db.currencyDesignations,
                     if (accountsRefs) db.accounts,
                     if (transactionsRefs) db.transactions,
+                    if (exchangeRatesRefs) db.exchangeRates,
+                    if (ToCurrencyRates) db.exchangeRates,
                   ],
-                  addJoins: null,
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (languageCode) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.languageCode,
+                                    referencedTable: $$CurrenciesTableReferences
+                                        ._languageCodeTable(db),
+                                    referencedColumn:
+                                        $$CurrenciesTableReferences
+                                            ._languageCodeTable(db)
+                                            .languageCode,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
                   getPrefetchedDataCallback: (items) async {
                     return [
                       if (currencyDesignationsRefs)
@@ -3476,6 +4576,50 @@ class $$CurrenciesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (exchangeRatesRefs)
+                        await $_getPrefetchedData<
+                          Currency,
+                          $CurrenciesTable,
+                          ExchangeRate
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CurrenciesTableReferences
+                              ._exchangeRatesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CurrenciesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).exchangeRatesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.fromCurrencyCode == item.code,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (ToCurrencyRates)
+                        await $_getPrefetchedData<
+                          Currency,
+                          $CurrenciesTable,
+                          ExchangeRate
+                        >(
+                          currentTable: table,
+                          referencedTable:
+                              $$CurrenciesTableReferences._ToCurrencyRatesTable(
+                                db,
+                              ),
+                          managerFromTypedResult: (p0) =>
+                              $$CurrenciesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).ToCurrencyRates,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.toCurrencyCode == item.code,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -3497,9 +4641,12 @@ typedef $$CurrenciesTableProcessedTableManager =
       (Currency, $$CurrenciesTableReferences),
       Currency,
       PrefetchHooks Function({
+        bool languageCode,
         bool currencyDesignationsRefs,
         bool accountsRefs,
         bool transactionsRefs,
+        bool exchangeRatesRefs,
+        bool ToCurrencyRates,
       })
     >;
 typedef $$CurrencyDesignationsTableCreateCompanionBuilder =
@@ -4790,18 +5937,42 @@ typedef $$AccountTypesTableCreateCompanionBuilder =
     AccountTypesCompanion Function({
       Value<String> id,
       required String name,
+      required String languageCode,
       Value<int> rowid,
     });
 typedef $$AccountTypesTableUpdateCompanionBuilder =
     AccountTypesCompanion Function({
       Value<String> id,
       Value<String> name,
+      Value<String> languageCode,
       Value<int> rowid,
     });
 
 final class $$AccountTypesTableReferences
     extends BaseReferences<_$AppDatabase, $AccountTypesTable, AccountType> {
   $$AccountTypesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $LanguagesTable _languageCodeTable(_$AppDatabase db) =>
+      db.languages.createAlias(
+        $_aliasNameGenerator(
+          db.accountTypes.languageCode,
+          db.languages.languageCode,
+        ),
+      );
+
+  $$LanguagesTableProcessedTableManager get languageCode {
+    final $_column = $_itemColumn<String>('language_code')!;
+
+    final manager = $$LanguagesTableTableManager(
+      $_db,
+      $_db.languages,
+    ).filter((f) => f.languageCode.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_languageCodeTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
 
   static MultiTypedResultKey<$AccountsTable, List<DbAccount>>
   _accountsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
@@ -4843,6 +6014,29 @@ class $$AccountTypesTableFilterComposer
     column: $table.name,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$LanguagesTableFilterComposer get languageCode {
+    final $$LanguagesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.languageCode,
+      referencedTable: $db.languages,
+      getReferencedColumn: (t) => t.languageCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LanguagesTableFilterComposer(
+            $db: $db,
+            $table: $db.languages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
   Expression<bool> accountsRefs(
     Expression<bool> Function($$AccountsTableFilterComposer f) f,
@@ -4888,6 +6082,29 @@ class $$AccountTypesTableOrderingComposer
     column: $table.name,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$LanguagesTableOrderingComposer get languageCode {
+    final $$LanguagesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.languageCode,
+      referencedTable: $db.languages,
+      getReferencedColumn: (t) => t.languageCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LanguagesTableOrderingComposer(
+            $db: $db,
+            $table: $db.languages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$AccountTypesTableAnnotationComposer
@@ -4904,6 +6121,29 @@ class $$AccountTypesTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  $$LanguagesTableAnnotationComposer get languageCode {
+    final $$LanguagesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.languageCode,
+      referencedTable: $db.languages,
+      getReferencedColumn: (t) => t.languageCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LanguagesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.languages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
   Expression<T> accountsRefs<T extends Object>(
     Expression<T> Function($$AccountsTableAnnotationComposer a) f,
@@ -4944,7 +6184,7 @@ class $$AccountTypesTableTableManager
           $$AccountTypesTableUpdateCompanionBuilder,
           (AccountType, $$AccountTypesTableReferences),
           AccountType,
-          PrefetchHooks Function({bool accountsRefs})
+          PrefetchHooks Function({bool languageCode, bool accountsRefs})
         > {
   $$AccountTypesTableTableManager(_$AppDatabase db, $AccountTypesTable table)
     : super(
@@ -4961,16 +6201,24 @@ class $$AccountTypesTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String> languageCode = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
-              }) => AccountTypesCompanion(id: id, name: name, rowid: rowid),
+              }) => AccountTypesCompanion(
+                id: id,
+                name: name,
+                languageCode: languageCode,
+                rowid: rowid,
+              ),
           createCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
                 required String name,
+                required String languageCode,
                 Value<int> rowid = const Value.absent(),
               }) => AccountTypesCompanion.insert(
                 id: id,
                 name: name,
+                languageCode: languageCode,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -4981,38 +6229,72 @@ class $$AccountTypesTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({accountsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (accountsRefs) db.accounts],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (accountsRefs)
-                    await $_getPrefetchedData<
-                      AccountType,
-                      $AccountTypesTable,
-                      DbAccount
-                    >(
-                      currentTable: table,
-                      referencedTable: $$AccountTypesTableReferences
-                          ._accountsRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$AccountTypesTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).accountsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where(
-                            (e) => e.accountTypeId == item.id,
-                          ),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({languageCode = false, accountsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [if (accountsRefs) db.accounts],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (languageCode) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.languageCode,
+                                    referencedTable:
+                                        $$AccountTypesTableReferences
+                                            ._languageCodeTable(db),
+                                    referencedColumn:
+                                        $$AccountTypesTableReferences
+                                            ._languageCodeTable(db)
+                                            .languageCode,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (accountsRefs)
+                        await $_getPrefetchedData<
+                          AccountType,
+                          $AccountTypesTable,
+                          DbAccount
+                        >(
+                          currentTable: table,
+                          referencedTable: $$AccountTypesTableReferences
+                              ._accountsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$AccountTypesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).accountsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.accountTypeId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -5029,7 +6311,7 @@ typedef $$AccountTypesTableProcessedTableManager =
       $$AccountTypesTableUpdateCompanionBuilder,
       (AccountType, $$AccountTypesTableReferences),
       AccountType,
-      PrefetchHooks Function({bool accountsRefs})
+      PrefetchHooks Function({bool languageCode, bool accountsRefs})
     >;
 typedef $$AccountsTableCreateCompanionBuilder =
     AccountsCompanion Function({
@@ -6346,6 +7628,7 @@ typedef $$ExchangeRatesTableCreateCompanionBuilder =
       required String fromCurrencyCode,
       required String toCurrencyCode,
       required double rate,
+      required int preset,
       required DateTime date,
       Value<int> rowid,
     });
@@ -6354,6 +7637,7 @@ typedef $$ExchangeRatesTableUpdateCompanionBuilder =
       Value<String> fromCurrencyCode,
       Value<String> toCurrencyCode,
       Value<double> rate,
+      Value<int> preset,
       Value<DateTime> date,
       Value<int> rowid,
     });
@@ -6425,6 +7709,11 @@ class $$ExchangeRatesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get preset => $composableBuilder(
+    column: $table.preset,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get date => $composableBuilder(
     column: $table.date,
     builder: (column) => ColumnFilters(column),
@@ -6491,6 +7780,11 @@ class $$ExchangeRatesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get preset => $composableBuilder(
+    column: $table.preset,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get date => $composableBuilder(
     column: $table.date,
     builder: (column) => ColumnOrderings(column),
@@ -6554,6 +7848,9 @@ class $$ExchangeRatesTableAnnotationComposer
   });
   GeneratedColumn<double> get rate =>
       $composableBuilder(column: $table.rate, builder: (column) => column);
+
+  GeneratedColumn<int> get preset =>
+      $composableBuilder(column: $table.preset, builder: (column) => column);
 
   GeneratedColumn<DateTime> get date =>
       $composableBuilder(column: $table.date, builder: (column) => column);
@@ -6636,12 +7933,14 @@ class $$ExchangeRatesTableTableManager
                 Value<String> fromCurrencyCode = const Value.absent(),
                 Value<String> toCurrencyCode = const Value.absent(),
                 Value<double> rate = const Value.absent(),
+                Value<int> preset = const Value.absent(),
                 Value<DateTime> date = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExchangeRatesCompanion(
                 fromCurrencyCode: fromCurrencyCode,
                 toCurrencyCode: toCurrencyCode,
                 rate: rate,
+                preset: preset,
                 date: date,
                 rowid: rowid,
               ),
@@ -6650,12 +7949,14 @@ class $$ExchangeRatesTableTableManager
                 required String fromCurrencyCode,
                 required String toCurrencyCode,
                 required double rate,
+                required int preset,
                 required DateTime date,
                 Value<int> rowid = const Value.absent(),
               }) => ExchangeRatesCompanion.insert(
                 fromCurrencyCode: fromCurrencyCode,
                 toCurrencyCode: toCurrencyCode,
                 rate: rate,
+                preset: preset,
                 date: date,
                 rowid: rowid,
               ),
@@ -6748,12 +8049,14 @@ typedef $$SettingsTableCreateCompanionBuilder =
     SettingsCompanion Function({
       required String key,
       required String value,
+      required String device,
       Value<int> rowid,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
       Value<String> key,
       Value<String> value,
+      Value<String> device,
       Value<int> rowid,
     });
 
@@ -6773,6 +8076,11 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<String> get value => $composableBuilder(
     column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get device => $composableBuilder(
+    column: $table.device,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6795,6 +8103,11 @@ class $$SettingsTableOrderingComposer
     column: $table.value,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get device => $composableBuilder(
+    column: $table.device,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SettingsTableAnnotationComposer
@@ -6811,6 +8124,9 @@ class $$SettingsTableAnnotationComposer
 
   GeneratedColumn<String> get value =>
       $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<String> get device =>
+      $composableBuilder(column: $table.device, builder: (column) => column);
 }
 
 class $$SettingsTableTableManager
@@ -6843,16 +8159,24 @@ class $$SettingsTableTableManager
               ({
                 Value<String> key = const Value.absent(),
                 Value<String> value = const Value.absent(),
+                Value<String> device = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
-              }) => SettingsCompanion(key: key, value: value, rowid: rowid),
+              }) => SettingsCompanion(
+                key: key,
+                value: value,
+                device: device,
+                rowid: rowid,
+              ),
           createCompanionCallback:
               ({
                 required String key,
                 required String value,
+                required String device,
                 Value<int> rowid = const Value.absent(),
               }) => SettingsCompanion.insert(
                 key: key,
                 value: value,
+                device: device,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -6881,6 +8205,8 @@ typedef $$SettingsTableProcessedTableManager =
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
+  $$LanguagesTableTableManager get languages =>
+      $$LanguagesTableTableManager(_db, _db.languages);
   $$CurrenciesTableTableManager get currencies =>
       $$CurrenciesTableTableManager(_db, _db.currencies);
   $$CurrencyDesignationsTableTableManager get currencyDesignations =>

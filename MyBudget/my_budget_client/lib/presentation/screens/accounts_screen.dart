@@ -142,7 +142,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
               if (state is AccountsLoadSuccess) {
                 // Create a list of all account types, including an "All" option
                 final allAccountTypes = [
-                  const AccountType(id: 'all', name: 'All'), // "All" option
+                   AccountType(id: 'all', name: 'All', languageCode: Localizations.localeOf(context).languageCode), // "All" option
                   ...state.accountTypes,
                 ];
 
