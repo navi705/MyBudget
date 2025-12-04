@@ -5,8 +5,43 @@ import 'package:intl/intl.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 
-class TransactionsScreen extends StatelessWidget {
+class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
+
+  @override
+  State<TransactionsScreen> createState() => _TransactionsScreenState();
+}
+
+class _TransactionsScreenState extends State<TransactionsScreen> {
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_isBottom) {
+      context.read<TransactionsBloc>().add(LoadMoreTransactions());
+    }
+  }
+
+  bool get _isBottom {
+    if (!_scrollController.hasClients) return false;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.offset;
+    // Load more when we are at 90% of the screen
+    return currentScroll >= (maxScroll * 0.9);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,8 +59,14 @@ class TransactionsScreen extends StatelessWidget {
               return const Center(child: Text('No transactions yet.'));
             }
             return ListView.builder(
-              itemCount: state.transactions.length,
+              controller: _scrollController,
+              itemCount: state.hasReachedMax
+                  ? state.transactions.length
+                  : state.transactions.length + 1,
               itemBuilder: (context, index) {
+                if (index >= state.transactions.length) {
+                  return const Center(child: CircularProgressIndicator());
+                }
                 final transaction = state.transactions[index];
                 return ListTile(
                   title: Text(transaction.description),

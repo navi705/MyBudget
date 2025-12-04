@@ -10,28 +10,61 @@ part 'transactions_state.dart';
 
 class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   final TransactionRepository _transactionRepository;
-  StreamSubscription? _transactionsSubscription;
 
   TransactionsBloc({required TransactionRepository transactionRepository})
       : _transactionRepository = transactionRepository,
         super(TransactionsInitial()) {
     on<LoadTransactions>(_onLoadTransactions);
+    on<LoadMoreTransactions>(_onLoadMoreTransactions);
     on<AddTransaction>(_onAddTransaction);
     on<UpdateTransaction>(_onUpdateTransaction);
     on<DeleteTransaction>(_onDeleteTransaction);
-    on<_TransactionsUpdated>(_onTransactionsUpdated);
   }
 
-  void _onLoadTransactions(
+  Future<void> _onLoadTransactions(
     LoadTransactions event,
     Emitter<TransactionsState> emit,
-  ) {
+  ) async {
     emit(TransactionsLoadInProgress());
-    _transactionsSubscription?.cancel();
-    _transactionsSubscription = _transactionRepository.watchTransactions().listen(
-          (transactions) => add(_TransactionsUpdated(transactions)),
-          onError: (_) => emit(TransactionsLoadFailure()),
+    try {
+      final transactions =
+          await _transactionRepository.getTransactionsPaginated(limit: 50, offset: 0);
+      emit(TransactionsLoadSuccess(
+        transactions: transactions,
+        hasReachedMax: transactions.length < 50,
+      ));
+    } catch (_) {
+      emit(TransactionsLoadFailure());
+    }
+  }
+
+  Future<void> _onLoadMoreTransactions(
+    LoadMoreTransactions event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    if (state is! TransactionsLoadSuccess) return;
+    final currentState = state as TransactionsLoadSuccess;
+    if (currentState.hasReachedMax) return;
+
+    try {
+      final transactions = await _transactionRepository.getTransactionsPaginated(
+        offset: currentState.transactions.length,
+        limit: 50,
+      );
+      if (transactions.isEmpty) {
+        emit(currentState.copyWith(hasReachedMax: true));
+      } else {
+        emit(
+          currentState.copyWith(
+            transactions: List.of(currentState.transactions)..addAll(transactions),
+            hasReachedMax: transactions.length < 50,
+          ),
         );
+      }
+    } catch (_) {
+      // In case of error, just keep the current state.
+      // Optionally, you could emit a state to show a "retry" button.
+    }
   }
 
   Future<void> _onAddTransaction(
@@ -39,6 +72,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) async {
     await _transactionRepository.addTransaction(event.transaction);
+    add(LoadTransactions()); // Reload the list
   }
 
   Future<void> _onUpdateTransaction(
@@ -46,6 +80,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) async {
     await _transactionRepository.updateTransaction(event.transaction);
+    add(LoadTransactions()); // Reload the list
   }
 
   Future<void> _onDeleteTransaction(
@@ -53,18 +88,6 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) async {
     await _transactionRepository.deleteTransaction(event.id);
-  }
-
-  void _onTransactionsUpdated(
-    _TransactionsUpdated event,
-    Emitter<TransactionsState> emit,
-  ) {
-    emit(TransactionsLoadSuccess(event.transactions));
-  }
-
-  @override
-  Future<void> close() {
-    _transactionsSubscription?.cancel();
-    return super.close();
+    add(LoadTransactions()); // Reload the list
   }
 }

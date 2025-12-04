@@ -19,6 +19,7 @@ class AccountsScreen extends StatefulWidget {
 }
 
 class _AccountsScreenState extends State<AccountsScreen> {
+  final _scrollController = ScrollController();
   String? _selectedAccountTypeId; // State variable for selected account type filter
   bool _sortAscending = true; // NEW: Sorting order (ascending by default)
 
@@ -26,6 +27,29 @@ class _AccountsScreenState extends State<AccountsScreen> {
   void initState() {
     super.initState();
     _selectedAccountTypeId = 'all'; // 0 for 'All' accounts
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_isBottom) {
+      context.read<AccountsBloc>().add(LoadMoreAccounts());
+    }
+  }
+
+  bool get _isBottom {
+    if (!_scrollController.hasClients) return false;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.offset;
+    // Load more when we are at 90% of the screen
+    return currentScroll >= (maxScroll * 0.9);
   }
 
   Future<void> _showCurrencySelectionDialog(BuildContext context) async {
@@ -233,8 +257,16 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     });
 
                     return ListView.builder(
-                      itemCount: filteredAccounts.length,
+                      controller: _scrollController,
+                      itemCount: state.hasReachedMax
+                          ? filteredAccounts.length
+                          : filteredAccounts.length + 1,
                       itemBuilder: (context, index) {
+                        if (index >= filteredAccounts.length) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
                         final account = filteredAccounts[index];
                         return AccountListItem(account: account);
                       },

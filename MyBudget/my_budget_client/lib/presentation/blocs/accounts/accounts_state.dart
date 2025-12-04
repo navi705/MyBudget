@@ -4,18 +4,21 @@ abstract class AccountsState extends Equatable {
   final List<Account> accounts;
   final List<AccountType> accountTypes;
   final Account? recentlyDeletedAccount;
+  final bool hasReachedMax;
 
   const AccountsState({
     this.accounts = const [],
     this.accountTypes = const [],
     this.recentlyDeletedAccount,
+    this.hasReachedMax = false,
   });
 
   @override
   List<Object?> get props => [
         accounts,
         accountTypes,
-        recentlyDeletedAccount
+        recentlyDeletedAccount,
+        hasReachedMax,
       ];
 }
 
@@ -28,12 +31,14 @@ class AccountsLoadSuccess extends AccountsState {
     super.accounts,
     super.accountTypes,
     super.recentlyDeletedAccount,
+    super.hasReachedMax,
   });
 
   AccountsLoadSuccess copyWith({
     List<Account>? accounts,
     List<AccountType>? accountTypes,
     Account? recentlyDeletedAccount,
+    bool? hasReachedMax,
     bool clearRecentlyDeleted = false,
   }) {
     return AccountsLoadSuccess(
@@ -42,6 +47,7 @@ class AccountsLoadSuccess extends AccountsState {
       recentlyDeletedAccount: clearRecentlyDeleted
           ? null
           : recentlyDeletedAccount ?? this.recentlyDeletedAccount,
+      hasReachedMax: hasReachedMax ?? this.hasReachedMax,
     );
   }
 }

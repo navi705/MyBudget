@@ -40,6 +40,14 @@ class LocalCategoryRepository implements CategoryRepository {
   }
 
   @override
+  Future<List<Category>> getCategoriesPaginated(
+      {int limit = 10, int offset = 0}) async {
+    final driftCategories = await _appDatabase.categoriesDao
+        .getCategories(limit: limit, offset: offset);
+    return driftCategories.toDomainList();
+  }
+
+  @override
   Future<Category?> getCategoryById(String id) async {
     final driftCategory = await _appDatabase.categoriesDao.getCategoryById(id);
     return driftCategory?.toDomain();

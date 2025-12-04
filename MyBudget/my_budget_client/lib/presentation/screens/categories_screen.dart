@@ -11,8 +11,42 @@ import 'package:my_budget_client/presentation/routes/app_routes.dart';
 
 import '../widgets/delete_category_dialog.dart';
 
-class CategoriesScreen extends StatelessWidget {
+class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
+
+  @override
+  State<CategoriesScreen> createState() => _CategoriesScreenState();
+}
+
+class _CategoriesScreenState extends State<CategoriesScreen> {
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_isBottom) {
+      context.read<CategoriesBloc>().add(LoadMoreCategories());
+    }
+  }
+
+  bool get _isBottom {
+    if (!_scrollController.hasClients) return false;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.offset;
+    return currentScroll >= (maxScroll * 0.9);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,8 +88,14 @@ class CategoriesScreen extends StatelessWidget {
                     return const Center(child: CircularProgressIndicator());
                   }
                   return ListView.builder(
-                    itemCount: topLevelCategories.length,
+                    controller: _scrollController,
+                    itemCount: state.hasReachedMax
+                        ? topLevelCategories.length
+                        : topLevelCategories.length + 1,
                     itemBuilder: (context, index) {
+                      if (index >= topLevelCategories.length) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
                       final category = topLevelCategories[index];
                       return _CategoryListItem(
                         category: category,

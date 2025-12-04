@@ -328,6 +328,37 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
       updates: {accounts},
     );
   }
+
+  Future<void> batchUpdateBalances(Map<String, double> amountChanges) {
+    if (amountChanges.isEmpty) {
+      return Future.value();
+    }
+
+    final accountIds = amountChanges.keys.toList();
+    final caseClauses = <String>[];
+    final variables = <Variable>[];
+
+    // Build CASE clauses and their variables
+    for (final accountId in accountIds) {
+      caseClauses.add('WHEN ? THEN ?');
+      variables.add(Variable(accountId));
+      variables.add(Variable(amountChanges[accountId]!));
+    }
+
+    // Build IN clause variables
+    final idsInClause = List.filled(accountIds.length, '?').join(', ');
+    for (final accountId in accountIds) {
+      variables.add(Variable(accountId));
+    }
+
+    final sql = '''
+      UPDATE accounts
+      SET balance = balance + (CASE id ${caseClauses.join(' ')} END)
+      WHERE id IN ($idsInClause)
+    ''';
+
+    return customUpdate(sql, variables: variables, updates: {accounts});
+  }
 }
 
 @DriftAccessor(tables: [Transactions])

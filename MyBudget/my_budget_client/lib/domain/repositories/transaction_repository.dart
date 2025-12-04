@@ -3,6 +3,8 @@ import 'package:my_budget_client/domain/entities/transaction.dart';
 abstract class TransactionRepository {
   Stream<List<Transaction>> watchTransactions();
   Future<List<Transaction>> getTransactions();
+  Future<List<Transaction>> getTransactionsPaginated(
+      {int limit = 10, int offset = 0});
   Future<List<Transaction>> getTransactionsByCategoryId(String categoryId);
   Future<Transaction?> getTransactionById(String id);
   Future<void> addTransaction(Transaction transaction);

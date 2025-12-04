@@ -9,6 +9,8 @@ abstract class TransactionsEvent extends Equatable {
 
 class LoadTransactions extends TransactionsEvent {}
 
+class LoadMoreTransactions extends TransactionsEvent {}
+
 class AddTransaction extends TransactionsEvent {
   final Transaction transaction;
 

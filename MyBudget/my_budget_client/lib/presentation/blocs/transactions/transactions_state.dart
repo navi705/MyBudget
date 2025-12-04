@@ -13,11 +13,25 @@ class TransactionsLoadInProgress extends TransactionsState {}
 
 class TransactionsLoadSuccess extends TransactionsState {
   final List<Transaction> transactions;
+  final bool hasReachedMax;
 
-  const TransactionsLoadSuccess([this.transactions = const []]);
+  const TransactionsLoadSuccess({
+    this.transactions = const [],
+    this.hasReachedMax = false,
+  });
+
+  TransactionsLoadSuccess copyWith({
+    List<Transaction>? transactions,
+    bool? hasReachedMax,
+  }) {
+    return TransactionsLoadSuccess(
+      transactions: transactions ?? this.transactions,
+      hasReachedMax: hasReachedMax ?? this.hasReachedMax,
+    );
+  }
 
   @override
-  List<Object> get props => [transactions];
+  List<Object> get props => [transactions, hasReachedMax];
 }
 
 class TransactionsLoadFailure extends TransactionsState {}

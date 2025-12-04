@@ -24,24 +24,24 @@ class LocalTransactionRepository implements TransactionRepository {
 
   @override
   Future<void> addTransactions(List<Transaction> transactions) async {
-    // 1. Batch insert all transactions for DB efficiency
-    await database.transactionsDao
-        .insertAllTransactions(transactions.toCompanionList());
+    await database.transaction(() async {
+      // 1. Batch insert all transactions
+      await database.transactionsDao
+          .insertAllTransactions(transactions.toCompanionList());
 
-    // 2. Aggregate amounts by account ID
-    final amountChanges = <String, double>{};
-    for (final transaction in transactions) {
-      amountChanges.update(
-        transaction.accountId,
-        (value) => value + transaction.amount,
-        ifAbsent: () => transaction.amount,
-      );
-    }
+      // 2. Aggregate amounts by account ID
+      final amountChanges = <String, double>{};
+      for (final transaction in transactions) {
+        amountChanges.update(
+          transaction.accountId,
+          (value) => value + transaction.amount,
+          ifAbsent: () => transaction.amount,
+        );
+      }
 
-    // 3. Update balance for each affected account once
-    for (final entry in amountChanges.entries) {
-      await _updateAccountBalance(entry.key, entry.value);
-    }
+      // 3. Call the DAO to perform the batch update
+      await database.accountsDao.batchUpdateBalances(amountChanges);
+    });
   }
 
   @override
@@ -63,6 +63,14 @@ class LocalTransactionRepository implements TransactionRepository {
   @override
   Future<List<Transaction>> getTransactions() async {
     final transactions = await database.transactionsDao.getAllTransactions();
+    return transactions.toDomainList();
+  }
+
+  @override
+  Future<List<Transaction>> getTransactionsPaginated(
+      {int limit = 10, int offset = 0}) async {
+    final transactions = await database.transactionsDao
+        .getTransactions(limit: limit, offset: offset);
     return transactions.toDomainList();
   }
 

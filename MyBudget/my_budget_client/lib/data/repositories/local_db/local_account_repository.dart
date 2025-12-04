@@ -48,6 +48,14 @@ class LocalAccountRepository implements AccountRepository {
   }
 
   @override
+  Future<List<Account>> getAccountsPaginated(
+      {int limit = 10, int offset = 0}) async {
+    final accounts =
+        await database.accountsDao.getAccounts(limit: limit, offset: offset);
+    return accounts.toDomainList();
+  }
+
+  @override
   Future<void> updateAccount(Account account) async {
     await database.accountsDao.updateAccount(account.toCompanion());
   }

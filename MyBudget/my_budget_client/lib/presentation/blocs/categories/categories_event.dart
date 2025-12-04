@@ -9,6 +9,8 @@ abstract class CategoriesEvent extends Equatable {
 
 class LoadCategories extends CategoriesEvent {}
 
+class LoadMoreCategories extends CategoriesEvent {}
+
 class AddCategory extends CategoriesEvent {
   final Category category;
 

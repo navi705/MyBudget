@@ -9,6 +9,8 @@ abstract class AccountsEvent extends Equatable {
 
 class LoadAccounts extends AccountsEvent {}
 
+class LoadMoreAccounts extends AccountsEvent {}
+
 class AddAccount extends AccountsEvent {
   final Account account;
 
