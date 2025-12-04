@@ -21,3 +21,15 @@ extension AccountTypeCompanionMapper on AccountType {
     );
   }
 }
+
+extension AccountTypeListMapper on List<drift.AccountType> {
+  List<AccountType> toDomainList() {
+    return map((accountType) => accountType.toDomain()).toList();
+  }
+}
+
+extension AccountTypeCompanionListMapper on List<AccountType> {
+  List<drift.AccountTypesCompanion> toCompanionList() {
+    return map((accountType) => accountType.toCompanion()).toList();
+  }
+}

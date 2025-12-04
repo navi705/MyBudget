@@ -16,6 +16,11 @@ class LocalCurrencyDesignationRepository
   }
 
   @override
+  Future<void> addDesignations(List<CurrencyDesignation> designations) async {
+    await database.currencyDesignationsDao.insertAllCurrencyDesignations(designations.toCompanionList());
+  }
+
+  @override
   Future<void> deleteDesignation(String id) async {
     await database.currencyDesignationsDao.deleteDesignation(
       db.CurrencyDesignationsCompanion(id: Value(id)),
@@ -33,7 +38,7 @@ class LocalCurrencyDesignationRepository
   Future<List<CurrencyDesignation>> getDesignations() async {
     final designations = await database.currencyDesignationsDao
         .getAllDesignations();
-    return designations.map((d) => d.toDomain()).toList();
+    return designations.toDomainList();
   }
 
   @override

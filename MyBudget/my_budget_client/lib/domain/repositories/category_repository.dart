@@ -5,6 +5,7 @@ abstract class CategoryRepository {
   Future<List<Category>> getCategories();
   Future<Category?> getCategoryById(String id);
   Future<void> addCategory(Category category);
+  Future<void> addCategories(List<Category> categories);
   Future<void> updateCategory(Category category);
   Future<void> deleteCategory(String id);
   Stream<Map<String, double>> watchCategoryTotals();

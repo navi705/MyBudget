@@ -145,6 +145,8 @@ class LanguageDao extends DatabaseAccessor<AppDatabase>
   LanguageDao(super.db);
 
   Future<List<Language>> getAllLanguages() => select(languages).get();
+  Future<List<Language>> getLanguages({int limit = 10, int offset = 0}) =>
+      (select(languages)..limit(limit, offset: offset)).get();
   Stream<List<Language>> watchAllLanguages() => select(languages).watch();
   Future<void> insertLanguage(LanguagesCompanion lang) =>
       into(languages).insert(lang);
@@ -161,6 +163,9 @@ class CurrencyDesignationsDao extends DatabaseAccessor<AppDatabase>
 
   Future<List<CurrencyDesignation>> getAllDesignations() =>
       select(currencyDesignations).get();
+  Future<List<CurrencyDesignation>> getDesignations(
+          {int limit = 10, int offset = 0}) =>
+      (select(currencyDesignations)..limit(limit, offset: offset)).get();
   Stream<List<CurrencyDesignation>> watchAllDesignations() =>
       select(currencyDesignations).watch();
   Future<CurrencyDesignation?> getDesignationById(String id) =>
@@ -168,6 +173,11 @@ class CurrencyDesignationsDao extends DatabaseAccessor<AppDatabase>
           .getSingleOrNull();
   Future<void> insertDesignation(CurrencyDesignationsCompanion designation) =>
       into(currencyDesignations).insert(designation);
+  Future<void> insertAllCurrencyDesignations(List<CurrencyDesignationsCompanion> designations) {
+    return batch((batch) {
+      batch.insertAll(currencyDesignations, designations, mode: InsertMode.insertOrReplace);
+    });
+  }
   Future<bool> updateDesignation(CurrencyDesignationsCompanion designation) =>
       update(currencyDesignations).replace(designation);
   Future<int> deleteDesignation(CurrencyDesignationsCompanion designation) =>
@@ -180,12 +190,19 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
   CurrenciesDao(super.db);
 
   Future<List<Currency>> getAllCurrencies() => select(currencies).get();
+  Future<List<Currency>> getCurrencies({int limit = 10, int offset = 0}) =>
+      (select(currencies)..limit(limit, offset: offset)).get();
   Stream<List<Currency>> watchAllCurrencies() => select(currencies).watch();
   Future<Currency?> getCurrencyByCode(String code) =>
       (select(currencies)..where((tbl) => tbl.code.equals(code)))
           .getSingleOrNull();
   Future<void> insertCurrency(CurrenciesCompanion currency) =>
       into(currencies).insert(currency);
+  Future<void> insertAllCurrencies(List<CurrenciesCompanion> currencies) {
+    return batch((batch) {
+      batch.insertAll(this.currencies, currencies, mode: InsertMode.insertOrReplace);
+    });
+  }
   Future<bool> updateCurrency(CurrenciesCompanion currency) =>
       update(currencies).replace(currency);
   Future<int> deleteCurrency(CurrenciesCompanion currency) =>
@@ -198,11 +215,18 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   CategoriesDao(super.db);
 
   Future<List<Category>> getAllCategories() => select(categories).get();
+  Future<List<Category>> getCategories({int limit = 10, int offset = 0}) =>
+      (select(categories)..limit(limit, offset: offset)).get();
   Future<Category?> getCategoryById(String id) =>
       (select(categories)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
   Stream<List<Category>> watchAllCategories() => select(categories).watch();
   Future<void> insertCategory(CategoriesCompanion category) =>
       into(categories).insert(category);
+  Future<void> insertAllCategories(List<CategoriesCompanion> categories) {
+    return batch((batch) {
+      batch.insertAll(this.categories, categories, mode: InsertMode.insertOrReplace);
+    });
+  }
   Future<bool> updateCategory(CategoriesCompanion category) =>
       update(categories).replace(category);
   Future<int> deleteCategory(CategoriesCompanion category) =>
@@ -232,8 +256,15 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
   StylesDao(super.db);
 
   Future<List<Style>> getAllStyles() => select(styles).get();
+  Future<List<Style>> getStyles({int limit = 10, int offset = 0}) =>
+      (select(styles)..limit(limit, offset: offset)).get();
   Stream<List<Style>> watchAllStyles() => select(styles).watch();
   Future<void> insertStyle(StylesCompanion style) => into(styles).insert(style);
+  Future<void> insertAllStyles(List<StylesCompanion> styles) {
+    return batch((batch) {
+      batch.insertAll(this.styles, styles, mode: InsertMode.insertOrReplace);
+    });
+  }
   Future<bool> updateStyle(StylesCompanion style) =>
       update(styles).replace(style);
   Future<int> deleteStyle(StylesCompanion style) =>
@@ -246,6 +277,8 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
   AccountTypesDao(super.db);
 
   Future<List<AccountType>> getAllAccountTypes() => select(accountTypes).get();
+  Future<List<AccountType>> getAccountTypes({int limit = 10, int offset = 0}) =>
+      (select(accountTypes)..limit(limit, offset: offset)).get();
   Stream<List<AccountType>> watchAllAccountTypes() =>
       select(accountTypes).watch();
   Future<AccountType?> getAccountTypeById(String id) =>
@@ -253,6 +286,11 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
           .getSingleOrNull();
   Future<void> insertAccountType(AccountTypesCompanion accountType) =>
       into(accountTypes).insert(accountType);
+  Future<void> insertAllAccountTypes(List<AccountTypesCompanion> accountTypes) {
+    return batch((batch) {
+      batch.insertAll(this.accountTypes, accountTypes, mode: InsertMode.insertOrReplace);
+    });
+  }
   Future<bool> updateAccountType(AccountTypesCompanion accountType) =>
       update(accountTypes).replace(accountType);
   Future<int> deleteAccountType(AccountTypesCompanion accountType) =>
@@ -264,11 +302,18 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
   AccountsDao(super.db);
 
   Future<List<DbAccount>> getAllAccounts() => select(accounts).get();
+  Future<List<DbAccount>> getAccounts({int limit = 10, int offset = 0}) =>
+      (select(accounts)..limit(limit, offset: offset)).get();
   Future<DbAccount?> getAccountById(String id) =>
       (select(accounts)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
   Stream<List<DbAccount>> watchAllAccounts() => select(accounts).watch();
   Future<void> insertAccount(AccountsCompanion account) =>
       into(accounts).insert(account);
+  Future<void> insertAllAccounts(List<AccountsCompanion> accounts) {
+    return batch((batch) {
+      batch.insertAll(this.accounts, accounts, mode: InsertMode.insertOrReplace);
+    });
+  }
   Future<void> restoreAccount(AccountsCompanion account) =>
       into(accounts).insert(account, mode: InsertMode.insertOrReplace);
   Future<bool> updateAccount(AccountsCompanion account) =>
@@ -283,6 +328,8 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   TransactionsDao(super.db);
 
   Future<List<Transaction>> getAllTransactions() => select(transactions).get();
+  Future<List<Transaction>> getTransactions({int limit = 10, int offset = 0}) =>
+      (select(transactions)..limit(limit, offset: offset)).get();
   Future<Transaction?> getTransactionById(String id) =>
       (select(transactions)..where((tbl) => tbl.id.equals(id)))
           .getSingleOrNull();
@@ -293,6 +340,11 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       select(transactions).watch();
   Future<void> insertTransaction(TransactionsCompanion transaction) =>
       into(transactions).insert(transaction);
+  Future<void> insertAllTransactions(List<TransactionsCompanion> transactions) {
+    return batch((batch) {
+      batch.insertAll(this.transactions, transactions, mode: InsertMode.insertOrReplace);
+    });
+  }
   Future<bool> updateTransaction(TransactionsCompanion transaction) =>
       update(transactions).replace(transaction);
   Future<int> deleteTransaction(TransactionsCompanion transaction) =>
@@ -314,8 +366,11 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin 
   Future<void> setSetting(Setting setting) =>
       into(settings).insert(setting, mode: InsertMode.insertOrReplace);
   Future<List<Setting>> getAllSettings() => select(settings).get();
+  Future<List<Setting>> getSettings({int limit = 10, int offset = 0}) =>
+      (select(settings)..limit(limit, offset: offset)).get();
   Future<List<Setting>> getRecentSettings(int limit) { return (select(settings)
     ..orderBy([(t) => OrderingTerm(expression: t.key, mode: OrderingMode.desc)])..limit(limit)).get();}
+    
 }
 
 @DriftAccessor(tables: [ExchangeRates])
@@ -323,6 +378,10 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     with _$ExchangeRatesDaoMixin {
   ExchangeRatesDao(super.db);
 
+  Future<List<ExchangeRate>> getAllExchangeRates() => select(exchangeRates).get();
+  Future<List<ExchangeRate>> getExchangeRates(
+          {int limit = 10, int offset = 0}) =>
+      (select(exchangeRates)..limit(limit, offset: offset)).get();
   Stream<List<ExchangeRate>> watchAllExchangeRates() =>
       select(exchangeRates).watch();
   Future<void> addExchangeRate(ExchangeRatesCompanion rate) =>

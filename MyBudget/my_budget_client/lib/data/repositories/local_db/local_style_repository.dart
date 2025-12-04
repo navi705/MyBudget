@@ -13,12 +13,17 @@ class LocalStyleRepository implements StyleRepository {
   Stream<List<Style>> watchAllStyles() {
     return database.stylesDao
         .watchAllStyles()
-        .map((styles) => styles.map((s) => s.toDomain()).toList());
+        .map((styles) => styles.toDomainList());
   }
 
   @override
   Future<void> addStyle(Style style) async {
     await database.stylesDao.insertStyle(style.toCompanion());
+  }
+
+  @override
+  Future<void> addStyles(List<Style> styles) async {
+    await database.stylesDao.insertAllStyles(styles.toCompanionList());
   }
 
   @override

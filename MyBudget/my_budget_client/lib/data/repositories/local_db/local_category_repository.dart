@@ -12,13 +12,18 @@ class LocalCategoryRepository implements CategoryRepository {
   @override
   Stream<List<Category>> watchCategories() {
     return _appDatabase.categoriesDao.watchAllCategories().map((categories) {
-      return categories.map((c) => c.toDomain()).toList();
+      return categories.toDomainList();
     });
   }
 
   @override
   Future<void> addCategory(Category category) async {
     await _appDatabase.categoriesDao.insertCategory(category.toCompanion());
+  }
+
+  @override
+  Future<void> addCategories(List<Category> categories) async {
+    await _appDatabase.categoriesDao.insertAllCategories(categories.toCompanionList());
   }
 
   @override
@@ -31,7 +36,7 @@ class LocalCategoryRepository implements CategoryRepository {
   @override
   Future<List<Category>> getCategories() async {
     final driftCategories = await _appDatabase.categoriesDao.getAllCategories();
-    return driftCategories.map((c) => c.toDomain()).toList();
+    return driftCategories.toDomainList();
   }
 
   @override

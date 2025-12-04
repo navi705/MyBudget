@@ -14,15 +14,15 @@ class LocalCurrencyRepository implements CurrencyRepository {
 
   @override
   Stream<List<Currency>> watchCurrencies() {
-    return database.currenciesDao.watchAllCurrencies().map((driftCurrencies) {
-      return driftCurrencies.map((c) => c.toDomain()).toList();
-    });
+    return database.currenciesDao
+        .watchAllCurrencies()
+        .map((driftCurrencies) => driftCurrencies.toDomainList());
   }
 
   @override
   Future<List<Currency>> getCurrencies() async {
     final driftCurrencies = await database.currenciesDao.getAllCurrencies();
-    return driftCurrencies.map((c) => c.toDomain()).toList();
+    return driftCurrencies.toDomainList();
   }
 
   @override
@@ -34,6 +34,11 @@ class LocalCurrencyRepository implements CurrencyRepository {
   @override
   Future<void> addCurrency(Currency currency) async {
     await database.currenciesDao.insertCurrency(currency.toCompanion());
+  }
+
+  @override
+  Future<void> addCurrencies(List<Currency> currencies) async {
+    await database.currenciesDao.insertAllCurrencies(currencies.toCompanionList());
   }
 
   @override
@@ -84,7 +89,7 @@ class LocalCurrencyRepository implements CurrencyRepository {
     return database.currencyDesignationsDao
         .watchAllDesignations()
         .map((driftDesignations) {
-      return driftDesignations.map((d) => d.toDomain()).toList();
+      return driftDesignations.toDomainList();
     });
   }
 
@@ -92,15 +97,13 @@ class LocalCurrencyRepository implements CurrencyRepository {
   Future<List<CurrencyDesignation>> getAllCurrencyDesignations() async {
     final driftDesignations =
         await database.currencyDesignationsDao.getAllDesignations();
-    return driftDesignations.map((d) => d.toDomain()).toList();
+    return driftDesignations.toDomainList();
   }
 
   @override
   Stream<List<ExchangeRate>> watchAllExchangeRates() {
-    return database.exchangeRatesDao
-        .watchAllExchangeRates()
-        .map((driftExchangeRates) {
-      return driftExchangeRates.map((r) => r.toDomain()).toList();
+    return database.exchangeRatesDao.watchAllExchangeRates().map((driftExchangeRates) {
+      return driftExchangeRates.toDomainList();
     });
   }
 

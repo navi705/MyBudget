@@ -7,6 +7,7 @@ abstract class CurrencyRepository {
   Stream<List<Currency>> watchCurrencies();
   Future<Currency?> getCurrencyByCode(String code);
   Future<void> addCurrency(Currency currency);
+  Future<void> addCurrencies(List<Currency> currencies);
   Future<void> updateCurrency(Currency currency);
   Future<void> deleteCurrency(Currency currency);
 

@@ -24,3 +24,15 @@ extension ExchangeRateCompanionMapper on ExchangeRate {
     );
   }
 }
+
+extension ExchangeRateListMapper on List<drift.ExchangeRate> {
+  List<ExchangeRate> toDomainList() {
+    return map((rate) => rate.toDomain()).toList();
+  }
+}
+
+extension ExchangeRateCompanionListMapper on List<ExchangeRate> {
+  List<drift.ExchangeRatesCompanion> toCompanionList() {
+    return map((rate) => rate.toCompanion()).toList();
+  }
+}

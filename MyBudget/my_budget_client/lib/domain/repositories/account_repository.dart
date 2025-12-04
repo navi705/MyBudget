@@ -6,6 +6,7 @@ abstract class AccountRepository {
   Stream<List<Account>> watchAccounts();
   Future<Account?> getAccountById(String id);
   Future<void> addAccount(Account account);
+  Future<void> addAccounts(List<Account> accounts);
   Future<void> updateAccount(Account account);
   Future<void> deleteAccount(String id);
   Future<void> restoreAccount(Account account);
@@ -13,4 +14,5 @@ abstract class AccountRepository {
   Future<List<AccountType>> getAccountTypes();
   Stream<List<AccountType>> watchAccountTypes();
   Future<AccountType?> getAccountTypeById(String id);
+  Future<void> addAccountTypes(List<AccountType> accountTypes);
 }

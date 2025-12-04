@@ -15,12 +15,17 @@ class LocalAccountRepository implements AccountRepository {
   Stream<List<Account>> watchAccounts() {
     return database.accountsDao
         .watchAllAccounts()
-        .map((accounts) => accounts.map((dbAccount) => dbAccount.toDomain()).toList());
+        .map((accounts) => accounts.toDomainList());
   }
 
   @override
   Future<void> addAccount(Account account) async {
     await database.accountsDao.insertAccount(account.toCompanion());
+  }
+
+  @override
+  Future<void> addAccounts(List<Account> account) async {
+    await database.accountsDao.insertAllAccounts(account.toCompanionList());
   }
 
   @override
@@ -39,7 +44,7 @@ class LocalAccountRepository implements AccountRepository {
   @override
   Future<List<Account>> getAccounts() async {
     final accounts = await database.accountsDao.getAllAccounts();
-    return accounts.map((dbAccount) => dbAccount.toDomain()).toList();
+    return accounts.toDomainList();
   }
 
   @override
@@ -55,19 +60,24 @@ class LocalAccountRepository implements AccountRepository {
   @override
   Future<List<AccountType>> getAccountTypes() async {
     final accountTypes = await database.accountTypesDao.getAllAccountTypes();
-    return accountTypes.map((at) => at.toDomain()).toList();
+    return accountTypes.toDomainList();
   }
 
   @override
   Stream<List<AccountType>> watchAccountTypes() {
     return database.accountTypesDao
         .watchAllAccountTypes()
-        .map((accountTypes) => accountTypes.map((at) => at.toDomain()).toList());
+        .map((accountTypes) => accountTypes.toDomainList());
   }
 
   @override
   Future<AccountType?> getAccountTypeById(String id) async {
     final accountType = await database.accountTypesDao.getAccountTypeById(id);
     return accountType?.toDomain();
+  }
+
+  @override
+  Future<void> addAccountTypes(List<AccountType> accountTypes) async {
+    await database.accountTypesDao.insertAllAccountTypes(accountTypes.toCompanionList());
   }
 }

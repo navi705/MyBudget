@@ -4,6 +4,7 @@ abstract class CurrencyDesignationRepository {
   Future<List<CurrencyDesignation>> getDesignations();
   Future<CurrencyDesignation?> getDesignationById(String id);
   Future<void> addDesignation(CurrencyDesignation designation);
+  Future<void> addDesignations(List<CurrencyDesignation> designations);
   Future<void> updateDesignation(CurrencyDesignation designation);
   Future<void> deleteDesignation(String id);
 }

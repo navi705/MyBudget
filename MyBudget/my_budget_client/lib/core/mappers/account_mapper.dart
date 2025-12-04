@@ -35,3 +35,16 @@ extension AccountCompanionMapper on domain_account.Account {
     );
   }
 }
+
+extension AccountListMapper on List<drift.DbAccount> {
+  List<domain_account.Account> toDomainList() {
+    return map((account) => account.toDomain()).toList();
+  }
+}
+
+extension AccountCompanionListMapper on List<domain_account.Account> {
+  List<drift.AccountsCompanion> toCompanionList({bool nullToAbsent = false}) {
+    return map((account) => account.toCompanion(nullToAbsent: nullToAbsent))
+        .toList();
+  }
+}

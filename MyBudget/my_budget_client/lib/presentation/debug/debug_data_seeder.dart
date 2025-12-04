@@ -1,6 +1,6 @@
+import 'dart:developer' as developer;
 import 'dart:math';
 
-import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/data/repositories/db_repository.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
@@ -70,19 +70,28 @@ class DebugDataSeeder {
     required int categoryCount,
     required int transactionCount,
   }) async {
+    final totalStopwatch = Stopwatch()..start();
+    developer.log('--- Starting Data Seeding ---');
+
+    final prerequisitesStopwatch = Stopwatch()..start();
     final prerequisites = await _getPrerequisites();
+    developer.log('Fetched prerequisites in ${prerequisitesStopwatch.elapsed}');
+
     if (prerequisites.currencies.isEmpty ||
         prerequisites.accountTypes.isEmpty ||
         prerequisites.styles.isEmpty) {
-      // Cannot proceed if default data is missing
+      developer.log('Prerequisites missing, cannot seed data.');
       return;
     }
 
     final accountRepo = sl<AccountRepository>();
     final categoryRepo = sl<CategoryRepository>();
+    final transactionRepo = sl<TransactionRepository>();
 
     // 1. Create Accounts
+    final accountCreationStopwatch = Stopwatch()..start();
     final List<Account> insertedAccounts = [];
+    List<Account> accountsForInsert = [];
     for (int i = 0; i < accountCount; i++) {
       final currency =
           prerequisites.currencies[_random.nextInt(prerequisites.currencies.length)];
@@ -101,11 +110,18 @@ class DebugDataSeeder {
         accountTypeId: accountType.id,
         styleId: style.id,
       );
-      await accountRepo.addAccount(account);
+      accountsForInsert.add(account);
     }
+    developer.log('In-memory account creation took: ${accountCreationStopwatch.elapsed}');
+
+    final accountDbStopwatch = Stopwatch()..start();
+    await accountRepo.addAccounts(accountsForInsert);
     insertedAccounts.addAll(await accountRepo.getAccounts());
+    developer.log('Account DB insertion took: ${accountDbStopwatch.elapsed}');
 
     // 2. Create Categories
+    final categoryCreationStopwatch = Stopwatch()..start();
+     List<Category> cattegoryForInsert = [];
     for (int i = 0; i < categoryCount; i++) {
       final style =
           prerequisites.styles[_random.nextInt(prerequisites.styles.length)];
@@ -115,9 +131,9 @@ class DebugDataSeeder {
         styleId: style.id,
         type: type,
       );
-      await categoryRepo.addCategory(category);
+      cattegoryForInsert.add(category);
     }
-    
+    await categoryRepo.addCategories(cattegoryForInsert);
     final allCategories = await categoryRepo.getCategories();
     
     // Make ~50% of categories into subcategories
@@ -139,91 +155,38 @@ class DebugDataSeeder {
       
       await categoryRepo.updateCategory(subCategory.copyWith(parentId: parent.id));
     }
+    developer.log('Category creation and updates took: ${categoryCreationStopwatch.elapsed}');
 
     final insertedCategories = await categoryRepo.getCategories();
 
     // 3. Create Transactions
-    if (transactionCount > 10000) {
-      // Use batch insert for large amounts
-      await _batchInsertTransactions(
-          transactionCount, insertedAccounts, insertedCategories);
-    } else {
-      // Use repository for smaller amounts
-      final transactionRepo = sl<TransactionRepository>();
-      for (int i = 0; i < transactionCount; i++) {
-        final account =
-            insertedAccounts[_random.nextInt(insertedAccounts.length)];
-        final category =
-            insertedCategories[_random.nextInt(insertedCategories.length)];
-        final amount = category.type == CategoryType.expense
-            ? -(_random.nextDouble() * 500).roundToDouble()
-            : (_random.nextDouble() * 2000).roundToDouble();
-
-        await transactionRepo.addTransaction(Transaction(
-          description: 'Transaction $i',
-          amount: amount,
-          date: DateTime.now().subtract(Duration(days: _random.nextInt(1825))),
-          accountId: account.id!,
-          categoryId: category.id!,
-          currencyCode: account.currencyCode,
-        ));
-      }
-    }
-  }
-
-  static Future<void> _batchInsertTransactions(
-    int count,
-    List<Account> accounts,
-    List<Category> categories,
-  ) async {
-    final dbRepository = sl<DbRepository>();
-    final List<db.TransactionsCompanion> companions = [];
-    final Map<String, double> accountBalanceDelta = {};
-
-    for (int i = 0; i < count; i++) {
-      final account = accounts[_random.nextInt(accounts.length)];
-      final category = categories[_random.nextInt(categories.length)];
-
+    final transactionCreationStopwatch = Stopwatch()..start();
+    final List<Transaction> transactionsForInsert = [];
+    for (int i = 0; i < transactionCount; i++) {
+      final account =
+          insertedAccounts[_random.nextInt(insertedAccounts.length)];
+      final category =
+          insertedCategories[_random.nextInt(insertedCategories.length)];
       final amount = category.type == CategoryType.expense
           ? -(_random.nextDouble() * 500).roundToDouble()
           : (_random.nextDouble() * 2000).roundToDouble();
-      final date = DateTime.now().subtract(Duration(days: _random.nextInt(1825)));
 
-      companions.add(db.TransactionsCompanion.insert(
+      transactionsForInsert.add(Transaction(
         description: 'Transaction $i',
         amount: amount,
-        date: date,
+        date: DateTime.now().subtract(Duration(days: _random.nextInt(1825))),
         accountId: account.id!,
         categoryId: category.id!,
         currencyCode: account.currencyCode,
       ));
-
-      // Track balance changes to update later
-      accountBalanceDelta.update(
-        account.id!,
-        (value) => value + amount,
-        ifAbsent: () => amount,
-      );
     }
+    developer.log('In-memory transaction creation took: ${transactionCreationStopwatch.elapsed}');
+    
+    final transactionDbStopwatch = Stopwatch()..start();
+    // Let the optimized repository method handle EVERYTHING
+    await transactionRepo.addTransactions(transactionsForInsert);
+    developer.log('Transaction DB insertion took: ${transactionDbStopwatch.elapsed}');
 
-    // Insert all transactions in a single batch
-    await dbRepository.batch((batch) {
-      batch.insertAll(
-        // A bit of a hack to get the table reference, could be improved in DbRepo
-        (dbRepository as dynamic).database.transactions,
-        companions,
-      );
-    });
-
-    // Update account balances
-    final accountRepo = sl<AccountRepository>();
-    for (final entry in accountBalanceDelta.entries) {
-      final account = await accountRepo.getAccountById(entry.key);
-      if (account != null) {
-        await accountRepo.updateAccount(
-          account.copyWith(balance: account.balance + entry.value),
-        );
-      }
-    }
+    developer.log('--- Total seeding time: ${totalStopwatch.elapsed} ---');
   }
 }

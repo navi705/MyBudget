@@ -21,3 +21,15 @@ extension CurrencyDesignationCompanionMapper on CurrencyDesignation {
     );
   }
 }
+
+extension CurrencyDesignationListMapper on List<drift.CurrencyDesignation> {
+  List<CurrencyDesignation> toDomainList() {
+    return map((designation) => designation.toDomain()).toList();
+  }
+}
+
+extension CurrencyDesignationCompanionListMapper on List<CurrencyDesignation> {
+  List<drift.CurrencyDesignationsCompanion> toCompanionList() {
+    return map((designation) => designation.toCompanion()).toList();
+  }
+}

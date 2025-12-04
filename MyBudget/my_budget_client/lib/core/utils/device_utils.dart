@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -29,7 +30,7 @@ Future<String> getDeviceName() async {
       }
     }
   } catch (e) {
-    print('Failed to get device name: $e');
+    log('Failed to get device name: $e');
   }
 
   return deviceName;

@@ -23,3 +23,15 @@ extension StyleCompanionMapper on Style {
     );
   }
 }
+
+extension StyleListMapper on List<drift.Style> {
+  List<Style> toDomainList() {
+    return map((style) => style.toDomain()).toList();
+  }
+}
+
+extension StyleCompanionListMapper on List<Style> {
+  List<drift.StylesCompanion> toCompanionList() {
+    return map((style) => style.toCompanion()).toList();
+  }
+}

@@ -11,15 +11,37 @@ class LocalTransactionRepository implements TransactionRepository {
 
   @override
   Stream<List<Transaction>> watchTransactions() {
-    return database.transactionsDao.watchAllTransactions().map((transactions) {
-      return transactions.map((t) => t.toDomain()).toList();
-    });
+    return database.transactionsDao
+        .watchAllTransactions()
+        .map((transactions) => transactions.toDomainList());
   }
 
   @override
   Future<void> addTransaction(Transaction transaction) async {
     await database.transactionsDao.insertTransaction(transaction.toCompanion());
     await _updateAccountBalance(transaction.accountId, transaction.amount);
+  }
+
+  @override
+  Future<void> addTransactions(List<Transaction> transactions) async {
+    // 1. Batch insert all transactions for DB efficiency
+    await database.transactionsDao
+        .insertAllTransactions(transactions.toCompanionList());
+
+    // 2. Aggregate amounts by account ID
+    final amountChanges = <String, double>{};
+    for (final transaction in transactions) {
+      amountChanges.update(
+        transaction.accountId,
+        (value) => value + transaction.amount,
+        ifAbsent: () => transaction.amount,
+      );
+    }
+
+    // 3. Update balance for each affected account once
+    for (final entry in amountChanges.entries) {
+      await _updateAccountBalance(entry.key, entry.value);
+    }
   }
 
   @override
@@ -34,22 +56,22 @@ class LocalTransactionRepository implements TransactionRepository {
 
   @override
   Future<Transaction?> getTransactionById(String id) async {
-    final transaction =
-        await database.transactionsDao.getTransactionById(id);
+    final transaction = await database.transactionsDao.getTransactionById(id);
     return transaction?.toDomain();
   }
 
   @override
   Future<List<Transaction>> getTransactions() async {
     final transactions = await database.transactionsDao.getAllTransactions();
-    return transactions.map((t) => t.toDomain()).toList();
+    return transactions.toDomainList();
   }
 
   @override
-  Future<List<Transaction>> getTransactionsByCategoryId(String categoryId) async {
+  Future<List<Transaction>> getTransactionsByCategoryId(
+      String categoryId) async {
     final transactions = await database.transactionsDao
         .getTransactionsByCategoryId(categoryId);
-    return transactions.map((t) => t.toDomain()).toList();
+    return transactions.toDomainList();
   }
 
   @override

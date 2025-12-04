@@ -22,3 +22,15 @@ extension CurrencyCompanionMapper on Currency {
     );
   }
 }
+
+extension CurrencyListMapper on List<drift.Currency> {
+  List<Currency> toDomainList() {
+    return map((currency) => currency.toDomain()).toList();
+  }
+}
+
+extension CurrencyCompanionListMapper on List<Currency> {
+  List<drift.CurrenciesCompanion> toCompanionList() {
+    return map((currency) => currency.toCompanion()).toList();
+  }
+}

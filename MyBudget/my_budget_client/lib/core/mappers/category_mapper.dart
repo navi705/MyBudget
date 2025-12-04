@@ -25,3 +25,15 @@ extension CategoryCompanionMapper on Category {
     );
   }
 }
+
+extension CategoryListMapper on List<drift.Category> {
+  List<Category> toDomainList() {
+    return map((category) => category.toDomain()).toList();
+  }
+}
+
+extension CategoryCompanionListMapper on List<Category> {
+  List<drift.CategoriesCompanion> toCompanionList() {
+    return map((category) => category.toCompanion()).toList();
+  }
+}

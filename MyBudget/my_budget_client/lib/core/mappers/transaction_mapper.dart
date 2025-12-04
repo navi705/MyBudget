@@ -29,3 +29,15 @@ extension TransactionCompanionMapper on Transaction {
     );
   }
 }
+
+extension TransactionListMapper on List<drift.Transaction> {
+  List<Transaction> toDomainList() {
+    return map((transaction) => transaction.toDomain()).toList();
+  }
+}
+
+extension TransactionCompanionListMapper on List<Transaction> {
+  List<drift.TransactionsCompanion> toCompanionList() {
+    return map((transaction) => transaction.toCompanion()).toList();
+  }
+}
