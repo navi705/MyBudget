@@ -320,6 +320,14 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
       update(accounts).replace(account);
   Future<int> deleteAccount(AccountsCompanion account) =>
       delete(accounts).delete(account);
+
+  Future<void> adjustBalance(String accountId, double amount) {
+    return customUpdate(
+      'UPDATE accounts SET balance = balance + ? WHERE id = ?',
+      variables: [Variable(amount), Variable(accountId)],
+      updates: {accounts},
+    );
+  }
 }
 
 @DriftAccessor(tables: [Transactions])

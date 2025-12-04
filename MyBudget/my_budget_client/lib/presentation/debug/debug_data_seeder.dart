@@ -62,7 +62,7 @@ class DebugDataSeeder {
 
   static Future<void> seedMaximumData() async {
     await clearAllData();
-    await _seedData(accountCount: 5000, categoryCount: 100, transactionCount: 1000000);
+    await _seedData(accountCount: 5000, categoryCount: 500, transactionCount: 500000);
   }
 
   static Future<void> _seedData({

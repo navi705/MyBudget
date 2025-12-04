@@ -99,12 +99,6 @@ class LocalTransactionRepository implements TransactionRepository {
   }
 
   Future<void> _updateAccountBalance(String accountId, double amount) async {
-    final account = await database.accountsDao.getAccountById(accountId);
-    if (account != null) {
-      final newBalance = account.balance + amount;
-      final companion =
-          account.toCompanion(false).copyWith(balance: Value(newBalance));
-      await database.accountsDao.updateAccount(companion);
-    }
+    await database.accountsDao.adjustBalance(accountId, amount);
   }
 }
