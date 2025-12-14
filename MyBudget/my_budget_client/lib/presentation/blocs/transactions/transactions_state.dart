@@ -1,37 +1,53 @@
 part of 'transactions_bloc.dart';
 
-abstract class TransactionsState extends Equatable {
-  const TransactionsState();
+enum TransactionStatus { initial, loading, success, failure }
 
-  @override
-  List<Object> get props => [];
-}
-
-class TransactionsInitial extends TransactionsState {}
-
-class TransactionsLoadInProgress extends TransactionsState {}
-
-class TransactionsLoadSuccess extends TransactionsState {
-  final List<Transaction> transactions;
-  final bool hasReachedMax;
-
-  const TransactionsLoadSuccess({
-    this.transactions = const [],
+final class TransactionsState extends Equatable {
+  const TransactionsState({
+    this.page = 0,
+    this.status = TransactionStatus.initial,
+    this.transactions = const <Transaction>[],
+    this.hasMoreUp = true,
+    this.hasMoreDown = true,
     this.hasReachedMax = false,
   });
 
-  TransactionsLoadSuccess copyWith({
+  final TransactionStatus status;
+  final List<Transaction> transactions;
+  final int page;
+  final bool hasMoreUp;
+  final bool hasMoreDown;
+  final bool hasReachedMax;
+
+  TransactionsState copyWith({
+    int? page,
+    TransactionStatus? status,
     List<Transaction>? transactions,
+    bool? hasMoreUp,
+    bool? hasMoreDown,
     bool? hasReachedMax,
   }) {
-    return TransactionsLoadSuccess(
+    return TransactionsState(
+      page: page ?? this.page,
+      status: status ?? this.status,
       transactions: transactions ?? this.transactions,
+      hasMoreUp: hasMoreUp ?? this.hasMoreUp,
+      hasMoreDown: hasMoreDown ?? this.hasMoreDown,
       hasReachedMax: hasReachedMax ?? this.hasReachedMax,
     );
   }
 
   @override
-  List<Object> get props => [transactions, hasReachedMax];
+  List<Object> get props => [status, transactions, hasMoreUp, hasMoreDown, hasReachedMax];
 }
 
-class TransactionsLoadFailure extends TransactionsState {}
+final class TransactionActionSuccess extends TransactionsState {}
+
+final class TransactionActionFailure extends TransactionsState {
+  final String message;
+
+  const TransactionActionFailure(this.message);
+
+  @override
+  List<Object> get props => [message];
+}

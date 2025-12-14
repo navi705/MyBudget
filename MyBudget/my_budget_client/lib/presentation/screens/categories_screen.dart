@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/domain/entities/category_with_total.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
@@ -53,6 +54,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     return BlocListener<CategoriesBloc, CategoriesState>(
       listener: (context, state) {
         if (state is CategoryDeletionConfirmationNeeded) {
+          // This state is no longer emitted by the refactored BLoC,
+          // but we keep the listener for now.
           showDialog(
             context: context,
             builder: (dialogContext) => BlocProvider.value(
@@ -75,12 +78,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               return const Center(child: CircularProgressIndicator());
             }
             if (state is CategoriesLoadSuccess) {
-              if (state.categories.isEmpty) {
+              if (state.categoriesWithTotals.isEmpty) {
                 return const Center(child: Text('No categories created yet.'));
               }
 
-              final topLevelCategories =
-                  state.categories.where((c) => c.parentId == null).toList();
+              final allCategoriesWithTotals = state.categoriesWithTotals;
+              final topLevelCategories = allCategoriesWithTotals
+                  .where((c) => c.category.parentId == null)
+                  .toList();
 
               return BlocBuilder<StylesBloc, StylesState>(
                 builder: (context, styleState) {
@@ -96,11 +101,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       if (index >= topLevelCategories.length) {
                         return const Center(child: CircularProgressIndicator());
                       }
-                      final category = topLevelCategories[index];
+                      final categoryWithTotal = topLevelCategories[index];
                       return _CategoryListItem(
-                        category: category,
-                        allCategories: state.categories,
-                        categoryTotals: state.categoryTotals,
+                        categoryWithTotal: categoryWithTotal,
+                        allCategoriesWithTotals: allCategoriesWithTotals,
                         styles: styleState.styles,
                       );
                     },
@@ -142,15 +146,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 }
 
 class _CategoryListItem extends StatelessWidget {
-  final Category category;
-  final List<Category> allCategories;
-  final Map<String, double> categoryTotals;
+  final CategoryWithTotal categoryWithTotal;
+  final List<CategoryWithTotal> allCategoriesWithTotals;
   final List<Style> styles;
 
   const _CategoryListItem({
-    required this.category,
-    required this.allCategories,
-    required this.categoryTotals,
+    required this.categoryWithTotal,
+    required this.allCategoriesWithTotals,
     required this.styles,
   });
 
@@ -180,12 +182,14 @@ class _CategoryListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = categoryTotals[category.id] ?? 0.0;
+    final category = categoryWithTotal.category;
+    final total = categoryWithTotal.total;
     final style = styles.firstWhereOrNull((s) => s.id == category.styleId);
     final color = _getColorFromHex(style?.colorHex);
     final iconData = _getIconData(style?.iconName);
-    final children =
-        allCategories.where((c) => c.parentId == category.id).toList();
+    final children = allCategoriesWithTotals
+        .where((c) => c.category.parentId == category.id)
+        .toList();
 
     final listTile = ListTile(
       leading: CircleAvatar(
@@ -227,9 +231,8 @@ class _CategoryListItem extends StatelessWidget {
           .map((child) => Padding(
                 padding: const EdgeInsets.only(left: 16.0),
                 child: _CategoryListItem(
-                  category: child,
-                  allCategories: allCategories,
-                  categoryTotals: categoryTotals,
+                  categoryWithTotal: child,
+                  allCategoriesWithTotals: allCategoriesWithTotals,
                   styles: styles,
                 ),
               ))
@@ -451,7 +454,9 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
 
                 if (state is CategoriesLoadSuccess) {
 
-                  final categories = state.categories;
+                  final categories = state.categoriesWithTotals
+                      .map((e) => e.category)
+                      .toList();
 
                   return DropdownButtonFormField<String>(
 

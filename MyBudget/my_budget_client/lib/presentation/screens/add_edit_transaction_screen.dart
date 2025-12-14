@@ -1,7 +1,9 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
+import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
@@ -26,27 +28,46 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
   String? _selectedCategoryId;
   DateTime _selectedDate = DateTime.now();
   Transaction? _existingTransaction;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+    _descriptionController = TextEditingController();
+    _amountController = TextEditingController();
 
     if (widget.transactionId != null) {
-      final state = context.read<TransactionsBloc>().state;
-      if (state is TransactionsLoadSuccess) {
-        _existingTransaction = state.transactions
-            .firstWhereOrNull((t) => t.id == widget.transactionId);
-      }
+      _loadExistingTransaction();
+    } else {
+      _selectedCategoryId = widget.categoryId;
     }
+  }
 
-    _descriptionController =
-        TextEditingController(text: _existingTransaction?.description);
-    _amountController =
-        TextEditingController(text: _existingTransaction?.amount.toString());
-    _selectedAccountId = _existingTransaction?.accountId;
-    _selectedCategoryId =
-        _existingTransaction?.categoryId ?? widget.categoryId;
-    _selectedDate = _existingTransaction?.date ?? DateTime.now();
+  Future<void> _loadExistingTransaction() async {
+    setState(() {
+      _isLoading = true;
+    });
+    final transaction =
+        await sl<TransactionRepository>().getTransactionById(widget.transactionId!);
+    if (transaction != null) {
+      setState(() {
+        _existingTransaction = transaction;
+        _descriptionController.text = _existingTransaction!.description;
+        _amountController.text = _existingTransaction!.amount.toString();
+        _selectedAccountId = _existingTransaction!.accountId;
+        _selectedCategoryId = _existingTransaction!.categoryId;
+        _selectedDate = _existingTransaction!.date;
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not find transaction.')),
+      );
+    }
   }
 
   @override
@@ -124,90 +145,99 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
             ? 'Add Transaction'
             : 'Edit Transaction'),
       ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-                validator: (value) => (value == null || value.isEmpty)
-                    ? 'Please enter a description'
-                    : null,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: _descriptionController,
+                      decoration:
+                          const InputDecoration(labelText: 'Description'),
+                      validator: (value) => (value == null || value.isEmpty)
+                          ? 'Please enter a description'
+                          : null,
+                    ),
+                    TextFormField(
+                      controller: _amountController,
+                      decoration: const InputDecoration(labelText: 'Amount'),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter an amount';
+                        }
+                        if (double.tryParse(value) == null) {
+                          return 'Please enter a valid number';
+                        }
+                        return null;
+                      },
+                    ),
+                    BlocBuilder<AccountsBloc, AccountsState>(
+                      builder: (context, state) {
+                        if (state is AccountsLoadSuccess) {
+                          return DropdownButtonFormField<String>(
+                            initialValue: _selectedAccountId,
+                            decoration:
+                                const InputDecoration(labelText: 'Account'),
+                            items: state.accounts
+                                .map((acc) => DropdownMenuItem<String>(
+                                      value: acc.id,
+                                      child: Text(acc.name),
+                                    ))
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => _selectedAccountId = v),
+                            validator: (v) =>
+                                v == null ? 'Please select an account' : null,
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                    BlocBuilder<CategoriesBloc, CategoriesState>(
+                      builder: (context, state) {
+                        if (state is CategoriesLoadSuccess) {
+                          return DropdownButtonFormField<String>(
+                            initialValue: _selectedCategoryId,
+                            decoration:
+                                const InputDecoration(labelText: 'Category'),
+                            items: state.categoriesWithTotals
+                                .map((e) => e.category)
+                                .map((cat) => DropdownMenuItem<String>(
+                                      value: cat.id,
+                                      child: Text(cat.name),
+                                    ))
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => _selectedCategoryId = v),
+                            validator: (v) =>
+                                v == null ? 'Please select a category' : null,
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                    ListTile(
+                      title: Text(
+                          "Date: ${_selectedDate.toLocal()}".split(' ')[0]),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: () => _selectDate(context),
+                    ),
+                    const SizedBox(height: 32),
+                    ElevatedButton(
+                      onPressed: _onSave,
+                      style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 50)),
+                      child: const Text('Save'),
+                    )
+                  ],
+                ),
               ),
-              TextFormField(
-                controller: _amountController,
-                decoration: const InputDecoration(labelText: 'Amount'),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter an amount';
-                  }
-                  if (double.tryParse(value) == null) {
-                    return 'Please enter a valid number';
-                  }
-                  return null;
-                },
-              ),
-              BlocBuilder<AccountsBloc, AccountsState>(
-                builder: (context, state) {
-                  if (state is AccountsLoadSuccess) {
-                    return DropdownButtonFormField<String>(
-                      initialValue: _selectedAccountId,
-                      decoration: const InputDecoration(labelText: 'Account'),
-                      items: state.accounts
-                          .map((acc) => DropdownMenuItem<String>(
-                                value: acc.id,
-                                child: Text(acc.name),
-                              ))
-                          .toList(),
-                      onChanged: (v) => setState(() => _selectedAccountId = v),
-                      validator: (v) =>
-                          v == null ? 'Please select an account' : null,
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-              BlocBuilder<CategoriesBloc, CategoriesState>(
-                builder: (context, state) {
-                  if (state is CategoriesLoadSuccess) {
-                    return DropdownButtonFormField<String>(
-                      initialValue: _selectedCategoryId,
-                      decoration: const InputDecoration(labelText: 'Category'),
-                      items: state.categories
-                          .map((cat) => DropdownMenuItem<String>(
-                                value: cat.id,
-                                child: Text(cat.name),
-                              ))
-                          .toList(),
-                      onChanged: (v) => setState(() => _selectedCategoryId = v),
-                      validator: (v) =>
-                          v == null ? 'Please select a category' : null,
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-              ListTile(
-                title: Text("Date: ${_selectedDate.toLocal()}".split(' ')[0]),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: () => _selectDate(context),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _onSave,
-                style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50)),
-                child: const Text('Save'),
-              )
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

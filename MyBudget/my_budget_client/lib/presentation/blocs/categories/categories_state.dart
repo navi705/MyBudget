@@ -12,30 +12,26 @@ class CategoriesInitial extends CategoriesState {}
 class CategoriesLoadInProgress extends CategoriesState {}
 
 class CategoriesLoadSuccess extends CategoriesState {
-  final List<Category> categories;
-  final Map<String, double> categoryTotals;
+  final List<CategoryWithTotal> categoriesWithTotals;
   final bool hasReachedMax;
 
   const CategoriesLoadSuccess({
-    this.categories = const [],
-    this.categoryTotals = const {},
+    this.categoriesWithTotals = const [],
     this.hasReachedMax = false,
   });
 
   CategoriesLoadSuccess copyWith({
-    List<Category>? categories,
-    Map<String, double>? categoryTotals,
+    List<CategoryWithTotal>? categoriesWithTotals,
     bool? hasReachedMax,
   }) {
     return CategoriesLoadSuccess(
-      categories: categories ?? this.categories,
-      categoryTotals: categoryTotals ?? this.categoryTotals,
+      categoriesWithTotals: categoriesWithTotals ?? this.categoriesWithTotals,
       hasReachedMax: hasReachedMax ?? this.hasReachedMax,
     );
   }
 
   @override
-  List<Object> get props => [categories, categoryTotals, hasReachedMax];
+  List<Object> get props => [categoriesWithTotals, hasReachedMax];
 }
 
 class CategoryDeletionConfirmationNeeded extends CategoriesState {

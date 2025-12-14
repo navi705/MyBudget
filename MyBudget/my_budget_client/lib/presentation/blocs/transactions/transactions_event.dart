@@ -5,11 +5,35 @@ abstract class TransactionsEvent extends Equatable {
 
   @override
   List<Object> get props => [];
+} 
+
+class InnitialLoadTransactions extends TransactionsEvent {
+  final int limit;
+
+  const InnitialLoadTransactions({this.limit = 50});
+
+  @override
+  List<Object> get props => [limit];
 }
 
-class LoadTransactions extends TransactionsEvent {}
 
-class LoadMoreTransactions extends TransactionsEvent {}
+class LoadTransactionsUp extends TransactionsEvent {
+  final int limit;
+
+  const LoadTransactionsUp({this.limit = 50});
+
+  @override
+  List<Object> get props => [limit];
+}
+
+class LoadTransactionsDown extends TransactionsEvent {
+  final int limit;
+
+  const LoadTransactionsDown({this.limit = 50});
+
+  @override
+  List<Object> get props => [limit];
+}
 
 class AddTransaction extends TransactionsEvent {
   final Transaction transaction;
@@ -36,13 +60,4 @@ class DeleteTransaction extends TransactionsEvent {
 
   @override
   List<Object> get props => [id];
-}
-
-class _TransactionsUpdated extends TransactionsEvent {
-  final List<Transaction> transactions;
-
-  const _TransactionsUpdated(this.transactions);
-
-  @override
-  List<Object> get props => [transactions];
 }

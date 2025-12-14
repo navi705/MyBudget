@@ -1,7 +1,9 @@
 import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as drift;
 import 'package:my_budget_client/core/mappers/category_mapper.dart';
+import 'package:my_budget_client/core/mappers/category_with_total_mapper.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/domain/entities/category_with_total.dart' as domain;
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
 
 class LocalCategoryRepository implements CategoryRepository {
@@ -23,7 +25,8 @@ class LocalCategoryRepository implements CategoryRepository {
 
   @override
   Future<void> addCategories(List<Category> categories) async {
-    await _appDatabase.categoriesDao.insertAllCategories(categories.toCompanionList());
+    await _appDatabase.categoriesDao
+        .insertAllCategories(categories.toCompanionList());
   }
 
   @override
@@ -48,6 +51,14 @@ class LocalCategoryRepository implements CategoryRepository {
   }
 
   @override
+  Future<List<domain.CategoryWithTotal>> getCategoriesWithTotalsPaginated(
+      {int limit = 50, int offset = 0}) async {
+    final results = await _appDatabase.categoriesDao
+        .getCategoriesWithTotals(limit: limit, offset: offset);
+    return results.toDomainList();
+  }
+
+  @override
   Future<Category?> getCategoryById(String id) async {
     final driftCategory = await _appDatabase.categoriesDao.getCategoryById(id);
     return driftCategory?.toDomain();
@@ -56,10 +67,5 @@ class LocalCategoryRepository implements CategoryRepository {
   @override
   Future<void> updateCategory(Category category) async {
     await _appDatabase.categoriesDao.updateCategory(category.toCompanion());
-  }
-
-  @override
-  Stream<Map<String, double>> watchCategoryTotals() {
-    return _appDatabase.categoriesDao.watchCategoryTotals();
   }
 }

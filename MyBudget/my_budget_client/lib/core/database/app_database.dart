@@ -20,6 +20,13 @@ part 'app_database.g.dart';
 
 const _uuid = Uuid();
 
+class CategoryWithTotal {
+  final Category category;
+  final double total;
+
+  CategoryWithTotal({required this.category, required this.total});
+}
+
 // --- Business Tables ---
 
 @DataClassName('Language')
@@ -248,6 +255,32 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
       };
       return a;
     });
+  }
+
+  Future<List<CategoryWithTotal>> getCategoriesWithTotals(
+      {int limit = 50, int offset = 0}) {
+    final query = customSelect(
+      '''
+      SELECT
+        c.*,
+        t.total
+      FROM categories c
+      LEFT JOIN (
+        SELECT category_id, SUM(amount) AS total
+        FROM transactions
+        GROUP BY category_id
+      ) t ON t.category_id = c.id
+      LIMIT ? OFFSET ?
+      ''',
+      variables: [Variable(limit), Variable(offset)],
+      readsFrom: {categories, transactions},
+    );
+
+    return query.map((row) {
+      final category = categories.map(row.data);
+      final total = row.read<double?>('total') ?? 0.0;
+      return CategoryWithTotal(category: category, total: total);
+    }).get();
   }
 }
 
