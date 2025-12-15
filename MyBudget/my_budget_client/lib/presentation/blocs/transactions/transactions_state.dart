@@ -4,41 +4,52 @@ enum TransactionStatus { initial, loading, success, failure }
 
 final class TransactionsState extends Equatable {
   const TransactionsState({
-    this.page = 0,
     this.status = TransactionStatus.initial,
-    this.transactions = const <Transaction>[],
+    this.upList = const <Transaction>[],
+    this.downList = const <Transaction>[],
     this.hasMoreUp = true,
     this.hasMoreDown = true,
-    this.hasReachedMax = false,
+    this.windowSize = 100,
+    this.initialOffset = 0,
   });
 
   final TransactionStatus status;
-  final List<Transaction> transactions;
-  final int page;
+  final List<Transaction> upList;
+  final List<Transaction> downList;
   final bool hasMoreUp;
   final bool hasMoreDown;
-  final bool hasReachedMax;
+  final int windowSize;
+  final int initialOffset;
 
   TransactionsState copyWith({
-    int? page,
     TransactionStatus? status,
-    List<Transaction>? transactions,
+    List<Transaction>? upList,
+    List<Transaction>? downList,
     bool? hasMoreUp,
     bool? hasMoreDown,
-    bool? hasReachedMax,
+    int? initialOffset,
   }) {
     return TransactionsState(
-      page: page ?? this.page,
       status: status ?? this.status,
-      transactions: transactions ?? this.transactions,
+      upList: upList ?? this.upList,
+      downList: downList ?? this.downList,
       hasMoreUp: hasMoreUp ?? this.hasMoreUp,
       hasMoreDown: hasMoreDown ?? this.hasMoreDown,
-      hasReachedMax: hasReachedMax ?? this.hasReachedMax,
+      windowSize: windowSize,
+      initialOffset: initialOffset ?? this.initialOffset,
     );
   }
 
   @override
-  List<Object> get props => [status, transactions, hasMoreUp, hasMoreDown, hasReachedMax];
+  List<Object> get props => [
+        status,
+        upList,
+        downList,
+        hasMoreUp,
+        hasMoreDown,
+        windowSize,
+        initialOffset,
+      ];
 }
 
 final class TransactionActionSuccess extends TransactionsState {}

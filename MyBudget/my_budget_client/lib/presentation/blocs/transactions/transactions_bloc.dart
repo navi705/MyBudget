@@ -13,9 +13,9 @@ part 'transactions_state.dart';
 
 const throttleDuration = Duration(milliseconds: 100);
 
-EventTransformer<E> throttleDroppable<E>(Duration duration) {
+EventTransformer<E> throttleSequential<E>(Duration duration) {
   return (events, mapper) {
-    return droppable<E>().call(events.throttle(duration), mapper);
+    return events.throttle(duration).asyncExpand(mapper);
   };
 }
 
@@ -23,20 +23,18 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   final TransactionRepository _transactionRepository;
 
   TransactionsBloc({required TransactionRepository transactionRepository})
-    : _transactionRepository = transactionRepository,
-      super(TransactionsState()) {
-
-    on<InnitialLoadTransactions>(_onLoadTransactionsInital,  
-    transformer: throttleDroppable(throttleDuration)
-    );
+      : _transactionRepository = transactionRepository,
+        super(const TransactionsState()) {
+    on<InnitialLoadTransactions>(_onLoadTransactionsInital,
+        transformer: droppable());
 
     on<LoadTransactionsUp>(
       _onLoadTransactionsUp,
-      transformer: throttleDroppable(throttleDuration),
+      transformer: throttleSequential(throttleDuration),
     );
 
-    on<LoadTransactionsDown>(_onLoadTransactionsDown,  
-    transformer: throttleDroppable(throttleDuration)
+    on<LoadTransactionsDown>(_onLoadTransactionsDown,
+        transformer: throttleSequential(throttleDuration),
     );
 
     on<AddTransaction>(_onAddTransaction);
@@ -49,20 +47,18 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) async {
     try {
-      final transactions = await _transactionRepository
-          .getTransactionsPaginated(limit: event.limit, offset: state.page * event.limit);
-
-      if (transactions.isEmpty) {
-        return emit(state.copyWith(hasReachedMax: true));
-      }
+      final transactions = await _transactionRepository.getTransactionsPaginated(
+          limit: event.limit, offset: 0);
 
       emit(
-        state.copyWith(
+        const TransactionsState().copyWith(
           status: TransactionStatus.success,
-          transactions: transactions,
-          page: state.page + 1,
+          downList: transactions,
+          upList: [],
+          initialOffset: 0,
+          hasMoreUp: false,
+          hasMoreDown: transactions.isNotEmpty,
         ),
-
       );
     } catch (_) {
       emit(state.copyWith(status: TransactionStatus.failure));
@@ -73,23 +69,40 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     LoadTransactionsUp event,
     Emitter<TransactionsState> emit,
   ) async {
-    if (state.hasReachedMax) return;
-    try {
-      final transactions = await _transactionRepository
-          .getTransactionsPaginated(limit: event.limit, offset: state.page * event.limit);
+    if (!state.hasMoreUp) return;
 
-      if (transactions.isEmpty) {
-        return emit(state.copyWith(hasReachedMax: true));
+    try {
+      final offset =
+          (state.initialOffset - state.upList.length - event.limit)
+              .clamp(0, double.infinity)
+              .toInt();
+      final newTransactions = await _transactionRepository
+          .getTransactionsPaginated(limit: event.limit, offset: offset);
+
+      if (newTransactions.isEmpty) {
+        return emit(state.copyWith(hasMoreUp: false));
+      }
+
+      var newUpList = [...newTransactions.reversed, ...state.upList];
+      var newDownList = state.downList;
+
+      final totalLength = newUpList.length + newDownList.length;
+      if (totalLength > state.windowSize) {
+        final removedCount = totalLength - state.windowSize;
+        if (newDownList.length > removedCount) {
+          newDownList = newDownList.sublist(0, newDownList.length - removedCount);
+        } else {
+          newDownList = [];
+        }
       }
 
       emit(
         state.copyWith(
           status: TransactionStatus.success,
-          transactions: [...transactions, ...state.transactions],
-          page: state.page - 1,
-           hasMoreUp: transactions.isNotEmpty,
+          upList: newUpList,
+          downList: newDownList,
+          hasMoreUp: newTransactions.length == event.limit && (offset > 0),
         ),
-
       );
     } catch (_) {
       emit(state.copyWith(status: TransactionStatus.failure));
@@ -100,23 +113,36 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     LoadTransactionsDown event,
     Emitter<TransactionsState> emit,
   ) async {
-    if (state.hasReachedMax) return;
+    if (!state.hasMoreDown) return;
     try {
-      final transactions = await _transactionRepository
-          .getTransactionsPaginated(limit: event.limit, offset: state.page * event.limit);
+      final offset = state.initialOffset + state.downList.length;
+      final newTransactions = await _transactionRepository
+          .getTransactionsPaginated(limit: event.limit, offset: offset);
 
-      if (transactions.isEmpty) {
-        return emit(state.copyWith(hasReachedMax: true));
+      if (newTransactions.isEmpty) {
+        return emit(state.copyWith(hasMoreDown: false));
+      }
+      
+      var newDownList = [...state.downList, ...newTransactions];
+      var newUpList = state.upList;
+      
+      final totalLength = newDownList.length + newUpList.length;
+      if (totalLength > state.windowSize) {
+        final removedCount = totalLength - state.windowSize;
+        if (newUpList.length > removedCount) {
+          newUpList = newUpList.sublist(removedCount);
+        } else {
+          newUpList = [];
+        }
       }
 
       emit(
         state.copyWith(
           status: TransactionStatus.success,
-          transactions: [...state.transactions, ...transactions],
-          page: state.page + 1,
-          hasMoreDown: transactions.isNotEmpty,
+          downList: newDownList,
+          upList: newUpList,
+          hasMoreDown: newTransactions.isNotEmpty,
         ),
-
       );
     } catch (_) {
       emit(state.copyWith(status: TransactionStatus.failure));
@@ -129,7 +155,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   ) async {
     try {
       await _transactionRepository.addTransaction(event.transaction);
-      emit(TransactionActionSuccess());
+      add(InnitialLoadTransactions());
     } catch (e) {
       emit(TransactionActionFailure(e.toString()));
     }
@@ -141,7 +167,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   ) async {
     try {
       await _transactionRepository.updateTransaction(event.transaction);
-      emit(TransactionActionSuccess());
+      add(InnitialLoadTransactions());
     } catch (e) {
       emit(TransactionActionFailure(e.toString()));
     }
@@ -153,113 +179,9 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   ) async {
     try {
       await _transactionRepository.deleteTransaction(event.id);
-      emit(TransactionActionSuccess());
+      add(InnitialLoadTransactions());
     } catch (e) {
       emit(TransactionActionFailure(e.toString()));
     }
   }
 }
-
-// 1️⃣ Добавляем параметры окна
-
-// В TransactionsState:
-
-// final int windowSize; // максимальное число элементов в памяти
-// final int startIndex; // индекс первого элемента в окне
-
-
-// windowSize = например 50
-
-// startIndex = индекс в общем списке (для якоря)
-
-// 2️⃣ При подгрузке вверх (LoadTransactionsUp)
-
-// Загружаем новые элементы сверху
-
-// Склеиваем с текущими
-
-// Если длина > windowSize, отрезаем элементы снизу
-
-// final newTransactions = await _transactionRepository.getTransactionsPaginated(
-//     limit: event.limit,
-//     offset: state.pageUp * event.limit,
-// );
-
-// // Склеиваем сверху
-// final updated = [...newTransactions, ...state.transactions];
-
-// // Отрезаем снизу
-// final trimmed = updated.length > state.windowSize
-//     ? updated.sublist(0, state.windowSize)
-//     : updated;
-
-// // Новый startIndex = старый + кол-во отрезанных снизу
-// final removedCount = updated.length - trimmed.length;
-// final newStartIndex = state.startIndex + removedCount;
-
-// emit(state.copyWith(
-//   transactions: trimmed,
-//   pageUp: state.pageUp - 1,
-//   startIndex: newStartIndex,
-//   hasMoreUp: newTransactions.isNotEmpty,
-// ));
-
-// 3️⃣ При подгрузке вниз (LoadTransactionsDown)
-
-// Загружаем новые элементы снизу
-
-// Склеиваем с текущими
-
-// Если длина > windowSize, отрезаем элементы сверху
-
-// final newTransactions = await _transactionRepository.getTransactionsPaginated(
-//     limit: event.limit,
-//     offset: state.pageDown * event.limit,
-// );
-
-// final updated = [...state.transactions, ...newTransactions];
-
-// final trimmed = updated.length > state.windowSize
-//     ? updated.sublist(updated.length - state.windowSize)
-//     : updated;
-
-// // Коррекция startIndex
-// final removedCount = updated.length - trimmed.length;
-// final newStartIndex = state.startIndex + removedCount;
-
-// emit(state.copyWith(
-//   transactions: trimmed,
-//   pageDown: state.pageDown + 1,
-//   startIndex: newStartIndex,
-//   hasMoreDown: newTransactions.isNotEmpty,
-// ));
-
-// 4️⃣ В UI: компенсируем scroll
-
-// При удалении элементов с одной стороны надо якориться на видимом элементе:
-
-// final firstVisible = itemPositionsListener.itemPositions.value
-//     .where((p) => p.itemLeadingEdge >= 0)
-//     .reduce((a, b) => a.itemLeadingEdge < b.itemLeadingEdge ? a : b);
-
-// WidgetsBinding.instance.addPostFrameCallback((_) {
-//   itemScrollController.jumpTo(
-//     index: firstVisible.index + removedCount,
-//     alignment: firstVisible.itemLeadingEdge,
-//   );
-// });
-
-
-// removedCount = сколько элементов удалили с противоположной стороны
-
-// Так scroll не дергается
-
-// 5️⃣ Итог
-
-// В памяти держится только windowSize элементов
-
-// Подгрузка вверх/вниз + удаление старых элементов
-
-// Scroll остаётся стабильным
-
-// Любая высота элементов работает (ScrollPositionIndexedList берёт индексы, а не пиксели)

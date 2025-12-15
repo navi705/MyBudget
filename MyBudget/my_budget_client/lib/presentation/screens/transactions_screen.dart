@@ -16,7 +16,7 @@ class TransactionsScreen extends StatelessWidget  {
 
       body: BlocBuilder<TransactionsBloc,TransactionsState>(
         builder: (context, state){
-            return TransactionList();
+          return TransactionList();
         },
 
       ),

@@ -5,7 +5,6 @@ import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/widgets/bottom_loader.dart';
-import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 
 class TransactionList extends StatefulWidget {
@@ -16,14 +15,7 @@ class TransactionList extends StatefulWidget {
 }
 
 class _TransactionListState extends State<TransactionList> {
-  final itemScrollController = ItemScrollController();
-  final itemPositionsListener = ItemPositionsListener.create();
-
-  @override
-  void initState() {
-    super.initState();
-     itemPositionsListener.itemPositions.addListener(_onScrollPositionChanged);
-  }
+  final Key centerKey = const ValueKey('center-anchor');
 
   @override
   Widget build(BuildContext context) {
@@ -38,65 +30,46 @@ class _TransactionListState extends State<TransactionList> {
               ),
             );
           case TransactionStatus.success:
-            if (state.transactions.isEmpty) {
-              return const Center(child: Text('no posts'));
+            if (state.upList.isEmpty && state.downList.isEmpty) {
+              return const Center(child: Text('no transactions'));
             }
-            return ScrollablePositionedList.builder(itemCount: state.transactions.length,
-            itemScrollController: itemScrollController,
-            itemPositionsListener: itemPositionsListener,
-             itemBuilder: (context, index){
-              return TransactionListItem(
-                        transaction: state.transactions[index],
-                      );
-             });
+            return CustomScrollView(
+              center: centerKey,
+              slivers: [
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      if (index >= state.upList.length - 5 && state.hasMoreUp) {
+                        context.read<TransactionsBloc>().add(LoadTransactionsUp());
+                      }
+                      final transaction = state.upList[index];
+                      return TransactionListItem(transaction: transaction);
+                    },
+                    childCount: state.upList.length,
+                  ),
+                ),
+                SliverList(
+                  key: centerKey,
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      if (index >= state.downList.length - 5 && state.hasMoreDown) {
+                        context.read<TransactionsBloc>().add(LoadTransactionsDown());
+                      }
+                      final transaction = state.downList[index];
+                      return TransactionListItem(transaction: transaction);
+                    },
+                    childCount: state.downList.length,
+                  ),
+                ),
+              ],
+            );
           case TransactionStatus.initial:
-            return const BottomLoader();
           case TransactionStatus.loading:
             return const BottomLoader();
         }
       },
     );
   }
-
-  @override
-  void dispose() {
-    
-    super.dispose();
-  }
-
-  void _onScrollPositionChanged() {
-  final positions = itemPositionsListener.itemPositions.value;
-  if (positions.isEmpty) return;
-
-  final state = context.read<TransactionsBloc>().state;
-
-  // ---- ВЕРХ ----
-  final minIndex = positions
-      .where((p) => p.itemTrailingEdge > 0)
-      .map((p) => p.index)
-      .reduce((a, b) => a < b ? a : b);
-
-  if (minIndex <= 1 && state.hasMoreUp) {
-    context.read<TransactionsBloc>().add(
-      LoadTransactionsUp(),
-    );
-  }
-
-  // ---- НИЗ ----
-  final maxIndex = positions
-      .where((p) => p.itemLeadingEdge < 1)
-      .map((p) => p.index)
-      .reduce((a, b) => a > b ? a : b);
-
-  if (maxIndex >= state.transactions.length - 2 &&
-      state.hasMoreDown) {
-    context.read<TransactionsBloc>().add(
-      LoadTransactionsDown(),
-    );
-  }
-}
-
-  
 }
 
 class TransactionListItem extends StatelessWidget {
