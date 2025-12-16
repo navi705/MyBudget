@@ -4,8 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
-import 'package:my_budget_client/presentation/widgets/bottom_loader.dart';
-
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 class TransactionList extends StatefulWidget {
   const TransactionList({super.key});
@@ -15,58 +14,69 @@ class TransactionList extends StatefulWidget {
 }
 
 class _TransactionListState extends State<TransactionList> {
-  final Key centerKey = const ValueKey('center-anchor');
+  late ListController _listController;
+  @override
+  void initState() {
+    super.initState();
+    _listController = ListController();
+  }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<TransactionsBloc, TransactionsState>(
       builder: (context, state) {
-        switch (state.status) {
-          case TransactionStatus.failure:
-            return const Center(
-              child: Text(
-                'failed to fetch transcation list',
-                style: TextStyle(color: Color.fromARGB(255, 255, 0, 0)),
-              ),
-            );
-          case TransactionStatus.success:
-            if (state.upList.isEmpty && state.downList.isEmpty) {
-              return const Center(child: Text('no transactions'));
-            }
-            return CustomScrollView(
-              center: centerKey,
-              slivers: [
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      if (index >= state.upList.length - 5 && state.hasMoreUp) {
+        if (state.status == TransactionStatus.initial) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (state.status == TransactionStatus.failure) {
+          return const Center(child: Text('Failed to load transactions'));
+        }
+        if (state.transactions.isEmpty &&
+            state.status != TransactionStatus.loading) {
+          return const Center(child: Text('No transactions found.'));
+        }
+
+        return CustomScrollView(
+          cacheExtent: 500,
+          slivers: [
+            SuperSliverList(
+              listController: _listController,
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  print(index);
+                  // --- TRIGGER UP ---
+                  if (index == 0 && state.hasMoreUp && state.status != TransactionStatus.loading) {
+                     WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (context.mounted) {
                         context.read<TransactionsBloc>().add(LoadTransactionsUp());
                       }
-                      final transaction = state.upList[index];
-                      return TransactionListItem(transaction: transaction);
-                    },
-                    childCount: state.upList.length,
-                  ),
-                ),
-                SliverList(
-                  key: centerKey,
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      if (index >= state.downList.length - 5 && state.hasMoreDown) {
-                        context.read<TransactionsBloc>().add(LoadTransactionsDown());
-                      }
-                      final transaction = state.downList[index];
-                      return TransactionListItem(transaction: transaction);
-                    },
-                    childCount: state.downList.length,
-                  ),
-                ),
-              ],
-            );
-          case TransactionStatus.initial:
-          case TransactionStatus.loading:
-            return const BottomLoader();
-        }
+                    });
+                  }
+
+                  // --- TRIGGER DOWN (SKELETONS) ---
+                  if (index >= state.transactions.length) {
+                     if (state.hasMoreDown && state.status != TransactionStatus.loading) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (context.mounted) {
+                            context.read<TransactionsBloc>().add(LoadTransactionsDown());
+                          }
+                        });
+                     }
+                     return const TransactionSkeletonItem();
+                  }
+
+                  final transaction = state.transactions[index];
+                  
+                  return TransactionListItem(
+                    key: ValueKey(transaction.id), 
+                    transaction: transaction,
+                  );
+                },
+                childCount: state.transactions.length + (state.hasMoreDown ? 5 : 0),
+              ),
+            ),
+          ],
+        );
       },
     );
   }
@@ -88,6 +98,46 @@ class TransactionListItem extends StatelessWidget {
           extra: {'transactionId': transaction.id},
         );
       },
+    );
+  }
+}
+
+class TransactionSkeletonItem extends StatelessWidget {
+  const TransactionSkeletonItem({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final titleStyle = theme.textTheme.titleMedium;
+    final subtitleStyle = theme.textTheme.bodyMedium;
+
+    return ListTile(
+      title: Align(
+        alignment: Alignment.centerLeft,
+        child: FractionallySizedBox(
+          widthFactor: 0.7,
+          child: Container(
+            height: titleStyle?.fontSize,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+      ),
+      subtitle: Align(
+        alignment: Alignment.centerLeft,
+        child: FractionallySizedBox(
+          widthFactor: 0.4,
+          child: Container(
+            height: subtitleStyle?.fontSize,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
