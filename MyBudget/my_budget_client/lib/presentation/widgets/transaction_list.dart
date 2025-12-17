@@ -9,16 +9,27 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 class TransactionList extends StatefulWidget {
   const TransactionList({super.key});
 
+
   @override
   State<TransactionList> createState() => _TransactionListState();
+
 }
 
 class _TransactionListState extends State<TransactionList> {
   late ListController _listController;
+  late ScrollController _scrollController;
+  final int limit = 50;
   @override
   void initState() {
     super.initState();
     _listController = ListController();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _listController.dispose();
+    super.dispose();
   }
 
   @override
@@ -37,13 +48,14 @@ class _TransactionListState extends State<TransactionList> {
         }
 
         return CustomScrollView(
-          cacheExtent: 500,
+          controller: _scrollController,
+          cacheExtent: 0,
           slivers: [
             SuperSliverList(
               listController: _listController,
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
-                  print(index);
+                  print("Index element $index name element: ${state.transactions[index].description} >= ${state.transactions.length - 1}");
                   // --- TRIGGER UP ---
                   if (index == 0 && state.hasMoreUp && state.status != TransactionStatus.loading) {
                      WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -54,15 +66,27 @@ class _TransactionListState extends State<TransactionList> {
                   }
 
                   // --- TRIGGER DOWN (SKELETONS) ---
-                  if (index >= state.transactions.length) {
+                  if (index >= state.transactions.length - 1) {
                      if (state.hasMoreDown && state.status != TransactionStatus.loading) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (context.mounted) {
-                            context.read<TransactionsBloc>().add(LoadTransactionsDown());
-                          }
-                        });
+                        // WidgetsBinding.instance.addPostFrameCallback((_) {
+                        //   if (context.mounted) {
+                        //     context.read<TransactionsBloc>().add(LoadTransactionsDown());
+                        //     if(index == state.windowSize){
+                        //     _listController.jumpToItem(index: index -50 , scrollController: _scrollController , alignment: 0.9);
+                        //     }
+                        //     print("Jump to element ${index-50} name element: ${state.transactions[index-50].description}");
+                        //   }
+                        // });
+                      
+                          context.read<TransactionsBloc>().add(LoadTransactionsDown());
+                        if(index == state.windowSize - 1){
+                            _listController.jumpToItem(index: index - limit , scrollController: _scrollController , alignment: 1);
+                            //index = index - 50;
+                            print("Jump to element ${index - limit} name element: ${state.transactions[index-50].description}");
+                          } 
+                       
                      }
-                     return const TransactionSkeletonItem();
+                     //return const TransactionSkeletonItem();
                   }
 
                   final transaction = state.transactions[index];
@@ -72,7 +96,8 @@ class _TransactionListState extends State<TransactionList> {
                     transaction: transaction,
                   );
                 },
-                childCount: state.transactions.length + (state.hasMoreDown ? 5 : 0),
+                //childCount: state.transactions.length + (state.hasMoreDown ? 5 : 0),
+                childCount: state.transactions.length,
               ),
             ),
           ],
