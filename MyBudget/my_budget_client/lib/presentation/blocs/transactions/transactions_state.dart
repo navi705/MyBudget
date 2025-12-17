@@ -2,58 +2,58 @@ part of 'transactions_bloc.dart';
 
 enum TransactionStatus { initial, loading, success, failure }
 
-final class TransactionsState extends Equatable {
-  const TransactionsState({
-    this.status = TransactionStatus.initial,
-    this.transactions = const <Transaction>[],
-    this.hasMoreUp = true,
-    this.hasMoreDown = true,
-    this.startIndex = 0,
-    this.windowSize = 200,
-  });
-
+class TransactionsState extends Equatable {
   final TransactionStatus status;
   final List<Transaction> transactions;
+  final int windowSize;
   final bool hasMoreUp;
   final bool hasMoreDown;
   final int startIndex;
-  final int windowSize;
+  final int? jumpToIndex;
+  final double? jumpToAlignment;
+
+  const TransactionsState({
+    this.status = TransactionStatus.initial,
+    this.transactions = const [],
+    this.windowSize = 200,
+    this.hasMoreUp = false,
+    this.hasMoreDown = true,
+    this.startIndex = 0,
+    this.jumpToIndex,
+    this.jumpToAlignment,
+  });
 
   TransactionsState copyWith({
     TransactionStatus? status,
     List<Transaction>? transactions,
+    int? windowSize,
     bool? hasMoreUp,
     bool? hasMoreDown,
     int? startIndex,
+    int? jumpToIndex,
+    double? jumpToAlignment,
   }) {
     return TransactionsState(
       status: status ?? this.status,
       transactions: transactions ?? this.transactions,
+      windowSize: windowSize ?? this.windowSize,
       hasMoreUp: hasMoreUp ?? this.hasMoreUp,
       hasMoreDown: hasMoreDown ?? this.hasMoreDown,
       startIndex: startIndex ?? this.startIndex,
-      windowSize: windowSize,
+      jumpToIndex: jumpToIndex,
+      jumpToAlignment: jumpToAlignment,
     );
   }
 
   @override
-  List<Object> get props => [
+  List<Object?> get props => [
         status,
         transactions,
+        windowSize,
         hasMoreUp,
         hasMoreDown,
         startIndex,
-        windowSize,
+        jumpToIndex,
+        jumpToAlignment,
       ];
-}
-
-final class TransactionActionSuccess extends TransactionsState {}
-
-final class TransactionActionFailure extends TransactionsState {
-  final String message;
-
-  const TransactionActionFailure(this.message);
-
-  @override
-  List<Object> get props => [message];
 }

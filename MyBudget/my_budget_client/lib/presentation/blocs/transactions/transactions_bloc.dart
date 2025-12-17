@@ -79,10 +79,17 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
 
       final updatedList = [...newTransactions, ...state.transactions];
       final newStartIndex = state.startIndex - newTransactions.length;
+      int? targetJumpIndex;
+      double? jumpAlignment;
 
       if (updatedList.length > state.windowSize) {
         final removeCount = updatedList.length - state.windowSize;
         updatedList.removeRange(updatedList.length - removeCount, updatedList.length);
+        
+        // When loading up, we want to keep the old top item in view.
+        // The old top item is now at index `newTransactions.length`.
+        targetJumpIndex = newTransactions.length;
+        jumpAlignment = 0.0; // 0.0 means align to top
       }
 
       emit(
@@ -92,8 +99,12 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           startIndex: newStartIndex,
           hasMoreDown: true,
           hasMoreUp: newStartIndex > 0,
+          jumpToIndex: targetJumpIndex,
+          jumpToAlignment: jumpAlignment,
         ),
       );
+      
+      emit(state.copyWith(jumpToIndex: null, jumpToAlignment: null));
     } catch (_) {
       emit(state.copyWith(status: TransactionStatus.failure));
     }
@@ -103,8 +114,11 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     LoadTransactionsDown event,
     Emitter<TransactionsState> emit,
   ) async {
+    // 1. Prevent double calls
     if (!state.hasMoreDown || state.status == TransactionStatus.loading) return;
-    
+
+    // OPTIONAL: Don't emit loading if you want smooth infinite scroll.
+    // If you must emit loading, ensure your UI doesn't destroy the list.
     emit(state.copyWith(status: TransactionStatus.loading));
 
     try {
@@ -114,29 +128,45 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
 
       if (newTransactions.isEmpty) {
         return emit(state.copyWith(
-          status: TransactionStatus.success, 
-          hasMoreDown: false
-        ));
-      }
-      
-      final updatedList = [...state.transactions, ...newTransactions];
-      var newStartIndex = state.startIndex;
-      
-      if (updatedList.length > state.windowSize) {
-        final removeCount = updatedList.length - state.windowSize;
-        updatedList.removeRange(0, removeCount);
-        newStartIndex += removeCount;
+            status: TransactionStatus.success, hasMoreDown: false));
       }
 
+      final updatedList = [...state.transactions, ...newTransactions];
+      var newStartIndex = state.startIndex;
+      int? targetJumpIndex; // We will calculate this
+      double? jumpAlignment;
+
+      // 2. Sliding Window Logic
+      if (updatedList.length > state.windowSize) {
+        final removeCount = updatedList.length - state.windowSize;
+
+        // Remove from TOP
+        updatedList.removeRange(0, removeCount);
+        newStartIndex += removeCount;
+
+        // 3. CALCULATE JUMP
+        // Let's aim to keep the user looking at the item that WAS at the bottom
+        // before we added new stuff.
+        targetJumpIndex = (state.transactions.length - removeCount) - 1;
+        if (targetJumpIndex < 0) targetJumpIndex = 0;
+        jumpAlignment = 1.0; // 1.0 means align to bottom
+      }
+
+      // 4. Emit Data AND Jump Index together
       emit(
         state.copyWith(
           status: TransactionStatus.success,
           transactions: updatedList,
           startIndex: newStartIndex,
-          hasMoreUp: true,
+          hasMoreUp: true, // We removed items from top, so we can go up now
           hasMoreDown: newTransactions.isNotEmpty,
+          jumpToIndex: targetJumpIndex, // <--- Send the command
+          jumpToAlignment: jumpAlignment,
         ),
       );
+
+      // 5. Clear the jump command immediately so it doesn't happen again
+      emit(state.copyWith(jumpToIndex: null, jumpToAlignment: null));
     } catch (_) {
       emit(state.copyWith(status: TransactionStatus.failure));
     }
@@ -150,7 +180,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       await _transactionRepository.addTransaction(event.transaction);
       add(InnitialLoadTransactions());
     } catch (e) {
-      emit(TransactionActionFailure(e.toString()));
+      emit(state.copyWith(status: TransactionStatus.failure));
     }
   }
 
@@ -162,7 +192,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       await _transactionRepository.updateTransaction(event.transaction);
       add(InnitialLoadTransactions());
     } catch (e) {
-      emit(TransactionActionFailure(e.toString()));
+      emit(state.copyWith(status: TransactionStatus.failure));
     }
   }
 
@@ -174,7 +204,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       await _transactionRepository.deleteTransaction(event.id);
       add(InnitialLoadTransactions());
     } catch (e) {
-      emit(TransactionActionFailure(e.toString()));
+      emit(state.copyWith(status: TransactionStatus.failure));
     }
   }
 }

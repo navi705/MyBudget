@@ -9,7 +9,6 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 class TransactionList extends StatefulWidget {
   const TransactionList({super.key});
 
-
   @override
   State<TransactionList> createState() => _TransactionListState();
 
@@ -18,7 +17,7 @@ class TransactionList extends StatefulWidget {
 class _TransactionListState extends State<TransactionList> {
   late ListController _listController;
   late ScrollController _scrollController;
-  final int limit = 50;
+
   @override
   void initState() {
     super.initState();
@@ -29,14 +28,31 @@ class _TransactionListState extends State<TransactionList> {
   @override
   void dispose() {
     _listController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<TransactionsBloc, TransactionsState>(
+    return BlocConsumer<TransactionsBloc, TransactionsState>(
+      // 1. LISTEN: Only jump when Bloc sends a specific index
+      listenWhen: (previous, current) => current.jumpToIndex != null,
+      listener: (context, state) {
+        if (state.jumpToIndex != null && state.jumpToAlignment != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _listController.jumpToItem(
+                index: state.jumpToIndex!,
+                scrollController: _scrollController,
+                alignment: state.jumpToAlignment!,
+              );
+            }
+          });
+        }
+      },
+
       builder: (context, state) {
-        if (state.status == TransactionStatus.initial) {
+        if (state.status == TransactionStatus.initial && state.transactions.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
         if (state.status == TransactionStatus.failure) {
@@ -47,60 +63,43 @@ class _TransactionListState extends State<TransactionList> {
           return const Center(child: Text('No transactions found.'));
         }
 
-        return CustomScrollView(
-          controller: _scrollController,
-          cacheExtent: 0,
-          slivers: [
-            SuperSliverList(
-              listController: _listController,
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  print("Index element $index name element: ${state.transactions[index].description} >= ${state.transactions.length - 1}");
-                  // --- TRIGGER UP ---
-                  if (index == 0 && state.hasMoreUp && state.status != TransactionStatus.loading) {
-                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (context.mounted) {
-                        context.read<TransactionsBloc>().add(LoadTransactionsUp());
-                      }
-                    });
-                  }
+        // 2. Use NotificationListener for triggers
+        return NotificationListener<ScrollNotification>(
+          onNotification: (scrollInfo) {
+            // Check if we are near bottom (scrolling down)
+            if (scrollInfo.metrics.pixels >=
+                scrollInfo.metrics.maxScrollExtent - 200) {
+              if (state.hasMoreDown && state.status != TransactionStatus.loading) {
+                context.read<TransactionsBloc>().add(LoadTransactionsDown());
+              }
+            }
 
-                  // --- TRIGGER DOWN (SKELETONS) ---
-                  if (index >= state.transactions.length - 1) {
-                     if (state.hasMoreDown && state.status != TransactionStatus.loading) {
-                        // WidgetsBinding.instance.addPostFrameCallback((_) {
-                        //   if (context.mounted) {
-                        //     context.read<TransactionsBloc>().add(LoadTransactionsDown());
-                        //     if(index == state.windowSize){
-                        //     _listController.jumpToItem(index: index -50 , scrollController: _scrollController , alignment: 0.9);
-                        //     }
-                        //     print("Jump to element ${index-50} name element: ${state.transactions[index-50].description}");
-                        //   }
-                        // });
-                      
-                          context.read<TransactionsBloc>().add(LoadTransactionsDown());
-                        if(index == state.windowSize - 1){
-                            _listController.jumpToItem(index: index - limit , scrollController: _scrollController , alignment: 1);
-                            //index = index - 50;
-                            print("Jump to element ${index - limit} name element: ${state.transactions[index-50].description}");
-                          } 
-                       
-                     }
-                     //return const TransactionSkeletonItem();
-                  }
-
-                  final transaction = state.transactions[index];
-                  
-                  return TransactionListItem(
-                    key: ValueKey(transaction.id), 
-                    transaction: transaction,
-                  );
-                },
-                //childCount: state.transactions.length + (state.hasMoreDown ? 5 : 0),
-                childCount: state.transactions.length,
+            // Check if we are near top (scrolling up)
+            if (scrollInfo.metrics.pixels <= 200) {
+              if (state.hasMoreUp && state.status != TransactionStatus.loading) {
+                context.read<TransactionsBloc>().add(LoadTransactionsUp());
+              }
+            }
+            return false;
+          },
+          child: CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              SuperSliverList(
+                listController: _listController,
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final transaction = state.transactions[index];
+                    return TransactionListItem(
+                      key: ValueKey(transaction.id), // Key is vital!
+                      transaction: transaction,
+                    );
+                  },
+                  childCount: state.transactions.length,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -123,46 +122,6 @@ class TransactionListItem extends StatelessWidget {
           extra: {'transactionId': transaction.id},
         );
       },
-    );
-  }
-}
-
-class TransactionSkeletonItem extends StatelessWidget {
-  const TransactionSkeletonItem({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final titleStyle = theme.textTheme.titleMedium;
-    final subtitleStyle = theme.textTheme.bodyMedium;
-
-    return ListTile(
-      title: Align(
-        alignment: Alignment.centerLeft,
-        child: FractionallySizedBox(
-          widthFactor: 0.7,
-          child: Container(
-            height: titleStyle?.fontSize,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-        ),
-      ),
-      subtitle: Align(
-        alignment: Alignment.centerLeft,
-        child: FractionallySizedBox(
-          widthFactor: 0.4,
-          child: Container(
-            height: subtitleStyle?.fontSize,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

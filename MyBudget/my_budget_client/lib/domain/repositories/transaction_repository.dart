@@ -11,4 +11,5 @@ abstract class TransactionRepository {
   Future<void> addTransactions(List<Transaction> transactions);
   Future<void> updateTransaction(Transaction transaction);
   Future<void> deleteTransaction(String id);
+  Future<int> getAllCount();
 }

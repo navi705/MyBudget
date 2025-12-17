@@ -109,4 +109,9 @@ class LocalTransactionRepository implements TransactionRepository {
   Future<void> _updateAccountBalance(String accountId, double amount) async {
     await database.accountsDao.adjustBalance(accountId, amount);
   }
+  
+  @override
+  Future<int> getAllCount() async{
+    return await database.transactionsDao.getAllCount();
+  }
 }
