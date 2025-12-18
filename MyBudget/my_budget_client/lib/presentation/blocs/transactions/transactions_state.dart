@@ -15,7 +15,7 @@ class TransactionsState extends Equatable {
   const TransactionsState({
     this.status = TransactionStatus.initial,
     this.transactions = const [],
-    this.windowSize = 200,
+    this.windowSize = 1000,
     this.hasMoreUp = false,
     this.hasMoreDown = true,
     this.startIndex = 0,
