@@ -106,21 +106,39 @@ class _FilterDateState extends State<FilterDate> {
                 Navigator.pop(dialogContext);
                 _setDateStep(DateStep.day);
               },
-              child: const Text('День'),
+              child: const Row(
+                children: [
+                  Icon(Icons.calendar_view_day),
+                  SizedBox(width: 10),
+                  Text('День'),
+                ],
+              ),
             ),
             SimpleDialogOption(
               onPressed: () {
                 Navigator.pop(dialogContext);
                 _setDateStep(DateStep.month);
               },
-              child: const Text('Месяц'),
+              child: const Row(
+                children: [
+                  Icon(Icons.calendar_view_month),
+                  SizedBox(width: 10),
+                  Text('Месяц'),
+                ],
+              ),
             ),
             SimpleDialogOption(
               onPressed: () {
                 Navigator.pop(dialogContext);
                 _setDateStep(DateStep.year);
               },
-              child: const Text('Год'),
+              child: const Row(
+                children: [
+                  Icon(Icons.calendar_view_week),
+                  SizedBox(width: 10),
+                  Text('Год'),
+                ],
+              ),
             ),
           ],
         );
@@ -175,21 +193,39 @@ class _FilterDateState extends State<FilterDate> {
                   Navigator.of(dialogContext).pop();
                   _showDateStepPicker(context);
                 },
-                child: const Text('Выбрать шаг даты'),
+                child: const Row(
+                  children: [
+                    Icon(Icons.filter_list),
+                    SizedBox(width: 10),
+                    Text('Выбрать шаг даты'),
+                  ],
+                ),
               ),
               TextButton(
                 onPressed: () {
                   Navigator.of(dialogContext).pop();
                   _selectDate(context);
                 },
-                child: const Text('Выбрать день'),
+                child: const Row(
+                  children: [
+                    Icon(Icons.calendar_today),
+                    SizedBox(width: 10),
+                    Text('Выбрать день'),
+                  ],
+                ),
               ),
               TextButton(
                 onPressed: () {
                   Navigator.of(dialogContext).pop();
                   _selectDateRange(context);
                 },
-                child: const Text('Выбрать диапазон'),
+                child: const Row(
+                  children: [
+                    Icon(Icons.date_range),
+                    SizedBox(width: 10),
+                    Text('Выбрать диапазон'),
+                  ],
+                ),
               ),
             ],
           ),
