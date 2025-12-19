@@ -91,7 +91,7 @@ class _TransactionListState extends State<TransactionList> {
                   (context, index) {
                     final transaction = state.transactions[index];
                     return TransactionListItem(
-                      key: ValueKey(transaction.id), // Key is vital!
+                      key: ValueKey(transaction.id),
                       transaction: transaction,
                     );
                   },
@@ -119,7 +119,7 @@ class TransactionListItem extends StatelessWidget {
       onTap: () {
         context.push(
           AppRoutes.addEditTransaction,
-          extra: {'transactionId': transaction.id},
+          extra: {'transaction': transaction},
         );
       },
     );
