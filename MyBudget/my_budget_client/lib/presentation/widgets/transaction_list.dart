@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
@@ -11,7 +12,6 @@ class TransactionList extends StatefulWidget {
 
   @override
   State<TransactionList> createState() => _TransactionListState();
-
 }
 
 class _TransactionListState extends State<TransactionList> {
@@ -32,10 +32,23 @@ class _TransactionListState extends State<TransactionList> {
     super.dispose();
   }
 
+  Map<DateTime, List<Transaction>> _groupTransactionsByDay(
+      List<Transaction> transactions) {
+    final Map<DateTime, List<Transaction>> grouped = {};
+    for (final transaction in transactions) {
+      final date = DateTime(
+          transaction.date.year, transaction.date.month, transaction.date.day);
+      if (grouped[date] == null) {
+        grouped[date] = [];
+      }
+      grouped[date]!.add(transaction);
+    }
+    return grouped;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<TransactionsBloc, TransactionsState>(
-      // 1. LISTEN: Only jump when Bloc sends a specific index
       listenWhen: (previous, current) => current.jumpToIndex != null,
       listener: (context, state) {
         if (state.jumpToIndex != null && state.jumpToAlignment != null) {
@@ -50,9 +63,9 @@ class _TransactionListState extends State<TransactionList> {
           });
         }
       },
-
       builder: (context, state) {
-        if (state.status == TransactionStatus.initial && state.transactions.isEmpty) {
+        if (state.status == TransactionStatus.initial &&
+            state.transactions.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
         if (state.status == TransactionStatus.failure) {
@@ -63,20 +76,40 @@ class _TransactionListState extends State<TransactionList> {
           return const Center(child: Text('No transactions found.'));
         }
 
-        // 2. Use NotificationListener for triggers
+        final groupedTransactions = _groupTransactionsByDay(state.transactions);
+        final sortedDates = groupedTransactions.keys.toList()
+          ..sort((a, b) => b.compareTo(a));
+
+        final List<Widget> listItems = [];
+        for (final date in sortedDates) {
+          final transactionsForDay = groupedTransactions[date]!;
+          final dailySum =
+              transactionsForDay.fold<double>(0, (sum, t) => sum + t.amount);
+
+          listItems.add(_DateHeader(
+              key: ValueKey(date), date: date, dailySum: dailySum));
+
+          for (final transaction in transactionsForDay) {
+            listItems.add(TransactionListItem(
+                key: ValueKey(transaction.id), transaction: transaction));
+          }
+
+          listItems.add(Divider(key: ValueKey('divider_$date')));
+        }
+
         return NotificationListener<ScrollNotification>(
           onNotification: (scrollInfo) {
-            // Check if we are near bottom (scrolling down)
             if (scrollInfo.metrics.pixels >=
                 scrollInfo.metrics.maxScrollExtent - 200) {
-              if (state.hasMoreDown && state.status != TransactionStatus.loading) {
+              if (state.hasMoreDown &&
+                  state.status != TransactionStatus.loading) {
                 context.read<TransactionsBloc>().add(LoadTransactionsDown());
               }
             }
 
-            // Check if we are near top (scrolling up)
             if (scrollInfo.metrics.pixels <= 200) {
-              if (state.hasMoreUp && state.status != TransactionStatus.loading) {
+              if (state.hasMoreUp &&
+                  state.status != TransactionStatus.loading) {
                 context.read<TransactionsBloc>().add(LoadTransactionsUp());
               }
             }
@@ -89,19 +122,42 @@ class _TransactionListState extends State<TransactionList> {
                 listController: _listController,
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
-                    final transaction = state.transactions[index];
-                    return TransactionListItem(
-                      key: ValueKey(transaction.id),
-                      transaction: transaction,
-                    );
+                    return listItems[index];
                   },
-                  childCount: state.transactions.length,
+                  childCount: listItems.length,
                 ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _DateHeader extends StatelessWidget {
+  const _DateHeader({
+    required this.date,
+    required this.dailySum,
+    super.key,
+  });
+
+  final DateTime date;
+  final double dailySum;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = dailySum >= 0 ? Colors.green : Colors.red;
+    final formattedDate = DateFormat('EEE, MMM d, yyyy').format(date);
+    final formattedSum = NumberFormat.currency(symbol: '').format(dailySum);
+
+    return ListTile(
+      title: Text(formattedDate, style: const TextStyle(fontWeight: FontWeight.bold)),
+      trailing: Text(
+        formattedSum,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: color, fontWeight: FontWeight.bold),
+      ),
     );
   }
 }

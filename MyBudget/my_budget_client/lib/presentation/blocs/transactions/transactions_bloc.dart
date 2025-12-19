@@ -40,8 +40,14 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   ) async {
     emit(const TransactionsState(status: TransactionStatus.loading));
     try {
-      final transactions = await _transactionRepository.getTransactionsPaginated(
-          limit: event.limit, offset: 0);
+      final results = await Future.wait([
+        _transactionRepository.getTransactionsPaginated(
+            limit: event.limit, offset: 0),
+        _transactionRepository.getAllCount(),
+      ]);
+
+      final transactions = results[0] as List<Transaction>;
+      final totalCount = results[1] as int;
 
       emit(
         const TransactionsState().copyWith(
@@ -50,6 +56,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           startIndex: 0,
           hasMoreUp: false,
           hasMoreDown: transactions.isNotEmpty,
+          totalCount: totalCount,
         ),
       );
     } catch (_) {
@@ -167,7 +174,8 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
 
       // 5. Clear the jump command immediately so it doesn't happen again
       emit(state.copyWith(jumpToIndex: null, jumpToAlignment: null));
-    } catch (_) {
+    }
+    catch (_) {
       emit(state.copyWith(status: TransactionStatus.failure));
     }
   }

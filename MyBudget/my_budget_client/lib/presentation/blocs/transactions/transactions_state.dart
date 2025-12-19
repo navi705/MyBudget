@@ -11,6 +11,7 @@ class TransactionsState extends Equatable {
   final int startIndex;
   final int? jumpToIndex;
   final double? jumpToAlignment;
+  final int totalCount;
 
   const TransactionsState({
     this.status = TransactionStatus.initial,
@@ -21,6 +22,7 @@ class TransactionsState extends Equatable {
     this.startIndex = 0,
     this.jumpToIndex,
     this.jumpToAlignment,
+    this.totalCount = 0,
   });
 
   TransactionsState copyWith({
@@ -32,6 +34,7 @@ class TransactionsState extends Equatable {
     int? startIndex,
     int? jumpToIndex,
     double? jumpToAlignment,
+    int? totalCount,
   }) {
     return TransactionsState(
       status: status ?? this.status,
@@ -42,6 +45,7 @@ class TransactionsState extends Equatable {
       startIndex: startIndex ?? this.startIndex,
       jumpToIndex: jumpToIndex,
       jumpToAlignment: jumpToAlignment,
+      totalCount: totalCount ?? this.totalCount,
     );
   }
 
@@ -55,5 +59,6 @@ class TransactionsState extends Equatable {
         startIndex,
         jumpToIndex,
         jumpToAlignment,
+        totalCount,
       ];
 }

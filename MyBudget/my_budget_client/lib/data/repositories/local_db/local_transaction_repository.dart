@@ -114,4 +114,10 @@ class LocalTransactionRepository implements TransactionRepository {
   Future<int> getAllCount() async{
     return await database.transactionsDao.getAllCount();
   }
+  
+  // @override
+  // Future<List<Transaction>> getTransactionsPaginatedSortFiltered({int limit = 10, int offset = 0, Sort sort = Sort.ascending,  FilterFieldsTransaction filters = const FilterFieldsTransaction() }) {
+  //    List<Transaction> transactions = []
+  //   return transactions;
+  // }
 }

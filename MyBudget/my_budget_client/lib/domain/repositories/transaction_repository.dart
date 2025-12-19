@@ -7,12 +7,12 @@ abstract class TransactionRepository {
     int limit = 10,
     int offset = 0,
   });
-  Future<List<Transaction>> getTransactionsPaginatedSortFiltered({
-    int limit = 10,
-    int offset = 0,
-    Sort sort,
-    FilterFieldsTransaction fields
-  });
+  // Future<List<Transaction>> getTransactionsPaginatedSortFiltered({
+  //   int limit = 10,
+  //   int offset = 0,
+  //   Sort sort,
+  //   FilterFieldsTransaction? fields
+  // });
   Future<List<Transaction>> getTransactionsByCategoryId(String categoryId);
   Future<Transaction?> getTransactionById(String id);
   Future<void> addTransaction(Transaction transaction);
@@ -23,7 +23,7 @@ abstract class TransactionRepository {
 }
 
 class FilterFieldsTransaction{
-  
+  const FilterFieldsTransaction();
 }
 
 enum Sort{
