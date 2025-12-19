@@ -6,7 +6,6 @@ import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart'
 import 'package:my_budget_client/l10n/app_localizations.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
-import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/account_list_item.dart';
 import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
@@ -136,19 +135,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
               setState(() {
                 _sortAscending = !_sortAscending; // Toggle sorting order
               });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.brightness_6),
-            tooltip: 'Toggle Theme', // TODO: Localize
-            onPressed: () {
-              final currentMode = context.read<SettingsBloc>().state.themeMode;
-              final nextMode = switch (currentMode) {
-                ThemeMode.system => ThemeMode.light,
-                ThemeMode.light => ThemeMode.dark,
-                ThemeMode.dark => ThemeMode.system,
-              };
-              context.read<SettingsBloc>().add(UpdateThemeMode(nextMode));
             },
           ),
           IconButton(
