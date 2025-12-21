@@ -9,7 +9,7 @@ class TransactionsState extends Equatable {
   final bool hasMoreUp;
   final bool hasMoreDown;
   final int startIndex;
-  final int? jumpToIndex;
+  final String? jumpToItemId;
   final double? jumpToAlignment;
   final int totalCount;
 
@@ -20,7 +20,7 @@ class TransactionsState extends Equatable {
     this.hasMoreUp = false,
     this.hasMoreDown = true,
     this.startIndex = 0,
-    this.jumpToIndex,
+    this.jumpToItemId,
     this.jumpToAlignment,
     this.totalCount = 0,
   });
@@ -32,7 +32,7 @@ class TransactionsState extends Equatable {
     bool? hasMoreUp,
     bool? hasMoreDown,
     int? startIndex,
-    int? jumpToIndex,
+    String? jumpToItemId,
     double? jumpToAlignment,
     int? totalCount,
   }) {
@@ -43,7 +43,7 @@ class TransactionsState extends Equatable {
       hasMoreUp: hasMoreUp ?? this.hasMoreUp,
       hasMoreDown: hasMoreDown ?? this.hasMoreDown,
       startIndex: startIndex ?? this.startIndex,
-      jumpToIndex: jumpToIndex,
+      jumpToItemId: jumpToItemId,
       jumpToAlignment: jumpToAlignment,
       totalCount: totalCount ?? this.totalCount,
     );
@@ -57,7 +57,7 @@ class TransactionsState extends Equatable {
         hasMoreUp,
         hasMoreDown,
         startIndex,
-        jumpToIndex,
+        jumpToItemId,
         jumpToAlignment,
         totalCount,
       ];

@@ -7,12 +7,12 @@ abstract class TransactionRepository {
     int limit = 10,
     int offset = 0,
   });
-  // Future<List<Transaction>> getTransactionsPaginatedSortFiltered({
-  //   int limit = 10,
-  //   int offset = 0,
-  //   Sort sort,
-  //   FilterFieldsTransaction? fields
-  // });
+  Future<List<Transaction>> getTransactionsWithFilters({
+    int limit = 10,
+    int offset = 0,
+    Sort sort = Sort.descending,
+    TransactionFilters? filters,
+  });
   Future<List<Transaction>> getTransactionsByCategoryId(String categoryId);
   Future<Transaction?> getTransactionById(String id);
   Future<void> addTransaction(Transaction transaction);
@@ -22,12 +22,25 @@ abstract class TransactionRepository {
   Future<int> getAllCount();
 }
 
-class FilterFieldsTransaction{
-  const FilterFieldsTransaction();
+class TransactionFilters {
+  final String? description;
+  final double? amount;
+  final DateTime? dateFrom;
+  final DateTime? dateTo;
+  final String? accountId;
+  final String? categoryId;
+  final String? currencyCode;
+
+  const TransactionFilters({
+    this.description,
+    this.amount,
+    this.dateFrom,
+    this.dateTo,
+    this.accountId,
+    this.categoryId,
+    this.currencyCode,
+  });
 }
 
-enum Sort{
-  ascending,
-  descending
-}
+enum Sort { ascending, descending }
 

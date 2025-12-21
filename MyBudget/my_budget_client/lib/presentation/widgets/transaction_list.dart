@@ -46,21 +46,55 @@ class _TransactionListState extends State<TransactionList> {
     return grouped;
   }
 
+  List<Widget> _buildListItems(List<Transaction> transactions) {
+    final groupedTransactions = _groupTransactionsByDay(transactions);
+    final sortedDates = groupedTransactions.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    final List<Widget> listItems = [];
+    for (final date in sortedDates) {
+      final transactionsForDay = groupedTransactions[date]!;
+      final dailySum =
+          transactionsForDay.fold<double>(0, (sum, t) => sum + t.amount);
+
+      listItems.add(
+          _DateHeader(key: ValueKey(date), date: date, dailySum: dailySum));
+
+      for (final transaction in transactionsForDay) {
+        listItems.add(TransactionListItem(
+            key: ValueKey(transaction.id), transaction: transaction));
+      }
+
+      listItems.add(Divider(key: ValueKey('divider_$date')));
+    }
+    return listItems;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<TransactionsBloc, TransactionsState>(
-      listenWhen: (previous, current) => current.jumpToIndex != null,
+      listenWhen: (previous, current) => current.jumpToItemId != null,
       listener: (context, state) {
-        if (state.jumpToIndex != null && state.jumpToAlignment != null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              _listController.jumpToItem(
-                index: state.jumpToIndex!,
-                scrollController: _scrollController,
-                alignment: state.jumpToAlignment!,
-              );
+        if (state.jumpToItemId != null && state.jumpToAlignment != null) {
+          final listItems = _buildListItems(state.transactions);
+          final index = listItems.indexWhere((item) {
+            if (item is TransactionListItem) {
+              return item.transaction.id == state.jumpToItemId;
             }
+            return false;
           });
+
+          if (index != -1) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _listController.jumpToItem(
+                  index: index,
+                  scrollController: _scrollController,
+                  alignment: state.jumpToAlignment!,
+                );
+              }
+            });
+          }
         }
       },
       builder: (context, state) {
@@ -76,26 +110,7 @@ class _TransactionListState extends State<TransactionList> {
           return const Center(child: Text('No transactions found.'));
         }
 
-        final groupedTransactions = _groupTransactionsByDay(state.transactions);
-        final sortedDates = groupedTransactions.keys.toList()
-          ..sort((a, b) => b.compareTo(a));
-
-        final List<Widget> listItems = [];
-        for (final date in sortedDates) {
-          final transactionsForDay = groupedTransactions[date]!;
-          final dailySum =
-              transactionsForDay.fold<double>(0, (sum, t) => sum + t.amount);
-
-          listItems.add(_DateHeader(
-              key: ValueKey(date), date: date, dailySum: dailySum));
-
-          for (final transaction in transactionsForDay) {
-            listItems.add(TransactionListItem(
-                key: ValueKey(transaction.id), transaction: transaction));
-          }
-
-          listItems.add(Divider(key: ValueKey('divider_$date')));
-        }
+        final listItems = _buildListItems(state.transactions);
 
         return NotificationListener<ScrollNotification>(
           onNotification: (scrollInfo) {
@@ -103,14 +118,14 @@ class _TransactionListState extends State<TransactionList> {
                 scrollInfo.metrics.maxScrollExtent - 200) {
               if (state.hasMoreDown &&
                   state.status != TransactionStatus.loading) {
-                context.read<TransactionsBloc>().add(LoadTransactionsDown());
+                context.read<TransactionsBloc>().add(const LoadTransactionsDown());
               }
             }
 
             if (scrollInfo.metrics.pixels <= 200) {
               if (state.hasMoreUp &&
                   state.status != TransactionStatus.loading) {
-                context.read<TransactionsBloc>().add(LoadTransactionsUp());
+                context.read<TransactionsBloc>().add(const LoadTransactionsUp());
               }
             }
             return false;

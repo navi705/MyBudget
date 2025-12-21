@@ -421,15 +421,58 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       update(transactions).replace(transaction);
   Future<int> deleteTransaction(TransactionsCompanion transaction) =>
       delete(transactions).delete(transaction);
-     Future<int> getAllCount() async{
-       // 1. Pick any column to count (e.g., 'id').
-      final expression = transactions.id.count();
-       // 2. Create a query that only gets the count.
-       final query = selectOnly(transactions)..addColumns([expression]);
-      // 3. Run the query and read the single integer value it returns.
-      final count = await query.map((row) => row.read(expression)).getSingleOrNull();
-      return count ?? 0;
-     }
+  Future<List<Transaction>> getTransactionsWithFilters({
+    int limit = 10,
+    int offset = 0,
+    OrderingMode sort = OrderingMode.desc,
+    String? description,
+    double? amount,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    String? accountId,
+    String? categoryId,
+    String? currencyCode,
+  }) {
+    final query = select(transactions);
+
+    if (description != null) {
+      query.where((tbl) => tbl.description.like('%$description%'));
+    }
+    if (amount != null) {
+      query.where((tbl) => tbl.amount.equals(amount));
+    }
+    if (dateFrom != null) {
+      query.where((tbl) => tbl.date.isBiggerOrEqualValue(dateFrom));
+    }
+    if (dateTo != null) {
+      query.where((tbl) => tbl.date.isSmallerOrEqualValue(dateTo));
+    }
+    if (accountId != null) {
+      query.where((tbl) => tbl.accountId.equals(accountId));
+    }
+    if (categoryId != null) {
+      query.where((tbl) => tbl.categoryId.equals(categoryId));
+    }
+    if (currencyCode != null) {
+      query.where((tbl) => tbl.currencyCode.equals(currencyCode));
+    }
+
+    query.orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
+    query.limit(limit, offset: offset);
+
+    return query.get();
+  }
+
+  Future<int> getAllCount() async {
+    // 1. Pick any column to count (e.g., 'id').
+    final expression = transactions.id.count();
+    // 2. Create a query that only gets the count.
+    final query = selectOnly(transactions)..addColumns([expression]);
+    // 3. Run the query and read the single integer value it returns.
+    final count =
+        await query.map((row) => row.read(expression)).getSingleOrNull();
+    return count ?? 0;
+  }
 }
 
 @DriftAccessor(tables: [Settings])

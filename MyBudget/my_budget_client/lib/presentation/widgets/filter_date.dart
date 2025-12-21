@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 
 enum DateStep { day, month, year }
 enum FilterMode { date, range }
@@ -240,81 +242,101 @@ class _FilterDateState extends State<FilterDate> {
       height: widget.preferredSize.height,
       color: Theme.of(context).appBarTheme.backgroundColor,
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Row(
-        children: [
-          IconButton(
-            icon:
-                const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
-            onPressed: _previousDate,
-          ),
-          const Spacer(),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+      child: BlocBuilder<TransactionsBloc, TransactionsState>(
+        builder: (context, state) {
+          return Stack(
             children: [
-              IconButton(
-                icon: const Icon(Icons.tune, color: Colors.white),
-                tooltip: 'Фильтр',
-                onPressed: () {},
-              ),
-              SizedBox(
-                width: 40,
-                child: TextButton(
-                  onPressed: () => _showDateStepPicker(context),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    shape: const CircleBorder(),
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios,
+                        color: Colors.white, size: 20),
+                    onPressed: _previousDate,
                   ),
-                  child: Text(
-                    _dateStep.name[0].toUpperCase(),
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-              IntrinsicWidth(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => _showDateOptionsDialog(context),
-                        hoverColor: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4.0),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12.0),
-                          alignment: Alignment.center,
+                  const Spacer(),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.tune, color: Colors.white),
+                        tooltip: 'Фильтр',
+                        onPressed: () {},
+                      ),
+                      SizedBox(
+                        width: 40,
+                        child: TextButton(
+                          onPressed: () => _showDateStepPicker(context),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            shape: const CircleBorder(),
+                          ),
                           child: Text(
-                            _dateController.text,
+                            _dateStep.name[0].toUpperCase(),
                             style: const TextStyle(
-                                color: Colors.white, fontSize: 18),
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.calendar_today,
-                          color: Colors.white),
-                      onPressed: () => _selectDate(context),
-                      tooltip: 'Выбрать дату',
-                    ),
-                  ],
+                      IntrinsicWidth(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: () => _showDateOptionsDialog(context),
+                                hoverColor: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4.0),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 12.0),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    _dateController.text,
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 18),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.calendar_today,
+                                  color: Colors.white),
+                              onPressed: () => _selectDate(context),
+                              tooltip: 'Выбрать дату',
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.sort, color: Colors.white),
+                        tooltip: 'Сортировка',
+                        onPressed: () {},
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_forward_ios,
+                        color: Colors.white, size: 20),
+                    onPressed: _nextDate,
+                  ),
+                ],
+              ),
+              Positioned(
+                left: 50,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: Text(
+                    'Всего: ${state.totalCount}',
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.sort, color: Colors.white),
-                tooltip: 'Сортировка',
-                onPressed: () {},
-              ),
             ],
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.arrow_forward_ios,
-                color: Colors.white, size: 20),
-            onPressed: _nextDate,
-          ),
-        ],
+          );
+        },
       ),
     );
   }

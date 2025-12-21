@@ -111,13 +111,30 @@ class LocalTransactionRepository implements TransactionRepository {
   }
   
   @override
-  Future<int> getAllCount() async{
+  Future<int> getAllCount() async {
     return await database.transactionsDao.getAllCount();
   }
-  
-  // @override
-  // Future<List<Transaction>> getTransactionsPaginatedSortFiltered({int limit = 10, int offset = 0, Sort sort = Sort.ascending,  FilterFieldsTransaction filters = const FilterFieldsTransaction() }) {
-  //    List<Transaction> transactions = []
-  //   return transactions;
-  // }
+
+  @override
+  Future<List<Transaction>> getTransactionsWithFilters({
+    int limit = 10,
+    int offset = 0,
+    Sort sort = Sort.descending,
+    TransactionFilters? filters,
+  }) async {
+    final transactions =
+        await database.transactionsDao.getTransactionsWithFilters(
+      limit: limit,
+      offset: offset,
+      sort: sort == Sort.ascending ? OrderingMode.asc : OrderingMode.desc,
+      description: filters?.description,
+      amount: filters?.amount,
+      dateFrom: filters?.dateFrom,
+      dateTo: filters?.dateTo,
+      accountId: filters?.accountId,
+      categoryId: filters?.categoryId,
+      currencyCode: filters?.currencyCode,
+    );
+    return transactions.toDomainList();
+  }
 }
