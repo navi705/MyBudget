@@ -74,6 +74,7 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
         name: _nameController.text,
         iconName: _selectedIconName!,
         colorHex: _selectedColorHex!,
+        iconType: _initialStyle!.iconType,
       );
       context.read<StylesBloc>().add(UpdateStyle(updatedStyle));
       context.pop();

@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/data/seed_data/styles_data.dart';
 import 'package:my_budget_client/data/seed_data/exchange_rates_data.dart';
+import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
@@ -75,6 +76,9 @@ class Styles extends Table {
   TextColumn get name => text().withLength(min: 1, max: 50)();
   TextColumn get iconName => text()();
   TextColumn get colorHex => text()();
+  IntColumn get iconType => integer()
+      .map(const EnumIndexConverter(IconType.values))
+      .withDefault(const Constant(0))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -161,6 +165,12 @@ class LanguageDao extends DatabaseAccessor<AppDatabase>
       update(languages).replace(lang);
   Future<int> deleteLanguage(LanguagesCompanion lang) =>
       delete(languages).delete(lang);
+
+  Future<void> insertAllinsertLanguages(List<LanguagesCompanion> languages) {
+  return batch((batch) {
+    batch.insertAll(this.languages, languages, mode: InsertMode.insertOrReplace);
+  });
+  }
 }
 
 @DriftAccessor(tables: [CurrencyDesignations])
@@ -510,6 +520,12 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
       select(exchangeRates).watch();
   Future<void> addExchangeRate(ExchangeRatesCompanion rate) =>
       into(exchangeRates).insert(rate);
+
+  Future<void> insertAllExchangeRates(List<ExchangeRatesCompanion> rates) {
+    return batch((batch) {
+      batch.insertAll(exchangeRates, rates, mode: InsertMode.insertOrReplace);
+    });
+  }
 }
 
 
@@ -577,21 +593,15 @@ class AppDatabase extends _$AppDatabase {
   // --- Seeding Methods ---
 
   Future<void> _seedLanguages(AppDatabase db) async {
-    for (final language in defaultLanguages) {
-      await db.into(db.languages).insert(language);
-    }
+    await db.languageDao.insertAllinsertLanguages(defaultLanguages);
   }
 
   Future<void> _seedCurrencyDesignations(AppDatabase db) async {
-    for (final designation in defaultCurrencyDesignations) {
-      await db.into(db.currencyDesignations).insert(designation);
-    }
+    await db.currencyDesignationsDao.insertAllCurrencyDesignations(defaultCurrencyDesignations);
   }
 
   Future<void> _seedCurrencies(AppDatabase db) async {
-    for (final currency in defaultCurrencies) {
-      await db.into(db.currencies).insert(currency);
-    }
+    await db.currenciesDao.insertAllCurrencies(defaultCurrencies);
   }
 
   Future<void> _seedSettings(AppDatabase db) async {
@@ -603,21 +613,15 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> _seedStyles(AppDatabase db) async {
-    for (final style in defaultStyles) {
-      await db.into(db.styles).insert(style);
-    }
+    await db.stylesDao.insertAllStyles(defaultStyles);
   }
 
   Future<void> _seedAccountTypes(AppDatabase db) async {
-    for (final accountType in defaultAccountTypes) {
-      await db.into(db.accountTypes).insert(accountType);
-    }
+    await db.accountTypesDao.insertAllAccountTypes(defaultAccountTypes);
   }
 
   Future<void> _seedExchangeRates(AppDatabase db) async {
-    for (final rate in defaultExchangeRates) {
-      await db.into(db.exchangeRates).insert(rate);
-    }
+    await db.exchangeRatesDao.insertAllExchangeRates(defaultExchangeRates);
   }
 
   Future<void> clearAllData() async {

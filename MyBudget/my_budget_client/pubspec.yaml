@@ -13,7 +13,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   sqlite3_flutter_libs: ^0.5.20
-  path_provider: ^2.1.2
+  path_provider: ^2.1.5
   get_it: ^7.7.0
 
   path: any
@@ -32,6 +32,9 @@ dependencies:
   bloc_concurrency: ^0.3.0
   scrollable_positioned_list: ^0.3.8
   super_sliver_list: ^0.4.1
+  material_symbols_icons: ^4.2892.0
+  flex_color_picker: ^3.7.2
+  image_picker: ^1.2.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -49,3 +52,4 @@ flutter:
 
   assets:
     - .env
+    - lib/icons/

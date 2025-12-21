@@ -1,3 +1,4 @@
+import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 
 abstract class TransactionRepository {
@@ -22,7 +23,7 @@ abstract class TransactionRepository {
   Future<int> getAllCount();
 }
 
-class TransactionFilters {
+class TransactionFilters extends Equatable {
   final String? description;
   final double? amount;
   final DateTime? dateFrom;
@@ -40,7 +41,37 @@ class TransactionFilters {
     this.categoryId,
     this.currencyCode,
   });
+
+  TransactionFilters copyWith({
+    String? description,
+    double? amount,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    String? accountId,
+    String? categoryId,
+    String? currencyCode,
+  }) {
+    return TransactionFilters(
+      description: description ?? this.description,
+      amount: amount ?? this.amount,
+      dateFrom: dateFrom ?? this.dateFrom,
+      dateTo: dateTo ?? this.dateTo,
+      accountId: accountId ?? this.accountId,
+      categoryId: categoryId ?? this.categoryId,
+      currencyCode: currencyCode ?? this.currencyCode,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        description,
+        amount,
+        dateFrom,
+        dateTo,
+        accountId,
+        categoryId,
+        currencyCode,
+      ];
 }
 
 enum Sort { ascending, descending }
-

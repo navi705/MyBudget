@@ -9,6 +9,7 @@ extension StyleMapper on drift.Style {
       name: name,
       iconName: iconName,
       colorHex: colorHex,
+      iconType: iconType,
     );
   }
 }
@@ -20,6 +21,7 @@ extension StyleCompanionMapper on Style {
       name: Value(name),
       iconName: Value(iconName),
       colorHex: Value(colorHex),
+      iconType: Value(iconType),
     );
   }
 }

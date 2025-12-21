@@ -1,0 +1,1 @@
+enum IconType { material, custom }

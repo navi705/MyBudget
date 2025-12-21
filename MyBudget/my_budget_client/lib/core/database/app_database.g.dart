@@ -897,7 +897,23 @@ class $StylesTable extends Styles with TableInfo<$StylesTable, Style> {
     requiredDuringInsert: true,
   );
   @override
-  List<GeneratedColumn> get $columns => [id, name, iconName, colorHex];
+  late final GeneratedColumnWithTypeConverter<IconType, int> iconType =
+      GeneratedColumn<int>(
+        'icon_type',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      ).withConverter<IconType>($StylesTable.$convertericonType);
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    iconName,
+    colorHex,
+    iconType,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -962,6 +978,12 @@ class $StylesTable extends Styles with TableInfo<$StylesTable, Style> {
         DriftSqlType.string,
         data['${effectivePrefix}color_hex'],
       )!,
+      iconType: $StylesTable.$convertericonType.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}icon_type'],
+        )!,
+      ),
     );
   }
 
@@ -969,6 +991,9 @@ class $StylesTable extends Styles with TableInfo<$StylesTable, Style> {
   $StylesTable createAlias(String alias) {
     return $StylesTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<IconType, int, int> $convertericonType =
+      const EnumIndexConverter(IconType.values);
 }
 
 class Style extends DataClass implements Insertable<Style> {
@@ -976,11 +1001,13 @@ class Style extends DataClass implements Insertable<Style> {
   final String name;
   final String iconName;
   final String colorHex;
+  final IconType iconType;
   const Style({
     required this.id,
     required this.name,
     required this.iconName,
     required this.colorHex,
+    required this.iconType,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -989,6 +1016,11 @@ class Style extends DataClass implements Insertable<Style> {
     map['name'] = Variable<String>(name);
     map['icon_name'] = Variable<String>(iconName);
     map['color_hex'] = Variable<String>(colorHex);
+    {
+      map['icon_type'] = Variable<int>(
+        $StylesTable.$convertericonType.toSql(iconType),
+      );
+    }
     return map;
   }
 
@@ -998,6 +1030,7 @@ class Style extends DataClass implements Insertable<Style> {
       name: Value(name),
       iconName: Value(iconName),
       colorHex: Value(colorHex),
+      iconType: Value(iconType),
     );
   }
 
@@ -1011,6 +1044,9 @@ class Style extends DataClass implements Insertable<Style> {
       name: serializer.fromJson<String>(json['name']),
       iconName: serializer.fromJson<String>(json['iconName']),
       colorHex: serializer.fromJson<String>(json['colorHex']),
+      iconType: $StylesTable.$convertericonType.fromJson(
+        serializer.fromJson<int>(json['iconType']),
+      ),
     );
   }
   @override
@@ -1021,6 +1057,9 @@ class Style extends DataClass implements Insertable<Style> {
       'name': serializer.toJson<String>(name),
       'iconName': serializer.toJson<String>(iconName),
       'colorHex': serializer.toJson<String>(colorHex),
+      'iconType': serializer.toJson<int>(
+        $StylesTable.$convertericonType.toJson(iconType),
+      ),
     };
   }
 
@@ -1029,11 +1068,13 @@ class Style extends DataClass implements Insertable<Style> {
     String? name,
     String? iconName,
     String? colorHex,
+    IconType? iconType,
   }) => Style(
     id: id ?? this.id,
     name: name ?? this.name,
     iconName: iconName ?? this.iconName,
     colorHex: colorHex ?? this.colorHex,
+    iconType: iconType ?? this.iconType,
   );
   Style copyWithCompanion(StylesCompanion data) {
     return Style(
@@ -1041,6 +1082,7 @@ class Style extends DataClass implements Insertable<Style> {
       name: data.name.present ? data.name.value : this.name,
       iconName: data.iconName.present ? data.iconName.value : this.iconName,
       colorHex: data.colorHex.present ? data.colorHex.value : this.colorHex,
+      iconType: data.iconType.present ? data.iconType.value : this.iconType,
     );
   }
 
@@ -1050,13 +1092,14 @@ class Style extends DataClass implements Insertable<Style> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('iconName: $iconName, ')
-          ..write('colorHex: $colorHex')
+          ..write('colorHex: $colorHex, ')
+          ..write('iconType: $iconType')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, iconName, colorHex);
+  int get hashCode => Object.hash(id, name, iconName, colorHex, iconType);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1064,7 +1107,8 @@ class Style extends DataClass implements Insertable<Style> {
           other.id == this.id &&
           other.name == this.name &&
           other.iconName == this.iconName &&
-          other.colorHex == this.colorHex);
+          other.colorHex == this.colorHex &&
+          other.iconType == this.iconType);
 }
 
 class StylesCompanion extends UpdateCompanion<Style> {
@@ -1072,12 +1116,14 @@ class StylesCompanion extends UpdateCompanion<Style> {
   final Value<String> name;
   final Value<String> iconName;
   final Value<String> colorHex;
+  final Value<IconType> iconType;
   final Value<int> rowid;
   const StylesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.iconName = const Value.absent(),
     this.colorHex = const Value.absent(),
+    this.iconType = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   StylesCompanion.insert({
@@ -1085,6 +1131,7 @@ class StylesCompanion extends UpdateCompanion<Style> {
     required String name,
     required String iconName,
     required String colorHex,
+    this.iconType = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : name = Value(name),
        iconName = Value(iconName),
@@ -1094,6 +1141,7 @@ class StylesCompanion extends UpdateCompanion<Style> {
     Expression<String>? name,
     Expression<String>? iconName,
     Expression<String>? colorHex,
+    Expression<int>? iconType,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1101,6 +1149,7 @@ class StylesCompanion extends UpdateCompanion<Style> {
       if (name != null) 'name': name,
       if (iconName != null) 'icon_name': iconName,
       if (colorHex != null) 'color_hex': colorHex,
+      if (iconType != null) 'icon_type': iconType,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1110,6 +1159,7 @@ class StylesCompanion extends UpdateCompanion<Style> {
     Value<String>? name,
     Value<String>? iconName,
     Value<String>? colorHex,
+    Value<IconType>? iconType,
     Value<int>? rowid,
   }) {
     return StylesCompanion(
@@ -1117,6 +1167,7 @@ class StylesCompanion extends UpdateCompanion<Style> {
       name: name ?? this.name,
       iconName: iconName ?? this.iconName,
       colorHex: colorHex ?? this.colorHex,
+      iconType: iconType ?? this.iconType,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1136,6 +1187,11 @@ class StylesCompanion extends UpdateCompanion<Style> {
     if (colorHex.present) {
       map['color_hex'] = Variable<String>(colorHex.value);
     }
+    if (iconType.present) {
+      map['icon_type'] = Variable<int>(
+        $StylesTable.$convertericonType.toSql(iconType.value),
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1149,6 +1205,7 @@ class StylesCompanion extends UpdateCompanion<Style> {
           ..write('name: $name, ')
           ..write('iconName: $iconName, ')
           ..write('colorHex: $colorHex, ')
+          ..write('iconType: $iconType, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5051,6 +5108,7 @@ typedef $$StylesTableCreateCompanionBuilder =
       required String name,
       required String iconName,
       required String colorHex,
+      Value<IconType> iconType,
       Value<int> rowid,
     });
 typedef $$StylesTableUpdateCompanionBuilder =
@@ -5059,6 +5117,7 @@ typedef $$StylesTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> iconName,
       Value<String> colorHex,
+      Value<IconType> iconType,
       Value<int> rowid,
     });
 
@@ -5131,6 +5190,12 @@ class $$StylesTableFilterComposer
     column: $table.colorHex,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<IconType, IconType, int> get iconType =>
+      $composableBuilder(
+        column: $table.iconType,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   Expression<bool> categoriesRefs(
     Expression<bool> Function($$CategoriesTableFilterComposer f) f,
@@ -5211,6 +5276,11 @@ class $$StylesTableOrderingComposer
     column: $table.colorHex,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get iconType => $composableBuilder(
+    column: $table.iconType,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$StylesTableAnnotationComposer
@@ -5233,6 +5303,9 @@ class $$StylesTableAnnotationComposer
 
   GeneratedColumn<String> get colorHex =>
       $composableBuilder(column: $table.colorHex, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<IconType, int> get iconType =>
+      $composableBuilder(column: $table.iconType, builder: (column) => column);
 
   Expression<T> categoriesRefs<T extends Object>(
     Expression<T> Function($$CategoriesTableAnnotationComposer a) f,
@@ -5317,12 +5390,14 @@ class $$StylesTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> iconName = const Value.absent(),
                 Value<String> colorHex = const Value.absent(),
+                Value<IconType> iconType = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => StylesCompanion(
                 id: id,
                 name: name,
                 iconName: iconName,
                 colorHex: colorHex,
+                iconType: iconType,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5331,12 +5406,14 @@ class $$StylesTableTableManager
                 required String name,
                 required String iconName,
                 required String colorHex,
+                Value<IconType> iconType = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => StylesCompanion.insert(
                 id: id,
                 name: name,
                 iconName: iconName,
                 colorHex: colorHex,
+                iconType: iconType,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

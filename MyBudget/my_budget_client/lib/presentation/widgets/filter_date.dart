@@ -1,99 +1,67 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/advanced_filter_dialog.dart';
 
-enum DateStep { day, month, year }
-enum FilterMode { date, range }
-
-class FilterDate extends StatefulWidget implements PreferredSizeWidget {
+class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   const FilterDate({super.key});
 
   @override
-  State<FilterDate> createState() => _FilterDateState();
-
-  @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
-}
 
-class _FilterDateState extends State<FilterDate> {
-  late final TextEditingController _dateController;
-  DateTime _date = DateTime.now();
-  DateStep _dateStep = DateStep.day;
-  FilterMode _filterMode = FilterMode.date;
-  DateTimeRange? _dateRange;
+  String _formatDate(TransactionsState state) {
+    if (state.filterMode == FilterMode.range) {
+      if (state.activeDateRange == null) return 'Select Range';
+      final start = DateFormat('dd.MM.yyyy').format(state.activeDateRange!.start);
+      final end = DateFormat('dd.MM.yyyy').format(state.activeDateRange!.end);
+      return '$start - $end';
+    }
 
-  @override
-  void initState() {
-    super.initState();
-    _dateController = TextEditingController(text: _formatDate(_date, _dateStep));
-  }
-
-  @override
-  void dispose() {
-    _dateController.dispose();
-    super.dispose();
-  }
-
-  String _formatDate(DateTime date, DateStep step) {
-    switch (step) {
+    switch (state.dateStep) {
       case DateStep.day:
-        return DateFormat('dd.MM.yyyy').format(date);
+        return DateFormat('dd.MM.yyyy').format(state.activeDate);
       case DateStep.month:
-        return DateFormat('MMMM yyyy', 'ru_RU').format(date);
+        return DateFormat('MMMM yyyy', 'ru_RU').format(state.activeDate);
       case DateStep.year:
-        return DateFormat('yyyy').format(date);
+        return DateFormat('yyyy').format(state.activeDate);
     }
   }
 
-  String _formatDateRange(DateTimeRange range) {
-    final start = DateFormat('dd.MM.yyyy').format(range.start);
-    final end = DateFormat('dd.MM.yyyy').format(range.end);
-    return '$start - $end';
-  }
-
-  void _previousDate() {
-    if (_filterMode == FilterMode.range) return;
-    setState(() {
-      switch (_dateStep) {
-        case DateStep.day:
-          _date = _date.subtract(const Duration(days: 1));
-          break;
-        case DateStep.month:
-          _date = DateTime(_date.year, _date.month - 1, _date.day);
-          break;
-        case DateStep.year:
-          _date = DateTime(_date.year - 1, _date.month, _date.day);
-          break;
-      }
-      _dateController.text = _formatDate(_date, _dateStep);
-    });
-  }
-
-  void _nextDate() {
-    if (_filterMode == FilterMode.range) return;
-    setState(() {
-      switch (_dateStep) {
-        case DateStep.day:
-          _date = _date.add(const Duration(days: 1));
-          break;
-        case DateStep.month:
-          _date = DateTime(_date.year, _date.month + 1, _date.day);
-          break;
-        case DateStep.year:
-          _date = DateTime(_date.year + 1, _date.month, _date.day);
-          break;
-      }
-      _dateController.text = _formatDate(_date, _dateStep);
-    });
-  }
-
-  void _setDateStep(DateStep step) {
-    setState(() {
-      _filterMode = FilterMode.date;
-      _dateStep = step;
-      _dateController.text = _formatDate(_date, _dateStep);
-    });
+  void _showSortOptions(BuildContext context, Sort currentSort) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return SimpleDialog(
+          title: const Text('Сортировка по дате'),
+          children: <Widget>[
+            RadioListTile<Sort>(
+              title: const Text('По убыванию (новые сверху)'),
+              value: Sort.descending,
+              groupValue: currentSort,
+              onChanged: (Sort? value) {
+                if (value != null) {
+                  context.read<TransactionsBloc>().add(SortChanged(value));
+                  Navigator.pop(dialogContext);
+                }
+              },
+            ),
+            RadioListTile<Sort>(
+              title: const Text('По возрастанию (старые сверху)'),
+              value: Sort.ascending,
+              groupValue: currentSort,
+              onChanged: (Sort? value) {
+                if (value != null) {
+                  context.read<TransactionsBloc>().add(SortChanged(value));
+                  Navigator.pop(dialogContext);
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showDateStepPicker(BuildContext context) {
@@ -106,7 +74,7 @@ class _FilterDateState extends State<FilterDate> {
             SimpleDialogOption(
               onPressed: () {
                 Navigator.pop(dialogContext);
-                _setDateStep(DateStep.day);
+                context.read<TransactionsBloc>().add(const DateStepChanged(DateStep.day));
               },
               child: const Row(
                 children: [
@@ -119,7 +87,7 @@ class _FilterDateState extends State<FilterDate> {
             SimpleDialogOption(
               onPressed: () {
                 Navigator.pop(dialogContext);
-                _setDateStep(DateStep.month);
+                context.read<TransactionsBloc>().add(const DateStepChanged(DateStep.month));
               },
               child: const Row(
                 children: [
@@ -132,7 +100,7 @@ class _FilterDateState extends State<FilterDate> {
             SimpleDialogOption(
               onPressed: () {
                 Navigator.pop(dialogContext);
-                _setDateStep(DateStep.year);
+                context.read<TransactionsBloc>().add(const DateStepChanged(DateStep.year));
               },
               child: const Row(
                 children: [
@@ -148,45 +116,38 @@ class _FilterDateState extends State<FilterDate> {
     );
   }
 
-  Future<void> _selectDate(BuildContext context) async {
+  Future<void> _selectDate(BuildContext context, DateTime initialDate) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _date,
+      initialDate: initialDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
       locale: const Locale('ru', 'RU'),
     );
-    if (picked != null && picked != _date) {
-      setState(() {
-        _filterMode = FilterMode.date;
-        _date = picked;
-        _dateController.text = _formatDate(_date, _dateStep);
-      });
+    if (picked != null && context.mounted) {
+      context.read<TransactionsBloc>().add(ActiveDateChanged(picked));
     }
   }
 
-  Future<void> _selectDateRange(BuildContext context) async {
+  Future<void> _selectDateRange(BuildContext context, DateTimeRange? initialRange) async {
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
+      initialDateRange: initialRange,
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
       locale: const Locale('ru', 'RU'),
     );
-    if (picked != null) {
-      setState(() {
-        _filterMode = FilterMode.range;
-        _dateRange = picked;
-        _dateController.text = _formatDateRange(picked);
-      });
+    if (picked != null && context.mounted) {
+      context.read<TransactionsBloc>().add(ActiveDateRangeChanged(picked));
     }
   }
 
-  void _showDateOptionsDialog(BuildContext context) {
+  void _showDateOptionsDialog(BuildContext context, TransactionsState currentState) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('Выберите опцию'),
+          title: const Text('Выберите опцию даты'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -206,7 +167,7 @@ class _FilterDateState extends State<FilterDate> {
               TextButton(
                 onPressed: () {
                   Navigator.of(dialogContext).pop();
-                  _selectDate(context);
+                  _selectDate(context, currentState.activeDate);
                 },
                 child: const Row(
                   children: [
@@ -219,7 +180,7 @@ class _FilterDateState extends State<FilterDate> {
               TextButton(
                 onPressed: () {
                   Navigator.of(dialogContext).pop();
-                  _selectDateRange(context);
+                  _selectDateRange(context, currentState.activeDateRange);
                 },
                 child: const Row(
                   children: [
@@ -239,7 +200,7 @@ class _FilterDateState extends State<FilterDate> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: widget.preferredSize.height,
+      height: preferredSize.height,
       color: Theme.of(context).appBarTheme.backgroundColor,
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: BlocBuilder<TransactionsBloc, TransactionsState>(
@@ -249,9 +210,8 @@ class _FilterDateState extends State<FilterDate> {
               Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios,
-                        color: Colors.white, size: 20),
-                    onPressed: _previousDate,
+                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
+                    onPressed: () => context.read<TransactionsBloc>().add(const DatePeriodNavigated(-1)),
                   ),
                   const Spacer(),
                   Row(
@@ -260,7 +220,9 @@ class _FilterDateState extends State<FilterDate> {
                       IconButton(
                         icon: const Icon(Icons.tune, color: Colors.white),
                         tooltip: 'Фильтр',
-                        onPressed: () {},
+                        onPressed: () {
+                          showAdvancedFilterDialog(context, state.nonDateFilters);
+                        },
                       ),
                       SizedBox(
                         width: 40,
@@ -271,7 +233,7 @@ class _FilterDateState extends State<FilterDate> {
                             shape: const CircleBorder(),
                           ),
                           child: Text(
-                            _dateStep.name[0].toUpperCase(),
+                            state.dateStep.name[0].toUpperCase(),
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 18,
@@ -284,15 +246,14 @@ class _FilterDateState extends State<FilterDate> {
                           children: [
                             Expanded(
                               child: InkWell(
-                                onTap: () => _showDateOptionsDialog(context),
-                                hoverColor: Colors.white.withOpacity(0.1),
+                                onTap: () => _showDateOptionsDialog(context, state),
+                                hoverColor: Colors.white.withAlpha(25),
                                 borderRadius: BorderRadius.circular(4.0),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 12.0),
+                                  padding: const EdgeInsets.symmetric(vertical: 12.0),
                                   alignment: Alignment.center,
                                   child: Text(
-                                    _dateController.text,
+                                    _formatDate(state),
                                     style: const TextStyle(
                                         color: Colors.white, fontSize: 18),
                                   ),
@@ -300,9 +261,8 @@ class _FilterDateState extends State<FilterDate> {
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.calendar_today,
-                                  color: Colors.white),
-                              onPressed: () => _selectDate(context),
+                              icon: const Icon(Icons.calendar_today, color: Colors.white),
+                              onPressed: () => _selectDate(context, state.activeDate),
                               tooltip: 'Выбрать дату',
                             ),
                           ],
@@ -311,15 +271,14 @@ class _FilterDateState extends State<FilterDate> {
                       IconButton(
                         icon: const Icon(Icons.sort, color: Colors.white),
                         tooltip: 'Сортировка',
-                        onPressed: () {},
+                        onPressed: () => _showSortOptions(context, state.sort),
                       ),
                     ],
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios,
-                        color: Colors.white, size: 20),
-                    onPressed: _nextDate,
+                    icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 20),
+                    onPressed: () => context.read<TransactionsBloc>().add(const DatePeriodNavigated(1)),
                   ),
                 ],
               ),
