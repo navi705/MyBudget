@@ -17,6 +17,12 @@ class LocalStyleRepository implements StyleRepository {
   }
 
   @override
+  Future<Style?> getStyleById(String id) async {
+    final styleData = await database.stylesDao.getStyleById(id);
+    return styleData?.toDomain();
+  }
+
+  @override
   Future<void> addStyle(Style style) async {
     await database.stylesDao.insertStyle(style.toCompanion());
   }

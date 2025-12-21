@@ -8,7 +8,7 @@ enum FilterMode { date, range }
 
 class TransactionsState extends Equatable {
   final TransactionStatus status;
-  final List<Transaction> transactions;
+  final List<TransactionCategory> transactions; // Changed type here
   final int windowSize;
   final bool hasMoreUp;
   final bool hasMoreDown;
@@ -75,7 +75,7 @@ class TransactionsState extends Equatable {
 
   TransactionsState copyWith({
     TransactionStatus? status,
-    List<Transaction>? transactions,
+    List<TransactionCategory>? transactions, // Changed type here
     int? windowSize,
     bool? hasMoreUp,
     bool? hasMoreDown,

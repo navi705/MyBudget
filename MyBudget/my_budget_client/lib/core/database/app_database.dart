@@ -302,6 +302,8 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
   Future<List<Style>> getStyles({int limit = 10, int offset = 0}) =>
       (select(styles)..limit(limit, offset: offset)).get();
   Stream<List<Style>> watchAllStyles() => select(styles).watch();
+  Future<Style?> getStyleById(String id) => // Added this method
+      (select(styles)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
   Future<void> insertStyle(StylesCompanion style) => into(styles).insert(style);
   Future<void> insertAllStyles(List<StylesCompanion> styles) {
     return batch((batch) {
