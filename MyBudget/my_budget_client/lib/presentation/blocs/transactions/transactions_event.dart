@@ -118,3 +118,46 @@ class DeleteTransaction extends TransactionsEvent {
   @override
   List<Object> get props => [id];
 }
+
+class DeleteMultipleTransactions extends TransactionsEvent {
+  final List<String> ids;
+
+  const DeleteMultipleTransactions(this.ids);
+
+  @override
+  List<Object> get props => [ids];
+}
+
+class UpdateDateForMultipleTransactions extends TransactionsEvent {
+  final List<String> ids;
+  final DateTime newDate;
+
+  const UpdateDateForMultipleTransactions(this.ids, this.newDate);
+
+  @override
+  List<Object> get props => [ids, newDate];
+}
+
+// --- Selection Events ---
+
+class ToggleSelectionMode extends TransactionsEvent {
+  final bool isSelectionModeActive;
+
+  const ToggleSelectionMode(this.isSelectionModeActive);
+
+  @override
+  List<Object> get props => [isSelectionModeActive];
+}
+
+class ToggleTransactionSelection extends TransactionsEvent {
+  final String transactionId;
+
+  const ToggleTransactionSelection(this.transactionId);
+
+  @override
+  List<Object> get props => [transactionId];
+}
+
+class ClearSelection extends TransactionsEvent {
+  const ClearSelection();
+}

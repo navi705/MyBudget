@@ -480,7 +480,8 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     int offset = 0,
     OrderingMode sort = OrderingMode.desc,
     String? description,
-    double? amount,
+    double? amountFrom,
+    double? amountTo,
     DateTime? dateFrom,
     DateTime? dateTo,
     String? accountId,
@@ -492,8 +493,11 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     if (description != null) {
       query.where((tbl) => tbl.description.like('%$description%'));
     }
-    if (amount != null) {
-      query.where((tbl) => tbl.amount.equals(amount));
+    if (amountFrom != null) {
+      query.where((tbl) => tbl.amount.isBiggerOrEqualValue(amountFrom));
+    }
+    if (amountTo != null) {
+      query.where((tbl) => tbl.amount.isSmallerOrEqualValue(amountTo));
     }
     if (dateFrom != null) {
       query.where((tbl) => tbl.date.isBiggerOrEqualValue(dateFrom));
@@ -515,6 +519,14 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     query.limit(limit, offset: offset);
 
     return query.get();
+  }
+
+  Future<List<Transaction>> getTransactionsByIds(List<String> ids) {
+    return (select(transactions)..where((tbl) => tbl.id.isIn(ids))).get();
+  }
+
+  Future<void> deleteMultipleTransactions(List<String> ids) {
+    return (delete(transactions)..where((tbl) => tbl.id.isIn(ids))).go();
   }
 
   Future<int> getAllCount() async {

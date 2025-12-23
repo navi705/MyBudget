@@ -28,6 +28,11 @@ class LocalSettingsRepository implements SettingsRepository {
   }
 
   @override
+  Stream<List<Setting>> watchAllSettings() {
+    return _database.settingsDao.watchAllSettings();
+  }
+
+  @override
   Stream<Setting?> watchSetting(String key) {
     return _database.settingsDao.watchSetting(key);
   }

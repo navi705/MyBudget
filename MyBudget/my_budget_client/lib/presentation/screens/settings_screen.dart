@@ -13,29 +13,48 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Settings'),
       ),
-      body: ListView(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.palette),
-            title: const Text('Manage Account Styles'),
-            onTap: () {
-              context.push(AppRoutes.manageAccountStyles);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.brightness_6),
-            title: const Text('Toggle Theme'),
-            onTap: () {
-              final currentMode = context.read<SettingsBloc>().state.themeMode;
-              final nextMode = switch (currentMode) {
-                ThemeMode.system => ThemeMode.light,
-                ThemeMode.light => ThemeMode.dark,
-                ThemeMode.dark => ThemeMode.system,
-              };
-              context.read<SettingsBloc>().add(UpdateThemeMode(nextMode));
-            },
-          ),
-        ],
+      body: BlocBuilder<SettingsBloc, SettingsState>(
+        builder: (context, state) {
+          final persistFilters =
+              state.settings['persist_advanced_filters'] == 'true';
+          return ListView(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.palette),
+                title: const Text('Manage Account Styles'),
+                onTap: () {
+                  context.push(AppRoutes.manageAccountStyles);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.brightness_6),
+                title: const Text('Toggle Theme'),
+                onTap: () {
+                  final currentMode = state.themeMode;
+                  final nextMode = switch (currentMode) {
+                    ThemeMode.system => ThemeMode.light,
+                    ThemeMode.light => ThemeMode.dark,
+                    ThemeMode.dark => ThemeMode.system,
+                  };
+                  context.read<SettingsBloc>().add(UpdateThemeMode(nextMode));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.save),
+                title: const Text('Persist Advanced Filters'),
+                trailing: Switch(
+                  value: persistFilters,
+                  onChanged: (bool value) {
+                    context.read<SettingsBloc>().add(UpdateSetting(
+                          'persist_advanced_filters',
+                          value.toString(),
+                        ));
+                  },
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -55,6 +55,13 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     on<AddTransaction>(_onAddTransaction);
     on<UpdateTransaction>(_onUpdateTransaction);
     on<DeleteTransaction>(_onDeleteTransaction);
+    on<DeleteMultipleTransactions>(_onDeleteMultipleTransactions);
+    on<UpdateDateForMultipleTransactions>(_onUpdateDateForMultipleTransactions);
+
+    // Selection events
+    on<ToggleSelectionMode>(_onToggleSelectionMode);
+    on<ToggleTransactionSelection>(_onToggleTransactionSelection);
+    on<ClearSelection>(_onClearSelection);
   }
 
   // --- UI Event Handlers ---
@@ -137,6 +144,40 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   void _onSortChanged(SortChanged event, Emitter<TransactionsState> emit) {
     emit(state.copyWith(sort: event.sort));
     add(const InnitialLoadTransactions());
+  }
+
+  // --- Selection Event Handlers ---
+
+  void _onToggleSelectionMode(
+    ToggleSelectionMode event,
+    Emitter<TransactionsState> emit,
+  ) {
+    emit(state.copyWith(
+      isSelectionModeActive: event.isSelectionModeActive,
+      selectedTransactionIds:
+          event.isSelectionModeActive ? state.selectedTransactionIds : {},
+    ));
+  }
+
+  void _onToggleTransactionSelection(
+    ToggleTransactionSelection event,
+    Emitter<TransactionsState> emit,
+  ) {
+    final newSelectedIds =
+        Set<String>.from(state.selectedTransactionIds);
+    if (newSelectedIds.contains(event.transactionId)) {
+      newSelectedIds.remove(event.transactionId);
+    } else {
+      newSelectedIds.add(event.transactionId);
+    }
+    emit(state.copyWith(selectedTransactionIds: newSelectedIds));
+  }
+
+  void _onClearSelection(
+    ClearSelection event,
+    Emitter<TransactionsState> emit,
+  ) {
+    emit(state.copyWith(selectedTransactionIds: {}));
   }
 
   // --- Data Loading Event Handlers ---
@@ -406,6 +447,31 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   ) async {
     try {
       await _transactionRepository.deleteTransaction(event.id);
+      add(const InnitialLoadTransactions());
+    } catch (e) {
+      emit(state.copyWith(status: TransactionStatus.failure));
+    }
+  }
+
+  Future<void> _onDeleteMultipleTransactions(
+    DeleteMultipleTransactions event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    try {
+      await _transactionRepository.deleteMultipleTransactions(event.ids);
+      add(const InnitialLoadTransactions());
+    } catch (e) {
+      emit(state.copyWith(status: TransactionStatus.failure));
+    }
+  }
+
+  Future<void> _onUpdateDateForMultipleTransactions(
+    UpdateDateForMultipleTransactions event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    try {
+      await _transactionRepository.updateDateForMultipleTransactions(
+          event.ids, event.newDate);
       add(const InnitialLoadTransactions());
     } catch (e) {
       emit(state.copyWith(status: TransactionStatus.failure));

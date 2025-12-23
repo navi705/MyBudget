@@ -55,6 +55,30 @@ class LocalTransactionRepository implements TransactionRepository {
   }
 
   @override
+  Future<void> deleteMultipleTransactions(List<String> ids) async {
+    await database.transaction(() async {
+      final transactions = await database.transactionsDao.getTransactionsByIds(ids);
+      final amountChanges = <String, double>{};
+      for (final transaction in transactions) {
+        amountChanges.update(
+          transaction.accountId,
+          (value) => value - transaction.amount,
+          ifAbsent: () => -transaction.amount,
+        );
+      }
+      await database.accountsDao.batchUpdateBalances(amountChanges);
+      await database.transactionsDao.deleteMultipleTransactions(ids);
+    });
+  }
+
+  @override
+  Future<void> updateDateForMultipleTransactions(
+      List<String> ids, DateTime newDate) async {
+    await database.transactionsDao
+        .updateDateForMultipleTransactions(ids, newDate);
+  }
+
+  @override
   Future<Transaction?> getTransactionById(String id) async {
     final transaction = await database.transactionsDao.getTransactionById(id);
     return transaction?.toDomain();
@@ -128,7 +152,8 @@ class LocalTransactionRepository implements TransactionRepository {
       offset: offset,
       sort: sort == Sort.ascending ? OrderingMode.asc : OrderingMode.desc,
       description: filters?.description,
-      amount: filters?.amount,
+      amountFrom: filters?.amountFrom,
+      amountTo: filters?.amountTo,
       dateFrom: filters?.dateFrom,
       dateTo: filters?.dateTo,
       accountId: filters?.accountId,

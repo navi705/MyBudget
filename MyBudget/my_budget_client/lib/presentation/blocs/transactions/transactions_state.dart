@@ -25,6 +25,10 @@ class TransactionsState extends Equatable {
   final DateTimeRange? activeDateRange;
   final TransactionFilters nonDateFilters;
 
+  // Selection state
+  final bool isSelectionModeActive;
+  final Set<String> selectedTransactionIds;
+
   TransactionsState({
     this.status = TransactionStatus.initial,
     this.transactions = const [],
@@ -36,11 +40,13 @@ class TransactionsState extends Equatable {
     this.jumpToAlignment,
     this.totalCount = 0,
     this.sort = Sort.descending,
-    this.dateStep = DateStep.day,
+    this.dateStep = DateStep.month,
     this.filterMode = FilterMode.date,
     DateTime? activeDate,
     this.activeDateRange,
     this.nonDateFilters = const TransactionFilters(),
+    this.isSelectionModeActive = false,
+    this.selectedTransactionIds = const {},
   }) : activeDate = activeDate ?? DateTime.now();
 
   // Combined filters getter
@@ -101,6 +107,8 @@ class TransactionsState extends Equatable {
     DateTime? activeDate,
     ValueGetter<DateTimeRange?>? activeDateRange,
     TransactionFilters? nonDateFilters,
+    bool? isSelectionModeActive,
+    Set<String>? selectedTransactionIds,
   }) {
     return TransactionsState(
       status: status ?? this.status,
@@ -120,6 +128,8 @@ class TransactionsState extends Equatable {
           ? activeDateRange()
           : this.activeDateRange,
       nonDateFilters: nonDateFilters ?? this.nonDateFilters,
+      isSelectionModeActive: isSelectionModeActive ?? this.isSelectionModeActive,
+      selectedTransactionIds: selectedTransactionIds ?? this.selectedTransactionIds,
     );
   }
 
@@ -140,5 +150,7 @@ class TransactionsState extends Equatable {
     activeDate,
     activeDateRange,
     nonDateFilters,
+    isSelectionModeActive,
+    selectedTransactionIds,
   ];
 }

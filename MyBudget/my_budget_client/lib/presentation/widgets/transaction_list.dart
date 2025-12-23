@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -207,21 +208,80 @@ class TransactionListItem extends StatelessWidget {
     return Color(int.parse("0x$hexColor"));
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final color = _getColorFromHex(transactionCategory.style.colorHex);
-    final iconWidget = IconUtils.getIconWidget(transactionCategory.style);
-
-    return ListTile(
-      leading: CircleAvatar(backgroundColor: color, child: iconWidget),
-      title: Text(transactionCategory.transaction.description),
-      subtitle: Text(transactionCategory.transaction.amount.toString()),
-      onTap: () {
+  void _showContextMenu(BuildContext context, Offset position) {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    showMenu(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        const PopupMenuItem(
+          value: 'edit',
+          child: Text('Edit'),
+        ),
+        const PopupMenuItem(
+          value: 'delete',
+          child: Text('Delete'),
+        ),
+      ],
+    ).then((value) {
+      if (value == 'edit') {
         context.push(
           AppRoutes.addEditTransaction,
           extra: {'transaction': transactionCategory.transaction},
         );
+      } else if (value == 'delete') {
+        // TODO: Show confirmation dialog before deleting
+        context
+            .read<TransactionsBloc>()
+            .add(DeleteTransaction(transactionCategory.transaction.id!));
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bloc = context.watch<TransactionsBloc>();
+    final isSelected = bloc.state.selectedTransactionIds
+        .contains(transactionCategory.transaction.id);
+
+    final color = _getColorFromHex(transactionCategory.style.colorHex);
+    final iconWidget = IconUtils.getIconWidget(transactionCategory.style);
+
+    return GestureDetector(
+      onLongPress: () {
+        bloc.add(const ToggleSelectionMode(true));
+        bloc.add(ToggleTransactionSelection(transactionCategory.transaction.id!));
       },
+      onTap: () {
+        if (bloc.state.isSelectionModeActive) {
+          bloc.add(ToggleTransactionSelection(transactionCategory.transaction.id!));
+        } else {
+          context.push(
+            AppRoutes.addEditTransaction,
+            extra: {'transaction': transactionCategory.transaction},
+          );
+        }
+      },
+      onSecondaryTapUp: (details) {
+        if (kIsWeb ||
+            defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.windows) {
+          _showContextMenu(context, details.globalPosition);
+        }
+      },
+      child: Container(
+        color: isSelected ? Theme.of(context).highlightColor : null,
+        child: ListTile(
+          leading: CircleAvatar(backgroundColor: color, child: iconWidget),
+          title: Text(transactionCategory.transaction.description),
+          subtitle: Text(transactionCategory.transaction.amount.toString()),
+        ),
+      ),
     );
   }
 }

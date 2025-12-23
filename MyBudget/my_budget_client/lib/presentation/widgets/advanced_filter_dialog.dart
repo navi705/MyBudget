@@ -15,27 +15,7 @@ void showAdvancedFilterDialog(
   showDialog(
     context: context,
     builder: (dialogContext) {
-      // Use MultiBlocProvider.value to pass down the existing BLoCs.
-      // This is the correct way to provide existing BLoC instances to a new route/dialog.
-      return MultiBlocProvider(
-        providers: [
-          BlocProvider.value(
-            value: BlocProvider.of<TransactionsBloc>(context),
-          ),
-          BlocProvider.value(
-            value: BlocProvider.of<AccountsBloc>(context),
-          ),
-          BlocProvider.value(
-            value: BlocProvider.of<CategoriesBloc>(context),
-          ),
-          BlocProvider.value(
-            value: BlocProvider.of<CurrencyBloc>(context),
-          ),
-          BlocProvider.value(value: BlocProvider.of<SettingsBloc>(context)),
-          
-        ],
-        child: AdvancedFilterDialog(currentFilters: currentFilters),
-      );
+      return AdvancedFilterDialog(currentFilters: currentFilters);
     },
   );
 }
@@ -51,17 +31,47 @@ class AdvancedFilterDialog extends StatefulWidget {
 
 class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
   late final TextEditingController _descriptionController;
-  late final TextEditingController _amountController;
+  late final TextEditingController _amountFromController;
+  late final TextEditingController _amountToController;
   String? _selectedAccountId;
   String? _selectedCategoryId;
   String? _selectedCurrencyCode;
+  late bool _persistFilters;
 
   @override
   void initState() {
     super.initState();
-    final filters = widget.currentFilters;
+    final settingsBloc = context.read<SettingsBloc>();
+    _persistFilters =
+        settingsBloc.state.settings['persist_advanced_filters'] == 'true';
+
+    TransactionFilters filters;
+    if (_persistFilters) {
+      final settings = settingsBloc.state.settings;
+      final accountId = settings['advanced_filter_account_id'];
+      final categoryId = settings['advanced_filter_category_id'];
+      final currencyCode = settings['advanced_filter_currency_code'];
+      filters = TransactionFilters(
+        description: settings['advanced_filter_description'],
+        amountFrom:
+            double.tryParse(settings['advanced_filter_amount_from'] ?? ''),
+        amountTo: double.tryParse(settings['advanced_filter_amount_to'] ?? ''),
+        accountId: accountId != null && accountId.isNotEmpty ? accountId : null,
+        categoryId:
+            categoryId != null && categoryId.isNotEmpty ? categoryId : null,
+        currencyCode: currencyCode != null && currencyCode.isNotEmpty
+            ? currencyCode
+            : null,
+      );
+    } else {
+      filters = widget.currentFilters;
+    }
+
     _descriptionController = TextEditingController(text: filters.description);
-    _amountController = TextEditingController(text: filters.amount?.toString());
+    _amountFromController =
+        TextEditingController(text: filters.amountFrom?.toString());
+    _amountToController =
+        TextEditingController(text: filters.amountTo?.toString());
     _selectedAccountId = filters.accountId;
     _selectedCategoryId = filters.categoryId;
     _selectedCurrencyCode = filters.currencyCode;
@@ -70,8 +80,69 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
   @override
   void dispose() {
     _descriptionController.dispose();
-    _amountController.dispose();
+    _amountFromController.dispose();
+    _amountToController.dispose();
     super.dispose();
+  }
+
+  void _applyFilters() {
+    final settingsBloc = context.read<SettingsBloc>();
+    settingsBloc.add(UpdateSetting(
+        'persist_advanced_filters', _persistFilters.toString()));
+
+    final newFilters = TransactionFilters(
+      description: _descriptionController.text.isNotEmpty
+          ? _descriptionController.text
+          : null,
+      amountFrom: _amountFromController.text.isNotEmpty
+          ? double.tryParse(_amountFromController.text)
+          : null,
+      amountTo: _amountToController.text.isNotEmpty
+          ? double.tryParse(_amountToController.text)
+          : null,
+      accountId: _selectedAccountId,
+      categoryId: _selectedCategoryId,
+      currencyCode: _selectedCurrencyCode,
+    );
+
+    if (_persistFilters) {
+      settingsBloc.add(UpdateSetting(
+          'advanced_filter_description', newFilters.description ?? ''));
+      settingsBloc.add(UpdateSetting('advanced_filter_amount_from',
+          newFilters.amountFrom?.toString() ?? ''));
+      settingsBloc.add(UpdateSetting(
+          'advanced_filter_amount_to', newFilters.amountTo?.toString() ?? ''));
+      settingsBloc.add(UpdateSetting(
+          'advanced_filter_account_id', newFilters.accountId ?? ''));
+      settingsBloc.add(UpdateSetting(
+          'advanced_filter_category_id', newFilters.categoryId ?? ''));
+      settingsBloc.add(UpdateSetting(
+          'advanced_filter_currency_code', newFilters.currencyCode ?? ''));
+    } else {
+      // Clear settings if persistence is disabled
+      _clearFilterSettings();
+    }
+
+    context.read<TransactionsBloc>().add(NonDateFiltersChanged(newFilters));
+    Navigator.of(context).pop();
+  }
+
+  void _clearFilters() {
+    _clearFilterSettings();
+    context
+        .read<TransactionsBloc>()
+        .add(const NonDateFiltersChanged(TransactionFilters()));
+    Navigator.of(context).pop();
+  }
+
+  void _clearFilterSettings() {
+    final settingsBloc = context.read<SettingsBloc>();
+    settingsBloc.add(const UpdateSetting('advanced_filter_description', ''));
+    settingsBloc.add(const UpdateSetting('advanced_filter_amount_from', ''));
+    settingsBloc.add(const UpdateSetting('advanced_filter_amount_to', ''));
+    settingsBloc.add(const UpdateSetting('advanced_filter_account_id', ''));
+    settingsBloc.add(const UpdateSetting('advanced_filter_category_id', ''));
+    settingsBloc.add(const UpdateSetting('advanced_filter_currency_code', ''));
   }
 
   @override
@@ -82,6 +153,20 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Persist Filters'),
+                Switch(
+                  value: _persistFilters,
+                  onChanged: (value) {
+                    setState(() {
+                      _persistFilters = value;
+                    });
+                  },
+                ),
+              ],
+            ),
             TextFormField(
               controller: _descriptionController,
               decoration: const InputDecoration(
@@ -91,15 +176,23 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
             ),
             const SizedBox(height: 16),
             TextFormField(
-              controller: _amountController,
-              decoration: const InputDecoration(labelText: 'Amount'),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              controller: _amountFromController,
+              decoration: const InputDecoration(labelText: 'Amount From'),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _amountToController,
+              decoration: const InputDecoration(labelText: 'Amount To'),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: 16),
             BlocBuilder<AccountsBloc, AccountsState>(
               builder: (context, state) {
                 return DropdownButtonFormField<String>(
-                  value: _selectedAccountId,
+                  initialValue: _selectedAccountId,
                   decoration: const InputDecoration(labelText: 'Account'),
                   items: state.accounts
                       .map((Account account) => DropdownMenuItem(
@@ -116,11 +209,11 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
               },
             ),
             const SizedBox(height: 16),
-             BlocBuilder<CategoriesBloc, CategoriesState>(
+            BlocBuilder<CategoriesBloc, CategoriesState>(
               builder: (context, state) {
                 if (state is CategoriesLoadSuccess) {
                   return DropdownButtonFormField<String>(
-                    value: _selectedCategoryId,
+                    initialValue: _selectedCategoryId,
                     decoration: const InputDecoration(labelText: 'Category'),
                     items: state.categoriesWithTotals
                         .map((CategoryWithTotal categoryWithTotal) =>
@@ -143,7 +236,7 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
             BlocBuilder<CurrencyBloc, CurrencyState>(
               builder: (context, state) {
                 return DropdownButtonFormField<String>(
-                  value: _selectedCurrencyCode,
+                  initialValue: _selectedCurrencyCode,
                   decoration: const InputDecoration(labelText: 'Currency'),
                   items: state.currencies
                       .map((Currency currency) => DropdownMenuItem(
@@ -164,34 +257,12 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
       ),
       actions: <Widget>[
         TextButton(
+          onPressed: _clearFilters,
           child: const Text('Clear'),
-          onPressed: () {
-            context
-                .read<TransactionsBloc>()
-                .add(const NonDateFiltersChanged(TransactionFilters()));
-            Navigator.of(context).pop();
-          },
         ),
         TextButton(
+          onPressed: _applyFilters,
           child: const Text('Apply'),
-          onPressed: () {
-            final newFilters = TransactionFilters(
-              description: _descriptionController.text.isNotEmpty
-                  ? _descriptionController.text
-                  : null,
-              amount: _amountController.text.isNotEmpty
-                  ? double.tryParse(_amountController.text)
-                  : null,
-              accountId: _selectedAccountId,
-              categoryId: _selectedCategoryId,
-              currencyCode: _selectedCurrencyCode,
-            );
-
-            context
-                .read<TransactionsBloc>()
-                .add(NonDateFiltersChanged(newFilters));
-            Navigator.of(context).pop();
-          },
         ),
       ],
     );

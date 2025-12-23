@@ -20,12 +20,16 @@ abstract class TransactionRepository {
   Future<void> addTransactions(List<Transaction> transactions);
   Future<void> updateTransaction(Transaction transaction);
   Future<void> deleteTransaction(String id);
+  Future<void> deleteMultipleTransactions(List<String> ids);
+  Future<void> updateDateForMultipleTransactions(
+      List<String> ids, DateTime newDate);
   Future<int> getAllCount();
 }
 
 class TransactionFilters extends Equatable {
   final String? description;
-  final double? amount;
+  final double? amountFrom;
+  final double? amountTo;
   final DateTime? dateFrom;
   final DateTime? dateTo;
   final String? accountId;
@@ -34,7 +38,8 @@ class TransactionFilters extends Equatable {
 
   const TransactionFilters({
     this.description,
-    this.amount,
+    this.amountFrom,
+    this.amountTo,
     this.dateFrom,
     this.dateTo,
     this.accountId,
@@ -44,7 +49,8 @@ class TransactionFilters extends Equatable {
 
   TransactionFilters copyWith({
     String? description,
-    double? amount,
+    double? amountFrom,
+    double? amountTo,
     DateTime? dateFrom,
     DateTime? dateTo,
     String? accountId,
@@ -53,7 +59,8 @@ class TransactionFilters extends Equatable {
   }) {
     return TransactionFilters(
       description: description ?? this.description,
-      amount: amount ?? this.amount,
+      amountFrom: amountFrom ?? this.amountFrom,
+      amountTo: amountTo ?? this.amountTo,
       dateFrom: dateFrom ?? this.dateFrom,
       dateTo: dateTo ?? this.dateTo,
       accountId: accountId ?? this.accountId,
@@ -65,7 +72,8 @@ class TransactionFilters extends Equatable {
   @override
   List<Object?> get props => [
         description,
-        amount,
+        amountFrom,
+        amountTo,
         dateFrom,
         dateTo,
         accountId,

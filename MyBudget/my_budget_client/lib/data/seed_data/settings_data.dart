@@ -42,7 +42,12 @@ List<Setting> getDefaultSettings(String deviceName) {
       device: deviceName,
     ),
     Setting(
-      key: 'advanced_filter_amount',
+      key: 'advanced_filter_amount_from',
+      value: '',
+      device: deviceName,
+    ),
+    Setting(
+      key: 'advanced_filter_amount_to',
       value: '',
       device: deviceName,
     ),

@@ -8,6 +8,16 @@ abstract class SettingsEvent extends Equatable {
 
 class LoadSettings extends SettingsEvent {}
 
+class UpdateSetting extends SettingsEvent {
+  final String key;
+  final String value;
+
+  const UpdateSetting(this.key, this.value);
+
+  @override
+  List<Object> get props => [key, value];
+}
+
 class UpdateThemeMode extends SettingsEvent {
   final ThemeMode themeMode;
   const UpdateThemeMode(this.themeMode);
@@ -15,9 +25,11 @@ class UpdateThemeMode extends SettingsEvent {
   List<Object> get props => [themeMode];
 }
 
-class _SettingsUpdated extends SettingsEvent {
-  final ThemeMode themeMode;
-  const _SettingsUpdated(this.themeMode);
+class _SettingsChanged extends SettingsEvent {
+  final List<Setting> settings;
+
+  const _SettingsChanged(this.settings);
+
   @override
-  List<Object> get props => [themeMode];
+  List<Object> get props => [settings];
 }
