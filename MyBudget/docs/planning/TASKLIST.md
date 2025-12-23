@@ -20,12 +20,7 @@
 28. Add to beatiful widget display calendar for each page for filter and i can to add dashabord
 29. add to custom widget for display calendar and day for my proposose   
 30. get data from sms
-4. добавить взамиодейтсвия такие как множественные выделение, вазаимоедствия на правую кнопку мыши и на телефоне так же предусмотреть
-7. настроить иконки для всёго этого дела, добаить вожность добавление и выбор иконки сразу в категориях
-10. Множественное смена даты, счёта, категории, 
-12. Выьор всего при множественном и отобраежение всего 
 13. To do reffacot classes filter_date and transaction list to have ancestorj
-1.I want to add shift right click context for deskstop 
 
 Если совсем просто: **Use Case — это одно конкретное действие пользователя в приложении.*
 

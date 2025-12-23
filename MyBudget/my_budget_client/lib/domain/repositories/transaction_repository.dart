@@ -23,6 +23,8 @@ abstract class TransactionRepository {
   Future<void> deleteMultipleTransactions(List<String> ids);
   Future<void> updateDateForMultipleTransactions(
       List<String> ids, DateTime newDate);
+  Future<void> updateCategoryForMultipleTransactions(
+      List<String> ids, String newCategoryId);
   Future<int> getAllCount();
 }
 

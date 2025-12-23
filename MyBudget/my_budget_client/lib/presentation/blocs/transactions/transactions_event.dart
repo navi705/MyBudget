@@ -138,6 +138,16 @@ class UpdateDateForMultipleTransactions extends TransactionsEvent {
   List<Object> get props => [ids, newDate];
 }
 
+class UpdateCategoryForMultipleTransactions extends TransactionsEvent {
+  final List<String> ids;
+  final String newCategoryId;
+
+  const UpdateCategoryForMultipleTransactions(this.ids, this.newCategoryId);
+
+  @override
+  List<Object> get props => [ids, newCategoryId];
+}
+
 // --- Selection Events ---
 
 class ToggleSelectionMode extends TransactionsEvent {
@@ -156,6 +166,10 @@ class ToggleTransactionSelection extends TransactionsEvent {
 
   @override
   List<Object> get props => [transactionId];
+}
+
+class SelectAllTransactions extends TransactionsEvent {
+  const SelectAllTransactions();
 }
 
 class ClearSelection extends TransactionsEvent {

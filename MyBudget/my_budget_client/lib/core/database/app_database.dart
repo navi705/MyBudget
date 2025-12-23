@@ -529,6 +529,18 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     return (delete(transactions)..where((tbl) => tbl.id.isIn(ids))).go();
   }
 
+  Future<void> updateDateForMultipleTransactions(
+      List<String> ids, DateTime newDate) {
+    return (update(transactions)..where((tbl) => tbl.id.isIn(ids)))
+        .write(TransactionsCompanion(date: Value(newDate)));
+  }
+
+  Future<void> updateCategoryForMultipleTransactions(
+      List<String> ids, String newCategoryId) {
+    return (update(transactions)..where((tbl) => tbl.id.isIn(ids)))
+        .write(TransactionsCompanion(categoryId: Value(newCategoryId)));
+  }
+
   Future<int> getAllCount() async {
     // 1. Pick any column to count (e.g., 'id').
     final expression = transactions.id.count();

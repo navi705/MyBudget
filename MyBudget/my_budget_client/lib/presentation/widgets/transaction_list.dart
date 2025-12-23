@@ -208,16 +208,31 @@ class TransactionListItem extends StatelessWidget {
     return Color(int.parse("0x$hexColor"));
   }
 
-  void _showContextMenu(BuildContext context, Offset position) {
+  void _showContextMenu(
+    BuildContext context,
+    Offset position,
+    bool isSelected,
+  ) {
+    final bloc = context.read<TransactionsBloc>();
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
+
     showMenu(
       context: context,
       position: RelativeRect.fromRect(
         Rect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
         Offset.zero & overlay.size,
       ),
-      items: [
+      items: <PopupMenuEntry<dynamic>>[
+        PopupMenuItem(
+          value: 'select',
+          child: Text(isSelected ? 'Deselect' : 'Select'),
+        ),
+        const PopupMenuItem(
+          value: 'select_all',
+          child: Text('Select All'),
+        ),
+        const PopupMenuDivider(),
         const PopupMenuItem(
           value: 'edit',
           child: Text('Edit'),
@@ -228,16 +243,47 @@ class TransactionListItem extends StatelessWidget {
         ),
       ],
     ).then((value) {
-      if (value == 'edit') {
+      if (value == 'select') {
+        if (!bloc.state.isSelectionModeActive) {
+          bloc.add(const ToggleSelectionMode(true));
+        }
+        bloc.add(
+          ToggleTransactionSelection(transactionCategory.transaction.id!),
+        );
+      } else if (value == 'select_all') {
+        if (!bloc.state.isSelectionModeActive) {
+          bloc.add(const ToggleSelectionMode(true));
+        }
+        bloc.add(const SelectAllTransactions());
+      } else if (value == 'edit') {
         context.push(
           AppRoutes.addEditTransaction,
           extra: {'transaction': transactionCategory.transaction},
         );
       } else if (value == 'delete') {
-        // TODO: Show confirmation dialog before deleting
-        context
-            .read<TransactionsBloc>()
-            .add(DeleteTransaction(transactionCategory.transaction.id!));
+        showDialog(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Delete Transaction'),
+            content: const Text(
+                'Are you sure you want to delete this transaction?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  bloc.add(
+                    DeleteTransaction(transactionCategory.transaction.id!),
+                  );
+                  Navigator.pop(dialogContext);
+                },
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        );
       }
     });
   }
@@ -253,7 +299,9 @@ class TransactionListItem extends StatelessWidget {
 
     return GestureDetector(
       onLongPress: () {
-        bloc.add(const ToggleSelectionMode(true));
+        if (!bloc.state.isSelectionModeActive) {
+          bloc.add(const ToggleSelectionMode(true));
+        }
         bloc.add(ToggleTransactionSelection(transactionCategory.transaction.id!));
       },
       onTap: () {
@@ -271,7 +319,7 @@ class TransactionListItem extends StatelessWidget {
             defaultTargetPlatform == TargetPlatform.macOS ||
             defaultTargetPlatform == TargetPlatform.linux ||
             defaultTargetPlatform == TargetPlatform.windows) {
-          _showContextMenu(context, details.globalPosition);
+          _showContextMenu(context, details.globalPosition, isSelected);
         }
       },
       child: Container(

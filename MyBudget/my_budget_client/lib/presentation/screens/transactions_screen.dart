@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
+import 'package:my_budget_client/presentation/widgets/category_picker_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/filter_date.dart';
 import 'package:my_budget_client/presentation/widgets/transaction_list.dart';
 
@@ -60,14 +61,33 @@ class TransactionsScreen extends StatelessWidget {
                     ),
                     IconButton(
                       icon: const Icon(Icons.calendar_today),
-                      onPressed: () {
-                        // TODO: Implement bulk change date
+                      onPressed: () async {
+                        final newDate = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (newDate != null) {
+                          context.read<TransactionsBloc>().add(
+                              UpdateDateForMultipleTransactions(
+                                  state.selectedTransactionIds.toList(),
+                                  newDate));
+                        }
                       },
                     ),
                     IconButton(
                       icon: const Icon(Icons.category),
                       onPressed: () {
-                        // TODO: Implement bulk change category
+                        showCategoryPickerDialog(
+                          context,
+                          onCategorySelected: (categoryId) {
+                            context.read<TransactionsBloc>().add(
+                                UpdateCategoryForMultipleTransactions(
+                                    state.selectedTransactionIds.toList(),
+                                    categoryId));
+                          },
+                        );
                       },
                     ),
                   ],

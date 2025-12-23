@@ -79,6 +79,13 @@ class LocalTransactionRepository implements TransactionRepository {
   }
 
   @override
+  Future<void> updateCategoryForMultipleTransactions(
+      List<String> ids, String newCategoryId) async {
+    await database.transactionsDao
+        .updateCategoryForMultipleTransactions(ids, newCategoryId);
+  }
+
+  @override
   Future<Transaction?> getTransactionById(String id) async {
     final transaction = await database.transactionsDao.getTransactionById(id);
     return transaction?.toDomain();

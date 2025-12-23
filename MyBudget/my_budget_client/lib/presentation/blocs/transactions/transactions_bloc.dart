@@ -57,10 +57,13 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     on<DeleteTransaction>(_onDeleteTransaction);
     on<DeleteMultipleTransactions>(_onDeleteMultipleTransactions);
     on<UpdateDateForMultipleTransactions>(_onUpdateDateForMultipleTransactions);
+    on<UpdateCategoryForMultipleTransactions>(
+        _onUpdateCategoryForMultipleTransactions);
 
     // Selection events
     on<ToggleSelectionMode>(_onToggleSelectionMode);
     on<ToggleTransactionSelection>(_onToggleTransactionSelection);
+    on<SelectAllTransactions>(_onSelectAllTransactions);
     on<ClearSelection>(_onClearSelection);
   }
 
@@ -171,6 +174,16 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       newSelectedIds.add(event.transactionId);
     }
     emit(state.copyWith(selectedTransactionIds: newSelectedIds));
+  }
+
+  void _onSelectAllTransactions(
+    SelectAllTransactions event,
+    Emitter<TransactionsState> emit,
+  ) {
+    final allIds = state.transactions
+        .map((t) => t.transaction.id!)
+        .toSet();
+    emit(state.copyWith(selectedTransactionIds: allIds));
   }
 
   void _onClearSelection(
@@ -472,6 +485,19 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     try {
       await _transactionRepository.updateDateForMultipleTransactions(
           event.ids, event.newDate);
+      add(const InnitialLoadTransactions());
+    } catch (e) {
+      emit(state.copyWith(status: TransactionStatus.failure));
+    }
+  }
+
+  Future<void> _onUpdateCategoryForMultipleTransactions(
+    UpdateCategoryForMultipleTransactions event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    try {
+      await _transactionRepository.updateCategoryForMultipleTransactions(
+          event.ids, event.newCategoryId);
       add(const InnitialLoadTransactions());
     } catch (e) {
       emit(state.copyWith(status: TransactionStatus.failure));
