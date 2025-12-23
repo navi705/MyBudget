@@ -7,6 +7,7 @@ import 'package:my_budget_client/domain/repositories/transaction_repository.dart
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 
 void showAdvancedFilterDialog(
@@ -30,6 +31,8 @@ void showAdvancedFilterDialog(
           BlocProvider.value(
             value: BlocProvider.of<CurrencyBloc>(context),
           ),
+          BlocProvider.value(value: BlocProvider.of<SettingsBloc>(context)),
+          
         ],
         child: AdvancedFilterDialog(currentFilters: currentFilters),
       );

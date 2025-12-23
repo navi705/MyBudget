@@ -56,14 +56,26 @@ class TransactionsState extends Equatable {
     DateTime endDate;
     switch (dateStep) {
       case DateStep.day:
-        startDate =
-            DateTime(activeDate.year, activeDate.month, activeDate.day);
-        endDate =
-            DateTime(activeDate.year, activeDate.month, activeDate.day, 23, 59, 59);
+        startDate = DateTime(activeDate.year, activeDate.month, activeDate.day);
+        endDate = DateTime(
+          activeDate.year,
+          activeDate.month,
+          activeDate.day,
+          23,
+          59,
+          59,
+        );
         break;
       case DateStep.month:
         startDate = DateTime(activeDate.year, activeDate.month, 1);
-        endDate = DateTime(activeDate.year, activeDate.month + 1, 0, 23, 59, 59);
+        endDate = DateTime(
+          activeDate.year,
+          activeDate.month + 1,
+          0,
+          23,
+          59,
+          59,
+        );
         break;
       case DateStep.year:
         startDate = DateTime(activeDate.year, 1, 1);
@@ -104,28 +116,29 @@ class TransactionsState extends Equatable {
       dateStep: dateStep ?? this.dateStep,
       filterMode: filterMode ?? this.filterMode,
       activeDate: activeDate ?? this.activeDate,
-      activeDateRange:
-          activeDateRange != null ? activeDateRange() : this.activeDateRange,
+      activeDateRange: activeDateRange != null
+          ? activeDateRange()
+          : this.activeDateRange,
       nonDateFilters: nonDateFilters ?? this.nonDateFilters,
     );
   }
 
   @override
   List<Object?> get props => [
-        status,
-        transactions,
-        windowSize,
-        hasMoreUp,
-        hasMoreDown,
-        startIndex,
-        jumpToItemId,
-        jumpToAlignment,
-        totalCount,
-        sort,
-        dateStep,
-        filterMode,
-        activeDate,
-        activeDateRange,
-        nonDateFilters,
-      ];
+    status,
+    transactions,
+    windowSize,
+    hasMoreUp,
+    hasMoreDown,
+    startIndex,
+    jumpToItemId,
+    jumpToAlignment,
+    totalCount,
+    sort,
+    dateStep,
+    filterMode,
+    activeDate,
+    activeDateRange,
+    nonDateFilters,
+  ];
 }

@@ -30,4 +30,14 @@ class Style {
       iconType: iconType ?? this.iconType,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'iconName': iconName,
+      'colorHex': colorHex,
+      'iconType': iconType.name,
+    };
+  }
 }

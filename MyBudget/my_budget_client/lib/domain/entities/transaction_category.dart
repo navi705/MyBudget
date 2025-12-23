@@ -5,8 +5,12 @@ class TransactionCategory {
   final Transaction transaction;
   final Style style;
 
-  TransactionCategory({
-    required this.transaction,
-    required this.style,
-  });
+  TransactionCategory({required this.transaction, required this.style});
+
+  Map<String, dynamic> toJson() {
+    return {
+      'transaction': transaction.toJson(),
+      'style': style.toJson(),
+    };
+  }
 }

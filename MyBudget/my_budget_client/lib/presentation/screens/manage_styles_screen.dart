@@ -6,8 +6,6 @@ import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/widgets/add_style_dialog.dart';
 
-import '../../domain/entities/style.dart';
-
 class ManageStylesScreen extends StatelessWidget {
   const ManageStylesScreen({super.key});
 

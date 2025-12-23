@@ -5,19 +5,35 @@ import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
-
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+import 'package:my_budget_client/domain/repositories/style_repository.dart'; // Import StyleRepository
+import 'package:my_budget_client/domain/repositories/category_repository.dart'; // Import CategoryRepository
+import 'package:my_budget_client/domain/repositories/settings_repository.dart'; // Import SettingsRepository
+import 'package:my_budget_client/domain/entities/transaction_category.dart'; // Import TransactionCategory
+import 'package:my_budget_client/domain/entities/style.dart'; // Import Style entity
+import 'package:my_budget_client/domain/entities/icon_type.dart'; // Import IconType for default Style
+import 'package:my_budget_client/domain/entities/category.dart'; // Import Category entity
 
 part 'transactions_event.dart';
 part 'transactions_state.dart';
 
 class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   final TransactionRepository _transactionRepository;
+  final StyleRepository _styleRepository; // Injected StyleRepository
+  final CategoryRepository _categoryRepository; // Injected CategoryRepository
+  final SettingsRepository _settingsRepository; // Injected SettingsRepository
 
-  TransactionsBloc({required TransactionRepository transactionRepository})
-      : _transactionRepository = transactionRepository,
-        super(TransactionsState()) {
+  TransactionsBloc({
+    required TransactionRepository transactionRepository,
+    required StyleRepository styleRepository, // Accept StyleRepository
+    required CategoryRepository categoryRepository, // Accept CategoryRepository
+    required SettingsRepository settingsRepository, // Accept SettingsRepository
+  }) : _transactionRepository = transactionRepository,
+       _styleRepository = styleRepository, // Assign StyleRepository
+       _categoryRepository = categoryRepository, // Assign CategoryRepository
+       _settingsRepository = settingsRepository, // Assign SettingsRepository
+       super(TransactionsState()) {
     // UI events
     on<NonDateFiltersChanged>(_onNonDateFiltersChanged);
     on<DatePeriodNavigated>(_onDatePeriodNavigated);
@@ -28,16 +44,12 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     on<SortChanged>(_onSortChanged);
 
     // Data loading events
-    on<InnitialLoadTransactions>(_onLoadTransactionsInital,
-        transformer: droppable());
-    on<LoadTransactionsUp>(
-      _onLoadTransactionsUp,
+    on<InnitialLoadTransactions>(
+      _onLoadTransactionsInital,
       transformer: droppable(),
     );
-    on<LoadTransactionsDown>(
-      _onLoadTransactionsDown,
-      transformer: droppable(),
-    );
+    on<LoadTransactionsUp>(_onLoadTransactionsUp, transformer: droppable());
+    on<LoadTransactionsDown>(_onLoadTransactionsDown, transformer: droppable());
 
     // CUD events
     on<AddTransaction>(_onAddTransaction);
@@ -67,12 +79,18 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         newDate = state.activeDate.add(Duration(days: event.direction));
         break;
       case DateStep.month:
-        newDate = DateTime(state.activeDate.year,
-            state.activeDate.month + event.direction, state.activeDate.day);
+        newDate = DateTime(
+          state.activeDate.year,
+          state.activeDate.month + event.direction,
+          state.activeDate.day,
+        );
         break;
       case DateStep.year:
-        newDate = DateTime(state.activeDate.year + event.direction,
-            state.activeDate.month, state.activeDate.day);
+        newDate = DateTime(
+          state.activeDate.year + event.direction,
+          state.activeDate.month,
+          state.activeDate.day,
+        );
         break;
     }
     emit(state.copyWith(activeDate: newDate));
@@ -107,15 +125,16 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     ActiveDateRangeChanged event,
     Emitter<TransactionsState> emit,
   ) {
-    emit(state.copyWith(
-        activeDateRange: () => event.dateRange, filterMode: FilterMode.range));
+    emit(
+      state.copyWith(
+        activeDateRange: () => event.dateRange,
+        filterMode: FilterMode.range,
+      ),
+    );
     add(const InnitialLoadTransactions());
   }
 
-  void _onSortChanged(
-    SortChanged event,
-    Emitter<TransactionsState> emit,
-  ) {
+  void _onSortChanged(SortChanged event, Emitter<TransactionsState> emit) {
     emit(state.copyWith(sort: event.sort));
     add(const InnitialLoadTransactions());
   }
@@ -135,19 +154,48 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           filters: state.filters,
           sort: state.sort,
         ),
-        _transactionRepository.getAllCount(), // Note: This count is not filtered
+        _transactionRepository
+            .getAllCount(), // Note: This count is not filtered
       ]);
 
-      final transactions = results[0] as List<Transaction>;
+      final rawTransactions = results[0] as List<Transaction>;
       final totalCount = results[1] as int;
+
+      final List<TransactionCategory> transactionsWithStyles = [];
+      for (final transaction in rawTransactions) {
+        Category? category;
+        category = await _categoryRepository.getCategoryById(
+          transaction.categoryId,
+        );
+
+        Style? style;
+        if (category?.styleId != null) {
+          style = await _styleRepository.getStyleById(category!.styleId!);
+        }
+
+        transactionsWithStyles.add(
+          TransactionCategory(
+            transaction: transaction,
+            style:
+                style ??
+                Style(
+                  id: 'default',
+                  name: 'Default',
+                  iconName: 'help',
+                  colorHex: '#CCCCCC',
+                  iconType: IconType.material,
+                ), // Provide a default style if none found
+          ),
+        );
+      }
 
       emit(
         state.copyWith(
           status: TransactionStatus.success,
-          transactions: transactions,
+          transactions: transactionsWithStyles,
           startIndex: 0,
           hasMoreUp: false,
-          hasMoreDown: transactions.isNotEmpty,
+          hasMoreDown: transactionsWithStyles.isNotEmpty,
           totalCount: totalCount,
         ),
       );
@@ -165,30 +213,63 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     emit(state.copyWith(status: TransactionStatus.loading));
 
     try {
-      final offset =
-          (state.startIndex - event.limit).clamp(0, double.infinity).toInt();
-      final jumpToItemId = state.transactions.firstOrNull?.id;
-      final newTransactions =
-          await _transactionRepository.getTransactionsWithFilters(
-        limit: event.limit,
-        offset: offset,
-        filters: state.filters,
-        sort: state.sort,
-      );
+      final offset = (state.startIndex - event.limit)
+          .clamp(0, double.infinity)
+          .toInt();
+      final jumpToItemId = state.transactions.firstOrNull?.transaction.id;
+      final newRawTransactions = await _transactionRepository
+          .getTransactionsWithFilters(
+            limit: event.limit,
+            offset: offset,
+            filters: state.filters,
+            sort: state.sort,
+          );
 
-      if (newTransactions.isEmpty) {
+      if (newRawTransactions.isEmpty) {
         return emit(
-            state.copyWith(status: TransactionStatus.success, hasMoreUp: false));
+          state.copyWith(status: TransactionStatus.success, hasMoreUp: false),
+        );
       }
 
-      final updatedList = [...newTransactions, ...state.transactions];
-      final newStartIndex = state.startIndex - newTransactions.length;
+      final List<TransactionCategory> newTransactionsWithStyles = [];
+      for (final transaction in newRawTransactions) {
+        Category? category;
+
+        category = await _categoryRepository.getCategoryById(
+          transaction.categoryId,
+        );
+
+        Style? style;
+        if (category?.styleId != null) {
+          style = await _styleRepository.getStyleById(category!.styleId!);
+        }
+
+        newTransactionsWithStyles.add(
+          TransactionCategory(
+            transaction: transaction,
+            style:
+                style ??
+                Style(
+                  id: 'default',
+                  name: 'Default',
+                  iconName: 'help',
+                  colorHex: '#CCCCCC',
+                  iconType: IconType.material,
+                ), // Provide a default style if none found
+          ),
+        );
+      }
+
+      final updatedList = [...newTransactionsWithStyles, ...state.transactions];
+      final newStartIndex = state.startIndex - newTransactionsWithStyles.length;
       double? jumpAlignment;
 
       if (updatedList.length > state.windowSize) {
         final removeCount = updatedList.length - state.windowSize;
         updatedList.removeRange(
-            updatedList.length - removeCount, updatedList.length);
+          updatedList.length - removeCount,
+          updatedList.length,
+        );
         jumpAlignment = 0.0; // 0.0 means align to top
       }
 
@@ -220,21 +301,51 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
 
     try {
       final offset = state.startIndex + state.transactions.length;
-      final jumpToItemId = state.transactions.lastOrNull?.id;
-      final newTransactions =
-          await _transactionRepository.getTransactionsWithFilters(
-        limit: event.limit,
-        offset: offset,
-        filters: state.filters,
-        sort: state.sort,
-      );
+      final jumpToItemId = state.transactions.lastOrNull?.transaction.id;
+      final newRawTransactions = await _transactionRepository
+          .getTransactionsWithFilters(
+            limit: event.limit,
+            offset: offset,
+            filters: state.filters,
+            sort: state.sort,
+          );
 
-      if (newTransactions.isEmpty) {
-        return emit(state.copyWith(
-            status: TransactionStatus.success, hasMoreDown: false));
+      if (newRawTransactions.isEmpty) {
+        return emit(
+          state.copyWith(status: TransactionStatus.success, hasMoreDown: false),
+        );
       }
 
-      final updatedList = [...state.transactions, ...newTransactions];
+      final List<TransactionCategory> newTransactionsWithStyles = [];
+      for (final transaction in newRawTransactions) {
+        Category? category;
+
+        category = await _categoryRepository.getCategoryById(
+          transaction.categoryId,
+        );
+
+        Style? style;
+        if (category?.styleId != null) {
+          style = await _styleRepository.getStyleById(category!.styleId!);
+        }
+
+        newTransactionsWithStyles.add(
+          TransactionCategory(
+            transaction: transaction,
+            style:
+                style ??
+                Style(
+                  id: 'default',
+                  name: 'Default',
+                  iconName: 'help',
+                  colorHex: '#CCCCCC',
+                  iconType: IconType.material,
+                ), // Provide a default style if none found
+          ),
+        );
+      }
+
+      final updatedList = [...state.transactions, ...newTransactionsWithStyles];
       var newStartIndex = state.startIndex;
       double? jumpAlignment;
 
@@ -251,7 +362,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           transactions: updatedList,
           startIndex: newStartIndex,
           hasMoreUp: true,
-          hasMoreDown: newTransactions.isNotEmpty,
+          hasMoreDown: newTransactionsWithStyles.isNotEmpty,
           jumpToItemId: jumpToItemId,
           jumpToAlignment: jumpAlignment,
         ),

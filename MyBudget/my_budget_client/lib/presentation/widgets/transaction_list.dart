@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:my_budget_client/domain/entities/transaction.dart';
+import 'package:my_budget_client/domain/entities/transaction_category.dart'; // Import TransactionCategory
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
+import 'package:my_budget_client/core/utils/icon_utils.dart'; // Import IconUtils
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 class TransactionList extends StatefulWidget {
@@ -32,37 +33,50 @@ class _TransactionListState extends State<TransactionList> {
     super.dispose();
   }
 
-  Map<DateTime, List<Transaction>> _groupTransactionsByDay(
-      List<Transaction> transactions) {
-    final Map<DateTime, List<Transaction>> grouped = {};
-    for (final transaction in transactions) {
+  Map<DateTime, List<TransactionCategory>> _groupTransactionsByDay(
+    List<TransactionCategory> transactions,
+  ) {
+    final Map<DateTime, List<TransactionCategory>> grouped = {};
+    for (final transactionCategory in transactions) {
       final date = DateTime(
-          transaction.date.year, transaction.date.month, transaction.date.day);
+        transactionCategory.transaction.date.year,
+        transactionCategory.transaction.date.month,
+        transactionCategory.transaction.date.day,
+      );
       if (grouped[date] == null) {
         grouped[date] = [];
       }
-      grouped[date]!.add(transaction);
+      grouped[date]!.add(transactionCategory);
     }
     return grouped;
   }
 
-  List<Widget> _buildListItems(List<Transaction> transactions) {
-    final groupedTransactions = _groupTransactionsByDay(transactions);
+  List<Widget> _buildListItems(
+    List<TransactionCategory> transactionCategories,
+  ) {
+    final groupedTransactions = _groupTransactionsByDay(transactionCategories);
     final sortedDates = groupedTransactions.keys.toList()
       ..sort((a, b) => b.compareTo(a));
 
     final List<Widget> listItems = [];
     for (final date in sortedDates) {
       final transactionsForDay = groupedTransactions[date]!;
-      final dailySum =
-          transactionsForDay.fold<double>(0, (sum, t) => sum + t.amount);
+      final dailySum = transactionsForDay.fold<double>(
+        0,
+        (sum, tc) => sum + tc.transaction.amount,
+      );
 
       listItems.add(
-          _DateHeader(key: ValueKey(date), date: date, dailySum: dailySum));
+        _DateHeader(key: ValueKey(date), date: date, dailySum: dailySum),
+      );
 
-      for (final transaction in transactionsForDay) {
-        listItems.add(TransactionListItem(
-            key: ValueKey(transaction.id), transaction: transaction));
+      for (final transactionCategory in transactionsForDay) {
+        listItems.add(
+          TransactionListItem(
+            key: ValueKey(transactionCategory.transaction.id),
+            transactionCategory: transactionCategory,
+          ),
+        );
       }
 
       listItems.add(Divider(key: ValueKey('divider_$date')));
@@ -79,7 +93,8 @@ class _TransactionListState extends State<TransactionList> {
           final listItems = _buildListItems(state.transactions);
           final index = listItems.indexWhere((item) {
             if (item is TransactionListItem) {
-              return item.transaction.id == state.jumpToItemId;
+              return item.transactionCategory.transaction.id ==
+                  state.jumpToItemId;
             }
             return false;
           });
@@ -118,14 +133,18 @@ class _TransactionListState extends State<TransactionList> {
                 scrollInfo.metrics.maxScrollExtent - 200) {
               if (state.hasMoreDown &&
                   state.status != TransactionStatus.loading) {
-                context.read<TransactionsBloc>().add(const LoadTransactionsDown());
+                context.read<TransactionsBloc>().add(
+                  const LoadTransactionsDown(),
+                );
               }
             }
 
             if (scrollInfo.metrics.pixels <= 200) {
               if (state.hasMoreUp &&
                   state.status != TransactionStatus.loading) {
-                context.read<TransactionsBloc>().add(const LoadTransactionsUp());
+                context.read<TransactionsBloc>().add(
+                  const LoadTransactionsUp(),
+                );
               }
             }
             return false;
@@ -135,12 +154,9 @@ class _TransactionListState extends State<TransactionList> {
             slivers: [
               SuperSliverList(
                 listController: _listController,
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    return listItems[index];
-                  },
-                  childCount: listItems.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  return listItems[index];
+                }, childCount: listItems.length),
               ),
             ],
           ),
@@ -151,11 +167,7 @@ class _TransactionListState extends State<TransactionList> {
 }
 
 class _DateHeader extends StatelessWidget {
-  const _DateHeader({
-    required this.date,
-    required this.dailySum,
-    super.key,
-  });
+  const _DateHeader({required this.date, required this.dailySum, super.key});
 
   final DateTime date;
   final double dailySum;
@@ -167,30 +179,47 @@ class _DateHeader extends StatelessWidget {
     final formattedSum = NumberFormat.currency(symbol: '').format(dailySum);
 
     return ListTile(
-      title: Text(formattedDate, style: const TextStyle(fontWeight: FontWeight.bold)),
+      title: Text(
+        formattedDate,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
       trailing: Text(
         formattedSum,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: color, fontWeight: FontWeight.bold),
+          color: color,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
 }
 
 class TransactionListItem extends StatelessWidget {
-  const TransactionListItem({required this.transaction, super.key});
+  const TransactionListItem({required this.transactionCategory, super.key});
 
-  final Transaction transaction;
+  final TransactionCategory transactionCategory;
+
+  Color _getColorFromHex(String hexColor) {
+    hexColor = hexColor.replaceAll("#", "");
+    if (hexColor.length == 6) {
+      hexColor = "FF$hexColor";
+    }
+    return Color(int.parse("0x$hexColor"));
+  }
 
   @override
   Widget build(BuildContext context) {
+    final color = _getColorFromHex(transactionCategory.style.colorHex);
+    final iconWidget = IconUtils.getIconWidget(transactionCategory.style);
+
     return ListTile(
-      title: Text(transaction.description),
-      subtitle: Text(transaction.amount.toString()),
+      leading: CircleAvatar(backgroundColor: color, child: iconWidget),
+      title: Text(transactionCategory.transaction.description),
+      subtitle: Text(transactionCategory.transaction.amount.toString()),
       onTap: () {
         context.push(
           AppRoutes.addEditTransaction,
-          extra: {'transaction': transaction},
+          extra: {'transaction': transactionCategory.transaction},
         );
       },
     );

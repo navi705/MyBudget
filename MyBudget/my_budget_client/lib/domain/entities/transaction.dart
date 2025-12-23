@@ -39,6 +39,18 @@ class Transaction extends Equatable {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'description': description,
+      'amount': amount,
+      'date': date.toIso8601String(),
+      'accountId': accountId,
+      'categoryId': categoryId,
+      'currencyCode': currencyCode,
+    };
+  }
+
   @override
   List<Object?> get props => [
         id,

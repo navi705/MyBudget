@@ -11,9 +11,9 @@ class LocalStyleRepository implements StyleRepository {
 
   @override
   Stream<List<Style>> watchAllStyles() {
-    return database.stylesDao
-        .watchAllStyles()
-        .map((styles) => styles.toDomainList());
+    return database.stylesDao.watchAllStyles().map(
+      (styles) => styles.toDomainList(),
+    );
   }
 
   @override
@@ -39,8 +39,6 @@ class LocalStyleRepository implements StyleRepository {
 
   @override
   Future<void> deleteStyle(String id) async {
-    await database.stylesDao.deleteStyle(
-      db.StylesCompanion(id: Value(id)),
-    );
+    await database.stylesDao.deleteStyle(db.StylesCompanion(id: Value(id)));
   }
 }
