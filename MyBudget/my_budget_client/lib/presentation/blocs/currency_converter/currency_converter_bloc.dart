@@ -38,22 +38,25 @@ class CurrencyConverterBloc
     Emitter<CurrencyConverterState> emit,
   ) {
     emit(CurrencyConverterLoadInProgress());
-    Rx.combineLatest4(
+    Rx.combineLatest5(
       _currencyRepository.watchCurrencies(),
       _currencyRepository.watchAllExchangeRates(),
       _accountRepository.watchAccounts(),
       _settingsRepository.watchSetting('conversion_base_currency_code'),
+      _settingsRepository.watchSetting('selected_currencies'),
       (
         List<Currency> currencies,
         List<ExchangeRate> rates,
         List<Account> accounts,
-        Setting? setting,
+        Setting? baseCurrencySetting,
+        Setting? selectedCurrenciesSetting,
       ) =>
           _CurrencyConverterDataUpdated(
         allCurrencies: currencies,
         exchangeRates: rates,
         accounts: accounts,
-        baseCurrencySetting: setting,
+        baseCurrencySetting: baseCurrencySetting,
+        selectedCurrenciesSetting: selectedCurrenciesSetting,
       ),
     ).listen(
       (update) => add(update),
@@ -70,14 +73,22 @@ class CurrencyConverterBloc
     final baseCode = event.baseCurrencySetting?.value ?? 'USD';
     final currentState = state;
     List<Currency> selected = [];
+
     if (currentState is CurrencyConverterLoadSuccess) {
       selected = currentState.selectedCurrencies;
-    } else if (event.allCurrencies.isNotEmpty) {
-      // Add base currency by default on first load
-      final baseCurrency =
-          event.allCurrencies.firstWhereOrNull((c) => c.code == baseCode);
-      if (baseCurrency != null) {
-        selected.add(baseCurrency);
+    } else {
+      final selectedCodes =
+          event.selectedCurrenciesSetting?.value.split(',') ?? [];
+      if (selectedCodes.isNotEmpty) {
+        selected = event.allCurrencies
+            .where((c) => selectedCodes.contains(c.code))
+            .toList();
+      } else if (event.allCurrencies.isNotEmpty) {
+        final baseCurrency =
+            event.allCurrencies.firstWhereOrNull((c) => c.code == baseCode);
+        if (baseCurrency != null) {
+          selected.add(baseCurrency);
+        }
       }
     }
 
@@ -90,29 +101,44 @@ class CurrencyConverterBloc
     ));
   }
 
-  void _onAddSelectedCurrency(
+  Future<void> _onAddSelectedCurrency(
     AddSelectedCurrency event,
     Emitter<CurrencyConverterState> emit,
-  ) {
+  ) async {
     final currentState = state;
     if (currentState is CurrencyConverterLoadSuccess) {
       final updatedSelected =
           List<Currency>.from(currentState.selectedCurrencies)
             ..add(event.currency);
       emit(currentState.copyWith(selectedCurrencies: updatedSelected));
+      await _saveSelectedCurrencies(updatedSelected);
     }
   }
 
-  void _onRemoveSelectedCurrency(
+  Future<void> _onRemoveSelectedCurrency(
     RemoveSelectedCurrency event,
     Emitter<CurrencyConverterState> emit,
-  ) {
+  ) async {
     final currentState = state;
     if (currentState is CurrencyConverterLoadSuccess) {
       final updatedSelected =
           List<Currency>.from(currentState.selectedCurrencies)
             ..remove(event.currency);
       emit(currentState.copyWith(selectedCurrencies: updatedSelected));
+      await _saveSelectedCurrencies(updatedSelected);
     }
+  }
+
+  Future<void> _saveSelectedCurrencies(List<Currency> currencies) async {
+    final deviceName =
+        (await _settingsRepository.getSetting('device_name'))?.value ?? 'default';
+    final currencyCodes = currencies.map((c) => c.code).join(',');
+    await _settingsRepository.setSetting(
+      Setting(
+        key: 'selected_currencies',
+        value: currencyCodes,
+        device: deviceName,
+      ),
+    );
   }
 }

@@ -38,6 +38,11 @@ class LocalSettingsRepository implements SettingsRepository {
   }
 
   @override
+  Future<Setting?> getSetting(String key) {
+    return _database.settingsDao.getSetting(key);
+  }
+
+  @override
   Future<void> setSetting(Setting setting) {
     return _database.settingsDao.setSetting(setting);
   }

@@ -19,6 +19,10 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     on<UpdateAccount>(_onUpdateAccount);
     on<DeleteAccount>(_onDeleteAccount);
     on<UndoDeleteAccount>(_onUndoDeleteAccount);
+    on<SortAccounts>(_onSortAccounts);
+    on<FilterAccounts>(_onFilterAccounts);
+    on<LoadHistoricalBalances>(_onLoadHistoricalBalances);
+    on<ClearHistoricalBalances>(_onClearHistoricalBalances);
   }
 
   Future<void> _onLoadAccounts(
@@ -31,15 +35,20 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final results = await Future.wait([
         _accountRepository.getAccountTypes(),
         _accountRepository.getAccountsPaginated(limit: 50, offset: 0),
+        _accountRepository.getCountWithFilters(),
       ]);
 
       final accountTypes = results[0] as List<AccountType>;
       final accounts = results[1] as List<Account>;
+      final totalCount = results[2] as int;
 
       emit(AccountsLoadSuccess(
         accounts: accounts,
         accountTypes: accountTypes,
-        hasReachedMax: accounts.length < 50,
+        hasReachedMax: accounts.length >= totalCount,
+        totalCount: totalCount,
+        sortAscending: state.sortAscending,
+        selectedAccountTypeId: state.selectedAccountTypeId,
       ));
     } catch (e) {
       emit(AccountsLoadFailure());
@@ -66,7 +75,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         emit(
           currentState.copyWith(
             accounts: List.of(currentState.accounts)..addAll(accounts),
-            hasReachedMax: accounts.length < 50,
+            hasReachedMax:
+                (currentState.accounts.length + accounts.length) >=
+                    currentState.totalCount,
           ),
         );
       }
@@ -115,9 +126,64 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     Emitter<AccountsState> emit,
   ) async {
     final currentState = state;
-    if (currentState.recentlyDeletedAccount != null) {
-      await _accountRepository.restoreAccount(currentState.recentlyDeletedAccount!);
+    if (currentState is AccountsLoadSuccess &&
+        currentState.recentlyDeletedAccount != null) {
+      await _accountRepository
+          .restoreAccount(currentState.recentlyDeletedAccount!);
       add(LoadAccounts()); // Reload list
+    }
+  }
+
+  void _onSortAccounts(SortAccounts event, Emitter<AccountsState> emit) {
+    final currentState = state;
+    if (currentState is AccountsLoadSuccess) {
+      emit(currentState.copyWith(sortAscending: event.sortAscending));
+    }
+  }
+
+  Future<void> _onFilterAccounts(
+      FilterAccounts event, Emitter<AccountsState> emit) async {
+    final currentState = state;
+    if (currentState is AccountsLoadSuccess) {
+      final totalCount = await _accountRepository.getCountWithFilters(
+          accountTypeId: event.accountTypeId);
+      final accounts = await _accountRepository.getAccountsPaginated(
+          limit: 50, offset: 0); // TODO: Pass filter to getAccountsPaginated
+
+      emit(currentState.copyWith(
+        selectedAccountTypeId: event.accountTypeId,
+        accounts: accounts,
+        totalCount: totalCount,
+        hasReachedMax: accounts.length >= totalCount,
+      ));
+    }
+  }
+
+  Future<void> _onLoadHistoricalBalances(
+    LoadHistoricalBalances event,
+    Emitter<AccountsState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is AccountsLoadSuccess) {
+      final historicalBalances =
+          await _accountRepository.getBalancesAtDate(event.date);
+      emit(currentState.copyWith(
+        historicalBalances: historicalBalances,
+        isHistorical: true,
+      ));
+    }
+  }
+
+  void _onClearHistoricalBalances(
+    ClearHistoricalBalances event,
+    Emitter<AccountsState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is AccountsLoadSuccess) {
+      emit(currentState.copyWith(
+        historicalBalances: {},
+        isHistorical: false,
+      ));
     }
   }
 }

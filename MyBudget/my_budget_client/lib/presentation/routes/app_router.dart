@@ -15,7 +15,7 @@ import 'package:my_budget_client/presentation/screens/main_screen.dart';
 import 'package:my_budget_client/presentation/screens/manage_styles_screen.dart';
 import 'package:my_budget_client/presentation/screens/settings_screen.dart';
 import 'package:my_budget_client/presentation/screens/transactions_screen.dart';
-
+import 'package:my_budget_client/domain/entities/account.dart';
 // Private navigator keys
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -72,8 +72,18 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: AppRoutes.editAccount,
       builder: (context, state) {
-        final accountId = state.pathParameters['id']!;
-        return EditAccountScreen(accountId: accountId);
+        final account = state.extra as Account?;
+        if (account == null) {
+          // Handle the case where the account is not provided,
+          // maybe by navigating back or showing an error.
+          // For now, let's just return an empty container or an error screen.
+          return const Scaffold(
+            body: Center(
+              child: Text('Account not found!'),
+            ),
+          );
+        }
+        return EditAccountScreen(account: account);
       },
     ),
     GoRoute(

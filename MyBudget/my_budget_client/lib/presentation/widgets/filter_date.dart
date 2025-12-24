@@ -211,21 +211,64 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<TransactionsBloc, TransactionsState>(
       builder: (context, state) {
+        final centerWidget = Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.tune, color: Colors.white),
+              tooltip: 'Фильтр',
+              onPressed: () =>
+                  showAdvancedFilterDialog(context, state.nonDateFilters),
+            ),
+            SizedBox(
+              width: 40,
+              child: TextButton(
+                onPressed: () => _showDateStepPicker(context),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  shape: const CircleBorder(),
+                ),
+                child: Text(
+                  state.dateStep.name[0].toUpperCase(),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            InkWell(
+              onTap: () => _showDateOptionsDialog(context, state),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12.0),
+                alignment: Alignment.center,
+                child: Text(
+                  _formatDate(state),
+                  style: const TextStyle(color: Colors.white, fontSize: 18),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.calendar_today, color: Colors.white),
+              onPressed: () => _selectDate(context, state.activeDate),
+              tooltip: 'Выбрать дату',
+            ),
+            IconButton(
+              icon: const Icon(Icons.sort, color: Colors.white),
+              tooltip: 'Сортировка',
+              onPressed: () => _showSortOptions(context, state.sort),
+            ),
+          ],
+        );
+
         return GenericFilterAppBar(
-          title: _formatDate(state),
-          totalCountText: 'Всего: ${state.transactions.length}',
-          dateStepText: state.dateStep.name[0].toUpperCase(),
+          totalCountText: 'Всего: ${state.totalCount}',
+          centerWidget: centerWidget,
           onNavigatePrevious: () =>
               context.read<TransactionsBloc>().add(const DatePeriodNavigated(-1)),
           onNavigateNext: () =>
               context.read<TransactionsBloc>().add(const DatePeriodNavigated(1)),
-          onOpenAdvancedFilter: () {
-            showAdvancedFilterDialog(context, state.nonDateFilters);
-          },
-          onShowSortOptions: () => _showSortOptions(context, state.sort),
-          onShowDateStepPicker: () => _showDateStepPicker(context),
-          onShowDateOptionsDialog: () => _showDateOptionsDialog(context, state),
-          onSelectDate: () => _selectDate(context, state.activeDate),
         );
       },
     );

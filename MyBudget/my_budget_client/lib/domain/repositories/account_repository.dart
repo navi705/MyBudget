@@ -12,6 +12,8 @@ abstract class AccountRepository {
   Future<void> updateAccount(Account account);
   Future<void> deleteAccount(String id);
   Future<void> restoreAccount(Account account);
+  Future<Map<String, double>> getBalancesAtDate(DateTime date);
+  Future<int> getCountWithFilters({String? accountTypeId});
 
   Future<List<AccountType>> getAccountTypes();
   Stream<List<AccountType>> watchAccountTypes();

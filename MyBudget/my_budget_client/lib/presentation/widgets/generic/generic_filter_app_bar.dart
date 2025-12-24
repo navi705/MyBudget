@@ -1,29 +1,19 @@
 import 'package:flutter/material.dart';
 
 class GenericFilterAppBar extends StatelessWidget implements PreferredSizeWidget {
-  final String title;
+  final Widget centerWidget;
   final String totalCountText;
-  final String dateStepText;
-  final VoidCallback onNavigatePrevious;
-  final VoidCallback onNavigateNext;
-  final VoidCallback onOpenAdvancedFilter;
-  final VoidCallback onShowSortOptions;
-  final VoidCallback onShowDateStepPicker;
-  final VoidCallback onShowDateOptionsDialog;
-  final VoidCallback onSelectDate;
+  final VoidCallback? onNavigatePrevious;
+  final VoidCallback? onNavigateNext;
+  final List<Widget>? actions;
 
   const GenericFilterAppBar({
     super.key,
-    required this.title,
+    required this.centerWidget,
     required this.totalCountText,
-    required this.dateStepText,
-    required this.onNavigatePrevious,
-    required this.onNavigateNext,
-    required this.onOpenAdvancedFilter,
-    required this.onShowSortOptions,
-    required this.onShowDateStepPicker,
-    required this.onShowDateOptionsDialog,
-    required this.onSelectDate,
+    this.onNavigatePrevious,
+    this.onNavigateNext,
+    this.actions,
   });
 
   @override
@@ -31,6 +21,8 @@ class GenericFilterAppBar extends StatelessWidget implements PreferredSizeWidget
 
   @override
   Widget build(BuildContext context) {
+    final bool hasNavigation = onNavigatePrevious != null && onNavigateNext != null;
+
     return Container(
       height: preferredSize.height,
       color: Theme.of(context).appBarTheme.backgroundColor,
@@ -38,84 +30,29 @@ class GenericFilterAppBar extends StatelessWidget implements PreferredSizeWidget
       child: Stack(
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios,
-                    color: Colors.white, size: 20),
-                onPressed: onNavigatePrevious,
-              ),
-              const Spacer(),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.tune, color: Colors.white),
-                    tooltip: 'Фильтр',
-                    onPressed: onOpenAdvancedFilter,
-                  ),
-                  SizedBox(
-                    width: 40,
-                    child: TextButton(
-                      onPressed: onShowDateStepPicker,
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        shape: const CircleBorder(),
-                      ),
-                      child: Text(
-                        dateStepText,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                  IntrinsicWidth(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: onShowDateOptionsDialog,
-                            hoverColor: Colors.white.withAlpha(25),
-                            borderRadius: BorderRadius.circular(4.0),
-                            child: Container(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12.0),
-                              alignment: Alignment.center,
-                              child: Text(
-                                title,
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 18),
-                              ),
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.calendar_today,
-                              color: Colors.white),
-                          onPressed: onSelectDate,
-                          tooltip: 'Выбрать дату',
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.sort, color: Colors.white),
-                    tooltip: 'Сортировка',
-                    onPressed: onShowSortOptions,
-                  ),
-                ],
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.arrow_forward_ios,
-                    color: Colors.white, size: 20),
-                onPressed: onNavigateNext,
-              ),
+              if (hasNavigation)
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
+                  onPressed: onNavigatePrevious,
+                )
+              else
+                const SizedBox(width: 48), // Placeholder for alignment
+
+              Expanded(child: centerWidget),
+
+              if (hasNavigation)
+                IconButton(
+                  icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 20),
+                  onPressed: onNavigateNext,
+                )
+              else
+                const SizedBox(width: 48), // Placeholder for alignment
             ],
           ),
           Positioned(
-            left: 50,
+            left: hasNavigation ? 50 : 16,
             top: 0,
             bottom: 0,
             child: Center(
@@ -125,6 +62,16 @@ class GenericFilterAppBar extends StatelessWidget implements PreferredSizeWidget
               ),
             ),
           ),
+          if (actions != null)
+            Positioned(
+              right: hasNavigation ? 50 : 16,
+              top: 0,
+              bottom: 0,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: actions!,
+              ),
+            ),
         ],
       ),
     );

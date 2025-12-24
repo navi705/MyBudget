@@ -42,6 +42,8 @@ mixin _$AccountsDaoMixin on DatabaseAccessor<AppDatabase> {
   $StylesTable get styles => attachedDatabase.styles;
   $AccountTypesTable get accountTypes => attachedDatabase.accountTypes;
   $AccountsTable get accounts => attachedDatabase.accounts;
+  $CategoriesTable get categories => attachedDatabase.categories;
+  $TransactionsTable get transactions => attachedDatabase.transactions;
 }
 mixin _$TransactionsDaoMixin on DatabaseAccessor<AppDatabase> {
   $LanguagesTable get languages => attachedDatabase.languages;

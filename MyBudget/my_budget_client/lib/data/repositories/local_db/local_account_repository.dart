@@ -88,4 +88,14 @@ class LocalAccountRepository implements AccountRepository {
   Future<void> addAccountTypes(List<AccountType> accountTypes) async {
     await database.accountTypesDao.insertAllAccountTypes(accountTypes.toCompanionList());
   }
+
+  @override
+  Future<Map<String, double>> getBalancesAtDate(DateTime date) {
+    return database.accountsDao.getBalancesAtDate(date);
+  }
+
+  @override
+  Future<int> getCountWithFilters({String? accountTypeId}) {
+    return database.accountsDao.getCountWithFilters(accountTypeId: accountTypeId);
+  }
 }

@@ -7,5 +7,6 @@ abstract class SettingsRepository {
 
   Stream<List<Setting>> watchAllSettings();
   Stream<Setting?> watchSetting(String key);
+  Future<Setting?> getSetting(String key);
   Future<void> setSetting(Setting setting);
 }

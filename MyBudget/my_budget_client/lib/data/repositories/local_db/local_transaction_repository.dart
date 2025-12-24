@@ -169,4 +169,18 @@ class LocalTransactionRepository implements TransactionRepository {
     );
     return transactions.toDomainList();
   }
+
+  @override
+  Future<int> getCountWithFilters({TransactionFilters? filters}) {
+    return database.transactionsDao.getCountWithFilters(
+      description: filters?.description,
+      amountFrom: filters?.amountFrom,
+      amountTo: filters?.amountTo,
+      dateFrom: filters?.dateFrom,
+      dateTo: filters?.dateTo,
+      accountId: filters?.accountId,
+      categoryId: filters?.categoryId,
+      currencyCode: filters?.currencyCode,
+    );
+  }
 }

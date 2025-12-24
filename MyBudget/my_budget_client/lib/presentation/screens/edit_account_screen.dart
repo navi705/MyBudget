@@ -9,9 +9,9 @@ import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart'
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 
 class EditAccountScreen extends StatefulWidget {
-  final String accountId;
+  final Account account;
 
-  const EditAccountScreen({super.key, required this.accountId});
+  const EditAccountScreen({super.key, required this.account});
 
   @override
   State<EditAccountScreen> createState() => _EditAccountScreenState();
@@ -27,31 +27,22 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   String? _selectedStyleId;
   String? _selectedAccountTypeId; // ADDED
 
-  Account? _initialAccount;
+  late Account _initialAccount;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController();
-    _descriptionController = TextEditingController();
-    _balanceController = TextEditingController();
+    _initialAccount = widget.account;
 
-    final accountsState = context.read<AccountsBloc>().state;
-    if (accountsState is AccountsLoadSuccess) {
-      _initialAccount = accountsState.accounts.firstWhereOrNull(
-        (acc) => acc.id == widget.accountId,
-      );
-
-      if (_initialAccount != null) {
-        _nameController.text = _initialAccount!.name;
-        _descriptionController.text = _initialAccount!.description ?? ''; // ADDED
-        _balanceController.text = _initialAccount!.balance.toString();
-        _selectedCurrencyCode = _initialAccount!.currencyCode;
-        _selectedCurrencyDesignationId = _initialAccount!.currencyDesignationId;
-        _selectedStyleId = _initialAccount!.styleId;
-        _selectedAccountTypeId = _initialAccount!.accountTypeId; // ADDED
-      }
-    }
+    _nameController = TextEditingController(text: _initialAccount.name);
+    _descriptionController =
+        TextEditingController(text: _initialAccount.description ?? '');
+    _balanceController =
+        TextEditingController(text: _initialAccount.balance.toString());
+    _selectedCurrencyCode = _initialAccount.currencyCode;
+    _selectedCurrencyDesignationId = _initialAccount.currencyDesignationId;
+    _selectedStyleId = _initialAccount.styleId;
+    _selectedAccountTypeId = _initialAccount.accountTypeId;
   }
 
   @override
@@ -65,7 +56,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   void _onSave() {
     if (_formKey.currentState!.validate()) {
       final updatedAccount = Account(
-        id: _initialAccount!.id,
+        id: _initialAccount.id,
         name: _nameController.text,
         description: _descriptionController.text.isEmpty
             ? null
@@ -91,16 +82,9 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    if (_initialAccount == null) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: const Center(child: Text('Account not found.')),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('Edit: ${_initialAccount!.name}'),
+        title: Text('Edit: ${_initialAccount.name}'),
       ),
       body: Form(
         key: _formKey,
@@ -161,7 +145,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                       // Wrap in Column to add designation dropdown
                       children: [
                         DropdownButtonFormField<String>(
-                          initialValue: _selectedCurrencyCode,
+                          value: _selectedCurrencyCode,
                           decoration:
                               InputDecoration(labelText: l10n.currencyLabel),
                           items: state.currencies
@@ -186,7 +170,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                         const SizedBox(height: 16),
                         // Spacing
                         DropdownButtonFormField<String>(
-                          initialValue: _selectedCurrencyDesignationId,
+                          value: _selectedCurrencyDesignationId,
                           decoration: const InputDecoration(
                               labelText: 'Currency Symbol'),
                           // TODO: Localize
@@ -211,7 +195,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                 builder: (context, state) {
                   if (state is AccountsLoadSuccess) {
                     return DropdownButtonFormField<String>(
-                      initialValue: _selectedAccountTypeId,
+                      value: _selectedAccountTypeId,
                       decoration:
                           const InputDecoration(labelText: 'Account Type'),
                       // TODO: Localize
@@ -234,7 +218,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                 builder: (context, state) {
                   if (state is StylesLoadSuccess) {
                     return DropdownButtonFormField<String>(
-                      initialValue: _selectedStyleId,
+                      value: _selectedStyleId,
                       decoration: const InputDecoration(labelText: 'Style'),
                       // TODO: Localize
                       items: state.styles

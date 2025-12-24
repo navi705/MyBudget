@@ -5,12 +5,22 @@ abstract class AccountsState extends Equatable {
   final List<AccountType> accountTypes;
   final Account? recentlyDeletedAccount;
   final bool hasReachedMax;
+  final bool sortAscending;
+  final String selectedAccountTypeId;
+  final Map<String, double> historicalBalances;
+  final bool isHistorical;
+  final int totalCount;
 
   const AccountsState({
     this.accounts = const [],
     this.accountTypes = const [],
     this.recentlyDeletedAccount,
     this.hasReachedMax = false,
+    this.sortAscending = true,
+    this.selectedAccountTypeId = 'all',
+    this.historicalBalances = const {},
+    this.isHistorical = false,
+    this.totalCount = 0,
   });
 
   @override
@@ -19,6 +29,11 @@ abstract class AccountsState extends Equatable {
         accountTypes,
         recentlyDeletedAccount,
         hasReachedMax,
+        sortAscending,
+        selectedAccountTypeId,
+        historicalBalances,
+        isHistorical,
+        totalCount,
       ];
 }
 
@@ -32,6 +47,11 @@ class AccountsLoadSuccess extends AccountsState {
     super.accountTypes,
     super.recentlyDeletedAccount,
     super.hasReachedMax,
+    super.sortAscending,
+    super.selectedAccountTypeId,
+    super.historicalBalances,
+    super.isHistorical,
+    super.totalCount,
   });
 
   AccountsLoadSuccess copyWith({
@@ -39,6 +59,11 @@ class AccountsLoadSuccess extends AccountsState {
     List<AccountType>? accountTypes,
     Account? recentlyDeletedAccount,
     bool? hasReachedMax,
+    bool? sortAscending,
+    String? selectedAccountTypeId,
+    Map<String, double>? historicalBalances,
+    bool? isHistorical,
+    int? totalCount,
     bool clearRecentlyDeleted = false,
   }) {
     return AccountsLoadSuccess(
@@ -48,6 +73,12 @@ class AccountsLoadSuccess extends AccountsState {
           ? null
           : recentlyDeletedAccount ?? this.recentlyDeletedAccount,
       hasReachedMax: hasReachedMax ?? this.hasReachedMax,
+      sortAscending: sortAscending ?? this.sortAscending,
+      selectedAccountTypeId:
+          selectedAccountTypeId ?? this.selectedAccountTypeId,
+      historicalBalances: historicalBalances ?? this.historicalBalances,
+      isHistorical: isHistorical ?? this.isHistorical,
+      totalCount: totalCount ?? this.totalCount,
     );
   }
 }

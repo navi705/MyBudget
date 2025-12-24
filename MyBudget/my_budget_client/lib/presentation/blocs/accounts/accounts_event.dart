@@ -39,3 +39,32 @@ class DeleteAccount extends AccountsEvent {
 }
 
 class UndoDeleteAccount extends AccountsEvent {}
+
+class SortAccounts extends AccountsEvent {
+  final bool sortAscending;
+
+  const SortAccounts(this.sortAscending);
+
+  @override
+  List<Object> get props => [sortAscending];
+}
+
+class FilterAccounts extends AccountsEvent {
+  final String accountTypeId;
+
+  const FilterAccounts(this.accountTypeId);
+
+  @override
+  List<Object> get props => [accountTypeId];
+}
+
+class LoadHistoricalBalances extends AccountsEvent {
+  final DateTime date;
+
+  const LoadHistoricalBalances(this.date);
+
+  @override
+  List<Object> get props => [date];
+}
+
+class ClearHistoricalBalances extends AccountsEvent {}

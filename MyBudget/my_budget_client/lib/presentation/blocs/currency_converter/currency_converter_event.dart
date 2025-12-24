@@ -32,12 +32,14 @@ class _CurrencyConverterDataUpdated extends CurrencyConverterEvent {
   final List<ExchangeRate> exchangeRates;
   final List<Account> accounts;
   final Setting? baseCurrencySetting;
+  final Setting? selectedCurrenciesSetting;
 
   const _CurrencyConverterDataUpdated({
     required this.allCurrencies,
     required this.exchangeRates,
     required this.accounts,
     required this.baseCurrencySetting,
+    required this.selectedCurrenciesSetting,
   });
 
   @override
@@ -46,5 +48,6 @@ class _CurrencyConverterDataUpdated extends CurrencyConverterEvent {
         exchangeRates,
         accounts,
         baseCurrencySetting ?? 0,
+        selectedCurrenciesSetting ?? 0,
       ];
 }

@@ -208,8 +208,9 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           filters: state.filters,
           sort: state.sort,
         ),
-        _transactionRepository
-            .getAllCount(), // Note: This count is not filtered
+        _transactionRepository.getCountWithFilters(
+          filters: state.filters,
+        ),
       ]);
 
       final rawTransactions = results[0] as List<Transaction>;

@@ -9,6 +9,7 @@ import 'package:my_budget_client/presentation/blocs/currency_converter/currency_
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/account_list_item.dart';
 import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
@@ -19,13 +20,11 @@ class AccountsScreen extends StatefulWidget {
 
 class _AccountsScreenState extends State<AccountsScreen> {
   final _scrollController = ScrollController();
-  String? _selectedAccountTypeId; // State variable for selected account type filter
-  bool _sortAscending = true; // NEW: Sorting order (ascending by default)
 
   @override
   void initState() {
     super.initState();
-    _selectedAccountTypeId = 'all'; // 0 for 'All' accounts
+    context.read<AccountsBloc>().add(LoadAccounts());
     _scrollController.addListener(_onScroll);
   }
 
@@ -116,75 +115,103 @@ class _AccountsScreenState extends State<AccountsScreen> {
     );
   }
 
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null && context.mounted) {
+      context.read<AccountsBloc>().add(LoadHistoricalBalances(picked));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.accountsAppBarTitle),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.calculate),
-            tooltip: 'Select Currencies for Total Balance',
-            onPressed: () => _showCurrencySelectionDialog(context),
-          ),
-          IconButton(
-            icon: const Icon(Icons.sort), // NEW: Sorting icon
-            tooltip: 'Sort by Balance', // TODO: Localize
-            onPressed: () {
-              setState(() {
-                _sortAscending = !_sortAscending; // Toggle sorting order
-              });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: l10n.accountsRefreshTooltip,
-            onPressed: () {
-              context.read<AccountsBloc>().add(LoadAccounts());
-            },
-          ),
-        ],
-        bottom: PreferredSize( // NEW: Account type selector below AppBar
-          preferredSize: const Size.fromHeight(kToolbarHeight),
-          child: BlocBuilder<AccountsBloc, AccountsState>(
-            builder: (context, state) {
-              if (state is AccountsLoadSuccess) {
-                // Create a list of all account types, including an "All" option
-                final allAccountTypes = [
-                   AccountType(id: 'all', name: 'All', languageCode: Localizations.localeOf(context).languageCode), // "All" option
-                  ...state.accountTypes,
-                ];
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: BlocBuilder<AccountsBloc, AccountsState>(
+          builder: (context, state) {
+            if (state is! AccountsLoadSuccess) {
+              return AppBar(title: Text(l10n.accountsAppBarTitle));
+            }
 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                  child: DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12),
-                    ),
-                    initialValue: _selectedAccountTypeId,
-                    items: allAccountTypes.map((type) => DropdownMenuItem<String>(
-                      value: type.id,
-                      child: Text(type.name),
-                    )).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedAccountTypeId = value;
-                      });
+            final centerWidget = DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: state.selectedAccountTypeId,
+                items: [
+                  AccountType(
+                      id: 'all',
+                      name: 'All',
+                      languageCode: Localizations.localeOf(context).languageCode),
+                  ...state.accountTypes,
+                ]
+                    .map((type) => DropdownMenuItem<String>(
+                          value: type.id,
+                          child: Text(type.name,
+                              style: const TextStyle(color: Colors.white)),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    context.read<AccountsBloc>().add(FilterAccounts(value));
+                  }
+                },
+                dropdownColor: Theme.of(context).appBarTheme.backgroundColor,
+                icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+              ),
+            );
+
+            return GenericFilterAppBar(
+              totalCountText: 'Total: ${state.totalCount}',
+              centerWidget: centerWidget,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.calendar_today, color: Colors.white),
+                  tooltip: 'Select Date',
+                  onPressed: () => _selectDate(context),
+                ),
+                if (state.isHistorical)
+                  IconButton(
+                    icon: const Icon(Icons.clear, color: Colors.white),
+                    tooltip: 'Clear Date Filter',
+                    onPressed: () {
+                      context
+                          .read<AccountsBloc>()
+                          .add(ClearHistoricalBalances());
                     },
                   ),
-                );
-              }
-              return const SizedBox.shrink(); // Hide dropdown if not loaded
-            },
-          ),
+                IconButton(
+                  icon: const Icon(Icons.calculate, color: Colors.white),
+                  tooltip: 'Select Currencies for Total Balance',
+                  onPressed: () => _showCurrencySelectionDialog(context),
+                ),
+                IconButton(
+                  icon: Icon(
+                    state.sortAscending
+                        ? Icons.arrow_upward
+                        : Icons.arrow_downward,
+                    color: Colors.white,
+                  ),
+                  tooltip: 'Sort by Balance',
+                  onPressed: () {
+                    context
+                        .read<AccountsBloc>()
+                        .add(SortAccounts(!state.sortAscending));
+                  },
+                ),
+              ],
+            );
+          },
         ),
       ),
       body: BlocListener<AccountsBloc, AccountsState>(
         listener: (context, state) {
-          if (state.recentlyDeletedAccount != null) {
+          if (state is AccountsLoadSuccess &&
+              state.recentlyDeletedAccount != null) {
             ScaffoldMessenger.of(context)
               ..hideCurrentSnackBar()
               ..showSnackBar(
@@ -203,7 +230,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
           }
         },
         listenWhen: (previous, current) {
-          return previous.recentlyDeletedAccount != current.recentlyDeletedAccount &&
+          return previous is AccountsLoadSuccess &&
+              current is AccountsLoadSuccess &&
+              previous.recentlyDeletedAccount != current.recentlyDeletedAccount &&
               current.recentlyDeletedAccount != null;
         },
         child: Column(
@@ -226,9 +255,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   }
                   if (state is AccountsLoadSuccess) {
                     // Filter accounts based on selected type
-                    final filteredAccounts = _selectedAccountTypeId == 'all'
+                    final filteredAccounts = state.selectedAccountTypeId == 'all'
                         ? state.accounts
-                        : state.accounts.where((acc) => acc.accountTypeId == _selectedAccountTypeId).toList();
+                        : state.accounts
+                            .where((acc) =>
+                                acc.accountTypeId == state.selectedAccountTypeId)
+                            .toList();
 
                     if (filteredAccounts.isEmpty) {
                       return Center(
@@ -238,8 +270,14 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
                     // Apply sorting
                     filteredAccounts.sort((a, b) {
-                      final comparison = a.balance.compareTo(b.balance);
-                      return _sortAscending ? comparison : -comparison;
+                      final balanceA = state.isHistorical
+                          ? (state.historicalBalances[a.id] ?? a.balance)
+                          : a.balance;
+                      final balanceB = state.isHistorical
+                          ? (state.historicalBalances[b.id] ?? b.balance)
+                          : b.balance;
+                      final comparison = balanceA.compareTo(balanceB);
+                      return state.sortAscending ? comparison : -comparison;
                     });
 
                     return ListView.builder(
@@ -254,7 +292,14 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           );
                         }
                         final account = filteredAccounts[index];
-                        return AccountListItem(account: account);
+                        final balance = state.isHistorical
+                            ? (state.historicalBalances[account.id] ??
+                                account.balance)
+                            : account.balance;
+
+                        return AccountListItem(
+                          account: account.copyWith(balance: balance),
+                        );
                       },
                     );
                   }

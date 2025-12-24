@@ -371,7 +371,7 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
       delete(accountTypes).delete(accountType);
 }
 
-@DriftAccessor(tables: [Accounts])
+@DriftAccessor(tables: [Accounts, Transactions])
 class AccountsDao extends DatabaseAccessor<AppDatabase>
     with _$AccountsDaoMixin {
   AccountsDao(super.db);
@@ -439,6 +439,30 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     ''';
 
     return customUpdate(sql, variables: variables, updates: {accounts});
+  }
+
+  Future<Map<String, double>> getBalancesAtDate(DateTime date) async {
+    final allAccounts = await getAllAccounts();
+    final balances = <String, double>{};
+
+    for (final account in allAccounts) {
+      final currentBalance = account.balance;
+      final sumOfFutureTransactions = await attachedDatabase.transactionsDao
+          .getSumOfTransactionsAfterDate(account.id, date);
+      balances[account.id] = currentBalance - sumOfFutureTransactions;
+    }
+    return balances;
+  }
+
+  Future<int> getCountWithFilters({String? accountTypeId}) async {
+    final query = selectOnly(accounts);
+    if (accountTypeId != null && accountTypeId != 'all') {
+      query.where(accounts.accountTypeId.equals(accountTypeId));
+    }
+    final countExp = accounts.id.count();
+    query.addColumns([countExp]);
+    final count = await query.map((row) => row.read(countExp)).getSingleOrNull();
+    return count ?? 0;
   }
 }
 
@@ -521,6 +545,49 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     return query.get();
   }
 
+  Future<int> getCountWithFilters({
+    String? description,
+    double? amountFrom,
+    double? amountTo,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    String? accountId,
+    String? categoryId,
+    String? currencyCode,
+  }) async {
+    final query = selectOnly(transactions);
+
+    if (description != null) {
+      query.where(transactions.description.like('%$description%'));
+    }
+    if (amountFrom != null) {
+      query.where(transactions.amount.isBiggerOrEqualValue(amountFrom));
+    }
+    if (amountTo != null) {
+      query.where(transactions.amount.isSmallerOrEqualValue(amountTo));
+    }
+    if (dateFrom != null) {
+      query.where(transactions.date.isBiggerOrEqualValue(dateFrom));
+    }
+    if (dateTo != null) {
+      query.where(transactions.date.isSmallerOrEqualValue(dateTo));
+    }
+    if (accountId != null) {
+      query.where(transactions.accountId.equals(accountId));
+    }
+    if (categoryId != null) {
+      query.where(transactions.categoryId.equals(categoryId));
+    }
+    if (currencyCode != null) {
+      query.where(transactions.currencyCode.equals(currencyCode));
+    }
+
+    final countExp = transactions.id.count();
+    query.addColumns([countExp]);
+    final count = await query.map((row) => row.read(countExp)).getSingleOrNull();
+    return count ?? 0;
+  }
+
   Future<List<Transaction>> getTransactionsByIds(List<String> ids) {
     return (select(transactions)..where((tbl) => tbl.id.isIn(ids))).get();
   }
@@ -551,6 +618,19 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
         .map((row) => row.read(expression))
         .getSingleOrNull();
     return count ?? 0;
+  }
+
+  Future<double> getSumOfTransactionsAfterDate(
+      String accountId, DateTime date) async {
+    final amountExp = transactions.amount.total();
+    final query = selectOnly(transactions)
+      ..where(transactions.accountId.equals(accountId) &
+          transactions.date.isBiggerThanValue(date))
+      ..addColumns([amountExp]);
+
+    final result =
+        await query.map((row) => row.read(amountExp)).getSingleOrNull();
+    return result ?? 0.0;
   }
 }
 

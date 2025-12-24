@@ -135,12 +135,7 @@ class AccountListItem extends StatelessWidget {
                   },
                 ),
                 onTap: () {
-                  if (account.id != null) {
-                    context.push(
-                      AppRoutes.editAccount
-                          .replaceFirst(':id', account.id!.toString()),
-                    );
-                  }
+                  context.push(AppRoutes.editAccount, extra: account);
                 },
               ),
             );

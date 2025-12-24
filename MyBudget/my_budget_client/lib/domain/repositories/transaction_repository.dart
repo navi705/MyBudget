@@ -25,6 +25,7 @@ abstract class TransactionRepository {
       List<String> ids, DateTime newDate);
   Future<void> updateCategoryForMultipleTransactions(
       List<String> ids, String newCategoryId);
+  Future<int> getCountWithFilters({TransactionFilters? filters});
   Future<int> getAllCount();
 }
 

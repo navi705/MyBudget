@@ -66,5 +66,10 @@ List<Setting> getDefaultSettings(String deviceName) {
       value: '',
       device: deviceName,
     ),
+    Setting(
+      key: 'selected_currencies',
+      value: '',
+      device: deviceName,
+    ),
   ];
 }
