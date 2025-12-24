@@ -7,34 +7,34 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
-import 'package:my_budget_client/domain/repositories/style_repository.dart'; // Import StyleRepository
-import 'package:my_budget_client/domain/repositories/category_repository.dart'; // Import CategoryRepository
-import 'package:my_budget_client/domain/repositories/settings_repository.dart'; // Import SettingsRepository
-import 'package:my_budget_client/domain/entities/transaction_category.dart'; // Import TransactionCategory
-import 'package:my_budget_client/domain/entities/style.dart'; // Import Style entity
-import 'package:my_budget_client/domain/entities/icon_type.dart'; // Import IconType for default Style
-import 'package:my_budget_client/domain/entities/category.dart'; // Import Category entity
+import 'package:my_budget_client/domain/repositories/style_repository.dart';
+import 'package:my_budget_client/domain/repositories/category_repository.dart';
+import 'package:my_budget_client/domain/entities/transaction_category.dart';
+import 'package:my_budget_client/domain/entities/style.dart';
+import 'package:my_budget_client/domain/entities/icon_type.dart';
+import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
+import 'package:my_budget_client/core/database/app_database.dart' show Setting;
 
 part 'transactions_event.dart';
 part 'transactions_state.dart';
 
 class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   final TransactionRepository _transactionRepository;
-  final StyleRepository _styleRepository; // Injected StyleRepository
-  final CategoryRepository _categoryRepository; // Injected CategoryRepository
-  final SettingsRepository _settingsRepository; // Injected SettingsRepository
+  final StyleRepository _styleRepository;
+  final CategoryRepository _categoryRepository;
+  final SettingsBloc _settingsBloc;
 
   TransactionsBloc({
     required TransactionRepository transactionRepository,
-    required StyleRepository styleRepository, // Accept StyleRepository
-    required CategoryRepository categoryRepository, // Accept CategoryRepository
-    required SettingsRepository settingsRepository, // Accept SettingsRepository
-  }) : _transactionRepository = transactionRepository,
-       _styleRepository = styleRepository, // Assign StyleRepository
-       _categoryRepository = categoryRepository, // Assign CategoryRepository
-       _settingsRepository = settingsRepository, // Assign SettingsRepository
-       super(TransactionsState()) {
-    // UI events
+    required StyleRepository styleRepository,
+    required CategoryRepository categoryRepository,
+    required SettingsBloc settingsBloc,
+  })  : _transactionRepository = transactionRepository,
+        _styleRepository = styleRepository,
+        _categoryRepository = categoryRepository,
+        _settingsBloc = settingsBloc,
+        super(TransactionsState()) {
     on<NonDateFiltersChanged>(_onNonDateFiltersChanged);
     on<DatePeriodNavigated>(_onDatePeriodNavigated);
     on<DateStepChanged>(_onDateStepChanged);
@@ -42,16 +42,12 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     on<ActiveDateChanged>(_onActiveDateChanged);
     on<ActiveDateRangeChanged>(_onActiveDateRangeChanged);
     on<SortChanged>(_onSortChanged);
-
-    // Data loading events
-    on<InnitialLoadTransactions>(
-      _onLoadTransactionsInital,
+    on<InitialLoadTransactions>(
+      _onLoadTransactionsInitial,
       transformer: droppable(),
     );
     on<LoadTransactionsUp>(_onLoadTransactionsUp, transformer: droppable());
     on<LoadTransactionsDown>(_onLoadTransactionsDown, transformer: droppable());
-
-    // CUD events
     on<AddTransaction>(_onAddTransaction);
     on<UpdateTransaction>(_onUpdateTransaction);
     on<DeleteTransaction>(_onDeleteTransaction);
@@ -59,22 +55,21 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     on<UpdateDateForMultipleTransactions>(_onUpdateDateForMultipleTransactions);
     on<UpdateCategoryForMultipleTransactions>(
         _onUpdateCategoryForMultipleTransactions);
-
-    // Selection events
     on<ToggleSelectionMode>(_onToggleSelectionMode);
     on<ToggleTransactionSelection>(_onToggleTransactionSelection);
     on<SelectAllTransactions>(_onSelectAllTransactions);
     on<ClearSelection>(_onClearSelection);
-  }
+    on<LoadTransactionSettings>(_onLoadSettings);
 
-  // --- UI Event Handlers ---
+    add(const LoadTransactionSettings());
+  }
 
   void _onNonDateFiltersChanged(
     NonDateFiltersChanged event,
     Emitter<TransactionsState> emit,
   ) {
     emit(state.copyWith(nonDateFilters: event.filters));
-    add(const InnitialLoadTransactions());
+    add(const InitialLoadTransactions());
   }
 
   void _onDatePeriodNavigated(
@@ -104,7 +99,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         break;
     }
     emit(state.copyWith(activeDate: newDate));
-    add(const InnitialLoadTransactions());
+    add(const InitialLoadTransactions());
   }
 
   void _onDateStepChanged(
@@ -112,7 +107,11 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) {
     emit(state.copyWith(dateStep: event.dateStep, filterMode: FilterMode.date));
-    add(const InnitialLoadTransactions());
+    _settingsBloc.add(UpdateSetting(
+      'date_step_transaction',
+      event.dateStep.toString(),
+    ));
+    add(const InitialLoadTransactions());
   }
 
   void _onFilterModeChanged(
@@ -120,7 +119,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) {
     emit(state.copyWith(filterMode: event.filterMode));
-    add(const InnitialLoadTransactions());
+    add(const InitialLoadTransactions());
   }
 
   void _onActiveDateChanged(
@@ -128,7 +127,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) {
     emit(state.copyWith(activeDate: event.date, filterMode: FilterMode.date));
-    add(const InnitialLoadTransactions());
+    add(const InitialLoadTransactions());
   }
 
   void _onActiveDateRangeChanged(
@@ -141,15 +140,18 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         filterMode: FilterMode.range,
       ),
     );
-    add(const InnitialLoadTransactions());
+    add(const InitialLoadTransactions());
   }
 
-  void _onSortChanged(SortChanged event, Emitter<TransactionsState> emit) {
+  void _onSortChanged(
+      SortChanged event, Emitter<TransactionsState> emit) {
     emit(state.copyWith(sort: event.sort));
-    add(const InnitialLoadTransactions());
+    _settingsBloc.add(UpdateSetting(
+      'date_sort_transaction',
+      event.sort.toString(),
+    ));
+    add(const InitialLoadTransactions());
   }
-
-  // --- Selection Event Handlers ---
 
   void _onToggleSelectionMode(
     ToggleSelectionMode event,
@@ -193,10 +195,16 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     emit(state.copyWith(selectedTransactionIds: {}));
   }
 
-  // --- Data Loading Event Handlers ---
+  Future<void> _onLoadSettings(
+    LoadTransactionSettings event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    // TODO: Fix settings loading race condition. For now, loading with default values.
+    add(const InitialLoadTransactions());
+  }
 
-  Future<void> _onLoadTransactionsInital(
-    InnitialLoadTransactions event,
+  Future<void> _onLoadTransactionsInitial(
+    InitialLoadTransactions event,
     Emitter<TransactionsState> emit,
   ) async {
     emit(state.copyWith(status: TransactionStatus.loading));
@@ -239,7 +247,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
                   iconName: 'help',
                   colorHex: '#CCCCCC',
                   iconType: IconType.material,
-                ), // Provide a default style if none found
+                ),
           ),
         );
       }
@@ -310,7 +318,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
                   iconName: 'help',
                   colorHex: '#CCCCCC',
                   iconType: IconType.material,
-                ), // Provide a default style if none found
+                ),
           ),
         );
       }
@@ -325,7 +333,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           updatedList.length - removeCount,
           updatedList.length,
         );
-        jumpAlignment = 0.0; // 0.0 means align to top
+        jumpAlignment = 0.0;
       }
 
       emit(
@@ -395,7 +403,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
                   iconName: 'help',
                   colorHex: '#CCCCCC',
                   iconType: IconType.material,
-                ), // Provide a default style if none found
+                ),
           ),
         );
       }
@@ -429,15 +437,13 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     }
   }
 
-  // --- CUD Event Handlers ---
-
   Future<void> _onAddTransaction(
     AddTransaction event,
     Emitter<TransactionsState> emit,
   ) async {
     try {
       await _transactionRepository.addTransaction(event.transaction);
-      add(const InnitialLoadTransactions());
+      add(const InitialLoadTransactions());
     } catch (e) {
       emit(state.copyWith(status: TransactionStatus.failure));
     }
@@ -449,7 +455,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   ) async {
     try {
       await _transactionRepository.updateTransaction(event.transaction);
-      add(const InnitialLoadTransactions());
+      add(const InitialLoadTransactions());
     } catch (e) {
       emit(state.copyWith(status: TransactionStatus.failure));
     }
@@ -461,7 +467,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   ) async {
     try {
       await _transactionRepository.deleteTransaction(event.id);
-      add(const InnitialLoadTransactions());
+      add(const InitialLoadTransactions());
     } catch (e) {
       emit(state.copyWith(status: TransactionStatus.failure));
     }
@@ -479,7 +485,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       
       emit(state.copyWith(selectedTransactionIds: newSelectedIds));
 
-      add(const InnitialLoadTransactions());
+      add(const InitialLoadTransactions());
     } catch (e) {
       emit(state.copyWith(status: TransactionStatus.failure));
     }
@@ -492,7 +498,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     try {
       await _transactionRepository.updateDateForMultipleTransactions(
           event.ids, event.newDate);
-      add(const InnitialLoadTransactions());
+      add(const InitialLoadTransactions());
     } catch (e) {
       emit(state.copyWith(status: TransactionStatus.failure));
     }
@@ -505,7 +511,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     try {
       await _transactionRepository.updateCategoryForMultipleTransactions(
           event.ids, event.newCategoryId);
-      add(const InnitialLoadTransactions());
+      add(const InitialLoadTransactions());
     } catch (e) {
       emit(state.copyWith(status: TransactionStatus.failure));
     }

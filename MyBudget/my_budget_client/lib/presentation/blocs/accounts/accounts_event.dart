@@ -68,3 +68,44 @@ class LoadHistoricalBalances extends AccountsEvent {
 }
 
 class ClearHistoricalBalances extends AccountsEvent {}
+
+class ToggleSelectionMode extends AccountsEvent {
+  final bool isSelectionModeActive;
+
+  const ToggleSelectionMode(this.isSelectionModeActive);
+
+  @override
+  List<Object> get props => [isSelectionModeActive];
+}
+
+class ToggleAccountSelection extends AccountsEvent {
+  final String accountId;
+
+  const ToggleAccountSelection(this.accountId);
+
+  @override
+  List<Object> get props => [accountId];
+}
+
+class SelectAllAccounts extends AccountsEvent {}
+
+class ClearSelection extends AccountsEvent {}
+
+class DeleteMultipleAccounts extends AccountsEvent {
+  final List<String> accountIds;
+
+  const DeleteMultipleAccounts(this.accountIds);
+
+  @override
+  List<Object> get props => [accountIds];
+}
+
+class UpdateAccountTypeForMultipleAccounts extends AccountsEvent {
+  final List<String> accountIds;
+  final String accountTypeId;
+
+  const UpdateAccountTypeForMultipleAccounts(this.accountIds, this.accountTypeId);
+
+  @override
+  List<Object> get props => [accountIds, accountTypeId];
+}

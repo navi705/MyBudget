@@ -10,6 +10,8 @@ abstract class AccountsState extends Equatable {
   final Map<String, double> historicalBalances;
   final bool isHistorical;
   final int totalCount;
+  final bool isSelectionModeActive;
+  final Set<String> selectedAccountIds;
 
   const AccountsState({
     this.accounts = const [],
@@ -21,6 +23,8 @@ abstract class AccountsState extends Equatable {
     this.historicalBalances = const {},
     this.isHistorical = false,
     this.totalCount = 0,
+    this.isSelectionModeActive = false,
+    this.selectedAccountIds = const {},
   });
 
   @override
@@ -34,6 +38,8 @@ abstract class AccountsState extends Equatable {
         historicalBalances,
         isHistorical,
         totalCount,
+        isSelectionModeActive,
+        selectedAccountIds,
       ];
 }
 
@@ -52,6 +58,8 @@ class AccountsLoadSuccess extends AccountsState {
     super.historicalBalances,
     super.isHistorical,
     super.totalCount,
+    super.isSelectionModeActive,
+    super.selectedAccountIds,
   });
 
   AccountsLoadSuccess copyWith({
@@ -64,6 +72,8 @@ class AccountsLoadSuccess extends AccountsState {
     Map<String, double>? historicalBalances,
     bool? isHistorical,
     int? totalCount,
+    bool? isSelectionModeActive,
+    Set<String>? selectedAccountIds,
     bool clearRecentlyDeleted = false,
   }) {
     return AccountsLoadSuccess(
@@ -79,6 +89,9 @@ class AccountsLoadSuccess extends AccountsState {
       historicalBalances: historicalBalances ?? this.historicalBalances,
       isHistorical: isHistorical ?? this.isHistorical,
       totalCount: totalCount ?? this.totalCount,
+      isSelectionModeActive:
+          isSelectionModeActive ?? this.isSelectionModeActive,
+      selectedAccountIds: selectedAccountIds ?? this.selectedAccountIds,
     );
   }
 }

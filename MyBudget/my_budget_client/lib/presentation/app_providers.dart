@@ -29,7 +29,7 @@ class AppProviders extends StatelessWidget {
         BlocProvider(
             create: (context) =>
                 di.sl<CategoriesBloc>()..add(LoadCategories())),
-        BlocProvider(create: (context) => di.sl<TransactionsBloc>()..add(InnitialLoadTransactions())),
+        BlocProvider(create: (context) => di.sl<TransactionsBloc>()..add(const InitialLoadTransactions())),
         BlocProvider(
             create: (context) =>
                 di.sl<CurrencyConverterBloc>()..add(LoadCurrencyConverter())),

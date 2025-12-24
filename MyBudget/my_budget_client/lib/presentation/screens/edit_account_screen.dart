@@ -78,6 +78,34 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     }
   }
 
+  void _onDelete() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: Text(
+            'Are you sure you want to delete "${_initialAccount.name}"? This will also delete all associated transactions.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              context
+                  .read<AccountsBloc>()
+                  .add(DeleteAccount(_initialAccount.id!));
+              Navigator.of(dialogContext).pop();
+              context.pop();
+            },
+            child: const Text('Delete',
+                style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -85,6 +113,21 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Edit: ${_initialAccount.name}'),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'delete') {
+                _onDelete();
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'delete',
+                child: Text('Delete'),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Form(
         key: _formKey,

@@ -64,7 +64,7 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
     return BlocListener<AddEditTransactionBloc, AddEditTransactionState>(
       listener: (context, state) {
         if (state.isSaveSuccess) {
-          context.read<TransactionsBloc>().add(InnitialLoadTransactions());
+          context.read<TransactionsBloc>().add(const InitialLoadTransactions());
           Navigator.of(context).pop();
         }
 

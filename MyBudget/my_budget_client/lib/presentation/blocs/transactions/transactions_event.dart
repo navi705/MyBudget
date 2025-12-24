@@ -7,90 +7,108 @@ abstract class TransactionsEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-// Event for all other filters
+class LoadTransactions extends TransactionsEvent {
+  const LoadTransactions();
+}
+
+class InitialLoadTransactions extends TransactionsEvent {
+  final int limit;
+
+  const InitialLoadTransactions({this.limit = 50});
+
+  @override
+  List<Object?> get props => [limit];
+}
+
+class LoadTransactionsUp extends TransactionsEvent {
+  final int limit;
+
+  const LoadTransactionsUp({this.limit = 20});
+
+  @override
+  List<Object?> get props => [limit];
+}
+
+class LoadTransactionsDown extends TransactionsEvent {
+  final int limit;
+
+  const LoadTransactionsDown({this.limit = 20});
+
+  @override
+  List<Object?> get props => [limit];
+}
+
+class SearchTransaction extends TransactionsEvent {
+  final String query;
+
+  const SearchTransaction(this.query);
+
+  @override
+  List<Object?> get props => [query];
+}
+
 class NonDateFiltersChanged extends TransactionsEvent {
   final TransactionFilters filters;
 
   const NonDateFiltersChanged(this.filters);
 
   @override
-  List<Object> get props => [filters];
+  List<Object?> get props => [filters];
 }
 
-// Events for date and sort UI controls
 class DatePeriodNavigated extends TransactionsEvent {
-  final int direction; // -1 for previous, 1 for next
+  final int direction;
+
   const DatePeriodNavigated(this.direction);
+
   @override
-  List<Object> get props => [direction];
+  List<Object?> get props => [direction];
 }
 
 class DateStepChanged extends TransactionsEvent {
   final DateStep dateStep;
+
   const DateStepChanged(this.dateStep);
-  @override
-  List<Object> get props => [dateStep];
-}
 
-class FilterModeChanged extends TransactionsEvent {
-  final FilterMode filterMode;
-  const FilterModeChanged(this.filterMode);
   @override
-  List<Object> get props => [filterMode];
-}
-
-class ActiveDateChanged extends TransactionsEvent {
-  final DateTime date;
-  const ActiveDateChanged(this.date);
-  @override
-  List<Object> get props => [date];
-}
-
-class ActiveDateRangeChanged extends TransactionsEvent {
-  final DateTimeRange dateRange;
-  const ActiveDateRangeChanged(this.dateRange);
-  @override
-  List<Object> get props => [dateRange];
+  List<Object?> get props => [dateStep];
 }
 
 class SortChanged extends TransactionsEvent {
   final Sort sort;
+
   const SortChanged(this.sort);
-  @override
-  List<Object> get props => [sort];
-}
-
-
-// --- Data Loading Events ---
-
-class InnitialLoadTransactions extends TransactionsEvent {
-  final int limit;
-
-  const InnitialLoadTransactions({this.limit = 50});
 
   @override
-  List<Object> get props => [limit];
+  List<Object?> get props => [sort];
 }
 
-class LoadTransactionsUp extends TransactionsEvent {
-  final int limit;
+class FilterModeChanged extends TransactionsEvent {
+  final FilterMode filterMode;
 
-  const LoadTransactionsUp({this.limit = 50});
+  const FilterModeChanged(this.filterMode);
 
   @override
-  List<Object> get props => [limit];
+  List<Object?> get props => [filterMode];
 }
 
-class LoadTransactionsDown extends TransactionsEvent {
-  final int limit;
+class ActiveDateChanged extends TransactionsEvent {
+  final DateTime date;
 
-  const LoadTransactionsDown({this.limit = 50});
+  const ActiveDateChanged(this.date);
 
   @override
-  List<Object> get props => [limit];
+  List<Object?> get props => [date];
 }
 
-// --- CUD Events ---
+class ActiveDateRangeChanged extends TransactionsEvent {
+  final DateTimeRange dateRange;
+
+  const ActiveDateRangeChanged(this.dateRange);
+
+  @override
+  List<Object?> get props => [dateRange];
+}
 
 class AddTransaction extends TransactionsEvent {
   final Transaction transaction;
@@ -98,7 +116,7 @@ class AddTransaction extends TransactionsEvent {
   const AddTransaction(this.transaction);
 
   @override
-  List<Object> get props => [transaction];
+  List<Object?> get props => [transaction];
 }
 
 class UpdateTransaction extends TransactionsEvent {
@@ -107,7 +125,7 @@ class UpdateTransaction extends TransactionsEvent {
   const UpdateTransaction(this.transaction);
 
   @override
-  List<Object> get props => [transaction];
+  List<Object?> get props => [transaction];
 }
 
 class DeleteTransaction extends TransactionsEvent {
@@ -116,7 +134,33 @@ class DeleteTransaction extends TransactionsEvent {
   const DeleteTransaction(this.id);
 
   @override
-  List<Object> get props => [id];
+  List<Object?> get props => [id];
+}
+
+class ToggleSelectionMode extends TransactionsEvent {
+  final bool isSelectionModeActive;
+
+  const ToggleSelectionMode(this.isSelectionModeActive);
+
+  @override
+  List<Object?> get props => [isSelectionModeActive];
+}
+
+class ToggleTransactionSelection extends TransactionsEvent {
+  final String transactionId;
+
+  const ToggleTransactionSelection(this.transactionId);
+
+  @override
+  List<Object?> get props => [transactionId];
+}
+
+class SelectAllTransactions extends TransactionsEvent {
+  const SelectAllTransactions();
+}
+
+class ClearSelection extends TransactionsEvent {
+  const ClearSelection();
 }
 
 class DeleteMultipleTransactions extends TransactionsEvent {
@@ -125,7 +169,7 @@ class DeleteMultipleTransactions extends TransactionsEvent {
   const DeleteMultipleTransactions(this.ids);
 
   @override
-  List<Object> get props => [ids];
+  List<Object?> get props => [ids];
 }
 
 class UpdateDateForMultipleTransactions extends TransactionsEvent {
@@ -135,7 +179,7 @@ class UpdateDateForMultipleTransactions extends TransactionsEvent {
   const UpdateDateForMultipleTransactions(this.ids, this.newDate);
 
   @override
-  List<Object> get props => [ids, newDate];
+  List<Object?> get props => [ids, newDate];
 }
 
 class UpdateCategoryForMultipleTransactions extends TransactionsEvent {
@@ -145,33 +189,24 @@ class UpdateCategoryForMultipleTransactions extends TransactionsEvent {
   const UpdateCategoryForMultipleTransactions(this.ids, this.newCategoryId);
 
   @override
-  List<Object> get props => [ids, newCategoryId];
+  List<Object?> get props => [ids, newCategoryId];
 }
 
-// --- Selection Events ---
+class ApplyAdvancedFilter extends TransactionsEvent {
+  final TransactionFilters filters;
 
-class ToggleSelectionMode extends TransactionsEvent {
-  final bool isSelectionModeActive;
-
-  const ToggleSelectionMode(this.isSelectionModeActive);
+  const ApplyAdvancedFilter(this.filters);
 
   @override
-  List<Object> get props => [isSelectionModeActive];
+  List<Object?> get props => [filters];
 }
 
-class ToggleTransactionSelection extends TransactionsEvent {
-  final String transactionId;
+class ClearAdvancedFilter extends TransactionsEvent {
 
-  const ToggleTransactionSelection(this.transactionId);
+  const ClearAdvancedFilter();
 
-  @override
-  List<Object> get props => [transactionId];
 }
 
-class SelectAllTransactions extends TransactionsEvent {
-  const SelectAllTransactions();
-}
-
-class ClearSelection extends TransactionsEvent {
-  const ClearSelection();
+class LoadTransactionSettings extends TransactionsEvent {
+  const LoadTransactionSettings();
 }

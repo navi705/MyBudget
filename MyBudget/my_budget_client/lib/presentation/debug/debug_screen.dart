@@ -23,7 +23,7 @@ class DebugScreen extends StatelessWidget {
     context.read<DashboardBloc>().add(LoadDashboard());
     context.read<SettingsBloc>().add(LoadSettings());
     context.read<StylesBloc>().add(LoadStyles());
-    context.read<TransactionsBloc>().add(const InnitialLoadTransactions()); //TODO remove direction scroll
+    context.read<TransactionsBloc>().add(const InitialLoadTransactions()); //TODO remove direction scroll
   }
 
   @override
