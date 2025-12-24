@@ -52,6 +52,13 @@ class SettingsScreen extends StatelessWidget {
                   },
                 ),
               ),
+              ListTile(
+                leading: const Icon(Icons.import_export),
+                title: const Text('Import Data'),
+                onTap: () {
+                  context.push(AppRoutes.importScreen);
+                },
+              ),
             ],
           );
         },

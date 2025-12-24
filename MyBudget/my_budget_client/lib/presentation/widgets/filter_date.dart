@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/advanced_filter_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
 
 class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   const FilterDate({super.key});
@@ -14,7 +15,8 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   String _formatDate(TransactionsState state) {
     if (state.filterMode == FilterMode.range) {
       if (state.activeDateRange == null) return 'Select Range';
-      final start = DateFormat('dd.MM.yyyy').format(state.activeDateRange!.start);
+      final start =
+          DateFormat('dd.MM.yyyy').format(state.activeDateRange!.start);
       final end = DateFormat('dd.MM.yyyy').format(state.activeDateRange!.end);
       return '$start - $end';
     }
@@ -74,7 +76,9 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
             SimpleDialogOption(
               onPressed: () {
                 Navigator.pop(dialogContext);
-                context.read<TransactionsBloc>().add(const DateStepChanged(DateStep.day));
+                context
+                    .read<TransactionsBloc>()
+                    .add(const DateStepChanged(DateStep.day));
               },
               child: const Row(
                 children: [
@@ -87,7 +91,9 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
             SimpleDialogOption(
               onPressed: () {
                 Navigator.pop(dialogContext);
-                context.read<TransactionsBloc>().add(const DateStepChanged(DateStep.month));
+                context
+                    .read<TransactionsBloc>()
+                    .add(const DateStepChanged(DateStep.month));
               },
               child: const Row(
                 children: [
@@ -100,7 +106,9 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
             SimpleDialogOption(
               onPressed: () {
                 Navigator.pop(dialogContext);
-                context.read<TransactionsBloc>().add(const DateStepChanged(DateStep.year));
+                context
+                    .read<TransactionsBloc>()
+                    .add(const DateStepChanged(DateStep.year));
               },
               child: const Row(
                 children: [
@@ -129,7 +137,8 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
     }
   }
 
-  Future<void> _selectDateRange(BuildContext context, DateTimeRange? initialRange) async {
+  Future<void> _selectDateRange(
+      BuildContext context, DateTimeRange? initialRange) async {
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
       initialDateRange: initialRange,
@@ -142,7 +151,8 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
     }
   }
 
-  void _showDateOptionsDialog(BuildContext context, TransactionsState currentState) {
+  void _showDateOptionsDialog(
+      BuildContext context, TransactionsState currentState) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -199,104 +209,25 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: preferredSize.height,
-      color: Theme.of(context).appBarTheme.backgroundColor,
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: BlocBuilder<TransactionsBloc, TransactionsState>(
-        builder: (context, state) {
-          return Stack(
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
-                    onPressed: () => context.read<TransactionsBloc>().add(const DatePeriodNavigated(-1)),
-                  ),
-                  const Spacer(),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.tune, color: Colors.white),
-                        tooltip: 'Фильтр',
-                        onPressed: () {
-                          showAdvancedFilterDialog(context, state.nonDateFilters);
-                        },
-                      ),
-                      SizedBox(
-                        width: 40,
-                        child: TextButton(
-                          onPressed: () => _showDateStepPicker(context),
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            shape: const CircleBorder(),
-                          ),
-                          child: Text(
-                            state.dateStep.name[0].toUpperCase(),
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                      IntrinsicWidth(
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => _showDateOptionsDialog(context, state),
-                                hoverColor: Colors.white.withAlpha(25),
-                                borderRadius: BorderRadius.circular(4.0),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 12.0),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    _formatDate(state),
-                                    style: const TextStyle(
-                                        color: Colors.white, fontSize: 18),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.calendar_today, color: Colors.white),
-                              onPressed: () => _selectDate(context, state.activeDate),
-                              tooltip: 'Выбрать дату',
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.sort, color: Colors.white),
-                        tooltip: 'Сортировка',
-                        onPressed: () => _showSortOptions(context, state.sort),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 20),
-                    onPressed: () => context.read<TransactionsBloc>().add(const DatePeriodNavigated(1)),
-                  ),
-                ],
-              ),
-              Positioned(
-                left: 50,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: Text(
-                    'Всего: ${state.totalCount}',
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+    return BlocBuilder<TransactionsBloc, TransactionsState>(
+      builder: (context, state) {
+        return GenericFilterAppBar(
+          title: _formatDate(state),
+          totalCountText: 'Всего: ${state.transactions.length}',
+          dateStepText: state.dateStep.name[0].toUpperCase(),
+          onNavigatePrevious: () =>
+              context.read<TransactionsBloc>().add(const DatePeriodNavigated(-1)),
+          onNavigateNext: () =>
+              context.read<TransactionsBloc>().add(const DatePeriodNavigated(1)),
+          onOpenAdvancedFilter: () {
+            showAdvancedFilterDialog(context, state.nonDateFilters);
+          },
+          onShowSortOptions: () => _showSortOptions(context, state.sort),
+          onShowDateStepPicker: () => _showDateStepPicker(context),
+          onShowDateOptionsDialog: () => _showDateOptionsDialog(context, state),
+          onSelectDate: () => _selectDate(context, state.activeDate),
+        );
+      },
     );
   }
 }

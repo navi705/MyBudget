@@ -472,6 +472,12 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   ) async {
     try {
       await _transactionRepository.deleteMultipleTransactions(event.ids);
+      
+      final newSelectedIds = Set<String>.from(state.selectedTransactionIds);
+      newSelectedIds.removeWhere((id) => event.ids.contains(id));
+      
+      emit(state.copyWith(selectedTransactionIds: newSelectedIds));
+
       add(const InnitialLoadTransactions());
     } catch (e) {
       emit(state.copyWith(status: TransactionStatus.failure));

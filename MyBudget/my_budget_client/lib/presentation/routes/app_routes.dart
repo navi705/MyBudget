@@ -9,4 +9,5 @@ class AppRoutes {
   static const String manageAccountStyles = '/settings/styles';
   static const String editAccountStyle = '/settings/styles/edit/:id';
   static const String addEditTransaction = '/transaction';
+  static const String importScreen = '/import';
 }

@@ -10,6 +10,7 @@ import 'package:my_budget_client/presentation/screens/categories_screen.dart';
 import 'package:my_budget_client/presentation/screens/dashboard_screen.dart';
 import 'package:my_budget_client/presentation/screens/edit_account_screen.dart';
 import 'package:my_budget_client/presentation/screens/edit_style_screen.dart';
+import 'package:my_budget_client/presentation/screens/import_screen.dart';
 import 'package:my_budget_client/presentation/screens/main_screen.dart';
 import 'package:my_budget_client/presentation/screens/manage_styles_screen.dart';
 import 'package:my_budget_client/presentation/screens/settings_screen.dart';
@@ -100,6 +101,12 @@ final GoRouter router = GoRouter(
         return AddEditTransactionScreen(
           transaction: transaction,
         );
+      },
+    ),
+    GoRoute(
+      path: AppRoutes.importScreen,
+      builder: (context, state) {
+        return const ImportScreen();
       },
     ),
   ],
