@@ -104,6 +104,7 @@ class Accounts extends Table {
       text().references(CurrencyDesignations, #id)();
   TextColumn get styleId => text().nullable().references(Styles, #id)();
   TextColumn get accountTypeId => text().references(AccountTypes, #id)();
+  DateTimeColumn get creationDate => dateTime().clientDefault(() => DateTime.now())();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -446,10 +447,14 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     final balances = <String, double>{};
 
     for (final account in allAccounts) {
-      final currentBalance = account.balance;
-      final sumOfFutureTransactions = await attachedDatabase.transactionsDao
-          .getSumOfTransactionsAfterDate(account.id, date);
-      balances[account.id] = currentBalance - sumOfFutureTransactions;
+      if (date.isBefore(account.creationDate)) {
+        balances[account.id] = 0.0;
+      } else {
+        final currentBalance = account.balance;
+        final sumOfFutureTransactions = await attachedDatabase.transactionsDao
+            .getSumOfTransactionsAfterDate(account.id, date);
+        balances[account.id] = currentBalance - sumOfFutureTransactions;
+      }
     }
     return balances;
   }
@@ -632,10 +637,11 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
 
   Future<double> getSumOfTransactionsAfterDate(
       String accountId, DateTime date) async {
+    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
     final amountExp = transactions.amount.total();
     final query = selectOnly(transactions)
       ..where(transactions.accountId.equals(accountId) &
-          transactions.date.isBiggerThanValue(date))
+          transactions.date.isBiggerThanValue(endOfDay))
       ..addColumns([amountExp]);
 
     final result =
@@ -730,7 +736,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration {
@@ -740,11 +746,9 @@ class AppDatabase extends _$AppDatabase {
         await _seedData(this);
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        for (final table in allTables) {
-          await m.deleteTable(table.actualTableName);
-          await m.createTable(table);
+        if (from == 6) {
+          await m.addColumn(accounts, accounts.creationDate);
         }
-        await _seedData(this);
       },
     );
   }

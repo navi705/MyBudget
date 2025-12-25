@@ -16,6 +16,7 @@ abstract class AccountsState extends Equatable {
   final Set<String> selectedAccountIds;
   final DateStep dateStep;
   final DateTime activeDate;
+  final int limit;
 
   AccountsState({
     this.accounts = const [],
@@ -31,6 +32,7 @@ abstract class AccountsState extends Equatable {
     this.selectedAccountIds = const {},
     this.dateStep = DateStep.month,
     DateTime? activeDate,
+    this.limit = 500,
   }) : activeDate = activeDate ?? DateTime.now();
 
   @override
@@ -48,6 +50,7 @@ abstract class AccountsState extends Equatable {
         selectedAccountIds,
         dateStep,
         activeDate,
+        limit,
       ];
 }
 
@@ -70,6 +73,7 @@ class AccountsLoadSuccess extends AccountsState {
     super.selectedAccountIds,
     super.dateStep,
     super.activeDate,
+    super.limit,
   });
 
   AccountsLoadSuccess copyWith({
@@ -86,6 +90,7 @@ class AccountsLoadSuccess extends AccountsState {
     Set<String>? selectedAccountIds,
     DateStep? dateStep,
     DateTime? activeDate,
+    int? limit,
     bool clearRecentlyDeleted = false,
   }) {
     return AccountsLoadSuccess(
@@ -106,6 +111,7 @@ class AccountsLoadSuccess extends AccountsState {
       selectedAccountIds: selectedAccountIds ?? this.selectedAccountIds,
       dateStep: dateStep ?? this.dateStep,
       activeDate: activeDate ?? this.activeDate,
+      limit: limit ?? this.limit,
     );
   }
 }

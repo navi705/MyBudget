@@ -217,7 +217,8 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                 currencyCode: _selectedCurrencyCode!,
                 currencyDesignationId: _selectedCurrencyDesignationId!,
                 styleId: _selectedStyleId,
-                accountTypeId: _selectedAccountTypeId!, // ADDED
+                accountTypeId: _selectedAccountTypeId!,
+                creationDate: DateTime.now(),
               );
               context.read<AccountsBloc>().add(AddAccount(newAccount));
               Navigator.of(context).pop();

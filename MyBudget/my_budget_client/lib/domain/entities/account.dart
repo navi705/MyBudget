@@ -9,6 +9,7 @@ class Account extends Equatable {
   final String currencyDesignationId;
   final String? styleId;
   final String accountTypeId;
+  final DateTime creationDate;
 
   const Account({
     this.id,
@@ -19,30 +20,8 @@ class Account extends Equatable {
     required this.currencyDesignationId,
     this.styleId,
     required this.accountTypeId,
+    required this.creationDate,
   });
-
-  Account copyWith({
-    String? id,
-    String? name,
-    String? description,
-    double? balance,
-    String? currencyCode,
-    String? currencyDesignationId,
-    String? styleId,
-    String? accountTypeId,
-  }) {
-    return Account(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      balance: balance ?? this.balance,
-      currencyCode: currencyCode ?? this.currencyCode,
-      currencyDesignationId:
-          currencyDesignationId ?? this.currencyDesignationId,
-      styleId: styleId ?? this.styleId,
-      accountTypeId: accountTypeId ?? this.accountTypeId,
-    );
-  }
 
   @override
   List<Object?> get props => [
@@ -54,5 +33,31 @@ class Account extends Equatable {
         currencyDesignationId,
         styleId,
         accountTypeId,
+        creationDate,
       ];
+
+  Account copyWith({
+    String? id,
+    String? name,
+    String? description,
+    double? balance,
+    String? currencyCode,
+    String? currencyDesignationId,
+    String? styleId,
+    String? accountTypeId,
+    DateTime? creationDate,
+  }) {
+    return Account(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      balance: balance ?? this.balance,
+      currencyCode: currencyCode ?? this.currencyCode,
+      currencyDesignationId:
+          currencyDesignationId ?? this.currencyDesignationId,
+      styleId: styleId ?? this.styleId,
+      accountTypeId: accountTypeId ?? this.accountTypeId,
+      creationDate: creationDate ?? this.creationDate,
+    );
+  }
 }

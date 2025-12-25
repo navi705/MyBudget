@@ -1,12 +1,11 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
+import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
+import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
-import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
-import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart'; // Added
 import 'package:my_budget_client/domain/entities/currency_designation.dart'; // Added
 
@@ -25,20 +24,6 @@ class AccountListItem extends StatelessWidget {
     this.onLongPress,
     this.onSecondaryTapUp,
   });
-
-  // Helper function to map icon names to IconData
-  IconData _getIconData(String? iconName) {
-    switch (iconName) {
-      case 'wallet':
-        return Icons.account_balance_wallet;
-      case 'savings':
-        return Icons.savings;
-      case 'credit_card':
-        return Icons.credit_card;
-      default:
-        return Icons.account_balance; // Default icon
-    }
-  }
 
   // Helper function to parse hex color strings
   Color _getColorFromHex(String? hexColor) {
@@ -71,8 +56,17 @@ class AccountListItem extends StatelessWidget {
                   .firstWhereOrNull((s) => s.id == account.styleId);
             }
 
-            final color = _getColorFromHex(style?.colorHex);
-            final iconData = _getIconData(style?.iconName);
+            final finalStyle = style ??
+                Style(
+                  id: 'default',
+                  name: 'Default',
+                  iconName: 'account_balance',
+                  colorHex: '#808080',
+                  iconType: IconType.material,
+                );
+
+            final color = _getColorFromHex(finalStyle.colorHex);
+            final iconWidget = IconUtils.getIconWidget(finalStyle);
 
             // Determine balance color
             Color balanceColor;
@@ -97,15 +91,15 @@ class AccountListItem extends StatelessWidget {
                 ),
                 color: isSelected ? Theme.of(context).highlightColor : null,
                 child: ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20.0, vertical: 10.0),
                   leading: Container(
                     padding: const EdgeInsets.all(10.0),
                     decoration: BoxDecoration(
                       color: color.withAlpha((255 * 0.15).round()),
                       borderRadius: BorderRadius.circular(12.0),
                     ),
-                    child: Icon(iconData, color: color, size: 30.0),
+                    child: iconWidget,
                   ),
                   title: Text(
                     account.name,

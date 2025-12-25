@@ -66,6 +66,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
         currencyDesignationId: _selectedCurrencyDesignationId!,
         styleId: _selectedStyleId,
         accountTypeId: _selectedAccountTypeId!, // ADDED
+        creationDate: _initialAccount.creationDate,
       );
 
       // Only dispatch an update if the account has actually changed.

@@ -133,7 +133,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     try {
       final accounts = await _accountRepository.getAccountsPaginated(
         offset: currentState.accounts.length,
-        limit: 50,
+        limit: currentState.limit,
       );
       if (accounts.isEmpty) {
         emit(currentState.copyWith(hasReachedMax: true));

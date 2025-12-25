@@ -109,6 +109,7 @@ class DebugDataSeeder {
         currencyDesignationId: designation.id,
         accountTypeId: accountType.id,
         styleId: style.id,
+        creationDate: DateTime.now().subtract(Duration(days: _random.nextInt(1825))),
       );
       accountsForInsert.add(account);
     }

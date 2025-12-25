@@ -283,9 +283,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
       return Scaffold(
 
         appBar: PreferredSize(
-
           preferredSize: const Size.fromHeight(kToolbarHeight),
-
           child: BlocBuilder<AccountsBloc, AccountsState>(
             builder: (context, state) {
               if (state is! AccountsLoadSuccess) {
@@ -302,118 +300,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 );
               }
 
-              final dateNavWidget = _DateNavigationWidget(
-                activeDate: state.activeDate,
-                dateStep: state.dateStep,
-                onDateStepChanged: (step) {
-                  if (step != null) {
-                    bloc.add(DateStepChanged(step));
-                  }
-                },
-              );
-
-              final accountTypeDropdown = DropdownButtonHideUnderline(
-                child: Focus(
-                  canRequestFocus: false,
-                  child: DropdownButton<String>(
-                    focusNode: _dropdownFocusNode,
-                    value: state.selectedAccountTypeId,
-                    items: [
-                      AccountType(
-                          id: 'all',
-                          name: 'All',
-                          languageCode:
-                              Localizations.localeOf(context).languageCode),
-                      ...state.accountTypes,
-                    ]
-                        .map((type) => DropdownMenuItem<String>(
-                              value: type.id,
-                              child: Text(type.name,
-                                  style: const TextStyle(color: Colors.white)),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        bloc.add(FilterAccounts(value));
-                      }
-                      _dropdownFocusNode.unfocus();
-                    },
-                    dropdownColor:
-                        Theme.of(context).appBarTheme.backgroundColor,
-                    icon:
-                        const Icon(Icons.arrow_drop_down, color: Colors.white),
-                  ),
-                ),
-              );
-
-              final centerWidget = Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  dateNavWidget,
-                  const SizedBox(width: 24),
-                  accountTypeDropdown,
-                ],
-              );
-
-              return GenericFilterAppBar(
-                onNavigatePrevious: () =>
-                    bloc.add(const DatePeriodNavigated(-1)),
-                onNavigateNext: () => bloc.add(const DatePeriodNavigated(1)),
-                centerWidget: centerWidget,
-                totalCountText:
-                    'Total: ${state.totalCount}', // This is not shown when navigation is active
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.calendar_today, color: Colors.white),
-                    tooltip: 'Select Date',
-                    onPressed: () async {
-                      final DateTime? picked = await showDatePicker(
-                        context: context,
-                        initialDate: state.activeDate,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2101),
-                      );
-                      if (picked != null && context.mounted) {
-                        context
-                            .read<AccountsBloc>()
-                            .add(ActiveDateChanged(picked));
-                      }
-                    },
-                  ),
-                  if (state.isHistorical)
-                    IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.white),
-                      tooltip: 'Clear Date Filter',
-                      onPressed: () {
-                        context
-                            .read<AccountsBloc>()
-                            .add(ClearHistoricalBalances());
-                      },
-                    ),
-                  IconButton(
-                    icon: const Icon(Icons.calculate, color: Colors.white),
-                    tooltip: 'Select Currencies for Total Balance',
-                    onPressed: () => _showCurrencySelectionDialog(context),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      state.sortAscending
-                          ? Icons.arrow_upward
-                          : Icons.arrow_downward,
-                      color: Colors.white,
-                    ),
-                    tooltip: 'Sort by Balance',
-                    onPressed: () {
-                      context
-                          .read<AccountsBloc>()
-                          .add(SortAccounts(!state.sortAscending));
-                    },
-                  ),
-                ],
-              );
+              return _AccountsDateAppBar(state: state);
             },
           ),
-
         ),
 
         body: BlocListener<AccountsBloc, AccountsState>(
@@ -950,5 +839,210 @@ class _AccountsScreenState extends State<AccountsScreen> {
     }
 
   }
+
+class _AccountsDateAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final AccountsLoadSuccess state;
+
+  const _AccountsDateAppBar({required this.state});
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  void _showDateStepPicker(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return SimpleDialog(
+          title: const Text('Select Step'),
+          children: <Widget>[
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                context
+                    .read<AccountsBloc>()
+                    .add(const DateStepChanged(DateStep.day));
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.calendar_view_day),
+                  SizedBox(width: 10),
+                  Text('Day'),
+                ],
+              ),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                context
+                    .read<AccountsBloc>()
+                    .add(const DateStepChanged(DateStep.month));
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.calendar_view_month),
+                  SizedBox(width: 10),
+                  Text('Month'),
+                ],
+              ),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                context
+                    .read<AccountsBloc>()
+                    .add(const DateStepChanged(DateStep.year));
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.calendar_view_week),
+                  SizedBox(width: 10),
+                  Text('Year'),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _formatDate(BuildContext context, AccountsLoadSuccess state) {
+    switch (state.dateStep) {
+      case DateStep.day:
+        return MaterialLocalizations.of(context).formatShortDate(state.activeDate);
+      case DateStep.month:
+        return MaterialLocalizations.of(context).formatMonthYear(state.activeDate);
+      case DateStep.year:
+        return state.activeDate.year.toString();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bloc = context.read<AccountsBloc>();
+    final accountTypeDropdown = DropdownButtonHideUnderline(
+      child: Focus(
+        canRequestFocus: false,
+        child: DropdownButton<String>(
+          value: state.selectedAccountTypeId,
+          items: [
+            AccountType(
+                id: 'all',
+                name: 'All',
+                languageCode:
+                    Localizations.localeOf(context).languageCode),
+            ...state.accountTypes,
+          ]
+              .map((type) => DropdownMenuItem<String>(
+                    value: type.id,
+                    child: Text(type.name,
+                        style: const TextStyle(color: Colors.white)),
+                  ))
+              .toList(),
+          onChanged: (value) {
+            if (value != null) {
+              bloc.add(FilterAccounts(value));
+            }
+          },
+          dropdownColor:
+              Theme.of(context).appBarTheme.backgroundColor,
+          icon:
+              const Icon(Icons.arrow_drop_down, color: Colors.white),
+        ),
+      ),
+    );
+
+    final centerWidget = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 40,
+          child: TextButton(
+            onPressed: () => _showDateStepPicker(context),
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              shape: const CircleBorder(),
+            ),
+            child: Text(
+              state.dateStep.name[0].toUpperCase(),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+        InkWell(
+          onTap: () async {
+             final DateTime? picked = await showDatePicker(
+              context: context,
+              initialDate: state.activeDate,
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2101),
+            );
+            if (picked != null && context.mounted) {
+              context
+                  .read<AccountsBloc>()
+                  .add(ActiveDateChanged(picked));
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12.0),
+            alignment: Alignment.center,
+            child: Text(
+              _formatDate(context, state),
+              style: const TextStyle(color: Colors.white, fontSize: 18),
+            ),
+          ),
+        ),
+        const SizedBox(width: 24),
+        accountTypeDropdown,
+      ],
+    );
+
+    return GenericFilterAppBar(
+      onNavigatePrevious: () => bloc.add(const DatePeriodNavigated(-1)),
+      onNavigateNext: () => bloc.add(const DatePeriodNavigated(1)),
+      centerWidget: centerWidget,
+      totalCountText: 'Total: ${state.totalCount}',
+      actions: [
+        if (state.isHistorical)
+          IconButton(
+            icon: const Icon(Icons.clear, color: Colors.white),
+            tooltip: 'Clear Date Filter',
+            onPressed: () {
+              context
+                  .read<AccountsBloc>()
+                  .add(ClearHistoricalBalances());
+            },
+          ),
+        IconButton(
+          icon: const Icon(Icons.calculate, color: Colors.white),
+          tooltip: 'Select Currencies for Total Balance',
+          onPressed: () {
+            (context as Element).findAncestorStateOfType<_AccountsScreenState>()!
+                ._showCurrencySelectionDialog(context);
+          }
+        ),
+        IconButton(
+          icon: Icon(
+            state.sortAscending
+                ? Icons.arrow_upward
+                : Icons.arrow_downward,
+            color: Colors.white,
+          ),
+          tooltip: 'Sort by Balance',
+          onPressed: () {
+            context
+                .read<AccountsBloc>()
+                .add(SortAccounts(!state.sortAscending));
+          },
+        ),
+      ],
+    );
+  }
+}
+
 
   

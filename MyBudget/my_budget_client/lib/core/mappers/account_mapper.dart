@@ -13,6 +13,7 @@ extension AccountMapper on drift.DbAccount {
       currencyDesignationId: currencyDesignationId,
       styleId: styleId,
       accountTypeId: accountTypeId,
+      creationDate: creationDate,
     );
   }
 }
@@ -32,6 +33,7 @@ extension AccountCompanionMapper on domain_account.Account {
           ? const Value.absent()
           : Value(styleId),
       accountTypeId: Value(accountTypeId),
+      creationDate: Value(creationDate),
     );
   }
 }
