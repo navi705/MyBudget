@@ -109,3 +109,30 @@ class UpdateAccountTypeForMultipleAccounts extends AccountsEvent {
   @override
   List<Object> get props => [accountIds, accountTypeId];
 }
+
+class DatePeriodNavigated extends AccountsEvent {
+  final int direction;
+
+  const DatePeriodNavigated(this.direction);
+
+  @override
+  List<Object> get props => [direction];
+}
+
+class DateStepChanged extends AccountsEvent {
+  final DateStep dateStep;
+
+  const DateStepChanged(this.dateStep);
+
+  @override
+  List<Object> get props => [dateStep];
+}
+
+class ActiveDateChanged extends AccountsEvent {
+  final DateTime date;
+
+  const ActiveDateChanged(this.date);
+
+  @override
+  List<Object> get props => [date];
+}

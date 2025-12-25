@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:my_budget_client/domain/entities/category_with_total.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 
 void showCategoryPickerDialog(BuildContext context,

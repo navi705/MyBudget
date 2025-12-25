@@ -26,52 +26,42 @@ class GenericFilterAppBar extends StatelessWidget implements PreferredSizeWidget
     return Container(
       height: preferredSize.height,
       color: Theme.of(context).appBarTheme.backgroundColor,
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Stack(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              if (hasNavigation)
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
-                  onPressed: onNavigatePrevious,
-                )
-              else
-                const SizedBox(width: 48), // Placeholder for alignment
+          // Left side: Total count or back navigation
+          if (!hasNavigation)
+            Text(
+              totalCountText,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
+              onPressed: onNavigatePrevious,
+            ),
 
-              Expanded(child: centerWidget),
-
-              if (hasNavigation)
-                IconButton(
-                  icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 20),
-                  onPressed: onNavigateNext,
-                )
-              else
-                const SizedBox(width: 48), // Placeholder for alignment
-            ],
-          ),
-          Positioned(
-            left: hasNavigation ? 50 : 16,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: Text(
-                totalCountText,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
-              ),
+          // Center: Dropdown
+          Expanded(
+            child: Align(
+              alignment: Alignment.center,
+              child: centerWidget,
             ),
           ),
-          if (actions != null)
-            Positioned(
-              right: hasNavigation ? 50 : 16,
-              top: 0,
-              bottom: 0,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: actions!,
-              ),
-            ),
+
+          // Right side: Actions or forward navigation
+          if (actions != null && actions!.isNotEmpty)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: actions!,
+            )
+          else if (hasNavigation)
+            IconButton(
+              icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 20),
+              onPressed: onNavigateNext,
+            )
+          else
+            const SizedBox(width: 48), // Placeholder to balance the app bar
         ],
       ),
     );

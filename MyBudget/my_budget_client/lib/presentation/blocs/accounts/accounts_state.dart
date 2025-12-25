@@ -1,5 +1,7 @@
 part of 'accounts_bloc.dart';
 
+enum DateStep { day, month, year }
+
 abstract class AccountsState extends Equatable {
   final List<Account> accounts;
   final List<AccountType> accountTypes;
@@ -12,8 +14,10 @@ abstract class AccountsState extends Equatable {
   final int totalCount;
   final bool isSelectionModeActive;
   final Set<String> selectedAccountIds;
+  final DateStep dateStep;
+  final DateTime activeDate;
 
-  const AccountsState({
+  AccountsState({
     this.accounts = const [],
     this.accountTypes = const [],
     this.recentlyDeletedAccount,
@@ -25,7 +29,9 @@ abstract class AccountsState extends Equatable {
     this.totalCount = 0,
     this.isSelectionModeActive = false,
     this.selectedAccountIds = const {},
-  });
+    this.dateStep = DateStep.month,
+    DateTime? activeDate,
+  }) : activeDate = activeDate ?? DateTime.now();
 
   @override
   List<Object?> get props => [
@@ -40,6 +46,8 @@ abstract class AccountsState extends Equatable {
         totalCount,
         isSelectionModeActive,
         selectedAccountIds,
+        dateStep,
+        activeDate,
       ];
 }
 
@@ -48,7 +56,7 @@ class AccountsInitial extends AccountsState {}
 class AccountsLoadInProgress extends AccountsState {}
 
 class AccountsLoadSuccess extends AccountsState {
-  const AccountsLoadSuccess({
+  AccountsLoadSuccess({
     super.accounts,
     super.accountTypes,
     super.recentlyDeletedAccount,
@@ -60,6 +68,8 @@ class AccountsLoadSuccess extends AccountsState {
     super.totalCount,
     super.isSelectionModeActive,
     super.selectedAccountIds,
+    super.dateStep,
+    super.activeDate,
   });
 
   AccountsLoadSuccess copyWith({
@@ -74,6 +84,8 @@ class AccountsLoadSuccess extends AccountsState {
     int? totalCount,
     bool? isSelectionModeActive,
     Set<String>? selectedAccountIds,
+    DateStep? dateStep,
+    DateTime? activeDate,
     bool clearRecentlyDeleted = false,
   }) {
     return AccountsLoadSuccess(
@@ -92,6 +104,8 @@ class AccountsLoadSuccess extends AccountsState {
       isSelectionModeActive:
           isSelectionModeActive ?? this.isSelectionModeActive,
       selectedAccountIds: selectedAccountIds ?? this.selectedAccountIds,
+      dateStep: dateStep ?? this.dateStep,
+      activeDate: activeDate ?? this.activeDate,
     );
   }
 }

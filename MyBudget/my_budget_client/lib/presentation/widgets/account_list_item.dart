@@ -12,8 +12,19 @@ import 'package:my_budget_client/domain/entities/currency_designation.dart'; // 
 
 class AccountListItem extends StatelessWidget {
   final Account account;
+  final bool isSelected;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final Function(TapUpDetails)? onSecondaryTapUp;
 
-  const AccountListItem({super.key, required this.account});
+  const AccountListItem({
+    super.key,
+    required this.account,
+    this.isSelected = false,
+    this.onTap,
+    this.onLongPress,
+    this.onSecondaryTapUp,
+  });
 
   // Helper function to map icon names to IconData
   IconData _getIconData(String? iconName) {
@@ -73,70 +84,44 @@ class AccountListItem extends StatelessWidget {
               balanceColor = Colors.grey[600]!; // Default or specific for zero
             }
 
-            return Card(
-              elevation: 2.0,
-              margin:
-                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.0),
-              ),
-              child: ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-                leading: Container(
-                  padding: const EdgeInsets.all(10.0),
-                  decoration: BoxDecoration(
-                    color: color.withAlpha((255 * 0.15).round()),
-                    borderRadius: BorderRadius.circular(12.0),
+            return GestureDetector(
+              onTap: onTap,
+              onLongPress: onLongPress,
+              onSecondaryTapUp: onSecondaryTapUp,
+              child: Card(
+                elevation: 2.0,
+                margin:
+                    const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+                color: isSelected ? Theme.of(context).highlightColor : null,
+                child: ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+                  leading: Container(
+                    padding: const EdgeInsets.all(10.0),
+                    decoration: BoxDecoration(
+                      color: color.withAlpha((255 * 0.15).round()),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    child: Icon(iconData, color: color, size: 30.0),
                   ),
-                  child: Icon(iconData, color: color, size: 30.0),
-                ),
-                title: Text(
-                  account.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                  title: Text(
+                    account.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '${designation?.value ?? ''} ${account.balance.toStringAsFixed(2)}', // Updated to use designation.value
+                    style: TextStyle(
+                      color: balanceColor, // Apply determined color
+                      fontSize: 14,
+                    ),
                   ),
                 ),
-                subtitle: Text(
-                  '${designation?.value ?? ''} ${account.balance.toStringAsFixed(2)}', // Updated to use designation.value
-                  style: TextStyle(
-                    color: balanceColor, // Apply determined color
-                    fontSize: 14,
-                  ),
-                ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.redAccent),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (dialogContext) => AlertDialog(
-                        title: const Text('Delete Account'),
-                        content: Text(
-                            'Are you sure you want to delete "${account.name}"? This will also delete all associated transactions.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              context
-                                  .read<AccountsBloc>()
-                                  .add(DeleteAccount(account.id!));
-                              Navigator.of(dialogContext).pop();
-                            },
-                            child: const Text('Delete',
-                                style: TextStyle(color: Colors.redAccent)),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                onTap: () {
-                  context.push(AppRoutes.editAccount, extra: account);
-                },
               ),
             );
           },

@@ -30,6 +30,63 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     on<DeleteMultipleAccounts>(_onDeleteMultipleAccounts);
     on<UpdateAccountTypeForMultipleAccounts>(
         _onUpdateAccountTypeForMultipleAccounts);
+    on<DatePeriodNavigated>(_onDatePeriodNavigated);
+    on<DateStepChanged>(_onDateStepChanged);
+    on<ActiveDateChanged>(_onActiveDateChanged);
+  }
+
+  void _onDatePeriodNavigated(
+    DatePeriodNavigated event,
+    Emitter<AccountsState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! AccountsLoadSuccess) return;
+
+    DateTime newDate;
+    switch (currentState.dateStep) {
+      case DateStep.day:
+        newDate = currentState.activeDate.add(Duration(days: event.direction));
+        break;
+      case DateStep.month:
+        newDate = DateTime(
+          currentState.activeDate.year,
+          currentState.activeDate.month + event.direction,
+          currentState.activeDate.day,
+        );
+        break;
+      case DateStep.year:
+        newDate = DateTime(
+          currentState.activeDate.year + event.direction,
+          currentState.activeDate.month,
+          currentState.activeDate.day,
+        );
+        break;
+    }
+    emit(currentState.copyWith(activeDate: newDate));
+    add(LoadHistoricalBalances(newDate));
+  }
+
+  void _onDateStepChanged(
+    DateStepChanged event,
+    Emitter<AccountsState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is AccountsLoadSuccess) {
+      emit(currentState.copyWith(dateStep: event.dateStep));
+      // Optionally trigger a reload if changing the step should refetch/recalculate
+      add(LoadHistoricalBalances(currentState.activeDate));
+    }
+  }
+
+  void _onActiveDateChanged(
+    ActiveDateChanged event,
+    Emitter<AccountsState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is AccountsLoadSuccess) {
+      emit(currentState.copyWith(activeDate: event.date));
+      add(LoadHistoricalBalances(event.date));
+    }
   }
 
   Future<void> _onLoadAccounts(
