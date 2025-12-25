@@ -1,61 +1,48 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_budget_client/core/di/injection_container.dart';
+import 'package:my_budget_client/domain/entities/account.dart';
+import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/domain/repositories/account_repository.dart';
+import 'package:my_budget_client/domain/repositories/category_repository.dart';
+import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+import 'package:my_budget_client/presentation/blocs/import/import_bloc.dart';
 
-class ImportScreen extends StatefulWidget {
+class ImportScreen extends StatelessWidget {
   const ImportScreen({super.key});
 
   @override
-  State<ImportScreen> createState() => _ImportScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => ImportBloc(
+        accountRepository: sl<AccountRepository>(),
+        categoryRepository: sl<CategoryRepository>(),
+        transactionRepository: sl<TransactionRepository>(),
+      ),
+      child: const _ImportView(),
+    );
+  }
 }
 
-class _ImportScreenState extends State<ImportScreen> {
-  List<PlatformFile> _selectedFiles = [];
+class _ImportView extends StatefulWidget {
+  const _ImportView();
 
-  Future<void> _pickCsvFiles() async {
+  @override
+  State<_ImportView> createState() => _ImportViewState();
+}
+
+class _ImportViewState extends State<_ImportView> {
+  Future<void> _startOneMoneyImport() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
       allowMultiple: true,
     );
 
-    if (result != null) {
-      setState(() {
-        // Add only new files, preventing duplicates
-        for (var file in result.files) {
-          if (!_selectedFiles.any((existing) => existing.path == file.path)) {
-            _selectedFiles.add(file);
-          }
-        }
-      });
-    } else {
-      debugPrint('No file selected.');
+    if (result != null && result.files.isNotEmpty && mounted) {
+      context.read<ImportBloc>().add(StartImportProcess(result.files));
     }
-  }
-
-  void _removeFile(int index) {
-    setState(() {
-      _selectedFiles.removeAt(index);
-    });
-  }
-
-  void _startImport() {
-    // TODO: Implement the import logic in a later step.
-    final filePaths = _selectedFiles.map((f) => f.path!).toList();
-    debugPrint('Starting import for: $filePaths');
-    // For now, just show a confirmation dialog.
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Import Started'),
-        content: Text('Processing ${_selectedFiles.length} file(s). This will be implemented in the next step.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -63,62 +50,376 @@ class _ImportScreenState extends State<ImportScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Import Data'),
+        actions: [
+          BlocBuilder<ImportBloc, ImportState>(
+            builder: (context, state) {
+              if (state.step != ImportStep.idle) {
+                return IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Start Over',
+                  onPressed: () {
+                    context.read<ImportBloc>().add(ResetImport());
+                  },
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            OutlinedButton.icon(
-              icon: const Icon(Icons.file_upload_outlined),
-              label: const Text('Select CSV Files'),
-              onPressed: _pickCsvFiles,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                textStyle: Theme.of(context).textTheme.titleMedium,
+      body: BlocBuilder<ImportBloc, ImportState>(
+        builder: (context, state) {
+          switch (state.step) {
+            case ImportStep.idle:
+              return _buildFileSelectionStep();
+            case ImportStep.parsing:
+              return const Center(
+                  child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Parsing CSV files...'),
+                ],
+              ));
+            case ImportStep.mappingAccounts:
+              return _buildAccountMappingStep(state);
+            case ImportStep.mappingCategories:
+              return _buildCategoryMappingStep(state);
+            case ImportStep.resolvingDuplicates:
+              return _buildDuplicateResolutionStep(state);
+            case ImportStep.readyToImport:
+              return _buildReadyToImportStep(state);
+            case ImportStep.importing:
+              return _buildImportingStep(state);
+            case ImportStep.complete:
+              return _buildCompletionStep(state);
+            case ImportStep.failure:
+              return Center(child: Text('Error: ${state.errorMessage}'));
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildFileSelectionStep() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.attach_money),
+            label: const Text('Import from OneMoney'),
+            onPressed: _startOneMoneyImport,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text(
+                "Select one or more OneMoney CSV export files to begin.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
               ),
             ),
-            const SizedBox(height: 16),
-            const Divider(),
-            const Text(
-              'Selected Files:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: _selectedFiles.isEmpty
-                  ? const Center(child: Text('No files selected.'))
-                  : ListView.builder(
-                      itemCount: _selectedFiles.length,
-                      itemBuilder: (context, index) {
-                        final file = _selectedFiles[index];
-                        return Card(
-                          child: ListTile(
-                            leading: const Icon(Icons.description_outlined),
-                            title: Text(file.name, overflow: TextOverflow.ellipsis),
-                            subtitle: Text(
-                              '${(file.size / 1024).toStringAsFixed(2)} KB',
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                              onPressed: () => _removeFile(index),
-                            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccountMappingStep(ImportState state) {
+    final unmapped = state.unmappedAccounts.toList();
+    return ListView.builder(
+      itemCount: unmapped.length,
+      itemBuilder: (context, index) {
+        final accountName = unmapped[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('New account found: "$accountName"',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () async {
+                        final existingAccounts =
+                            await sl<AccountRepository>().getAccounts();
+                        if (!mounted) return;
+                        final selectedId = await showDialog<String>(
+                          context: context,
+                          builder: (_) => _MappingDialog<Account>(
+                            title: 'Map "$accountName" to...',
+                            items: existingAccounts,
+                            itemBuilder: (account) => Text(account.name),
                           ),
                         );
+                        if (selectedId != null && mounted) {
+                          context
+                              .read<ImportBloc>()
+                              .add(MapAccount(accountName, selectedId));
+                        }
                       },
+                      child: const Text('Map to Existing'),
                     ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        context
+                            .read<ImportBloc>()
+                            .add(MapAccount(accountName, 'new'));
+                      },
+                      child: const Text('Create New'),
+                    ),
+                  ],
+                )
+              ],
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCategoryMappingStep(ImportState state) {
+    final unmapped = state.unmappedCategories.toList();
+    return ListView.builder(
+      itemCount: unmapped.length,
+      itemBuilder: (context, index) {
+        final categoryName = unmapped[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('New category found: "$categoryName"',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () async {
+                        final existingCategories =
+                            await sl<CategoryRepository>().getCategories();
+                        if (!mounted) return;
+                        final selectedId = await showDialog<String>(
+                          context: context,
+                          builder: (_) => _MappingDialog<Category>(
+                            title: 'Map "$categoryName" to...',
+                            items: existingCategories,
+                            itemBuilder: (category) => Text(category.name),
+                          ),
+                        );
+                        if (selectedId != null && mounted) {
+                          context
+                              .read<ImportBloc>()
+                              .add(MapCategory(categoryName, selectedId));
+                        }
+                      },
+                      child: const Text('Map to Existing'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        context
+                            .read<ImportBloc>()
+                            .add(MapCategory(categoryName, 'new'));
+                      },
+                      child: const Text('Create New'),
+                    ),
+                  ],
+                )
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDuplicateResolutionStep(ImportState state) {
+    return ListView.builder(
+      itemCount: state.potentialDuplicates.length,
+      itemBuilder: (context, index) {
+        final record = state.potentialDuplicates[index];
+        final resolution = state.duplicateResolutions[record];
+
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: resolution != null ? Colors.grey.shade300 : null,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Potential Duplicate:',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                Text('Date: ${record.date.toLocal().toString().split(' ')[0]}'),
+                Text('From: ${record.from}'),
+                Text('To: ${record.to}'),
+                Text('Amount: ${record.amount} ${record.currency}'),
+                const SizedBox(height: 16),
+                if (resolution == null)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                          onPressed: () {
+                            context
+                                .read<ImportBloc>()
+                                .add(ResolveDuplicate(record, 'skip'));
+                          },
+                          child: const Text('Skip')),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                          onPressed: () {
+                            context
+                                .read<ImportBloc>()
+                                .add(ResolveDuplicate(record, 'import'));
+                          },
+                          child: const Text('Import Anyway')),
+                    ],
+                  )
+                else
+                  Center(
+                      child: Text('Decision: ${resolution.toUpperCase()}',
+                          style: const TextStyle(fontWeight: FontWeight.bold))),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReadyToImportStep(ImportState state) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle_outline,
+                color: Colors.green, size: 80),
+            const SizedBox(height: 24),
+            Text('Ready to Import',
+                style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 16),
+            Text(
+                '${state.parsedRecords.length} transactions are ready to be imported.',
+                textAlign: TextAlign.center),
+            const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: _selectedFiles.isNotEmpty ? _startImport : null,
+              onPressed: () {
+                context.read<ImportBloc>().add(FinalizeImport());
+              },
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
               ),
-              child: const Text('Start Import'),
-            ),
+              child: const Text('Finalize Import'),
+            )
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildImportingStep(ImportState state) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 24),
+            Text('Importing...',
+                style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 16),
+            LinearProgressIndicator(value: state.progress),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompletionStep(ImportState state) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.task_alt, color: Colors.blue, size: 80),
+            const SizedBox(height: 24),
+            Text('Import Complete',
+                style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 24),
+            Text('New Accounts Created: ${state.createdAccountsCount}'),
+            Text('New Categories Created: ${state.createdCategoriesCount}'),
+            Text('Transactions Imported: ${state.importedTransactionsCount}'),
+            Text('Duplicates Skipped: ${state.skippedDuplicatesCount}'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MappingDialog<T> extends StatelessWidget {
+  final String title;
+  final List<T> items;
+  final Widget Function(T) itemBuilder;
+
+  const _MappingDialog({
+    required this.title,
+    required this.items,
+    required this.itemBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(title),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return ListTile(
+              title: itemBuilder(item),
+              onTap: () {
+                Navigator.of(context).pop((item as dynamic).id);
+              },
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
     );
   }
 }

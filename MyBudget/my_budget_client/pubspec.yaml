@@ -38,6 +38,7 @@ dependencies:
   image: ^4.1.7
   flutter_svg: ^2.0.10
   file_picker: ^10.3.8
+  csv: ^6.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

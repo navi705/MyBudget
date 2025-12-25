@@ -247,11 +247,22 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
               BlocBuilder<AccountsBloc, AccountsState>(
                 builder: (context, state) {
                   if (state is AccountsLoadSuccess) {
+                    // This is a workaround for a bug where duplicate account types are present in the state.
+                    // The root cause should be investigated in the AccountsBloc.
+                    final seenIds = <String>{};
+                    final uniqueAccountTypes = state.accountTypes.where((type) => seenIds.add(type.id)).toList();
+
+                    // Check if the current value is still valid after de-duplication.
+                    final selectedValue = uniqueAccountTypes
+                            .any((type) => type.id == _selectedAccountTypeId)
+                        ? _selectedAccountTypeId
+                        : null;
+
                     return DropdownButtonFormField<String>(
-                      value: _selectedAccountTypeId,
+                      value: selectedValue,
                       decoration:
                           const InputDecoration(labelText: 'Account Type'),
-                      items: state.accountTypes
+                      items: uniqueAccountTypes
                           .map((type) => DropdownMenuItem<String>(
                               value: type.id, child: Text(type.name)))
                           .toList(),

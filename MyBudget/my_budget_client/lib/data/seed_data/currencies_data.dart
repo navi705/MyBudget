@@ -11,4 +11,5 @@ final List<CurrenciesCompanion> defaultCurrencies = [
   CurrenciesCompanion.insert(name: 'Swiss Franc', code: 'CHF', languageCode: 'en'),
   CurrenciesCompanion.insert(name: 'Chinese Yuan', code: 'CNY', languageCode: 'en'),
   CurrenciesCompanion.insert(name: 'Indian Rupee', code: 'INR', languageCode: 'en'),
+  CurrenciesCompanion.insert(name: 'Serbian Dinar', code: 'RSD', languageCode: 'en'),
 ];
