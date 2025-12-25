@@ -1,13 +1,18 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
+import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/domain/entities/icon_type.dart';
+import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/add_edit_transaction/add_edit_transaction_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 
 class AddEditTransactionScreen extends StatelessWidget {
@@ -186,31 +191,71 @@ class _AmountField extends StatelessWidget {
 
 class _AccountField extends StatelessWidget {
   const _AccountField();
+
+  Color _getColorFromHex(String? hexColor) {
+    hexColor = (hexColor ?? '#FF5733').replaceAll("#", "");
+    if (hexColor.length == 6) {
+      hexColor = "FF$hexColor";
+    }
+    if (hexColor.length == 8) {
+      return Color(int.parse("0x$hexColor"));
+    }
+    return Colors.orange;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
-      builder: (context, state) {
-        return DropdownButtonFormField<Account>(
-          value: state.selectedAccount,
-          decoration: const InputDecoration(
-            labelText: 'Account',
-            border: OutlineInputBorder(),
-          ),
-          items: state.accounts
-              .map((acc) => DropdownMenuItem<Account>(
-                    value: acc,
-                    child: Text(acc.name),
-                  ))
-              .toList(),
-          onChanged: (account) {
-            if (account != null) {
-              context
-                  .read<AddEditTransactionBloc>()
-                  .add(AddEditTransactionAccountChanged(account));
-            }
+    return BlocBuilder<StylesBloc, StylesState>(
+      builder: (context, stylesState) {
+        return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
+          builder: (context, state) {
+            return DropdownButtonFormField<Account>(
+              value: state.selectedAccount,
+              decoration: const InputDecoration(
+                labelText: 'Account',
+                border: OutlineInputBorder(),
+              ),
+              items: state.accounts.map((acc) {
+                Style? style;
+                if (stylesState is StylesLoadSuccess) {
+                  style = stylesState.styles
+                      .firstWhereOrNull((s) => s.id == acc.styleId);
+                }
+                final finalStyle = style ??
+                    Style(
+                      id: 'default',
+                      name: 'Default',
+                      iconName: 'account_balance',
+                      colorHex: '#808080',
+                      iconType: IconType.material,
+                    );
+
+                return DropdownMenuItem<Account>(
+                  value: acc,
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 15,
+                        backgroundColor: _getColorFromHex(finalStyle.colorHex),
+                        child: IconUtils.getIconWidget(finalStyle),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(acc.name),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (account) {
+                if (account != null) {
+                  context
+                      .read<AddEditTransactionBloc>()
+                      .add(AddEditTransactionAccountChanged(account));
+                }
+              },
+              validator: (value) =>
+                  value == null ? 'Please select an account' : null,
+            );
           },
-          validator: (value) =>
-              value == null ? 'Please select an account' : null,
         );
       },
     );
@@ -262,14 +307,12 @@ class _DateField extends StatelessWidget {
           ),
           trailing: const Icon(Icons.calendar_today),
           onTap: () async {
-            final datePicker = showDatePicker(
+            final DateTime? picked = await showDatePicker(
               context: context,
               initialDate: state.date ?? DateTime.now(),
               firstDate: DateTime(2000),
               lastDate: DateTime(2101),
             );
-            
-            final DateTime? picked = await datePicker;
 
             if (picked != null && context.mounted) {
               context

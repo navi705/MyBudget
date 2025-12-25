@@ -1,11 +1,14 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
+import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/style_picker_dialog.dart';
 
 class AddAccountDialog extends StatefulWidget {
   const AddAccountDialog({super.key});
@@ -36,6 +39,17 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
     _balanceController.dispose();
     _descriptionController.dispose(); // ADDED
     super.dispose();
+  }
+  
+  Color _getColorFromHex(String? hexColor) {
+    hexColor = (hexColor ?? '#FF5733').replaceAll("#", "");
+    if (hexColor.length == 6) {
+      hexColor = "FF$hexColor";
+    }
+    if (hexColor.length == 8) {
+      return Color(int.parse("0x$hexColor"));
+    }
+    return Colors.orange;
   }
 
   @override
@@ -109,7 +123,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                       // Wrap in Column to add designation dropdown
                       children: [
                         DropdownButtonFormField<String>(
-                          initialValue: _selectedCurrencyCode,
+                          value: _selectedCurrencyCode,
                           decoration:
                               InputDecoration(labelText: l10n.currencyLabel),
                           items: state.currencies
@@ -133,7 +147,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                         ),
                         const SizedBox(height: 16), // Spacing
                         DropdownButtonFormField<String>(
-                          initialValue: _selectedCurrencyDesignationId,
+                          value: _selectedCurrencyDesignationId,
                           decoration: const InputDecoration(
                               labelText: 'Currency Symbol'), // TODO: Localize
                           items: availableDesignations
@@ -160,7 +174,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                       _selectedAccountTypeId = state.accountTypes.first.id;
                     }
                     return DropdownButtonFormField<String>(
-                      initialValue: _selectedAccountTypeId,
+                      value: _selectedAccountTypeId,
                       decoration: const InputDecoration(
                           labelText: 'Account Type'), // TODO: Localize
                       items: state.accountTypes
@@ -179,18 +193,35 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
               BlocBuilder<StylesBloc, StylesState>(
                 builder: (context, state) {
                   if (state is StylesLoadSuccess) {
-                    _selectedStyleId ??= state.styles.first.id;
-                    return DropdownButtonFormField<String>(
-                      initialValue: _selectedStyleId,
-                      decoration: const InputDecoration(
-                          labelText: 'Style'), // TODO: Localize
-                      items: state.styles
-                          .map((s) => DropdownMenuItem<String>(
-                              value: s.id, child: Text(s.name)))
-                          .toList(),
-                      onChanged: (v) => setState(() => _selectedStyleId = v),
-                      validator: (v) =>
-                          v == null ? 'Please select a style' : null, // TODO: Localize
+                    if (_selectedStyleId == null && state.styles.isNotEmpty) {
+                      _selectedStyleId = state.styles.first.id;
+                    }
+
+                    final selectedStyle = state.styles.firstWhereOrNull(
+                      (s) => s.id == _selectedStyleId,
+                    );
+
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: selectedStyle != null
+                          ? CircleAvatar(
+                              backgroundColor: _getColorFromHex(selectedStyle.colorHex),
+                              child: IconUtils.getIconWidget(selectedStyle),
+                            )
+                          : const CircleAvatar(child: Icon(Icons.style)),
+                      title: const Text('Style'),
+                      subtitle: Text(selectedStyle?.name ?? 'Select a style'),
+                      onTap: () async {
+                        final newStyleId = await showStylePickerDialog(
+                          context,
+                          _selectedStyleId ?? '',
+                        );
+                        if (newStyleId != null) {
+                          setState(() {
+                            _selectedStyleId = newStyleId;
+                          });
+                        }
+                      },
                     );
                   }
                   return const SizedBox.shrink();

@@ -2,11 +2,14 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
+import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/style_picker_dialog.dart';
 
 class EditAccountScreen extends StatefulWidget {
   final Account account;
@@ -52,29 +55,36 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     _balanceController.dispose();
     super.dispose();
   }
+  
+  Color _getColorFromHex(String? hexColor) {
+    hexColor = (hexColor ?? '#FF5733').replaceAll("#", "");
+    if (hexColor.length == 6) {
+      hexColor = "FF$hexColor";
+    }
+    if (hexColor.length == 8) {
+      return Color(int.parse("0x$hexColor"));
+    }
+    return Colors.orange;
+  }
 
   void _onSave() {
     if (_formKey.currentState!.validate()) {
-      final updatedAccount = Account(
-        id: _initialAccount.id,
+      final updatedAccount = _initialAccount.copyWith(
         name: _nameController.text,
         description: _descriptionController.text.isEmpty
             ? null
-            : _descriptionController.text, // ADDED
+            : _descriptionController.text,
         balance: double.parse(_balanceController.text),
-        currencyCode: _selectedCurrencyCode!,
-        currencyDesignationId: _selectedCurrencyDesignationId!,
+        currencyCode: _selectedCurrencyCode,
+        currencyDesignationId: _selectedCurrencyDesignationId,
         styleId: _selectedStyleId,
-        accountTypeId: _selectedAccountTypeId!, // ADDED
-        creationDate: _initialAccount.creationDate,
+        accountTypeId: _selectedAccountTypeId,
       );
 
       // Only dispatch an update if the account has actually changed.
-      // This now works correctly due to Equatable.
       if (updatedAccount != _initialAccount) {
         context.read<AccountsBloc>().add(UpdateAccount(updatedAccount));
       }
-      // Always pop the screen after the save attempt (or no-op save).
       context.pop();
     }
   }
@@ -235,14 +245,12 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
               ),
               const SizedBox(height: 16),
               BlocBuilder<AccountsBloc, AccountsState>(
-                // NEW BLOC BUILDER FOR AccountTypes
                 builder: (context, state) {
                   if (state is AccountsLoadSuccess) {
                     return DropdownButtonFormField<String>(
                       value: _selectedAccountTypeId,
                       decoration:
                           const InputDecoration(labelText: 'Account Type'),
-                      // TODO: Localize
                       items: state.accountTypes
                           .map((type) => DropdownMenuItem<String>(
                               value: type.id, child: Text(type.name)))
@@ -250,28 +258,41 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                       onChanged: (v) => setState(() => _selectedAccountTypeId = v),
                       validator: (v) => v == null
                           ? 'Please select an account type'
-                          : null, // TODO: Localize
+                          : null,
                     );
                   }
                   return const SizedBox.shrink();
                 },
               ),
               const SizedBox(height: 16),
-              // Added spacing for new field
               BlocBuilder<StylesBloc, StylesState>(
                 builder: (context, state) {
                   if (state is StylesLoadSuccess) {
-                    return DropdownButtonFormField<String>(
-                      value: _selectedStyleId,
-                      decoration: const InputDecoration(labelText: 'Style'),
-                      // TODO: Localize
-                      items: state.styles
-                          .map((s) => DropdownMenuItem<String>(
-                              value: s.id, child: Text(s.name)))
-                          .toList(),
-                      onChanged: (v) => setState(() => _selectedStyleId = v),
-                      validator: (v) =>
-                          v == null ? 'Please select a style' : null, // TODO: Localize
+                    final selectedStyle = state.styles.firstWhereOrNull(
+                      (s) => s.id == _selectedStyleId,
+                    );
+
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: selectedStyle != null
+                          ? CircleAvatar(
+                              backgroundColor: _getColorFromHex(selectedStyle.colorHex),
+                              child: IconUtils.getIconWidget(selectedStyle),
+                            )
+                          : const CircleAvatar(child: Icon(Icons.style)),
+                      title: const Text('Style'),
+                      subtitle: Text(selectedStyle?.name ?? 'Select a style'),
+                      onTap: () async {
+                        final newStyleId = await showStylePickerDialog(
+                          context,
+                          _selectedStyleId ?? '',
+                        );
+                        if (newStyleId != null) {
+                          setState(() {
+                            _selectedStyleId = newStyleId;
+                          });
+                        }
+                      },
                     );
                   }
                   return const SizedBox.shrink();

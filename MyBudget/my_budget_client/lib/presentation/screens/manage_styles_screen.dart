@@ -43,7 +43,6 @@ class ManageStylesScreen extends StatelessWidget {
                     child: iconWidget,
                   ),
                   title: Text(style.name),
-                  subtitle: Text('${style.iconName} - ${style.colorHex}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

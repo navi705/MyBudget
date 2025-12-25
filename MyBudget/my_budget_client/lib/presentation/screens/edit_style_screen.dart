@@ -1,8 +1,12 @@
+import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:my_budget_client/core/utils/icon_utils.dart';
+import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/icon_picker_dialog.dart';
 
 class EditStyleScreen extends StatefulWidget {
   final String styleId;
@@ -16,13 +20,12 @@ class EditStyleScreen extends StatefulWidget {
 class _EditStyleScreenState extends State<EditStyleScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  String? _selectedIconName;
-  String? _selectedColorHex;
+  
+  late String _selectedIconName;
+  late IconType _selectedIconType;
+  late Color _selectedColor;
 
   Style? _initialStyle;
-
-  final List<String> _iconNames = ['wallet', 'savings', 'credit_card', 'account_balance'];
-  final List<String> _colorHexes = ['#4CAF50', '#2196F3', '#F44336', '#FFC107', '#9C27B0', '#E91E63'];
 
   @override
   void initState() {
@@ -33,12 +36,14 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
     if (stylesState is StylesLoadSuccess) {
       try {
         _initialStyle = stylesState.styles.firstWhere(
-          (style) => style.id.toString() == widget.styleId,
+          (style) => style.id == widget.styleId,
         );
         _nameController.text = _initialStyle!.name;
         _selectedIconName = _initialStyle!.iconName;
-        _selectedColorHex = _initialStyle!.colorHex;
+        _selectedIconType = _initialStyle!.iconType;
+        _selectedColor = _getColorFromHex(_initialStyle!.colorHex);
       } catch (e) {
+        // If the style is not found (e.g., deleted), _initialStyle remains null
         _initialStyle = null;
       }
     }
@@ -48,15 +53,6 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
   void dispose() {
     _nameController.dispose();
     super.dispose();
-  }
-
-  IconData _getIconData(String? iconName) {
-    switch (iconName) {
-      case 'wallet': return Icons.account_balance_wallet;
-      case 'savings': return Icons.savings;
-      case 'credit_card': return Icons.credit_card;
-      default: return Icons.account_balance;
-    }
   }
 
   Color _getColorFromHex(String? hexColor) {
@@ -72,12 +68,29 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
       final updatedStyle = Style(
         id: _initialStyle!.id,
         name: _nameController.text,
-        iconName: _selectedIconName!,
-        colorHex: _selectedColorHex!,
-        iconType: _initialStyle!.iconType,
+        iconName: _selectedIconName,
+        colorHex: '#${_selectedColor.hex}',
+        iconType: _selectedIconType,
       );
       context.read<StylesBloc>().add(UpdateStyle(updatedStyle));
       context.pop();
+    }
+  }
+  
+  Future<void> _showIconPicker() async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => IconPickerDialog(
+        initialIconName: _selectedIconName,
+        initialIconType: _selectedIconType,
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedIconName = result['name'];
+        _selectedIconType = result['type'];
+      });
     }
   }
 
@@ -104,43 +117,66 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Style Name'),
-                validator: (value) => (value == null || value.isEmpty) ? 'Please enter a name' : null,
+                validator: (value) => (value == null || value.isEmpty)
+                    ? 'Please enter a name'
+                    : null,
               ),
               const SizedBox(height: 24),
-              const Text('Icon', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8.0,
-                children: _iconNames.map((iconName) {
-                  return ChoiceChip(
-                    label: Icon(_getIconData(iconName)),
-                    selected: _selectedIconName == iconName,
-                    onSelected: (selected) {
-                      if (selected) setState(() => _selectedIconName = iconName);
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Color'),
+                subtitle: Text(_selectedColor.hex.toUpperCase()),
+                trailing: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _selectedColor,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Theme.of(context).dividerColor,
+                    ),
+                  ),
+                ),
+                onTap: () async {
+                  final newColor = await showColorPickerDialog(
+                    context,
+                    _selectedColor,
+                    pickersEnabled: const {
+                      ColorPickerType.wheel: true,
+                      ColorPickerType.primary: false,
+                      ColorPickerType.accent: false
                     },
                   );
-                }).toList(),
+                  setState(() {
+                    _selectedColor = newColor;
+                  });
+                },
               ),
               const SizedBox(height: 16),
-              const Text('Color', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8.0,
-                children: _colorHexes.map((colorHex) {
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedColorHex = colorHex),
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: _getColorFromHex(colorHex),
-                      child: _selectedColorHex == colorHex ? const Icon(Icons.check, color: Colors.white, size: 18) : null,
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Icon'),
+                subtitle: Text(_selectedIconName),
+                trailing: SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: IconUtils.getIconWidget(
+                    Style(
+                      id: 'preview',
+                      name: 'preview',
+                      iconName: _selectedIconName,
+                      colorHex: '#FFFFFF', // Color is ignored by the util
+                      iconType: _selectedIconType,
                     ),
-                  );
-                }).toList(),
+                  ),
+                ),
+                onTap: _showIconPicker,
               ),
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: _onSave,
-                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50)),
                 child: const Text('Save Changes'),
               )
             ],
