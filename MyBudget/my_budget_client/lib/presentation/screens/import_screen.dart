@@ -29,8 +29,7 @@ class ImportScreen extends StatelessWidget {
       body: ListView(
         children: [
           ListTile(
-            leading: const Icon(Icons.monetization_on),
-            title: const Text('OneMoney Import'),
+            title: const Text('OneMoney'),
             onTap: _pickCsvFile,
           ),
         ],

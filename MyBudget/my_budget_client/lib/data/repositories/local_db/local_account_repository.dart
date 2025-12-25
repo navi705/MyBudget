@@ -98,4 +98,14 @@ class LocalAccountRepository implements AccountRepository {
   Future<int> getCountWithFilters({String? accountTypeId}) {
     return database.accountsDao.getCountWithFilters(accountTypeId: accountTypeId);
   }
+  
+  @override
+  Future<void> deleteMultipleAccounts(List<String> accountIds) {
+   return database.accountsDao.deleteMultipleAccounts(accountIds); 
+  }
+  
+  @override
+  Future<void> updateAccountTypeForMultipleAccounts(List<String> accountIds, String accountTypeId) {
+    return database.accountsDao.updateAccountTypeForMultipleAccounts(accountIds, accountTypeId);
+  }
 }

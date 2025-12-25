@@ -11,6 +11,7 @@ abstract class AccountRepository {
   Future<void> addAccounts(List<Account> accounts);
   Future<void> updateAccount(Account account);
   Future<void> deleteAccount(String id);
+  Future<void> deleteMultipleAccounts(List<String> accountIds);
   Future<void> restoreAccount(Account account);
   Future<Map<String, double>> getBalancesAtDate(DateTime date);
   Future<int> getCountWithFilters({String? accountTypeId});
@@ -19,4 +20,6 @@ abstract class AccountRepository {
   Stream<List<AccountType>> watchAccountTypes();
   Future<AccountType?> getAccountTypeById(String id);
   Future<void> addAccountTypes(List<AccountType> accountTypes);
+  Future<void> updateAccountTypeForMultipleAccounts(
+      List<String> accountIds, String accountTypeId);
 }

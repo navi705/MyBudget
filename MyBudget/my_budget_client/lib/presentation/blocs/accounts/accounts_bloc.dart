@@ -23,15 +23,22 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     on<FilterAccounts>(_onFilterAccounts);
     on<LoadHistoricalBalances>(_onLoadHistoricalBalances);
     on<ClearHistoricalBalances>(_onClearHistoricalBalances);
+    on<ToggleSelectionMode>(_onToggleSelectionMode);
+    on<ToggleAccountSelection>(_onToggleAccountSelection);
+    on<SelectAllAccounts>(_onSelectAllAccounts);
+    on<ClearSelection>(_onClearSelection);
+    on<DeleteMultipleAccounts>(_onDeleteMultipleAccounts);
+    on<UpdateAccountTypeForMultipleAccounts>(
+        _onUpdateAccountTypeForMultipleAccounts);
   }
 
   Future<void> _onLoadAccounts(
     LoadAccounts event,
     Emitter<AccountsState> emit,
   ) async {
+    final currentState = state;
     emit(AccountsLoadInProgress());
     try {
-      // Fetch account types and the first page of accounts in parallel
       final results = await Future.wait([
         _accountRepository.getAccountTypes(),
         _accountRepository.getAccountsPaginated(limit: 50, offset: 0),
@@ -47,8 +54,10 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         accountTypes: accountTypes,
         hasReachedMax: accounts.length >= totalCount,
         totalCount: totalCount,
-        sortAscending: state.sortAscending,
-        selectedAccountTypeId: state.selectedAccountTypeId,
+        sortAscending: currentState.sortAscending,
+        selectedAccountTypeId: currentState.selectedAccountTypeId,
+        isSelectionModeActive: currentState.isSelectionModeActive,
+        selectedAccountIds: currentState.selectedAccountIds,
       ));
     } catch (e) {
       emit(AccountsLoadFailure());
@@ -106,7 +115,6 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     DeleteAccount event,
     Emitter<AccountsState> emit,
   ) async {
-    // We keep the 'undo' feature UI-side by snapshotting the account
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
       try {
@@ -185,5 +193,76 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         isHistorical: false,
       ));
     }
+  }
+
+  void _onToggleSelectionMode(
+    ToggleSelectionMode event,
+    Emitter<AccountsState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is AccountsLoadSuccess) {
+      emit(currentState.copyWith(
+        isSelectionModeActive: event.isSelectionModeActive,
+        selectedAccountIds:
+            event.isSelectionModeActive ? currentState.selectedAccountIds : {},
+      ));
+    }
+  }
+
+  void _onToggleAccountSelection(
+    ToggleAccountSelection event,
+    Emitter<AccountsState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is AccountsLoadSuccess) {
+      final newSelectedIds =
+          Set<String>.from(currentState.selectedAccountIds);
+      if (newSelectedIds.contains(event.accountId)) {
+        newSelectedIds.remove(event.accountId);
+      } else {
+        newSelectedIds.add(event.accountId);
+      }
+      emit(currentState.copyWith(selectedAccountIds: newSelectedIds));
+    }
+  }
+
+  void _onSelectAllAccounts(
+    SelectAllAccounts event,
+    Emitter<AccountsState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is AccountsLoadSuccess) {
+      final allIds = currentState.accounts.map((acc) => acc.id!).toSet();
+      emit(currentState.copyWith(selectedAccountIds: allIds));
+    }
+  }
+
+  void _onClearSelection(
+    ClearSelection event,
+    Emitter<AccountsState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is AccountsLoadSuccess) {
+      emit(currentState.copyWith(selectedAccountIds: {}));
+    }
+  }
+
+  Future<void> _onDeleteMultipleAccounts(
+    DeleteMultipleAccounts event,
+    Emitter<AccountsState> emit,
+  ) async {
+    await _accountRepository.deleteMultipleAccounts(event.accountIds);
+    add(LoadAccounts());
+  }
+
+  Future<void> _onUpdateAccountTypeForMultipleAccounts(
+    UpdateAccountTypeForMultipleAccounts event,
+    Emitter<AccountsState> emit,
+  ) async {
+    await _accountRepository.updateAccountTypeForMultipleAccounts(
+      event.accountIds,
+      event.accountTypeId,
+    );
+    add(LoadAccounts());
   }
 }

@@ -464,6 +464,16 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     final count = await query.map((row) => row.read(countExp)).getSingleOrNull();
     return count ?? 0;
   }
+
+  Future<void> deleteMultipleAccounts(List<String> ids) {
+    return (delete(accounts)..where((tbl) => tbl.id.isIn(ids))).go();
+  }
+
+  Future<void> updateAccountTypeForMultipleAccounts(
+      List<String> ids, String accountTypeId) {
+    return (update(accounts)..where((tbl) => tbl.id.isIn(ids)))
+        .write(AccountsCompanion(accountTypeId: Value(accountTypeId)));
+  }
 }
 
 @DriftAccessor(tables: [Transactions])
