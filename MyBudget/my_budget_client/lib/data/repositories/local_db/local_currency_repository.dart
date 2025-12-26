@@ -85,6 +85,12 @@ class LocalCurrencyRepository implements CurrencyRepository {
   }
 
   @override
+  Future<void> addCurrencyDesignation(CurrencyDesignation designation) async {
+    await database.currencyDesignationsDao
+        .insertDesignation(designation.toCompanion());
+  }
+
+  @override
   Stream<List<CurrencyDesignation>> watchAllCurrencyDesignations() {
     return database.currencyDesignationsDao
         .watchAllDesignations()

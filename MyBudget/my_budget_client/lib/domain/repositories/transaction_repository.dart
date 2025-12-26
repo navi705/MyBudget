@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
+import 'package:my_budget_client/domain/entities/transaction_type_filter.dart';
 
 abstract class TransactionRepository {
   Stream<List<Transaction>> watchTransactions();
@@ -38,6 +39,7 @@ class TransactionFilters extends Equatable {
   final String? accountId;
   final String? categoryId;
   final String? currencyCode;
+  final TransactionTypeFilter transactionType;
 
   const TransactionFilters({
     this.description,
@@ -48,6 +50,7 @@ class TransactionFilters extends Equatable {
     this.accountId,
     this.categoryId,
     this.currencyCode,
+    this.transactionType = TransactionTypeFilter.all,
   });
 
   TransactionFilters copyWith({
@@ -59,6 +62,7 @@ class TransactionFilters extends Equatable {
     String? accountId,
     String? categoryId,
     String? currencyCode,
+    TransactionTypeFilter? transactionType,
   }) {
     return TransactionFilters(
       description: description ?? this.description,
@@ -69,6 +73,7 @@ class TransactionFilters extends Equatable {
       accountId: accountId ?? this.accountId,
       categoryId: categoryId ?? this.categoryId,
       currencyCode: currencyCode ?? this.currencyCode,
+      transactionType: transactionType ?? this.transactionType,
     );
   }
 
@@ -82,6 +87,7 @@ class TransactionFilters extends Equatable {
         accountId,
         categoryId,
         currencyCode,
+        transactionType,
       ];
 }
 

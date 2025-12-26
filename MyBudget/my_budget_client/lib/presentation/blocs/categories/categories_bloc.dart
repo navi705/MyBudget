@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
+import 'package:my_budget_client/domain/entities/category_type.dart';
 
 part 'categories_event.dart';
 part 'categories_state.dart';
@@ -22,6 +24,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     on<UpdateCategory>(_onUpdateCategory);
     on<DeleteCategory>(_onDeleteCategory);
     on<DeleteCategoryConfirmed>(_onDeleteCategoryConfirmed);
+    on<FilterCategoriesByType>(_onFilterCategoriesByType);
   }
 
   Future<void> _onLoadCategories(
@@ -58,7 +61,8 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
 
       if (items.isEmpty) {
         emit(currentState.copyWith(hasReachedMax: true));
-      } else {
+      }
+      else {
         emit(
           currentState.copyWith(
             categoriesWithTotals: List.of(currentState.categoriesWithTotals)
@@ -102,5 +106,17 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   ) async {
     await _categoryRepository.deleteCategory(event.categoryToDelete.id!);
     add(LoadCategories());
+  }
+
+  Future<void> _onFilterCategoriesByType(
+    FilterCategoriesByType event,
+    Emitter<CategoriesState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess) {
+      emit(currentState.copyWith(
+        getSelectedTypeFilter: () => event.categoryType,
+      ));
+    }
   }
 }

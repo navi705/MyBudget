@@ -7,7 +7,7 @@ import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
-import 'package:my_budget_client/core/database/app_database.dart' show Setting;
+import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:rxdart/rxdart.dart';
 
 part 'currency_converter_event.dart';
@@ -48,8 +48,8 @@ class CurrencyConverterBloc
         List<Currency> currencies,
         List<ExchangeRate> rates,
         List<Account> accounts,
-        Setting? baseCurrencySetting,
-        Setting? selectedCurrenciesSetting,
+        Settings? baseCurrencySetting,
+        Settings? selectedCurrenciesSetting,
       ) =>
           _CurrencyConverterDataUpdated(
         allCurrencies: currencies,
@@ -134,7 +134,7 @@ class CurrencyConverterBloc
         (await _settingsRepository.getSetting('device_name'))?.value ?? 'default';
     final currencyCodes = currencies.map((c) => c.code).join(',');
     await _settingsRepository.setSetting(
-      Setting(
+      Settings(
         key: 'selected_currencies',
         value: currencyCodes,
         device: deviceName,

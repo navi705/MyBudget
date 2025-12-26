@@ -16,6 +16,7 @@ abstract class CurrencyRepository {
   Future<List<CurrencyDesignation>> getCurrencyDesignationsForCurrency(
       String currencyCode);
   Future<CurrencyDesignation?> getCurrencyDesignationById(String id);
+  Future<void> addCurrencyDesignation(CurrencyDesignation designation);
 
   Stream<List<CurrencyDesignation>> watchAllCurrencyDesignations();
   Future<List<CurrencyDesignation>> getAllCurrencyDesignations();

@@ -4,8 +4,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
+import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/import/import_bloc.dart';
 
@@ -19,6 +21,7 @@ class ImportScreen extends StatelessWidget {
         accountRepository: sl<AccountRepository>(),
         categoryRepository: sl<CategoryRepository>(),
         transactionRepository: sl<TransactionRepository>(),
+        currencyRepository: sl<CurrencyRepository>(),
       ),
       child: const _ImportView(),
     );
@@ -86,6 +89,8 @@ class _ImportViewState extends State<_ImportView> {
               return _buildAccountMappingStep(state);
             case ImportStep.mappingCategories:
               return _buildCategoryMappingStep(state);
+            case ImportStep.mappingCurrencies:
+              return _buildCurrencyMappingStep(state);
             case ImportStep.resolvingDuplicates:
               return _buildDuplicateResolutionStep(state);
             case ImportStep.readyToImport:
@@ -194,7 +199,7 @@ class _ImportViewState extends State<_ImportView> {
   }
 
   Widget _buildCategoryMappingStep(ImportState state) {
-    final unmapped = state.unmappedCategories.toList();
+    final unmapped = state.unmappedCategories.keys.toList();
     return ListView.builder(
       itemCount: unmapped.length,
       itemBuilder: (context, index) {
@@ -239,6 +244,65 @@ class _ImportViewState extends State<_ImportView> {
                         context
                             .read<ImportBloc>()
                             .add(MapCategory(categoryName, 'new'));
+                      },
+                      child: const Text('Create New'),
+                    ),
+                  ],
+                )
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCurrencyMappingStep(ImportState state) {
+    final unmapped = state.unmappedCurrencies.toList();
+    return ListView.builder(
+      itemCount: unmapped.length,
+      itemBuilder: (context, index) {
+        final currencyName = unmapped[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('New currency found: "$currencyName"',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () async {
+                        final existingCurrencies =
+                            await sl<CurrencyRepository>().getCurrencies();
+                        if (!mounted) return;
+                        final selectedId = await showDialog<String>(
+                          context: context,
+                          builder: (_) => _MappingDialog<Currency>(
+                            title: 'Map "$currencyName" to...',
+                            items: existingCurrencies,
+                            itemBuilder: (currency) => Text(currency.name),
+                          ),
+                        );
+                        if (selectedId != null && mounted) {
+                          context
+                              .read<ImportBloc>()
+                              .add(MapCurrency(currencyName, selectedId));
+                        }
+                      },
+                      child: const Text('Map to Existing'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        context
+                            .read<ImportBloc>()
+                            .add(MapCurrency(currencyName, 'new'));
                       },
                       child: const Text('Create New'),
                     ),

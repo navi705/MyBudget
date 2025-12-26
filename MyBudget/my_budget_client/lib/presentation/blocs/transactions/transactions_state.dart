@@ -29,6 +29,8 @@ class TransactionsState extends Equatable {
   final bool isSelectionModeActive;
   final Set<String> selectedTransactionIds;
 
+  final List<CurrencyDesignation> currencyDesignations;
+
   TransactionsState({
     this.status = TransactionStatus.initial,
     this.transactions = const [],
@@ -47,6 +49,7 @@ class TransactionsState extends Equatable {
     this.nonDateFilters = const TransactionFilters(),
     this.isSelectionModeActive = false,
     this.selectedTransactionIds = const {},
+    this.currencyDesignations = const [],
   }) : activeDate = activeDate ?? DateTime.now();
 
   // Combined filters getter
@@ -109,6 +112,7 @@ class TransactionsState extends Equatable {
     TransactionFilters? nonDateFilters,
     bool? isSelectionModeActive,
     Set<String>? selectedTransactionIds,
+    List<CurrencyDesignation>? currencyDesignations,
   }) {
     return TransactionsState(
       status: status ?? this.status,
@@ -130,6 +134,7 @@ class TransactionsState extends Equatable {
       nonDateFilters: nonDateFilters ?? this.nonDateFilters,
       isSelectionModeActive: isSelectionModeActive ?? this.isSelectionModeActive,
       selectedTransactionIds: selectedTransactionIds ?? this.selectedTransactionIds,
+      currencyDesignations: currencyDesignations ?? this.currencyDesignations,
     );
   }
 
@@ -152,5 +157,6 @@ class TransactionsState extends Equatable {
     nonDateFilters,
     isSelectionModeActive,
     selectedTransactionIds,
+    currencyDesignations,
   ];
 }

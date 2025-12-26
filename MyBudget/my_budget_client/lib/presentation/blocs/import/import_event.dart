@@ -36,6 +36,16 @@ class MapCategory extends ImportEvent {
   List<Object?> get props => [csvCategoryName, decision];
 }
 
+class MapCurrency extends ImportEvent {
+  final String csvCurrencyName;
+  final String decision; // 'new' or existing currency code
+
+  const MapCurrency(this.csvCurrencyName, this.decision);
+
+  @override
+  List<Object?> get props => [csvCurrencyName, decision];
+}
+
 class ProceedToNextStep extends ImportEvent {}
 
 class ResolveDuplicate extends ImportEvent {

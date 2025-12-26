@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
-import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
+import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 
 part 'settings_event.dart';
@@ -34,7 +34,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     Emitter<SettingsState> emit,
   ) async {
     final deviceName = await getDeviceName();
-    await _settingsRepository.setSetting(Setting(
+    await _settingsRepository.setSetting(Settings(
       key: event.key,
       value: event.value,
       device: deviceName,

@@ -6,6 +6,7 @@ import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/data/seed_data/styles_data.dart';
 import 'package:my_budget_client/data/seed_data/exchange_rates_data.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
+import 'package:my_budget_client/domain/entities/transaction_type_filter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
@@ -526,6 +527,7 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     String? accountId,
     String? categoryId,
     String? currencyCode,
+    TransactionTypeFilter? transactionType,
   }) {
     final query = select(transactions);
 
@@ -553,6 +555,13 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     if (currencyCode != null) {
       query.where((tbl) => tbl.currencyCode.equals(currencyCode));
     }
+    if (transactionType != null) {
+      if (transactionType == TransactionTypeFilter.income) {
+        query.where((tbl) => tbl.amount.isBiggerThanValue(0));
+      } else if (transactionType == TransactionTypeFilter.expense) {
+        query.where((tbl) => tbl.amount.isSmallerThanValue(0));
+      }
+    }
 
     query.orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
     query.limit(limit, offset: offset);
@@ -569,6 +578,7 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     String? accountId,
     String? categoryId,
     String? currencyCode,
+    TransactionTypeFilter? transactionType,
   }) async {
     final query = selectOnly(transactions);
 
@@ -595,6 +605,13 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     }
     if (currencyCode != null) {
       query.where(transactions.currencyCode.equals(currencyCode));
+    }
+    if (transactionType != null) {
+      if (transactionType == TransactionTypeFilter.income) {
+        query.where(transactions.amount.isBiggerThanValue(0));
+      } else if (transactionType == TransactionTypeFilter.expense) {
+        query.where(transactions.amount.isSmallerThanValue(0));
+      }
     }
 
     final countExp = transactions.id.count();
@@ -664,7 +681,7 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
 
   Future<Setting?> getSetting(String key) =>
       (select(settings)..where((tbl) => tbl.key.equals(key))).getSingleOrNull();
-  Future<void> setSetting(Setting setting) =>
+  Future<void> setSetting(SettingsCompanion setting) =>
       into(settings).insert(setting, mode: InsertMode.insertOrReplace);
   Future<List<Setting>> getAllSettings() => select(settings).get();
   Future<List<Setting>> getSettings({int limit = 10, int offset = 0}) =>

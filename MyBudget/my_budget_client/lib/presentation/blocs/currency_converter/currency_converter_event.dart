@@ -31,8 +31,8 @@ class _CurrencyConverterDataUpdated extends CurrencyConverterEvent {
   final List<Currency> allCurrencies;
   final List<ExchangeRate> exchangeRates;
   final List<Account> accounts;
-  final Setting? baseCurrencySetting;
-  final Setting? selectedCurrenciesSetting;
+  final Settings? baseCurrencySetting;
+  final Settings? selectedCurrenciesSetting;
 
   const _CurrencyConverterDataUpdated({
     required this.allCurrencies,

@@ -26,7 +26,7 @@ class UpdateThemeMode extends SettingsEvent {
 }
 
 class _SettingsChanged extends SettingsEvent {
-  final List<Setting> settings;
+  final List<Settings> settings;
 
   const _SettingsChanged(this.settings);
 

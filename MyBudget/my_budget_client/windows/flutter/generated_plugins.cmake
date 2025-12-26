@@ -3,7 +3,6 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  file_selector_windows
   sqlite3_flutter_libs
 )
 

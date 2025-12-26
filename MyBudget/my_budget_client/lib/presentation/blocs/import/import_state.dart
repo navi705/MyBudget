@@ -5,6 +5,7 @@ enum ImportStep {
   parsing,
   mappingAccounts,
   mappingCategories,
+  mappingCurrencies,
   resolvingDuplicates,
   readyToImport,
   importing,
@@ -16,10 +17,14 @@ class ImportState extends Equatable {
   final ImportStep step;
   final List<PlatformFile> files;
   final List<OneMoneyRecord> parsedRecords;
+  final List<AccountBalanceRecord> parsedBalances;
   final Set<String> unmappedAccounts;
-  final Set<String> unmappedCategories;
+  final Map<String, String> unmappedCategories;
+  final Map<String, String> parsedCategoryDetails;
+  final Set<String> unmappedCurrencies;
   final Map<String, String> accountMappings; // csvName -> 'new' or existingId
   final Map<String, String> categoryMappings; // csvName -> 'new' or existingId
+  final Map<String, String> currencyMappings; // csvName -> 'new' or existingId
   final List<OneMoneyRecord> potentialDuplicates;
   final Map<OneMoneyRecord, String> duplicateResolutions; // record -> 'skip' or 'import'
   final String? errorMessage;
@@ -33,10 +38,14 @@ class ImportState extends Equatable {
     this.step = ImportStep.idle,
     this.files = const [],
     this.parsedRecords = const [],
+    this.parsedBalances = const [],
     this.unmappedAccounts = const {},
     this.unmappedCategories = const {},
+    this.parsedCategoryDetails = const {},
+    this.unmappedCurrencies = const {},
     this.accountMappings = const {},
     this.categoryMappings = const {},
+    this.currencyMappings = const {},
     this.potentialDuplicates = const [],
     this.duplicateResolutions = const {},
     this.errorMessage,
@@ -51,10 +60,14 @@ class ImportState extends Equatable {
     ImportStep? step,
     List<PlatformFile>? files,
     List<OneMoneyRecord>? parsedRecords,
+    List<AccountBalanceRecord>? parsedBalances,
     Set<String>? unmappedAccounts,
-    Set<String>? unmappedCategories,
+    Map<String, String>? unmappedCategories,
+    Map<String, String>? parsedCategoryDetails,
+    Set<String>? unmappedCurrencies,
     Map<String, String>? accountMappings,
     Map<String, String>? categoryMappings,
+    Map<String, String>? currencyMappings,
     List<OneMoneyRecord>? potentialDuplicates,
     Map<OneMoneyRecord, String>? duplicateResolutions,
     String? errorMessage,
@@ -68,10 +81,14 @@ class ImportState extends Equatable {
       step: step ?? this.step,
       files: files ?? this.files,
       parsedRecords: parsedRecords ?? this.parsedRecords,
+      parsedBalances: parsedBalances ?? this.parsedBalances,
       unmappedAccounts: unmappedAccounts ?? this.unmappedAccounts,
       unmappedCategories: unmappedCategories ?? this.unmappedCategories,
+      parsedCategoryDetails: parsedCategoryDetails ?? this.parsedCategoryDetails,
+      unmappedCurrencies: unmappedCurrencies ?? this.unmappedCurrencies,
       accountMappings: accountMappings ?? this.accountMappings,
       categoryMappings: categoryMappings ?? this.categoryMappings,
+      currencyMappings: currencyMappings ?? this.currencyMappings,
       potentialDuplicates: potentialDuplicates ?? this.potentialDuplicates,
       duplicateResolutions: duplicateResolutions ?? this.duplicateResolutions,
       errorMessage: errorMessage ?? this.errorMessage,
@@ -88,10 +105,14 @@ class ImportState extends Equatable {
         step,
         files,
         parsedRecords,
+        parsedBalances,
         unmappedAccounts,
         unmappedCategories,
+        parsedCategoryDetails,
+        unmappedCurrencies,
         accountMappings,
         categoryMappings,
+        currencyMappings,
         potentialDuplicates,
         duplicateResolutions,
         errorMessage,

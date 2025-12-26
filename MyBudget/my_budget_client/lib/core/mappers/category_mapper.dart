@@ -1,8 +1,8 @@
 import 'package:drift/drift.dart';
-import 'package:my_budget_client/core/database/app_database.dart' as drift;
+import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/domain/entities/category.dart';
 
-extension CategoryMapper on drift.Category {
+extension CategoryMapper on db.Category {
   Category toDomain() {
     return Category(
       id: id,
@@ -14,9 +14,9 @@ extension CategoryMapper on drift.Category {
   }
 }
 
-extension CategoryCompanionMapper on Category {
-  drift.CategoriesCompanion toCompanion() {
-    return drift.CategoriesCompanion(
+extension CategoriesMapper on Category {
+  db.CategoriesCompanion toCompanion() {
+    return db.CategoriesCompanion(
       id: id == null ? const Value.absent() : Value(id!),
       name: Value(name),
       parentId: Value(parentId),
@@ -26,14 +26,14 @@ extension CategoryCompanionMapper on Category {
   }
 }
 
-extension CategoryListMapper on List<drift.Category> {
+extension CategoriesListMapper on List<db.Category> {
   List<Category> toDomainList() {
-    return map((category) => category.toDomain()).toList();
+    return map((e) => e.toDomain()).toList();
   }
 }
 
-extension CategoryCompanionListMapper on List<Category> {
-  List<drift.CategoriesCompanion> toCompanionList() {
-    return map((category) => category.toCompanion()).toList();
+extension CategoryListMapper on List<Category> {
+  List<db.CategoriesCompanion> toCompanionList() {
+    return map((e) => e.toCompanion()).toList();
   }
 }

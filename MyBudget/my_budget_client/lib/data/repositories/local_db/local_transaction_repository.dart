@@ -140,7 +140,7 @@ class LocalTransactionRepository implements TransactionRepository {
   Future<void> _updateAccountBalance(String accountId, double amount) async {
     await database.accountsDao.adjustBalance(accountId, amount);
   }
-  
+
   @override
   Future<int> getAllCount() async {
     return await database.transactionsDao.getAllCount();
@@ -166,6 +166,7 @@ class LocalTransactionRepository implements TransactionRepository {
       accountId: filters?.accountId,
       categoryId: filters?.categoryId,
       currencyCode: filters?.currencyCode,
+      transactionType: filters?.transactionType,
     );
     return transactions.toDomainList();
   }
@@ -181,6 +182,7 @@ class LocalTransactionRepository implements TransactionRepository {
       accountId: filters?.accountId,
       categoryId: filters?.categoryId,
       currencyCode: filters?.currencyCode,
+      transactionType: filters?.transactionType,
     );
   }
 }

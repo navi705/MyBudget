@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:my_budget_client/core/database/app_database.dart';
+import 'package:my_budget_client/core/database/app_database.dart' as db;
+import 'package:my_budget_client/core/mappers/setting_mapper.dart';
+import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:rxdart/rxdart.dart';
 
 const String themeModeKey = 'themeMode';
 
 class LocalSettingsRepository implements SettingsRepository {
-  final AppDatabase _database;
+  final db.AppDatabase _database;
 
   LocalSettingsRepository(this._database);
 
@@ -19,7 +21,7 @@ class LocalSettingsRepository implements SettingsRepository {
 
   @override
   Future<void> setThemeMode(ThemeMode themeMode, String device) {
-    final setting = Setting(
+    final setting = Settings(
       key: themeModeKey,
       value: _themeModeToString(themeMode),
       device: device
@@ -28,23 +30,24 @@ class LocalSettingsRepository implements SettingsRepository {
   }
 
   @override
-  Stream<List<Setting>> watchAllSettings() {
-    return _database.settingsDao.watchAllSettings();
+  Stream<List<Settings>> watchAllSettings() {
+    return _database.settingsDao.watchAllSettings().map((event) => event.toDomainList());
   }
 
   @override
-  Stream<Setting?> watchSetting(String key) {
-    return _database.settingsDao.watchSetting(key);
+  Stream<Settings?> watchSetting(String key) {
+    return _database.settingsDao.watchSetting(key).map((event) => event?.toDomain());
   }
 
   @override
-  Future<Setting?> getSetting(String key) {
-    return _database.settingsDao.getSetting(key);
+  Future<Settings?> getSetting(String key) async {
+    final setting = await _database.settingsDao.getSetting(key);
+    return setting?.toDomain();
   }
 
   @override
-  Future<void> setSetting(Setting setting) {
-    return _database.settingsDao.setSetting(setting);
+  Future<void> setSetting(Settings setting) {
+    return _database.settingsDao.setSetting(setting.toCompanion());
   }
 
   ThemeMode _stringToThemeMode(String value) {

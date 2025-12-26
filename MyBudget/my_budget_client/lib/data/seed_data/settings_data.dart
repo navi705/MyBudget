@@ -3,70 +3,70 @@ import 'package:my_budget_client/presentation/blocs/transactions/transactions_bl
 
 import '../../domain/repositories/transaction_repository.dart';
 
-List<Setting> getDefaultSettings(String deviceName) {
+List<SettingsCompanion> getDefaultSettings(String deviceName) {
   return [
-    Setting(key: 'themeMode', value: 'system', device: deviceName),
-    Setting(
+    SettingsCompanion.insert(key: 'themeMode', value: 'system', device: deviceName),
+    SettingsCompanion.insert(
       key: 'conversion_base_currency_id',
       value: '1', // USD
       device: deviceName,
     ),
 
     // transction list screen
-    Setting(
+    SettingsCompanion.insert(
       key: 'date_step_transaction',
       value: DateStep.month.toString(),
       device: deviceName,
     ),
 
-    Setting(
+    SettingsCompanion.insert(
       key: 'date_sort_transaction',
       value: Sort.descending.toString(),
       device: deviceName,
     ),
-    Setting(
+    SettingsCompanion.insert(
       key: 'persist_transaction_list_settings',
       value: 'true',
       device: deviceName,
     ),
 
     // advanced filters
-    Setting(
+    SettingsCompanion.insert(
       key: 'persist_advanced_filters',
       value: 'false',
       device: deviceName,
     ),
-    Setting(
+    SettingsCompanion.insert(
       key: 'advanced_filter_description',
       value: '',
       device: deviceName,
     ),
-    Setting(
+    SettingsCompanion.insert(
       key: 'advanced_filter_amount_from',
       value: '',
       device: deviceName,
     ),
-    Setting(
+    SettingsCompanion.insert(
       key: 'advanced_filter_amount_to',
       value: '',
       device: deviceName,
     ),
-    Setting(
+    SettingsCompanion.insert(
       key: 'advanced_filter_account_id',
       value: '',
       device: deviceName,
     ),
-    Setting(
+    SettingsCompanion.insert(
       key: 'advanced_filter_category_id',
       value: '',
       device: deviceName,
     ),
-    Setting(
+    SettingsCompanion.insert(
       key: 'advanced_filter_currency_code',
       value: '',
       device: deviceName,
     ),
-    Setting(
+    SettingsCompanion.insert(
       key: 'selected_currencies',
       value: '',
       device: deviceName,

@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:material_symbols_icons/get.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:path/path.dart' as p;
@@ -31,8 +31,6 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
 
   Map<String, List<String>> _materialIconCategories = {};
   List<String> _customIconPaths = [];
-
-  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -75,16 +73,22 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
   }
 
   Future<void> _addNewIcon() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      final isSvg = image.name.toLowerCase().endsWith('.svg');
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'svg'],
+    );
+
+    if (result != null && result.files.single.path != null) {
+      final file = File(result.files.single.path!);
+      final fileName = p.basename(file.path);
+      final isSvg = fileName.toLowerCase().endsWith('.svg');
       final appDir = await getApplicationDocumentsDirectory();
       final iconsDir = Directory(p.join(appDir.path, 'icons'));
       if (!await iconsDir.exists()) {
         await iconsDir.create(recursive: true);
       }
-      final newIconPath = p.join(iconsDir.path, image.name);
-      final imageBytes = await image.readAsBytes();
+      final newIconPath = p.join(iconsDir.path, fileName);
+      final imageBytes = await file.readAsBytes();
       await File(newIconPath).writeAsBytes(imageBytes);
 
       if (!isSvg) {
@@ -94,7 +98,7 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
           if (!await thumbnailDir.exists()) {
             await thumbnailDir.create(recursive: true);
           }
-          final thumbnailPath = p.join(thumbnailDir.path, image.name);
+          final thumbnailPath = p.join(thumbnailDir.path, fileName);
           final thumbnail = img.copyResize(originalImage, width: 120);
           await File(thumbnailPath).writeAsBytes(img.encodePng(thumbnail));
         }

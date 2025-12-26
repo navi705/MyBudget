@@ -5,8 +5,11 @@ import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
+import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+import 'package:my_budget_client/domain/entities/transaction_type_filter.dart';
 import 'package:my_budget_client/domain/repositories/style_repository.dart';
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/entities/transaction_category.dart';
@@ -23,16 +26,19 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   final StyleRepository _styleRepository;
   final CategoryRepository _categoryRepository;
   final SettingsBloc _settingsBloc;
+  final CurrencyRepository _currencyRepository;
 
   TransactionsBloc({
     required TransactionRepository transactionRepository,
     required StyleRepository styleRepository,
     required CategoryRepository categoryRepository,
     required SettingsBloc settingsBloc,
+    required CurrencyRepository currencyRepository,
   })  : _transactionRepository = transactionRepository,
         _styleRepository = styleRepository,
         _categoryRepository = categoryRepository,
         _settingsBloc = settingsBloc,
+        _currencyRepository = currencyRepository,
         super(TransactionsState()) {
     on<NonDateFiltersChanged>(_onNonDateFiltersChanged);
     on<DatePeriodNavigated>(_onDatePeriodNavigated);
@@ -41,6 +47,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     on<ActiveDateChanged>(_onActiveDateChanged);
     on<ActiveDateRangeChanged>(_onActiveDateRangeChanged);
     on<SortChanged>(_onSortChanged);
+    on<TransactionTypeFilterChanged>(_onTransactionTypeFilterChanged);
     on<InitialLoadTransactions>(
       _onLoadTransactionsInitial,
       transformer: droppable(),
@@ -61,6 +68,16 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     on<LoadTransactionSettings>(_onLoadSettings);
 
     add(const LoadTransactionSettings());
+  }
+
+  void _onTransactionTypeFilterChanged(
+    TransactionTypeFilterChanged event,
+    Emitter<TransactionsState> emit,
+  ) {
+    emit(state.copyWith(
+        nonDateFilters:
+            state.nonDateFilters.copyWith(transactionType: event.transactionType)));
+    add(const InitialLoadTransactions());
   }
 
   void _onNonDateFiltersChanged(
@@ -218,10 +235,12 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         _transactionRepository.getCountWithFilters(
           filters: state.filters,
         ),
+        _currencyRepository.getAllCurrencyDesignations(),
       ]);
 
       final rawTransactions = results[0] as List<Transaction>;
       final totalCount = results[1] as int;
+      final currencyDesignations = results[2] as List<CurrencyDesignation>;
 
       final List<TransactionCategory> transactionsWithStyles = [];
       for (final transaction in rawTransactions) {
@@ -259,6 +278,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           hasMoreUp: false,
           hasMoreDown: transactionsWithStyles.isNotEmpty,
           totalCount: totalCount,
+          currencyDesignations: currencyDesignations,
         ),
       );
     } catch (_) {

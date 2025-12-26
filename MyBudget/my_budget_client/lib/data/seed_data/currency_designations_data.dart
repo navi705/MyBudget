@@ -31,4 +31,7 @@ final List<CurrencyDesignationsCompanion> defaultCurrencyDesignations = [
 
   // For Indian Rupee
   CurrencyDesignationsCompanion.insert(value: '₹', currencyCode: 'INR'),
+
+  // For Serbian Dinar
+  CurrencyDesignationsCompanion.insert(value: 'din.', currencyCode: 'RSD'),
 ];

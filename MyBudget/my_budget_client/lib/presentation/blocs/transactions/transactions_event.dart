@@ -210,3 +210,12 @@ class ClearAdvancedFilter extends TransactionsEvent {
 class LoadTransactionSettings extends TransactionsEvent {
   const LoadTransactionSettings();
 }
+
+class TransactionTypeFilterChanged extends TransactionsEvent {
+  final TransactionTypeFilter transactionType;
+
+  const TransactionTypeFilterChanged(this.transactionType);
+
+  @override
+  List<Object?> get props => [transactionType];
+}

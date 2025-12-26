@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'dart:developer' as developer;
 import 'dart:math';
 
@@ -100,7 +101,12 @@ class DebugDataSeeder {
       final style =
           prerequisites.styles[_random.nextInt(prerequisites.styles.length)];
       final designation = prerequisites.designations
-          .firstWhere((d) => d.currencyCode == currency.code);
+          .firstWhereOrNull((d) => d.currencyCode == currency.code);
+
+      if (designation == null) {
+        developer.log('Could not find designation for currency ${currency.code}, skipping account creation.');
+        continue;
+      }
 
       final account = Account(
         name: 'Account $i',
@@ -122,7 +128,7 @@ class DebugDataSeeder {
 
     // 2. Create Categories
     final categoryCreationStopwatch = Stopwatch()..start();
-     List<Category> cattegoryForInsert = [];
+     List<Category> categoryForInsert = [];
     for (int i = 0; i < categoryCount; i++) {
       final style =
           prerequisites.styles[_random.nextInt(prerequisites.styles.length)];
@@ -132,9 +138,9 @@ class DebugDataSeeder {
         styleId: style.id,
         type: type,
       );
-      cattegoryForInsert.add(category);
+      categoryForInsert.add(category);
     }
-    await categoryRepo.addCategories(cattegoryForInsert);
+    await categoryRepo.addCategories(categoryForInsert);
     final allCategories = await categoryRepo.getCategories();
     
     // Make ~50% of categories into subcategories

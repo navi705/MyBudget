@@ -4,7 +4,7 @@ abstract class CategoriesEvent extends Equatable {
   const CategoriesEvent();
 
   @override
-  List<Object> get props => [];
+  List<Object?> get props => [];
 }
 
 class LoadCategories extends CategoriesEvent {}
@@ -51,5 +51,14 @@ class DeleteCategoryConfirmed extends CategoriesEvent {
 
   @override
   List<Object> get props => [categoryToDelete, deleteTransactions];
+}
+
+class FilterCategoriesByType extends CategoriesEvent {
+  final CategoryType? categoryType;
+
+  const FilterCategoriesByType(this.categoryType);
+
+  @override
+  List<Object?> get props => [categoryType];
 }
 

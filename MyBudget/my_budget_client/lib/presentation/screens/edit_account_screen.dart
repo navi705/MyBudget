@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
-import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
@@ -199,7 +198,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                       // Wrap in Column to add designation dropdown
                       children: [
                         DropdownButtonFormField<String>(
-                          value: _selectedCurrencyCode,
+                          initialValue: _selectedCurrencyCode,
                           decoration:
                               InputDecoration(labelText: l10n.currencyLabel),
                           items: state.currencies
@@ -224,7 +223,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                         const SizedBox(height: 16),
                         // Spacing
                         DropdownButtonFormField<String>(
-                          value: _selectedCurrencyDesignationId,
+                          initialValue: _selectedCurrencyDesignationId,
                           decoration: const InputDecoration(
                               labelText: 'Currency Symbol'),
                           // TODO: Localize
@@ -259,7 +258,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                         : null;
 
                     return DropdownButtonFormField<String>(
-                      value: selectedValue,
+                      initialValue: selectedValue,
                       decoration:
                           const InputDecoration(labelText: 'Account Type'),
                       items: uniqueAccountTypes

@@ -8,6 +8,7 @@ import 'package:my_budget_client/presentation/blocs/transactions/transactions_bl
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart'; // Import IconUtils
 import 'package:my_budget_client/presentation/widgets/generic/grouped_paginated_list.dart';
+import 'package:collection/collection.dart';
 
 class TransactionList extends StatefulWidget {
   const TransactionList({super.key});
@@ -252,7 +253,16 @@ class TransactionListItem extends StatelessWidget {
         child: ListTile(
           leading: CircleAvatar(backgroundColor: color, child: iconWidget),
           title: Text(transactionCategory.transaction.description),
-          subtitle: Text(transactionCategory.transaction.amount.toString()),
+          subtitle: BlocBuilder<TransactionsBloc, TransactionsState>(
+            builder: (context, state) {
+              final designation = state.currencyDesignations.firstWhereOrNull(
+                (d) => d.currencyCode == transactionCategory.transaction.currencyCode,
+              );
+              final currencySymbol = designation?.value ?? transactionCategory.transaction.currencyCode;
+              return Text(
+                  '${transactionCategory.transaction.amount} $currencySymbol');
+            },
+          ),
         ),
       ),
     );

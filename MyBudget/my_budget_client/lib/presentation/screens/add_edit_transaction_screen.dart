@@ -210,7 +210,7 @@ class _AccountField extends StatelessWidget {
         return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
           builder: (context, state) {
             return DropdownButtonFormField<Account>(
-              value: state.selectedAccount,
+              initialValue: state.selectedAccount,
               decoration: const InputDecoration(
                 labelText: 'Account',
                 border: OutlineInputBorder(),
@@ -269,7 +269,7 @@ class _CategoryField extends StatelessWidget {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
       builder: (context, state) {
         return DropdownButtonFormField<Category>(
-          value: state.selectedCategory,
+          initialValue: state.selectedCategory,
           decoration: const InputDecoration(
             labelText: 'Category',
             border: OutlineInputBorder(),
