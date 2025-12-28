@@ -34,38 +34,12 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   }
 
   void _showSortOptions(BuildContext context, Sort currentSort) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return SimpleDialog(
-          title: const Text('Сортировка по дате'),
-          children: <Widget>[
-            RadioListTile<Sort>(
-              title: const Text('По убыванию (новые сверху)'),
-              value: Sort.descending,
-              groupValue: currentSort,
-              onChanged: (Sort? value) {
-                if (value != null) {
-                  context.read<TransactionsBloc>().add(SortChanged(value));
-                  Navigator.pop(dialogContext);
-                }
-              },
-            ),
-            RadioListTile<Sort>(
-              title: const Text('По возрастанию (старые сверху)'),
-              value: Sort.ascending,
-              groupValue: currentSort,
-              onChanged: (Sort? value) {
-                if (value != null) {
-                  context.read<TransactionsBloc>().add(SortChanged(value));
-                  Navigator.pop(dialogContext);
-                }
-              },
-            ),
-          ],
-        );
-      },
-    );
+    if(currentSort == Sort.ascending){
+     context.read<TransactionsBloc>().add(SortChanged(Sort.descending)); 
+    }
+    else if(currentSort == Sort.descending){
+      context.read<TransactionsBloc>().add(SortChanged(Sort.ascending));
+    }
   }
 
   void _showDateStepPicker(BuildContext context) {
@@ -126,19 +100,6 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  Future<void> _selectDate(BuildContext context, DateTime initialDate) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-      locale: const Locale('ru', 'RU'),
-    );
-    if (picked != null && context.mounted) {
-      context.read<TransactionsBloc>().add(ActiveDateChanged(picked));
-    }
-  }
-
   Future<void> _selectDateRange(
       BuildContext context, DateTimeRange? initialRange) async {
     final DateTimeRange? picked = await showDateRangePicker(
@@ -173,19 +134,6 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
                     Icon(Icons.filter_list),
                     SizedBox(width: 10),
                     Text('Выбрать шаг даты'),
-                  ],
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  _selectDate(context, currentState.activeDate);
-                },
-                child: const Row(
-                  children: [
-                    Icon(Icons.calendar_today),
-                    SizedBox(width: 10),
-                    Text('Выбрать день'),
                   ],
                 ),
               ),
@@ -250,11 +198,6 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
                   style: const TextStyle(color: Colors.white, fontSize: 18),
                 ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.calendar_today, color: Colors.white),
-              onPressed: () => _selectDate(context, state.activeDate),
-              tooltip: 'Выбрать дату',
             ),
             IconButton(
               icon: const Icon(Icons.sort, color: Colors.white),
