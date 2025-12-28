@@ -12,7 +12,9 @@ import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/widgets/account_list_item.dart';
 import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
+import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart' show FilterMode, DateStep;
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
@@ -118,18 +120,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
         );
       },
     );
-  }
-
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-    );
-    if (picked != null && context.mounted) {
-      context.read<AccountsBloc>().add(LoadHistoricalBalances(picked));
-    }
   }
 
   void _showDeleteConfirmationDialog(
@@ -263,9 +253,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
       } else if (value == 'edit') {
         context.push(AppRoutes.editAccount, extra: account);
       } else if (value == 'delete') {
+        if (!mounted) return;
         _showDeleteConfirmationDialog(
             context, bloc, isSelected ? selectedIds : [account.id!]);
       } else if (value == 'change_type') {
+        if (!mounted) return;
         _showChangeAccountTypeDialog(context, bloc,
             isSelected ? selectedIds : [account.id!], state.accountTypes);
       }
@@ -607,61 +599,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
   
 
-  class _DateNavigationWidget extends StatelessWidget {
-    final DateTime activeDate;
-    final DateStep dateStep;
-    final ValueChanged<DateStep?> onDateStepChanged;
-
-    const _DateNavigationWidget({
-      required this.activeDate,
-      required this.dateStep,
-      required this.onDateStepChanged,
-    });
-
-    String _formatDate(BuildContext context) {
-      switch (dateStep) {
-        case DateStep.day:
-          return MaterialLocalizations.of(context).formatShortDate(activeDate);
-        case DateStep.month:
-          return MaterialLocalizations.of(context).formatMonthYear(activeDate);
-        case DateStep.year:
-          return activeDate.year.toString();
-      }
-    }
-
-    @override
-    Widget build(BuildContext context) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          DropdownButton<DateStep>(
-            value: dateStep,
-            onChanged: onDateStepChanged,
-            items: DateStep.values
-                .map((step) => DropdownMenuItem(
-                      value: step,
-                      child: Text(step.name,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 14)),
-                    ))
-                .toList(),
-            dropdownColor: Theme.of(context).appBarTheme.backgroundColor,
-            underline: Container(),
-            icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            _formatDate(context),
-            style: const TextStyle(
-                color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-        ],
-      );
-    }
-  }
-
-  
-
   class _SelectionAppBar extends StatelessWidget {
 
     final AccountsLoadSuccess state;
@@ -848,59 +785,30 @@ class _AccountsDateAppBar extends StatelessWidget implements PreferredSizeWidget
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
-  void _showDateStepPicker(BuildContext context) {
-    showDialog(
+  void _showCustomCalendar(BuildContext context, AccountsLoadSuccess state) {
+    showModalBottomSheet(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return SimpleDialog(
-          title: const Text('Select Step'),
-          children: <Widget>[
-            SimpleDialogOption(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                context
-                    .read<AccountsBloc>()
-                    .add(const DateStepChanged(DateStep.day));
-              },
-              child: const Row(
-                children: [
-                  Icon(Icons.calendar_view_day),
-                  SizedBox(width: 10),
-                  Text('Day'),
-                ],
-              ),
-            ),
-            SimpleDialogOption(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                context
-                    .read<AccountsBloc>()
-                    .add(const DateStepChanged(DateStep.month));
-              },
-              child: const Row(
-                children: [
-                  Icon(Icons.calendar_view_month),
-                  SizedBox(width: 10),
-                  Text('Month'),
-                ],
-              ),
-            ),
-            SimpleDialogOption(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                context
-                    .read<AccountsBloc>()
-                    .add(const DateStepChanged(DateStep.year));
-              },
-              child: const Row(
-                children: [
-                  Icon(Icons.calendar_view_week),
-                  SizedBox(width: 10),
-                  Text('Year'),
-                ],
-              ),
-            ),
-          ],
+      isScrollControlled: true, // Allows the modal to be taller
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return BlocProvider.value(
+          value: context.read<AccountsBloc>(),
+          child: CalendarStepPicker(
+            initialDate: state.activeDate,
+            initialRange: null,
+            initialStep: state.dateStep,
+            initialFilterMode: FilterMode.date,
+            rangeOptionVisibility: PickerVisibility.hidden,
+            onApply: (date, range, step, mode) {
+              final bloc = context.read<AccountsBloc>();
+              if (state.dateStep != step) {
+                bloc.add(DateStepChanged(step));
+              }
+              bloc.add(ActiveDateChanged(date));
+            },
+          ),
         );
       },
     );
@@ -957,19 +865,7 @@ class _AccountsDateAppBar extends StatelessWidget implements PreferredSizeWidget
       mainAxisSize: MainAxisSize.min,
       children: [
         InkWell(
-          onTap: () async {
-             final DateTime? picked = await showDatePicker(
-              context: context,
-              initialDate: state.activeDate,
-              firstDate: DateTime(2000),
-              lastDate: DateTime(2101),
-            );
-            if (picked != null && context.mounted) {
-              context
-                  .read<AccountsBloc>()
-                  .add(ActiveDateChanged(picked));
-            }
-          },
+          onTap: () => _showCustomCalendar(context, state),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12.0),
             alignment: Alignment.center,

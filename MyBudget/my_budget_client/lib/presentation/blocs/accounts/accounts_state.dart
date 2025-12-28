@@ -1,7 +1,5 @@
 part of 'accounts_bloc.dart';
 
-enum DateStep { day, month, year }
-
 abstract class AccountsState extends Equatable {
   final List<Account> accounts;
   final List<AccountType> accountTypes;

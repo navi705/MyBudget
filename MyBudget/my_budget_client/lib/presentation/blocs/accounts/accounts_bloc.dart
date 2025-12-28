@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
+import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 
 part 'accounts_event.dart';
 part 'accounts_state.dart';

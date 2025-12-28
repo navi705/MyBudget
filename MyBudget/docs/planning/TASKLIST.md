@@ -7,13 +7,11 @@
 14. Сделать уровень дисирфекации
 15. Сделай свои быстрый курс конвертации и насклько я это проебал по отношению курсу ЦБ
 16. Почитать о use case
-17. Исправить баг с темой просто разобраться почему она не меняется дебаг стоит
+17. Переделать тему, сделайть настройку
 18. Разработь ML для оценки своей хаты
 19. Сначала повторить one money улучшить базу, а потом уже лезть далее
 20. Там сервак микросервесую архитектуру пощупать все дела
 22. Проверить всё оптимизацию под конец
-24. Возможно добавить сжатие для базы данных
-26. Сделать workshop с темами для этого нужна полная кастомизация интерфейса
 28. Add to beatiful widget display calendar for each page for filter and i can to add dashabord
 29. add to custom widget for display calendar and day for my proposose   
 30. get data from sms
@@ -21,9 +19,11 @@
 
 Create a big to do list and separate to small pieces 
 3.. In account page i want to closer account to center. And i want to fix my icon to step left or right arrows on my date and we need to fix logic because account do not recalculating balance but should. They should to recalucatlating balance on month or day or year then i click or choose date for historical data
-5. In my transaction page i have filter and filter for type transacton i'd want top put in my filter dialog 
-6. I want to add filters to my categories and move to center my fileters to dialog. I want to filter my type, sum, and date like in account page 
-
+Create to do list
+1. I need replace account type filter to dialog and add other possible filter to account in dialog
+2. i need remove cancel filter button
+3. I need to button to the right and same to navigate right by our date 
+4. We need fix our recalcualting balance function for other date like historical balance now it's working incorrect 
 
 Others tasks
 1. Add data page to control my currency rate  

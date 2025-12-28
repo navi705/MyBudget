@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
+import 'package:my_budget_client/core/utils/import_utils.dart';
 import 'package:my_budget_client/data/seed_data/styles_data.dart';
 import 'package:my_budget_client/data/seed_data/exchange_rates_data.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
@@ -815,7 +816,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> _seedExchangeRates(AppDatabase db) async {
-    await db.exchangeRatesDao.insertAllExchangeRates(defaultExchangeRates);
+    await db.exchangeRatesDao.insertAllExchangeRates( await ImportDataUtils.getCurrenciesRateToSeeder());
   }
 
   Future<void> clearAllData() async {

@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:csv/csv.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/database/app_database.dart';
+import 'package:my_budget_client/data/api/external_data.dart';
 
 class OneMoneyRecord {
   final DateTime date;
@@ -37,8 +40,11 @@ class AccountBalanceRecord {
   final double balance;
   final String currency;
 
-  AccountBalanceRecord(
-      {required this.name, required this.balance, required this.currency});
+  AccountBalanceRecord({
+    required this.name,
+    required this.balance,
+    required this.currency,
+  });
 
   @override
   String toString() {
@@ -64,7 +70,7 @@ class ImportDataUtils {
     "СУММА 2",
     "ВАЛЮТА 2",
     "МЕТКИ",
-    "ЗАМЕТКИ"
+    "ЗАМЕТКИ",
   ];
 
   static const List<String> _expectedHeadersEn = [
@@ -77,7 +83,7 @@ class ImportDataUtils {
     "AMOUNT 2",
     "CURRENCY 2",
     "TAGS",
-    "NOTES"
+    "NOTES",
   ];
 
   static Future<ParsedCsvData> parseOneMoneyCsv(String filePath) async {
@@ -104,8 +110,9 @@ class ImportDataUtils {
         rawHeaders[0] = (rawHeaders[0] as String).substring(1);
       }
 
-      final headers =
-          rawHeaders.map((e) => e.toString().toUpperCase()).toList();
+      final headers = rawHeaders
+          .map((e) => e.toString().toUpperCase())
+          .toList();
 
       List<String> expectedHeaders;
       DateFormat dateFormat;
@@ -120,7 +127,8 @@ class ImportDataUtils {
         dateFormat = DateFormat('MM/dd/yy');
       } else {
         throw FormatException(
-            "CSV headers do not match the expected format. Expected: $_expectedHeadersRu or $_expectedHeadersEn, but got: ${rawHeaders.map((e) => e.toString()).toList()}");
+          "CSV headers do not match the expected format. Expected: $_expectedHeadersRu or $_expectedHeadersEn, but got: ${rawHeaders.map((e) => e.toString()).toList()}",
+        );
       }
 
       final records = <OneMoneyRecord>[];
@@ -131,7 +139,8 @@ class ImportDataUtils {
         final row = csvData[i];
 
         if (row.every(
-            (element) => element == null || element.toString().trim().isEmpty)) {
+          (element) => element == null || element.toString().trim().isEmpty,
+        )) {
           parsingBalances = true;
           continue;
         }
@@ -147,29 +156,34 @@ class ImportDataUtils {
             }
 
             try {
-              accountBalances.add(AccountBalanceRecord(
-                name: row[0].toString().trim(), // Trim whitespace
-                balance: double.parse(row[1].toString()),
-                currency: row[2].toString().trim(),
-              ));
+              accountBalances.add(
+                AccountBalanceRecord(
+                  name: row[0].toString().trim(), // Trim whitespace
+                  balance: double.parse(row[1].toString()),
+                  currency: row[2].toString().trim(),
+                ),
+              );
             } catch (e) {
               debugPrint(
-                  "Skipping balance row $i due to parsing error: $e. Row data: $row");
+                "Skipping balance row $i due to parsing error: $e. Row data: $row",
+              );
             }
           }
         } else {
           if (row.length < expectedHeaders.length) {
             debugPrint(
-                "Skipping row $i due to incorrect column count. Expected at least: ${expectedHeaders.length}, got: ${row.length}. Row data: $row");
+              "Skipping row $i due to incorrect column count. Expected at least: ${expectedHeaders.length}, got: ${row.length}. Row data: $row",
+            );
             continue;
           }
 
           try {
-            final double amount =
-                double.parse(row[4].toString().replaceAll(',', '.'));
+            final double amount = double.parse(
+              row[4].toString().replaceAll(',', '.'),
+            );
             final notes = row[9].toString();
-            final double? amount2 = row.length > 6 &&
-                    row[6].toString().isNotEmpty
+            final double? amount2 =
+                row.length > 6 && row[6].toString().isNotEmpty
                 ? double.parse(row[6].toString().replaceAll(',', '.'))
                 : null;
             final String? currency2 = row.length > 7 ? row[7].toString() : null;
@@ -187,29 +201,132 @@ class ImportDataUtils {
               }
             }
 
-            records.add(OneMoneyRecord(
-              date: dateFormat.parse(row[0]),
-              type: type,
-              from: row[2].toString(),
-              to: row[3].toString(),
-              amount: amount,
-              currency: row[5].toString(),
-              amount2: amount2,
-              currency2: currency2,
-              notes: notes,
-            ));
+            records.add(
+              OneMoneyRecord(
+                date: dateFormat.parse(row[0]),
+                type: type,
+                from: row[2].toString(),
+                to: row[3].toString(),
+                amount: amount,
+                currency: row[5].toString(),
+                amount2: amount2,
+                currency2: currency2,
+                notes: notes,
+              ),
+            );
           } catch (e) {
             debugPrint(
-                "Skipping row $i due to parsing error: $e. Row data: $row");
+              "Skipping row $i due to parsing error: $e. Row data: $row",
+            );
             continue;
           }
         }
       }
-      return ParsedCsvData(
-          records: records, accountBalances: accountBalances);
+      return ParsedCsvData(records: records, accountBalances: accountBalances);
     } catch (e) {
       debugPrint("Error parsing CSV file: $e");
       rethrow;
     }
   }
+
+  static String filePathCurrenciesRate =
+      r'C:\Users\vrclu\Documents\NewFilePC\Programing\Projects\MyBudget\MyBudget\my_budget_client\lib\data\currency_history.json';
+
+  static Future<void> getCurrenciesInitial() async {
+    final File file = File(filePathCurrenciesRate);
+
+    DateTime startDate = DateTime(2024, 4, 1);
+    DateTime endDate = DateTime.now();
+    DateTime currentDate = startDate;
+    final DateFormat keyFormatter = DateFormat('yyyy-MM-dd');
+
+    Map<String, Map<String, double>> fullHistory = {};
+
+    if (await file.exists()) {
+      try {
+        final String existingContent = await file.readAsString();
+        final Map<String, dynamic> jsonMap = jsonDecode(existingContent);
+
+        jsonMap.forEach((key, value) {
+          if (value is Map) {
+            Map<String, double> rates = {};
+            value.forEach((k, v) {
+              if (v is num) rates[k.toString()] = v.toDouble();
+            });
+            fullHistory[key] = rates;
+          }
+        });
+      } catch (e) {}
+    }
+
+    if (!await file.parent.exists()) {
+      await file.parent.create(recursive: true);
+    }
+
+    while (!currentDate.isAfter(endDate)) {
+      String dateKey = keyFormatter.format(currentDate);
+
+      if (!fullHistory.containsKey(dateKey)) {
+        try {
+          fullHistory[dateKey] =
+              await ExternalData.getCurrencyRatesFromFreeExchangeRates(
+                currentDate,
+              );
+
+          final String jsonContent = const JsonEncoder.withIndent(
+            '  ',
+          ).convert(fullHistory);
+          await file.writeAsString(jsonContent);
+        } catch (e) {}
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      currentDate = currentDate.add(const Duration(days: 1));
+    }
+  }
+
+  static Future<List<ExchangeRatesCompanion>> getCurrenciesRateToSeeder() async {
+  final File file = File(filePathCurrenciesRate);
+
+  // Инициализируем пустой список сразу, чтобы вернуть его, если файла нет
+  List<ExchangeRatesCompanion> list = [];
+
+  if (await file.exists()) {
+    try {
+      final String existingContent = await file.readAsString();
+      final Map<String, dynamic> jsonMap = jsonDecode(existingContent);
+
+      jsonMap.forEach((dateKey, dateValue) {
+
+        final DateTime recordDate = DateTime.parse(dateKey);
+
+        if (dateValue is Map) {
+          dateValue.forEach((currencyKey, rateValue) {
+
+
+            if (rateValue is num) {
+              list.add(
+                ExchangeRatesCompanion.insert(
+                  fromCurrencyCode: 'EUR', 
+                  
+                  toCurrencyCode: currencyKey.toString().toUpperCase(), 
+                  
+                  rate: rateValue.toDouble(),
+                  
+                  date: recordDate,
+                  
+                  preset: 1, 
+                ),
+              );
+            }
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint('Ошибка при парсинге файла для сидера: $e');
+    }
+  }
+  
+  return list; 
+}
+
 }

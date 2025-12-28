@@ -171,23 +171,6 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
               onPressed: () =>
                   showAdvancedFilterDialog(context, state.nonDateFilters),
             ),
-            ToggleButtons(
-              isSelected: TransactionTypeFilter.values
-                  .map((e) => e == state.nonDateFilters.transactionType)
-                  .toList(),
-              onPressed: (int index) {
-                context.read<TransactionsBloc>().add(
-                      TransactionTypeFilterChanged(
-                        TransactionTypeFilter.values[index],
-                      ),
-                    );
-              },
-              children: const <Widget>[
-                Icon(Icons.all_inclusive),
-                Icon(Icons.arrow_downward),
-                Icon(Icons.arrow_upward),
-              ],
-            ),
             InkWell(
               onTap: () => _showCustomCalendar(context, state),
               child: Container(
