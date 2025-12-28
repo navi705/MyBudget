@@ -266,6 +266,7 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
           name: code.toUpperCase(),
           code: code.toUpperCase(),
           languageCode: 'en',
+          type: TypeCurrency.other
         ));
         await _currencyRepository.addCurrencyDesignation(CurrencyDesignation(
           id: uuid.v4(),

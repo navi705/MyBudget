@@ -343,7 +343,17 @@ class $CurrenciesTable extends Currencies
     ),
   );
   @override
-  List<GeneratedColumn> get $columns => [name, code, languageCode];
+  late final GeneratedColumnWithTypeConverter<TypeCurrency, int> type =
+      GeneratedColumn<int>(
+        'type',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(6),
+      ).withConverter<TypeCurrency>($CurrenciesTable.$convertertype);
+  @override
+  List<GeneratedColumn> get $columns => [name, code, languageCode, type];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -404,6 +414,12 @@ class $CurrenciesTable extends Currencies
         DriftSqlType.string,
         data['${effectivePrefix}language_code'],
       )!,
+      type: $CurrenciesTable.$convertertype.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}type'],
+        )!,
+      ),
     );
   }
 
@@ -411,16 +427,21 @@ class $CurrenciesTable extends Currencies
   $CurrenciesTable createAlias(String alias) {
     return $CurrenciesTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<TypeCurrency, int, int> $convertertype =
+      const EnumIndexConverter(TypeCurrency.values);
 }
 
 class Currency extends DataClass implements Insertable<Currency> {
   final String name;
   final String code;
   final String languageCode;
+  final TypeCurrency type;
   const Currency({
     required this.name,
     required this.code,
     required this.languageCode,
+    required this.type,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -428,6 +449,9 @@ class Currency extends DataClass implements Insertable<Currency> {
     map['name'] = Variable<String>(name);
     map['code'] = Variable<String>(code);
     map['language_code'] = Variable<String>(languageCode);
+    {
+      map['type'] = Variable<int>($CurrenciesTable.$convertertype.toSql(type));
+    }
     return map;
   }
 
@@ -436,6 +460,7 @@ class Currency extends DataClass implements Insertable<Currency> {
       name: Value(name),
       code: Value(code),
       languageCode: Value(languageCode),
+      type: Value(type),
     );
   }
 
@@ -448,6 +473,9 @@ class Currency extends DataClass implements Insertable<Currency> {
       name: serializer.fromJson<String>(json['name']),
       code: serializer.fromJson<String>(json['code']),
       languageCode: serializer.fromJson<String>(json['languageCode']),
+      type: $CurrenciesTable.$convertertype.fromJson(
+        serializer.fromJson<int>(json['type']),
+      ),
     );
   }
   @override
@@ -457,15 +485,23 @@ class Currency extends DataClass implements Insertable<Currency> {
       'name': serializer.toJson<String>(name),
       'code': serializer.toJson<String>(code),
       'languageCode': serializer.toJson<String>(languageCode),
+      'type': serializer.toJson<int>(
+        $CurrenciesTable.$convertertype.toJson(type),
+      ),
     };
   }
 
-  Currency copyWith({String? name, String? code, String? languageCode}) =>
-      Currency(
-        name: name ?? this.name,
-        code: code ?? this.code,
-        languageCode: languageCode ?? this.languageCode,
-      );
+  Currency copyWith({
+    String? name,
+    String? code,
+    String? languageCode,
+    TypeCurrency? type,
+  }) => Currency(
+    name: name ?? this.name,
+    code: code ?? this.code,
+    languageCode: languageCode ?? this.languageCode,
+    type: type ?? this.type,
+  );
   Currency copyWithCompanion(CurrenciesCompanion data) {
     return Currency(
       name: data.name.present ? data.name.value : this.name,
@@ -473,6 +509,7 @@ class Currency extends DataClass implements Insertable<Currency> {
       languageCode: data.languageCode.present
           ? data.languageCode.value
           : this.languageCode,
+      type: data.type.present ? data.type.value : this.type,
     );
   }
 
@@ -481,37 +518,42 @@ class Currency extends DataClass implements Insertable<Currency> {
     return (StringBuffer('Currency(')
           ..write('name: $name, ')
           ..write('code: $code, ')
-          ..write('languageCode: $languageCode')
+          ..write('languageCode: $languageCode, ')
+          ..write('type: $type')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(name, code, languageCode);
+  int get hashCode => Object.hash(name, code, languageCode, type);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Currency &&
           other.name == this.name &&
           other.code == this.code &&
-          other.languageCode == this.languageCode);
+          other.languageCode == this.languageCode &&
+          other.type == this.type);
 }
 
 class CurrenciesCompanion extends UpdateCompanion<Currency> {
   final Value<String> name;
   final Value<String> code;
   final Value<String> languageCode;
+  final Value<TypeCurrency> type;
   final Value<int> rowid;
   const CurrenciesCompanion({
     this.name = const Value.absent(),
     this.code = const Value.absent(),
     this.languageCode = const Value.absent(),
+    this.type = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CurrenciesCompanion.insert({
     required String name,
     required String code,
     required String languageCode,
+    this.type = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : name = Value(name),
        code = Value(code),
@@ -520,12 +562,14 @@ class CurrenciesCompanion extends UpdateCompanion<Currency> {
     Expression<String>? name,
     Expression<String>? code,
     Expression<String>? languageCode,
+    Expression<int>? type,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (name != null) 'name': name,
       if (code != null) 'code': code,
       if (languageCode != null) 'language_code': languageCode,
+      if (type != null) 'type': type,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -534,12 +578,14 @@ class CurrenciesCompanion extends UpdateCompanion<Currency> {
     Value<String>? name,
     Value<String>? code,
     Value<String>? languageCode,
+    Value<TypeCurrency>? type,
     Value<int>? rowid,
   }) {
     return CurrenciesCompanion(
       name: name ?? this.name,
       code: code ?? this.code,
       languageCode: languageCode ?? this.languageCode,
+      type: type ?? this.type,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -556,6 +602,11 @@ class CurrenciesCompanion extends UpdateCompanion<Currency> {
     if (languageCode.present) {
       map['language_code'] = Variable<String>(languageCode.value);
     }
+    if (type.present) {
+      map['type'] = Variable<int>(
+        $CurrenciesTable.$convertertype.toSql(type.value),
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -568,6 +619,7 @@ class CurrenciesCompanion extends UpdateCompanion<Currency> {
           ..write('name: $name, ')
           ..write('code: $code, ')
           ..write('languageCode: $languageCode, ')
+          ..write('type: $type, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3977,6 +4029,7 @@ typedef $$CurrenciesTableCreateCompanionBuilder =
       required String name,
       required String code,
       required String languageCode,
+      Value<TypeCurrency> type,
       Value<int> rowid,
     });
 typedef $$CurrenciesTableUpdateCompanionBuilder =
@@ -3984,6 +4037,7 @@ typedef $$CurrenciesTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> code,
       Value<String> languageCode,
+      Value<TypeCurrency> type,
       Value<int> rowid,
     });
 
@@ -4147,6 +4201,12 @@ class $$CurrenciesTableFilterComposer
     column: $table.code,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<TypeCurrency, TypeCurrency, int> get type =>
+      $composableBuilder(
+        column: $table.type,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   $$LanguagesTableFilterComposer get languageCode {
     final $$LanguagesTableFilterComposer composer = $composerBuilder(
@@ -4316,6 +4376,11 @@ class $$CurrenciesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$LanguagesTableOrderingComposer get languageCode {
     final $$LanguagesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -4354,6 +4419,9 @@ class $$CurrenciesTableAnnotationComposer
 
   GeneratedColumn<String> get code =>
       $composableBuilder(column: $table.code, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<TypeCurrency, int> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
 
   $$LanguagesTableAnnotationComposer get languageCode {
     final $$LanguagesTableAnnotationComposer composer = $composerBuilder(
@@ -4543,11 +4611,13 @@ class $$CurrenciesTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> code = const Value.absent(),
                 Value<String> languageCode = const Value.absent(),
+                Value<TypeCurrency> type = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CurrenciesCompanion(
                 name: name,
                 code: code,
                 languageCode: languageCode,
+                type: type,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4555,11 +4625,13 @@ class $$CurrenciesTableTableManager
                 required String name,
                 required String code,
                 required String languageCode,
+                Value<TypeCurrency> type = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CurrenciesCompanion.insert(
                 name: name,
                 code: code,
                 languageCode: languageCode,
+                type: type,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

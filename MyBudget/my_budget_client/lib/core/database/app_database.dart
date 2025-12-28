@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/data/seed_data/styles_data.dart';
 import 'package:my_budget_client/data/seed_data/exchange_rates_data.dart';
+import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/transaction_type_filter.dart';
 import 'package:path_provider/path_provider.dart';
@@ -53,6 +54,7 @@ class Currencies extends Table {
   TextColumn get name => text().withLength(min: 1, max: 50).unique()();
   TextColumn get code => text().withLength(min: 1, max: 5)();
   TextColumn get languageCode => text().references(Languages, #languageCode)();
+  IntColumn get type => integer().map(const EnumIndexConverter(TypeCurrency.values)).withDefault(const Constant(6))();
 
   @override
   Set<Column> get primaryKey => {code};

@@ -6,6 +6,7 @@ import 'package:my_budget_client/domain/repositories/transaction_repository.dart
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/advanced_filter_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
+import 'package:my_budget_client/presentation/widgets/calandar_step_picker.dart';
 
 class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   const FilterDate({super.key});
@@ -257,7 +258,7 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
             InkWell(
-              onTap: () => _showDateOptionsDialog(context, state),
+              onTap: () => _showCustomCalendar(context, state),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12.0),
                 alignment: Alignment.center,
@@ -287,6 +288,45 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
               context.read<TransactionsBloc>().add(const DatePeriodNavigated(-1)),
           onNavigateNext: () =>
               context.read<TransactionsBloc>().add(const DatePeriodNavigated(1)),
+        );
+      },
+    );
+  }
+  void _showCustomCalendar(BuildContext context, TransactionsState state) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // Allows the modal to be taller
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return CalendarStepPicker(
+          initialDate: state.activeDate,
+          initialRange: state.activeDateRange,
+          initialStep: state.dateStep,
+          initialFilterMode: state.filterMode,
+          // Hide range option if current Step is NOT Day (optional logic)
+          rangeOptionVisibility: PickerVisibility.visible, 
+          onApply: (date, range, step, mode) {
+            final bloc = context.read<TransactionsBloc>();
+            
+            // 1. Update Step if changed
+            if (step != state.dateStep) {
+              bloc.add(DateStepChanged(step));
+            }
+            
+            // 2. Update Mode if changed
+            if (mode != state.filterMode) {
+              bloc.add(FilterModeChanged(mode));
+            }
+
+            // 3. Update Date/Range
+            if (mode == FilterMode.range && range != null) {
+              bloc.add(ActiveDateRangeChanged(range));
+            } else {
+              bloc.add(ActiveDateChanged(date));
+            }
+          },
         );
       },
     );
