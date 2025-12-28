@@ -6,7 +6,7 @@ import 'package:my_budget_client/domain/repositories/transaction_repository.dart
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/advanced_filter_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
-import 'package:my_budget_client/presentation/widgets/calandar_step_picker.dart';
+import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 
 class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   const FilterDate({super.key});
@@ -239,23 +239,6 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
                 Icon(Icons.arrow_downward),
                 Icon(Icons.arrow_upward),
               ],
-            ),
-            SizedBox(
-              width: 40,
-              child: TextButton(
-                onPressed: () => _showDateStepPicker(context),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  shape: const CircleBorder(),
-                ),
-                child: Text(
-                  state.dateStep.name[0].toUpperCase(),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
             ),
             InkWell(
               onTap: () => _showCustomCalendar(context, state),

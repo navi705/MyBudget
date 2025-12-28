@@ -40,6 +40,7 @@ dependencies:
   flutter_svg: ^2.0.10
   file_picker: ^10.3.8
   csv: ^6.0.0
+  flutter_date_pickers: ^0.4.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -20,11 +20,7 @@
 13. To do reffacot classes filter_date and transaction list to have ancestorj
 
 Create a big to do list and separate to small pieces 
-1.I added to my class currency in domain layer and i need to extend logic for my classes i added field type and i need to everwhere i use to adaption, and for my import class where i import csv to get by currency code or if it haven't founded i need to set type to other
-1.1 I created calendar_step_picker (please fix name file) I want to fix size of button because it's looks ugly so big on PC i need fix that. 
-2. You should to remove step picker from transacton and account page (i mean about only icon don't touch in calendar_step_picker) 
-3. Remove dialog date picker i want to use my own 
-4. In account page i want to closer account to center. And i want to fix my icon to step left or right arrows on my date and we need to fix logic because account do not recalculating balance but should. They should to recalucatlating balance on month or day or year then i click or choose date for historical data
+3.. In account page i want to closer account to center. And i want to fix my icon to step left or right arrows on my date and we need to fix logic because account do not recalculating balance but should. They should to recalucatlating balance on month or day or year then i click or choose date for historical data
 5. In my transaction page i have filter and filter for type transacton i'd want top put in my filter dialog 
 6. I want to add filters to my categories and move to center my fileters to dialog. I want to filter my type, sum, and date like in account page 
 

@@ -956,23 +956,6 @@ class _AccountsDateAppBar extends StatelessWidget implements PreferredSizeWidget
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: 40,
-          child: TextButton(
-            onPressed: () => _showDateStepPicker(context),
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              shape: const CircleBorder(),
-            ),
-            child: Text(
-              state.dateStep.name[0].toUpperCase(),
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
         InkWell(
           onTap: () async {
              final DateTime? picked = await showDatePicker(
