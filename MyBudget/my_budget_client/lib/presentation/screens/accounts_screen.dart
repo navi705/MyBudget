@@ -346,107 +346,114 @@ class _AccountsScreenState extends State<AccountsScreen> {
               current.recentlyDeletedAccount != null;
         },
 
-        child: Column(
-          children: [
-            BlocBuilder<AccountsBloc, AccountsState>(
-              builder: (context, accountsState) {
-                return BlocBuilder<CurrencyConverterBloc, CurrencyConverterState>(
-                  builder: (context, converterState) {
-                    if (accountsState is AccountsLoadSuccess &&
-                        converterState is CurrencyConverterLoadSuccess) {
-                      return TotalBalanceCard(
-                        accountsState: accountsState,
-                        converterState: converterState,
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                );
-              },
-            ),
-
-            Expanded(
-              child: BlocBuilder<AccountsBloc, AccountsState>(
-                builder: (context, state) {
-                  if (state is AccountsLoadInProgress) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (state is AccountsLoadSuccess) {
-                    final filteredAccounts = state.accounts;
-
-                    if (filteredAccounts.isEmpty) {
-                      return Center(child: Text(l10n.accountsEmptyState));
-                    }
-
-                    return ListView.builder(
-                      controller: _scrollController,
-                      itemCount: state.hasReachedMax
-                          ? filteredAccounts.length
-                          : filteredAccounts.length + 1,
-                      itemBuilder: (context, index) {
-                        if (index >= filteredAccounts.length) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-
-                        final account = filteredAccounts[index];
-
-                        final balance = state.isHistorical
-                            ? (state.historicalBalances[account.id] ??
-                                  account.balance)
-                            : account.balance;
-
-                        final isSelected = state.selectedAccountIds.contains(
-                          account.id,
+        child: BlocListener<AccountsBloc, AccountsState>(
+          listenWhen: (previous, current) {
+            return previous is AccountsLoadSuccess &&
+                current is AccountsLoadSuccess &&
+                previous.activeDate != current.activeDate;
+          },
+          listener: (context, state) {
+            if (state is AccountsLoadSuccess) {
+              context
+                  .read<CurrencyConverterBloc>()
+                  .add(DateChanged(state.activeDate));
+            }
+          },
+          child: Column(
+            children: [
+              BlocBuilder<AccountsBloc, AccountsState>(
+                builder: (context, accountsState) {
+                  return BlocBuilder<CurrencyConverterBloc,
+                      CurrencyConverterState>(
+                    builder: (context, converterState) {
+                      if (accountsState is AccountsLoadSuccess &&
+                          converterState is CurrencyConverterLoadSuccess) {
+                        return TotalBalanceCard(
+                          accountsState: accountsState,
+                          converterState: converterState,
                         );
-
-                        final bloc = context.read<AccountsBloc>();
-
-                        return AccountListItem(
-                          account: account.copyWith(balance: balance),
-
-                          isSelected: isSelected,
-
-                          onTap: () {
-                            if (state.isSelectionModeActive) {
-                              bloc.add(ToggleAccountSelection(account.id!));
-                            } else {
-                              context.push(
-                                AppRoutes.editAccount,
-
-                                extra: account,
-                              );
-                            }
-                          },
-
-                          onLongPress: () {
-                            if (!state.isSelectionModeActive) {
-                              bloc.add(const ToggleSelectionMode(true));
-                            }
-
-                            bloc.add(ToggleAccountSelection(account.id!));
-                          },
-
-                          onSecondaryTapUp: (details) {
-                            _showContextMenu(
-                              context,
-                              details.globalPosition,
-                              account,
-                              state,
-                            );
-                          },
-                        );
-                      },
-                    );
-                  }
-
-                  return const SizedBox.shrink(); // Fallback for other states
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  );
                 },
               ),
-            ),
-          ],
+              Expanded(
+                child: BlocBuilder<AccountsBloc, AccountsState>(
+                  builder: (context, state) {
+                    if (state is AccountsLoadInProgress) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (state is AccountsLoadSuccess) {
+                      final filteredAccounts = state.accounts;
+
+                      if (filteredAccounts.isEmpty) {
+                        return Center(child: Text(l10n.accountsEmptyState));
+                      }
+
+                      return ListView.builder(
+                        controller: _scrollController,
+                        itemCount: state.hasReachedMax
+                            ? filteredAccounts.length
+                            : filteredAccounts.length + 1,
+                        itemBuilder: (context, index) {
+                          if (index >= filteredAccounts.length) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+
+                          final account = filteredAccounts[index];
+
+                          final balance = state.isHistorical
+                              ? (state.historicalBalances[account.id] ??
+                                    account.balance)
+                              : account.balance;
+
+                          final isSelected =
+                              state.selectedAccountIds.contains(account.id);
+
+                          final bloc = context.read<AccountsBloc>();
+
+                          return AccountListItem(
+                            account: account.copyWith(balance: balance),
+                            isSelected: isSelected,
+                            onTap: () {
+                              if (state.isSelectionModeActive) {
+                                bloc.add(ToggleAccountSelection(account.id!));
+                              } else {
+                                context.push(
+                                  AppRoutes.editAccount,
+                                  extra: account,
+                                );
+                              }
+                            },
+                            onLongPress: () {
+                              if (!state.isSelectionModeActive) {
+                                bloc.add(const ToggleSelectionMode(true));
+                              }
+                              bloc.add(ToggleAccountSelection(account.id!));
+                            },
+                            onSecondaryTapUp: (details) {
+                              _showContextMenu(
+                                context,
+                                details.globalPosition,
+                                account,
+                                state,
+                              );
+                            },
+                          );
+                        },
+                      );
+                    }
+
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
 
@@ -577,6 +584,8 @@ class TotalBalanceCard extends StatelessWidget {
                     accounts: accountsState.accounts,
                     exchangeRates: converterState.exchangeRates,
                     baseCurrencyCode: converterState.baseCurrencyCode,
+                    date: accountsState.activeDate,
+                    groupedRates: converterState.groupedRates,
                   );
                   Color balanceColor;
                   if (total > 0) {

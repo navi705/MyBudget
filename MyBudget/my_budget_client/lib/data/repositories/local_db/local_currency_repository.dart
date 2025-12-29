@@ -107,10 +107,9 @@ class LocalCurrencyRepository implements CurrencyRepository {
   }
 
   @override
-  Stream<List<ExchangeRate>> watchAllExchangeRates() {
-    return database.exchangeRatesDao.watchAllExchangeRates().map((driftExchangeRates) {
-      return driftExchangeRates.toDomainList();
-    });
+  Future<List<ExchangeRate>> getLatestExchangeRates(DateTime date) async {
+    final driftExchangeRates = await database.exchangeRatesDao.getLatestExchangeRates(date);
+    return driftExchangeRates.toDomainList();
   }
 
   @override

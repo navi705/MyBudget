@@ -24,73 +24,71 @@ class CurrencyConverterBloc
         _settingsRepository = settingsRepository,
         super(CurrencyConverterInitial()) {
     on<LoadCurrencyConverter>(_onLoadCurrencyConverter);
-    on<_CurrencyConverterDataUpdated>(_onDataUpdated);
+    on<DateChanged>(_onDateChanged);
     on<AddSelectedCurrency>(_onAddSelectedCurrency);
     on<RemoveSelectedCurrency>(_onRemoveSelectedCurrency);
   }
 
-  void _onLoadCurrencyConverter(
+  Future<void> _onLoadCurrencyConverter(
     LoadCurrencyConverter event,
     Emitter<CurrencyConverterState> emit,
-  ) {
+  ) async {
     emit(CurrencyConverterLoadInProgress());
-    Rx.combineLatest4(
-      _currencyRepository.watchCurrencies(),
-      _currencyRepository.watchAllExchangeRates(),
-      _settingsRepository.watchSetting('conversion_base_currency_code'),
-      _settingsRepository.watchSetting('selected_currencies'),
-      (
-        List<Currency> currencies,
-        List<ExchangeRate> rates,
-        Settings? baseCurrencySetting,
-        Settings? selectedCurrenciesSetting,
-      ) =>
-          _CurrencyConverterDataUpdated(
-        allCurrencies: currencies,
-        exchangeRates: rates,
-        baseCurrencySetting: baseCurrencySetting,
-        selectedCurrenciesSetting: selectedCurrenciesSetting,
-      ),
-    ).listen(
-      (update) => add(update),
-      onError: (error, stackTrace) {
-        emit(CurrencyConverterLoadFailure());
-      },
-    );
-  }
+    try {
+      final results = await Future.wait([
+        _currencyRepository.getCurrencies(),
+        _settingsRepository.getSetting('conversion_base_currency_code'),
+        _settingsRepository.getSetting('selected_currencies'),
+      ]);
 
-  void _onDataUpdated(
-    _CurrencyConverterDataUpdated event,
-    Emitter<CurrencyConverterState> emit,
-  ) {
-    final baseCode = event.baseCurrencySetting?.value ?? 'USD';
-    final currentState = state;
-    List<Currency> selected = [];
+      final allCurrencies = results[0] as List<Currency>;
+      final baseCurrencySetting = results[1] as Settings?;
+      final selectedCurrenciesSetting = results[2] as Settings?;
 
-    if (currentState is CurrencyConverterLoadSuccess) {
-      selected = currentState.selectedCurrencies;
-    } else {
-      final selectedCodes =
-          event.selectedCurrenciesSetting?.value.split(',') ?? [];
+      final baseCode = baseCurrencySetting?.value ?? 'USD';
+      List<Currency> selected = [];
+
+      final selectedCodes = selectedCurrenciesSetting?.value.split(',') ?? [];
       if (selectedCodes.isNotEmpty) {
-        selected = event.allCurrencies
+        selected = allCurrencies
             .where((c) => selectedCodes.contains(c.code))
             .toList();
-      } else if (event.allCurrencies.isNotEmpty) {
+      } else if (allCurrencies.isNotEmpty) {
         final baseCurrency =
-            event.allCurrencies.firstWhereOrNull((c) => c.code == baseCode);
+            allCurrencies.firstWhereOrNull((c) => c.code == baseCode);
         if (baseCurrency != null) {
           selected.add(baseCurrency);
         }
       }
-    }
+      
+      final exchangeRates = await _currencyRepository.getLatestExchangeRates(DateTime.now());
 
-    emit(CurrencyConverterLoadSuccess(
-      allCurrencies: event.allCurrencies,
-      exchangeRates: event.exchangeRates,
-      baseCurrencyCode: baseCode,
-      selectedCurrencies: selected,
-    ));
+      emit(CurrencyConverterLoadSuccess(
+        allCurrencies: allCurrencies,
+        exchangeRates: exchangeRates,
+        baseCurrencyCode: baseCode,
+        selectedCurrencies: selected,
+      ));
+    } catch (e) {
+      emit(CurrencyConverterLoadFailure());
+    }
+  }
+
+  Future<void> _onDateChanged(
+    DateChanged event,
+    Emitter<CurrencyConverterState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is CurrencyConverterLoadSuccess) {
+      try {
+        final exchangeRates =
+            await _currencyRepository.getLatestExchangeRates(event.date);
+        emit(currentState.copyWith(exchangeRates: exchangeRates));
+      } catch (e) {
+        // We can choose to emit a failure state or just log the error
+        // and keep the old rates. For now, we keep the old rates.
+      }
+    }
   }
 
   Future<void> _onAddSelectedCurrency(
@@ -123,7 +121,8 @@ class CurrencyConverterBloc
 
   Future<void> _saveSelectedCurrencies(List<Currency> currencies) async {
     final deviceName =
-        (await _settingsRepository.getSetting('device_name'))?.value ?? 'default';
+        (await _settingsRepository.getSetting('device_name'))?.value ??
+            'default';
     final currencyCodes = currencies.map((c) => c.code).join(',');
     await _settingsRepository.setSetting(
       Settings(

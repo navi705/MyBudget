@@ -251,7 +251,14 @@ class TransactionListItem extends StatelessWidget {
       child: Container(
         color: isSelected ? Theme.of(context).highlightColor : null,
         child: ListTile(
-          leading: CircleAvatar(backgroundColor: color, child: iconWidget),
+          leading: Container(
+            padding: const EdgeInsets.all(10.0),
+            decoration: BoxDecoration(
+              color: color.withAlpha((255 * 0.15).round()),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            child: iconWidget,
+          ),
           title: Text(transactionCategory.transaction.description),
           subtitle: BlocBuilder<TransactionsBloc, TransactionsState>(
             builder: (context, state) {

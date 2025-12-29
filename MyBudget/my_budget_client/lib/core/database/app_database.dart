@@ -765,8 +765,15 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     int limit = 10,
     int offset = 0,
   }) => (select(exchangeRates)..limit(limit, offset: offset)).get();
-  Stream<List<ExchangeRate>> watchAllExchangeRates() =>
-      select(exchangeRates).watch();
+  
+  Future<List<ExchangeRate>> getLatestExchangeRates(DateTime date) {
+    return customSelect(
+      'SELECT r.* FROM exchange_rates r INNER JOIN (SELECT from_currency_code, to_currency_code, MAX(date) AS max_date FROM exchange_rates WHERE date <= ? GROUP BY from_currency_code, to_currency_code) max_dates ON r.from_currency_code = max_dates.from_currency_code AND r.to_currency_code = max_dates.to_currency_code AND r.date = max_dates.max_date',
+      variables: [Variable.withDateTime(date)],
+      readsFrom: {exchangeRates},
+    ).get().then((rows) => rows.map((row) => exchangeRates.map(row.data)).toList());
+  }
+
   Future<void> addExchangeRate(ExchangeRatesCompanion rate) =>
       into(exchangeRates).insert(rate);
 
