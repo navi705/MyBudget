@@ -96,8 +96,8 @@ class LocalAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<int> getCountWithFilters({String? accountTypeId}) {
-    return database.accountsDao.getCountWithFilters(accountTypeId: accountTypeId);
+  Future<int> getCountWithFilters({List<String>? accountTypeIds}) {
+    return database.accountsDao.getCountWithFilters(accountTypeIds: accountTypeIds);
   }
   
   @override
@@ -112,7 +112,9 @@ class LocalAccountRepository implements AccountRepository {
   
   @override
   Future<List<Account>> getAccountsPaginatedFiltered({int limit = 10, int offset = 0, AccountFilters? accountFilters}) async {
-    final accounts = await database.accountsDao.getAccountWithFilters(limit: 10, offset: 10,  
+    final accounts = await database.accountsDao.getAccountWithFilters(
+     limit: limit,
+     offset: offset,  
      sort: accountFilters?.sort == Sort.ascending ? OrderingMode.asc : OrderingMode.desc,
      description: accountFilters?.description,
      name: accountFilters?.name,
@@ -120,8 +122,10 @@ class LocalAccountRepository implements AccountRepository {
      amountTo: accountFilters?.amountTo,
      date: accountFilters?.date,
      categoriesIds: accountFilters?.categoriesIds,
-     currenciesIds: accountFilters?.currenciesIds);
+     currenciesIds: accountFilters?.currenciesIds,
+     accountTypeIds: accountFilters?.accountTypeIds,
+    );
 
-     return accounts.toDomainList();
+    return accounts.toDomainList();
   }
 }

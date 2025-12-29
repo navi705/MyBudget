@@ -449,9 +449,11 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   Future<Map<String, double>> getBalancesAtDate(DateTime date) async {
     final allAccounts = await getAllAccounts();
     final balances = <String, double>{};
+    final startOfDate = DateTime(date.year, date.month, date.day);
 
     for (final account in allAccounts) {
-      if (date.isBefore(account.creationDate)) {
+      final startOfCreationDate = DateTime(account.creationDate.year, account.creationDate.month, account.creationDate.day);
+      if (startOfDate.isBefore(startOfCreationDate)) {
         balances[account.id] = 0.0;
       } else {
         final currentBalance = account.balance;
