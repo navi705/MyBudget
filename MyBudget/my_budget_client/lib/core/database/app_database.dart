@@ -463,10 +463,63 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     return balances;
   }
 
-  Future<int> getCountWithFilters({String? accountTypeId}) async {
+  Future<List<DbAccount>> getAccountWithFilters({
+    int limit = 10,
+    int offset = 0,
+    OrderingMode sort = OrderingMode.desc,
+    String? description,
+    String? name,
+    double? amountFrom,
+    double? amountTo,
+    DateTime? date,
+    List<String>? categoriesIds,
+    List<String>? currenciesIds,
+    List<String>? accountTypeIds,
+  }) {
+    final query = select(accounts);
+
+    if (name != null && name.isNotEmpty) {
+      query.where((tbl) => tbl.name.like('%$name%'));
+    }
+    if (description != null && description.isNotEmpty) {
+      query.where((tbl) => tbl.description.like('%$description%'));
+    }
+    if (amountFrom != null) {
+      query.where((tbl) => tbl.balance.isBiggerOrEqualValue(amountFrom));
+    }
+    if (amountTo != null) {
+      query.where((tbl) => tbl.balance.isSmallerOrEqualValue(amountTo));
+    }
+    if (date != null) {
+      final startOfDay = DateTime(date.year, date.month, date.day);
+      query.where((tbl) => tbl.creationDate.isBiggerOrEqualValue(startOfDay));
+    }
+
+    if (currenciesIds != null && currenciesIds.isNotEmpty) {
+      query.where((tbl) => tbl.currencyCode.isIn(currenciesIds));
+    }
+
+    if (accountTypeIds != null && accountTypeIds.isNotEmpty) {
+      query.where((tbl) => tbl.accountTypeId.isIn(accountTypeIds));
+    }
+
+    if (categoriesIds != null && categoriesIds.isNotEmpty) {
+      final subquery = selectOnly(transactions)
+        ..where(transactions.categoryId.isIn(categoriesIds))
+        ..addColumns([transactions.accountId]);
+      query.where((tbl) => tbl.id.isInQuery(subquery));
+    }
+
+    query.orderBy([(t) => OrderingTerm(expression: t.balance, mode: sort)]);
+    query.limit(limit, offset: offset);
+
+    return query.get();
+  }
+
+  Future<int> getCountWithFilters({List<String>? accountTypeIds}) async {
     final query = selectOnly(accounts);
-    if (accountTypeId != null && accountTypeId != 'all') {
-      query.where(accounts.accountTypeId.equals(accountTypeId));
+    if (accountTypeIds != null && accountTypeIds.isNotEmpty) {
+      query.where(accounts.accountTypeId.isIn(accountTypeIds));
     }
     final countExp = accounts.id.count();
     query.addColumns([countExp]);

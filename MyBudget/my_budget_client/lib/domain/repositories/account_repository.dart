@@ -1,10 +1,16 @@
+import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
+import 'package:my_budget_client/domain/repositories/transaction_repository.dart' show Sort;
 
 abstract class AccountRepository {
   Future<List<Account>> getAccounts();
-  Future<List<Account>> getAccountsPaginated(
-      {int limit = 10, int offset = 0});
+  Future<List<Account>> getAccountsPaginated({int limit = 10, int offset = 0});
+  Future<List<Account>> getAccountsPaginatedFiltered({
+    int limit = 10,
+    int offset = 0,
+    AccountFilters? accountFilters
+  });
   Stream<List<Account>> watchAccounts();
   Future<Account?> getAccountById(String id);
   Future<void> addAccount(Account account);
@@ -14,12 +20,75 @@ abstract class AccountRepository {
   Future<void> deleteMultipleAccounts(List<String> accountIds);
   Future<void> restoreAccount(Account account);
   Future<Map<String, double>> getBalancesAtDate(DateTime date);
-  Future<int> getCountWithFilters({String? accountTypeId});
+  Future<int> getCountWithFilters({List<String>? accountTypeIds});
 
   Future<List<AccountType>> getAccountTypes();
   Stream<List<AccountType>> watchAccountTypes();
   Future<AccountType?> getAccountTypeById(String id);
   Future<void> addAccountTypes(List<AccountType> accountTypes);
   Future<void> updateAccountTypeForMultipleAccounts(
-      List<String> accountIds, String accountTypeId);
+    List<String> accountIds,
+    String accountTypeId,
+  );
+}
+
+class AccountFilters extends Equatable {
+  final String? description;
+  final String? name;
+  final double? amountFrom;
+  final double? amountTo;
+  final DateTime? date;
+  final List<String>? categoriesIds;
+  final List<String>? currenciesIds;
+  final List<String>? accountTypeIds;
+  final Sort sort;
+
+  const AccountFilters({
+    this.description,
+    this.name,
+    this.amountFrom,
+    this.amountTo,
+    this.date,
+    this.categoriesIds,
+    this.currenciesIds,
+    this.accountTypeIds,
+    required this.sort
+  });
+
+  AccountFilters copyWith({
+    final String? description,
+    final String? name,
+    final double? amountFrom,
+    final double? amountTo,
+    final DateTime? date,
+    final List<String>? categoriesIds,
+    final List<String>? currenciesIds,
+    final List<String>? accountTypeIds,
+    final Sort? sort
+  }) {
+    return AccountFilters(
+      description: description ?? this.description,
+      name: name ?? this.name,
+      amountFrom: amountFrom ?? this.amountFrom,
+      amountTo: amountTo ?? this.amountTo,
+      date: date ?? this.date,
+      categoriesIds: categoriesIds ?? this.categoriesIds,
+      currenciesIds: currenciesIds ?? this.currenciesIds,
+      accountTypeIds: accountTypeIds ?? this.accountTypeIds,
+      sort: sort ?? this.sort
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    description,
+    name,
+    amountFrom,
+    amountTo,
+    date,
+    categoriesIds,
+    currenciesIds,
+    accountTypeIds,
+    sort
+  ];
 }

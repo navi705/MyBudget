@@ -49,13 +49,13 @@ class SortAccounts extends AccountsEvent {
   List<Object> get props => [sortAscending];
 }
 
-class FilterAccounts extends AccountsEvent {
-  final String accountTypeId;
+class FiltersChanged extends AccountsEvent {
+  final AccountFilters filters;
 
-  const FilterAccounts(this.accountTypeId);
+  const FiltersChanged(this.filters);
 
   @override
-  List<Object> get props => [accountTypeId];
+  List<Object> get props => [filters];
 }
 
 class LoadHistoricalBalances extends AccountsEvent {
@@ -136,3 +136,13 @@ class ActiveDateChanged extends AccountsEvent {
   @override
   List<Object> get props => [date];
 }
+
+// This is the old event, I'm removing it.
+// class FilterAccounts extends AccountsEvent {
+//   final String accountTypeId;
+
+//   const FilterAccounts(this.accountTypeId);
+
+//   @override
+//   List<Object> get props => [accountTypeId];
+// }

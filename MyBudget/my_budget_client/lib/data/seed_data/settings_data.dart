@@ -71,5 +71,46 @@ List<SettingsCompanion> getDefaultSettings(String deviceName) {
       value: '',
       device: deviceName,
     ),
+    // AccountFilter
+    SettingsCompanion.insert(
+      key: 'persist_account_filters',
+      value: 'false',
+      device: deviceName,
+    ),
+    SettingsCompanion.insert(
+      key: 'account_filter_description',
+      value: '',
+      device: deviceName,
+    ),
+    SettingsCompanion.insert(
+      key: 'account_filter_amount_from',
+      value: '',
+      device: deviceName,
+    ),
+    SettingsCompanion.insert(
+      key: 'account_filter_amount_to',
+      value: '',
+      device: deviceName,
+    ),
+    SettingsCompanion.insert(
+      key: 'account_filter_account_date',
+      value: '',
+      device: deviceName,
+    ),
+    SettingsCompanion.insert(
+      key: 'account_filter_category_id',
+      value: '',
+      device: deviceName,
+    ),
+    SettingsCompanion.insert(
+      key: 'account_filter_account_type_id',
+      value: '',
+      device: deviceName,
+    ),
+    SettingsCompanion.insert(
+      key: 'account_selected_currencies',
+      value: '',
+      device: deviceName,
+    ),
   ];
 }

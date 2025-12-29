@@ -10,11 +10,13 @@ import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart'
 import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
+import 'package:my_budget_client/presentation/widgets/account_filter_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/account_list_item.dart';
 import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
-import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart' show FilterMode, DateStep;
+import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart'
+    show FilterMode, DateStep;
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
@@ -62,8 +64,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final currentState = converterBloc.state;
     if (currentState is! CurrencyConverterLoadSuccess) return;
 
-    final tempSelectedCurrencies =
-        List<Currency>.from(currentState.selectedCurrencies);
+    final tempSelectedCurrencies = List<Currency>.from(
+      currentState.selectedCurrencies,
+    );
 
     await showDialog(
       context: context,
@@ -75,8 +78,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
               content: SingleChildScrollView(
                 child: ListBody(
                   children: currentState.allCurrencies.map((currency) {
-                    final isSelected =
-                        tempSelectedCurrencies.any((c) => c.code == currency.code);
+                    final isSelected = tempSelectedCurrencies.any(
+                      (c) => c.code == currency.code,
+                    );
                     return CheckboxListTile(
                       title: Text('${currency.name} (${currency.code})'),
                       value: isSelected,
@@ -85,8 +89,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           if (value == true) {
                             tempSelectedCurrencies.add(currency);
                           } else {
-                            tempSelectedCurrencies
-                                .removeWhere((c) => c.code == currency.code);
+                            tempSelectedCurrencies.removeWhere(
+                              (c) => c.code == currency.code,
+                            );
                           }
                         });
                       },
@@ -103,8 +108,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   child: const Text('OK'),
                   onPressed: () {
                     // Clear current selections
-                    for (final currency
-                        in List<Currency>.from(currentState.selectedCurrencies)) {
+                    for (final currency in List<Currency>.from(
+                      currentState.selectedCurrencies,
+                    )) {
                       converterBloc.add(RemoveSelectedCurrency(currency));
                     }
                     // Add new selections
@@ -123,13 +129,17 @@ class _AccountsScreenState extends State<AccountsScreen> {
   }
 
   void _showDeleteConfirmationDialog(
-      BuildContext context, AccountsBloc bloc, List<String> accountIds) {
+    BuildContext context,
+    AccountsBloc bloc,
+    List<String> accountIds,
+  ) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text('Delete ${accountIds.length} accounts?'),
-        content:
-            const Text('Are you sure you want to delete the selected accounts?'),
+        content: const Text(
+          'Are you sure you want to delete the selected accounts?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -147,8 +157,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
     );
   }
 
-  void _showChangeAccountTypeDialog(BuildContext context, AccountsBloc bloc,
-      List<String> accountIds, List<AccountType> accountTypes) {
+  void _showChangeAccountTypeDialog(
+    BuildContext context,
+    AccountsBloc bloc,
+    List<String> accountIds,
+    List<AccountType> accountTypes,
+  ) {
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -163,10 +177,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
               selectedTypeId = newValue;
             },
             items: accountTypes
-                .map((type) => DropdownMenuItem(
-                      value: type.id,
-                      child: Text(type.name),
-                    ))
+                .map(
+                  (type) =>
+                      DropdownMenuItem(value: type.id, child: Text(type.name)),
+                )
                 .toList(),
           ),
           actions: [
@@ -178,8 +192,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
               child: const Text('Change'),
               onPressed: () {
                 if (selectedTypeId != null) {
-                  bloc.add(UpdateAccountTypeForMultipleAccounts(
-                      accountIds, selectedTypeId!));
+                  bloc.add(
+                    UpdateAccountTypeForMultipleAccounts(
+                      accountIds,
+                      selectedTypeId!,
+                    ),
+                  );
                 }
                 Navigator.of(dialogContext).pop();
               },
@@ -212,28 +230,16 @@ class _AccountsScreenState extends State<AccountsScreen> {
           value: 'select',
           child: Text(isSelected ? 'Deselect' : 'Select'),
         ),
-        const PopupMenuItem(
-          value: 'select_all',
-          child: Text('Select All'),
-        ),
+        const PopupMenuItem(value: 'select_all', child: Text('Select All')),
         if (state.selectedAccountIds.isNotEmpty)
           const PopupMenuItem(
             value: 'deselect_all',
             child: Text('Deselect All'),
           ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
-          value: 'edit',
-          child: Text('Edit'),
-        ),
-        const PopupMenuItem(
-          value: 'delete',
-          child: Text('Delete'),
-        ),
-        const PopupMenuItem(
-          value: 'change_type',
-          child: Text('Change Type'),
-        ),
+        const PopupMenuItem(value: 'edit', child: Text('Edit')),
+        const PopupMenuItem(value: 'delete', child: Text('Delete')),
+        const PopupMenuItem(value: 'change_type', child: Text('Change Type')),
       ],
     ).then((value) {
       if (!mounted) return;
@@ -255,529 +261,330 @@ class _AccountsScreenState extends State<AccountsScreen> {
       } else if (value == 'delete') {
         if (!mounted) return;
         _showDeleteConfirmationDialog(
-            context, bloc, isSelected ? selectedIds : [account.id!]);
+          context,
+          bloc,
+          isSelected ? selectedIds : [account.id!],
+        );
       } else if (value == 'change_type') {
         if (!mounted) return;
-        _showChangeAccountTypeDialog(context, bloc,
-            isSelected ? selectedIds : [account.id!], state.accountTypes);
+        _showChangeAccountTypeDialog(
+          context,
+          bloc,
+          isSelected ? selectedIds : [account.id!],
+          state.accountTypes,
+        );
       }
     });
   }
 
-    @override
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
 
-    Widget build(BuildContext context) {
+    final bloc = context.read<AccountsBloc>();
 
-      final l10n = AppLocalizations.of(context)!;
-
-      final bloc = context.read<AccountsBloc>();
-
-      return Scaffold(
-
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight),
-          child: BlocBuilder<AccountsBloc, AccountsState>(
-            builder: (context, state) {
-              if (state is! AccountsLoadSuccess) {
-                return AppBar(title: Text(l10n.accountsAppBarTitle));
-              }
-
-              if (state.isSelectionModeActive) {
-                return _SelectionAppBar(
-                  state: state,
-                  onDelete: () => _showDeleteConfirmationDialog(
-                      context, bloc, state.selectedAccountIds.toList()),
-                  onChangeType: () => _showChangeAccountTypeDialog(context,
-                      bloc, state.selectedAccountIds.toList(), state.accountTypes),
-                );
-              }
-
-              return _AccountsDateAppBar(state: state);
-            },
-          ),
-        ),
-
-        body: BlocListener<AccountsBloc, AccountsState>(
-
-          listener: (context, state) {
-
-            if (state is AccountsLoadSuccess &&
-
-                state.recentlyDeletedAccount != null) {
-
-              ScaffoldMessenger.of(context)
-
-                ..hideCurrentSnackBar()
-
-                ..showSnackBar(
-
-                  SnackBar(
-
-                    content: Text(
-
-                      '${state.recentlyDeletedAccount!.name} deleted', // TODO: Proper localization with variable
-
-                    ),
-
-                    action: SnackBarAction(
-
-                      label: 'Undo', // TODO: Localize
-
-                      onPressed: () {
-
-                        context.read<AccountsBloc>().add(UndoDeleteAccount());
-
-                      },
-
-                    ),
-
-                  ),
-
-                );
-
+    return Scaffold(
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: BlocBuilder<AccountsBloc, AccountsState>(
+          builder: (context, state) {
+            if (state is! AccountsLoadSuccess) {
+              return AppBar(title: Text(l10n.accountsAppBarTitle));
             }
 
+            if (state.isSelectionModeActive) {
+              return _SelectionAppBar(
+                state: state,
+                onDelete: () => _showDeleteConfirmationDialog(
+                  context,
+                  bloc,
+                  state.selectedAccountIds.toList(),
+                ),
+                onChangeType: () => _showChangeAccountTypeDialog(
+                  context,
+                  bloc,
+                  state.selectedAccountIds.toList(),
+                  state.accountTypes,
+                ),
+              );
+            }
+
+            return _AccountsDateAppBar(state: state);
           },
+        ),
+      ),
 
-          listenWhen: (previous, current) {
+      body: BlocListener<AccountsBloc, AccountsState>(
+        listener: (context, state) {
+          if (state is AccountsLoadSuccess &&
+              state.recentlyDeletedAccount != null) {
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  content: Text(
+                    '${state.recentlyDeletedAccount!.name} deleted', // TODO: Proper localization with variable
+                  ),
 
-            return previous is AccountsLoadSuccess &&
+                  action: SnackBarAction(
+                    label: 'Undo', // TODO: Localize
 
-                current is AccountsLoadSuccess &&
+                    onPressed: () {
+                      context.read<AccountsBloc>().add(UndoDeleteAccount());
+                    },
+                  ),
+                ),
+              );
+          }
+        },
 
-                previous.recentlyDeletedAccount != current.recentlyDeletedAccount &&
+        listenWhen: (previous, current) {
+          return previous is AccountsLoadSuccess &&
+              current is AccountsLoadSuccess &&
+              previous.recentlyDeletedAccount !=
+                  current.recentlyDeletedAccount &&
+              current.recentlyDeletedAccount != null;
+        },
 
-                current.recentlyDeletedAccount != null;
+        child: Column(
+          children: [
+            BlocBuilder<CurrencyConverterBloc, CurrencyConverterState>(
+              builder: (context, state) {
+                if (state is CurrencyConverterLoadSuccess) {
+                  return TotalBalanceCard(state: state);
+                }
 
-          },
+                return const SizedBox.shrink();
+              },
+            ),
 
-          child: Column(
-
-            children: [
-
-              BlocBuilder<CurrencyConverterBloc, CurrencyConverterState>(
-
+            Expanded(
+              child: BlocBuilder<AccountsBloc, AccountsState>(
                 builder: (context, state) {
-
-                  if (state is CurrencyConverterLoadSuccess) {
-
-                    return TotalBalanceCard(state: state);
-
+                  if (state is AccountsLoadInProgress) {
+                    return const Center(child: CircularProgressIndicator());
                   }
 
-                  return const SizedBox.shrink();
+                  if (state is AccountsLoadSuccess) {
+                    final filteredAccounts = state.accounts;
 
-                },
-
-              ),
-
-              Expanded(
-
-                child: BlocBuilder<AccountsBloc, AccountsState>(
-
-                  builder: (context, state) {
-
-                    if (state is AccountsLoadInProgress) {
-
-                      return const Center(
-
-                        child: CircularProgressIndicator(),
-
-                      );
-
+                    if (filteredAccounts.isEmpty) {
+                      return Center(child: Text(l10n.accountsEmptyState));
                     }
 
-                    if (state is AccountsLoadSuccess) {
+                    return ListView.builder(
+                      controller: _scrollController,
+                      itemCount: state.hasReachedMax
+                          ? filteredAccounts.length
+                          : filteredAccounts.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index >= filteredAccounts.length) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
 
-                      // Filter accounts based on selected type
+                        final account = filteredAccounts[index];
 
-                      final filteredAccounts = state.selectedAccountTypeId == 'all'
+                        final balance = state.isHistorical
+                            ? (state.historicalBalances[account.id] ??
+                                  account.balance)
+                            : account.balance;
 
-                          ? state.accounts
-
-                          : state.accounts
-
-                              .where((acc) =>
-
-                                  acc.accountTypeId == state.selectedAccountTypeId)
-
-                              .toList();
-
-  
-
-                      if (filteredAccounts.isEmpty) {
-
-                        return Center(
-
-                          child: Text(l10n.accountsEmptyState),
-
+                        final isSelected = state.selectedAccountIds.contains(
+                          account.id,
                         );
 
-                      }
+                        final bloc = context.read<AccountsBloc>();
 
-  
+                        return AccountListItem(
+                          account: account.copyWith(balance: balance),
 
-                      // Apply sorting
+                          isSelected: isSelected,
 
-                      filteredAccounts.sort((a, b) {
-
-                        final balanceA = state.isHistorical
-
-                            ? (state.historicalBalances[a.id] ?? a.balance)
-
-                            : a.balance;
-
-                        final balanceB = state.isHistorical
-
-                            ? (state.historicalBalances[b.id] ?? b.balance)
-
-                            : b.balance;
-
-                        final comparison = balanceA.compareTo(balanceB);
-
-                        return state.sortAscending ? comparison : -comparison;
-
-                      });
-
-  
-
-                      return ListView.builder(
-
-                        controller: _scrollController,
-
-                        itemCount: state.hasReachedMax
-
-                            ? filteredAccounts.length
-
-                            : filteredAccounts.length + 1,
-
-                        itemBuilder: (context, index) {
-
-                          if (index >= filteredAccounts.length) {
-
-                            return const Center(
-
-                              child: CircularProgressIndicator(),
-
-                            );
-
-                          }
-
-                          final account = filteredAccounts[index];
-
-                          final balance = state.isHistorical
-
-                              ? (state.historicalBalances[account.id] ??
-
-                                  account.balance)
-
-                              : account.balance;
-
-                          final isSelected =
-
-                              state.selectedAccountIds.contains(account.id);
-
-                          final bloc = context.read<AccountsBloc>();
-
-  
-
-                          return AccountListItem(
-
-                            account: account.copyWith(balance: balance),
-
-                            isSelected: isSelected,
-
-                            onTap: () {
-
-                              if (state.isSelectionModeActive) {
-
-                                bloc.add(ToggleAccountSelection(account.id!));
-
-                              } else {
-
-                                context.push(AppRoutes.editAccount,
-
-                                    extra: account);
-
-                              }
-
-                            },
-
-                            onLongPress: () {
-
-                              if (!state.isSelectionModeActive) {
-
-                                bloc.add(const ToggleSelectionMode(true));
-
-                              }
-
+                          onTap: () {
+                            if (state.isSelectionModeActive) {
                               bloc.add(ToggleAccountSelection(account.id!));
+                            } else {
+                              context.push(
+                                AppRoutes.editAccount,
 
-                            },
+                                extra: account,
+                              );
+                            }
+                          },
 
-                            onSecondaryTapUp: (details) {
+                          onLongPress: () {
+                            if (!state.isSelectionModeActive) {
+                              bloc.add(const ToggleSelectionMode(true));
+                            }
 
-                              _showContextMenu(
+                            bloc.add(ToggleAccountSelection(account.id!));
+                          },
 
-                                  context, details.globalPosition, account, state);
+                          onSecondaryTapUp: (details) {
+                            _showContextMenu(
+                              context,
+                              details.globalPosition,
+                              account,
+                              state,
+                            );
+                          },
+                        );
+                      },
+                    );
+                  }
 
-                            },
-
-                          );
-
-                        },
-
-                      );
-
-                    }
-
-                    return const SizedBox.shrink(); // Fallback for other states
-
-                  },
-
-                ),
-
+                  return const SizedBox.shrink(); // Fallback for other states
+                },
               ),
-
-            ],
-
-          ),
-
+            ),
+          ],
         ),
+      ),
 
-        floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          showDialog(
+            context: context,
+
+            builder: (dialogContext) => MultiBlocProvider(
+              providers: [
+                BlocProvider.value(value: context.read<AccountsBloc>()),
+
+                BlocProvider.value(value: context.read<CurrencyBloc>()),
+
+                BlocProvider.value(value: context.read<StylesBloc>()),
+              ],
+
+              child: const AddAccountDialog(),
+            ),
+          );
+        },
+
+        tooltip: l10n.accountsAddTooltip,
+
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class _SelectionAppBar extends StatelessWidget {
+  final AccountsLoadSuccess state;
+
+  final VoidCallback onDelete;
+
+  final VoidCallback onChangeType;
+
+  const _SelectionAppBar({
+    required this.state,
+
+    required this.onDelete,
+
+    required this.onChangeType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bloc = context.read<AccountsBloc>();
+
+    final selectedCount = state.selectedAccountIds.length;
+
+    final allCount = state.accounts.length;
+
+    final isAllSelected = selectedCount == allCount && allCount > 0;
+
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+
+        onPressed: () => bloc.add(const ToggleSelectionMode(false)),
+      ),
+
+      title: Text('$selectedCount selected'),
+
+      actions: [
+        IconButton(
+          icon: Icon(
+            isAllSelected ? Icons.deselect_outlined : Icons.select_all_outlined,
+          ),
 
           onPressed: () {
-
-            showDialog(
-
-              context: context,
-
-              builder: (dialogContext) => MultiBlocProvider(
-
-                providers: [
-
-                  BlocProvider.value(
-
-                    value: context.read<AccountsBloc>(),
-
-                  ),
-
-                  BlocProvider.value(
-
-                    value: context.read<CurrencyBloc>(),
-
-                  ),
-
-                  BlocProvider.value(
-
-                    value: context.read<StylesBloc>(),
-
-                  ),
-
-                ],
-
-                child: const AddAccountDialog(),
-
-              ),
-
-            );
-
+            if (isAllSelected) {
+              bloc.add(ClearSelection());
+            } else {
+              bloc.add(SelectAllAccounts());
+            }
           },
-
-          tooltip: l10n.accountsAddTooltip,
-
-          child: const Icon(Icons.add),
-
         ),
 
-      );
-
-    }
-
-  }
-
-  
-
-  class _SelectionAppBar extends StatelessWidget {
-
-    final AccountsLoadSuccess state;
-
-    final VoidCallback onDelete;
-
-    final VoidCallback onChangeType;
-
-  
-
-    const _SelectionAppBar(
-
-        {required this.state,
-
-        required this.onDelete,
-
-        required this.onChangeType});
-
-  
-
-    @override
-
-    Widget build(BuildContext context) {
-
-      final bloc = context.read<AccountsBloc>();
-
-      final selectedCount = state.selectedAccountIds.length;
-
-      final allCount = state.accounts.length;
-
-      final isAllSelected = selectedCount == allCount && allCount > 0;
-
-  
-
-      return AppBar(
-
-        leading: IconButton(
-
-          icon: const Icon(Icons.close),
-
-          onPressed: () => bloc.add(const ToggleSelectionMode(false)),
-
-        ),
-
-        title: Text('$selectedCount selected'),
-
-        actions: [
+        if (selectedCount > 0) ...[
+          IconButton(icon: const Icon(Icons.delete), onPressed: onDelete),
 
           IconButton(
+            icon: const Icon(Icons.drive_file_rename_outline),
 
-            icon: Icon(isAllSelected
-
-                ? Icons.deselect_outlined
-
-                : Icons.select_all_outlined),
-
-            onPressed: () {
-
-              if (isAllSelected) {
-
-                bloc.add(ClearSelection());
-
-              } else {
-
-                bloc.add(SelectAllAccounts());
-
-              }
-
-            },
-
+            onPressed: onChangeType,
           ),
-
-          if (selectedCount > 0) ...[
-
-            IconButton(
-
-              icon: const Icon(Icons.delete),
-
-              onPressed: onDelete,
-
-            ),
-
-            IconButton(
-
-              icon: const Icon(Icons.drive_file_rename_outline),
-
-              onPressed: onChangeType,
-
-            ),
-
-          ]
-
         ],
-
-      );
-
-    }
-
+      ],
+    );
   }
+}
 
-  
+class TotalBalanceCard extends StatelessWidget {
+  final CurrencyConverterLoadSuccess state;
 
-  class TotalBalanceCard extends StatelessWidget {
+  const TotalBalanceCard({required this.state, super.key});
 
-    final CurrencyConverterLoadSuccess state;
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.all(8.0),
 
-    const TotalBalanceCard({required this.state, super.key});
+      elevation: 4.0,
 
-  
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
 
-    @override
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
 
-    Widget build(BuildContext context) {
+          children: [
+            const Text(
+              'Total Balance', // TODO: Localize
 
-      return Card(
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
 
-        margin: const EdgeInsets.all(8.0),
+            const SizedBox(height: 8),
 
-        elevation: 4.0,
+            if (state.selectedCurrencies.isEmpty)
+              const Text('No currencies selected.')
+            else
+              ...state.selectedCurrencies.map((currency) {
+                final total = state.totalBalanceFor(currency);
 
-        child: Padding(
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
 
-          padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    '${currency.code}: ${total.toStringAsFixed(2)}',
 
-          child: Column(
-
-            crossAxisAlignment: CrossAxisAlignment.start,
-
-            children: [
-
-              const Text(
-
-                'Total Balance', // TODO: Localize
-
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-
-              ),
-
-              const SizedBox(height: 8),
-
-              if (state.selectedCurrencies.isEmpty)
-
-                const Text('No currencies selected.')
-
-              else
-
-                ...state.selectedCurrencies.map((currency) {
-
-                  final total = state.totalBalanceFor(currency);
-
-                  return Padding(
-
-                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-
-                    child: Text(
-
-                      '${currency.code}: ${total.toStringAsFixed(2)}',
-
-                      style: const TextStyle(fontSize: 16),
-
-                    ),
-
-                  );
-
-                })
-
-            ],
-
-          ),
-
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                );
+              }),
+          ],
         ),
-
-      );
-
-    }
-
+      ),
+    );
   }
+}
 
-class _AccountsDateAppBar extends StatelessWidget implements PreferredSizeWidget {
+class _AccountsDateAppBar extends StatelessWidget
+    implements PreferredSizeWidget {
   final AccountsLoadSuccess state;
 
   const _AccountsDateAppBar({required this.state});
@@ -817,9 +624,13 @@ class _AccountsDateAppBar extends StatelessWidget implements PreferredSizeWidget
   String _formatDate(BuildContext context, AccountsLoadSuccess state) {
     switch (state.dateStep) {
       case DateStep.day:
-        return MaterialLocalizations.of(context).formatShortDate(state.activeDate);
+        return MaterialLocalizations.of(
+          context,
+        ).formatShortDate(state.activeDate);
       case DateStep.month:
-        return MaterialLocalizations.of(context).formatMonthYear(state.activeDate);
+        return MaterialLocalizations.of(
+          context,
+        ).formatMonthYear(state.activeDate);
       case DateStep.year:
         return state.activeDate.year.toString();
     }
@@ -828,42 +639,24 @@ class _AccountsDateAppBar extends StatelessWidget implements PreferredSizeWidget
   @override
   Widget build(BuildContext context) {
     final bloc = context.read<AccountsBloc>();
-    final accountTypeDropdown = DropdownButtonHideUnderline(
-      child: Focus(
-        canRequestFocus: false,
-        child: DropdownButton<String>(
-          value: state.selectedAccountTypeId,
-          items: [
-            AccountType(
-                id: 'all',
-                name: 'All',
-                languageCode:
-                    Localizations.localeOf(context).languageCode),
-            ...state.accountTypes,
-          ]
-              .map((type) => DropdownMenuItem<String>(
-                    value: type.id,
-                    child: Text(type.name,
-                        style: const TextStyle(color: Colors.white)),
-                  ))
-              .toList(),
-          onChanged: (value) {
-            if (value != null) {
-              bloc.add(FilterAccounts(value));
-            }
-          },
-          dropdownColor:
-              Theme.of(context).appBarTheme.backgroundColor,
-          icon:
-              const Icon(Icons.arrow_drop_down, color: Colors.white),
-        ),
-      ),
-    );
-
     final centerWidget = Row(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
+        IconButton(
+          icon: const Icon(
+            Icons.tune,
+            color: Colors.white,
+          ),
+          tooltip: 'Filter',
+          onPressed: () {
+            showAccountFilterDialog(context, state.filters);
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.chevron_left, color: Colors.white),
+          onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
+        ),
         InkWell(
           onTap: () => _showCustomCalendar(context, state),
           child: Container(
@@ -875,14 +668,30 @@ class _AccountsDateAppBar extends StatelessWidget implements PreferredSizeWidget
             ),
           ),
         ),
+        IconButton(
+          icon: const Icon(Icons.chevron_right, color: Colors.white),
+          onPressed: () => bloc.add(const DatePeriodNavigated(1)),
+        ),
         const SizedBox(width: 24),
-        accountTypeDropdown,
+        RotatedBox(
+          quarterTurns: state.sortAscending ? 0 : 2,
+          child: IconButton(
+            icon: const Icon(
+              Icons.sort,
+              color: Colors.white,
+            ),
+            tooltip: 'Sort by Balance',
+            onPressed: () {
+              context.read<AccountsBloc>().add(
+                    SortAccounts(!state.sortAscending),
+                  );
+            },
+          ),
+        ),
       ],
     );
 
     return GenericFilterAppBar(
-      onNavigatePrevious: () => bloc.add(const DatePeriodNavigated(-1)),
-      onNavigateNext: () => bloc.add(const DatePeriodNavigated(1)),
       centerWidget: centerWidget,
       totalCountText: 'Total: ${state.totalCount}',
       actions: [
@@ -891,37 +700,19 @@ class _AccountsDateAppBar extends StatelessWidget implements PreferredSizeWidget
             icon: const Icon(Icons.clear, color: Colors.white),
             tooltip: 'Clear Date Filter',
             onPressed: () {
-              context
-                  .read<AccountsBloc>()
-                  .add(ClearHistoricalBalances());
+              context.read<AccountsBloc>().add(ClearHistoricalBalances());
             },
           ),
         IconButton(
           icon: const Icon(Icons.calculate, color: Colors.white),
           tooltip: 'Select Currencies for Total Balance',
           onPressed: () {
-            (context as Element).findAncestorStateOfType<_AccountsScreenState>()!
+            (context as Element)
+                .findAncestorStateOfType<_AccountsScreenState>()!
                 ._showCurrencySelectionDialog(context);
-          }
-        ),
-        IconButton(
-          icon: Icon(
-            state.sortAscending
-                ? Icons.arrow_upward
-                : Icons.arrow_downward,
-            color: Colors.white,
-          ),
-          tooltip: 'Sort by Balance',
-          onPressed: () {
-            context
-                .read<AccountsBloc>()
-                .add(SortAccounts(!state.sortAscending));
           },
         ),
       ],
     );
   }
 }
-
-
-  

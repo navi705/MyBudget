@@ -5,6 +5,7 @@ import 'package:my_budget_client/core/mappers/account_type_mapper.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
+import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 
 class LocalAccountRepository implements AccountRepository {
   final db.AppDatabase database;
@@ -107,5 +108,20 @@ class LocalAccountRepository implements AccountRepository {
   @override
   Future<void> updateAccountTypeForMultipleAccounts(List<String> accountIds, String accountTypeId) {
     return database.accountsDao.updateAccountTypeForMultipleAccounts(accountIds, accountTypeId);
+  }
+  
+  @override
+  Future<List<Account>> getAccountsPaginatedFiltered({int limit = 10, int offset = 0, AccountFilters? accountFilters}) async {
+    final accounts = await database.accountsDao.getAccountWithFilters(limit: 10, offset: 10,  
+     sort: accountFilters?.sort == Sort.ascending ? OrderingMode.asc : OrderingMode.desc,
+     description: accountFilters?.description,
+     name: accountFilters?.name,
+     amountFrom: accountFilters?.amountFrom,
+     amountTo: accountFilters?.amountTo,
+     date: accountFilters?.date,
+     categoriesIds: accountFilters?.categoriesIds,
+     currenciesIds: accountFilters?.currenciesIds);
+
+     return accounts.toDomainList();
   }
 }

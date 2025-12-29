@@ -1,55 +1,27 @@
 part of 'accounts_bloc.dart';
 
 abstract class AccountsState extends Equatable {
-  final List<Account> accounts;
-  final List<AccountType> accountTypes;
-  final Account? recentlyDeletedAccount;
-  final bool hasReachedMax;
-  final bool sortAscending;
-  final String selectedAccountTypeId;
-  final Map<String, double> historicalBalances;
-  final bool isHistorical;
-  final int totalCount;
-  final bool isSelectionModeActive;
-  final Set<String> selectedAccountIds;
-  final DateStep dateStep;
-  final DateTime activeDate;
-  final int limit;
-
-  AccountsState({
-    this.accounts = const [],
-    this.accountTypes = const [],
-    this.recentlyDeletedAccount,
-    this.hasReachedMax = false,
-    this.sortAscending = true,
-    this.selectedAccountTypeId = 'all',
-    this.historicalBalances = const {},
-    this.isHistorical = false,
-    this.totalCount = 0,
-    this.isSelectionModeActive = false,
-    this.selectedAccountIds = const {},
-    this.dateStep = DateStep.month,
-    DateTime? activeDate,
-    this.limit = 500,
-  }) : activeDate = activeDate ?? DateTime.now();
+  const AccountsState();
 
   @override
-  List<Object?> get props => [
-        accounts,
-        accountTypes,
-        recentlyDeletedAccount,
-        hasReachedMax,
-        sortAscending,
-        selectedAccountTypeId,
-        historicalBalances,
-        isHistorical,
-        totalCount,
-        isSelectionModeActive,
-        selectedAccountIds,
-        dateStep,
-        activeDate,
-        limit,
-      ];
+  List<Object?> get props => [];
+
+  // Default values for properties that are common across states
+  List<Account> get accounts => [];
+  List<AccountType> get accountTypes => [];
+  bool get hasReachedMax => false;
+  int get limit => 50;
+  int get totalCount => 0;
+  bool get sortAscending => false;
+  String get selectedAccountTypeId => 'all';
+  Account? get recentlyDeletedAccount => null;
+  Map<String, double> get historicalBalances => {};
+  bool get isHistorical => false;
+  bool get isSelectionModeActive => false;
+  Set<String> get selectedAccountIds => {};
+  DateStep get dateStep => DateStep.month;
+  DateTime get activeDate => DateTime.now();
+  AccountFilters get filters => const AccountFilters(sort: Sort.descending);
 }
 
 class AccountsInitial extends AccountsState {}
@@ -57,61 +29,99 @@ class AccountsInitial extends AccountsState {}
 class AccountsLoadInProgress extends AccountsState {}
 
 class AccountsLoadSuccess extends AccountsState {
-  AccountsLoadSuccess({
-    super.accounts,
-    super.accountTypes,
-    super.recentlyDeletedAccount,
-    super.hasReachedMax,
-    super.sortAscending,
-    super.selectedAccountTypeId,
-    super.historicalBalances,
-    super.isHistorical,
-    super.totalCount,
-    super.isSelectionModeActive,
-    super.selectedAccountIds,
-    super.dateStep,
-    super.activeDate,
-    super.limit,
+  @override
+  final List<Account> accounts;
+  @override
+  final List<AccountType> accountTypes;
+  @override
+  final bool hasReachedMax;
+  @override
+  final int totalCount;
+  @override
+  final bool sortAscending;
+  @override
+  final Account? recentlyDeletedAccount;
+  @override
+  final Map<String, double> historicalBalances;
+  @override
+  final bool isHistorical;
+  @override
+  final bool isSelectionModeActive;
+  @override
+  final Set<String> selectedAccountIds;
+  @override
+  final DateStep dateStep;
+  @override
+  final DateTime activeDate;
+  @override
+  final AccountFilters filters;
+
+  const AccountsLoadSuccess({
+    required this.accounts,
+    required this.accountTypes,
+    required this.hasReachedMax,
+    required this.totalCount,
+    this.sortAscending = false,
+    this.recentlyDeletedAccount,
+    this.historicalBalances = const {},
+    this.isHistorical = false,
+    this.isSelectionModeActive = false,
+    this.selectedAccountIds = const {},
+    this.dateStep = DateStep.month,
+    required this.activeDate,
+    this.filters = const AccountFilters(sort: Sort.descending),
   });
 
   AccountsLoadSuccess copyWith({
     List<Account>? accounts,
     List<AccountType>? accountTypes,
-    Account? recentlyDeletedAccount,
     bool? hasReachedMax,
+    int? totalCount,
     bool? sortAscending,
-    String? selectedAccountTypeId,
+    Account? recentlyDeletedAccount,
     Map<String, double>? historicalBalances,
     bool? isHistorical,
-    int? totalCount,
     bool? isSelectionModeActive,
     Set<String>? selectedAccountIds,
     DateStep? dateStep,
     DateTime? activeDate,
-    int? limit,
-    bool clearRecentlyDeleted = false,
+    AccountFilters? filters,
   }) {
     return AccountsLoadSuccess(
       accounts: accounts ?? this.accounts,
       accountTypes: accountTypes ?? this.accountTypes,
-      recentlyDeletedAccount: clearRecentlyDeleted
-          ? null
-          : recentlyDeletedAccount ?? this.recentlyDeletedAccount,
       hasReachedMax: hasReachedMax ?? this.hasReachedMax,
+      totalCount: totalCount ?? this.totalCount,
       sortAscending: sortAscending ?? this.sortAscending,
-      selectedAccountTypeId:
-          selectedAccountTypeId ?? this.selectedAccountTypeId,
+      recentlyDeletedAccount:
+          recentlyDeletedAccount, // Always update, even if null
       historicalBalances: historicalBalances ?? this.historicalBalances,
       isHistorical: isHistorical ?? this.isHistorical,
-      totalCount: totalCount ?? this.totalCount,
       isSelectionModeActive:
           isSelectionModeActive ?? this.isSelectionModeActive,
       selectedAccountIds: selectedAccountIds ?? this.selectedAccountIds,
       dateStep: dateStep ?? this.dateStep,
       activeDate: activeDate ?? this.activeDate,
-      limit: limit ?? this.limit,
+      filters: filters ?? this.filters,
     );
   }
+
+  @override
+  List<Object?> get props => [
+        accounts,
+        accountTypes,
+        hasReachedMax,
+        totalCount,
+        sortAscending,
+        recentlyDeletedAccount,
+        historicalBalances,
+        isHistorical,
+        isSelectionModeActive,
+        selectedAccountIds,
+        dateStep,
+        activeDate,
+        filters,
+      ];
 }
 
 class AccountsLoadFailure extends AccountsState {}

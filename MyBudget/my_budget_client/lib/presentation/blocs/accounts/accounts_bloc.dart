@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
+import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 
 part 'accounts_event.dart';
@@ -21,7 +22,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     on<DeleteAccount>(_onDeleteAccount);
     on<UndoDeleteAccount>(_onUndoDeleteAccount);
     on<SortAccounts>(_onSortAccounts);
-    on<FilterAccounts>(_onFilterAccounts);
+    on<FiltersChanged>(_onFiltersChanged);
     on<LoadHistoricalBalances>(_onLoadHistoricalBalances);
     on<ClearHistoricalBalances>(_onClearHistoricalBalances);
     on<ToggleSelectionMode>(_onToggleSelectionMode);
@@ -74,7 +75,6 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
       emit(currentState.copyWith(dateStep: event.dateStep));
-      // Optionally trigger a reload if changing the step should refetch/recalculate
       add(LoadHistoricalBalances(currentState.activeDate));
     }
   }
@@ -97,10 +97,14 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     final currentState = state;
     emit(AccountsLoadInProgress());
     try {
+      final filters = currentState.filters;
+
       final results = await Future.wait([
         _accountRepository.getAccountTypes(),
-        _accountRepository.getAccountsPaginated(limit: 50, offset: 0),
-        _accountRepository.getCountWithFilters(),
+        _accountRepository.getAccountsPaginatedFiltered(
+            limit: 50, offset: 0, accountFilters: filters),
+        _accountRepository.getCountWithFilters(
+            accountTypeIds: filters.accountTypeIds),
       ]);
 
       final accountTypes = results[0] as List<AccountType>;
@@ -112,10 +116,12 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         accountTypes: accountTypes,
         hasReachedMax: accounts.length >= totalCount,
         totalCount: totalCount,
-        sortAscending: currentState.sortAscending,
-        selectedAccountTypeId: currentState.selectedAccountTypeId,
+        sortAscending: filters.sort == Sort.ascending,
+        filters: filters,
+        activeDate: currentState.activeDate,
         isSelectionModeActive: currentState.isSelectionModeActive,
         selectedAccountIds: currentState.selectedAccountIds,
+        dateStep: currentState.dateStep,
       ));
     } catch (e) {
       emit(AccountsLoadFailure());
@@ -132,9 +138,10 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     }
 
     try {
-      final accounts = await _accountRepository.getAccountsPaginated(
+      final accounts = await _accountRepository.getAccountsPaginatedFiltered(
         offset: currentState.accounts.length,
         limit: currentState.limit,
+        accountFilters: currentState.filters,
       );
       if (accounts.isEmpty) {
         emit(currentState.copyWith(hasReachedMax: true));
@@ -203,25 +210,19 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   void _onSortAccounts(SortAccounts event, Emitter<AccountsState> emit) {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
-      emit(currentState.copyWith(sortAscending: event.sortAscending));
+      final newFilters =
+          currentState.filters.copyWith(sort: event.sortAscending ? Sort.ascending : Sort.descending);
+      emit(currentState.copyWith(filters: newFilters));
+      add(LoadAccounts());
     }
   }
 
-  Future<void> _onFilterAccounts(
-      FilterAccounts event, Emitter<AccountsState> emit) async {
+  Future<void> _onFiltersChanged(
+      FiltersChanged event, Emitter<AccountsState> emit) async {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
-      final totalCount = await _accountRepository.getCountWithFilters(
-          accountTypeId: event.accountTypeId);
-      final accounts = await _accountRepository.getAccountsPaginated(
-          limit: 50, offset: 0); // TODO: Pass filter to getAccountsPaginated
-
-      emit(currentState.copyWith(
-        selectedAccountTypeId: event.accountTypeId,
-        accounts: accounts,
-        totalCount: totalCount,
-        hasReachedMax: accounts.length >= totalCount,
-      ));
+      emit(currentState.copyWith(filters: event.filters));
+      add(LoadAccounts());
     }
   }
 
