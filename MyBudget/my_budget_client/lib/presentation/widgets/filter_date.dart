@@ -191,10 +191,18 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
               icon: const Icon(Icons.chevron_right, color: Colors.white),
               onPressed: () => bloc.add(const DatePeriodNavigated(1)),
             ),
-            IconButton(
-              icon: const Icon(Icons.sort, color: Colors.white),
-              tooltip: 'Сортировка',
-              onPressed: () => _showSortOptions(context, state.sort),
+            RotatedBox(
+              quarterTurns: state.sort == Sort.ascending ? 0 : 2,
+              child: IconButton(
+                icon: const Icon(Icons.sort, color: Colors.white),
+                tooltip: 'Сортировка',
+                onPressed: () {
+                  final newSort = state.sort == Sort.ascending
+                      ? Sort.descending
+                      : Sort.ascending;
+                  context.read<TransactionsBloc>().add(SortChanged(newSort));
+                },
+              ),
             ),
           ],
         );

@@ -76,8 +76,21 @@ double totalBalanceFor({
 }
 
 double? _findRate(String fromCurrencyCode, String toCurrencyCode, List<ExchangeRate> exchangeRates) {
-  final rate = exchangeRates.lastWhereOrNull((r) =>
+  // Try to find the direct rate
+  var rate = exchangeRates.lastWhereOrNull((r) =>
       r.fromCurrencyCode == fromCurrencyCode &&
       r.toCurrencyCode == toCurrencyCode);
-  return rate?.rate;
+  if (rate != null) {
+    return rate.rate;
+  }
+
+  // Try to find the reverse rate and calculate the inverse
+  rate = exchangeRates.lastWhereOrNull((r) =>
+      r.fromCurrencyCode == toCurrencyCode &&
+      r.toCurrencyCode == fromCurrencyCode);
+  if (rate != null && rate.rate != 0) {
+    return 1 / rate.rate;
+  }
+
+  return null;
 }

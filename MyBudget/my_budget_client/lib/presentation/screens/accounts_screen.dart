@@ -354,9 +354,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   builder: (context, converterState) {
                     if (accountsState is AccountsLoadSuccess &&
                         converterState is CurrencyConverterLoadSuccess) {
-                      final updatedConverterState =
-                          converterState.copyWith(accounts: accountsState.accounts);
-                      return TotalBalanceCard(state: updatedConverterState);
+                      return TotalBalanceCard(
+                        accountsState: accountsState,
+                        converterState: converterState,
+                      );
                     }
                     return const SizedBox.shrink();
                   },
@@ -540,47 +541,52 @@ class _SelectionAppBar extends StatelessWidget {
 }
 
 class TotalBalanceCard extends StatelessWidget {
-  final CurrencyConverterLoadSuccess state;
+  final CurrencyConverterLoadSuccess converterState;
+  final AccountsLoadSuccess accountsState;
 
-  const TotalBalanceCard({required this.state, super.key});
+  const TotalBalanceCard({
+    required this.converterState,
+    required this.accountsState,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.all(8.0),
-
       elevation: 4.0,
-
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-
           children: [
             const Text(
               'Total Balance', // TODO: Localize
-
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-
             const SizedBox(height: 8),
-
-            if (state.selectedCurrencies.isEmpty)
+            if (converterState.selectedCurrencies.isEmpty)
               const Text('No currencies selected.')
             else
               Wrap(
                 spacing: 16.0,
                 runSpacing: 4.0,
-                children: state.selectedCurrencies.map((currency) {
-                  final total = state.totalBalanceFor(currency);
+                children: converterState.selectedCurrencies.map((currency) {
+                  final total = totalBalanceFor(
+                    currency: currency,
+                    accounts: accountsState.accounts,
+                    exchangeRates: converterState.exchangeRates,
+                    baseCurrencyCode: converterState.baseCurrencyCode,
+                  );
                   Color balanceColor;
                   if (total > 0) {
                     balanceColor = Colors.green;
                   } else if (total < 0) {
                     balanceColor = Colors.red;
                   } else {
-                    balanceColor = Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black;
+                    balanceColor =
+                        Theme.of(context).textTheme.bodyLarge?.color ??
+                            Colors.black;
                   }
 
                   return Text(
@@ -701,13 +707,6 @@ class _AccountsDateAppBar extends StatelessWidget
             },
           ),
         ),
-      ],
-    );
-
-    return GenericFilterAppBar(
-      centerWidget: centerWidget,
-      totalCountText: 'Total: ${state.totalCount}',
-      actions: [
         IconButton(
           icon: const Icon(Icons.calculate, color: Colors.white),
           tooltip: 'Select Currencies for Total Balance',
@@ -718,6 +717,12 @@ class _AccountsDateAppBar extends StatelessWidget
           },
         ),
       ],
+    );
+
+    return GenericFilterAppBar(
+      centerWidget: centerWidget,
+      totalCountText: 'Total: ${state.totalCount}',
+      actions: [],
     );
   }
 }

@@ -30,14 +30,12 @@ class RemoveSelectedCurrency extends CurrencyConverterEvent {
 class _CurrencyConverterDataUpdated extends CurrencyConverterEvent {
   final List<Currency> allCurrencies;
   final List<ExchangeRate> exchangeRates;
-  final List<Account> accounts;
   final Settings? baseCurrencySetting;
   final Settings? selectedCurrenciesSetting;
 
   const _CurrencyConverterDataUpdated({
     required this.allCurrencies,
     required this.exchangeRates,
-    required this.accounts,
     required this.baseCurrencySetting,
     required this.selectedCurrenciesSetting,
   });
@@ -46,7 +44,6 @@ class _CurrencyConverterDataUpdated extends CurrencyConverterEvent {
   List<Object> get props => [
         allCurrencies,
         exchangeRates,
-        accounts,
         baseCurrencySetting ?? 0,
         selectedCurrenciesSetting ?? 0,
       ];
