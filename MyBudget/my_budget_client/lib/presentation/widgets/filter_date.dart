@@ -161,6 +161,7 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<TransactionsBloc, TransactionsState>(
       builder: (context, state) {
+        final bloc = context.read<TransactionsBloc>();
         final centerWidget = Row(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
@@ -170,6 +171,10 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
               tooltip: 'Фильтр',
               onPressed: () =>
                   showAdvancedFilterDialog(context, state.nonDateFilters),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_left, color: Colors.white),
+              onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
             ),
             InkWell(
               onTap: () => _showCustomCalendar(context, state),
@@ -183,6 +188,10 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
             IconButton(
+              icon: const Icon(Icons.chevron_right, color: Colors.white),
+              onPressed: () => bloc.add(const DatePeriodNavigated(1)),
+            ),
+            IconButton(
               icon: const Icon(Icons.sort, color: Colors.white),
               tooltip: 'Сортировка',
               onPressed: () => _showSortOptions(context, state.sort),
@@ -193,10 +202,6 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
         return GenericFilterAppBar(
           totalCountText: 'Всего: ${state.totalCount}',
           centerWidget: centerWidget,
-          onNavigatePrevious: () =>
-              context.read<TransactionsBloc>().add(const DatePeriodNavigated(-1)),
-          onNavigateNext: () =>
-              context.read<TransactionsBloc>().add(const DatePeriodNavigated(1)),
         );
       },
     );

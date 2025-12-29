@@ -4,7 +4,6 @@ import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
-import 'package:my_budget_client/domain/repositories/account_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/entities/settings.dart';
@@ -16,15 +15,12 @@ part 'currency_converter_state.dart';
 class CurrencyConverterBloc
     extends Bloc<CurrencyConverterEvent, CurrencyConverterState> {
   final CurrencyRepository _currencyRepository;
-  final AccountRepository _accountRepository;
   final SettingsRepository _settingsRepository;
 
   CurrencyConverterBloc({
     required CurrencyRepository currencyRepository,
-    required AccountRepository accountRepository,
     required SettingsRepository settingsRepository,
   })  : _currencyRepository = currencyRepository,
-        _accountRepository = accountRepository,
         _settingsRepository = settingsRepository,
         super(CurrencyConverterInitial()) {
     on<LoadCurrencyConverter>(_onLoadCurrencyConverter);
@@ -38,23 +34,20 @@ class CurrencyConverterBloc
     Emitter<CurrencyConverterState> emit,
   ) {
     emit(CurrencyConverterLoadInProgress());
-    Rx.combineLatest5(
+    Rx.combineLatest4(
       _currencyRepository.watchCurrencies(),
       _currencyRepository.watchAllExchangeRates(),
-      _accountRepository.watchAccounts(),
       _settingsRepository.watchSetting('conversion_base_currency_code'),
       _settingsRepository.watchSetting('selected_currencies'),
       (
         List<Currency> currencies,
         List<ExchangeRate> rates,
-        List<Account> accounts,
         Settings? baseCurrencySetting,
         Settings? selectedCurrenciesSetting,
       ) =>
           _CurrencyConverterDataUpdated(
         allCurrencies: currencies,
         exchangeRates: rates,
-        accounts: accounts,
         baseCurrencySetting: baseCurrencySetting,
         selectedCurrenciesSetting: selectedCurrenciesSetting,
       ),
@@ -95,7 +88,6 @@ class CurrencyConverterBloc
     emit(CurrencyConverterLoadSuccess(
       allCurrencies: event.allCurrencies,
       exchangeRates: event.exchangeRates,
-      accounts: event.accounts,
       baseCurrencyCode: baseCode,
       selectedCurrencies: selected,
     ));

@@ -348,13 +348,19 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
         child: Column(
           children: [
-            BlocBuilder<CurrencyConverterBloc, CurrencyConverterState>(
-              builder: (context, state) {
-                if (state is CurrencyConverterLoadSuccess) {
-                  return TotalBalanceCard(state: state);
-                }
-
-                return const SizedBox.shrink();
+            BlocBuilder<AccountsBloc, AccountsState>(
+              builder: (context, accountsState) {
+                return BlocBuilder<CurrencyConverterBloc, CurrencyConverterState>(
+                  builder: (context, converterState) {
+                    if (accountsState is AccountsLoadSuccess &&
+                        converterState is CurrencyConverterLoadSuccess) {
+                      final updatedConverterState =
+                          converterState.copyWith(accounts: accountsState.accounts);
+                      return TotalBalanceCard(state: updatedConverterState);
+                    }
+                    return const SizedBox.shrink();
+                  },
+                );
               },
             ),
 
@@ -563,19 +569,26 @@ class TotalBalanceCard extends StatelessWidget {
             if (state.selectedCurrencies.isEmpty)
               const Text('No currencies selected.')
             else
-              ...state.selectedCurrencies.map((currency) {
-                final total = state.totalBalanceFor(currency);
+              Wrap(
+                spacing: 16.0,
+                runSpacing: 4.0,
+                children: state.selectedCurrencies.map((currency) {
+                  final total = state.totalBalanceFor(currency);
+                  Color balanceColor;
+                  if (total > 0) {
+                    balanceColor = Colors.green;
+                  } else if (total < 0) {
+                    balanceColor = Colors.red;
+                  } else {
+                    balanceColor = Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black;
+                  }
 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-
-                  child: Text(
+                  return Text(
                     '${currency.code}: ${total.toStringAsFixed(2)}',
-
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                );
-              }),
+                    style: TextStyle(fontSize: 16, color: balanceColor),
+                  );
+                }).toList(),
+              ),
           ],
         ),
       ),
@@ -695,14 +708,6 @@ class _AccountsDateAppBar extends StatelessWidget
       centerWidget: centerWidget,
       totalCountText: 'Total: ${state.totalCount}',
       actions: [
-        if (state.isHistorical)
-          IconButton(
-            icon: const Icon(Icons.clear, color: Colors.white),
-            tooltip: 'Clear Date Filter',
-            onPressed: () {
-              context.read<AccountsBloc>().add(ClearHistoricalBalances());
-            },
-          ),
         IconButton(
           icon: const Icon(Icons.calculate, color: Colors.white),
           tooltip: 'Select Currencies for Total Balance',

@@ -16,14 +16,11 @@
 30. get data from sms
 
 
-
-1. I need replace account type filter to dialog and add other possible filter to account in dialog
-3. I need to button to the right and same to navigate right by our date 
-4. We need fix our recalcualting balance function for other date like historical balance now it's working incorrect 
+Need to if we get total balance  in diffrent currincies presets
+I should add to seeder my custom icons
 
 Others tasks
 1. Add data page to control my currency rate  
-1.1 Add to get all currency rate for three years at least and get every day from api
 1.2 If i convert in other currency i want to have preset for example my local exchange and etc. I need to add how much i lose on convertion. 
 1.3  
 2. Add dashboard. Calander where will be my catogories or just sum of my expense or income to days. 

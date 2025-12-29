@@ -167,6 +167,19 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              TextButton(
+                onPressed: () {
+                  widget.onApply(
+                    DateTime.now(),
+                    null,
+                    _currentStep,
+                    FilterMode.date,
+                  );
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Clear'),
+              ),
+              const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () {
                   widget.onApply(
