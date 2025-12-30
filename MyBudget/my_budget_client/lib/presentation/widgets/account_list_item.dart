@@ -9,7 +9,7 @@ import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart'; // Added
 import 'package:my_budget_client/domain/entities/currency_designation.dart'; // Added
 
-class AccountListItem extends StatelessWidget {
+class AccountListItem extends StatefulWidget {
   final Account account;
   final bool isSelected;
   final VoidCallback? onTap;
@@ -24,6 +24,13 @@ class AccountListItem extends StatelessWidget {
     this.onLongPress,
     this.onSecondaryTapUp,
   });
+
+  @override
+  State<AccountListItem> createState() => _AccountListItemState();
+}
+
+class _AccountListItemState extends State<AccountListItem> {
+  bool _isHovering = false;
 
   // Helper function to parse hex color strings
   Color _getColorFromHex(String? hexColor) {
@@ -44,8 +51,8 @@ class AccountListItem extends StatelessWidget {
       builder: (context, currencyState) {
         CurrencyDesignation? designation;
         if (currencyState is CurrencyLoadSuccess) {
-          designation = currencyState.designations
-              .firstWhereOrNull((d) => d.id == account.currencyDesignationId);
+          designation = currencyState.designations.firstWhereOrNull(
+              (d) => d.id == widget.account.currencyDesignationId);
         }
 
         return BlocBuilder<StylesBloc, StylesState>(
@@ -53,7 +60,7 @@ class AccountListItem extends StatelessWidget {
             Style? style;
             if (styleState is StylesLoadSuccess) {
               style = styleState.styles
-                  .firstWhereOrNull((s) => s.id == account.styleId);
+                  .firstWhereOrNull((s) => s.id == widget.account.styleId);
             }
 
             final finalStyle = style ??
@@ -70,51 +77,61 @@ class AccountListItem extends StatelessWidget {
 
             // Determine balance color
             Color balanceColor;
-            if (account.balance > 0) {
+            if (widget.account.balance > 0) {
               balanceColor = Colors.green;
-            } else if (account.balance < 0) {
+            } else if (widget.account.balance < 0) {
               balanceColor = Colors.red;
             } else {
               balanceColor = Colors.grey[600]!; // Default or specific for zero
             }
 
-            return GestureDetector(
-              onTap: onTap,
-              onLongPress: onLongPress,
-              onSecondaryTapUp: onSecondaryTapUp,
-              behavior: HitTestBehavior.translucent,
-              child: Card(
-                elevation: 2.0,
-                margin:
-                    const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                color: isSelected ? Theme.of(context).highlightColor : null,
-                child: ListTile(
-                  hoverColor: Colors.grey.withOpacity(0.1),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20.0, vertical: 10.0),
-                  leading: Container(
-                    padding: const EdgeInsets.all(10.0),
-                    decoration: BoxDecoration(
-                      color: color.withAlpha((255 * 0.15).round()),
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                    child: iconWidget,
+            return MouseRegion(
+              onEnter: (_) => setState(() => _isHovering = true),
+              onExit: (_) => setState(() => _isHovering = false),
+              child: GestureDetector(
+                onTap: widget.onTap,
+                onLongPress: widget.onLongPress,
+                onSecondaryTapUp: widget.onSecondaryTapUp,
+                child: Card(
+                  elevation: 2.0,
+                  margin: const EdgeInsets.symmetric(
+                      horizontal: 16.0, vertical: 8.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                    side: _isHovering
+                        ? BorderSide(
+                            color: Theme.of(context).primaryColor, width: 3.0)
+                        : BorderSide.none,
                   ),
-                  title: Text(
-                    account.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                  color: widget.isSelected
+                      ? Theme.of(context).highlightColor
+                      : _isHovering
+                          ? Colors.grey.withOpacity(0.1)
+                          : null,
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20.0, vertical: 10.0),
+                    leading: Container(
+                      padding: const EdgeInsets.all(10.0),
+                      decoration: BoxDecoration(
+                        color: color.withAlpha((255 * 0.15).round()),
+                        borderRadius: BorderRadius.circular(12.0),
+                      ),
+                      child: iconWidget,
                     ),
-                  ),
-                  subtitle: Text(
-                    '${designation?.value ?? ''} ${account.balance.toStringAsFixed(2)}', // Updated to use designation.value
-                    style: TextStyle(
-                      color: balanceColor, // Apply determined color
-                      fontSize: 14,
+                    title: Text(
+                      widget.account.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${designation?.value ?? ''} ${widget.account.balance.toStringAsFixed(2)}', // Updated to use designation.value
+                      style: TextStyle(
+                        color: balanceColor, // Apply determined color
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ),

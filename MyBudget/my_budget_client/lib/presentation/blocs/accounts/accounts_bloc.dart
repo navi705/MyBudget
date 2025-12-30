@@ -115,7 +115,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final results = await Future.wait([
         _accountRepository.getAccountTypes(),
         _accountRepository.getAccountsPaginatedFiltered(
-            limit: 50, offset: 0, accountFilters: filters),
+            limit: currentState.limit, offset: 0, accountFilters: filters),
         _accountRepository.getCountWithFilters(
             accountTypeIds: filters.accountTypeIds),
       ]);

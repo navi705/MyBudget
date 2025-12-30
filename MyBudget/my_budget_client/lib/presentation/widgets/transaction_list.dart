@@ -215,7 +215,7 @@ class _DateHeader extends StatelessWidget {
   }
 }
 
-class TransactionListItem extends StatelessWidget {
+class TransactionListItem extends StatefulWidget {
   const TransactionListItem({
     required this.transactionCategory,
     required this.isSelected,
@@ -231,6 +231,13 @@ class TransactionListItem extends StatelessWidget {
   final VoidCallback onLongPress;
   final Function(TapUpDetails) onSecondaryTapUp;
 
+  @override
+  State<TransactionListItem> createState() => _TransactionListItemState();
+}
+
+class _TransactionListItemState extends State<TransactionListItem> {
+  bool _isHovering = false;
+
   Color _getColorFromHex(String hexColor) {
     hexColor = hexColor.replaceAll("#", "");
     if (hexColor.length == 6) {
@@ -241,34 +248,74 @@ class TransactionListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _getColorFromHex(transactionCategory.style.colorHex);
-    final iconWidget = IconUtils.getIconWidget(transactionCategory.style);
+    final color = _getColorFromHex(widget.transactionCategory.style.colorHex);
+    final iconWidget = IconUtils.getIconWidget(widget.transactionCategory.style);
 
-    return GestureDetector(
-      onLongPress: onLongPress,
-      onTap: onTap,
-      onSecondaryTapUp: onSecondaryTapUp,
-      child: Container(
-        color: isSelected ? Theme.of(context).highlightColor : null,
-        child: ListTile(
-          leading: Container(
-            padding: const EdgeInsets.all(10.0),
-            decoration: BoxDecoration(
-              color: color.withAlpha((255 * 0.15).round()),
-              borderRadius: BorderRadius.circular(12.0),
-            ),
-            child: iconWidget,
+    final amount = widget.transactionCategory.transaction.amount;
+    Color balanceColor;
+    if (amount > 0) {
+      balanceColor = Colors.green;
+    } else if (amount < 0) {
+      balanceColor = Colors.red;
+    } else {
+      balanceColor = Colors.grey[600]!; // Default or specific for zero
+    }
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: GestureDetector(
+        onLongPress: widget.onLongPress,
+        onTap: widget.onTap,
+        onSecondaryTapUp: widget.onSecondaryTapUp,
+        child: Card(
+          elevation: 2.0,
+          margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+            side: _isHovering
+                ? BorderSide(color: Theme.of(context).primaryColor, width: 2.0)
+                : BorderSide.none,
           ),
-          title: Text(transactionCategory.transaction.description),
-          subtitle: BlocBuilder<TransactionsBloc, TransactionsState>(
-            builder: (context, state) {
-              final designation = state.currencyDesignations.firstWhereOrNull(
-                (d) => d.currencyCode == transactionCategory.transaction.currencyCode,
-              );
-              final currencySymbol = designation?.value ?? transactionCategory.transaction.currencyCode;
-              return Text(
-                  '${transactionCategory.transaction.amount} $currencySymbol');
-            },
+          color: widget.isSelected
+              ? Theme.of(context).highlightColor
+              : _isHovering
+                  ? Colors.grey.withOpacity(0.1)
+                  : null,
+          child: ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+            leading: Container(
+              padding: const EdgeInsets.all(10.0),
+              decoration: BoxDecoration(
+                color: color.withAlpha((255 * 0.15).round()),
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              child: iconWidget,
+            ),
+            title: Text(widget.transactionCategory.transaction.description,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                )),
+            subtitle: BlocBuilder<TransactionsBloc, TransactionsState>(
+              builder: (context, state) {
+                final designation = state.currencyDesignations.firstWhereOrNull(
+                  (d) =>
+                      d.currencyCode ==
+                      widget.transactionCategory.transaction.currencyCode,
+                );
+                final currencySymbol = designation?.value ??
+                    widget.transactionCategory.transaction.currencyCode;
+                return Text(
+                  '${widget.transactionCategory.transaction.amount.toStringAsFixed(2)} $currencySymbol',
+                  style: TextStyle(
+                    color: balanceColor,
+                    fontSize: 14,
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),

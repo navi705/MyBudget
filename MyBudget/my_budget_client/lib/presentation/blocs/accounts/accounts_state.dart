@@ -10,7 +10,7 @@ abstract class AccountsState extends Equatable {
   List<Account> get accounts => [];
   List<AccountType> get accountTypes => [];
   bool get hasReachedMax => false;
-  int get limit => 50;
+  int get limit => 500;
   int get totalCount => 0;
   bool get sortAscending => false;
   String get selectedAccountTypeId => 'all';

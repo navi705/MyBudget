@@ -139,9 +139,9 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     LoadCategories event,
     Emitter<CategoriesState> emit,
   ) async {
+    final currentState = state;
     emit(CategoriesLoadInProgress());
     try {
-      final currentState = state;
       final filters = currentState is CategoriesLoadSuccess
           ? currentState.filters
           : const CategoryFilters();
@@ -150,8 +150,22 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
 
       if (currentState is CategoriesLoadSuccess) {
         if (currentState.filterMode == FilterMode.date) {
-          dateFrom = currentState.activeDate;
-          dateTo = currentState.activeDate;
+          switch (currentState.dateStep) {
+            case DateStep.day:
+              dateFrom = currentState.activeDate;
+              dateTo = currentState.activeDate;
+              break;
+            case DateStep.month:
+              dateFrom = DateTime(
+                  currentState.activeDate.year, currentState.activeDate.month, 1);
+              dateTo = DateTime(
+                  currentState.activeDate.year, currentState.activeDate.month + 1, 0);
+              break;
+            case DateStep.year:
+              dateFrom = DateTime(currentState.activeDate.year, 1, 1);
+              dateTo = DateTime(currentState.activeDate.year, 12, 31);
+              break;
+          }
         } else {
           dateFrom = currentState.activeDateRange?.start;
           dateTo = currentState.activeDateRange?.end;
