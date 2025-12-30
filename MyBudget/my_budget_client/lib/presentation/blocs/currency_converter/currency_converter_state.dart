@@ -17,7 +17,7 @@ class CurrencyConverterLoadSuccess extends CurrencyConverterState {
   final List<Currency> selectedCurrencies;
   final String baseCurrencyCode;
 
-  Map<String, Map<String, List<ExchangeRate>>>? _groupedRates;
+  Map<String, Map<String, List<ExchangeRate>>>? _groupedRates;  
 
   CurrencyConverterLoadSuccess({
     this.allCurrencies = const [],
@@ -40,7 +40,7 @@ class CurrencyConverterLoadSuccess extends CurrencyConverterState {
   }
 
   Map<String, Map<String, List<ExchangeRate>>> get groupedRates {
-    return _groupedRates!;
+  return _groupedRates!;
   }
 
   CurrencyConverterLoadSuccess copyWith({

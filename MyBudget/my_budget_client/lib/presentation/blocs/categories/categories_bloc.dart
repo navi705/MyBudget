@@ -3,10 +3,14 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart' hide Category;
+import 'package:flutter/material.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
+import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart'
+    show DateStep, FilterMode;
 
 part 'categories_event.dart';
 part 'categories_state.dart';
@@ -25,6 +29,110 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     on<DeleteCategory>(_onDeleteCategory);
     on<DeleteCategoryConfirmed>(_onDeleteCategoryConfirmed);
     on<FilterCategoriesByType>(_onFilterCategoriesByType);
+    on<DatePeriodNavigated>(_onDatePeriodNavigated);
+    on<DateStepChanged>(_onDateStepChanged);
+    on<ActiveDateChanged>(_onActiveDateChanged);
+    on<ActiveDateRangeChanged>(_onActiveDateRangeChanged);
+    on<FilterModeChanged>(_onFilterModeChanged);
+    on<SortChanged>(_onSortChanged);
+    on<FiltersChanged>(_onFiltersChanged);
+  }
+
+  void _onDatePeriodNavigated(
+    DatePeriodNavigated event,
+    Emitter<CategoriesState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! CategoriesLoadSuccess) return;
+
+    DateTime newDate;
+    switch (currentState.dateStep) {
+      case DateStep.day:
+        newDate = currentState.activeDate.add(Duration(days: event.direction));
+        break;
+      case DateStep.month:
+        newDate = DateTime(
+          currentState.activeDate.year,
+          currentState.activeDate.month + event.direction,
+          currentState.activeDate.day,
+        );
+        break;
+      case DateStep.year:
+        newDate = DateTime(
+          currentState.activeDate.year + event.direction,
+          currentState.activeDate.month,
+          currentState.activeDate.day,
+        );
+        break;
+    }
+    emit(currentState.copyWith(activeDate: newDate));
+    add(LoadCategories());
+  }
+
+  void _onDateStepChanged(
+    DateStepChanged event,
+    Emitter<CategoriesState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess) {
+      emit(currentState.copyWith(dateStep: event.dateStep));
+      add(LoadCategories());
+    }
+  }
+
+  void _onActiveDateChanged(
+    ActiveDateChanged event,
+    Emitter<CategoriesState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess) {
+      emit(currentState.copyWith(activeDate: event.date));
+      add(LoadCategories());
+    }
+  }
+
+  void _onActiveDateRangeChanged(
+    ActiveDateRangeChanged event,
+    Emitter<CategoriesState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess) {
+      emit(currentState.copyWith(activeDateRange: event.dateRange));
+      add(LoadCategories());
+    }
+  }
+
+  void _onFilterModeChanged(
+    FilterModeChanged event,
+    Emitter<CategoriesState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess) {
+      emit(currentState.copyWith(filterMode: event.filterMode));
+      add(LoadCategories());
+    }
+  }
+
+  void _onSortChanged(
+    SortChanged event,
+    Emitter<CategoriesState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess) {
+      emit(currentState.copyWith(filters: currentState.filters.copyWith(sort: event.sort)));
+      add(LoadCategories());
+    }
+  }
+
+  void _onFiltersChanged(
+    FiltersChanged event,
+    Emitter<CategoriesState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess) {
+      emit(currentState.copyWith(filters: event.filters));
+      add(LoadCategories());
+    }
   }
 
   Future<void> _onLoadCategories(
@@ -33,12 +141,41 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   ) async {
     emit(CategoriesLoadInProgress());
     try {
+      final currentState = state;
+      final filters = currentState is CategoriesLoadSuccess
+          ? currentState.filters
+          : const CategoryFilters();
+      DateTime? dateFrom;
+      DateTime? dateTo;
+
+      if (currentState is CategoriesLoadSuccess) {
+        if (currentState.filterMode == FilterMode.date) {
+          dateFrom = currentState.activeDate;
+          dateTo = currentState.activeDate;
+        } else {
+          dateFrom = currentState.activeDateRange?.start;
+          dateTo = currentState.activeDateRange?.end;
+        }
+      }
+
       final items = await _categoryRepository.getCategoriesWithTotalsPaginated(
-          limit: 50, offset: 0);
-      emit(CategoriesLoadSuccess(
-        categoriesWithTotals: items,
-        hasReachedMax: items.length < 50,
-      ));
+          limit: 50,
+          offset: 0,
+          filters: filters,
+          dateFrom: dateFrom,
+          dateTo: dateTo);
+      if (currentState is CategoriesLoadSuccess) {
+        emit(currentState.copyWith(
+          categoriesWithTotals: items,
+          hasReachedMax: items.length < 50,
+        ));
+      } else {
+        emit(CategoriesLoadSuccess(
+          categoriesWithTotals: items,
+          hasReachedMax: items.length < 50,
+          activeDate: DateTime.now(),
+        ));
+      }
     } catch (e) {
       emit(CategoriesLoadFailure());
     }
@@ -54,15 +191,27 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     }
 
     try {
+      DateTime? dateFrom;
+      DateTime? dateTo;
+      if (currentState.filterMode == FilterMode.date) {
+        dateFrom = currentState.activeDate;
+        dateTo = currentState.activeDate;
+      } else {
+        dateFrom = currentState.activeDateRange?.start;
+        dateTo = currentState.activeDateRange?.end;
+      }
+
       final items = await _categoryRepository.getCategoriesWithTotalsPaginated(
         offset: currentState.categoriesWithTotals.length,
         limit: 50,
+        filters: currentState.filters,
+        dateFrom: dateFrom,
+        dateTo: dateTo,
       );
 
       if (items.isEmpty) {
         emit(currentState.copyWith(hasReachedMax: true));
-      }
-      else {
+      } else {
         emit(
           currentState.copyWith(
             categoriesWithTotals: List.of(currentState.categoriesWithTotals)

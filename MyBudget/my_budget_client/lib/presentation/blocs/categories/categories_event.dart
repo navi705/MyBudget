@@ -62,3 +62,66 @@ class FilterCategoriesByType extends CategoriesEvent {
   List<Object?> get props => [categoryType];
 }
 
+class DatePeriodNavigated extends CategoriesEvent {
+  final int direction;
+
+  const DatePeriodNavigated(this.direction);
+
+  @override
+  List<Object> get props => [direction];
+}
+
+class DateStepChanged extends CategoriesEvent {
+  final DateStep dateStep;
+
+  const DateStepChanged(this.dateStep);
+
+  @override
+  List<Object> get props => [dateStep];
+}
+
+class ActiveDateChanged extends CategoriesEvent {
+  final DateTime date;
+
+  const ActiveDateChanged(this.date);
+
+  @override
+  List<Object> get props => [date];
+}
+
+class ActiveDateRangeChanged extends CategoriesEvent {
+  final DateTimeRange dateRange;
+
+  const ActiveDateRangeChanged(this.dateRange);
+
+  @override
+  List<Object> get props => [dateRange];
+}
+
+class FilterModeChanged extends CategoriesEvent {
+  final FilterMode filterMode;
+
+  const FilterModeChanged(this.filterMode);
+
+  @override
+  List<Object> get props => [filterMode];
+}
+
+class SortChanged extends CategoriesEvent {
+  final Sort sort;
+
+  const SortChanged(this.sort);
+
+  @override
+  List<Object> get props => [sort];
+}
+
+class FiltersChanged extends CategoriesEvent {
+  final CategoryFilters filters;
+
+  const FiltersChanged(this.filters);
+
+  @override
+  List<Object> get props => [filters];
+}
+

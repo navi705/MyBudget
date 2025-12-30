@@ -5,6 +5,7 @@ import 'package:my_budget_client/core/mappers/category_with_total_mapper.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart' as domain;
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
+import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 
 class LocalCategoryRepository implements CategoryRepository {
   final drift.AppDatabase _appDatabase;
@@ -51,10 +52,24 @@ class LocalCategoryRepository implements CategoryRepository {
   }
 
   @override
-  Future<List<domain.CategoryWithTotal>> getCategoriesWithTotalsPaginated(
-      {int limit = 50, int offset = 0}) async {
-    final results = await _appDatabase.categoriesDao
-        .getCategoriesWithTotals(limit: limit, offset: offset);
+  Future<List<domain.CategoryWithTotal>> getCategoriesWithTotalsPaginated({
+    int limit = 50,
+    int offset = 0,
+    CategoryFilters filters = const CategoryFilters(),
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) async {
+    final results = await _appDatabase.categoriesDao.getCategoriesWithTotals(
+      limit: limit,
+      offset: offset,
+      name: filters.name,
+      sort: filters.sort == Sort.ascending
+          ? OrderingMode.asc
+          : OrderingMode.desc,
+      dateFrom: dateFrom,
+      dateTo: dateTo,
+      type: filters.type,
+    );
     return results.toDomainList();
   }
 

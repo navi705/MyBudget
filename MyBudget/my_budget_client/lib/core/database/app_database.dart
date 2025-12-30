@@ -296,9 +296,13 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   Future<List<CategoryWithTotal>> getCategoriesWithTotals({
     int limit = 50,
     int offset = 0,
+    OrderingMode sort = OrderingMode.desc,
+    String? name,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    CategoryType? type,
   }) {
-    final query = customSelect(
-      '''
+    var sql = '''
       SELECT
         c.*,
         t.total
@@ -306,13 +310,49 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
       LEFT JOIN (
         SELECT category_id, SUM(amount) AS total
         FROM transactions
+    ''';
+    
+    List<Variable> variables = [];
+    List<String> whereClauses = [];
+
+    if (dateFrom != null) {
+      whereClauses.add('date >= ?');
+      variables.add(Variable.withDateTime(dateFrom));
+    }
+    if (dateTo != null) {
+      whereClauses.add('date <= ?');
+      variables.add(Variable.withDateTime(dateTo));
+    }
+
+    if (whereClauses.isNotEmpty) {
+      sql += ' WHERE ' + whereClauses.join(' AND ');
+    }
+
+    sql += '''
         GROUP BY category_id
       ) t ON t.category_id = c.id
-      LIMIT ? OFFSET ?
-      ''',
-      variables: [Variable(limit), Variable(offset)],
-      readsFrom: {categories, transactions},
-    );
+    ''';
+
+    List<String> outerWhereClauses = [];
+    if (name != null && name.isNotEmpty) {
+      outerWhereClauses.add('c.name LIKE ?');
+      variables.add(Variable('%$name%'));
+    }
+    if (type != null) {
+      outerWhereClauses.add('c.type = ?');
+      variables.add(Variable(type.index));
+    }
+
+    if (outerWhereClauses.isNotEmpty) {
+      sql += ' WHERE ' + outerWhereClauses.join(' AND ');
+    }
+
+    sql += ' ORDER BY c.name ${sort == OrderingMode.asc ? 'ASC' : 'DESC'}';
+    sql += ' LIMIT ? OFFSET ?';
+    variables.add(Variable(limit));
+    variables.add(Variable(offset));
+
+    final query = customSelect(sql, variables: variables, readsFrom: {categories, transactions});
 
     return query.map((row) {
       final category = categories.map(row.data);

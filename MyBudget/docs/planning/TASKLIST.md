@@ -18,6 +18,7 @@
 
 Need to if we get total balance  in diffrent currincies presets
 I should add to seeder my custom icons
+add currency in categories screen
 
 Others tasks
 1. Add data page to control my currency rate  

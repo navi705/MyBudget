@@ -8,6 +8,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
   await sl.init();
-  //await IntilizationData.Initilizate();
+  //IntilizationData.Initilizate();
   runApp(const App());
 }
