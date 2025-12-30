@@ -16,6 +16,7 @@ class CurrencyConverterBloc
     extends Bloc<CurrencyConverterEvent, CurrencyConverterState> {
   final CurrencyRepository _currencyRepository;
   final SettingsRepository _settingsRepository;
+  List<Currency>? _allCurrenciesCache;
 
   CurrencyConverterBloc({
     required CurrencyRepository currencyRepository,
@@ -35,17 +36,18 @@ class CurrencyConverterBloc
   ) async {
     emit(CurrencyConverterLoadInProgress());
     try {
+      final allCurrencies =
+          _allCurrenciesCache ??= await _currencyRepository.getCurrencies();
+
       final results = await Future.wait([
-        _currencyRepository.getCurrencies(),
         _settingsRepository.getSetting('conversion_base_currency_code'),
         _settingsRepository.getSetting('selected_currencies'),
       ]);
 
-      final allCurrencies = results[0] as List<Currency>;
-      final baseCurrencySetting = results[1] as Settings?;
-      final selectedCurrenciesSetting = results[2] as Settings?;
+      final baseCurrencySetting = results[0] as Settings?;
+      final selectedCurrenciesSetting = results[1] as Settings?;
 
-      final baseCode = baseCurrencySetting?.value ?? 'USD';
+      final baseCode = baseCurrencySetting?.value ?? 'EUR';
       List<Currency> selected = [];
 
       final selectedCodes = selectedCurrenciesSetting?.value.split(',') ?? [];
@@ -60,8 +62,9 @@ class CurrencyConverterBloc
           selected.add(baseCurrency);
         }
       }
-      
-      final exchangeRates = await _currencyRepository.getLatestExchangeRates(DateTime.now());
+
+      final exchangeRates =
+          await _currencyRepository.getLatestExchangeRates(DateTime.now());
 
       emit(CurrencyConverterLoadSuccess(
         allCurrencies: allCurrencies,

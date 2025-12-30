@@ -11,10 +11,8 @@
 18. Разработь ML для оценки своей хаты
 19. Сначала повторить one money улучшить базу, а потом уже лезть далее
 20. Там сервак микросервесую архитектуру пощупать все дела
-22. Проверить всё оптимизацию под конец
 29. add to custom widget for display calendar and day for my dashboard l
 30. get data from sms
-
 
 Need to if we get total balance  in diffrent currincies presets
 I should add to seeder my custom icons
@@ -23,7 +21,6 @@ add currency in categories screen
 Others tasks
 1. Add data page to control my currency rate  
 1.2 If i convert in other currency i want to have preset for example my local exchange and etc. I need to add how much i lose on convertion. 
-1.3  
 2. Add dashboard. Calander where will be my catogories or just sum of my expense or income to days. 
 3. Add pie chart for my catogories and accounts
 4. Create my measure for how much salary or balance i need for safety cushion

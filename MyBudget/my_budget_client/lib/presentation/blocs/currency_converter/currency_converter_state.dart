@@ -76,27 +76,38 @@ double totalBalanceFor({
   required DateTime date,
   required Map<String, Map<String, List<ExchangeRate>>> groupedRates,
 }) {
-  double total = 0;
+  double totalInBase = 0.0;
+
   for (final account in accounts) {
-    if (account.currencyCode == currency.code) {
-      total += account.balance;
+    if (account.currencyCode == baseCurrencyCode) {
+      totalInBase += account.balance;
     } else {
-      final rate = _findRate(
-          account.currencyCode, currency.code, exchangeRates, date, groupedRates);
-      if (rate != null) {
-        total += account.balance * rate;
-      } else {
-        final rateFromBase = _findRate(
-            baseCurrencyCode, currency.code, exchangeRates, date, groupedRates);
-        final rateToBase = _findRate(account.currencyCode, baseCurrencyCode,
-            exchangeRates, date, groupedRates);
-        if (rateFromBase != null && rateToBase != null) {
-          total += (account.balance * rateToBase) * rateFromBase;
-        }
+      final rateToBase = _findRate(
+        account.currencyCode,
+        baseCurrencyCode,
+        exchangeRates,
+        date,
+        groupedRates,
+      );
+      if (rateToBase != null) {
+        totalInBase += account.balance * rateToBase;
       }
     }
   }
-  return total;
+
+  if (currency.code == baseCurrencyCode) {
+    return totalInBase;
+  }
+
+  final rateFromBase = _findRate(
+    baseCurrencyCode,
+    currency.code,
+    exchangeRates,
+    date,
+    groupedRates,
+  );
+
+  return rateFromBase != null ? totalInBase * rateFromBase : 0.0;
 }
 
 double? _findRate(
@@ -105,6 +116,9 @@ double? _findRate(
     List<ExchangeRate> exchangeRates,
     DateTime date,
     Map<String, Map<String, List<ExchangeRate>>> groupedRates) {
+  if (fromCurrencyCode == toCurrencyCode) {
+    return 1.0;
+  }
   
   final ratesForFrom = groupedRates[fromCurrencyCode];
   if (ratesForFrom != null) {

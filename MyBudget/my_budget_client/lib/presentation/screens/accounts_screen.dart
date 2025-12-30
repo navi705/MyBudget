@@ -27,7 +27,6 @@ class AccountsScreen extends StatefulWidget {
 
 class _AccountsScreenState extends State<AccountsScreen> {
   final _scrollController = ScrollController();
-  final _dropdownFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -41,7 +40,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
-    _dropdownFocusNode.dispose();
     super.dispose();
   }
 
@@ -64,42 +62,80 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final currentState = converterBloc.state;
     if (currentState is! CurrencyConverterLoadSuccess) return;
 
-    final tempSelectedCurrencies = List<Currency>.from(
-      currentState.selectedCurrencies,
-    );
+    final tempSelectedCurrencies =
+        List<Currency>.from(currentState.selectedCurrencies);
+    String searchText = '';
 
     await showDialog(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            final filteredCurrencies = currentState.allCurrencies.where((c) {
+              return c.name.toLowerCase().contains(searchText.toLowerCase()) ||
+                  c.code.toLowerCase().contains(searchText.toLowerCase());
+            }).toList();
+
             return AlertDialog(
               title: const Text('Select Currencies'),
-              content: SingleChildScrollView(
-                child: ListBody(
-                  children: currentState.allCurrencies.map((currency) {
-                    final isSelected = tempSelectedCurrencies.any(
-                      (c) => c.code == currency.code,
-                    );
-                    return CheckboxListTile(
-                      title: Text('${currency.name} (${currency.code})'),
-                      value: isSelected,
-                      onChanged: (bool? value) {
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      onChanged: (value) {
                         setDialogState(() {
-                          if (value == true) {
-                            tempSelectedCurrencies.add(currency);
-                          } else {
-                            tempSelectedCurrencies.removeWhere(
-                              (c) => c.code == currency.code,
-                            );
-                          }
+                          searchText = value;
                         });
                       },
-                    );
-                  }).toList(),
+                      decoration: const InputDecoration(
+                        labelText: 'Search',
+                        prefixIcon: Icon(Icons.search),
+                        isDense: true,
+                        contentPadding:
+                            EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: filteredCurrencies.length,
+                        itemBuilder: (context, index) {
+                          final currency = filteredCurrencies[index];
+                          final isSelected = tempSelectedCurrencies
+                              .any((c) => c.code == currency.code);
+                          return CheckboxListTile(
+                            title: Text('${currency.name} (${currency.code})'),
+                            value: isSelected,
+                            onChanged: (bool? value) {
+                              setDialogState(() {
+                                if (value == true) {
+                                  tempSelectedCurrencies.add(currency);
+                                } else {
+                                  tempSelectedCurrencies.removeWhere(
+                                    (c) => c.code == currency.code,
+                                  );
+                                }
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
               actions: [
+                TextButton(
+                  child: const Text('Clear All'),
+                  onPressed: () {
+                    setDialogState(() {
+                      tempSelectedCurrencies.clear();
+                    });
+                  },
+                ),
+                const Spacer(),
                 TextButton(
                   child: const Text('Cancel'),
                   onPressed: () => Navigator.of(context).pop(),
@@ -109,8 +145,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   onPressed: () {
                     // Clear current selections
                     for (final currency in List<Currency>.from(
-                      currentState.selectedCurrencies,
-                    )) {
+                        currentState.selectedCurrencies)) {
                       converterBloc.add(RemoveSelectedCurrency(currency));
                     }
                     // Add new selections
