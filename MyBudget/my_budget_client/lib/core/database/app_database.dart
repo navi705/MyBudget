@@ -514,7 +514,6 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     double? amountFrom,
     double? amountTo,
     DateTime? date,
-    List<String>? categoriesIds,
     List<String>? currenciesIds,
     List<String>? accountTypeIds,
   }) {
@@ -543,13 +542,6 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
 
     if (accountTypeIds != null && accountTypeIds.isNotEmpty) {
       query.where((tbl) => tbl.accountTypeId.isIn(accountTypeIds));
-    }
-
-    if (categoriesIds != null && categoriesIds.isNotEmpty) {
-      final subquery = selectOnly(transactions)
-        ..where(transactions.categoryId.isIn(categoriesIds))
-        ..addColumns([transactions.accountId]);
-      query.where((tbl) => tbl.id.isInQuery(subquery));
     }
 
     query.orderBy([(t) => OrderingTerm(expression: t.balance, mode: sort)]);

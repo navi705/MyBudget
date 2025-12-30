@@ -30,7 +30,8 @@ final sl = GetIt.instance;
 
 Future<void> init() async {
   // Blocs
-  sl.registerFactory(() => AccountsBloc(accountRepository: sl()));
+  sl.registerFactory(
+      () => AccountsBloc(accountRepository: sl(), settingsRepository: sl()));
   sl.registerFactory(() => SettingsBloc(settingsRepository: sl()));
   sl.registerFactory(() => CurrencyBloc(currencyRepository: sl()));
   sl.registerFactory(() => StylesBloc(styleRepository: sl()));

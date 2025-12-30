@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
+import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
+import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 
@@ -12,8 +15,13 @@ part 'accounts_state.dart';
 
 class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   final AccountRepository _accountRepository;
-  AccountsBloc({required AccountRepository accountRepository})
+  final SettingsRepository _settingsRepository;
+
+  AccountsBloc(
+      {required AccountRepository accountRepository,
+      required SettingsRepository settingsRepository})
       : _accountRepository = accountRepository,
+        _settingsRepository = settingsRepository,
         super(AccountsInitial()) {
     on<LoadAccounts>(_onLoadAccounts);
     on<LoadMoreAccounts>(_onLoadMoreAccounts);
@@ -97,7 +105,12 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     final currentState = state;
     emit(AccountsLoadInProgress());
     try {
-      final filters = currentState.filters;
+      var filters = currentState.filters;
+      final savedFilters =
+          await _settingsRepository.getSetting('account_filters');
+      if (savedFilters != null) {
+        filters = AccountFilters.fromJsonString(savedFilters.value);
+      }
 
       final results = await Future.wait([
         _accountRepository.getAccountTypes(),
@@ -210,10 +223,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   void _onSortAccounts(SortAccounts event, Emitter<AccountsState> emit) {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
-      final newFilters =
-          currentState.filters.copyWith(sort: event.sortAscending ? Sort.ascending : Sort.descending);
-      emit(currentState.copyWith(filters: newFilters));
-      add(LoadAccounts());
+      final newFilters = currentState.filters
+          .copyWith(sort: event.sortAscending ? Sort.ascending : Sort.descending);
+      add(FiltersChanged(newFilters));
     }
   }
 
@@ -221,6 +233,14 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       FiltersChanged event, Emitter<AccountsState> emit) async {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
+      final deviceName =
+          (await _settingsRepository.getSetting('device_name'))?.value ??
+              'default';
+      await _settingsRepository.setSetting(Settings(
+        key: 'account_filters',
+        value: event.filters.toJsonString(),
+        device: deviceName,
+      ));
       emit(currentState.copyWith(filters: event.filters));
       add(LoadAccounts());
     }

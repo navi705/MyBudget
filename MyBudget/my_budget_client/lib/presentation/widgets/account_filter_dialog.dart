@@ -53,7 +53,6 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
   late TextEditingController _amountFromController;
   late TextEditingController _amountToController;
   late DateTime? _creationDate;
-  late List<String> _selectedCategoryIds;
   late List<String> _selectedCurrencyIds;
   late List<String> _selectedAccountTypeIds;
   late bool _persistFilters;
@@ -76,11 +75,6 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
             double.tryParse(settings['account_filter_amount_from'] ?? ''),
         amountTo: double.tryParse(settings['account_filter_amount_to'] ?? ''),
         date: DateTime.tryParse(settings['account_filter_account_date'] ?? ''),
-        categoriesIds:
-            (settings['account_filter_category_id'] as String? ?? '')
-                .split(',')
-                .where((id) => id.isNotEmpty)
-                .toList(),
         currenciesIds:
             (settings['account_selected_currencies'] as String? ?? '')
                 .split(',')
@@ -103,7 +97,6 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
     _amountToController =
         TextEditingController(text: filters.amountTo?.toString());
     _creationDate = filters.date;
-    _selectedCategoryIds = List<String>.from(filters.categoriesIds ?? []);
     _selectedCurrencyIds = List<String>.from(filters.currenciesIds ?? []);
     _selectedAccountTypeIds = List<String>.from(filters.accountTypeIds ?? []);
   }
@@ -135,7 +128,6 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
           ? double.tryParse(_amountToController.text)
           : null,
       date: _creationDate,
-      categoriesIds: _selectedCategoryIds,
       currenciesIds: _selectedCurrencyIds,
       accountTypeIds: _selectedAccountTypeIds,
     );
@@ -151,8 +143,6 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
           'account_filter_amount_to', newFilters.amountTo?.toString() ?? ''));
       settingsBloc.add(UpdateSetting('account_filter_account_date',
           newFilters.date?.toIso8601String() ?? ''));
-      settingsBloc.add(UpdateSetting('account_filter_category_id',
-          newFilters.categoriesIds?.join(',') ?? ''));
       settingsBloc.add(UpdateSetting('account_selected_currencies',
           newFilters.currenciesIds?.join(',') ?? ''));
       settingsBloc.add(UpdateSetting('account_filter_account_type_id',
@@ -180,7 +170,6 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
     settingsBloc.add(const UpdateSetting('account_filter_amount_from', ''));
     settingsBloc.add(const UpdateSetting('account_filter_amount_to', ''));
     settingsBloc.add(const UpdateSetting('account_filter_account_date', ''));
-    settingsBloc.add(const UpdateSetting('account_filter_category_id', ''));
     settingsBloc.add(const UpdateSetting('account_selected_currencies', ''));
     settingsBloc.add(const UpdateSetting('account_filter_account_type_id', ''));
   }
@@ -288,6 +277,7 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
                           selectedIds: _selectedAccountTypeIds,
                           itemBuilder: (item) => Text(item.name),
                           idGetter: (item) => item.id,
+                          stringGetter: (item) => item.name,
                         ),
                       );
 
@@ -300,35 +290,6 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
                   );
                 }
                 return const SizedBox.shrink();
-              },
-            ),
-            const SizedBox(height: 16),
-            BlocBuilder<CategoriesBloc, CategoriesState>(
-              builder: (context, state) {
-                if (state is CategoriesLoadSuccess) {
-                  return ListTile(
-                    title: const Text('Categories'),
-                    subtitle: Text('${_selectedCategoryIds.length} selected'),
-                    onTap: () async {
-                      final List<String>? result = await showDialog(
-                        context: context,
-                        builder: (_) => MultiSelectDialog<CategoryWithTotal>(
-                          items: state.categoriesWithTotals,
-                          selectedIds: _selectedCategoryIds,
-                          itemBuilder: (item) => Text(item.category.name),
-                          idGetter: (item) => item.category.id!,
-                        ),
-                      );
-
-                      if (result != null) {
-                        setState(() {
-                          _selectedCategoryIds = result;
-                        });
-                      }
-                    },
-                  );
-                }
-                return const CircularProgressIndicator();
               },
             ),
             const SizedBox(height: 16),
@@ -346,6 +307,7 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
                           selectedIds: _selectedCurrencyIds,
                           itemBuilder: (item) => Text(item.code),
                           idGetter: (item) => item.code,
+                          stringGetter: (item) => '${item.name} ${item.code}',
                         ),
                       );
 

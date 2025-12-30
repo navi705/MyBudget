@@ -51,6 +51,19 @@ class _CategoryFilterDialogState extends State<CategoryFilterDialog> {
     super.dispose();
   }
 
+  IconData _getIconForCategoryType(CategoryType? type) {
+    switch (type) {
+      case CategoryType.expense:
+        return Icons.arrow_downward;
+      case CategoryType.income:
+        return Icons.arrow_upward;
+      case CategoryType.transfer:
+        return Icons.swap_horiz;
+      default:
+        return Icons.category;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -82,14 +95,26 @@ class _CategoryFilterDialogState extends State<CategoryFilterDialog> {
               value: _selectedType,
               hint: const Text('Select Type'),
               items: [
-                const DropdownMenuItem<CategoryType>(
+                DropdownMenuItem<CategoryType>(
                   value: null,
-                  child: Text('All'),
+                  child: Row(
+                    children: [
+                      Icon(_getIconForCategoryType(null)),
+                      const SizedBox(width: 10),
+                      const Text('All'),
+                    ],
+                  ),
                 ),
                 ...CategoryType.values.map((type) {
                   return DropdownMenuItem<CategoryType>(
                     value: type,
-                    child: Text(type.name),
+                    child: Row(
+                      children: [
+                        Icon(_getIconForCategoryType(type)),
+                        const SizedBox(width: 10),
+                        Text(type.name),
+                      ],
+                    ),
                   );
                 })
               ],

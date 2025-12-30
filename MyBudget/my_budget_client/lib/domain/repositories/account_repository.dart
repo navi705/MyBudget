@@ -1,16 +1,16 @@
+import 'dart:convert';
+
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
-import 'package:my_budget_client/domain/repositories/transaction_repository.dart' show Sort;
+import 'package:my_budget_client/domain/repositories/transaction_repository.dart'
+    show Sort;
 
 abstract class AccountRepository {
   Future<List<Account>> getAccounts();
   Future<List<Account>> getAccountsPaginated({int limit = 10, int offset = 0});
-  Future<List<Account>> getAccountsPaginatedFiltered({
-    int limit = 10,
-    int offset = 0,
-    AccountFilters? accountFilters
-  });
+  Future<List<Account>> getAccountsPaginatedFiltered(
+      {int limit = 10, int offset = 0, AccountFilters? accountFilters});
   Stream<List<Account>> watchAccounts();
   Future<Account?> getAccountById(String id);
   Future<void> addAccount(Account account);
@@ -38,57 +38,85 @@ class AccountFilters extends Equatable {
   final double? amountFrom;
   final double? amountTo;
   final DateTime? date;
-  final List<String>? categoriesIds;
   final List<String>? currenciesIds;
   final List<String>? accountTypeIds;
   final Sort sort;
 
-  const AccountFilters({
-    this.description,
-    this.name,
-    this.amountFrom,
-    this.amountTo,
-    this.date,
-    this.categoriesIds,
-    this.currenciesIds,
-    this.accountTypeIds,
-    required this.sort
-  });
+  const AccountFilters(
+      {this.description,
+      this.name,
+      this.amountFrom,
+      this.amountTo,
+      this.date,
+      this.currenciesIds,
+      this.accountTypeIds,
+      required this.sort});
 
-  AccountFilters copyWith({
-    final String? description,
-    final String? name,
-    final double? amountFrom,
-    final double? amountTo,
-    final DateTime? date,
-    final List<String>? categoriesIds,
-    final List<String>? currenciesIds,
-    final List<String>? accountTypeIds,
-    final Sort? sort
-  }) {
+  AccountFilters copyWith(
+      {final String? description,
+      final String? name,
+      final double? amountFrom,
+      final double? amountTo,
+      final DateTime? date,
+      final List<String>? currenciesIds,
+      final List<String>? accountTypeIds,
+      final Sort? sort}) {
     return AccountFilters(
-      description: description ?? this.description,
-      name: name ?? this.name,
-      amountFrom: amountFrom ?? this.amountFrom,
-      amountTo: amountTo ?? this.amountTo,
-      date: date ?? this.date,
-      categoriesIds: categoriesIds ?? this.categoriesIds,
-      currenciesIds: currenciesIds ?? this.currenciesIds,
-      accountTypeIds: accountTypeIds ?? this.accountTypeIds,
-      sort: sort ?? this.sort
+        description: description ?? this.description,
+        name: name ?? this.name,
+        amountFrom: amountFrom ?? this.amountFrom,
+        amountTo: amountTo ?? this.amountTo,
+        date: date ?? this.date,
+        currenciesIds: currenciesIds ?? this.currenciesIds,
+        accountTypeIds: accountTypeIds ?? this.accountTypeIds,
+        sort: sort ?? this.sort);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'description': description,
+      'name': name,
+      'amountFrom': amountFrom,
+      'amountTo': amountTo,
+      'date': date?.toIso8601String(),
+      'currenciesIds': currenciesIds,
+      'accountTypeIds': accountTypeIds,
+      'sort': sort.name,
+    };
+  }
+
+  factory AccountFilters.fromJson(Map<String, dynamic> json) {
+    return AccountFilters(
+      description: json['description'],
+      name: json['name'],
+      amountFrom: json['amountFrom'],
+      amountTo: json['amountTo'],
+      date: json['date'] != null ? DateTime.parse(json['date']) : null,
+      currenciesIds: json['currenciesIds'] != null
+          ? List<String>.from(json['currenciesIds'])
+          : null,
+      accountTypeIds: json['accountTypeIds'] != null
+          ? List<String>.from(json['accountTypeIds'])
+          : null,
+      sort: Sort.values.firstWhere((e) => e.name == json['sort'],
+          orElse: () => Sort.descending),
     );
   }
 
+  String toJsonString() => json.encode(toJson());
+
+  factory AccountFilters.fromJsonString(String jsonString) =>
+      AccountFilters.fromJson(json.decode(jsonString));
+
   @override
   List<Object?> get props => [
-    description,
-    name,
-    amountFrom,
-    amountTo,
-    date,
-    categoriesIds,
-    currenciesIds,
-    accountTypeIds,
-    sort
-  ];
+        description,
+        name,
+        amountFrom,
+        amountTo,
+        date,
+        currenciesIds,
+        accountTypeIds,
+        sort
+      ];
 }

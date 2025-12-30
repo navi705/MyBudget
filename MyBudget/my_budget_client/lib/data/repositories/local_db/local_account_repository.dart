@@ -121,7 +121,6 @@ class LocalAccountRepository implements AccountRepository {
      amountFrom: accountFilters?.amountFrom,
      amountTo: accountFilters?.amountTo,
      date: accountFilters?.date,
-     categoriesIds: accountFilters?.categoriesIds,
      currenciesIds: accountFilters?.currenciesIds,
      accountTypeIds: accountFilters?.accountTypeIds,
     );

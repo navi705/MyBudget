@@ -71,6 +71,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            final screenHeight = MediaQuery.of(context).size.height;
             final filteredCurrencies = currentState.allCurrencies.where((c) {
               return c.name.toLowerCase().contains(searchText.toLowerCase()) ||
                   c.code.toLowerCase().contains(searchText.toLowerCase());
@@ -80,6 +81,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
               title: const Text('Select Currencies'),
               content: SizedBox(
                 width: double.maxFinite,
+                height: screenHeight * 0.7,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -99,7 +101,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     ),
                     Expanded(
                       child: ListView.builder(
-                        shrinkWrap: true,
                         itemCount: filteredCurrencies.length,
                         itemBuilder: (context, index) {
                           final currency = filteredCurrencies[index];
@@ -135,7 +136,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     });
                   },
                 ),
-                const Spacer(),
                 TextButton(
                   child: const Text('Cancel'),
                   onPressed: () => Navigator.of(context).pop(),

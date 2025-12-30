@@ -84,6 +84,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
       if (updatedAccount != _initialAccount) {
         context.read<AccountsBloc>().add(UpdateAccount(updatedAccount));
       }
+      FocusScope.of(context).unfocus();
       context.pop();
     }
   }
@@ -106,6 +107,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                   .read<AccountsBloc>()
                   .add(DeleteAccount(_initialAccount.id!));
               Navigator.of(dialogContext).pop();
+              FocusScope.of(context).unfocus();
               context.pop();
             },
             child: const Text('Delete',

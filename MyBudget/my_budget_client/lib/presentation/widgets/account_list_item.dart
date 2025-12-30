@@ -82,6 +82,7 @@ class AccountListItem extends StatelessWidget {
               onTap: onTap,
               onLongPress: onLongPress,
               onSecondaryTapUp: onSecondaryTapUp,
+              behavior: HitTestBehavior.translucent,
               child: Card(
                 elevation: 2.0,
                 margin:
@@ -91,6 +92,7 @@ class AccountListItem extends StatelessWidget {
                 ),
                 color: isSelected ? Theme.of(context).highlightColor : null,
                 child: ListTile(
+                  hoverColor: Colors.grey.withOpacity(0.1),
                   contentPadding: const EdgeInsets.symmetric(
                       horizontal: 20.0, vertical: 10.0),
                   leading: Container(
