@@ -37,6 +37,7 @@ Future<void> init() async {
   sl.registerFactory(() => StylesBloc(styleRepository: sl()));
   sl.registerFactory(() => CategoriesBloc(
         categoryRepository: sl(),
+        settingsRepository: sl(),
       ));
   sl.registerFactory(() => TransactionsBloc(
         transactionRepository: sl(),

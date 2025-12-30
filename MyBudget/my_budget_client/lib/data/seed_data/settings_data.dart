@@ -11,6 +11,11 @@ List<SettingsCompanion> getDefaultSettings(String deviceName) {
       value: '1', // USD
       device: deviceName,
     ),
+    SettingsCompanion.insert(
+      key: 'main_currency_code',
+      value: 'EUR',
+      device: deviceName,
+    ),
 
     // transction list screen
     SettingsCompanion.insert(

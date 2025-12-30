@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
@@ -34,6 +35,31 @@ class CategoryFilters extends Equatable {
       type: type ?? this.type,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'sort': sort.index,
+      'name': name,
+      'amountFrom': amountFrom,
+      'amountTo': amountTo,
+      'type': type?.index,
+    };
+  }
+
+  factory CategoryFilters.fromJson(Map<String, dynamic> map) {
+    return CategoryFilters(
+      sort: Sort.values[map['sort'] ?? 0],
+      name: map['name'],
+      amountFrom: map['amountFrom'],
+      amountTo: map['amountTo'],
+      type: map['type'] != null ? CategoryType.values[map['type']] : null,
+    );
+  }
+
+  String toJsonString() => json.encode(toJson());
+
+  factory CategoryFilters.fromJsonString(String source) =>
+      CategoryFilters.fromJson(json.decode(source));
 
   @override
   List<Object?> get props => [sort, name, amountFrom, amountTo, type];

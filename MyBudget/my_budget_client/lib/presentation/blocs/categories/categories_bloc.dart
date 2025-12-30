@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'dart:convert';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart' hide Category;
@@ -8,19 +8,24 @@ import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
+import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart'
     show DateStep, FilterMode;
+import 'package:my_budget_client/domain/entities/settings.dart';
 
 part 'categories_event.dart';
 part 'categories_state.dart';
 
 class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   final CategoryRepository _categoryRepository;
+  final SettingsRepository _settingsRepository;
 
   CategoriesBloc({
     required CategoryRepository categoryRepository,
+    required SettingsRepository settingsRepository,
   })  : _categoryRepository = categoryRepository,
+        _settingsRepository = settingsRepository,
         super(CategoriesInitial()) {
     on<LoadCategories>(_onLoadCategories);
     on<LoadMoreCategories>(_onLoadMoreCategories);
@@ -119,17 +124,24 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   ) {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
-      emit(currentState.copyWith(filters: currentState.filters.copyWith(sort: event.sort)));
-      add(LoadCategories());
+      add(FiltersChanged(currentState.filters.copyWith(sort: event.sort)));
     }
   }
 
-  void _onFiltersChanged(
+  Future<void> _onFiltersChanged(
     FiltersChanged event,
     Emitter<CategoriesState> emit,
-  ) {
+  ) async {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
+      final deviceName =
+          (await _settingsRepository.getSetting('device_name'))?.value ??
+              'default';
+      await _settingsRepository.setSetting(Settings(
+        key: 'category_filters',
+        value: event.filters.toJsonString(),
+        device: deviceName,
+      ));
       emit(currentState.copyWith(filters: event.filters));
       add(LoadCategories());
     }
@@ -142,9 +154,15 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     final currentState = state;
     emit(CategoriesLoadInProgress());
     try {
-      final filters = currentState is CategoriesLoadSuccess
+      var filters = currentState is CategoriesLoadSuccess
           ? currentState.filters
           : const CategoryFilters();
+      final savedFilters =
+          await _settingsRepository.getSetting('category_filters');
+      if (savedFilters != null) {
+        filters = CategoryFilters.fromJsonString(savedFilters.value);
+      }
+
       DateTime? dateFrom;
       DateTime? dateTo;
 
@@ -182,12 +200,14 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         emit(currentState.copyWith(
           categoriesWithTotals: items,
           hasReachedMax: items.length < 50,
+          filters: filters,
         ));
       } else {
         emit(CategoriesLoadSuccess(
           categoriesWithTotals: items,
           hasReachedMax: items.length < 50,
           activeDate: DateTime.now(),
+          filters: filters,
         ));
       }
     } catch (e) {
@@ -208,8 +228,22 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       DateTime? dateFrom;
       DateTime? dateTo;
       if (currentState.filterMode == FilterMode.date) {
-        dateFrom = currentState.activeDate;
-        dateTo = currentState.activeDate;
+        switch (currentState.dateStep) {
+          case DateStep.day:
+            dateFrom = currentState.activeDate;
+            dateTo = currentState.activeDate;
+            break;
+          case DateStep.month:
+            dateFrom = DateTime(
+                currentState.activeDate.year, currentState.activeDate.month, 1);
+            dateTo = DateTime(
+                currentState.activeDate.year, currentState.activeDate.month + 1, 0);
+            break;
+          case DateStep.year:
+            dateFrom = DateTime(currentState.activeDate.year, 1, 1);
+            dateTo = DateTime(currentState.activeDate.year, 12, 31);
+            break;
+        }
       } else {
         dateFrom = currentState.activeDateRange?.start;
         dateTo = currentState.activeDateRange?.end;
