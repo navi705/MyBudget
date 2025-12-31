@@ -4,20 +4,26 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
+import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
+import 'package:intl/intl.dart';
 
 class CategoryListItem extends StatelessWidget {
   final CategoryWithTotal categoryWithTotal;
   final List<CategoryWithTotal> allCategoriesWithTotals;
   final VoidCallback onTap;
+  final String mainCurrencyCode;
+  final List<CurrencyDesignation> currencyDesignations;
 
   const CategoryListItem({
     super.key,
     required this.categoryWithTotal,
     required this.allCategoriesWithTotals,
     required this.onTap,
+    required this.mainCurrencyCode,
+    required this.currencyDesignations,
   });
 
   Color _getColorFromHex(String? hexColor) {
@@ -59,10 +65,18 @@ class CategoryListItem extends StatelessWidget {
         final color = _getColorFromHex(finalStyle.colorHex);
         final iconWidget = IconUtils.getIconWidget(finalStyle);
 
+        final designation = currencyDesignations.firstWhereOrNull(
+          (d) => d.currencyCode == mainCurrencyCode,
+        );
+        final currencySymbol = designation?.value ?? mainCurrencyCode;
+
+        final formattedTotal =
+            NumberFormat.currency(symbol: currencySymbol).format(total);
+
         final subtitleText = category.type == CategoryType.income
-            ? 'Received: ${total.toStringAsFixed(2)}'
-            : 'Spent: ${total.toStringAsFixed(2)}';
-        
+            ? 'Received: $formattedTotal'
+            : 'Spent: $formattedTotal';
+
         final balanceColor = category.type == CategoryType.income
             ? Colors.green
             : Colors.red;
@@ -123,6 +137,8 @@ class CategoryListItem extends StatelessWidget {
                         categoryWithTotal: child,
                         allCategoriesWithTotals: allCategoriesWithTotals,
                         onTap: onTap,
+                        mainCurrencyCode: mainCurrencyCode,
+                        currencyDesignations: currencyDesignations,
                       ),
                     ))
                 .toList(),

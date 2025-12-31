@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 
@@ -14,9 +15,12 @@ class SettingsScreen extends StatelessWidget {
         title: const Text('Settings'),
       ),
       body: BlocBuilder<SettingsBloc, SettingsState>(
-        builder: (context, state) {
+        builder: (context, settingsState) {
           final persistFilters =
-              state.settings['persist_advanced_filters'] == 'true';
+              settingsState.settings['persist_advanced_filters'] == 'true';
+          final mainCurrencyCode =
+              settingsState.settings['main_currency_code'] ?? 'EUR';
+
           return ListView(
             children: [
               ListTile(
@@ -30,13 +34,41 @@ class SettingsScreen extends StatelessWidget {
                 leading: const Icon(Icons.brightness_6),
                 title: const Text('Toggle Theme'),
                 onTap: () {
-                  final currentMode = state.themeMode;
+                  final currentMode = settingsState.themeMode;
                   final nextMode = switch (currentMode) {
                     ThemeMode.system => ThemeMode.light,
                     ThemeMode.light => ThemeMode.dark,
                     ThemeMode.dark => ThemeMode.system,
                   };
                   context.read<SettingsBloc>().add(UpdateThemeMode(nextMode));
+                },
+              ),
+              BlocBuilder<CurrencyBloc, CurrencyState>(
+                builder: (context, currencyState) {
+                  if (currencyState is CurrencyLoadSuccess) {
+                    return ListTile(
+                      leading: const Icon(Icons.money),
+                      title: const Text('Main Currency'),
+                      trailing: DropdownButton<String>(
+                        value: mainCurrencyCode,
+                        items: currencyState.currencies
+                            .map((currency) => DropdownMenuItem(
+                                  value: currency.code,
+                                  child: Text(currency.code),
+                                ))
+                            .toList(),
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            context.read<SettingsBloc>().add(UpdateSetting(
+                                  'main_currency_code',
+                                  newValue,
+                                ));
+                          }
+                        },
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
                 },
               ),
               ListTile(

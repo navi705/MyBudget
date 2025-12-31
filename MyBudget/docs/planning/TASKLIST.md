@@ -14,9 +14,8 @@
 29. add to custom widget for display calendar and day for my dashboard l
 30. get data from sms
 
-Need to if we get total balance  in diffrent currincies presets
-I should add to seeder my custom icons
-add currency in categories screen
+in diffrent currincies presets
+add currency in categories screen and in transcation for total balance for day
 
 Others tasks
 1. Add data page to control my currency rate  

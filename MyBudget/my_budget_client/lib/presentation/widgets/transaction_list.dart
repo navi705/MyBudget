@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/domain/entities/transaction_category.dart'; // Import TransactionCategory
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
@@ -134,13 +135,13 @@ class _TransactionListState extends State<TransactionList> {
             item.transaction.date.day,
           ),
           groupHeaderBuilder: (context, date) {
-            final dailySum = state.transactions
-                .where((tc) =>
-                    tc.transaction.date.year == date.year &&
-                    tc.transaction.date.month == date.month &&
-                    tc.transaction.date.day == date.day)
-                .fold<double>(0, (sum, tc) => sum + tc.transaction.amount);
-            return _DateHeader(date: date, dailySum: dailySum);
+            final dailyTotal = state.dailyTotals[date] ?? 0.0;
+            return _DateHeader(
+              date: date,
+              dailySum: dailyTotal,
+              mainCurrencyCode: state.mainCurrencyCode,
+              currencyDesignations: state.currencyDesignations,
+            );
           },
           itemBuilder: (context, item) {
             final bloc = context.read<TransactionsBloc>();
@@ -188,16 +189,29 @@ class _TransactionListState extends State<TransactionList> {
 }
 
 class _DateHeader extends StatelessWidget {
-  const _DateHeader({required this.date, required this.dailySum});
+  const _DateHeader({
+    required this.date,
+    required this.dailySum,
+    required this.mainCurrencyCode,
+    required this.currencyDesignations,
+  });
 
   final DateTime date;
   final double dailySum;
+  final String mainCurrencyCode;
+  final List<CurrencyDesignation> currencyDesignations;
 
   @override
   Widget build(BuildContext context) {
     final color = dailySum >= 0 ? Colors.green : Colors.red;
     final formattedDate = DateFormat('EEE, MMM d, yyyy').format(date);
-    final formattedSum = NumberFormat.currency(symbol: '').format(dailySum);
+
+    final designation = currencyDesignations.firstWhereOrNull(
+      (d) => d.currencyCode == mainCurrencyCode,
+    );
+    final currencySymbol = designation?.value ?? mainCurrencyCode;
+    
+    final formattedSum = NumberFormat.currency(symbol: currencySymbol).format(dailySum);
 
     return ListTile(
       title: Text(

@@ -20,6 +20,8 @@ class CategoriesLoadSuccess extends CategoriesState {
   final DateStep dateStep;
   final FilterMode filterMode;
   final DateTimeRange? activeDateRange;
+  final String mainCurrencyCode;
+  final List<CurrencyDesignation> currencyDesignations;
 
   const CategoriesLoadSuccess({
     this.categoriesWithTotals = const [],
@@ -30,6 +32,8 @@ class CategoriesLoadSuccess extends CategoriesState {
     this.dateStep = DateStep.month,
     this.filterMode = FilterMode.date,
     this.activeDateRange,
+    this.mainCurrencyCode = 'EUR',
+    this.currencyDesignations = const [],
   });
 
   CategoriesLoadSuccess copyWith({
@@ -41,6 +45,8 @@ class CategoriesLoadSuccess extends CategoriesState {
     DateStep? dateStep,
     FilterMode? filterMode,
     DateTimeRange? activeDateRange,
+    String? mainCurrencyCode,
+    List<CurrencyDesignation>? currencyDesignations,
   }) {
     return CategoriesLoadSuccess(
       categoriesWithTotals: categoriesWithTotals ?? this.categoriesWithTotals,
@@ -53,6 +59,8 @@ class CategoriesLoadSuccess extends CategoriesState {
       dateStep: dateStep ?? this.dateStep,
       filterMode: filterMode ?? this.filterMode,
       activeDateRange: activeDateRange ?? this.activeDateRange,
+      mainCurrencyCode: mainCurrencyCode ?? this.mainCurrencyCode,
+      currencyDesignations: currencyDesignations ?? this.currencyDesignations,
     );
   }
 
@@ -66,6 +74,8 @@ class CategoriesLoadSuccess extends CategoriesState {
         dateStep,
         filterMode,
         activeDateRange,
+        mainCurrencyCode,
+        currencyDesignations,
       ];
 }
 

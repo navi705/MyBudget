@@ -30,6 +30,8 @@ class TransactionsState extends Equatable {
   final Set<String> selectedTransactionIds;
 
   final List<CurrencyDesignation> currencyDesignations;
+  final Map<DateTime, double> dailyTotals;
+  final String mainCurrencyCode;
 
   TransactionsState({
     this.status = TransactionStatus.initial,
@@ -50,6 +52,8 @@ class TransactionsState extends Equatable {
     this.isSelectionModeActive = false,
     this.selectedTransactionIds = const {},
     this.currencyDesignations = const [],
+    this.dailyTotals = const {},
+    this.mainCurrencyCode = 'EUR',
   }) : activeDate = activeDate ?? DateTime.now();
 
   // Combined filters getter
@@ -113,6 +117,8 @@ class TransactionsState extends Equatable {
     bool? isSelectionModeActive,
     Set<String>? selectedTransactionIds,
     List<CurrencyDesignation>? currencyDesignations,
+    Map<DateTime, double>? dailyTotals,
+    String? mainCurrencyCode,
   }) {
     return TransactionsState(
       status: status ?? this.status,
@@ -128,35 +134,40 @@ class TransactionsState extends Equatable {
       dateStep: dateStep ?? this.dateStep,
       filterMode: filterMode ?? this.filterMode,
       activeDate: activeDate ?? this.activeDate,
-      activeDateRange: activeDateRange != null
-          ? activeDateRange()
-          : this.activeDateRange,
+      activeDateRange:
+          activeDateRange != null ? activeDateRange() : this.activeDateRange,
       nonDateFilters: nonDateFilters ?? this.nonDateFilters,
-      isSelectionModeActive: isSelectionModeActive ?? this.isSelectionModeActive,
-      selectedTransactionIds: selectedTransactionIds ?? this.selectedTransactionIds,
+      isSelectionModeActive:
+          isSelectionModeActive ?? this.isSelectionModeActive,
+      selectedTransactionIds:
+          selectedTransactionIds ?? this.selectedTransactionIds,
       currencyDesignations: currencyDesignations ?? this.currencyDesignations,
+      dailyTotals: dailyTotals ?? this.dailyTotals,
+      mainCurrencyCode: mainCurrencyCode ?? this.mainCurrencyCode,
     );
   }
 
   @override
   List<Object?> get props => [
-    status,
-    transactions,
-    windowSize,
-    hasMoreUp,
-    hasMoreDown,
-    startIndex,
-    jumpToItemId,
-    jumpToAlignment,
-    totalCount,
-    sort,
-    dateStep,
-    filterMode,
-    activeDate,
-    activeDateRange,
-    nonDateFilters,
-    isSelectionModeActive,
-    selectedTransactionIds,
-    currencyDesignations,
-  ];
+        status,
+        transactions,
+        windowSize,
+        hasMoreUp,
+        hasMoreDown,
+        startIndex,
+        jumpToItemId,
+        jumpToAlignment,
+        totalCount,
+        sort,
+        dateStep,
+        filterMode,
+        activeDate,
+        activeDateRange,
+        nonDateFilters,
+        isSelectionModeActive,
+        selectedTransactionIds,
+        currencyDesignations,
+        dailyTotals,
+        mainCurrencyCode,
+      ];
 }

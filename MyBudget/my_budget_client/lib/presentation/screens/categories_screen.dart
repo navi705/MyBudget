@@ -118,6 +118,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     allCategoriesWithTotals: filteredCategories,
                     onTap: () => _showAddEditCategoryDialog(context,
                         category: categoryWithTotal.category),
+                    mainCurrencyCode: state.mainCurrencyCode,
+                    currencyDesignations: state.currencyDesignations,
                   );
                 },
               );
