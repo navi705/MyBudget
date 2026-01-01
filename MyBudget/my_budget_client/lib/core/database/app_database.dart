@@ -55,7 +55,9 @@ class Currencies extends Table {
   TextColumn get name => text().withLength(min: 1, max: 50).unique()();
   TextColumn get code => text().withLength(min: 1, max: 5)();
   TextColumn get languageCode => text().references(Languages, #languageCode)();
-  IntColumn get type => integer().map(const EnumIndexConverter(TypeCurrency.values)).withDefault(const Constant(6))();
+  IntColumn get type => integer()
+      .map(const EnumIndexConverter(TypeCurrency.values))
+      .withDefault(const Constant(6))();
 
   @override
   Set<Column> get primaryKey => {code};
@@ -108,7 +110,8 @@ class Accounts extends Table {
       text().references(CurrencyDesignations, #id)();
   TextColumn get styleId => text().nullable().references(Styles, #id)();
   TextColumn get accountTypeId => text().references(AccountTypes, #id)();
-  DateTimeColumn get creationDate => dateTime().clientDefault(() => DateTime.now())();
+  DateTimeColumn get creationDate =>
+      dateTime().clientDefault(() => DateTime.now())();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -256,6 +259,28 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
       (select(categories)..limit(limit, offset: offset)).get();
   Future<Category?> getCategoryById(String id) =>
       (select(categories)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+
+  Future<List<Category>> getCategoriesByIds(List<String> ids) async {
+    const int chunkSize = 500;
+    List<Category> allResults = [];
+
+    for (var i = 0; i < ids.length; i += chunkSize) {
+      final end = (i + chunkSize < ids.length) ? i + chunkSize : ids.length;
+      final chunk = ids.sublist(i, end);
+
+      final chunkResults = await (select(
+        categories,
+      )..where((u) => u.id.isIn(chunk))).get();
+
+      allResults.addAll(chunkResults);
+    }
+  final resultMap = { for (var style in allResults) style.id: style };
+       return ids
+      .map((id) => resultMap[id])
+      .whereType<Category>()         
+      .toList();
+  }
+
   Stream<List<Category>> watchAllCategories() => select(categories).watch();
   Future<void> insertCategory(CategoriesCompanion category) =>
       into(categories).insert(category);
@@ -311,7 +336,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
         SELECT category_id, SUM(amount) AS total
         FROM transactions
     ''';
-    
+
     List<Variable> variables = [];
     List<String> whereClauses = [];
 
@@ -352,7 +377,11 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
     variables.add(Variable(limit));
     variables.add(Variable(offset));
 
-    final query = customSelect(sql, variables: variables, readsFrom: {categories, transactions});
+    final query = customSelect(
+      sql,
+      variables: variables,
+      readsFrom: {categories, transactions},
+    );
 
     return query.map((row) {
       final category = categories.map(row.data);
@@ -370,8 +399,32 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
   Future<List<Style>> getStyles({int limit = 10, int offset = 0}) =>
       (select(styles)..limit(limit, offset: offset)).get();
   Stream<List<Style>> watchAllStyles() => select(styles).watch();
-  Future<Style?> getStyleById(String id) => // Added this method
+  Future<Style?> getStyleById(String id) =>
       (select(styles)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+
+  Future<List<Style>> getStylesByIds(List<String> ids) async{
+    const int chunkSize = 500;
+    List<Style> allResults = [];
+
+    for (var i = 0; i < ids.length; i += chunkSize) {
+      final end = (i + chunkSize < ids.length) ? i + chunkSize : ids.length;
+      final chunk = ids.sublist(i, end);
+
+       final chunkResults = await (select(
+        styles,
+      )..where((u) => u.id.isIn(chunk))).get();
+
+      allResults.addAll(chunkResults);
+    }
+
+     final resultMap = { for (var style in allResults) style.id: style };
+
+       return ids
+      .map((id) => resultMap[id]) // Get style by ID
+      .whereType<Style>()         // Remove nulls (in case an ID wasn't found in DB)
+      .toList();
+  }
+
   Future<void> insertStyle(StylesCompanion style) => into(styles).insert(style);
   Future<void> insertAllStyles(List<StylesCompanion> styles) {
     return batch((batch) {
@@ -492,7 +545,11 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     final startOfDate = DateTime(date.year, date.month, date.day);
 
     for (final account in allAccounts) {
-      final startOfCreationDate = DateTime(account.creationDate.year, account.creationDate.month, account.creationDate.day);
+      final startOfCreationDate = DateTime(
+        account.creationDate.year,
+        account.creationDate.month,
+        account.creationDate.day,
+      );
       if (startOfDate.isBefore(startOfCreationDate)) {
         balances[account.id] = 0.0;
       } else {
@@ -557,7 +614,9 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     }
     final countExp = accounts.id.count();
     query.addColumns([countExp]);
-    final count = await query.map((row) => row.read(countExp)).getSingleOrNull();
+    final count = await query
+        .map((row) => row.read(countExp))
+        .getSingleOrNull();
     return count ?? 0;
   }
 
@@ -566,9 +625,12 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> updateAccountTypeForMultipleAccounts(
-      List<String> ids, String accountTypeId) {
-    return (update(accounts)..where((tbl) => tbl.id.isIn(ids)))
-        .write(AccountsCompanion(accountTypeId: Value(accountTypeId)));
+    List<String> ids,
+    String accountTypeId,
+  ) {
+    return (update(accounts)..where((tbl) => tbl.id.isIn(ids))).write(
+      AccountsCompanion(accountTypeId: Value(accountTypeId)),
+    );
   }
 }
 
@@ -653,8 +715,10 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       }
     }
 
-    query.orderBy(
-        [(t) => OrderingTerm(expression: t.date, mode: sort), (t) => OrderingTerm(expression: t.amount, mode: sort)]);
+    query.orderBy([
+      (t) => OrderingTerm(expression: t.date, mode: sort),
+      (t) => OrderingTerm(expression: t.amount, mode: sort),
+    ]);
     query.limit(limit, offset: offset);
 
     return query.get();
@@ -707,7 +771,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
 
     final countExp = transactions.id.count();
     query.addColumns([countExp]);
-    final count = await query.map((row) => row.read(countExp)).getSingleOrNull();
+    final count = await query
+        .map((row) => row.read(countExp))
+        .getSingleOrNull();
     return count ?? 0;
   }
 
@@ -720,15 +786,21 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> updateDateForMultipleTransactions(
-      List<String> ids, DateTime newDate) {
-    return (update(transactions)..where((tbl) => tbl.id.isIn(ids)))
-        .write(TransactionsCompanion(date: Value(newDate)));
+    List<String> ids,
+    DateTime newDate,
+  ) {
+    return (update(transactions)..where((tbl) => tbl.id.isIn(ids))).write(
+      TransactionsCompanion(date: Value(newDate)),
+    );
   }
 
   Future<void> updateCategoryForMultipleTransactions(
-      List<String> ids, String newCategoryId) {
-    return (update(transactions)..where((tbl) => tbl.id.isIn(ids)))
-        .write(TransactionsCompanion(categoryId: Value(newCategoryId)));
+    List<String> ids,
+    String newCategoryId,
+  ) {
+    return (update(transactions)..where((tbl) => tbl.id.isIn(ids))).write(
+      TransactionsCompanion(categoryId: Value(newCategoryId)),
+    );
   }
 
   Future<int> getAllCount() async {
@@ -744,16 +816,21 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<double> getSumOfTransactionsAfterDate(
-      String accountId, DateTime date) async {
+    String accountId,
+    DateTime date,
+  ) async {
     final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
     final amountExp = transactions.amount.total();
     final query = selectOnly(transactions)
-      ..where(transactions.accountId.equals(accountId) &
-          transactions.date.isBiggerThanValue(endOfDay))
+      ..where(
+        transactions.accountId.equals(accountId) &
+            transactions.date.isBiggerThanValue(endOfDay),
+      )
       ..addColumns([amountExp]);
 
-    final result =
-        await query.map((row) => row.read(amountExp)).getSingleOrNull();
+    final result = await query
+        .map((row) => row.read(amountExp))
+        .getSingleOrNull();
     return result ?? 0.0;
   }
 }
@@ -794,20 +871,21 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
 
   Future<List<ExchangeRate>> getAllExchangeRates() =>
       select(exchangeRates).get();
-      
+
   Future<List<ExchangeRate>> getExchangeRates({
     int limit = 10,
     int offset = 0,
   }) => (select(exchangeRates)..limit(limit, offset: offset)).get();
-  
+
   Future<List<ExchangeRate>> getLatestExchangeRates(DateTime date) {
     return customSelect(
       'SELECT r.* FROM exchange_rates r INNER JOIN (SELECT from_currency_code, to_currency_code, MAX(date) AS max_date FROM exchange_rates WHERE date <= ? GROUP BY from_currency_code, to_currency_code) max_dates ON r.from_currency_code = max_dates.from_currency_code AND r.to_currency_code = max_dates.to_currency_code AND r.date = max_dates.max_date',
       variables: [Variable.withDateTime(date)],
       readsFrom: {exchangeRates},
-    ).get().then((rows) => rows.map((row) => exchangeRates.map(row.data)).toList());
+    ).get().then(
+      (rows) => rows.map((row) => exchangeRates.map(row.data)).toList(),
+    );
   }
-  
 
   Future<void> addExchangeRate(ExchangeRatesCompanion rate) =>
       into(exchangeRates).insert(rate);
@@ -913,7 +991,8 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> _seedExchangeRates(AppDatabase db) async {
-    final List<ExchangeRateDomain> rates = await ImportDataUtils.getCurrenciesRateToSeeder();
+    final List<ExchangeRateDomain> rates =
+        await ImportDataUtils.getCurrenciesRateToSeeder();
     await db.exchangeRatesDao.insertAllExchangeRates(rates.toCompanionList());
   }
 

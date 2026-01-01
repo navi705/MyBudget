@@ -78,6 +78,7 @@ abstract class CategoryRepository {
     DateTime? dateTo,
   });
   Future<Category?> getCategoryById(String id);
+  Future<List<Category>> getCategoriesByIds(List<String> ids);
   Future<void> addCategory(Category category);
   Future<void> addCategories(List<Category> categories);
   Future<void> updateCategory(Category category);

@@ -83,4 +83,10 @@ class LocalCategoryRepository implements CategoryRepository {
   Future<void> updateCategory(Category category) async {
     await _appDatabase.categoriesDao.updateCategory(category.toCompanion());
   }
+  
+  @override
+  Future<List<Category>> getCategoriesByIds(List<String> ids) async {
+    final categories = await _appDatabase.categoriesDao.getCategoriesByIds(ids);
+    return categories.toDomainList();
+  }
 }
