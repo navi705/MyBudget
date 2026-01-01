@@ -13,11 +13,12 @@ class LoadTransactions extends TransactionsEvent {
 
 class InitialLoadTransactions extends TransactionsEvent {
   final int limit;
+  final String? mainCurrencyCode;
 
-  const InitialLoadTransactions({this.limit = 50});
+  const InitialLoadTransactions({this.limit = 50, this.mainCurrencyCode});
 
   @override
-  List<Object?> get props => [limit];
+  List<Object?> get props => [limit, mainCurrencyCode];
 }
 
 class LoadTransactionsUp extends TransactionsEvent {
@@ -207,9 +208,6 @@ class ClearAdvancedFilter extends TransactionsEvent {
 
 }
 
-class LoadTransactionSettings extends TransactionsEvent {
-  const LoadTransactionSettings();
-}
 
 class TransactionTypeFilterChanged extends TransactionsEvent {
   final TransactionTypeFilter transactionType;

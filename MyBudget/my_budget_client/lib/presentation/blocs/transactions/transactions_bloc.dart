@@ -6,8 +6,10 @@ import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
+import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
+import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/domain/entities/transaction_type_filter.dart';
 import 'package:my_budget_client/domain/repositories/style_repository.dart';
@@ -26,20 +28,38 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   final StyleRepository _styleRepository;
   final CategoryRepository _categoryRepository;
   final SettingsBloc _settingsBloc;
+  final SettingsRepository _settingsRepository;
   final CurrencyRepository _currencyRepository;
+
+  late final StreamSubscription _settingsSubscription;
+  bool _initialLoadDone = false;
 
   TransactionsBloc({
     required TransactionRepository transactionRepository,
     required StyleRepository styleRepository,
     required CategoryRepository categoryRepository,
     required SettingsBloc settingsBloc,
+    required SettingsRepository settingsRepository,
     required CurrencyRepository currencyRepository,
   })  : _transactionRepository = transactionRepository,
         _styleRepository = styleRepository,
         _categoryRepository = categoryRepository,
         _settingsBloc = settingsBloc,
+        _settingsRepository = settingsRepository,
         _currencyRepository = currencyRepository,
         super(TransactionsState()) {
+    _settingsSubscription = _settingsBloc.stream.listen((settingsState) {
+      final newCurrency = settingsState.settings['main_currency_code'];
+      if (newCurrency != null) {
+        if (!_initialLoadDone) {
+          add(const InitialLoadTransactions());
+          _initialLoadDone = true;
+        } else if (state.mainCurrencyCode != newCurrency) {
+          add(const InitialLoadTransactions());
+        }
+      }
+    });
+
     on<NonDateFiltersChanged>(_onNonDateFiltersChanged);
     on<DatePeriodNavigated>(_onDatePeriodNavigated);
     on<DateStepChanged>(_onDateStepChanged);
@@ -65,9 +85,106 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     on<ToggleTransactionSelection>(_onToggleTransactionSelection);
     on<SelectAllTransactions>(_onSelectAllTransactions);
     on<ClearSelection>(_onClearSelection);
-    on<LoadTransactionSettings>(_onLoadSettings);
+  }
 
-    add(const LoadTransactionSettings());
+  @override
+  Future<void> close() {
+    _settingsSubscription.cancel();
+    return super.close();
+  }
+
+  Future<Map<DateTime, double>> _calculateDailyTotals(
+      List<Transaction> transactions, String mainCurrencyCode) async {
+    final Map<DateTime, double> dailyTotals = {};
+    if (transactions.isEmpty) {
+      return dailyTotals;
+    }
+
+    final uniqueDates = transactions
+        .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
+        .toSet();
+
+    final ratesByDateFutures = uniqueDates.map((date) async {
+      final rates = await _currencyRepository.getLatestExchangeRates(date);
+      return MapEntry(date, rates);
+    });
+
+    final ratesByDateEntries = await Future.wait(ratesByDateFutures);
+    final ratesByDate = Map.fromEntries(ratesByDateEntries);
+
+    final groupedTransactions = groupBy(transactions,
+        (Transaction t) => DateTime(t.date.year, t.date.month, t.date.day));
+
+    const baseCurrency = 'EUR';
+    for (var date in groupedTransactions.keys) {
+      double totalForDay = 0;
+      final transactionsForDay = groupedTransactions[date]!;
+      final ratesForDay = ratesByDate[date] ?? [];
+
+      for (final transaction in transactionsForDay) {
+        // Amount in base currency (EUR)
+        double amountInBase;
+        if (transaction.currencyCode == baseCurrency) {
+          amountInBase = transaction.amount;
+        } else {
+          // Find rate from transaction currency TO base currency
+          final toBaseRate = ratesForDay
+              .firstWhereOrNull((r) =>
+                  r.fromCurrencyCode == transaction.currencyCode &&
+                  r.toCurrencyCode == baseCurrency)
+              ?.rate;
+
+          if (toBaseRate != null) {
+            amountInBase = transaction.amount * toBaseRate;
+          } else {
+            // Try reverse: from base currency TO transaction currency
+            final fromBaseRate = ratesForDay
+                .firstWhereOrNull((r) =>
+                    r.fromCurrencyCode == baseCurrency &&
+                    r.toCurrencyCode == transaction.currencyCode)
+                ?.rate;
+
+            if (fromBaseRate != null && fromBaseRate != 0) {
+              amountInBase = transaction.amount / fromBaseRate;
+            } else {
+              amountInBase = 0; // Fallback to 0 if no rate found
+            }
+          }
+        }
+
+        // Amount in main currency
+        double amountInMain;
+        if (mainCurrencyCode == baseCurrency) {
+          amountInMain = amountInBase;
+        } else {
+          // Find rate from base currency TO main currency
+          final fromBaseRate = ratesForDay
+              .firstWhereOrNull((r) =>
+                  r.fromCurrencyCode == baseCurrency &&
+                  r.toCurrencyCode == mainCurrencyCode)
+              ?.rate;
+
+          if (fromBaseRate != null) {
+            amountInMain = amountInBase * fromBaseRate;
+          } else {
+            // Try reverse: from main currency to base
+            final toBaseRate = ratesForDay
+                .firstWhereOrNull((r) =>
+                    r.fromCurrencyCode == mainCurrencyCode &&
+                    r.toCurrencyCode == baseCurrency)
+                ?.rate;
+            if (toBaseRate != null && toBaseRate != 0) {
+              amountInMain = amountInBase / toBaseRate;
+            } else {
+              amountInMain = amountInBase; // Fallback to amount in base
+            }
+          }
+        }
+        totalForDay += amountInMain;
+      }
+      dailyTotals[date] = totalForDay;
+    }
+    return dailyTotals;
   }
 
   void _onTransactionTypeFilterChanged(
@@ -75,8 +192,8 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) {
     emit(state.copyWith(
-        nonDateFilters:
-            state.nonDateFilters.copyWith(transactionType: event.transactionType)));
+        nonDateFilters: state.nonDateFilters
+            .copyWith(transactionType: event.transactionType)));
     add(const InitialLoadTransactions());
   }
 
@@ -123,10 +240,6 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) {
     emit(state.copyWith(dateStep: event.dateStep, filterMode: FilterMode.date));
-    _settingsBloc.add(UpdateSetting(
-      'date_step_transaction',
-      event.dateStep.toString(),
-    ));
     add(const InitialLoadTransactions());
   }
 
@@ -159,13 +272,8 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     add(const InitialLoadTransactions());
   }
 
-  void _onSortChanged(
-      SortChanged event, Emitter<TransactionsState> emit) {
+  void _onSortChanged(SortChanged event, Emitter<TransactionsState> emit) {
     emit(state.copyWith(sort: event.sort));
-    _settingsBloc.add(UpdateSetting(
-      'date_sort_transaction',
-      event.sort.toString(),
-    ));
     add(const InitialLoadTransactions());
   }
 
@@ -184,8 +292,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     ToggleTransactionSelection event,
     Emitter<TransactionsState> emit,
   ) {
-    final newSelectedIds =
-        Set<String>.from(state.selectedTransactionIds);
+    final newSelectedIds = Set<String>.from(state.selectedTransactionIds);
     if (newSelectedIds.contains(event.transactionId)) {
       newSelectedIds.remove(event.transactionId);
     } else {
@@ -198,9 +305,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     SelectAllTransactions event,
     Emitter<TransactionsState> emit,
   ) {
-    final allIds = state.transactions
-        .map((t) => t.transaction.id!)
-        .toSet();
+    final allIds = state.transactions.map((t) => t.transaction.id!).toSet();
     emit(state.copyWith(selectedTransactionIds: allIds));
   }
 
@@ -211,20 +316,15 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     emit(state.copyWith(selectedTransactionIds: {}));
   }
 
-  Future<void> _onLoadSettings(
-    LoadTransactionSettings event,
-    Emitter<TransactionsState> emit,
-  ) async {
-    // TODO: Fix settings loading race condition. For now, loading with default values.
-    add(const InitialLoadTransactions());
-  }
-
   Future<void> _onLoadTransactionsInitial(
     InitialLoadTransactions event,
     Emitter<TransactionsState> emit,
   ) async {
     emit(state.copyWith(status: TransactionStatus.loading));
     try {
+      final mainCurrencySetting = await _settingsRepository.getSetting('main_currency_code');
+      final mainCurrencyCode = mainCurrencySetting?.value ?? 'EUR';
+
       final results = await Future.wait([
         _transactionRepository.getTransactionsWithFilters(
           limit: event.limit,
@@ -242,6 +342,9 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       final totalCount = results[1] as int;
       final currencyDesignations = results[2] as List<CurrencyDesignation>;
 
+      final dailyTotals =
+          await _calculateDailyTotals(rawTransactions, mainCurrencyCode);
+
       final List<TransactionCategory> transactionsWithStyles = [];
       for (final transaction in rawTransactions) {
         Category? category;
@@ -257,8 +360,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         transactionsWithStyles.add(
           TransactionCategory(
             transaction: transaction,
-            style:
-                style ??
+            style: style ??
                 Style(
                   id: 'default',
                   name: 'Default',
@@ -279,6 +381,8 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           hasMoreDown: transactionsWithStyles.isNotEmpty,
           totalCount: totalCount,
           currencyDesignations: currencyDesignations,
+          dailyTotals: dailyTotals,
+          mainCurrencyCode: mainCurrencyCode,
         ),
       );
     } catch (_) {
@@ -295,17 +399,19 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     emit(state.copyWith(status: TransactionStatus.loading));
 
     try {
-      final offset = (state.startIndex - event.limit)
-          .clamp(0, double.infinity)
-          .toInt();
+      final mainCurrencySetting = await _settingsRepository.getSetting('main_currency_code');
+      final mainCurrencyCode = mainCurrencySetting?.value ?? 'EUR';
+      
+      final offset =
+          (state.startIndex - event.limit).clamp(0, double.infinity).toInt();
       final jumpToItemId = state.transactions.firstOrNull?.transaction.id;
-      final newRawTransactions = await _transactionRepository
-          .getTransactionsWithFilters(
-            limit: event.limit,
-            offset: offset,
-            filters: state.filters,
-            sort: state.sort,
-          );
+      final newRawTransactions =
+          await _transactionRepository.getTransactionsWithFilters(
+        limit: event.limit,
+        offset: offset,
+        filters: state.filters,
+        sort: state.sort,
+      );
 
       if (newRawTransactions.isEmpty) {
         return emit(
@@ -329,8 +435,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         newTransactionsWithStyles.add(
           TransactionCategory(
             transaction: transaction,
-            style:
-                style ??
+            style: style ??
                 Style(
                   id: 'default',
                   name: 'Default',
@@ -343,6 +448,10 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       }
 
       final updatedList = [...newTransactionsWithStyles, ...state.transactions];
+      final rawUpdatedList = updatedList.map((e) => e.transaction).toList();
+      final dailyTotals =
+          await _calculateDailyTotals(rawUpdatedList, mainCurrencyCode);
+
       final newStartIndex = state.startIndex - newTransactionsWithStyles.length;
       double? jumpAlignment;
 
@@ -364,6 +473,8 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           hasMoreUp: newStartIndex > 0,
           jumpToItemId: jumpToItemId,
           jumpToAlignment: jumpAlignment,
+          dailyTotals: dailyTotals,
+          mainCurrencyCode: mainCurrencyCode,
         ),
       );
 
@@ -382,15 +493,18 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     emit(state.copyWith(status: TransactionStatus.loading));
 
     try {
+      final mainCurrencySetting = await _settingsRepository.getSetting('main_currency_code');
+      final mainCurrencyCode = mainCurrencySetting?.value ?? 'EUR';
+
       final offset = state.startIndex + state.transactions.length;
       final jumpToItemId = state.transactions.lastOrNull?.transaction.id;
-      final newRawTransactions = await _transactionRepository
-          .getTransactionsWithFilters(
-            limit: event.limit,
-            offset: offset,
-            filters: state.filters,
-            sort: state.sort,
-          );
+      final newRawTransactions =
+          await _transactionRepository.getTransactionsWithFilters(
+        limit: event.limit,
+        offset: offset,
+        filters: state.filters,
+        sort: state.sort,
+      );
 
       if (newRawTransactions.isEmpty) {
         return emit(
@@ -414,8 +528,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         newTransactionsWithStyles.add(
           TransactionCategory(
             transaction: transaction,
-            style:
-                style ??
+            style: style ??
                 Style(
                   id: 'default',
                   name: 'Default',
@@ -428,6 +541,10 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       }
 
       final updatedList = [...state.transactions, ...newTransactionsWithStyles];
+      final rawUpdatedList = updatedList.map((e) => e.transaction).toList();
+      final dailyTotals =
+          await _calculateDailyTotals(rawUpdatedList, mainCurrencyCode);
+
       var newStartIndex = state.startIndex;
       double? jumpAlignment;
 
@@ -447,6 +564,8 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           hasMoreDown: newTransactionsWithStyles.isNotEmpty,
           jumpToItemId: jumpToItemId,
           jumpToAlignment: jumpAlignment,
+          dailyTotals: dailyTotals,
+          mainCurrencyCode: mainCurrencyCode,
         ),
       );
 
@@ -498,10 +617,10 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   ) async {
     try {
       await _transactionRepository.deleteMultipleTransactions(event.ids);
-      
+
       final newSelectedIds = Set<String>.from(state.selectedTransactionIds);
       newSelectedIds.removeWhere((id) => event.ids.contains(id));
-      
+
       emit(state.copyWith(selectedTransactionIds: newSelectedIds));
 
       add(const InitialLoadTransactions());

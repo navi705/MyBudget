@@ -46,6 +46,7 @@ Future<void> init() async {
         styleRepository: sl(),
         categoryRepository: sl(),
         settingsBloc: sl(),
+        settingsRepository: sl(),
         currencyRepository: sl(),
       ));
   sl.registerFactory(() => CurrencyConverterBloc(

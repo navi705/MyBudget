@@ -1,24 +1,20 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:bloc/bloc.dart';
+import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
-import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
+import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
-import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
+import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart'
     show DateStep, FilterMode;
-import 'package:my_budget_client/domain/entities/settings.dart';
-import 'package:collection/collection.dart';
-import 'package:my_budget_client/core/database/app_database.dart' as drift;
-import 'package:my_budget_client/core/mappers/currency_designation_mapper.dart';
 
 part 'categories_event.dart';
 part 'categories_state.dart';
@@ -208,34 +204,83 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         _categoryRepository.getCategories(),
         _transactionRepository.getTransactionsWithFilters(
             filters: TransactionFilters(dateFrom: dateFrom, dateTo: dateTo)),
-        _currencyRepository.getLatestExchangeRates(DateTime.now()),
         _currencyRepository.getAllCurrencyDesignations(),
       ]);
 
       final categories = results[0] as List<Category>;
       final transactions = results[1] as List<Transaction>;
-      final exchangeRates = results[2] as List<drift.ExchangeRate>;
-      final currencyDesignations = (results[3] as List<drift.CurrencyDesignation>).toDomainList();
+      final currencyDesignations = results[2] as List<CurrencyDesignation>;
 
-      final mainCurrencyRate = exchangeRates
-              .firstWhereOrNull((r) => r.toCurrencyCode == mainCurrencyCode)
-              ?.rate ??
-          1.0;
+      final uniqueDates = transactions.map((t) => DateTime(t.date.year, t.date.month, t.date.day)).toSet();
+      final ratesByDateFutures = uniqueDates.map((date) async {
+        final rates = await _currencyRepository.getLatestExchangeRates(date);
+        return MapEntry(date, rates);
+      });
+      final ratesByDateEntries = await Future.wait(ratesByDateFutures);
+      final ratesByDate = Map.fromEntries(ratesByDateEntries);
 
+      const baseCurrency = 'EUR';
       final categoriesWithTotals = categories.map((category) {
-        final categoryTransactions = transactions
-            .where((t) => t.categoryId == category.id);
+        final categoryTransactions =
+            transactions.where((t) => t.categoryId == category.id);
         double total = 0;
-        for (final transaction in categoryTransactions) {
-           final rate = exchangeRates
-                  .firstWhereOrNull(
-                      (r) => r.toCurrencyCode == transaction.currencyCode)
-                  ?.rate ??
-              1.0;
 
-          // Convert amount to EUR first, then to main currency
-          final amountInEur = transaction.amount / rate;
-          total += amountInEur * mainCurrencyRate;
+        for (final transaction in categoryTransactions) {
+          final transactionDateOnly = DateTime(
+              transaction.date.year, transaction.date.month, transaction.date.day);
+          final ratesForDay = ratesByDate[transactionDateOnly] ?? [];
+
+          // Amount in base currency (EUR)
+          double amountInBase;
+          if (transaction.currencyCode == baseCurrency) {
+            amountInBase = transaction.amount;
+          } else {
+            // Find rate from transaction currency TO base currency
+            final toBaseRate = ratesForDay.firstWhereOrNull((r) =>
+                r.fromCurrencyCode == transaction.currencyCode &&
+                r.toCurrencyCode == baseCurrency)?.rate;
+            
+            if (toBaseRate != null) {
+              amountInBase = transaction.amount * toBaseRate;
+            } else {
+              // Try reverse: from base currency TO transaction currency
+              final fromBaseRate = ratesForDay.firstWhereOrNull((r) =>
+                r.fromCurrencyCode == baseCurrency &&
+                r.toCurrencyCode == transaction.currencyCode)?.rate;
+              
+              if (fromBaseRate != null && fromBaseRate != 0) {
+                amountInBase = transaction.amount / fromBaseRate;
+              } else {
+                amountInBase = 0; // Fallback to 0 if no rate is found
+              }
+            }
+          }
+
+          // Amount in main currency
+          double amountInMain;
+          if (mainCurrencyCode == baseCurrency) {
+            amountInMain = amountInBase;
+          } else {
+            // Find rate from base currency TO main currency
+            final fromBaseRate = ratesForDay.firstWhereOrNull((r) =>
+                r.fromCurrencyCode == baseCurrency &&
+                r.toCurrencyCode == mainCurrencyCode)?.rate;
+
+            if (fromBaseRate != null) {
+              amountInMain = amountInBase * fromBaseRate;
+            } else {
+               // Try reverse: from main currency to base
+               final toBaseRate = ratesForDay.firstWhereOrNull((r) =>
+                r.fromCurrencyCode == mainCurrencyCode &&
+                r.toCurrencyCode == baseCurrency)?.rate;
+              if (toBaseRate != null && toBaseRate != 0) {
+                 amountInMain = amountInBase / toBaseRate;
+              } else {
+                 amountInMain = amountInBase; // Fallback to amount in base
+              }
+            }
+          }
+          total += amountInMain;
         }
         return CategoryWithTotal(category: category, total: total);
       }).toList();
