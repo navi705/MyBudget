@@ -45,6 +45,10 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
     on<ResetImport>(_onResetImport);
   }
 
+  String _getCategoryKey(String name, String type) {
+  return '${name.trim().toLowerCase()}_${type.trim().toLowerCase()}';
+}
+
   Future<void> _onStartImportProcess(
     StartImportProcess event,
     Emitter<ImportState> emit,

@@ -250,7 +250,7 @@ class _CategoriesDateAppBar extends StatelessWidget {
         ),
         const SizedBox(width: 24),
         RotatedBox(
-          quarterTurns: state.filters.sort == Sort.ascending ? 0 : 2,
+          quarterTurns: state.filters.sort == Sort.ascending ? 2 : 0,
           child: IconButton(
             icon: const Icon(
               Icons.sort,

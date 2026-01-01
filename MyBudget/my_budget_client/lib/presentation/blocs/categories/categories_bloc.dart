@@ -3,6 +3,7 @@ import 'package:bloc/bloc.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
@@ -30,11 +31,11 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     required SettingsRepository settingsRepository,
     required TransactionRepository transactionRepository,
     required CurrencyRepository currencyRepository,
-  })  : _categoryRepository = categoryRepository,
-        _settingsRepository = settingsRepository,
-        _transactionRepository = transactionRepository,
-        _currencyRepository = currencyRepository,
-        super(CategoriesInitial()) {
+  }) : _categoryRepository = categoryRepository,
+       _settingsRepository = settingsRepository,
+       _transactionRepository = transactionRepository,
+       _currencyRepository = currencyRepository,
+       super(CategoriesInitial()) {
     on<LoadCategories>(_onLoadCategories);
     on<LoadMoreCategories>(_onLoadMoreCategories);
     on<AddCategory>(_onAddCategory);
@@ -126,10 +127,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     }
   }
 
-  void _onSortChanged(
-    SortChanged event,
-    Emitter<CategoriesState> emit,
-  ) {
+  void _onSortChanged(SortChanged event, Emitter<CategoriesState> emit) {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
       add(FiltersChanged(currentState.filters.copyWith(sort: event.sort)));
@@ -142,14 +140,15 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   ) async {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
-      final deviceName =
-          (await _settingsRepository.getSetting('device_name'))?.value ??
-              'default';
-      await _settingsRepository.setSetting(Settings(
-        key: 'category_filters',
-        value: event.filters.toJsonString(),
-        device: deviceName,
-      ));
+      final deviceName = await getDeviceName();
+
+      await _settingsRepository.setSetting(
+        Settings(
+          key: 'category_filters',
+          value: event.filters.toJsonString(),
+          device: deviceName,
+        ),
+      );
       emit(currentState.copyWith(filters: event.filters));
       add(LoadCategories());
     }
@@ -161,12 +160,15 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   ) async {
     final currentState = state;
     emit(CategoriesLoadInProgress());
+
     try {
+      // 1. Setup Filters (Same as before)
       var filters = currentState is CategoriesLoadSuccess
           ? currentState.filters
           : const CategoryFilters();
-      final savedFilters =
-          await _settingsRepository.getSetting('category_filters');
+      final savedFilters = await _settingsRepository.getSetting(
+        'category_filters',
+      );
       if (savedFilters != null) {
         filters = CategoryFilters.fromJsonString(savedFilters.value);
       }
@@ -174,6 +176,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       DateTime? dateFrom;
       DateTime? dateTo;
 
+      // ... (Keep your existing Date logic here) ...
       if (currentState is CategoriesLoadSuccess) {
         if (currentState.filterMode == FilterMode.date) {
           switch (currentState.dateStep) {
@@ -183,9 +186,15 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
               break;
             case DateStep.month:
               dateFrom = DateTime(
-                  currentState.activeDate.year, currentState.activeDate.month, 1);
+                currentState.activeDate.year,
+                currentState.activeDate.month,
+                1,
+              );
               dateTo = DateTime(
-                  currentState.activeDate.year, currentState.activeDate.month + 1, 0);
+                currentState.activeDate.year,
+                currentState.activeDate.month + 1,
+                0,
+              );
               break;
             case DateStep.year:
               dateFrom = DateTime(currentState.activeDate.year, 1, 1);
@@ -198,12 +207,17 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         }
       }
 
-      final mainCurrencyCode = (await _settingsRepository.getSetting('main_currency_code'))?.value ?? 'EUR';
+      final mainCurrencyCode =
+          (await _settingsRepository.getSetting('main_currency_code'))?.value ??
+          'EUR';
 
+      // 2. Fetch Core Data
       final results = await Future.wait([
         _categoryRepository.getCategories(),
         _transactionRepository.getTransactionsWithFilters(
-            filters: TransactionFilters(dateFrom: dateFrom, dateTo: dateTo)),
+          limit: 99999,
+          filters: TransactionFilters(dateFrom: dateFrom, dateTo: dateTo),
+        ),
         _currencyRepository.getAllCurrencyDesignations(),
       ]);
 
@@ -211,84 +225,114 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       final transactions = results[1] as List<Transaction>;
       final currencyDesignations = results[2] as List<CurrencyDesignation>;
 
-      final uniqueDates = transactions.map((t) => DateTime(t.date.year, t.date.month, t.date.day)).toSet();
-      final ratesByDateFutures = uniqueDates.map((date) async {
-        final rates = await _currencyRepository.getLatestExchangeRates(date);
-        return MapEntry(date, rates);
-      });
-      final ratesByDateEntries = await Future.wait(ratesByDateFutures);
-      final ratesByDate = Map.fromEntries(ratesByDateEntries);
+      // --- OPTIMIZATION START ---
 
+      // 3. Batch Fetch Rates (1 Query instead of N queries)
+      final uniqueDates = transactions
+          .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
+          .toSet()
+          .toList();
+
+      // Use the list-based method we created earlier
+      final allRates = await _currencyRepository.getLatestExchangeRatesByList(
+        uniqueDates,
+      );
+
+      // 4. Pre-process Rates into a Map for O(1) lookup
+      // Map<Date, Map<"FROM_TO", Rate>>
+      final ratesMap = <DateTime, Map<String, double>>{};
+
+      for (var rate in allRates) {
+        final dateKey = DateTime(
+          rate.date.year,
+          rate.date.month,
+          rate.date.day,
+        );
+        if (!ratesMap.containsKey(dateKey)) {
+          ratesMap[dateKey] = {};
+        }
+        ratesMap[dateKey]!['${rate.fromCurrencyCode}_${rate.toCurrencyCode}'] =
+            rate.rate;
+      }
+
+      // 5. Calculate Totals via "Inverted Loop"
+      // Instead of Loop Categories -> Find Transactions (Slow)
+      // We Loop Transactions -> Add to Category Map (Fast)
+
+      final Map<String, double> categoryTotalsMap = {};
       const baseCurrency = 'EUR';
-      final categoriesWithTotals = categories.map((category) {
-        final categoryTransactions =
-            transactions.where((t) => t.categoryId == category.id);
-        double total = 0;
 
-        for (final transaction in categoryTransactions) {
-          final transactionDateOnly = DateTime(
-              transaction.date.year, transaction.date.month, transaction.date.day);
-          final ratesForDay = ratesByDate[transactionDateOnly] ?? [];
+      for (final transaction in transactions) {
+        // A. Setup
+        final tDate = DateTime(
+          transaction.date.year,
+          transaction.date.month,
+          transaction.date.day,
+        );
+        final dailyRates = ratesMap[tDate] ?? {};
 
-          // Amount in base currency (EUR)
+        // B. Convert Currency (Optimized Helper Logic)
+        double amountInMain;
+
+        if (transaction.currencyCode == mainCurrencyCode) {
+          amountInMain = transaction.amount;
+        } else {
+          // 1. To Base (EUR)
           double amountInBase;
           if (transaction.currencyCode == baseCurrency) {
             amountInBase = transaction.amount;
           } else {
-            // Find rate from transaction currency TO base currency
-            final toBaseRate = ratesForDay.firstWhereOrNull((r) =>
-                r.fromCurrencyCode == transaction.currencyCode &&
-                r.toCurrencyCode == baseCurrency)?.rate;
-            
-            if (toBaseRate != null) {
-              amountInBase = transaction.amount * toBaseRate;
+            final toBase =
+                dailyRates['${transaction.currencyCode}_$baseCurrency'];
+            if (toBase != null) {
+              amountInBase = transaction.amount * toBase;
             } else {
-              // Try reverse: from base currency TO transaction currency
-              final fromBaseRate = ratesForDay.firstWhereOrNull((r) =>
-                r.fromCurrencyCode == baseCurrency &&
-                r.toCurrencyCode == transaction.currencyCode)?.rate;
-              
-              if (fromBaseRate != null && fromBaseRate != 0) {
-                amountInBase = transaction.amount / fromBaseRate;
-              } else {
-                amountInBase = 0; // Fallback to 0 if no rate is found
-              }
+              final fromBase =
+                  dailyRates['${baseCurrency}_${transaction.currencyCode}'];
+              amountInBase = (fromBase != null && fromBase != 0)
+                  ? transaction.amount / fromBase
+                  : 0; // or handle error
             }
           }
 
-          // Amount in main currency
-          double amountInMain;
+          // 2. From Base (EUR) to Main
           if (mainCurrencyCode == baseCurrency) {
             amountInMain = amountInBase;
           } else {
-            // Find rate from base currency TO main currency
-            final fromBaseRate = ratesForDay.firstWhereOrNull((r) =>
-                r.fromCurrencyCode == baseCurrency &&
-                r.toCurrencyCode == mainCurrencyCode)?.rate;
-
-            if (fromBaseRate != null) {
-              amountInMain = amountInBase * fromBaseRate;
+            final toMain = dailyRates['${baseCurrency}_$mainCurrencyCode'];
+            if (toMain != null) {
+              amountInMain = amountInBase * toMain;
             } else {
-               // Try reverse: from main currency to base
-               final toBaseRate = ratesForDay.firstWhereOrNull((r) =>
-                r.fromCurrencyCode == mainCurrencyCode &&
-                r.toCurrencyCode == baseCurrency)?.rate;
-              if (toBaseRate != null && toBaseRate != 0) {
-                 amountInMain = amountInBase / toBaseRate;
-              } else {
-                 amountInMain = amountInBase; // Fallback to amount in base
-              }
+              final fromMain = dailyRates['${mainCurrencyCode}_$baseCurrency'];
+              amountInMain = (fromMain != null && fromMain != 0)
+                  ? amountInBase / fromMain
+                  : amountInBase;
             }
           }
-          total += amountInMain;
         }
-        return CategoryWithTotal(category: category, total: total);
+
+        // C. Add to Accumulator
+        final currentTotal = categoryTotalsMap[transaction.categoryId] ?? 0.0;
+        categoryTotalsMap[transaction.categoryId] = currentTotal + amountInMain;
+      }
+
+      // 6. Build Final List
+      // Now we just map the categories to the calculated totals
+      final categoriesWithTotals = categories.map((category) {
+        return CategoryWithTotal(
+          category: category,
+          total: categoryTotalsMap[category.id] ?? 0.0,
+        );
       }).toList();
-      
-      // Apply filters and sorting
+
+      // --- OPTIMIZATION END ---
+
+      // 7. Apply Filters and Sorting (Same as before)
       final filteredItems = categoriesWithTotals.where((item) {
         if (filters.name != null &&
-            !item.category.name.toLowerCase().contains(filters.name!.toLowerCase())) {
+            !item.category.name.toLowerCase().contains(
+              filters.name!.toLowerCase(),
+            )) {
           return false;
         }
         if (filters.type != null && item.category.type != filters.type) {
@@ -304,29 +348,36 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       }).toList();
 
       filteredItems.sort((a, b) {
-        final comparison = a.category.name.compareTo(b.category.name);
+        final comparison = a.total.compareTo(b.total);
+
         return filters.sort == Sort.ascending ? comparison : -comparison;
       });
 
       if (currentState is CategoriesLoadSuccess) {
-        emit(currentState.copyWith(
-          categoriesWithTotals: filteredItems,
-          hasReachedMax: true, // Since we fetch all transactions
-          filters: filters,
-          mainCurrencyCode: mainCurrencyCode,
-          currencyDesignations: currencyDesignations,
-        ));
+        emit(
+          currentState.copyWith(
+            categoriesWithTotals: filteredItems,
+            hasReachedMax: true,
+            filters: filters,
+            mainCurrencyCode: mainCurrencyCode,
+            currencyDesignations: currencyDesignations,
+          ),
+        );
       } else {
-        emit(CategoriesLoadSuccess(
-          categoriesWithTotals: filteredItems,
-          hasReachedMax: true,
-          activeDate: DateTime.now(),
-          filters: filters,
-          mainCurrencyCode: mainCurrencyCode,
-          currencyDesignations: currencyDesignations,
-        ));
+        emit(
+          CategoriesLoadSuccess(
+            categoriesWithTotals: filteredItems,
+            hasReachedMax: true,
+            activeDate: DateTime.now(),
+            filters: filters,
+            mainCurrencyCode: mainCurrencyCode,
+            currencyDesignations: currencyDesignations,
+          ),
+        );
       }
-    } catch (e) {
+    } catch (e, s) {
+      // Tip: Always log 's' (stacktrace) to see where errors happen
+      print('Error loading categories: $e\n$s');
       emit(CategoriesLoadFailure());
     }
   }
@@ -376,9 +427,9 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   ) async {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
-      emit(currentState.copyWith(
-        getSelectedTypeFilter: () => event.categoryType,
-      ));
+      emit(
+        currentState.copyWith(getSelectedTypeFilter: () => event.categoryType),
+      );
     }
   }
 }
