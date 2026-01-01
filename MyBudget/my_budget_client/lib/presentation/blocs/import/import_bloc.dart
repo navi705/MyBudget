@@ -30,11 +30,11 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
     required CategoryRepository categoryRepository,
     required TransactionRepository transactionRepository,
     required CurrencyRepository currencyRepository,
-  })  : _accountRepository = accountRepository,
-        _categoryRepository = categoryRepository,
-        _transactionRepository = transactionRepository,
-        _currencyRepository = currencyRepository,
-        super(const ImportState()) {
+  }) : _accountRepository = accountRepository,
+       _categoryRepository = categoryRepository,
+       _transactionRepository = transactionRepository,
+       _currencyRepository = currencyRepository,
+       super(const ImportState()) {
     on<StartImportProcess>(_onStartImportProcess);
     on<MapAccount>(_onMapAccount);
     on<MapCategory>(_onMapCategory);
@@ -46,8 +46,14 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
   }
 
   String _getCategoryKey(String name, String type) {
-  return '${name.trim().toLowerCase()}_${type.trim().toLowerCase()}';
-}
+    return '${name.trim().toLowerCase()}_${type.trim().toLowerCase()}';
+  }
+
+  String _getCategoryDisplayName(String name, String type) {
+    final typeClean = type.trim().toLowerCase();
+    final typeDisplay = typeClean[0].toUpperCase() + typeClean.substring(1);
+    return '$name ($typeDisplay)';
+  }
 
   Future<void> _onStartImportProcess(
     StartImportProcess event,
@@ -65,7 +71,7 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
       }
 
       final uniqueRecords = {
-        for (var r in allRecords) '${r.date}-${r.amount}-${r.from}-${r.to}': r
+        for (var r in allRecords) '${r.date}-${r.amount}-${r.from}-${r.to}': r,
       }.values.toList();
 
       final uniqueBalances = <String, AccountBalanceRecord>{};
@@ -73,16 +79,20 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
         uniqueBalances[b.name.trim().toLowerCase()] = b;
       }
 
-      emit(state.copyWith(
-        files: event.files,
-        parsedRecords: uniqueRecords,
-        parsedBalances: uniqueBalances.values.toList(),
-        step: ImportStep.mappingAccounts,
-      ));
+      emit(
+        state.copyWith(
+          files: event.files,
+          parsedRecords: uniqueRecords,
+          parsedBalances: uniqueBalances.values.toList(),
+          step: ImportStep.mappingAccounts,
+        ),
+      );
 
       add(ProceedToNextStep());
     } catch (e) {
-      emit(state.copyWith(step: ImportStep.failure, errorMessage: e.toString()));
+      emit(
+        state.copyWith(step: ImportStep.failure, errorMessage: e.toString()),
+      );
     }
   }
 
@@ -92,14 +102,16 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
   ) async {
     final newMappings = Map<String, String>.from(state.accountMappings);
     newMappings[event.csvAccountName] = event.decision;
-    
+
     final newUnmapped = Set<String>.from(state.unmappedAccounts);
     newUnmapped.remove(event.csvAccountName);
 
-    emit(state.copyWith(
-      accountMappings: newMappings,
-      unmappedAccounts: newUnmapped,
-    ));
+    emit(
+      state.copyWith(
+        accountMappings: newMappings,
+        unmappedAccounts: newUnmapped,
+      ),
+    );
 
     if (newUnmapped.isEmpty) {
       add(ProceedToNextStep());
@@ -116,10 +128,12 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
     final newUnmapped = Map<String, String>.from(state.unmappedCategories);
     newUnmapped.remove(event.csvCategoryName);
 
-    emit(state.copyWith(
-      categoryMappings: newMappings,
-      unmappedCategories: newUnmapped,
-    ));
+    emit(
+      state.copyWith(
+        categoryMappings: newMappings,
+        unmappedCategories: newUnmapped,
+      ),
+    );
 
     if (newUnmapped.isEmpty) {
       add(ProceedToNextStep());
@@ -136,21 +150,25 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
     final newUnmapped = Set<String>.from(state.unmappedCurrencies);
     newUnmapped.remove(event.csvCurrencyName);
 
-    emit(state.copyWith(
-      currencyMappings: newMappings,
-      unmappedCurrencies: newUnmapped,
-    ));
+    emit(
+      state.copyWith(
+        currencyMappings: newMappings,
+        unmappedCurrencies: newUnmapped,
+      ),
+    );
 
     if (newUnmapped.isEmpty) {
       add(ProceedToNextStep());
     }
   }
-  
+
   Future<void> _onResolveDuplicate(
     ResolveDuplicate event,
     Emitter<ImportState> emit,
   ) async {
-    final newResolutions = Map<OneMoneyRecord, String>.from(state.duplicateResolutions);
+    final newResolutions = Map<OneMoneyRecord, String>.from(
+      state.duplicateResolutions,
+    );
     newResolutions[event.record] = event.decision;
 
     emit(state.copyWith(duplicateResolutions: newResolutions));
@@ -166,11 +184,24 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
   ) async {
     if (state.step == ImportStep.mappingAccounts) {
       final existingAccounts = await _accountRepository.getAccounts();
-      final existingAccountNames = existingAccounts.map((a) => a.name.trim().toLowerCase()).toSet();
-      final csvAccountNames = state.parsedRecords.map((r) => r.from.trim().toLowerCase()).toSet();
-      
-      final mappedInSession = state.accountMappings.keys.map((k) => k.trim().toLowerCase()).toSet();
-      final unmapped = csvAccountNames.where((name) => !existingAccountNames.contains(name) && !mappedInSession.contains(name) && name.isNotEmpty).toSet();
+      final existingAccountNames = existingAccounts
+          .map((a) => a.name.trim().toLowerCase())
+          .toSet();
+      final csvAccountNames = state.parsedRecords
+          .map((r) => r.from.trim().toLowerCase())
+          .toSet();
+
+      final mappedInSession = state.accountMappings.keys
+          .map((k) => k.trim().toLowerCase())
+          .toSet();
+      final unmapped = csvAccountNames
+          .where(
+            (name) =>
+                !existingAccountNames.contains(name) &&
+                !mappedInSession.contains(name) &&
+                name.isNotEmpty,
+          )
+          .toSet();
 
       if (unmapped.isEmpty) {
         emit(state.copyWith(step: ImportStep.mappingCategories));
@@ -178,50 +209,79 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
       } else {
         emit(state.copyWith(unmappedAccounts: unmapped));
       }
-
     } else if (state.step == ImportStep.mappingCategories) {
       final existingCategories = await _categoryRepository.getCategories();
-      final existingCategoryNames = existingCategories.map((c) => c.name.trim().toLowerCase()).toSet();
-      
-      final csvCategories = <String, String>{};
+
+      // 1. Build a Set of existing keys (Name + Type)
+      final existingCategoryKeys = existingCategories.map((c) {
+        final typeStr = c.type == CategoryType.income ? 'income' : 'expense';
+        return _getCategoryKey(c.name, typeStr);
+      }).toSet();
+
+      // 2. Parse CSV Categories into Unique Keys
+      // Key: "salary_income", Value: "Salary" (Original Name)
+      final csvCategoryOriginalNames = <String, String>{}; 
+      // Key: "salary_income", Value: "income" (Type)
+      final csvCategoryTypes = <String, String>{}; 
+
       for (final record in state.parsedRecords) {
         final recordType = record.type.toLowerCase();
         if (recordType == 'expense' || recordType == 'income') {
-          final categoryName = record.to.trim().toLowerCase();
+          final categoryName = record.to.trim();
           if (categoryName.isNotEmpty) {
-            csvCategories[categoryName] = record.type;
+            final key = _getCategoryKey(categoryName, recordType);
+            csvCategoryOriginalNames[key] = categoryName;
+            csvCategoryTypes[key] = recordType;
           }
         }
       }
 
-      final mappedInSession = state.categoryMappings.keys.map((k) => k.trim().toLowerCase()).toSet();
-      
+      final mappedInSession = state.categoryMappings.keys.toSet(); // keys are now "name_type"
+
+      // 3. Prepare Unmapped List
       final unmapped = <String, String>{};
-      csvCategories.forEach((name, type) {
-        if (!existingCategoryNames.contains(name) && !mappedInSession.contains(name)) {
-          unmapped[name] = type;
+
+      csvCategoryOriginalNames.forEach((key, originalName) {
+        // If not in DB AND not mapped yet
+        if (!existingCategoryKeys.contains(key) && !mappedInSession.contains(key)) {
+          final type = csvCategoryTypes[key]!;
+          // We set the VALUE to "Salary (Income)" so the user sees the difference
+          unmapped[key] = _getCategoryDisplayName(originalName, type);
         }
       });
 
       if (unmapped.isEmpty) {
         emit(state.copyWith(
           step: ImportStep.mappingCurrencies,
-          parsedCategoryDetails: csvCategories,
+          parsedCategoryDetails: csvCategoryTypes, // We need this later
         ));
         add(ProceedToNextStep());
       } else {
         emit(state.copyWith(
           unmappedCategories: unmapped,
-          parsedCategoryDetails: csvCategories,
+          parsedCategoryDetails: csvCategoryTypes,
         ));
       }
     } else if (state.step == ImportStep.mappingCurrencies) {
       final existingCurrencies = await _currencyRepository.getCurrencies();
-      final existingCurrencyCodes = existingCurrencies.map((c) => c.code.trim().toLowerCase()).toSet();
-      final csvCurrencyCodes = state.parsedRecords.map((r) => r.currency.trim().toLowerCase()).toSet();
+      final existingCurrencyCodes = existingCurrencies
+          .map((c) => c.code.trim().toLowerCase())
+          .toSet();
+      final csvCurrencyCodes = state.parsedRecords
+          .map((r) => r.currency.trim().toLowerCase())
+          .toSet();
 
-      final mappedInSession = state.currencyMappings.keys.map((k) => k.trim().toLowerCase()).toSet();
-      final unmapped = csvCurrencyCodes.where((code) => !existingCurrencyCodes.contains(code) && !mappedInSession.contains(code) && code.isNotEmpty).toSet();
+      final mappedInSession = state.currencyMappings.keys
+          .map((k) => k.trim().toLowerCase())
+          .toSet();
+      final unmapped = csvCurrencyCodes
+          .where(
+            (code) =>
+                !existingCurrencyCodes.contains(code) &&
+                !mappedInSession.contains(code) &&
+                code.isNotEmpty,
+          )
+          .toSet();
 
       if (unmapped.isEmpty) {
         emit(state.copyWith(step: ImportStep.resolvingDuplicates));
@@ -230,17 +290,26 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
         emit(state.copyWith(unmappedCurrencies: unmapped));
       }
     } else if (state.step == ImportStep.resolvingDuplicates) {
-      final existingTransactions = await _transactionRepository.getTransactionsWithFilters(limit: 100000);
-      final Set<String> existingTransactionSignatures = existingTransactions.map((t) => '${t.date.toIso8601String().substring(0, 10)}-${t.amount.toStringAsFixed(2)}').toSet();
-      
+      final existingTransactions = await _transactionRepository
+          .getTransactionsWithFilters(limit: 100000);
+      final Set<String> existingTransactionSignatures = existingTransactions
+          .map(
+            (t) =>
+                '${t.date.toIso8601String().substring(0, 10)}-${t.amount.toStringAsFixed(2)}',
+          )
+          .toSet();
+
       final potentialDuplicates = <OneMoneyRecord>[];
 
       for (final record in state.parsedRecords) {
-        final recordAmount = record.type == 'Expense' ? -record.amount : record.amount;
-        final signature = '${record.date.toIso8601String().substring(0, 10)}-${recordAmount.toStringAsFixed(2)}';
-        
+        final recordAmount = record.type == 'Expense'
+            ? -record.amount
+            : record.amount;
+        final signature =
+            '${record.date.toIso8601String().substring(0, 10)}-${recordAmount.toStringAsFixed(2)}';
+
         if (existingTransactionSignatures.contains(signature)) {
-            potentialDuplicates.add(record);
+          potentialDuplicates.add(record);
         }
       }
 
@@ -251,7 +320,7 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
       }
     }
   }
-  
+
   Future<void> _onFinalizeImport(
     FinalizeImport event,
     Emitter<ImportState> emit,
@@ -260,6 +329,8 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
 
     try {
       final uuid = Uuid();
+      
+      // --- 1. CURRENCIES (No Changes) ---
       final newCurrencyCodes = state.currencyMappings.entries
           .where((e) => e.value == 'new')
           .map((e) => e.key)
@@ -279,6 +350,7 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
         ));
       }
 
+      // --- 2. ACCOUNTS (No Changes) ---
       final newAccountNames = state.accountMappings.entries
           .where((e) => e.value == 'new')
           .map((e) => e.key)
@@ -297,9 +369,7 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
             .where((r) => r.from.trim().toLowerCase() == name.trim().toLowerCase())
             .toList();
 
-        if (accountRecords.isEmpty) {
-          continue;
-        }
+        if (accountRecords.isEmpty) continue;
 
         accountRecords.sort((a, b) => a.date.compareTo(b.date));
         final earliestRecord = accountRecords.first;
@@ -314,7 +384,7 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
           balance: initialBalance,
           currencyCode: currency.code,
           currencyDesignationId: designation.id,
-          accountTypeId: '1', // default to something, maybe 'Cash'
+          accountTypeId: '1', 
           creationDate: earliestRecord.date,
         ));
       }
@@ -324,16 +394,28 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
       }
       emit(state.copyWith(progress: 0.2, createdAccountsCount: newAccounts.length));
 
-      final newCategoryNames = state.categoryMappings.entries
+      // --- 3. CATEGORIES (FIXED) ---
+      final newCategoryKeys = state.categoryMappings.entries
         .where((e) => e.value == 'new')
-        .map((e) => e.key)
+        .map((e) => e.key) // keys are "name_type"
         .toList();
 
-      final newCategories = newCategoryNames.map((name) {
-        final typeString = state.parsedCategoryDetails[name.toLowerCase()];
-        final type = typeString?.toLowerCase() == 'income' ? CategoryType.income : CategoryType.expense;
+      final newCategories = newCategoryKeys.map((key) {
+        // Retrieve the type we stored earlier
+        final typeString = state.parsedCategoryDetails[key] ?? 'expense';
+        final type = typeString.toLowerCase() == 'income' ? CategoryType.income : CategoryType.expense;
+        
+        // Extract original name from the Key (assuming key is "name_type")
+        // NOTE: A safer way is to store the original name map in state, 
+        // but splitting the key works if your delimiter (_) is safe.
+        final lastUnderscoreIndex = key.lastIndexOf('_');
+        final originalNameClean = key.substring(0, lastUnderscoreIndex); 
+        // Capitalize for display
+        final nameDisplay = originalNameClean[0].toUpperCase() + originalNameClean.substring(1);
+
         return Category(
-          name: name,
+          // HERE IS THE CHANGE: Save as "Salary (Income)"
+          name: _getCategoryDisplayName(nameDisplay, typeString),
           type: type,
         );
       }).toList();
@@ -343,8 +425,11 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
       }
       emit(state.copyWith(progress: 0.4, createdCategoriesCount: newCategories.length));
 
+      // --- 4. PREPARE LOOKUPS (FIXED) ---
       final allAccounts = await _accountRepository.getAccounts();
       var allCategories = await _categoryRepository.getCategories();
+      
+      // Handle Transfer Category
       var transferCategory = allCategories.firstWhereOrNull((c) => c.name == 'Transfer');
       if (transferCategory == null) {
         final newCategory = Category(name: 'Transfer', type: CategoryType.transfer);
@@ -354,10 +439,33 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
       }
 
       final accountIdMap = {for (var a in allAccounts) a.name.trim().toLowerCase(): a.id!};
-      final categoryIdMap = {for (var c in allCategories) c.name.trim().toLowerCase(): c.id!};
+      
+      // Build Category ID Map using Unique Keys
+      final categoryIdMap = <String, String>{};
+      for (var c in allCategories) {
+        final typeStr = c.type == CategoryType.income ? 'income' : 'expense';
+        
+        // We match strictly by Name + Type
+        // If the DB has "Salary (Income)", the key is "salary (income)_income"
+        // If the DB has "Salary", the key is "salary_income"
+        // We need to support the CSV matching "Salary" to "Salary (Income)"
+        
+        final keyStrict = _getCategoryKey(c.name, typeStr);
+        categoryIdMap[keyStrict] = c.id!;
 
+        // Special handling: If the DB name contains brackets like " (Income)",
+        // we also want to map the "clean" CSV name to this ID.
+        if (c.name.toLowerCase().contains('($typeStr)')) {
+          final cleanName = c.name.toLowerCase().replaceAll('($typeStr)', '').trim();
+          final keyClean = _getCategoryKey(cleanName, typeStr);
+          categoryIdMap[keyClean] = c.id!;
+        }
+      }
+
+      // --- 5. TRANSACTIONS (FIXED) ---
       int skippedCount = 0;
       final transactionsToInsert = <Transaction>[];
+      
       for (final record in state.parsedRecords) {
         final resolution = state.duplicateResolutions[record];
         if (resolution == 'skip') {
@@ -366,22 +474,20 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
         }
 
         if (record.type.toLowerCase() == 'transfer') {
-          final fromAccountId = accountIdMap[record.from.trim().toLowerCase()];
-          final toAccountId = accountIdMap[record.to.trim().toLowerCase()];
-
-          if (fromAccountId != null && toAccountId != null) {
+           // (Transfer Logic - No changes needed)
+           final fromAccountId = accountIdMap[record.from.trim().toLowerCase()];
+           final toAccountId = accountIdMap[record.to.trim().toLowerCase()];
+           if (fromAccountId != null && toAccountId != null) {
             transactionsToInsert.add(Transaction(
               date: record.date,
               description: 'Transfer to ${record.to}',
               amount: -record.amount,
               accountId: fromAccountId,
-              categoryId: transferCategory.id!,
+              categoryId: transferCategory!.id!,
               currencyCode: record.currency,
             ));
-            
             final creditAmount = record.amount2 ?? record.amount;
             final creditCurrency = record.currency2?.isNotEmpty == true ? record.currency2! : record.currency;
-
             transactionsToInsert.add(Transaction(
               date: record.date,
               description: 'Transfer from ${record.from}',
@@ -393,13 +499,16 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
           }
         } else {
           final accountId = accountIdMap[record.from.trim().toLowerCase()];
-          final categoryId = categoryIdMap[record.to.trim().toLowerCase()];
+          
+          // GENERATE KEY to find category
+          final recordType = record.type.toLowerCase();
+          final categoryKey = _getCategoryKey(record.to, recordType);
+          
+          final categoryId = categoryIdMap[categoryKey];
 
           if (accountId != null && categoryId != null) {
             var description = record.notes.isNotEmpty ? record.notes : record.to;
-            if (description.length > 100) {
-              description = description.substring(0, 100);
-            }
+            if (description.length > 100) description = description.substring(0, 100);
             
             final currencyCode = state.currencyMappings[record.currency.toLowerCase()] ?? record.currency;
 
@@ -408,27 +517,23 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
               description: description,
               amount: record.type.toLowerCase() == 'expense' ? -record.amount : record.amount,
               accountId: accountId,
-              categoryId: categoryId,
+              categoryId: categoryId, // Uses correct ID for that specific Type
               currencyCode: currencyCode,
             ));
           } else {
-            if (record.type.toLowerCase() != 'transfer') {
-              if (accountId == null) {
-                debugPrint('Skipping transaction due to unmapped account: "${record.from}"');
-              }
-              if (categoryId == null) {
-                debugPrint('Skipping transaction due to unmapped category: "${record.to}"');
-              }
-            }
+             if (accountId == null) debugPrint('Unmapped Account: ${record.from}');
+             if (categoryId == null) debugPrint('Unmapped Category: ${record.to} ($recordType)');
           }
         }
       }
+      
       emit(state.copyWith(progress: 0.7, skippedDuplicatesCount: skippedCount));
 
       if (transactionsToInsert.isNotEmpty) {
         await _transactionRepository.addTransactions(transactionsToInsert);
       }
 
+      // --- 6. UPDATE BALANCES (No Changes) ---
       final allDbAccounts = await _accountRepository.getAccounts();
       for (final account in allDbAccounts) {
         final parsedBalance = parsedBalancesMap[account.name.trim().toLowerCase()];
@@ -443,15 +548,14 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
         importedTransactionsCount: transactionsToInsert.length,
       ));
 
-    } catch (e) {
+    } catch (e, s) {
+      debugPrint(e.toString());
+      debugPrint(s.toString());
       emit(state.copyWith(step: ImportStep.failure, errorMessage: e.toString()));
     }
   }
 
-  void _onResetImport(
-    ResetImport event,
-    Emitter<ImportState> emit,
-  ) {
+  void _onResetImport(ResetImport event, Emitter<ImportState> emit) {
     emit(const ImportState());
   }
 }
