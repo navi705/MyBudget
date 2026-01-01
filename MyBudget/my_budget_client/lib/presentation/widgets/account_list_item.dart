@@ -8,6 +8,7 @@ import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart'; // Added
 import 'package:my_budget_client/domain/entities/currency_designation.dart'; // Added
+import 'package:intl/intl.dart';
 
 class AccountListItem extends StatefulWidget {
   final Account account;
@@ -126,10 +127,10 @@ class _AccountListItemState extends State<AccountListItem> {
                         fontSize: 16,
                       ),
                     ),
-                    subtitle: Text(
-                      '${designation?.value ?? ''} ${widget.account.balance.toStringAsFixed(2)}', // Updated to use designation.value
+                    subtitle: SelectableText(
+                      '${designation?.value ?? ''} ${NumberFormat.decimalPattern().format(widget.account.balance).replaceAll(',', ' ')}',
                       style: TextStyle(
-                        color: balanceColor, // Apply determined color
+                        color: balanceColor,
                         fontSize: 14,
                       ),
                     ),

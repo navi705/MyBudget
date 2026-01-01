@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
@@ -600,7 +601,7 @@ class TotalBalanceCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const Text(
               'Total Balance', // TODO: Localize
@@ -632,9 +633,9 @@ class TotalBalanceCard extends StatelessWidget {
                         Theme.of(context).textTheme.bodyLarge?.color ??
                             Colors.black;
                   }
-
-                  return Text(
-                    '${currency.code}: ${total.toStringAsFixed(2)}',
+                   final formatter = NumberFormat.decimalPattern();
+                  return SelectableText(
+                    '${currency.code}: ${formatter.format(total).replaceAll(',', ' ')}',
                     style: TextStyle(fontSize: 16, color: balanceColor),
                   );
                 }).toList(),

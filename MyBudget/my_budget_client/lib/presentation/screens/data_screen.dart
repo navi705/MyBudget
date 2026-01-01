@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 class DataScreen extends StatelessWidget {
+  const DataScreen({super.key});
+
   
 
   @override

@@ -45,7 +45,6 @@ Future<void> init() async {
         transactionRepository: sl(),
         styleRepository: sl(),
         categoryRepository: sl(),
-        settingsBloc: sl(),
         settingsRepository: sl(),
         currencyRepository: sl(),
       ));

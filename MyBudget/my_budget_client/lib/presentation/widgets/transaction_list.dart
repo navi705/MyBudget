@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/domain/entities/transaction_category.dart'; // Import TransactionCategory
+import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart'; // Import IconUtils
@@ -19,6 +21,12 @@ class TransactionList extends StatefulWidget {
 }
 
 class _TransactionListState extends State<TransactionList> {
+  @override
+  void initState() {
+    context.read<TransactionsBloc>().add(const InitialLoadTransactions());
+    super.initState();
+  }
+
   void _showContextMenu(
     BuildContext context,
     Offset position,
@@ -110,80 +118,94 @@ class _TransactionListState extends State<TransactionList> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<TransactionsBloc, TransactionsState>(
-      builder: (context, state) {
-        if (state.status == TransactionStatus.initial &&
-            state.transactions.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (state.status == TransactionStatus.failure) {
-          return const Center(child: Text('Failed to load transactions'));
-        }
+    return BlocListener<SettingsBloc, SettingsState>(
+      listener: (context, settingsState) {
+        final newCurrency = settingsState.settings['main_currency_code'];
+        final transactionsBloc = context.read<TransactionsBloc>();
 
-        return GroupedPaginatedList<TransactionCategory, DateTime>(
-          items: state.transactions,
-          hasMoreUp: state.hasMoreUp,
-          hasMoreDown: state.hasMoreDown,
-          onFetchMoreUp: () =>
-              context.read<TransactionsBloc>().add(const LoadTransactionsUp()),
-          onFetchMoreDown: () => context
-              .read<TransactionsBloc>()
-              .add(const LoadTransactionsDown()),
-          groupKeyGetter: (item) => DateTime(
-            item.transaction.date.year,
-            item.transaction.date.month,
-            item.transaction.date.day,
-          ),
-          groupHeaderBuilder: (context, date) {
-            final dailyTotal = state.dailyTotals[date] ?? 0.0;
-            return _DateHeader(
-              date: date,
-              dailySum: dailyTotal,
-              mainCurrencyCode: state.mainCurrencyCode,
-              currencyDesignations: state.currencyDesignations,
-            );
-          },
-          itemBuilder: (context, item) {
-            final bloc = context.read<TransactionsBloc>();
-            return TransactionListItem(
-              transactionCategory: item,
-              isSelected:
-                  state.selectedTransactionIds.contains(item.transaction.id),
-              onTap: () {
-                if (state.isSelectionModeActive) {
-                  bloc.add(ToggleTransactionSelection(item.transaction.id!));
-                } else {
-                  context.push(
-                    AppRoutes.addEditTransaction,
-                    extra: {'transaction': item.transaction},
-                  );
-                }
-              },
-              onLongPress: () {
-                if (!state.isSelectionModeActive) {
-                  bloc.add(const ToggleSelectionMode(true));
-                }
-                bloc.add(ToggleTransactionSelection(item.transaction.id!));
-              },
-              onSecondaryTapUp: (details) {
-                if (kIsWeb ||
-                    defaultTargetPlatform == TargetPlatform.macOS ||
-                    defaultTargetPlatform == TargetPlatform.linux ||
-                    defaultTargetPlatform == TargetPlatform.windows) {
-                  _showContextMenu(
-                    context,
-                    details.globalPosition,
-                    state.selectedTransactionIds.contains(item.transaction.id),
-                    item,
-                  );
-                }
-              },
-            );
-          },
-          jumpToItemId: state.jumpToItemId,
-          jumpToAlignment: state.jumpToAlignment,
-        );
+        if (transactionsBloc.state.status == TransactionStatus.success &&
+            newCurrency != null &&
+            newCurrency != transactionsBloc.state.mainCurrencyCode) {
+          transactionsBloc.add(const InitialLoadTransactions());
+        }
       },
+      child: BlocBuilder<TransactionsBloc, TransactionsState>(
+        builder: (context, state) {
+          if (state.status == TransactionStatus.initial &&
+              state.transactions.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (state.status == TransactionStatus.failure) {
+            return const Center(child: Text('Failed to load transactions'));
+          }
+
+          return GroupedPaginatedList<TransactionCategory, DateTime>(
+            items: state.transactions,
+            hasMoreUp: state.hasMoreUp,
+            hasMoreDown: state.hasMoreDown,
+            onFetchMoreUp: () => context
+                .read<TransactionsBloc>()
+                .add(const LoadTransactionsUp()),
+            onFetchMoreDown: () => context
+                .read<TransactionsBloc>()
+                .add(const LoadTransactionsDown()),
+            groupKeyGetter: (item) => DateTime(
+              item.transaction.date.year,
+              item.transaction.date.month,
+              item.transaction.date.day,
+            ),
+            groupHeaderBuilder: (context, date) {
+              final dailyTotal = state.dailyTotals[date] ?? 0.0;
+              return _DateHeader(
+                date: date,
+                dailySum: dailyTotal,
+                mainCurrencyCode: state.mainCurrencyCode,
+                currencyDesignations: state.currencyDesignations,
+              );
+            },
+            itemBuilder: (context, item) {
+              final bloc = context.read<TransactionsBloc>();
+              return TransactionListItem(
+                transactionCategory: item,
+                isSelected:
+                    state.selectedTransactionIds.contains(item.transaction.id),
+                onTap: () {
+                  if (state.isSelectionModeActive) {
+                    bloc.add(ToggleTransactionSelection(item.transaction.id!));
+                  } else {
+                    context.push(
+                      AppRoutes.addEditTransaction,
+                      extra: {'transaction': item.transaction},
+                    );
+                  }
+                },
+                onLongPress: () {
+                  if (!state.isSelectionModeActive) {
+                    bloc.add(const ToggleSelectionMode(true));
+                  }
+                  bloc.add(ToggleTransactionSelection(item.transaction.id!));
+                },
+                onSecondaryTapUp: (details) {
+                  if (kIsWeb ||
+                      defaultTargetPlatform == TargetPlatform.macOS ||
+                      defaultTargetPlatform == TargetPlatform.linux ||
+                      defaultTargetPlatform == TargetPlatform.windows) {
+                    _showContextMenu(
+                      context,
+                      details.globalPosition,
+                      state.selectedTransactionIds
+                          .contains(item.transaction.id),
+                      item,
+                    );
+                  }
+                },
+              );
+            },
+            jumpToItemId: state.jumpToItemId,
+            jumpToAlignment: state.jumpToAlignment,
+          );
+        },
+      ),
     );
   }
 }

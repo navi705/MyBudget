@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
-import 'package:my_budget_client/domain/entities/category_with_total.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
@@ -76,12 +75,12 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
         amountTo: double.tryParse(settings['account_filter_amount_to'] ?? ''),
         date: DateTime.tryParse(settings['account_filter_account_date'] ?? ''),
         currenciesIds:
-            (settings['account_selected_currencies'] as String? ?? '')
+            (settings['account_selected_currencies'] ?? '')
                 .split(',')
                 .where((id) => id.isNotEmpty)
                 .toList(),
         accountTypeIds:
-            (settings['account_filter_account_type_id'] as String? ?? '')
+            (settings['account_filter_account_type_id'] ?? '')
                 .split(',')
                 .where((id) => id.isNotEmpty)
                 .toList(),

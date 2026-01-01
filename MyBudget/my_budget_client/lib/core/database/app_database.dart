@@ -5,7 +5,6 @@ import 'package:drift/native.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/core/utils/import_utils.dart';
 import 'package:my_budget_client/data/seed_data/styles_data.dart';
-import 'package:my_budget_client/data/seed_data/exchange_rates_data.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/transaction_type_filter.dart';
@@ -325,7 +324,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
     }
 
     if (whereClauses.isNotEmpty) {
-      sql += ' WHERE ' + whereClauses.join(' AND ');
+      sql += ' WHERE ${whereClauses.join(' AND ')}';
     }
 
     sql += '''
@@ -344,7 +343,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
     }
 
     if (outerWhereClauses.isNotEmpty) {
-      sql += ' WHERE ' + outerWhereClauses.join(' AND ');
+      sql += ' WHERE ${outerWhereClauses.join(' AND ')}';
     }
 
     sql += ' ORDER BY c.name ${sort == OrderingMode.asc ? 'ASC' : 'DESC'}';

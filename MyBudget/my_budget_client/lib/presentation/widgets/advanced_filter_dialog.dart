@@ -182,7 +182,7 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<TransactionTypeFilter>(
-              value: _selectedTransactionType,
+              initialValue: _selectedTransactionType,
               decoration: const InputDecoration(labelText: 'Transaction Type'),
               items: TransactionTypeFilter.values
                   .map((TransactionTypeFilter type) {

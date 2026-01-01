@@ -7,7 +7,6 @@ import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/entities/settings.dart';
-import 'package:rxdart/rxdart.dart';
 
 part 'currency_converter_event.dart';
 part 'currency_converter_state.dart';
@@ -44,8 +43,8 @@ class CurrencyConverterBloc
         _settingsRepository.getSetting('selected_currencies'),
       ]);
 
-      final baseCurrencySetting = results[0] as Settings?;
-      final selectedCurrenciesSetting = results[1] as Settings?;
+      final baseCurrencySetting = results[0];
+      final selectedCurrenciesSetting = results[1];
 
       final baseCode = baseCurrencySetting?.value ?? 'EUR';
       List<Currency> selected = [];

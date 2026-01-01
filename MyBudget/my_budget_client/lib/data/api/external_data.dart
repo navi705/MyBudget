@@ -49,7 +49,7 @@ class ExternalData {
             try {
               dictionary[key] = double.parse(value);
             } catch (e) {
-            throw Exception('Rate is not number: ${e}');
+            throw Exception('Rate is not number: $e');
             }
           }
         });

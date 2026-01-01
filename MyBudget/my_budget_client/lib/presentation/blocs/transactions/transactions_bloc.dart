@@ -6,7 +6,6 @@ import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
-import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
@@ -27,39 +26,21 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   final TransactionRepository _transactionRepository;
   final StyleRepository _styleRepository;
   final CategoryRepository _categoryRepository;
-  final SettingsBloc _settingsBloc;
   final SettingsRepository _settingsRepository;
   final CurrencyRepository _currencyRepository;
-
-  late final StreamSubscription _settingsSubscription;
-  bool _initialLoadDone = false;
 
   TransactionsBloc({
     required TransactionRepository transactionRepository,
     required StyleRepository styleRepository,
     required CategoryRepository categoryRepository,
-    required SettingsBloc settingsBloc,
     required SettingsRepository settingsRepository,
     required CurrencyRepository currencyRepository,
   })  : _transactionRepository = transactionRepository,
         _styleRepository = styleRepository,
         _categoryRepository = categoryRepository,
-        _settingsBloc = settingsBloc,
         _settingsRepository = settingsRepository,
         _currencyRepository = currencyRepository,
         super(TransactionsState()) {
-    _settingsSubscription = _settingsBloc.stream.listen((settingsState) {
-      final newCurrency = settingsState.settings['main_currency_code'];
-      if (newCurrency != null) {
-        if (!_initialLoadDone) {
-          add(const InitialLoadTransactions());
-          _initialLoadDone = true;
-        } else if (state.mainCurrencyCode != newCurrency) {
-          add(const InitialLoadTransactions());
-        }
-      }
-    });
-
     on<NonDateFiltersChanged>(_onNonDateFiltersChanged);
     on<DatePeriodNavigated>(_onDatePeriodNavigated);
     on<DateStepChanged>(_onDateStepChanged);
@@ -87,11 +68,6 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     on<ClearSelection>(_onClearSelection);
   }
 
-  @override
-  Future<void> close() {
-    _settingsSubscription.cancel();
-    return super.close();
-  }
 
   Future<Map<DateTime, double>> _calculateDailyTotals(
       List<Transaction> transactions, String mainCurrencyCode) async {

@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/entities/settings.dart';
@@ -120,6 +120,8 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
             accountTypeIds: filters.accountTypeIds),
       ]);
 
+      
+
       final accountTypes = results[0] as List<AccountType>;
       final accounts = results[1] as List<Account>;
       final totalCount = results[2] as int;
@@ -233,9 +235,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       FiltersChanged event, Emitter<AccountsState> emit) async {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
-      final deviceName =
-          (await _settingsRepository.getSetting('device_name'))?.value ??
-              'default';
+      final deviceName = await getDeviceName();
       await _settingsRepository.setSetting(Settings(
         key: 'account_filters',
         value: event.filters.toJsonString(),

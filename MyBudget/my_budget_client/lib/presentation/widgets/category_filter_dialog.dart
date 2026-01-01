@@ -92,7 +92,7 @@ class _CategoryFilterDialogState extends State<CategoryFilterDialog> {
                   const TextInputType.numberWithOptions(decimal: true),
             ),
             DropdownButtonFormField<CategoryType>(
-              value: _selectedType,
+              initialValue: _selectedType,
               hint: const Text('Select Type'),
               items: [
                 DropdownMenuItem<CategoryType>(
