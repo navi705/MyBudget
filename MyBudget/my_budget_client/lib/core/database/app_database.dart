@@ -274,11 +274,8 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
 
       allResults.addAll(chunkResults);
     }
-  final resultMap = { for (var style in allResults) style.id: style };
-       return ids
-      .map((id) => resultMap[id])
-      .whereType<Category>()         
-      .toList();
+    final resultMap = {for (var style in allResults) style.id: style};
+    return ids.map((id) => resultMap[id]).whereType<Category>().toList();
   }
 
   Stream<List<Category>> watchAllCategories() => select(categories).watch();
@@ -402,7 +399,7 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
   Future<Style?> getStyleById(String id) =>
       (select(styles)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
 
-  Future<List<Style>> getStylesByIds(List<String> ids) async{
+  Future<List<Style>> getStylesByIds(List<String> ids) async {
     const int chunkSize = 500;
     List<Style> allResults = [];
 
@@ -410,19 +407,19 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
       final end = (i + chunkSize < ids.length) ? i + chunkSize : ids.length;
       final chunk = ids.sublist(i, end);
 
-       final chunkResults = await (select(
+      final chunkResults = await (select(
         styles,
       )..where((u) => u.id.isIn(chunk))).get();
 
       allResults.addAll(chunkResults);
     }
 
-     final resultMap = { for (var style in allResults) style.id: style };
+    final resultMap = {for (var style in allResults) style.id: style};
 
-       return ids
-      .map((id) => resultMap[id]) // Get style by ID
-      .whereType<Style>()         // Remove nulls (in case an ID wasn't found in DB)
-      .toList();
+    return ids
+        .map((id) => resultMap[id]) // Get style by ID
+        .whereType<Style>() // Remove nulls (in case an ID wasn't found in DB)
+        .toList();
   }
 
   Future<void> insertStyle(StylesCompanion style) => into(styles).insert(style);
@@ -871,6 +868,24 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
 
   Future<List<ExchangeRate>> getAllExchangeRates() =>
       select(exchangeRates).get();
+
+  Future<List<ExchangeRate>> getAllExchangesRates(List<DateTime> dates) async {
+    const int chunkSize = 500;
+    List<ExchangeRate> allResults = [];
+
+    for (var i = 0; i < dates.length; i += chunkSize) {
+      final end = (i + chunkSize < dates.length) ? i + chunkSize : dates.length;
+      final chunk = dates.sublist(i, end);
+
+      final chunkResults = await (select(
+        exchangeRates,
+      )..where((u) => u.date.isIn(chunk))).get();
+
+      allResults.addAll(chunkResults);
+    }
+
+    return allResults;
+  }
 
   Future<List<ExchangeRate>> getExchangeRates({
     int limit = 10,

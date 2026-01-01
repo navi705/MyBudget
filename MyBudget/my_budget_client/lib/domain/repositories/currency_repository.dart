@@ -22,6 +22,7 @@ abstract class CurrencyRepository {
   Future<List<CurrencyDesignation>> getAllCurrencyDesignations();
 
   Future<List<ExchangeRateDomain>> getLatestExchangeRates(DateTime date);
+  Future<List<ExchangeRateDomain>> getLatestExchangeRatesByList(List<DateTime> date); 
   Future<void> addExchangeRate(ExchangeRateDomain exchangeRate);
   Future<void> addExchangeRates(List<ExchangeRateDomain> exchangeRates);
 }

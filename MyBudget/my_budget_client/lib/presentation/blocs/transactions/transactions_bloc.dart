@@ -6,6 +6,7 @@ import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
+import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
@@ -72,106 +73,104 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     List<Transaction> transactions,
     String mainCurrencyCode,
   ) async {
-    final Map<DateTime, double> dailyTotals = {};
-    if (transactions.isEmpty) {
-      return dailyTotals;
-    }
-
-    final uniqueDates = transactions
-        .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
-        .toSet();
-
-    final ratesByDateFutures = uniqueDates.map((date) async {
-      final rates = await _currencyRepository.getLatestExchangeRates(date);
-      return MapEntry(date, rates);
-    });
-
-    final ratesByDateEntries = await Future.wait(ratesByDateFutures);
-    final ratesByDate = Map.fromEntries(ratesByDateEntries);
-
-    final groupedTransactions = groupBy(
-      transactions,
-      (Transaction t) => DateTime(t.date.year, t.date.month, t.date.day),
-    );
+    if (transactions.isEmpty) return {};
 
     const baseCurrency = 'EUR';
-    for (var date in groupedTransactions.keys) {
-      double totalForDay = 0;
-      final transactionsForDay = groupedTransactions[date]!;
-      final ratesForDay = ratesByDate[date] ?? [];
 
-      for (final transaction in transactionsForDay) {
-        // Amount in base currency (EUR)
+    // 1. Group transactions by Date AND Currency (Same as before)
+    final Map<DateTime, Map<String, double>> totalsByDateAndCurrency = {};
+
+    for (var t in transactions) {
+      // Strip time to ensure correct matching
+      final date = DateTime(t.date.year, t.date.month, t.date.day);
+
+      if (!totalsByDateAndCurrency.containsKey(date)) {
+        totalsByDateAndCurrency[date] = {};
+      }
+      final currentSum = totalsByDateAndCurrency[date]![t.currencyCode] ?? 0.0;
+      totalsByDateAndCurrency[date]![t.currencyCode] = currentSum + t.amount;
+    }
+
+    // --- CHANGED PART STARTS HERE ---
+
+    // 2. Fetch ALL rates in ONE database call
+    final uniqueDates = totalsByDateAndCurrency.keys.toList();
+
+    // New optimized method
+    final List<ExchangeRateDomain> allRatesList = await _currencyRepository
+        .getLatestExchangeRatesByList(uniqueDates);
+
+    // 3. Convert the flat list into a nested Map for O(1) lookup
+    // Structure: Map<Date, Map<"USD_EUR", Rate>>
+    final ratesMapsByDate = <DateTime, Map<String, double>>{};
+
+    for (var rate in allRatesList) {
+      // Ensure we match the stripped date format used in Step 1
+      final dateKey = DateTime(rate.date.year, rate.date.month, rate.date.day);
+
+      if (!ratesMapsByDate.containsKey(dateKey)) {
+        ratesMapsByDate[dateKey] = {};
+      }
+
+      // Create the lookup key: "FROM_TO"
+      ratesMapsByDate[dateKey]!['${rate.fromCurrencyCode}_${rate.toCurrencyCode}'] =
+          rate.rate;
+    }
+
+    // --- CHANGED PART ENDS HERE ---
+
+    final Map<DateTime, double> finalDailyTotals = {};
+
+    // 4. Calculate Totals (Logic remains the same, but lookup is faster)
+    for (var date in totalsByDateAndCurrency.keys) {
+      double totalForDayInMain = 0;
+      final currencySubtotals = totalsByDateAndCurrency[date]!;
+      // Get the specific rates map for this date (or empty map if none found)
+      final ratesMap = ratesMapsByDate[date] ?? {};
+
+      for (var entry in currencySubtotals.entries) {
+        final currencyCode = entry.key;
+        final totalAmount = entry.value;
+
         double amountInBase;
-        if (transaction.currencyCode == baseCurrency) {
-          amountInBase = transaction.amount;
+
+        // Step A: Convert to Base (EUR)
+        if (currencyCode == baseCurrency) {
+          amountInBase = totalAmount;
         } else {
-          // Find rate from transaction currency TO base currency
-          final toBaseRate = ratesForDay
-              .firstWhereOrNull(
-                (r) =>
-                    r.fromCurrencyCode == transaction.currencyCode &&
-                    r.toCurrencyCode == baseCurrency,
-              )
-              ?.rate;
-
-          if (toBaseRate != null) {
-            amountInBase = transaction.amount * toBaseRate;
+          final toBase = ratesMap['${currencyCode}_$baseCurrency'];
+          if (toBase != null) {
+            amountInBase = totalAmount * toBase;
           } else {
-            // Try reverse: from base currency TO transaction currency
-            final fromBaseRate = ratesForDay
-                .firstWhereOrNull(
-                  (r) =>
-                      r.fromCurrencyCode == baseCurrency &&
-                      r.toCurrencyCode == transaction.currencyCode,
-                )
-                ?.rate;
-
-            if (fromBaseRate != null && fromBaseRate != 0) {
-              amountInBase = transaction.amount / fromBaseRate;
-            } else {
-              amountInBase = 0; // Fallback to 0 if no rate found
-            }
+            final fromBase = ratesMap['${baseCurrency}_$currencyCode'];
+            amountInBase = (fromBase != null && fromBase != 0)
+                ? totalAmount / fromBase
+                : 0;
           }
         }
 
-        // Amount in main currency
+        // Step B: Convert Base (EUR) -> Main
         double amountInMain;
         if (mainCurrencyCode == baseCurrency) {
           amountInMain = amountInBase;
         } else {
-          // Find rate from base currency TO main currency
-          final fromBaseRate = ratesForDay
-              .firstWhereOrNull(
-                (r) =>
-                    r.fromCurrencyCode == baseCurrency &&
-                    r.toCurrencyCode == mainCurrencyCode,
-              )
-              ?.rate;
-
-          if (fromBaseRate != null) {
-            amountInMain = amountInBase * fromBaseRate;
+          final toMain = ratesMap['${baseCurrency}_$mainCurrencyCode'];
+          if (toMain != null) {
+            amountInMain = amountInBase * toMain;
           } else {
-            // Try reverse: from main currency to base
-            final toBaseRate = ratesForDay
-                .firstWhereOrNull(
-                  (r) =>
-                      r.fromCurrencyCode == mainCurrencyCode &&
-                      r.toCurrencyCode == baseCurrency,
-                )
-                ?.rate;
-            if (toBaseRate != null && toBaseRate != 0) {
-              amountInMain = amountInBase / toBaseRate;
-            } else {
-              amountInMain = amountInBase; // Fallback to amount in base
-            }
+            final fromMain = ratesMap['${mainCurrencyCode}_$baseCurrency'];
+            amountInMain = (fromMain != null && fromMain != 0)
+                ? amountInBase / fromMain
+                : amountInBase;
           }
         }
-        totalForDay += amountInMain;
+
+        totalForDayInMain += amountInMain;
       }
-      dailyTotals[date] = totalForDay;
+      finalDailyTotals[date] = totalForDayInMain;
     }
-    return dailyTotals;
+
+    return finalDailyTotals;
   }
 
   void _onTransactionTypeFilterChanged(
@@ -332,9 +331,10 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         _transactionRepository.getCountWithFilters(filters: state.filters),
         _currencyRepository.getAllCurrencyDesignations(),
       ]);
-      developer.log('In-memory transaction took: ${transactionStopwatch.elapsed}');
+      developer.log(
+        'In-memory transaction took: ${transactionStopwatch.elapsed}',
+      );
 
-     
       final rawTransactions = results[0] as List<Transaction>;
       final totalCount = results[1] as int;
       final currencyDesignations = results[2] as List<CurrencyDesignation>;
@@ -344,15 +344,17 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         rawTransactions,
         mainCurrencyCode,
       );
-      developer.log('In-memory calculate daily took: ${calculateStopwatch.elapsed}');
+      developer.log(
+        'In-memory calculate daily took: ${calculateStopwatch.elapsed}',
+      );
 
       final List<TransactionCategory> transactionsWithStyles = [];
 
-     final styleStopwatch = Stopwatch()..start();
+      final styleStopwatch = Stopwatch()..start();
 
       final categoriesListIds = rawTransactions
           .map((u) => u.categoryId)
-          .toSet() 
+          .toSet()
           .toList();
       final listCategories = await _categoryRepository.getCategoriesByIds(
         categoriesListIds,
