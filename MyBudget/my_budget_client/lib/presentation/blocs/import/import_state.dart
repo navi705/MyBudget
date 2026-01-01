@@ -6,6 +6,7 @@ enum ImportStep {
   mappingAccounts,
   mappingCategories,
   mappingCurrencies,
+  fetchingRates,
   resolvingDuplicates,
   readyToImport,
   importing,

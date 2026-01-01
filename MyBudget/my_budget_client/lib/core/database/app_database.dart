@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:my_budget_client/core/mappers/exchange_rate_mapper.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/core/utils/import_utils.dart';
 import 'package:my_budget_client/data/seed_data/styles_data.dart';
@@ -10,7 +11,7 @@ import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/transaction_type_filter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
-
+import 'package:my_budget_client/domain/entities/exchange_rate.dart' as exchangeRateDomain;
 import 'package:my_budget_client/data/seed_data/currency_designations_data.dart';
 import 'package:my_budget_client/data/seed_data/currencies_data.dart';
 import 'package:my_budget_client/data/seed_data/languages_data.dart';
@@ -909,7 +910,8 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> _seedExchangeRates(AppDatabase db) async {
-    await db.exchangeRatesDao.insertAllExchangeRates( await ImportDataUtils.getCurrenciesRateToSeeder());
+    final List<exchangeRateDomain.ExchangeRate> rates = await ImportDataUtils.getCurrenciesRateToSeeder();
+    await db.exchangeRatesDao.insertAllExchangeRates(rates.toCompanionList());
   }
 
   Future<void> clearAllData() async {

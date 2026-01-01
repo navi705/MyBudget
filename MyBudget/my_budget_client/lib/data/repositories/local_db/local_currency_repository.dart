@@ -117,4 +117,10 @@ class LocalCurrencyRepository implements CurrencyRepository {
     await database.exchangeRatesDao
         .addExchangeRate(exchangeRate.toCompanion());
   }
+
+  @override
+  Future<void> addExchangeRates(List<ExchangeRate> exchangeRates) async {
+    await database.exchangeRatesDao
+        .insertAllExchangeRates(exchangeRates.toCompanionList());
+  }
 }

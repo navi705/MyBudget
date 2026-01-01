@@ -60,4 +60,6 @@ class ResolveDuplicate extends ImportEvent {
 
 class FinalizeImport extends ImportEvent {}
 
+class FetchRates extends ImportEvent {}
+
 class ResetImport extends ImportEvent {}

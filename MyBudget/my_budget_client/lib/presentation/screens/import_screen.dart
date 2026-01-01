@@ -93,6 +93,16 @@ class _ImportViewState extends State<_ImportView> {
               return _buildCurrencyMappingStep(state);
             case ImportStep.resolvingDuplicates:
               return _buildDuplicateResolutionStep(state);
+            case ImportStep.fetchingRates:
+              return const Center(
+                  child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Fetching exchange rates...'),
+                ],
+              ));
             case ImportStep.readyToImport:
               return _buildReadyToImportStep(state);
             case ImportStep.importing:

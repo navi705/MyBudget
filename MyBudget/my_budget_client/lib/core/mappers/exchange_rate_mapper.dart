@@ -19,6 +19,7 @@ extension ExchangeRateCompanionMapper on ExchangeRate {
     return drift.ExchangeRatesCompanion(
       fromCurrencyCode: Value(fromCurrencyCode),
       toCurrencyCode: Value(toCurrencyCode),
+      preset: Value(preset),
       rate: Value(rate),
       date: Value(date),
     );

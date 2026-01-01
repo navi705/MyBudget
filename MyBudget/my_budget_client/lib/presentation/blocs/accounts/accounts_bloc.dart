@@ -301,7 +301,21 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     if (currentState is AccountsLoadSuccess) {
       final historicalBalances =
           await _accountRepository.getBalancesAtDate(event.date);
+
+      final updatedAccounts = currentState.accounts.map((account) {
+        return account.copyWith(
+          balance: historicalBalances[account.id] ?? 0.0,
+        );
+      }).toList();
+
+      final sortedAccounts = _sortAccounts(
+        updatedAccounts,
+        currentState.exchangeRates,
+        currentState.sortAscending,
+      );
+
       emit(currentState.copyWith(
+        accounts: sortedAccounts,
         historicalBalances: historicalBalances,
         isHistorical: true,
       ));
@@ -312,13 +326,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     ClearHistoricalBalances event,
     Emitter<AccountsState> emit,
   ) {
-    final currentState = state;
-    if (currentState is AccountsLoadSuccess) {
-      emit(currentState.copyWith(
-        historicalBalances: {},
-        isHistorical: false,
-      ));
-    }
+    add(LoadAccounts());
   }
 
   void _onToggleSelectionMode(

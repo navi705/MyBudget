@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:csv/csv.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
-import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
+import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 
 class OneMoneyRecord {
   final DateTime date;
@@ -229,7 +229,7 @@ class ImportDataUtils {
     }
   }
 
-  static String filePathCurrenciesRate =
+   static String filePathCurrenciesRate =
       r'C:\Users\vrclu\Documents\NewFilePC\Programing\Projects\MyBudget\MyBudget\my_budget_client\lib\data\currency_history.json';
 
   static Future<void> getCurrenciesInitial() async {
@@ -284,11 +284,11 @@ class ImportDataUtils {
     }
   }
 
-  static Future<List<ExchangeRatesCompanion>> getCurrenciesRateToSeeder() async {
+  static Future<List<ExchangeRate>> getCurrenciesRateToSeeder() async {
   final File file = File(filePathCurrenciesRate);
 
   // Инициализируем пустой список сразу, чтобы вернуть его, если файла нет
-  List<ExchangeRatesCompanion> list = [];
+  List<ExchangeRate> list = [];
 
   if (await file.exists()) {
     try {
@@ -305,7 +305,7 @@ class ImportDataUtils {
 
             if (rateValue is num) {
               list.add(
-                ExchangeRatesCompanion.insert(
+                ExchangeRate(
                   fromCurrencyCode: 'EUR', 
                   
                   toCurrencyCode: currencyKey.toString().toUpperCase(), 
