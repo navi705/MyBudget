@@ -289,8 +289,18 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
       final allDesignations = await _currencyRepository.getAllCurrencyDesignations();
 
       for (final name in newAccountNames) {
-        final record = state.parsedRecords.firstWhere((r) => r.from.trim().toLowerCase() == name.trim().toLowerCase());
-        final currencyCode = state.currencyMappings[record.currency.toLowerCase()] ?? record.currency;
+        final accountRecords = state.parsedRecords
+            .where((r) => r.from.trim().toLowerCase() == name.trim().toLowerCase())
+            .toList();
+
+        if (accountRecords.isEmpty) {
+          continue;
+        }
+
+        accountRecords.sort((a, b) => a.date.compareTo(b.date));
+        final earliestRecord = accountRecords.first;
+
+        final currencyCode = state.currencyMappings[earliestRecord.currency.toLowerCase()] ?? earliestRecord.currency;
         final currency = allCurrencies.firstWhere((c) => c.code.toLowerCase() == currencyCode.toLowerCase(), orElse: () => allCurrencies.first);
         final designation = allDesignations.firstWhere((d) => d.currencyCode.toLowerCase() == currency.code.toLowerCase(), orElse: () => allDesignations.first);
         final initialBalance = parsedBalancesMap[name.trim().toLowerCase()]?.balance ?? 0.0;
@@ -299,9 +309,9 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
           name: name,
           balance: initialBalance,
           currencyCode: currency.code,
-          currencyDesignationId: designation.id, 
+          currencyDesignationId: designation.id,
           accountTypeId: '1', // default to something, maybe 'Cash'
-          creationDate: DateTime.now(),
+          creationDate: earliestRecord.date,
         ));
       }
 

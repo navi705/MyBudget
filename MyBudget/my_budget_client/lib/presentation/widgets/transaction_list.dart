@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/domain/entities/transaction_category.dart'; // Import TransactionCategory
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
-import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart'; // Import IconUtils

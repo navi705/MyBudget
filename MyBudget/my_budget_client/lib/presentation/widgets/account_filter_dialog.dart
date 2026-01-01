@@ -189,6 +189,9 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final mainCurrencyCode =
+        context.watch<SettingsBloc>().state.settings['main_currency_code'] ??
+            'EUR';
     return AlertDialog(
       title: const Text('Account Filters'),
       content: SingleChildScrollView(
@@ -227,14 +230,16 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _amountFromController,
-              decoration: const InputDecoration(labelText: 'Balance From'),
+              decoration:
+                  InputDecoration(labelText: 'Balance From ($mainCurrencyCode)'),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _amountToController,
-              decoration: const InputDecoration(labelText: 'Balance To'),
+              decoration:
+                  InputDecoration(labelText: 'Balance To ($mainCurrencyCode)'),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
             ),

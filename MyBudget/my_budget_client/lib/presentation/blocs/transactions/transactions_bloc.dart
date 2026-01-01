@@ -17,7 +17,6 @@ import 'package:my_budget_client/domain/entities/transaction_category.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
-import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 
 part 'transactions_event.dart';
 part 'transactions_state.dart';

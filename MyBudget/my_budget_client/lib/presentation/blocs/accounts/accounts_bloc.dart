@@ -53,7 +53,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   List<Account> _sortAccounts(
       List<Account> accounts, List<ExchangeRate> rates, bool ascending) {
     final Map<String, double> rateMap = {
-      for (var r in rates) r.fromCurrencyCode: r.rate
+      for (var r in rates) r.toCurrencyCode: r.rate
     };
     rateMap['EUR'] = 1.0; // Assume EUR is the base and has a rate of 1.0
 

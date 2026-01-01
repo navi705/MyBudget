@@ -653,7 +653,8 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       }
     }
 
-    query.orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
+    query.orderBy(
+        [(t) => OrderingTerm(expression: t.date, mode: sort), (t) => OrderingTerm(expression: t.amount, mode: sort)]);
     query.limit(limit, offset: offset);
 
     return query.get();
@@ -805,6 +806,7 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
       readsFrom: {exchangeRates},
     ).get().then((rows) => rows.map((row) => exchangeRates.map(row.data)).toList());
   }
+  
 
   Future<void> addExchangeRate(ExchangeRatesCompanion rate) =>
       into(exchangeRates).insert(rate);

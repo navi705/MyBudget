@@ -2990,7 +2990,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
 }
 
 class $ExchangeRatesTable extends ExchangeRates
-    with TableInfo<$ExchangeRatesTable, ExchangeRate> {
+    with TableInfo<$ExchangeRatesTable, exchangeRateDomain.ExchangeRate> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -3065,7 +3065,7 @@ class $ExchangeRatesTable extends ExchangeRates
   static const String $name = 'exchange_rates';
   @override
   VerificationContext validateIntegrity(
-    Insertable<ExchangeRate> instance, {
+    Insertable<exchangeRateDomain.ExchangeRate> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -3126,7 +3126,10 @@ class $ExchangeRatesTable extends ExchangeRates
     date,
   };
   @override
-  ExchangeRate map(Map<String, dynamic> data, {String? tablePrefix}) {
+  exchangeRateDomain.ExchangeRate map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return ExchangeRate(
       fromCurrencyCode: attachedDatabase.typeMapping.read(
@@ -3158,7 +3161,8 @@ class $ExchangeRatesTable extends ExchangeRates
   }
 }
 
-class ExchangeRate extends DataClass implements Insertable<ExchangeRate> {
+class ExchangeRate extends DataClass
+    implements Insertable<exchangeRateDomain.ExchangeRate> {
   final String fromCurrencyCode;
   final String toCurrencyCode;
   final double rate;
@@ -3270,7 +3274,8 @@ class ExchangeRate extends DataClass implements Insertable<ExchangeRate> {
           other.date == this.date);
 }
 
-class ExchangeRatesCompanion extends UpdateCompanion<ExchangeRate> {
+class ExchangeRatesCompanion
+    extends UpdateCompanion<exchangeRateDomain.ExchangeRate> {
   final Value<String> fromCurrencyCode;
   final Value<String> toCurrencyCode;
   final Value<double> rate;
@@ -3297,7 +3302,7 @@ class ExchangeRatesCompanion extends UpdateCompanion<ExchangeRate> {
        rate = Value(rate),
        preset = Value(preset),
        date = Value(date);
-  static Insertable<ExchangeRate> custom({
+  static Insertable<exchangeRateDomain.ExchangeRate> custom({
     Expression<String>? fromCurrencyCode,
     Expression<String>? toCurrencyCode,
     Expression<double>? rate,
@@ -4139,7 +4144,10 @@ final class $$CurrenciesTableReferences
     );
   }
 
-  static MultiTypedResultKey<$ExchangeRatesTable, List<ExchangeRate>>
+  static MultiTypedResultKey<
+    $ExchangeRatesTable,
+    List<exchangeRateDomain.ExchangeRate>
+  >
   _exchangeRatesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.exchangeRates,
     aliasName: $_aliasNameGenerator(
@@ -4161,7 +4169,10 @@ final class $$CurrenciesTableReferences
     );
   }
 
-  static MultiTypedResultKey<$ExchangeRatesTable, List<ExchangeRate>>
+  static MultiTypedResultKey<
+    $ExchangeRatesTable,
+    List<exchangeRateDomain.ExchangeRate>
+  >
   _ToCurrencyRatesTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.exchangeRates,
     aliasName: $_aliasNameGenerator(
@@ -4762,7 +4773,7 @@ class $$CurrenciesTableTableManager
                         await $_getPrefetchedData<
                           Currency,
                           $CurrenciesTable,
-                          ExchangeRate
+                          exchangeRateDomain.ExchangeRate
                         >(
                           currentTable: table,
                           referencedTable: $$CurrenciesTableReferences
@@ -4783,7 +4794,7 @@ class $$CurrenciesTableTableManager
                         await $_getPrefetchedData<
                           Currency,
                           $CurrenciesTable,
-                          ExchangeRate
+                          exchangeRateDomain.ExchangeRate
                         >(
                           currentTable: table,
                           referencedTable:
@@ -7866,7 +7877,12 @@ typedef $$ExchangeRatesTableUpdateCompanionBuilder =
     });
 
 final class $$ExchangeRatesTableReferences
-    extends BaseReferences<_$AppDatabase, $ExchangeRatesTable, ExchangeRate> {
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $ExchangeRatesTable,
+          exchangeRateDomain.ExchangeRate
+        > {
   $$ExchangeRatesTableReferences(
     super.$_db,
     super.$_table,
@@ -8130,14 +8146,14 @@ class $$ExchangeRatesTableTableManager
         RootTableManager<
           _$AppDatabase,
           $ExchangeRatesTable,
-          ExchangeRate,
+          exchangeRateDomain.ExchangeRate,
           $$ExchangeRatesTableFilterComposer,
           $$ExchangeRatesTableOrderingComposer,
           $$ExchangeRatesTableAnnotationComposer,
           $$ExchangeRatesTableCreateCompanionBuilder,
           $$ExchangeRatesTableUpdateCompanionBuilder,
-          (ExchangeRate, $$ExchangeRatesTableReferences),
-          ExchangeRate,
+          (exchangeRateDomain.ExchangeRate, $$ExchangeRatesTableReferences),
+          exchangeRateDomain.ExchangeRate,
           PrefetchHooks Function({bool fromCurrencyCode, bool toCurrencyCode})
         > {
   $$ExchangeRatesTableTableManager(_$AppDatabase db, $ExchangeRatesTable table)
@@ -8258,14 +8274,14 @@ typedef $$ExchangeRatesTableProcessedTableManager =
     ProcessedTableManager<
       _$AppDatabase,
       $ExchangeRatesTable,
-      ExchangeRate,
+      exchangeRateDomain.ExchangeRate,
       $$ExchangeRatesTableFilterComposer,
       $$ExchangeRatesTableOrderingComposer,
       $$ExchangeRatesTableAnnotationComposer,
       $$ExchangeRatesTableCreateCompanionBuilder,
       $$ExchangeRatesTableUpdateCompanionBuilder,
-      (ExchangeRate, $$ExchangeRatesTableReferences),
-      ExchangeRate,
+      (exchangeRateDomain.ExchangeRate, $$ExchangeRatesTableReferences),
+      exchangeRateDomain.ExchangeRate,
       PrefetchHooks Function({bool fromCurrencyCode, bool toCurrencyCode})
     >;
 typedef $$SettingsTableCreateCompanionBuilder =

@@ -738,7 +738,7 @@ class _AccountsDateAppBar extends StatelessWidget
         ),
         const SizedBox(width: 24),
         RotatedBox(
-          quarterTurns: state.sortAscending ? 0 : 2,
+          quarterTurns: state.sortAscending ? 2 : 0,
           child: IconButton(
             icon: const Icon(
               Icons.sort,
