@@ -21,7 +21,7 @@ abstract class CurrencyRepository {
   Stream<List<CurrencyDesignation>> watchAllCurrencyDesignations();
   Future<List<CurrencyDesignation>> getAllCurrencyDesignations();
 
-  Future<List<ExchangeRate>> getLatestExchangeRates(DateTime date);
-  Future<void> addExchangeRate(ExchangeRate exchangeRate);
-  Future<void> addExchangeRates(List<ExchangeRate> exchangeRates);
+  Future<List<ExchangeRateDomain>> getLatestExchangeRates(DateTime date);
+  Future<void> addExchangeRate(ExchangeRateDomain exchangeRate);
+  Future<void> addExchangeRates(List<ExchangeRateDomain> exchangeRates);
 }

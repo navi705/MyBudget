@@ -2,8 +2,8 @@ import 'package:collection/collection.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 
 class CurrencyConverter {
-  final Map<String, Map<String, List<ExchangeRate>>> _groupedRates = {};
-  final List<ExchangeRate> rates;
+  final Map<String, Map<String, List<ExchangeRateDomain>>> _groupedRates = {};
+  final List<ExchangeRateDomain> rates;
 
   CurrencyConverter(this.rates) {
     final sortedRates = rates.toList()..sort((a, b) => b.date.compareTo(a.date));

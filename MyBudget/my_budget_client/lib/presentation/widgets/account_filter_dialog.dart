@@ -227,22 +227,22 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
                 hintText: 'Search description...',
               ),
             ),
+            // const SizedBox(height: 16),
+            // TextFormField(
+            //   controller: _amountFromController,
+            //   decoration:
+            //       InputDecoration(labelText: 'Balance From ($mainCurrencyCode)'),
+            //   keyboardType:
+            //       const TextInputType.numberWithOptions(decimal: true),
+            // ),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _amountFromController,
-              decoration:
-                  InputDecoration(labelText: 'Balance From ($mainCurrencyCode)'),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _amountToController,
-              decoration:
-                  InputDecoration(labelText: 'Balance To ($mainCurrencyCode)'),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-            ),
+            // TextFormField(
+            //   controller: _amountToController,
+            //   decoration:
+            //       InputDecoration(labelText: 'Balance To ($mainCurrencyCode)'),
+            //   keyboardType:
+            //       const TextInputType.numberWithOptions(decimal: true),
+            // ),
             const SizedBox(height: 16),
             Row(
               children: [

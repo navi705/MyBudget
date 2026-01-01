@@ -51,7 +51,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   }
 
   List<Account> _sortAccounts(
-      List<Account> accounts, List<ExchangeRate> rates, bool ascending) {
+      List<Account> accounts, List<ExchangeRateDomain> rates, bool ascending) {
     final Map<String, double> rateMap = {
       for (var r in rates) r.toCurrencyCode: r.rate
     };
@@ -156,7 +156,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final accountTypes = results[0] as List<AccountType>;
       final accounts = results[1] as List<Account>;
       final totalCount = results[2] as int;
-      final exchangeRates = results[3] as List<ExchangeRate>;
+      final exchangeRates = results[3] as List<ExchangeRateDomain>;
 
       final sortedAccounts =
           _sortAccounts(accounts, exchangeRates, filters.sort == Sort.ascending);

@@ -107,19 +107,19 @@ class LocalCurrencyRepository implements CurrencyRepository {
   }
 
   @override
-  Future<List<ExchangeRate>> getLatestExchangeRates(DateTime date) async {
+  Future<List<ExchangeRateDomain>> getLatestExchangeRates(DateTime date) async {
     final driftExchangeRates = await database.exchangeRatesDao.getLatestExchangeRates(date);
     return driftExchangeRates.toDomainList();
   }
 
   @override
-  Future<void> addExchangeRate(ExchangeRate exchangeRate) async {
+  Future<void> addExchangeRate(ExchangeRateDomain exchangeRate) async {
     await database.exchangeRatesDao
         .addExchangeRate(exchangeRate.toCompanion());
   }
 
   @override
-  Future<void> addExchangeRates(List<ExchangeRate> exchangeRates) async {
+  Future<void> addExchangeRates(List<ExchangeRateDomain> exchangeRates) async {
     await database.exchangeRatesDao
         .insertAllExchangeRates(exchangeRates.toCompanionList());
   }

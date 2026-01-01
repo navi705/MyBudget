@@ -11,7 +11,7 @@ import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/transaction_type_filter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
-import 'package:my_budget_client/domain/entities/exchange_rate.dart' as exchangeRateDomain;
+import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/data/seed_data/currency_designations_data.dart';
 import 'package:my_budget_client/data/seed_data/currencies_data.dart';
 import 'package:my_budget_client/data/seed_data/languages_data.dart';
@@ -794,6 +794,7 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
 
   Future<List<ExchangeRate>> getAllExchangeRates() =>
       select(exchangeRates).get();
+      
   Future<List<ExchangeRate>> getExchangeRates({
     int limit = 10,
     int offset = 0,
@@ -912,7 +913,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> _seedExchangeRates(AppDatabase db) async {
-    final List<exchangeRateDomain.ExchangeRate> rates = await ImportDataUtils.getCurrenciesRateToSeeder();
+    final List<ExchangeRateDomain> rates = await ImportDataUtils.getCurrenciesRateToSeeder();
     await db.exchangeRatesDao.insertAllExchangeRates(rates.toCompanionList());
   }
 

@@ -284,11 +284,10 @@ class ImportDataUtils {
     }
   }
 
-  static Future<List<ExchangeRate>> getCurrenciesRateToSeeder() async {
+  static Future<List<ExchangeRateDomain>> getCurrenciesRateToSeeder() async {
   final File file = File(filePathCurrenciesRate);
 
-  // Инициализируем пустой список сразу, чтобы вернуть его, если файла нет
-  List<ExchangeRate> list = [];
+  List<ExchangeRateDomain> list = [];
 
   if (await file.exists()) {
     try {
@@ -305,7 +304,7 @@ class ImportDataUtils {
 
             if (rateValue is num) {
               list.add(
-                ExchangeRate(
+                ExchangeRateDomain(
                   fromCurrencyCode: 'EUR', 
                   
                   toCurrencyCode: currencyKey.toString().toUpperCase(), 

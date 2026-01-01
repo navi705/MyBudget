@@ -55,7 +55,7 @@ class AccountsLoadSuccess extends AccountsState {
   final DateTime activeDate;
   @override
   final AccountFilters filters;
-  final List<ExchangeRate> exchangeRates;
+  final List<ExchangeRateDomain> exchangeRates;
 
   const AccountsLoadSuccess({
     required this.accounts,
@@ -88,7 +88,7 @@ class AccountsLoadSuccess extends AccountsState {
     DateStep? dateStep,
     DateTime? activeDate,
     AccountFilters? filters,
-    List<ExchangeRate>? exchangeRates,
+    List<ExchangeRateDomain>? exchangeRates,
   }) {
     return AccountsLoadSuccess(
       accounts: accounts ?? this.accounts,

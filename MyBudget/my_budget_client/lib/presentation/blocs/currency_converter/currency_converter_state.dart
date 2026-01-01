@@ -13,11 +13,11 @@ class CurrencyConverterLoadInProgress extends CurrencyConverterState {}
 
 class CurrencyConverterLoadSuccess extends CurrencyConverterState {
   final List<Currency> allCurrencies;
-  final List<ExchangeRate> exchangeRates;
+  final List<ExchangeRateDomain> exchangeRates;
   final List<Currency> selectedCurrencies;
   final String baseCurrencyCode;
 
-  Map<String, Map<String, List<ExchangeRate>>>? _groupedRates;  
+  Map<String, Map<String, List<ExchangeRateDomain>>>? _groupedRates;  
 
   CurrencyConverterLoadSuccess({
     this.allCurrencies = const [],
@@ -29,7 +29,7 @@ class CurrencyConverterLoadSuccess extends CurrencyConverterState {
     exchangeRates.sort((a, b) => b.date.compareTo(a.date));
 
     // Pre-process the rates for faster lookups.
-    final map = <String, Map<String, List<ExchangeRate>>>{};
+    final map = <String, Map<String, List<ExchangeRateDomain>>>{};
     for (final rate in exchangeRates) {
       map
           .putIfAbsent(rate.fromCurrencyCode, () => {})
@@ -39,13 +39,13 @@ class CurrencyConverterLoadSuccess extends CurrencyConverterState {
     _groupedRates = map;
   }
 
-  Map<String, Map<String, List<ExchangeRate>>> get groupedRates {
+  Map<String, Map<String, List<ExchangeRateDomain>>> get groupedRates {
   return _groupedRates!;
   }
 
   CurrencyConverterLoadSuccess copyWith({
     List<Currency>? allCurrencies,
-    List<ExchangeRate>? exchangeRates,
+    List<ExchangeRateDomain>? exchangeRates,
     List<Currency>? selectedCurrencies,
     String? baseCurrencyCode,
   }) {
@@ -71,10 +71,10 @@ class CurrencyConverterLoadFailure extends CurrencyConverterState {}
 double totalBalanceFor({
   required Currency currency,
   required List<Account> accounts,
-  required List<ExchangeRate> exchangeRates,
+  required List<ExchangeRateDomain> exchangeRates,
   required String baseCurrencyCode,
   required DateTime date,
-  required Map<String, Map<String, List<ExchangeRate>>> groupedRates,
+  required Map<String, Map<String, List<ExchangeRateDomain>>> groupedRates,
 }) {
   double totalInBase = 0.0;
 
@@ -113,9 +113,9 @@ double totalBalanceFor({
 double? _findRate(
     String fromCurrencyCode,
     String toCurrencyCode,
-    List<ExchangeRate> exchangeRates,
+    List<ExchangeRateDomain> exchangeRates,
     DateTime date,
-    Map<String, Map<String, List<ExchangeRate>>> groupedRates) {
+    Map<String, Map<String, List<ExchangeRateDomain>>> groupedRates) {
   if (fromCurrencyCode == toCurrencyCode) {
     return 1.0;
   }
