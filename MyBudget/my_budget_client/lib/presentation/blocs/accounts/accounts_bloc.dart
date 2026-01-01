@@ -4,8 +4,10 @@ import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
+import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
+import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
@@ -16,12 +18,15 @@ part 'accounts_state.dart';
 class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   final AccountRepository _accountRepository;
   final SettingsRepository _settingsRepository;
+  final CurrencyRepository _currencyRepository;
 
   AccountsBloc(
       {required AccountRepository accountRepository,
-      required SettingsRepository settingsRepository})
+      required SettingsRepository settingsRepository,
+      required CurrencyRepository currencyRepository})
       : _accountRepository = accountRepository,
         _settingsRepository = settingsRepository,
+        _currencyRepository = currencyRepository,
         super(AccountsInitial()) {
     on<LoadAccounts>(_onLoadAccounts);
     on<LoadMoreAccounts>(_onLoadMoreAccounts);
@@ -43,6 +48,33 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     on<DatePeriodNavigated>(_onDatePeriodNavigated);
     on<DateStepChanged>(_onDateStepChanged);
     on<ActiveDateChanged>(_onActiveDateChanged);
+  }
+
+  List<Account> _sortAccounts(
+      List<Account> accounts, List<ExchangeRate> rates, bool ascending) {
+    final Map<String, double> rateMap = {
+      for (var r in rates) r.fromCurrencyCode: r.rate
+    };
+    rateMap['EUR'] = 1.0; // Assume EUR is the base and has a rate of 1.0
+
+    accounts.sort((a, b) {
+      final aRate = rateMap[a.currencyCode];
+      final bRate = rateMap[b.currencyCode];
+
+      if (aRate == null || aRate == 0) {
+        return 1; // move a to the end
+      }
+      if (bRate == null || bRate == 0) {
+        return -1; // move b to the end
+      }
+
+      final aValueInBase = a.balance / aRate;
+      final bValueInBase = b.balance / bRate;
+
+      final comparison = aValueInBase.compareTo(bValueInBase);
+      return ascending ? comparison : -comparison;
+    });
+    return accounts;
   }
 
   void _onDatePeriodNavigated(
@@ -118,16 +150,19 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
             limit: currentState.limit, offset: 0, accountFilters: filters),
         _accountRepository.getCountWithFilters(
             accountTypeIds: filters.accountTypeIds),
+        _currencyRepository.getLatestExchangeRates(DateTime.now()),
       ]);
-
-      
 
       final accountTypes = results[0] as List<AccountType>;
       final accounts = results[1] as List<Account>;
       final totalCount = results[2] as int;
+      final exchangeRates = results[3] as List<ExchangeRate>;
+
+      final sortedAccounts =
+          _sortAccounts(accounts, exchangeRates, filters.sort == Sort.ascending);
 
       emit(AccountsLoadSuccess(
-        accounts: accounts,
+        accounts: sortedAccounts,
         accountTypes: accountTypes,
         hasReachedMax: accounts.length >= totalCount,
         totalCount: totalCount,
@@ -137,6 +172,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         isSelectionModeActive: currentState.isSelectionModeActive,
         selectedAccountIds: currentState.selectedAccountIds,
         dateStep: currentState.dateStep,
+        exchangeRates: exchangeRates,
       ));
     } catch (e) {
       emit(AccountsLoadFailure());
@@ -161,9 +197,12 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       if (accounts.isEmpty) {
         emit(currentState.copyWith(hasReachedMax: true));
       } else {
+        final newAccountList = List.of(currentState.accounts)..addAll(accounts);
+        final sortedAccounts = _sortAccounts(newAccountList,
+            currentState.exchangeRates, currentState.sortAscending);
         emit(
           currentState.copyWith(
-            accounts: List.of(currentState.accounts)..addAll(accounts),
+            accounts: sortedAccounts,
             hasReachedMax:
                 (currentState.accounts.length + accounts.length) >=
                     currentState.totalCount,
@@ -225,9 +264,17 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   void _onSortAccounts(SortAccounts event, Emitter<AccountsState> emit) {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
-      final newFilters = currentState.filters
-          .copyWith(sort: event.sortAscending ? Sort.ascending : Sort.descending);
-      add(FiltersChanged(newFilters));
+      final newSortAscending = event.sortAscending;
+      final newFilters =
+          currentState.filters.copyWith(sort: newSortAscending ? Sort.ascending : Sort.descending);
+      
+      final sortedAccounts = _sortAccounts(List.of(currentState.accounts), currentState.exchangeRates, newSortAscending);
+      
+      emit(currentState.copyWith(
+        accounts: sortedAccounts,
+        sortAscending: newSortAscending,
+        filters: newFilters,
+      ));
     }
   }
 

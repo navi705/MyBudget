@@ -55,6 +55,7 @@ class AccountsLoadSuccess extends AccountsState {
   final DateTime activeDate;
   @override
   final AccountFilters filters;
+  final List<ExchangeRate> exchangeRates;
 
   const AccountsLoadSuccess({
     required this.accounts,
@@ -70,6 +71,7 @@ class AccountsLoadSuccess extends AccountsState {
     this.dateStep = DateStep.month,
     required this.activeDate,
     this.filters = const AccountFilters(sort: Sort.descending),
+    required this.exchangeRates,
   });
 
   AccountsLoadSuccess copyWith({
@@ -86,6 +88,7 @@ class AccountsLoadSuccess extends AccountsState {
     DateStep? dateStep,
     DateTime? activeDate,
     AccountFilters? filters,
+    List<ExchangeRate>? exchangeRates,
   }) {
     return AccountsLoadSuccess(
       accounts: accounts ?? this.accounts,
@@ -103,6 +106,7 @@ class AccountsLoadSuccess extends AccountsState {
       dateStep: dateStep ?? this.dateStep,
       activeDate: activeDate ?? this.activeDate,
       filters: filters ?? this.filters,
+      exchangeRates: exchangeRates ?? this.exchangeRates,
     );
   }
 
@@ -121,6 +125,7 @@ class AccountsLoadSuccess extends AccountsState {
         dateStep,
         activeDate,
         filters,
+        exchangeRates,
       ];
 }
 
