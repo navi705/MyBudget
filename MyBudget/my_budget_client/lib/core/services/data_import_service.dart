@@ -35,6 +35,112 @@ class DataImportService {
     }
   }
 
+  Future<void> importExchangeRates() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv', 'json'],
+    );
+
+    if (result != null && result.files.isNotEmpty) {
+      final file = File(result.files.single.path!);
+      final content = await file.readAsString();
+      final isCsv = result.files.single.extension == 'csv';
+
+      if (isCsv) {
+        await _importExchangeRatesCsv(content);
+      } else {
+        await _importExchangeRatesJson(content);
+      }
+    }
+  }
+
+  Future<void> _importExchangeRatesJson(String content) async {
+    final data = jsonDecode(content);
+    if (data is List) {
+      await _db.batch((batch) {
+        batch.insertAll(
+          _db.exchangeRates,
+          data.map((e) => ExchangeRate.fromJson(e)).toList(),
+          mode: InsertMode.insertOrReplace,
+        );
+      });
+    } else if (data is Map<String, dynamic>) {
+      // Logic for date-indexed JSON (like currency_history.json)
+      final List<ExchangeRatesCompanion> rates = [];
+      data.forEach((dateKey, dateValue) {
+        final DateTime recordDate = DateTime.parse(dateKey);
+        if (dateValue is Map) {
+          dateValue.forEach((currencyKey, rateValue) {
+            if (rateValue is num) {
+              rates.add(
+                ExchangeRatesCompanion.insert(
+                  fromCurrencyCode: 'EUR',
+                  toCurrencyCode: currencyKey.toString().toUpperCase(),
+                  rate: rateValue.toDouble(),
+                  date: recordDate,
+                  preset: 0,
+                ),
+              );
+            }
+          });
+        }
+      });
+      await _db.batch((batch) {
+        batch.insertAll(
+          _db.exchangeRates,
+          rates,
+          mode: InsertMode.insertOrReplace,
+        );
+      });
+    }
+  }
+
+  Future<void> _importExchangeRatesCsv(String content) async {
+    final rows = const CsvToListConverter().convert(content, eol: '\n');
+    if (rows.isEmpty) return;
+
+    final header = rows.first
+        .map((e) => e.toString().trim().toLowerCase())
+        .toList();
+    rows.removeAt(0);
+
+    final dateIdx = header.indexOf('date');
+    final fromIdx = header.indexOf('from');
+    final toIdx = header.indexOf('to');
+    final rateIdx = header.indexOf('rate');
+
+    if (dateIdx == -1 || fromIdx == -1 || toIdx == -1 || rateIdx == -1) {
+      throw Exception('Invalid CSV format. Missing Date, From, To, or Rate.');
+    }
+
+    final List<ExchangeRatesCompanion> rates = [];
+    for (var row in rows) {
+      if (row.length < header.length) continue;
+      final date = DateTime.tryParse(row[dateIdx].toString()) ?? DateTime.now();
+      final from = row[fromIdx].toString().toUpperCase();
+      final to = row[toIdx].toString().toUpperCase();
+      final rate = double.tryParse(row[rateIdx].toString()) ?? 1.0;
+
+      rates.add(
+        ExchangeRatesCompanion.insert(
+          fromCurrencyCode: from,
+          toCurrencyCode: to,
+          rate: rate,
+          date: date,
+          preset: 0,
+        ),
+      );
+    }
+
+    await _db.batch((batch) {
+      batch.insertAll(
+        _db.exchangeRates,
+        rates,
+        mode: InsertMode.insertOrReplace,
+      );
+    });
+  }
+
   Future<void> _importJson(String content) async {
     // RESTORE STRATEGY: Wipe and Replace
     final data = jsonDecode(content) as Map<String, dynamic>;

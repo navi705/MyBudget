@@ -11,4 +11,5 @@ class AppRoutes {
   static const String addEditTransaction = '/transaction';
   static const String importScreen = '/import';
   static const String themeSettings = '/settings/theme';
+  static const String exchangeRates = '/exchange-rates';
 }

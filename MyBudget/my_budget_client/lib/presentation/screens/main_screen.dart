@@ -5,10 +5,7 @@ import 'package:my_budget_client/presentation/widgets/adaptive_scaffold.dart';
 import 'package:my_budget_client/presentation/widgets/navigation_item.dart';
 
 class MainScreen extends StatelessWidget {
-  const MainScreen({
-    required this.child,
-    super.key,
-  });
+  const MainScreen({required this.child, super.key});
 
   final Widget child;
 
@@ -35,6 +32,11 @@ class MainScreen extends StatelessWidget {
         route: AppRoutes.categories,
       ),
       NavigationItem(
+        label: 'Data',
+        icon: Icons.bar_chart,
+        route: AppRoutes.exchangeRates,
+      ),
+      NavigationItem(
         label: 'Settings',
         icon: Icons.settings,
         route: AppRoutes.settings,
@@ -56,9 +58,6 @@ class MainScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AdaptiveScaffold(
-      destinations: _destinations,
-      child: child,
-    );
+    return AdaptiveScaffold(destinations: _destinations, child: child);
   }
 }

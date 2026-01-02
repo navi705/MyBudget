@@ -6,6 +6,7 @@ import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart'
 import 'package:get_it/get_it.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/core/services/data_export_service.dart';
+import 'package:my_budget_client/core/services/data_import_service.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -91,6 +92,11 @@ class SettingsScreen extends StatelessWidget {
                 },
               ),
               ListTile(
+                leading: const Icon(Icons.currency_exchange),
+                title: const Text('Import Exchange Rates (CSV/JSON)'),
+                onTap: () => _importExchangeRates(context),
+              ),
+              ListTile(
                 leading: const Icon(Icons.file_download),
                 title: const Text('Export Data'),
                 onTap: () {
@@ -143,6 +149,25 @@ class SettingsScreen extends StatelessWidget {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+      }
+    }
+  }
+
+  void _importExchangeRates(BuildContext context) async {
+    try {
+      final db = GetIt.I<AppDatabase>();
+      final service = DataImportService(db);
+      await service.importExchangeRates();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Import completed successfully')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
       }
     }
   }

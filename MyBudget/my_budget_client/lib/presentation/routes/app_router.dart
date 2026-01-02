@@ -16,6 +16,7 @@ import 'package:my_budget_client/presentation/screens/manage_styles_screen.dart'
 import 'package:my_budget_client/presentation/screens/settings_screen.dart';
 import 'package:my_budget_client/presentation/screens/theme_settings_screen.dart';
 import 'package:my_budget_client/presentation/screens/transactions_screen.dart';
+import 'package:my_budget_client/presentation/screens/exchange_rates_screen.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 
 // Private navigator keys
@@ -56,6 +57,12 @@ final GoRouter router = GoRouter(
           path: AppRoutes.categories,
           builder: (context, state) {
             return const CategoriesScreen();
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.exchangeRates,
+          builder: (context, state) {
+            return const ExchangeRatesScreen();
           },
         ),
         GoRoute(
