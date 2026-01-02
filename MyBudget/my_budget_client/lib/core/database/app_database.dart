@@ -296,6 +296,27 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   Future<int> deleteCategory(CategoriesCompanion category) =>
       delete(categories).delete(category);
 
+  Future<void> deleteCategoryWithTransactions(String categoryId) {
+    return db.transaction(() async {
+      await (delete(
+        db.transactions,
+      )..where((t) => t.categoryId.equals(categoryId))).go();
+      await (delete(categories)..where((c) => c.id.equals(categoryId))).go();
+    });
+  }
+
+  Future<void> deleteCategoryAndReassignTransactions(
+    String categoryId,
+    String newCategoryId,
+  ) {
+    return db.transaction(() async {
+      await (update(db.transactions)
+            ..where((t) => t.categoryId.equals(categoryId)))
+          .write(TransactionsCompanion(categoryId: Value(newCategoryId)));
+      await (delete(categories)..where((c) => c.id.equals(categoryId))).go();
+    });
+  }
+
   Stream<Map<String, double>> watchCategoryTotals() {
     final amount = attachedDatabase.transactions.amount.total();
     final query = select(attachedDatabase.transactions).join([
@@ -949,24 +970,54 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 8;
+  @override
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
         await m.createAll();
+        // Add indices for new databases as well, if createAll() doesn't include them (it won't unless defined in Table)
+        // Since we are adding them via customStatement, we must manually add them on create too if we want them?
+        // Actually, best way is to defined them in the Table using @TableIndex but that requires regeneration.
+        // User didn't want regen if possible? Actually I can run regen commands.
+        // But customStatement is safer purely in code.
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions (account_id)',
+        );
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions (category_id)',
+        );
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates (date)',
+        );
+
         await _seedData(this);
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        if (from == 6) {
+        if (from < 7) {
           await m.addColumn(accounts, accounts.creationDate);
         }
-        if (from == 7) {
+        if (from < 8) {
           await customStatement(
             'CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions (date)',
           );
         }
+        if (from < 9) {
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions (account_id)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions (category_id)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates (date)',
+          );
+        }
+      },
+      beforeOpen: (details) async {
+        await customStatement('PRAGMA foreign_keys = ON');
       },
     );
   }
@@ -1020,11 +1071,18 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> clearAllData() async {
-    // Delete all data from tables
+    // Delete all data from tables in reverse dependency order to avoid FK violations
     await batch((batch) {
-      for (final table in allTables) {
-        batch.deleteAll(table);
-      }
+      batch.deleteAll(transactions);
+      batch.deleteAll(accounts);
+      batch.deleteAll(categories);
+      batch.deleteAll(exchangeRates);
+      batch.deleteAll(currencyDesignations); // Referencing Currencies
+      batch.deleteAll(accountTypes); // Referencing Languages
+      batch.deleteAll(styles);
+      batch.deleteAll(currencies); // Referencing Languages
+      batch.deleteAll(languages); // Referenced by Currencies and AccountTypes
+      batch.deleteAll(settings);
     });
     // Re-seed the data after clearing
     await _seedData(this);

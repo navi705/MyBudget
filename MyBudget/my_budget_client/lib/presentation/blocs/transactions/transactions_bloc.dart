@@ -215,17 +215,26 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
        _currencyRepository = currencyRepository,
        super(TransactionsState()) {
     // ... (Event handlers same as before)
-    on<NonDateFiltersChanged>(_onNonDateFiltersChanged);
-    on<DatePeriodNavigated>(_onDatePeriodNavigated);
-    on<DateStepChanged>(_onDateStepChanged);
-    on<FilterModeChanged>(_onFilterModeChanged);
-    on<ActiveDateChanged>(_onActiveDateChanged);
-    on<ActiveDateRangeChanged>(_onActiveDateRangeChanged);
-    on<SortChanged>(_onSortChanged);
-    on<TransactionTypeFilterChanged>(_onTransactionTypeFilterChanged);
+    on<NonDateFiltersChanged>(
+      _onNonDateFiltersChanged,
+      transformer: restartable(),
+    );
+    on<DatePeriodNavigated>(_onDatePeriodNavigated, transformer: restartable());
+    on<DateStepChanged>(_onDateStepChanged, transformer: restartable());
+    on<FilterModeChanged>(_onFilterModeChanged, transformer: restartable());
+    on<ActiveDateChanged>(_onActiveDateChanged, transformer: restartable());
+    on<ActiveDateRangeChanged>(
+      _onActiveDateRangeChanged,
+      transformer: restartable(),
+    );
+    on<SortChanged>(_onSortChanged, transformer: restartable());
+    on<TransactionTypeFilterChanged>(
+      _onTransactionTypeFilterChanged,
+      transformer: restartable(),
+    );
     on<InitialLoadTransactions>(
       _onLoadTransactionsInitial,
-      transformer: droppable(),
+      transformer: restartable(),
     );
     on<LoadTransactionsUp>(_onLoadTransactionsUp, transformer: droppable());
     on<LoadTransactionsDown>(_onLoadTransactionsDown, transformer: droppable());

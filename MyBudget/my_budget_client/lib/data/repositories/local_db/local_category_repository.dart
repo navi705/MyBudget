@@ -3,7 +3,8 @@ import 'package:my_budget_client/core/database/app_database.dart' as drift;
 import 'package:my_budget_client/core/mappers/category_mapper.dart';
 import 'package:my_budget_client/core/mappers/category_with_total_mapper.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
-import 'package:my_budget_client/domain/entities/category_with_total.dart' as domain;
+import 'package:my_budget_client/domain/entities/category_with_total.dart'
+    as domain;
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 
@@ -26,8 +27,9 @@ class LocalCategoryRepository implements CategoryRepository {
 
   @override
   Future<void> addCategories(List<Category> categories) async {
-    await _appDatabase.categoriesDao
-        .insertAllCategories(categories.toCompanionList());
+    await _appDatabase.categoriesDao.insertAllCategories(
+      categories.toCompanionList(),
+    );
   }
 
   @override
@@ -44,10 +46,14 @@ class LocalCategoryRepository implements CategoryRepository {
   }
 
   @override
-  Future<List<Category>> getCategoriesPaginated(
-      {int limit = 10, int offset = 0}) async {
-    final driftCategories = await _appDatabase.categoriesDao
-        .getCategories(limit: limit, offset: offset);
+  Future<List<Category>> getCategoriesPaginated({
+    int limit = 10,
+    int offset = 0,
+  }) async {
+    final driftCategories = await _appDatabase.categoriesDao.getCategories(
+      limit: limit,
+      offset: offset,
+    );
     return driftCategories.toDomainList();
   }
 
@@ -83,7 +89,23 @@ class LocalCategoryRepository implements CategoryRepository {
   Future<void> updateCategory(Category category) async {
     await _appDatabase.categoriesDao.updateCategory(category.toCompanion());
   }
-  
+
+  @override
+  Future<void> deleteCategoryWithTransactions(String categoryId) async {
+    await _appDatabase.categoriesDao.deleteCategoryWithTransactions(categoryId);
+  }
+
+  @override
+  Future<void> deleteCategoryAndReassignTransactions(
+    String categoryId,
+    String newCategoryId,
+  ) async {
+    await _appDatabase.categoriesDao.deleteCategoryAndReassignTransactions(
+      categoryId,
+      newCategoryId,
+    );
+  }
+
   @override
   Future<List<Category>> getCategoriesByIds(List<String> ids) async {
     final categories = await _appDatabase.categoriesDao.getCategoriesByIds(ids);

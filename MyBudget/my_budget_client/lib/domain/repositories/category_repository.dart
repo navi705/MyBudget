@@ -68,8 +68,10 @@ class CategoryFilters extends Equatable {
 abstract class CategoryRepository {
   Stream<List<Category>> watchCategories();
   Future<List<Category>> getCategories();
-  Future<List<Category>> getCategoriesPaginated(
-      {int limit = 10, int offset = 0});
+  Future<List<Category>> getCategoriesPaginated({
+    int limit = 10,
+    int offset = 0,
+  });
   Future<List<CategoryWithTotal>> getCategoriesWithTotalsPaginated({
     int limit = 50,
     int offset = 0,
@@ -83,4 +85,9 @@ abstract class CategoryRepository {
   Future<void> addCategories(List<Category> categories);
   Future<void> updateCategory(Category category);
   Future<void> deleteCategory(String id);
+  Future<void> deleteCategoryWithTransactions(String categoryId);
+  Future<void> deleteCategoryAndReassignTransactions(
+    String categoryId,
+    String newCategoryId,
+  );
 }

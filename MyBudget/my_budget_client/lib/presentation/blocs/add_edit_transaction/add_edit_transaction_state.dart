@@ -29,7 +29,9 @@ class AddEditTransactionState extends Equatable {
   final bool isSaving;
   final bool isSaveSuccess;
 
-  bool get isEditing => initialTransaction != null;
+  bool get isEditing =>
+      initialTransaction != null &&
+      (initialTransaction!.id?.isNotEmpty ?? false);
 
   AddEditTransactionState copyWith({
     AddEditTransactionStatus? status,
@@ -61,16 +63,16 @@ class AddEditTransactionState extends Equatable {
 
   @override
   List<Object?> get props => [
-        status,
-        initialTransaction,
-        description,
-        amount,
-        selectedAccount,
-        selectedCategory,
-        date,
-        accounts,
-        categories,
-        isSaving,
-        isSaveSuccess,
-      ];
+    status,
+    initialTransaction,
+    description,
+    amount,
+    selectedAccount,
+    selectedCategory,
+    date,
+    accounts,
+    categories,
+    isSaving,
+    isSaveSuccess,
+  ];
 }

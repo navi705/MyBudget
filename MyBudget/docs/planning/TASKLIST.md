@@ -14,11 +14,9 @@
 33. минимальное прогнозирование по тренду
 
 in diffrent currincies presets
-add to search if i create somtheing or change
 add tranaction in categories screen 
 theme changer (backgorund image)
 
-export
 
 
 Others tasks

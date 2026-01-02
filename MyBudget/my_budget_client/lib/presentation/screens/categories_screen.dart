@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:my_budget_client/domain/entities/transaction.dart';
+import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:collection/collection.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
@@ -103,7 +106,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             items: CategoryType.values
                 .map(
                   (type) => DropdownMenuItem(
-                      value: type, child: Text(type.toString().split('.').last)),
+                    value: type,
+                    child: Text(type.toString().split('.').last),
+                  ),
                 )
                 .toList(),
           ),
@@ -132,6 +137,33 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
+  void _navigateToAddTransaction(BuildContext context, Category category) {
+    final state = context.read<CategoriesBloc>().state;
+    DateTime date = DateTime.now();
+    String currencyCode = 'EUR';
+
+    if (state is CategoriesLoadSuccess) {
+      date = state.activeDate;
+      currencyCode = state.mainCurrencyCode;
+    }
+
+    // Pass a "new" transaction with pre-filled category
+    final transaction = Transaction(
+      id: '',
+      description: '',
+      amount: 0,
+      date: date,
+      accountId: '',
+      categoryId: category.id!,
+      currencyCode: currencyCode,
+    );
+
+    context.push(
+      AppRoutes.addEditTransaction,
+      extra: {'transaction': transaction},
+    );
+  }
+
   void _showContextMenu(
     BuildContext context,
     Offset position,
@@ -150,6 +182,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         Offset.zero & overlay.size,
       ),
       items: <PopupMenuEntry<dynamic>>[
+        const PopupMenuItem(
+          value: 'add_transaction',
+          child: Text('Add Transaction'),
+        ),
+        const PopupMenuDivider(),
         PopupMenuItem(
           value: 'select',
           child: Text(isSelected ? 'Deselect' : 'Select'),
@@ -168,7 +205,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     ).then((value) {
       if (!mounted) return;
       final selectedIds = state.selectedCategoryIds.toList();
-      if (value == 'select') {
+      if (value == 'add_transaction') {
+        _navigateToAddTransaction(context, category);
+      } else if (value == 'select') {
         if (!state.isSelectionModeActive) {
           bloc.add(const ToggleSelectionMode(true));
         }
@@ -181,14 +220,17 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       } else if (value == 'deselect_all') {
         bloc.add(ClearSelection());
       } else if (value == 'edit') {
-        _showAddEditCategoryDialog(context,
-            category: category, allCategories: state.allCategories);
-      } else if (value == 'delete') {
-        _showDeleteConfirmationDialog(
+        _showAddEditCategoryDialog(
           context,
-          bloc,
-          isSelected ? selectedIds : [category.id!],
+          category: category,
+          allCategories: state.allCategories,
         );
+      } else if (value == 'delete') {
+        if (isSelected && state.selectedCategoryIds.length > 1) {
+          _showDeleteConfirmationDialog(context, bloc, selectedIds);
+        } else {
+          bloc.add(DeleteCategory(category.id!));
+        }
       } else if (value == 'change_type') {
         _showChangeCategoryTypeDialog(
           context,
@@ -244,76 +286,89 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             },
           ),
         ),
-        body: BlocBuilder<CategoriesBloc, CategoriesState>(
-          builder: (context, state) {
-            if (state is CategoriesLoadInProgress) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (state is CategoriesLoadSuccess) {
-              if (state.categoriesWithTotals.isEmpty) {
-                return const Center(child: Text('No categories created yet.'));
-              }
-
-              final filteredCategories = state.filters.type == null
-                  ? state.categoriesWithTotals
-                  : state.categoriesWithTotals
-                      .where((c) =>
-                          c.category.type == state.filters.type)
-                      .toList();
-
-              final topLevelCategories = filteredCategories
-                  .where((c) => c.category.parentId == null)
-                  .toList();
-
-              return ListView.builder(
-                controller: _scrollController,
-                itemCount: state.hasReachedMax
-                    ? topLevelCategories.length
-                    : topLevelCategories.length + 1,
-                itemBuilder: (context, index) {
-                  if (index >= topLevelCategories.length) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  final categoryWithTotal = topLevelCategories[index];
-                  final category = categoryWithTotal.category;
-                  final isSelected =
-                      state.selectedCategoryIds.contains(category.id);
-
-                  return CategoryListItem(
-                    categoryWithTotal: categoryWithTotal,
-                    allCategoriesWithTotals: filteredCategories,
-                    isSelected: isSelected,
-                    onTap: (tappedCategory) {
-                      if (state.isSelectionModeActive) {
-                        bloc.add(ToggleCategorySelection(tappedCategory.id!));
-                      } else {
-                        _showAddEditCategoryDialog(context,
-                            category: tappedCategory,
-                            allCategories: state.allCategories);
-                      }
-                    },
-                    onLongPress: () {
-                      if (!state.isSelectionModeActive) {
-                        bloc.add(const ToggleSelectionMode(true));
-                      }
-                      bloc.add(ToggleCategorySelection(category.id!));
-                    },
-                    onSecondaryTapUp: (details) {
-                      _showContextMenu(
-                        context,
-                        details.globalPosition,
-                        category,
-                        state,
-                      );
-                    },
-                    mainCurrencyCode: state.mainCurrencyCode,
-                    currencyDesignations: state.currencyDesignations,
-                  );
-                },
+        body: BlocListener<CategoriesBloc, CategoriesState>(
+          listener: (context, state) {
+            if (state is CategoryDeletionConfirmationNeeded) {
+              showDialog(
+                context: context,
+                builder: (dialogContext) => DeleteCategoryDialog(
+                  categoryToDelete: state.categoryToDelete,
+                  allCategories: state.allCategories,
+                ),
               );
             }
-            return const Center(child: Text('Failed to load categories.'));
           },
+          child: BlocBuilder<CategoriesBloc, CategoriesState>(
+            builder: (context, state) {
+              if (state is CategoriesLoadInProgress) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (state is CategoriesLoadSuccess) {
+                if (state.categoriesWithTotals.isEmpty) {
+                  return const Center(
+                    child: Text('No categories created yet.'),
+                  );
+                }
+
+                final filteredCategories = state.filters.type == null
+                    ? state.categoriesWithTotals
+                    : state.categoriesWithTotals
+                          .where((c) => c.category.type == state.filters.type)
+                          .toList();
+
+                final topLevelCategories = filteredCategories
+                    .where((c) => c.category.parentId == null)
+                    .toList();
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  itemCount: state.hasReachedMax
+                      ? topLevelCategories.length
+                      : topLevelCategories.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index >= topLevelCategories.length) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final categoryWithTotal = topLevelCategories[index];
+                    final category = categoryWithTotal.category;
+                    final isSelected = state.selectedCategoryIds.contains(
+                      category.id,
+                    );
+
+                    return CategoryListItem(
+                      categoryWithTotal: categoryWithTotal,
+                      allCategoriesWithTotals: filteredCategories,
+                      isSelected: isSelected,
+                      onTap: (tappedCategory) {
+                        if (state.isSelectionModeActive) {
+                          bloc.add(ToggleCategorySelection(tappedCategory.id!));
+                        } else {
+                          _navigateToAddTransaction(context, tappedCategory);
+                        }
+                      },
+                      onLongPress: () {
+                        if (!state.isSelectionModeActive) {
+                          bloc.add(const ToggleSelectionMode(true));
+                        }
+                        bloc.add(ToggleCategorySelection(category.id!));
+                      },
+                      onSecondaryTapUp: (details) {
+                        _showContextMenu(
+                          context,
+                          details.globalPosition,
+                          category,
+                          state,
+                        );
+                      },
+                      mainCurrencyCode: state.mainCurrencyCode,
+                      currencyDesignations: state.currencyDesignations,
+                    );
+                  },
+                );
+              }
+              return const Center(child: Text('Failed to load categories.'));
+            },
+          ),
         ),
         floatingActionButton: BlocBuilder<CategoriesBloc, CategoriesState>(
           builder: (context, state) {
@@ -324,8 +379,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               onPressed: () {
                 final state = context.read<CategoriesBloc>().state;
                 if (state is CategoriesLoadSuccess) {
-                  _showAddEditCategoryDialog(context,
-                      allCategories: state.allCategories);
+                  _showAddEditCategoryDialog(
+                    context,
+                    allCategories: state.allCategories,
+                  );
                 }
               },
               child: const Icon(Icons.add),
@@ -336,22 +393,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  void _showAddEditCategoryDialog(BuildContext context,
-      {Category? category, required List<Category> allCategories}) {
+  void _showAddEditCategoryDialog(
+    BuildContext context, {
+    Category? category,
+    required List<Category> allCategories,
+  }) {
     showDialog(
       context: context,
       builder: (dialogContext) {
         return MultiBlocProvider(
           providers: [
-            BlocProvider.value(
-              value: BlocProvider.of<CategoriesBloc>(context),
-            ),
-            BlocProvider.value(
-              value: BlocProvider.of<StylesBloc>(context),
-            ),
+            BlocProvider.value(value: BlocProvider.of<CategoriesBloc>(context)),
+            BlocProvider.value(value: BlocProvider.of<StylesBloc>(context)),
           ],
           child: AddEditCategoryDialog(
-              category: category, allCategories: allCategories),
+            category: category,
+            allCategories: allCategories,
+          ),
         );
       },
     );
@@ -395,13 +453,15 @@ class _CategoriesDateAppBar extends StatelessWidget {
   String _formatDate(BuildContext context, CategoriesLoadSuccess state) {
     if (state.filterMode == FilterMode.range) {
       if (state.activeDateRange == null) return 'Select Range';
-      final start =
-          MaterialLocalizations.of(context).formatShortDate(state.activeDateRange!.start);
-      final end =
-          MaterialLocalizations.of(context).formatShortDate(state.activeDateRange!.end);
+      final start = MaterialLocalizations.of(
+        context,
+      ).formatShortDate(state.activeDateRange!.start);
+      final end = MaterialLocalizations.of(
+        context,
+      ).formatShortDate(state.activeDateRange!.end);
       return '$start - $end';
     }
-    
+
     switch (state.dateStep) {
       case DateStep.day:
         return MaterialLocalizations.of(
@@ -424,10 +484,7 @@ class _CategoriesDateAppBar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          icon: const Icon(
-            Icons.tune,
-            color: Colors.white,
-          ),
+          icon: const Icon(Icons.tune, color: Colors.white),
           tooltip: 'Filter',
           onPressed: () => showCategoryFilterDialog(context, state.filters),
         ),
@@ -454,10 +511,7 @@ class _CategoriesDateAppBar extends StatelessWidget {
         RotatedBox(
           quarterTurns: state.filters.sort == Sort.ascending ? 2 : 0,
           child: IconButton(
-            icon: const Icon(
-              Icons.sort,
-              color: Colors.white,
-            ),
+            icon: const Icon(Icons.sort, color: Colors.white),
             tooltip: 'Sort by amount',
             onPressed: () {
               final newSort = state.filters.sort == Sort.ascending
@@ -530,8 +584,11 @@ class AddEditCategoryDialog extends StatefulWidget {
   final Category? category;
   final List<Category> allCategories;
 
-  const AddEditCategoryDialog(
-      {super.key, this.category, required this.allCategories});
+  const AddEditCategoryDialog({
+    super.key,
+    this.category,
+    required this.allCategories,
+  });
 
   @override
   State<AddEditCategoryDialog> createState() => _AddEditCategoryDialogState();
@@ -564,26 +621,26 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
       final name = _nameController.text;
       if (widget.category == null) {
         context.read<CategoriesBloc>().add(
-              AddCategory(
-                Category(
-                  name: name,
-                  styleId: _selectedStyleId,
-                  type: _selectedCategoryType,
-                  parentId: _selectedParentId,
-                ),
-              ),
-            );
+          AddCategory(
+            Category(
+              name: name,
+              styleId: _selectedStyleId,
+              type: _selectedCategoryType,
+              parentId: _selectedParentId,
+            ),
+          ),
+        );
       } else {
         context.read<CategoriesBloc>().add(
-              UpdateCategory(
-                widget.category!.copyWith(
-                  name: name,
-                  styleId: _selectedStyleId,
-                  type: _selectedCategoryType,
-                  parentId: _selectedParentId,
-                ),
-              ),
-            );
+          UpdateCategory(
+            widget.category!.copyWith(
+              name: name,
+              styleId: _selectedStyleId,
+              type: _selectedCategoryType,
+              parentId: _selectedParentId,
+            ),
+          ),
+        );
       }
       Navigator.of(context).pop();
     }
@@ -601,8 +658,9 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(labelText: 'Category Name'),
-              validator: (value) =>
-                  (value == null || value.isEmpty) ? 'Please enter a name' : null,
+              validator: (value) => (value == null || value.isEmpty)
+                  ? 'Please enter a name'
+                  : null,
             ),
             BlocBuilder<StylesBloc, StylesState>(
               builder: (context, state) {
@@ -614,7 +672,8 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                         items: state.styles,
                         title: 'Select Style',
                         selectedItem: state.styles.firstWhereOrNull(
-                            (s) => s.id == _selectedStyleId),
+                          (s) => s.id == _selectedStyleId,
+                        ),
                         itemBuilder: (style) => Row(
                           children: [
                             IconUtils.getIconWidget(style),
@@ -633,8 +692,11 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                     child: AbsorbPointer(
                       child: TextFormField(
                         key: Key(_selectedStyleId ?? 'no_style'),
-                        initialValue: state.styles
-                                .firstWhereOrNull((s) => s.id == _selectedStyleId)
+                        initialValue:
+                            state.styles
+                                .firstWhereOrNull(
+                                  (s) => s.id == _selectedStyleId,
+                                )
                                 ?.name ??
                             'Select a style',
                         decoration: InputDecoration(
@@ -645,7 +707,8 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                                     if (stylesState is StylesLoadSuccess) {
                                       final style = stylesState.styles
                                           .firstWhereOrNull(
-                                              (s) => s.id == _selectedStyleId);
+                                            (s) => s.id == _selectedStyleId,
+                                          );
                                       if (style != null) {
                                         return IconUtils.getIconWidget(style);
                                       }
@@ -668,15 +731,17 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                   context: context,
                   items: widget.allCategories,
                   title: 'Select Parent Category',
-                  selectedItem: widget.allCategories
-                      .firstWhereOrNull((c) => c.id == _selectedParentId),
+                  selectedItem: widget.allCategories.firstWhereOrNull(
+                    (c) => c.id == _selectedParentId,
+                  ),
                   itemBuilder: (category) => Row(
                     children: [
                       BlocBuilder<StylesBloc, StylesState>(
                         builder: (context, stylesState) {
                           if (stylesState is StylesLoadSuccess) {
                             final style = stylesState.styles.firstWhereOrNull(
-                                (s) => s.id == category.styleId);
+                              (s) => s.id == category.styleId,
+                            );
                             if (style != null) {
                               return IconUtils.getIconWidget(style);
                             }
@@ -699,7 +764,8 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
               child: AbsorbPointer(
                 child: TextFormField(
                   key: Key(_selectedParentId ?? 'no_parent'),
-                  initialValue: widget.allCategories
+                  initialValue:
+                      widget.allCategories
                           .firstWhereOrNull((c) => c.id == _selectedParentId)
                           ?.name ??
                       'None',
@@ -711,11 +777,13 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                               if (stylesState is StylesLoadSuccess) {
                                 final parentCategory = widget.allCategories
                                     .firstWhereOrNull(
-                                        (c) => c.id == _selectedParentId);
+                                      (c) => c.id == _selectedParentId,
+                                    );
                                 if (parentCategory != null) {
                                   final style = stylesState.styles
-                                      .firstWhereOrNull((s) =>
-                                          s.id == parentCategory.styleId);
+                                      .firstWhereOrNull(
+                                        (s) => s.id == parentCategory.styleId,
+                                      );
                                   if (style != null) {
                                     return IconUtils.getIconWidget(style);
                                   }
@@ -748,9 +816,11 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
               child: AbsorbPointer(
                 child: TextFormField(
                   key: Key(_selectedCategoryType.toString()),
-                  initialValue: _selectedCategoryType.toString().split('.').last,
-                  decoration:
-                      const InputDecoration(labelText: 'Category Type'),
+                  initialValue: _selectedCategoryType
+                      .toString()
+                      .split('.')
+                      .last,
+                  decoration: const InputDecoration(labelText: 'Category Type'),
                 ),
               ),
             ),
@@ -762,10 +832,7 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
-          onPressed: _onSave,
-          child: const Text('Save'),
-        ),
+        ElevatedButton(onPressed: _onSave, child: const Text('Save')),
       ],
     );
   }

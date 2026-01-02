@@ -41,6 +41,7 @@ dependencies:
   file_picker: ^10.3.8
   csv: ^6.0.0
   flutter_date_pickers: ^0.4.3
+  share_plus: ^10.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

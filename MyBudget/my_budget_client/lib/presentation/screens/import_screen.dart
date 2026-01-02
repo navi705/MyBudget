@@ -2,6 +2,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
+import 'package:my_budget_client/core/database/app_database.dart'
+    hide Category, Currency;
+import 'package:my_budget_client/core/services/data_import_service.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
@@ -77,14 +80,15 @@ class _ImportViewState extends State<_ImportView> {
               return _buildFileSelectionStep();
             case ImportStep.parsing:
               return const Center(
-                  child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Parsing CSV files...'),
-                ],
-              ));
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Parsing CSV files...'),
+                  ],
+                ),
+              );
             case ImportStep.mappingAccounts:
               return _buildAccountMappingStep(state);
             case ImportStep.mappingCategories:
@@ -95,14 +99,15 @@ class _ImportViewState extends State<_ImportView> {
               return _buildDuplicateResolutionStep(state);
             case ImportStep.fetchingRates:
               return const Center(
-                  child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Fetching exchange rates...'),
-                ],
-              ));
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Fetching exchange rates...'),
+                  ],
+                ),
+              );
             case ImportStep.readyToImport:
               return _buildReadyToImportStep(state);
             case ImportStep.importing:
@@ -124,9 +129,10 @@ class _ImportViewState extends State<_ImportView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Existing OneMoney Import
           OutlinedButton.icon(
             icon: const Icon(Icons.attach_money),
-            label: const Text('Import from OneMoney'),
+            label: const Text('Import from OneMoney (CSV)'),
             onPressed: _startOneMoneyImport,
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -134,11 +140,35 @@ class _ImportViewState extends State<_ImportView> {
             ),
           ),
           const SizedBox(height: 16),
+          // MyBudget CSV Import
+          OutlinedButton.icon(
+            icon: const Icon(Icons.table_chart),
+            label: const Text('Import MyBudget Transactions (CSV)'),
+            onPressed: () => _handleGeneralImport(true),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // JSON Backup Import
+          ElevatedButton.icon(
+            icon: const Icon(Icons.restore),
+            label: const Text('Restore Backup (JSON)'),
+            onPressed: () => _handleGeneralImport(false), // JSON
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: Theme.of(context).textTheme.titleMedium,
+              backgroundColor: Theme.of(context).colorScheme.errorContainer,
+              foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+            ),
+          ),
+          const SizedBox(height: 16),
           const Center(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.0),
               child: Text(
-                "Select one or more OneMoney CSV export files to begin.",
+                "Select 'OneMoney' for migration, 'MyBudget' for adding transactions, or 'Restore Backup' to overwrite all data.",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey),
               ),
@@ -147,6 +177,54 @@ class _ImportViewState extends State<_ImportView> {
         ],
       ),
     );
+  }
+
+  Future<void> _handleGeneralImport(bool isCsv) async {
+    // Logic for general import
+    // Note: This bypasses the ImportBloc which is specific to OneMoney mapping.
+    // For simplicity, we run it directly here.
+    if (!isCsv) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Warning: Overwrite Data?'),
+          content: const Text(
+            'Restoring a backup will DELETE ALL current data and replace it with the backup. This cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Restore & Overwrite'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+    }
+
+    try {
+      // Use Service Locator to get DB
+      final db = sl<AppDatabase>();
+      final service = DataImportService(db);
+      await service.importData(isCsv);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Import completed successfully.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
+      }
+    }
   }
 
   Widget _buildAccountMappingStep(ImportState state) {
@@ -162,16 +240,18 @@ class _ImportViewState extends State<_ImportView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('New account found: "$accountName"',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'New account found: "$accountName"',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     OutlinedButton(
                       onPressed: () async {
-                        final existingAccounts =
-                            await sl<AccountRepository>().getAccounts();
+                        final existingAccounts = await sl<AccountRepository>()
+                            .getAccounts();
                         if (!mounted) return;
                         final selectedId = await showDialog<String>(
                           context: context,
@@ -182,9 +262,9 @@ class _ImportViewState extends State<_ImportView> {
                           ),
                         );
                         if (selectedId != null && mounted) {
-                          context
-                              .read<ImportBloc>()
-                              .add(MapAccount(accountName, selectedId));
+                          context.read<ImportBloc>().add(
+                            MapAccount(accountName, selectedId),
+                          );
                         }
                       },
                       child: const Text('Map to Existing'),
@@ -192,14 +272,14 @@ class _ImportViewState extends State<_ImportView> {
                     const SizedBox(width: 8),
                     ElevatedButton(
                       onPressed: () {
-                        context
-                            .read<ImportBloc>()
-                            .add(MapAccount(accountName, 'new'));
+                        context.read<ImportBloc>().add(
+                          MapAccount(accountName, 'new'),
+                        );
                       },
                       child: const Text('Create New'),
                     ),
                   ],
-                )
+                ),
               ],
             ),
           ),
@@ -221,8 +301,10 @@ class _ImportViewState extends State<_ImportView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('New category found: "$categoryName"',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'New category found: "$categoryName"',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -241,9 +323,9 @@ class _ImportViewState extends State<_ImportView> {
                           ),
                         );
                         if (selectedId != null && mounted) {
-                          context
-                              .read<ImportBloc>()
-                              .add(MapCategory(categoryName, selectedId));
+                          context.read<ImportBloc>().add(
+                            MapCategory(categoryName, selectedId),
+                          );
                         }
                       },
                       child: const Text('Map to Existing'),
@@ -251,14 +333,14 @@ class _ImportViewState extends State<_ImportView> {
                     const SizedBox(width: 8),
                     ElevatedButton(
                       onPressed: () {
-                        context
-                            .read<ImportBloc>()
-                            .add(MapCategory(categoryName, 'new'));
+                        context.read<ImportBloc>().add(
+                          MapCategory(categoryName, 'new'),
+                        );
                       },
                       child: const Text('Create New'),
                     ),
                   ],
-                )
+                ),
               ],
             ),
           ),
@@ -280,8 +362,10 @@ class _ImportViewState extends State<_ImportView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('New currency found: "$currencyName"',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'New currency found: "$currencyName"',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -300,9 +384,9 @@ class _ImportViewState extends State<_ImportView> {
                           ),
                         );
                         if (selectedId != null && mounted) {
-                          context
-                              .read<ImportBloc>()
-                              .add(MapCurrency(currencyName, selectedId));
+                          context.read<ImportBloc>().add(
+                            MapCurrency(currencyName, selectedId),
+                          );
                         }
                       },
                       child: const Text('Map to Existing'),
@@ -310,14 +394,14 @@ class _ImportViewState extends State<_ImportView> {
                     const SizedBox(width: 8),
                     ElevatedButton(
                       onPressed: () {
-                        context
-                            .read<ImportBloc>()
-                            .add(MapCurrency(currencyName, 'new'));
+                        context.read<ImportBloc>().add(
+                          MapCurrency(currencyName, 'new'),
+                        );
                       },
                       child: const Text('Create New'),
                     ),
                   ],
-                )
+                ),
               ],
             ),
           ),
@@ -341,8 +425,10 @@ class _ImportViewState extends State<_ImportView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Potential Duplicate:',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Potential Duplicate:',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 8),
                 Text('Date: ${record.date.toLocal().toString().split(' ')[0]}'),
                 Text('From: ${record.from}'),
@@ -354,26 +440,31 @@ class _ImportViewState extends State<_ImportView> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OutlinedButton(
-                          onPressed: () {
-                            context
-                                .read<ImportBloc>()
-                                .add(ResolveDuplicate(record, 'skip'));
-                          },
-                          child: const Text('Skip')),
+                        onPressed: () {
+                          context.read<ImportBloc>().add(
+                            ResolveDuplicate(record, 'skip'),
+                          );
+                        },
+                        child: const Text('Skip'),
+                      ),
                       const SizedBox(width: 8),
                       ElevatedButton(
-                          onPressed: () {
-                            context
-                                .read<ImportBloc>()
-                                .add(ResolveDuplicate(record, 'import'));
-                          },
-                          child: const Text('Import Anyway')),
+                        onPressed: () {
+                          context.read<ImportBloc>().add(
+                            ResolveDuplicate(record, 'import'),
+                          );
+                        },
+                        child: const Text('Import Anyway'),
+                      ),
                     ],
                   )
                 else
                   Center(
-                      child: Text('Decision: ${resolution.toUpperCase()}',
-                          style: const TextStyle(fontWeight: FontWeight.bold))),
+                    child: Text(
+                      'Decision: ${resolution.toUpperCase()}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -389,26 +480,34 @@ class _ImportViewState extends State<_ImportView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.check_circle_outline,
-                color: Colors.green, size: 80),
+            const Icon(
+              Icons.check_circle_outline,
+              color: Colors.green,
+              size: 80,
+            ),
             const SizedBox(height: 24),
-            Text('Ready to Import',
-                style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'Ready to Import',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 16),
             Text(
-                '${state.parsedRecords.length} transactions are ready to be imported.',
-                textAlign: TextAlign.center),
+              '${state.parsedRecords.length} transactions are ready to be imported.',
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: () {
                 context.read<ImportBloc>().add(FinalizeImport());
               },
               style: ElevatedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 48,
+                  vertical: 16,
+                ),
               ),
               child: const Text('Finalize Import'),
-            )
+            ),
           ],
         ),
       ),
@@ -424,8 +523,10 @@ class _ImportViewState extends State<_ImportView> {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 24),
-            Text('Importing...',
-                style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'Importing...',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 16),
             LinearProgressIndicator(value: state.progress),
           ],
@@ -443,8 +544,10 @@ class _ImportViewState extends State<_ImportView> {
           children: [
             const Icon(Icons.task_alt, color: Colors.blue, size: 80),
             const SizedBox(height: 24),
-            Text('Import Complete',
-                style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'Import Complete',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 24),
             Text('New Accounts Created: ${state.createdAccountsCount}'),
             Text('New Categories Created: ${state.createdCategoriesCount}'),

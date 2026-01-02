@@ -7,6 +7,19 @@ abstract class CategoriesState extends Equatable {
   List<Object?> get props => [];
 }
 
+class CategoryDeletionConfirmationNeeded extends CategoriesState {
+  final Category categoryToDelete;
+  final List<Category> allCategories;
+
+  const CategoryDeletionConfirmationNeeded({
+    required this.categoryToDelete,
+    required this.allCategories,
+  });
+
+  @override
+  List<Object> get props => [categoryToDelete, allCategories];
+}
+
 class CategoriesInitial extends CategoriesState {}
 
 class CategoriesLoadInProgress extends CategoriesState {}
@@ -79,33 +92,20 @@ class CategoriesLoadSuccess extends CategoriesState {
 
   @override
   List<Object?> get props => [
-        categoriesWithTotals,
-        allCategories,
-        hasReachedMax,
-        selectedTypeFilter,
-        filters,
-        activeDate,
-        dateStep,
-        filterMode,
-        activeDateRange,
-        mainCurrencyCode,
-        currencyDesignations,
-        isSelectionModeActive,
-        selectedCategoryIds,
-      ];
-}
-
-class CategoryDeletionConfirmationNeeded extends CategoriesState {
-  final Category categoryToDelete;
-  final List<Category> allCategories;
-
-  const CategoryDeletionConfirmationNeeded({
-    required this.categoryToDelete,
-    required this.allCategories,
-  });
-
-  @override
-  List<Object> get props => [categoryToDelete, allCategories];
+    categoriesWithTotals,
+    allCategories,
+    hasReachedMax,
+    selectedTypeFilter,
+    filters,
+    activeDate,
+    dateStep,
+    filterMode,
+    activeDateRange,
+    mainCurrencyCode,
+    currencyDesignations,
+    isSelectionModeActive,
+    selectedCategoryIds,
+  ];
 }
 
 class CategoriesLoadFailure extends CategoriesState {}

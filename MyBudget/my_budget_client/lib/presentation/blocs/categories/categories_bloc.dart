@@ -56,7 +56,8 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     on<ClearSelection>(_onClearSelection);
     on<DeleteMultipleCategories>(_onDeleteMultipleCategories);
     on<UpdateCategoryTypeForMultipleCategories>(
-        _onUpdateCategoryTypeForMultipleCategories);
+      _onUpdateCategoryTypeForMultipleCategories,
+    );
   }
 
   void _onToggleSelectionMode(
@@ -65,11 +66,14 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   ) {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
-      emit(currentState.copyWith(
-        isSelectionModeActive: event.isSelectionModeActive,
-        selectedCategoryIds:
-            event.isSelectionModeActive ? currentState.selectedCategoryIds : {},
-      ));
+      emit(
+        currentState.copyWith(
+          isSelectionModeActive: event.isSelectionModeActive,
+          selectedCategoryIds: event.isSelectionModeActive
+              ? currentState.selectedCategoryIds
+              : {},
+        ),
+      );
     }
   }
 
@@ -79,8 +83,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   ) {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
-      final newSelectedIds =
-          Set<String>.from(currentState.selectedCategoryIds);
+      final newSelectedIds = Set<String>.from(currentState.selectedCategoryIds);
       if (newSelectedIds.contains(event.categoryId)) {
         newSelectedIds.remove(event.categoryId);
       } else {
@@ -96,16 +99,14 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   ) {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
-      final allIds =
-          currentState.categoriesWithTotals.map((c) => c.category.id!).toSet();
+      final allIds = currentState.categoriesWithTotals
+          .map((c) => c.category.id!)
+          .toSet();
       emit(currentState.copyWith(selectedCategoryIds: allIds));
     }
   }
 
-  void _onClearSelection(
-    ClearSelection event,
-    Emitter<CategoriesState> emit,
-  ) {
+  void _onClearSelection(ClearSelection event, Emitter<CategoriesState> emit) {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
       emit(currentState.copyWith(selectedCategoryIds: {}));
@@ -122,10 +123,12 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         for (final id in event.categoryIds) {
           await _categoryRepository.deleteCategory(id);
         }
-        emit(currentState.copyWith(
-          selectedCategoryIds: {},
-          isSelectionModeActive: false,
-        ));
+        emit(
+          currentState.copyWith(
+            selectedCategoryIds: {},
+            isSelectionModeActive: false,
+          ),
+        );
         add(LoadCategories());
       } catch (e) {
         // Handle error
@@ -140,18 +143,21 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
       try {
-        final categoriesToUpdate = await _categoryRepository
-            .getCategoriesByIds(event.categoryIds);
+        final categoriesToUpdate = await _categoryRepository.getCategoriesByIds(
+          event.categoryIds,
+        );
 
         for (final category in categoriesToUpdate) {
           await _categoryRepository.updateCategory(
             category.copyWith(type: event.newType),
           );
         }
-        emit(currentState.copyWith(
-          selectedCategoryIds: {},
-          isSelectionModeActive: false,
-        ));
+        emit(
+          currentState.copyWith(
+            selectedCategoryIds: {},
+            isSelectionModeActive: false,
+          ),
+        );
         add(LoadCategories());
       } catch (e) {
         // Handle error
@@ -518,15 +524,49 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     DeleteCategory event,
     Emitter<CategoriesState> emit,
   ) async {
-    await _categoryRepository.deleteCategory(event.id);
-    add(LoadCategories());
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess) {
+      final categoryToDelete = currentState.allCategories.firstWhere(
+        (c) => c.id == event.id,
+      );
+
+      // Check if category has transactions (ignoring date filters)
+      final transactions = await _transactionRepository
+          .getTransactionsWithFilters(
+            limit: 1,
+            filters: TransactionFilters(categoryId: [event.id]),
+          );
+
+      if (transactions.isNotEmpty) {
+        emit(
+          CategoryDeletionConfirmationNeeded(
+            categoryToDelete: categoryToDelete,
+            allCategories: currentState.allCategories,
+          ),
+        );
+      } else {
+        await _categoryRepository.deleteCategory(event.id);
+        add(LoadCategories());
+      }
+    }
   }
 
   Future<void> _onDeleteCategoryConfirmed(
     DeleteCategoryConfirmed event,
     Emitter<CategoriesState> emit,
   ) async {
-    await _categoryRepository.deleteCategory(event.categoryToDelete.id!);
+    if (event.deleteTransactions) {
+      await _categoryRepository.deleteCategoryWithTransactions(
+        event.categoryToDelete.id!,
+      );
+    } else if (event.newCategoryId != null) {
+      await _categoryRepository.deleteCategoryAndReassignTransactions(
+        event.categoryToDelete.id!,
+        event.newCategoryId!,
+      );
+    } else {
+      await _categoryRepository.deleteCategory(event.categoryToDelete.id!);
+    }
     add(LoadCategories());
   }
 
