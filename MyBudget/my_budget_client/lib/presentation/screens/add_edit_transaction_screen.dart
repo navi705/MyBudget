@@ -295,7 +295,24 @@ class _CategoryField extends StatelessWidget {
               items: state.categories,
               title: 'Select Category',
               selectedItem: state.selectedCategory,
-              itemBuilder: (category) => Text(category.name),
+              itemBuilder: (category) => Row(
+                children: [
+                  BlocBuilder<StylesBloc, StylesState>(
+                    builder: (context, stylesState) {
+                      if (stylesState is StylesLoadSuccess) {
+                        final style = stylesState.styles.firstWhereOrNull(
+                            (s) => s.id == category.styleId);
+                        if (style != null) {
+                          return IconUtils.getIconWidget(style);
+                        }
+                      }
+                      return const Icon(Icons.category);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  Text(category.name),
+                ],
+              ),
               stringGetter: (category) => category.name,
             );
             if (context.mounted && selectedCategory != null) {

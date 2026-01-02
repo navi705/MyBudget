@@ -9,8 +9,11 @@ import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart'
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
+import 'package:my_budget_client/core/utils/icon_utils.dart';
+import 'package:collection/collection.dart';
 
 void showAdvancedFilterDialog(
     BuildContext context, TransactionFilters currentFilters) {
@@ -232,12 +235,33 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
                   onTap: () async {
                     final selectedIds = await showDialog<List<String>>(
                       context: context,
-                      builder: (_) => MultiSelectDialog<Account>(
-                        items: state.accounts,
-                        selectedIds: _selectedAccountId,
-                        itemBuilder: (item) => Text(item.name),
-                        idGetter: (item) => item.id!,
-                        stringGetter: (item) => item.name,
+                      builder: (_) => BlocProvider.value(
+                        value: context.read<StylesBloc>(),
+                        child: MultiSelectDialog<Account>(
+                          items: state.accounts,
+                          selectedIds: _selectedAccountId,
+                          itemBuilder: (item) => Row(
+                            children: [
+                              BlocBuilder<StylesBloc, StylesState>(
+                                builder: (context, stylesState) {
+                                  if (stylesState is StylesLoadSuccess) {
+                                    final style = stylesState.styles
+                                        .firstWhereOrNull(
+                                            (s) => s.id == item.styleId);
+                                    if (style != null) {
+                                      return IconUtils.getIconWidget(style);
+                                    }
+                                  }
+                                  return const Icon(Icons.account_balance);
+                                },
+                              ),
+                              const SizedBox(width: 8),
+                              Text(item.name),
+                            ],
+                          ),
+                          idGetter: (item) => item.id!,
+                          stringGetter: (item) => item.name,
+                        ),
                       ),
                     );
 
@@ -268,12 +292,44 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
                                       onTap: () async {
                                         final selectedIds = await showDialog<List<String>>(
                                           context: context,
-                                          builder: (_) => MultiSelectDialog<CategoryWithTotal>(
-                                            items: state.categoriesWithTotals,
-                                            selectedIds: _selectedCategoryId,
-                                            itemBuilder: (item) => Text(item.category.name),
-                                            idGetter: (item) => item.category.id!,
-                                            stringGetter: (item) => item.category.name,
+                                          builder: (_) => BlocProvider.value(
+                                            value: context.read<StylesBloc>(),
+                                            child: MultiSelectDialog<CategoryWithTotal>(
+                                              items: state.categoriesWithTotals,
+                                              selectedIds: _selectedCategoryId,
+                                              itemBuilder: (item) => Row(
+                                                children: [
+                                                  BlocBuilder<StylesBloc,
+                                                      StylesState>(
+                                                    builder: (context,
+                                                        stylesState) {
+                                                      if (stylesState
+                                                          is StylesLoadSuccess) {
+                                                        final style = stylesState
+                                                            .styles
+                                                            .firstWhereOrNull(
+                                                                (s) =>
+                                                                    s.id ==
+                                                                    item.category
+                                                                        .styleId);
+                                                        if (style != null) {
+                                                          return IconUtils
+                                                              .getIconWidget(
+                                                                  style);
+                                                        }
+                                                      }
+                                                      return const Icon(
+                                                          Icons.category);
+                                                    },
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(item.category.name),
+                                                ],
+                                              ),
+                                              idGetter: (item) => item.category.id!,
+                                              stringGetter: (item) =>
+                                                  item.category.name,
+                                            ),
                                           ),
                                         );
                     
