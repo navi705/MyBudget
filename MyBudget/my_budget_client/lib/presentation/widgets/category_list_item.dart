@@ -16,6 +16,9 @@ class CategoryListItem extends StatelessWidget {
   final VoidCallback onTap;
   final String mainCurrencyCode;
   final List<CurrencyDesignation> currencyDesignations;
+  final bool isSelected;
+  final VoidCallback? onLongPress;
+  final void Function(TapUpDetails)? onSecondaryTapUp;
 
   const CategoryListItem({
     super.key,
@@ -24,6 +27,9 @@ class CategoryListItem extends StatelessWidget {
     required this.onTap,
     required this.mainCurrencyCode,
     required this.currencyDesignations,
+    this.isSelected = false,
+    this.onLongPress,
+    this.onSecondaryTapUp,
   });
 
   Color _getColorFromHex(String? hexColor) {
@@ -81,35 +87,40 @@ class CategoryListItem extends StatelessWidget {
             ? Colors.green
             : Colors.red;
 
-        final listTile = ListTile(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-          leading: Container(
-            padding: const EdgeInsets.all(10.0),
-            decoration: BoxDecoration(
-              color: color.withAlpha((255 * 0.15).round()),
-              borderRadius: BorderRadius.circular(12.0),
+        final listTile = GestureDetector(
+          onSecondaryTapUp: onSecondaryTapUp,
+          child: ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+            leading: Container(
+              padding: const EdgeInsets.all(10.0),
+              decoration: BoxDecoration(
+                color: color.withAlpha((255 * 0.15).round()),
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              child: iconWidget,
             ),
-            child: iconWidget,
-          ),
-          title: Text(
-            category.name,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
+            title: Text(
+              category.name,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
-          ),
-          subtitle: Text(
-            subtitleText,
-            style: TextStyle(
-              color: balanceColor,
-              fontSize: 14,
+            subtitle: Text(
+              subtitleText,
+              style: TextStyle(
+                color: balanceColor,
+                fontSize: 14,
+              ),
             ),
+            onTap: onTap,
+            onLongPress: onLongPress,
           ),
-          onTap: onTap,
         );
 
         final card = Card(
+          color: isSelected ? Theme.of(context).highlightColor : null,
           elevation: 2.0,
           margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           shape: RoundedRectangleBorder(
@@ -123,7 +134,8 @@ class CategoryListItem extends StatelessWidget {
         }
 
         return Card(
-           elevation: 2.0,
+          color: isSelected ? Theme.of(context).highlightColor : null,
+          elevation: 2.0,
           margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.0),
@@ -136,9 +148,15 @@ class CategoryListItem extends StatelessWidget {
                       child: CategoryListItem(
                         categoryWithTotal: child,
                         allCategoriesWithTotals: allCategoriesWithTotals,
-                        onTap: onTap,
+                        onTap: () {
+                          // This is a workaround to make children selectable.
+                          // A better solution would be to pass the category to the onTap callback.
+                          onTap();
+                        },
                         mainCurrencyCode: mainCurrencyCode,
                         currencyDesignations: currencyDesignations,
+                        isSelected: isSelected,
+                        onLongPress: onLongPress,
                       ),
                     ))
                 .toList(),

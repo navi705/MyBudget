@@ -125,3 +125,45 @@ class FiltersChanged extends CategoriesEvent {
   List<Object> get props => [filters];
 }
 
+class ToggleSelectionMode extends CategoriesEvent {
+  final bool isSelectionModeActive;
+
+  const ToggleSelectionMode(this.isSelectionModeActive);
+
+  @override
+  List<Object> get props => [isSelectionModeActive];
+}
+
+class ToggleCategorySelection extends CategoriesEvent {
+  final String categoryId;
+
+  const ToggleCategorySelection(this.categoryId);
+
+  @override
+  List<Object> get props => [categoryId];
+}
+
+class SelectAllCategories extends CategoriesEvent {}
+
+class ClearSelection extends CategoriesEvent {}
+
+class DeleteMultipleCategories extends CategoriesEvent {
+  final List<String> categoryIds;
+
+  const DeleteMultipleCategories(this.categoryIds);
+
+  @override
+  List<Object> get props => [categoryIds];
+}
+
+class UpdateCategoryTypeForMultipleCategories extends CategoriesEvent {
+  final List<String> categoryIds;
+  final CategoryType newType;
+
+  const UpdateCategoryTypeForMultipleCategories(this.categoryIds, this.newType);
+
+  @override
+  List<Object> get props => [categoryIds, newType];
+}
+
+

@@ -15,6 +15,12 @@
 34.
 
 in diffrent currincies presets
+add to search if i create somtheing or change
+add tranaction in categories screen 
+theme changer (backgorund image)
+
+export
+
 
 Others tasks
 1. Add data page to control my currency rate  

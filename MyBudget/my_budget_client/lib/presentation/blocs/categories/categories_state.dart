@@ -22,6 +22,8 @@ class CategoriesLoadSuccess extends CategoriesState {
   final DateTimeRange? activeDateRange;
   final String mainCurrencyCode;
   final List<CurrencyDesignation> currencyDesignations;
+  final bool isSelectionModeActive;
+  final Set<String> selectedCategoryIds;
 
   const CategoriesLoadSuccess({
     this.categoriesWithTotals = const [],
@@ -34,6 +36,8 @@ class CategoriesLoadSuccess extends CategoriesState {
     this.activeDateRange,
     this.mainCurrencyCode = 'EUR',
     this.currencyDesignations = const [],
+    this.isSelectionModeActive = false,
+    this.selectedCategoryIds = const {},
   });
 
   CategoriesLoadSuccess copyWith({
@@ -47,6 +51,8 @@ class CategoriesLoadSuccess extends CategoriesState {
     DateTimeRange? activeDateRange,
     String? mainCurrencyCode,
     List<CurrencyDesignation>? currencyDesignations,
+    bool? isSelectionModeActive,
+    Set<String>? selectedCategoryIds,
   }) {
     return CategoriesLoadSuccess(
       categoriesWithTotals: categoriesWithTotals ?? this.categoriesWithTotals,
@@ -61,6 +67,9 @@ class CategoriesLoadSuccess extends CategoriesState {
       activeDateRange: activeDateRange ?? this.activeDateRange,
       mainCurrencyCode: mainCurrencyCode ?? this.mainCurrencyCode,
       currencyDesignations: currencyDesignations ?? this.currencyDesignations,
+      isSelectionModeActive:
+          isSelectionModeActive ?? this.isSelectionModeActive,
+      selectedCategoryIds: selectedCategoryIds ?? this.selectedCategoryIds,
     );
   }
 
@@ -76,6 +85,8 @@ class CategoriesLoadSuccess extends CategoriesState {
         activeDateRange,
         mainCurrencyCode,
         currencyDesignations,
+        isSelectionModeActive,
+        selectedCategoryIds,
       ];
 }
 

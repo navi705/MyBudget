@@ -52,8 +52,152 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     return currentScroll >= (maxScroll * 0.9);
   }
 
+  void _showDeleteConfirmationDialog(
+    BuildContext context,
+    CategoriesBloc bloc,
+    List<String> categoryIds,
+  ) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Delete ${categoryIds.length} categories?'),
+        content: const Text(
+          'Are you sure you want to delete the selected categories?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              bloc.add(DeleteMultipleCategories(categoryIds));
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showChangeCategoryTypeDialog(
+    BuildContext context,
+    CategoriesBloc bloc,
+    List<String> categoryIds,
+  ) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        CategoryType? selectedType = CategoryType.expense;
+        return AlertDialog(
+          title: const Text('Change Category Type'),
+          content: DropdownButton<CategoryType>(
+            value: selectedType,
+            onChanged: (newValue) {
+              selectedType = newValue;
+            },
+            items: CategoryType.values
+                .map(
+                  (type) => DropdownMenuItem(
+                      value: type, child: Text(type.toString().split('.').last)),
+                )
+                .toList(),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            TextButton(
+              child: const Text('Change'),
+              onPressed: () {
+                if (selectedType != null) {
+                  bloc.add(
+                    UpdateCategoryTypeForMultipleCategories(
+                      categoryIds,
+                      selectedType!,
+                    ),
+                  );
+                }
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showContextMenu(
+    BuildContext context,
+    Offset position,
+    Category category,
+    CategoriesLoadSuccess state,
+  ) {
+    final bloc = context.read<CategoriesBloc>();
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final isSelected = state.selectedCategoryIds.contains(category.id);
+
+    showMenu(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+        Offset.zero & overlay.size,
+      ),
+      items: <PopupMenuEntry<dynamic>>[
+        PopupMenuItem(
+          value: 'select',
+          child: Text(isSelected ? 'Deselect' : 'Select'),
+        ),
+        const PopupMenuItem(value: 'select_all', child: Text('Select All')),
+        if (state.selectedCategoryIds.isNotEmpty)
+          const PopupMenuItem(
+            value: 'deselect_all',
+            child: Text('Deselect All'),
+          ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'edit', child: Text('Edit')),
+        const PopupMenuItem(value: 'delete', child: Text('Delete')),
+        const PopupMenuItem(value: 'change_type', child: Text('Change Type')),
+      ],
+    ).then((value) {
+      if (!mounted) return;
+      final selectedIds = state.selectedCategoryIds.toList();
+      if (value == 'select') {
+        if (!state.isSelectionModeActive) {
+          bloc.add(const ToggleSelectionMode(true));
+        }
+        bloc.add(ToggleCategorySelection(category.id!));
+      } else if (value == 'select_all') {
+        if (!state.isSelectionModeActive) {
+          bloc.add(const ToggleSelectionMode(true));
+        }
+        bloc.add(SelectAllCategories());
+      } else if (value == 'deselect_all') {
+        bloc.add(ClearSelection());
+      } else if (value == 'edit') {
+        _showAddEditCategoryDialog(context, category: category);
+      } else if (value == 'delete') {
+        _showDeleteConfirmationDialog(
+          context,
+          bloc,
+          isSelected ? selectedIds : [category.id!],
+        );
+      } else if (value == 'change_type') {
+        _showChangeCategoryTypeDialog(
+          context,
+          bloc,
+          isSelected ? selectedIds : [category.id!],
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bloc = context.read<CategoriesBloc>();
     return BlocListener<CategoriesBloc, CategoriesState>(
       listener: (context, state) {
         if (state is CategoryDeletionConfirmationNeeded) {
@@ -75,6 +219,21 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           child: BlocBuilder<CategoriesBloc, CategoriesState>(
             builder: (context, state) {
               if (state is CategoriesLoadSuccess) {
+                if (state.isSelectionModeActive) {
+                  return _SelectionAppBar(
+                    state: state,
+                    onDelete: () => _showDeleteConfirmationDialog(
+                      context,
+                      bloc,
+                      state.selectedCategoryIds.toList(),
+                    ),
+                    onChangeType: () => _showChangeCategoryTypeDialog(
+                      context,
+                      bloc,
+                      state.selectedCategoryIds.toList(),
+                    ),
+                  );
+                }
                 return _CategoriesDateAppBar(state: state);
               }
               return AppBar(title: const Text('Categories'));
@@ -112,11 +271,35 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   final categoryWithTotal = topLevelCategories[index];
+                  final category = categoryWithTotal.category;
+                  final isSelected =
+                      state.selectedCategoryIds.contains(category.id);
+
                   return CategoryListItem(
                     categoryWithTotal: categoryWithTotal,
                     allCategoriesWithTotals: filteredCategories,
-                    onTap: () => _showAddEditCategoryDialog(context,
-                        category: categoryWithTotal.category),
+                    isSelected: isSelected,
+                    onTap: () {
+                      if (state.isSelectionModeActive) {
+                        bloc.add(ToggleCategorySelection(category.id!));
+                      } else {
+                        _showAddEditCategoryDialog(context, category: category);
+                      }
+                    },
+                    onLongPress: () {
+                      if (!state.isSelectionModeActive) {
+                        bloc.add(const ToggleSelectionMode(true));
+                      }
+                      bloc.add(ToggleCategorySelection(category.id!));
+                    },
+                    onSecondaryTapUp: (details) {
+                      _showContextMenu(
+                        context,
+                        details.globalPosition,
+                        category,
+                        state,
+                      );
+                    },
                     mainCurrencyCode: state.mainCurrencyCode,
                     currencyDesignations: state.currencyDesignations,
                   );
@@ -126,11 +309,18 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             return const Center(child: Text('Failed to load categories.'));
           },
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            _showAddEditCategoryDialog(context);
+        floatingActionButton: BlocBuilder<CategoriesBloc, CategoriesState>(
+          builder: (context, state) {
+            if (state is CategoriesLoadSuccess && state.isSelectionModeActive) {
+              return const SizedBox.shrink();
+            }
+            return FloatingActionButton(
+              onPressed: () {
+                _showAddEditCategoryDialog(context);
+              },
+              child: const Icon(Icons.add),
+            );
           },
-          child: const Icon(Icons.add),
         ),
       ),
     );
@@ -271,6 +461,55 @@ class _CategoriesDateAppBar extends StatelessWidget {
     return GenericFilterAppBar(
       centerWidget: centerWidget,
       totalCountText: 'Total: ${state.categoriesWithTotals.length}',
+    );
+  }
+}
+
+class _SelectionAppBar extends StatelessWidget {
+  final CategoriesLoadSuccess state;
+  final VoidCallback onDelete;
+  final VoidCallback onChangeType;
+
+  const _SelectionAppBar({
+    required this.state,
+    required this.onDelete,
+    required this.onChangeType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bloc = context.read<CategoriesBloc>();
+    final selectedCount = state.selectedCategoryIds.length;
+    final allCount = state.categoriesWithTotals.length;
+    final isAllSelected = selectedCount == allCount && allCount > 0;
+
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        onPressed: () => bloc.add(const ToggleSelectionMode(false)),
+      ),
+      title: Text('$selectedCount selected'),
+      actions: [
+        IconButton(
+          icon: Icon(
+            isAllSelected ? Icons.deselect_outlined : Icons.select_all_outlined,
+          ),
+          onPressed: () {
+            if (isAllSelected) {
+              bloc.add(ClearSelection());
+            } else {
+              bloc.add(SelectAllCategories());
+            }
+          },
+        ),
+        if (selectedCount > 0) ...[
+          IconButton(icon: const Icon(Icons.delete), onPressed: onDelete),
+          IconButton(
+            icon: const Icon(Icons.drive_file_rename_outline),
+            onPressed: onChangeType,
+          ),
+        ],
+      ],
     );
   }
 }

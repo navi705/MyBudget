@@ -483,7 +483,7 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
               description: 'Transfer to ${record.to}',
               amount: -record.amount,
               accountId: fromAccountId,
-              categoryId: transferCategory!.id!,
+              categoryId: transferCategory.id!,
               currencyCode: record.currency,
             ));
             final creditAmount = record.amount2 ?? record.amount;

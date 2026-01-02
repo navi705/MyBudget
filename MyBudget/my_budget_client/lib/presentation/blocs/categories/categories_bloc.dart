@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
-import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
@@ -50,6 +49,114 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     on<FilterModeChanged>(_onFilterModeChanged);
     on<SortChanged>(_onSortChanged);
     on<FiltersChanged>(_onFiltersChanged);
+
+    on<ToggleSelectionMode>(_onToggleSelectionMode);
+    on<ToggleCategorySelection>(_onToggleCategorySelection);
+    on<SelectAllCategories>(_onSelectAllCategories);
+    on<ClearSelection>(_onClearSelection);
+    on<DeleteMultipleCategories>(_onDeleteMultipleCategories);
+    on<UpdateCategoryTypeForMultipleCategories>(
+        _onUpdateCategoryTypeForMultipleCategories);
+  }
+
+  void _onToggleSelectionMode(
+    ToggleSelectionMode event,
+    Emitter<CategoriesState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess) {
+      emit(currentState.copyWith(
+        isSelectionModeActive: event.isSelectionModeActive,
+        selectedCategoryIds:
+            event.isSelectionModeActive ? currentState.selectedCategoryIds : {},
+      ));
+    }
+  }
+
+  void _onToggleCategorySelection(
+    ToggleCategorySelection event,
+    Emitter<CategoriesState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess) {
+      final newSelectedIds =
+          Set<String>.from(currentState.selectedCategoryIds);
+      if (newSelectedIds.contains(event.categoryId)) {
+        newSelectedIds.remove(event.categoryId);
+      } else {
+        newSelectedIds.add(event.categoryId);
+      }
+      emit(currentState.copyWith(selectedCategoryIds: newSelectedIds));
+    }
+  }
+
+  void _onSelectAllCategories(
+    SelectAllCategories event,
+    Emitter<CategoriesState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess) {
+      final allIds =
+          currentState.categoriesWithTotals.map((c) => c.category.id!).toSet();
+      emit(currentState.copyWith(selectedCategoryIds: allIds));
+    }
+  }
+
+  void _onClearSelection(
+    ClearSelection event,
+    Emitter<CategoriesState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess) {
+      emit(currentState.copyWith(selectedCategoryIds: {}));
+    }
+  }
+
+  Future<void> _onDeleteMultipleCategories(
+    DeleteMultipleCategories event,
+    Emitter<CategoriesState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess) {
+      try {
+        for (final id in event.categoryIds) {
+          await _categoryRepository.deleteCategory(id);
+        }
+        emit(currentState.copyWith(
+          selectedCategoryIds: {},
+          isSelectionModeActive: false,
+        ));
+        add(LoadCategories());
+      } catch (e) {
+        // Handle error
+      }
+    }
+  }
+
+  Future<void> _onUpdateCategoryTypeForMultipleCategories(
+    UpdateCategoryTypeForMultipleCategories event,
+    Emitter<CategoriesState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess) {
+      try {
+        final categoriesToUpdate = await _categoryRepository
+            .getCategoriesByIds(event.categoryIds);
+
+        for (final category in categoriesToUpdate) {
+          await _categoryRepository.updateCategory(
+            category.copyWith(type: event.newType),
+          );
+        }
+        emit(currentState.copyWith(
+          selectedCategoryIds: {},
+          isSelectionModeActive: false,
+        ));
+        add(LoadCategories());
+      } catch (e) {
+        // Handle error
+      }
+    }
   }
 
   void _onDatePeriodNavigated(
