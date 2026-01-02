@@ -55,3 +55,21 @@ class ChangeBackgroundImage extends ThemeEvent {
   @override
   List<Object?> get props => [path];
 }
+
+class AddUserPreset extends ThemeEvent {
+  final String path;
+
+  const AddUserPreset(this.path);
+
+  @override
+  List<Object?> get props => [path];
+}
+
+class DeleteUserPreset extends ThemeEvent {
+  final String path;
+
+  const DeleteUserPreset(this.path);
+
+  @override
+  List<Object?> get props => [path];
+}

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -22,6 +23,8 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     on<ChangeWindowOpacity>(_onChangeWindowOpacity);
     on<ChangeThemeMode>(_onChangeThemeMode);
     on<ChangeBackgroundImage>(_onChangeBackgroundImage);
+    on<AddUserPreset>(_onAddUserPreset);
+    on<DeleteUserPreset>(_onDeleteUserPreset);
   }
 
   Future<void> _onLoadThemeSettings(
@@ -44,6 +47,14 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     );
     final windowOpacity = double.tryParse(windowOpacityStr) ?? 0.8;
 
+    final userPresetsJson = settings['user_presets'] ?? '[]';
+    List<String> userPresets = [];
+    try {
+      userPresets = List<String>.from(jsonDecode(userPresetsJson));
+    } catch (e) {
+      debugPrint('Error decoding user presets: $e');
+    }
+
     emit(
       state.copyWith(
         themeColor: themeColor,
@@ -51,6 +62,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
         windowEffect: windowEffect,
         windowOpacity: windowOpacity,
         backgroundImagePath: backgroundImagePath,
+        userPresets: userPresets,
         isLoaded: true,
       ),
     );
@@ -135,6 +147,26 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
         pathToSave,
       );
     }
+  }
+
+  Future<void> _onAddUserPreset(
+    AddUserPreset event,
+    Emitter<ThemeState> emit,
+  ) async {
+    if (state.userPresets.contains(event.path)) return;
+
+    final newList = List<String>.from(state.userPresets)..add(event.path);
+    emit(state.copyWith(userPresets: newList));
+    await _settingsRepository.saveSetting('user_presets', jsonEncode(newList));
+  }
+
+  Future<void> _onDeleteUserPreset(
+    DeleteUserPreset event,
+    Emitter<ThemeState> emit,
+  ) async {
+    final newList = List<String>.from(state.userPresets)..remove(event.path);
+    emit(state.copyWith(userPresets: newList));
+    await _settingsRepository.saveSetting('user_presets', jsonEncode(newList));
   }
 
   ThemeMode _stringToThemeMode(String value) {

@@ -184,7 +184,7 @@ class ThemeSettingsScreen extends StatelessWidget {
             const Text('Presets'),
             const SizedBox(height: 8),
             SizedBox(
-              height: 80,
+              height: 100,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: [
@@ -204,6 +204,17 @@ class ThemeSettingsScreen extends StatelessWidget {
                     context,
                     'assets/backgrounds/bg_telegram_dark.png',
                     state,
+                  ),
+                  ...state.userPresets.map(
+                    (path) => Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: _buildPresetItem(
+                        context,
+                        path,
+                        state,
+                        isUserPreset: true,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -237,6 +248,18 @@ class ThemeSettingsScreen extends StatelessWidget {
                 ),
                 if (state.backgroundImagePath != null) ...[
                   const SizedBox(width: 12),
+                  if (!state.backgroundImagePath!.startsWith('assets/') &&
+                      !state.userPresets.contains(state.backgroundImagePath!))
+                    IconButton.filledTonal(
+                      icon: const Icon(Icons.favorite_border),
+                      onPressed: () {
+                        context.read<ThemeBloc>().add(
+                          AddUserPreset(state.backgroundImagePath!),
+                        );
+                      },
+                      tooltip: 'Save to Presets',
+                    ),
+                  const SizedBox(width: 8),
                   IconButton.filledTonal(
                     icon: const Icon(Icons.delete_outline),
                     onPressed: () {
@@ -245,6 +268,7 @@ class ThemeSettingsScreen extends StatelessWidget {
                       );
                     },
                     color: Colors.red,
+                    tooltip: 'Remove Background',
                   ),
                 ],
               ],
@@ -257,26 +281,53 @@ class ThemeSettingsScreen extends StatelessWidget {
 
   Widget _buildPresetItem(
     BuildContext context,
-    String assetPath,
-    ThemeState state,
-  ) {
-    final isSelected = state.backgroundImagePath == assetPath;
+    String path,
+    ThemeState state, {
+    bool isUserPreset = false,
+  }) {
+    final isSelected = state.backgroundImagePath == path;
+    final isAsset = path.startsWith('assets/');
+
     return GestureDetector(
       onTap: () {
-        context.read<ThemeBloc>().add(ChangeBackgroundImage(assetPath));
+        context.read<ThemeBloc>().add(ChangeBackgroundImage(path));
       },
-      child: Container(
-        width: 120,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: isSelected
-              ? Border.all(color: Theme.of(context).primaryColor, width: 3)
-              : Border.all(color: Colors.grey.withOpacity(0.3)),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(5),
-          child: Image.asset(assetPath, fit: BoxFit.cover),
-        ),
+      child: Stack(
+        children: [
+          Container(
+            width: 120,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: isSelected
+                  ? Border.all(color: Theme.of(context).primaryColor, width: 3)
+                  : Border.all(color: Colors.grey.withOpacity(0.3)),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: isAsset
+                  ? Image.asset(path, fit: BoxFit.cover)
+                  : Image.file(File(path), fit: BoxFit.cover),
+            ),
+          ),
+          if (isUserPreset)
+            Positioned(
+              top: 2,
+              right: 2,
+              child: GestureDetector(
+                onTap: () {
+                  context.read<ThemeBloc>().add(DeleteUserPreset(path));
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, size: 16, color: Colors.white),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

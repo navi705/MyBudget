@@ -1,4 +1,4 @@
-  import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:csv/csv.dart';
@@ -46,8 +46,8 @@ class DataImportService {
       await _db.delete(_db.transactions).go();
       await _db.delete(_db.exchangeRates).go();
       await _db.delete(_db.currencyDesignations).go();
-      await _db.delete(_db.currencies).go();
       await _db.delete(_db.accounts).go();
+      await _db.delete(_db.currencies).go();
       await _db.delete(_db.categories).go();
       await _db.delete(_db.accountTypes).go();
       await _db.delete(_db.styles).go();
@@ -203,7 +203,7 @@ class DataImportService {
 
         final amount = double.tryParse(row[amountIdx].toString()) ?? 0.0;
         final currencyCode = currencyIdx != -1
-            ? row[currencyIdx].toString()
+            ? row[currencyIdx].toString().toUpperCase()
             : 'EUR';
         final description = descIdx != -1 ? row[descIdx].toString() : '';
 

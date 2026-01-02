@@ -6,6 +6,7 @@ class ThemeState extends Equatable {
   final WindowEffectType windowEffect;
   final double windowOpacity;
   final String? backgroundImagePath;
+  final List<String> userPresets;
   final bool isLoaded;
 
   const ThemeState({
@@ -14,6 +15,7 @@ class ThemeState extends Equatable {
     this.windowEffect = WindowEffectType.none,
     this.windowOpacity = 0.8,
     this.backgroundImagePath,
+    this.userPresets = const [],
     this.isLoaded = false,
   });
 
@@ -23,6 +25,7 @@ class ThemeState extends Equatable {
     WindowEffectType? windowEffect,
     double? windowOpacity,
     String? backgroundImagePath,
+    List<String>? userPresets,
     bool clearBackgroundImage = false,
     bool? isLoaded,
   }) {
@@ -34,6 +37,7 @@ class ThemeState extends Equatable {
       backgroundImagePath: clearBackgroundImage
           ? null
           : (backgroundImagePath ?? this.backgroundImagePath),
+      userPresets: userPresets ?? this.userPresets,
       isLoaded: isLoaded ?? this.isLoaded,
     );
   }
@@ -45,6 +49,7 @@ class ThemeState extends Equatable {
     windowEffect,
     windowOpacity,
     backgroundImagePath,
+    userPresets,
     isLoaded,
   ];
 }
