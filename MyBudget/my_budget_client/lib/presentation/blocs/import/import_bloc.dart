@@ -577,6 +577,10 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
                         record.currency)
                     .toUpperCase();
 
+            debugPrint(
+              'DEBUG: currency=${record.currency}, mapped=${state.currencyMappings[record.currency.toLowerCase()]}, final=$currencyCode',
+            );
+
             transactionsToInsert.add(
               Transaction(
                 date: record.date,

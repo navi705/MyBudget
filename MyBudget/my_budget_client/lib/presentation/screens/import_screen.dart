@@ -229,247 +229,360 @@ class _ImportViewState extends State<_ImportView> {
 
   Widget _buildAccountMappingStep(ImportState state) {
     final unmapped = state.unmappedAccounts.toList();
-    return ListView.builder(
-      itemCount: unmapped.length,
-      itemBuilder: (context, index) {
-        final accountName = unmapped[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'New account found: "$accountName"',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton(
-                      onPressed: () async {
-                        final existingAccounts = await sl<AccountRepository>()
-                            .getAccounts();
-                        if (!mounted) return;
-                        final selectedId = await showDialog<String>(
-                          context: context,
-                          builder: (_) => _MappingDialog<Account>(
-                            title: 'Map "$accountName" to...',
-                            items: existingAccounts,
-                            itemBuilder: (account) => Text(account.name),
-                          ),
-                        );
-                        if (selectedId != null && mounted) {
-                          context.read<ImportBloc>().add(
-                            MapAccount(accountName, selectedId),
-                          );
-                        }
-                      },
-                      child: const Text('Map to Existing'),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.read<ImportBloc>().add(
-                          MapAccount(accountName, 'new'),
-                        );
-                      },
-                      child: const Text('Create New'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add_circle_outline),
+                label: const Text('Create All New'),
+                onPressed: () {
+                  for (final name in unmapped) {
+                    context.read<ImportBloc>().add(MapAccount(name, 'new'));
+                  }
+                },
+              ),
+            ],
           ),
-        );
-      },
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: unmapped.length,
+            itemBuilder: (context, index) {
+              final accountName = unmapped[index];
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'New account found: "$accountName"',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton(
+                            onPressed: () async {
+                              final existingAccounts =
+                                  await sl<AccountRepository>().getAccounts();
+                              if (!mounted) return;
+                              final selectedId = await showDialog<String>(
+                                context: context,
+                                builder: (_) => _MappingDialog<Account>(
+                                  title: 'Map "$accountName" to...',
+                                  items: existingAccounts,
+                                  itemBuilder: (account) => Text(account.name),
+                                ),
+                              );
+                              if (selectedId != null && mounted) {
+                                context.read<ImportBloc>().add(
+                                  MapAccount(accountName, selectedId),
+                                );
+                              }
+                            },
+                            child: const Text('Map to Existing'),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              context.read<ImportBloc>().add(
+                                MapAccount(accountName, 'new'),
+                              );
+                            },
+                            child: const Text('Create New'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildCategoryMappingStep(ImportState state) {
     final unmapped = state.unmappedCategories.keys.toList();
-    return ListView.builder(
-      itemCount: unmapped.length,
-      itemBuilder: (context, index) {
-        final categoryName = unmapped[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'New category found: "$categoryName"',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton(
-                      onPressed: () async {
-                        final existingCategories =
-                            await sl<CategoryRepository>().getCategories();
-                        if (!mounted) return;
-                        final selectedId = await showDialog<String>(
-                          context: context,
-                          builder: (_) => _MappingDialog<Category>(
-                            title: 'Map "$categoryName" to...',
-                            items: existingCategories,
-                            itemBuilder: (category) => Text(category.name),
-                          ),
-                        );
-                        if (selectedId != null && mounted) {
-                          context.read<ImportBloc>().add(
-                            MapCategory(categoryName, selectedId),
-                          );
-                        }
-                      },
-                      child: const Text('Map to Existing'),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.read<ImportBloc>().add(
-                          MapCategory(categoryName, 'new'),
-                        );
-                      },
-                      child: const Text('Create New'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add_circle_outline),
+                label: const Text('Create All New'),
+                onPressed: () {
+                  for (final name in unmapped) {
+                    context.read<ImportBloc>().add(MapCategory(name, 'new'));
+                  }
+                },
+              ),
+            ],
           ),
-        );
-      },
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: unmapped.length,
+            itemBuilder: (context, index) {
+              final categoryName = unmapped[index];
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'New category found: "$categoryName"',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton(
+                            onPressed: () async {
+                              final existingCategories =
+                                  await sl<CategoryRepository>()
+                                      .getCategories();
+                              if (!mounted) return;
+                              final selectedId = await showDialog<String>(
+                                context: context,
+                                builder: (_) => _MappingDialog<Category>(
+                                  title: 'Map "$categoryName" to...',
+                                  items: existingCategories,
+                                  itemBuilder: (category) =>
+                                      Text(category.name),
+                                ),
+                              );
+                              if (selectedId != null && mounted) {
+                                context.read<ImportBloc>().add(
+                                  MapCategory(categoryName, selectedId),
+                                );
+                              }
+                            },
+                            child: const Text('Map to Existing'),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              context.read<ImportBloc>().add(
+                                MapCategory(categoryName, 'new'),
+                              );
+                            },
+                            child: const Text('Create New'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildCurrencyMappingStep(ImportState state) {
     final unmapped = state.unmappedCurrencies.toList();
-    return ListView.builder(
-      itemCount: unmapped.length,
-      itemBuilder: (context, index) {
-        final currencyName = unmapped[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'New currency found: "$currencyName"',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton(
-                      onPressed: () async {
-                        final existingCurrencies =
-                            await sl<CurrencyRepository>().getCurrencies();
-                        if (!mounted) return;
-                        final selectedId = await showDialog<String>(
-                          context: context,
-                          builder: (_) => _MappingDialog<Currency>(
-                            title: 'Map "$currencyName" to...',
-                            items: existingCurrencies,
-                            itemBuilder: (currency) => Text(currency.name),
-                          ),
-                        );
-                        if (selectedId != null && mounted) {
-                          context.read<ImportBloc>().add(
-                            MapCurrency(currencyName, selectedId),
-                          );
-                        }
-                      },
-                      child: const Text('Map to Existing'),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.read<ImportBloc>().add(
-                          MapCurrency(currencyName, 'new'),
-                        );
-                      },
-                      child: const Text('Create New'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add_circle_outline),
+                label: const Text('Create All New'),
+                onPressed: () {
+                  for (final name in unmapped) {
+                    context.read<ImportBloc>().add(MapCurrency(name, 'new'));
+                  }
+                },
+              ),
+            ],
           ),
-        );
-      },
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: unmapped.length,
+            itemBuilder: (context, index) {
+              final currencyName = unmapped[index];
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'New currency found: "$currencyName"',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton(
+                            onPressed: () async {
+                              final existingCurrencies =
+                                  await sl<CurrencyRepository>()
+                                      .getCurrencies();
+                              if (!mounted) return;
+                              final selectedId = await showDialog<String>(
+                                context: context,
+                                builder: (_) => _MappingDialog<Currency>(
+                                  title: 'Map "$currencyName" to...',
+                                  items: existingCurrencies,
+                                  itemBuilder: (currency) =>
+                                      Text(currency.name),
+                                ),
+                              );
+                              if (selectedId != null && mounted) {
+                                context.read<ImportBloc>().add(
+                                  MapCurrency(currencyName, selectedId),
+                                );
+                              }
+                            },
+                            child: const Text('Map to Existing'),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              context.read<ImportBloc>().add(
+                                MapCurrency(currencyName, 'new'),
+                              );
+                            },
+                            child: const Text('Create New'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildDuplicateResolutionStep(ImportState state) {
-    return ListView.builder(
-      itemCount: state.potentialDuplicates.length,
-      itemBuilder: (context, index) {
-        final record = state.potentialDuplicates[index];
-        final resolution = state.duplicateResolutions[record];
-
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: resolution != null ? Colors.grey.shade300 : null,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Potential Duplicate:',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text('Date: ${record.date.toLocal().toString().split(' ')[0]}'),
-                Text('From: ${record.from}'),
-                Text('To: ${record.to}'),
-                Text('Amount: ${record.amount} ${record.currency}'),
-                const SizedBox(height: 16),
-                if (resolution == null)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      OutlinedButton(
-                        onPressed: () {
-                          context.read<ImportBloc>().add(
-                            ResolveDuplicate(record, 'skip'),
-                          );
-                        },
-                        child: const Text('Skip'),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: () {
-                          context.read<ImportBloc>().add(
-                            ResolveDuplicate(record, 'import'),
-                          );
-                        },
-                        child: const Text('Import Anyway'),
-                      ),
-                    ],
-                  )
-                else
-                  Center(
-                    child: Text(
-                      'Decision: ${resolution.toUpperCase()}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-              ],
-            ),
+    final duplicates = state.potentialDuplicates;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton.icon(
+                icon: const Icon(Icons.skip_next),
+                label: const Text('Skip All'),
+                onPressed: () {
+                  for (final record in duplicates) {
+                    context.read<ImportBloc>().add(
+                      ResolveDuplicate(record, 'skip'),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.download),
+                label: const Text('Import All'),
+                onPressed: () {
+                  for (final record in duplicates) {
+                    context.read<ImportBloc>().add(
+                      ResolveDuplicate(record, 'import'),
+                    );
+                  }
+                },
+              ),
+            ],
           ),
-        );
-      },
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: duplicates.length,
+            itemBuilder: (context, index) {
+              final record = duplicates[index];
+              final resolution = state.duplicateResolutions[record];
+
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: resolution != null ? Colors.grey.shade300 : null,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Potential Duplicate:',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Date: ${record.date.toLocal().toString().split(' ')[0]}',
+                      ),
+                      Text('From: ${record.from}'),
+                      Text('To: ${record.to}'),
+                      Text('Amount: ${record.amount} ${record.currency}'),
+                      const SizedBox(height: 16),
+                      if (resolution == null)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () {
+                                context.read<ImportBloc>().add(
+                                  ResolveDuplicate(record, 'skip'),
+                                );
+                              },
+                              child: const Text('Skip'),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () {
+                                context.read<ImportBloc>().add(
+                                  ResolveDuplicate(record, 'import'),
+                                );
+                              },
+                              child: const Text('Import Anyway'),
+                            ),
+                          ],
+                        )
+                      else
+                        Center(
+                          child: Text(
+                            'Decision: ${resolution.toUpperCase()}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
