@@ -34,7 +34,9 @@ class SettingsScreen extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.brightness_6),
                 title: const Text('Manage Theme'),
-                onTap: () {},
+                onTap: () {
+                  context.push(AppRoutes.themeSettings);
+                },
               ),
               BlocBuilder<CurrencyBloc, CurrencyState>(
                 builder: (context, currencyState) {

@@ -14,6 +14,7 @@ import 'package:my_budget_client/presentation/blocs/currency_converter/currency_
 import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/theme/theme_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 
 import '../../data/repositories/local_db/local_account_repository.dart';
@@ -30,53 +31,70 @@ final sl = GetIt.instance;
 
 Future<void> init() async {
   // Blocs
-  sl.registerFactory(() => AccountsBloc(
+  sl.registerFactory(
+    () => AccountsBloc(
       accountRepository: sl(),
       settingsRepository: sl(),
-      currencyRepository: sl()));
+      currencyRepository: sl(),
+    ),
+  );
   sl.registerFactory(() => SettingsBloc(settingsRepository: sl()));
   sl.registerFactory(() => CurrencyBloc(currencyRepository: sl()));
   sl.registerFactory(() => StylesBloc(styleRepository: sl()));
-  sl.registerFactory(() => CategoriesBloc(
-        categoryRepository: sl(),
-        settingsRepository: sl(),
-        transactionRepository: sl(),
-        currencyRepository: sl(),
-      ));
-  sl.registerFactory(() => TransactionsBloc(
-        transactionRepository: sl(),
-        styleRepository: sl(),
-        categoryRepository: sl(),
-        settingsRepository: sl(),
-        currencyRepository: sl(),
-      ));
-  sl.registerFactory(() => CurrencyConverterBloc(
-        currencyRepository: sl(),
-        //accountRepository: sl(),
-        settingsRepository: sl(),
-      ));
-  sl.registerFactory(() => DashboardBloc(
-        accountRepository: sl(),
-        transactionRepository: sl(),
-        categoryRepository: sl(),
-      ));
+  sl.registerFactory(
+    () => CategoriesBloc(
+      categoryRepository: sl(),
+      settingsRepository: sl(),
+      transactionRepository: sl(),
+      currencyRepository: sl(),
+    ),
+  );
+  sl.registerFactory(
+    () => TransactionsBloc(
+      transactionRepository: sl(),
+      styleRepository: sl(),
+      categoryRepository: sl(),
+      settingsRepository: sl(),
+      currencyRepository: sl(),
+    ),
+  );
+  sl.registerFactory(
+    () => CurrencyConverterBloc(
+      currencyRepository: sl(),
+      //accountRepository: sl(),
+      settingsRepository: sl(),
+    ),
+  );
+  sl.registerFactory(
+    () => DashboardBloc(
+      accountRepository: sl(),
+      transactionRepository: sl(),
+      categoryRepository: sl(),
+    ),
+  );
+  sl.registerFactory(() => ThemeBloc(settingsRepository: sl()));
 
   // Repositories
-  sl.registerLazySingleton<AccountRepository>(() => LocalAccountRepository(sl()));
+  sl.registerLazySingleton<AccountRepository>(
+    () => LocalAccountRepository(sl()),
+  );
   sl.registerLazySingleton<CategoryRepository>(
-      () => LocalCategoryRepository(sl()));
+    () => LocalCategoryRepository(sl()),
+  );
   sl.registerLazySingleton<CurrencyRepository>(
-      () => LocalCurrencyRepository(sl()));
+    () => LocalCurrencyRepository(sl()),
+  );
   sl.registerLazySingleton<CurrencyDesignationRepository>(
-      () => LocalCurrencyDesignationRepository(sl()));
+    () => LocalCurrencyDesignationRepository(sl()),
+  );
   sl.registerLazySingleton<SettingsRepository>(
-      () => LocalSettingsRepository(sl()));
-  sl.registerLazySingleton<StyleRepository>(
-      () => LocalStyleRepository(sl()));
+    () => LocalSettingsRepository(sl()),
+  );
+  sl.registerLazySingleton<StyleRepository>(() => LocalStyleRepository(sl()));
   sl.registerLazySingleton<TransactionRepository>(
-      () => LocalTransactionRepository(sl()));
-  sl.registerLazySingleton<DbRepository>(
-      () => LocalDbRepository(sl()));    
+    () => LocalTransactionRepository(sl()),
+  );
+  sl.registerLazySingleton<DbRepository>(() => LocalDbRepository(sl()));
 
   // Core
   sl.registerLazySingleton(() => AppDatabase());

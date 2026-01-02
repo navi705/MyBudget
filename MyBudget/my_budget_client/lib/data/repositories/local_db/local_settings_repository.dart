@@ -14,9 +14,11 @@ class LocalSettingsRepository implements SettingsRepository {
 
   @override
   Stream<ThemeMode> get themeMode {
-    return watchSetting(themeModeKey).map((setting) {
-      return _stringToThemeMode(setting?.value ?? 'system');
-    }).startWith(ThemeMode.system);
+    return watchSetting(themeModeKey)
+        .map((setting) {
+          return _stringToThemeMode(setting?.value ?? 'system');
+        })
+        .startWith(ThemeMode.system);
   }
 
   @override
@@ -24,19 +26,23 @@ class LocalSettingsRepository implements SettingsRepository {
     final setting = Settings(
       key: themeModeKey,
       value: _themeModeToString(themeMode),
-      device: device
+      device: device,
     );
     return setSetting(setting);
   }
 
   @override
   Stream<List<Settings>> watchAllSettings() {
-    return _database.settingsDao.watchAllSettings().map((event) => event.toDomainList());
+    return _database.settingsDao.watchAllSettings().map(
+      (event) => event.toDomainList(),
+    );
   }
 
   @override
   Stream<Settings?> watchSetting(String key) {
-    return _database.settingsDao.watchSetting(key).map((event) => event?.toDomain());
+    return _database.settingsDao
+        .watchSetting(key)
+        .map((event) => event?.toDomain());
   }
 
   @override
@@ -48,6 +54,23 @@ class LocalSettingsRepository implements SettingsRepository {
   @override
   Future<void> setSetting(Settings setting) {
     return _database.settingsDao.setSetting(setting.toCompanion());
+  }
+
+  @override
+  Future<Map<String, String>> getAllSettings() async {
+    final settings = await _database.settingsDao.getAllSettings();
+    return {for (var s in settings) s.key: s.value};
+  }
+
+  @override
+  Future<void> saveSetting(String key, String value) async {
+    final device = await _database.settingsDao.getDeviceName();
+    final companion = db.SettingsCompanion.insert(
+      key: key,
+      value: value,
+      device: device,
+    );
+    return _database.settingsDao.setSetting(companion);
   }
 
   ThemeMode _stringToThemeMode(String value) {

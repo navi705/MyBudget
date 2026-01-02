@@ -14,8 +14,10 @@ import 'package:my_budget_client/presentation/screens/import_screen.dart';
 import 'package:my_budget_client/presentation/screens/main_screen.dart';
 import 'package:my_budget_client/presentation/screens/manage_styles_screen.dart';
 import 'package:my_budget_client/presentation/screens/settings_screen.dart';
+import 'package:my_budget_client/presentation/screens/theme_settings_screen.dart';
 import 'package:my_budget_client/presentation/screens/transactions_screen.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
+
 // Private navigator keys
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -78,9 +80,7 @@ final GoRouter router = GoRouter(
           // maybe by navigating back or showing an error.
           // For now, let's just return an empty container or an error screen.
           return const Scaffold(
-            body: Center(
-              child: Text('Account not found!'),
-            ),
+            body: Center(child: Text('Account not found!')),
           );
         }
         return EditAccountScreen(account: account);
@@ -108,15 +108,19 @@ final GoRouter router = GoRouter(
           transaction = extra['transaction'] as Transaction?;
         }
 
-        return AddEditTransactionScreen(
-          transaction: transaction,
-        );
+        return AddEditTransactionScreen(transaction: transaction);
       },
     ),
     GoRoute(
       path: AppRoutes.importScreen,
       builder: (context, state) {
         return const ImportScreen();
+      },
+    ),
+    GoRoute(
+      path: AppRoutes.themeSettings,
+      builder: (context, state) {
+        return const ThemeSettingsScreen();
       },
     ),
   ],

@@ -1,4 +1,7 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:flutter_acrylic/flutter_acrylic.dart';
+import 'package:my_budget_client/core/theme/app_theme.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/di/injection_container.dart' as di;
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
@@ -8,6 +11,7 @@ import 'package:my_budget_client/presentation/blocs/currency_converter/currency_
 import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/theme/theme_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 
 class AppProviders extends StatelessWidget {
@@ -19,28 +23,71 @@ class AppProviders extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-            create: (context) => di.sl<SettingsBloc>()..add(LoadSettings())),
+          create: (context) => di.sl<SettingsBloc>()..add(LoadSettings()),
+        ),
         BlocProvider(
-            create: (context) => di.sl<AccountsBloc>()..add(LoadAccounts())),
+          create: (context) => di.sl<AccountsBloc>()..add(LoadAccounts()),
+        ),
         BlocProvider(
-            create: (context) => di.sl<CurrencyBloc>()..add(LoadCurrencies())),
+          create: (context) => di.sl<CurrencyBloc>()..add(LoadCurrencies()),
+        ),
         BlocProvider(
-            create: (context) => di.sl<StylesBloc>()..add(LoadStyles())),
+          create: (context) => di.sl<StylesBloc>()..add(LoadStyles()),
+        ),
         BlocProvider(
-            create: (context) =>
-                di.sl<CategoriesBloc>()..add(LoadCategories())),
-        BlocProvider(create: (context) => di.sl<TransactionsBloc>()..add(const InitialLoadTransactions())),
+          create: (context) => di.sl<CategoriesBloc>()..add(LoadCategories()),
+        ),
         BlocProvider(
-            create: (context) =>
-                di.sl<CurrencyConverterBloc>()..add(LoadCurrencyConverter())),
+          create: (context) =>
+              di.sl<TransactionsBloc>()..add(const InitialLoadTransactions()),
+        ),
         BlocProvider(
-            create: (context) => di.sl<DashboardBloc>()),
+          create: (context) =>
+              di.sl<CurrencyConverterBloc>()..add(LoadCurrencyConverter()),
+        ),
+        BlocProvider(create: (context) => di.sl<DashboardBloc>()),
+        BlocProvider(
+          create: (context) =>
+              di.sl<ThemeBloc>()..add(const LoadThemeSettings()),
+        ),
       ],
-      child: BlocBuilder<SettingsBloc, SettingsState>(
-        builder: (context, state) {
-          return child;
+      child: BlocListener<ThemeBloc, ThemeState>(
+        listener: (context, state) {
+          if (state.isLoaded) {
+            _applyWindowEffect(state.windowEffect, state.windowOpacity);
+          }
         },
+        child: BlocBuilder<SettingsBloc, SettingsState>(
+          builder: (context, state) {
+            return child;
+          },
+        ),
       ),
+    );
+  }
+
+  void _applyWindowEffect(WindowEffectType effect, double opacity) {
+    if (!Platform.isWindows) return;
+
+    WindowEffect windowEffect;
+    switch (effect) {
+      case WindowEffectType.none:
+        windowEffect = WindowEffect.disabled;
+        break;
+      case WindowEffectType.acrylic:
+        windowEffect = WindowEffect.acrylic;
+        break;
+      case WindowEffectType.mica:
+        windowEffect = WindowEffect.mica;
+        break;
+      case WindowEffectType.transparent:
+        windowEffect = WindowEffect.transparent;
+        break;
+    }
+
+    Window.setEffect(
+      effect: windowEffect,
+      color: Colors.black.withOpacity(opacity),
     );
   }
 }

@@ -9,4 +9,6 @@ abstract class SettingsRepository {
   Stream<Settings?> watchSetting(String key);
   Future<Settings?> getSetting(String key);
   Future<void> setSetting(Settings setting);
+  Future<Map<String, String>> getAllSettings();
+  Future<void> saveSetting(String key, String value);
 }

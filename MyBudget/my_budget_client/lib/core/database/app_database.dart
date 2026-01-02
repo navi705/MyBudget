@@ -880,6 +880,13 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
           ..limit(limit))
         .get();
   }
+
+  Future<String> getDeviceName() async {
+    final firstSetting = await (select(
+      db.settings,
+    )..limit(1)).getSingleOrNull();
+    return firstSetting?.device ?? 'default';
+  }
 }
 
 @DriftAccessor(tables: [ExchangeRates])

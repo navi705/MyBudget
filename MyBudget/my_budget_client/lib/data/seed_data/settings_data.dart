@@ -5,7 +5,11 @@ import '../../domain/repositories/transaction_repository.dart';
 
 List<SettingsCompanion> getDefaultSettings(String deviceName) {
   return [
-    SettingsCompanion.insert(key: 'themeMode', value: 'system', device: deviceName),
+    SettingsCompanion.insert(
+      key: 'themeMode',
+      value: 'system',
+      device: deviceName,
+    ),
     SettingsCompanion.insert(
       key: 'conversion_base_currency_id',
       value: '1', // USD
@@ -115,6 +119,22 @@ List<SettingsCompanion> getDefaultSettings(String deviceName) {
     SettingsCompanion.insert(
       key: 'account_selected_currencies',
       value: '',
+      device: deviceName,
+    ),
+    // Theme & Window Effects
+    SettingsCompanion.insert(
+      key: 'theme_color',
+      value: '#2196F3', // Default blue
+      device: deviceName,
+    ),
+    SettingsCompanion.insert(
+      key: 'window_effect',
+      value: 'none', // none, acrylic, mica, transparent
+      device: deviceName,
+    ),
+    SettingsCompanion.insert(
+      key: 'window_opacity',
+      value: '0.8',
       device: deviceName,
     ),
   ];
