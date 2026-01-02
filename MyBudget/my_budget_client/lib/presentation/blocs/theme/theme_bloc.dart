@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/theme/app_theme.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 part 'theme_event.dart';
 part 'theme_state.dart';
@@ -95,13 +98,41 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     ChangeBackgroundImage event,
     Emitter<ThemeState> emit,
   ) async {
-    emit(state.copyWith(backgroundImagePath: event.path));
-    if (event.path == null) {
+    String? pathToSave = event.path;
+
+    if (event.path != null && !event.path!.startsWith('assets/')) {
+      try {
+        final appSupportDir = await getApplicationSupportDirectory();
+        final fileName = p.basename(event.path!);
+        final localPath = p.join(appSupportDir.path, 'backgrounds', fileName);
+
+        // Ensure directory exists
+        final bgDir = Directory(p.dirname(localPath));
+        if (!await bgDir.exists()) {
+          await bgDir.create(recursive: true);
+        }
+
+        await File(event.path!).copy(localPath);
+        pathToSave = localPath;
+      } catch (e) {
+        debugPrint('Error saving background image: $e');
+        // Fallback to original path if copy fails
+      }
+    }
+
+    emit(
+      state.copyWith(
+        backgroundImagePath: pathToSave,
+        clearBackgroundImage: pathToSave == null,
+      ),
+    );
+
+    if (pathToSave == null) {
       await _settingsRepository.saveSetting('background_image_path', '');
     } else {
       await _settingsRepository.saveSetting(
         'background_image_path',
-        event.path!,
+        pathToSave,
       );
     }
   }

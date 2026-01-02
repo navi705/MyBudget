@@ -161,19 +161,56 @@ class ThemeSettingsScreen extends StatelessWidget {
               'Background Image',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 16),
-            if (state.backgroundImagePath != null) ...[
+            if (state.backgroundImagePath != null &&
+                state.backgroundImagePath!.isNotEmpty) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.file(
-                  File(state.backgroundImagePath!),
-                  height: 150,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
+                child: state.backgroundImagePath!.startsWith('assets/')
+                    ? Image.asset(
+                        state.backgroundImagePath!,
+                        height: 150,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      )
+                    : Image.file(
+                        File(state.backgroundImagePath!),
+                        height: 150,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
               ),
               const SizedBox(height: 16),
             ],
+            const Text('Presets'),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 80,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _buildPresetItem(
+                    context,
+                    'assets/backgrounds/bg_abstract_glass.png',
+                    state,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildPresetItem(
+                    context,
+                    'assets/backgrounds/bg_telegram_light.png',
+                    state,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildPresetItem(
+                    context,
+                    'assets/backgrounds/bg_telegram_dark.png',
+                    state,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('Custom'),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
@@ -213,6 +250,32 @@ class ThemeSettingsScreen extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPresetItem(
+    BuildContext context,
+    String assetPath,
+    ThemeState state,
+  ) {
+    final isSelected = state.backgroundImagePath == assetPath;
+    return GestureDetector(
+      onTap: () {
+        context.read<ThemeBloc>().add(ChangeBackgroundImage(assetPath));
+      },
+      child: Container(
+        width: 120,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: isSelected
+              ? Border.all(color: Theme.of(context).primaryColor, width: 3)
+              : Border.all(color: Colors.grey.withOpacity(0.3)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(5),
+          child: Image.asset(assetPath, fit: BoxFit.cover),
         ),
       ),
     );

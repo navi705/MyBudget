@@ -41,11 +41,21 @@ class App extends StatelessWidget {
                 ),
               );
 
+          ImageProvider? backgroundImage;
+          if (state.backgroundImagePath != null &&
+              state.backgroundImagePath!.isNotEmpty) {
+            if (state.backgroundImagePath!.startsWith('assets/')) {
+              backgroundImage = AssetImage(state.backgroundImagePath!);
+            } else {
+              backgroundImage = FileImage(File(state.backgroundImagePath!));
+            }
+          }
+
           return Container(
-            decoration: state.backgroundImagePath != null
+            decoration: backgroundImage != null
                 ? BoxDecoration(
                     image: DecorationImage(
-                      image: FileImage(File(state.backgroundImagePath!)),
+                      image: backgroundImage,
                       fit: BoxFit.cover,
                     ),
                   )

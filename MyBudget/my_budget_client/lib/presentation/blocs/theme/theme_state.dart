@@ -23,6 +23,7 @@ class ThemeState extends Equatable {
     WindowEffectType? windowEffect,
     double? windowOpacity,
     String? backgroundImagePath,
+    bool clearBackgroundImage = false,
     bool? isLoaded,
   }) {
     return ThemeState(
@@ -30,7 +31,9 @@ class ThemeState extends Equatable {
       themeMode: themeMode ?? this.themeMode,
       windowEffect: windowEffect ?? this.windowEffect,
       windowOpacity: windowOpacity ?? this.windowOpacity,
-      backgroundImagePath: backgroundImagePath ?? this.backgroundImagePath,
+      backgroundImagePath: clearBackgroundImage
+          ? null
+          : (backgroundImagePath ?? this.backgroundImagePath),
       isLoaded: isLoaded ?? this.isLoaded,
     );
   }
