@@ -1024,8 +1024,8 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> _seedData(AppDatabase db) async {
     await _seedLanguages(db);
-    await _seedCurrencyDesignations(db);
     await _seedCurrencies(db);
+    await _seedCurrencyDesignations(db);
     await _seedSettings(db);
     await _seedStyles(db);
     await _seedAccountTypes(db);
@@ -1071,21 +1071,28 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> clearAllData() async {
-    // Delete all data from tables in reverse dependency order to avoid FK violations
+    // Disable FK checks during clear and reseed
+    await customStatement('PRAGMA foreign_keys = OFF');
+
+    // Delete all data from tables in reverse dependency order
     await batch((batch) {
       batch.deleteAll(transactions);
       batch.deleteAll(accounts);
       batch.deleteAll(categories);
       batch.deleteAll(exchangeRates);
-      batch.deleteAll(currencyDesignations); // Referencing Currencies
-      batch.deleteAll(accountTypes); // Referencing Languages
+      batch.deleteAll(currencyDesignations);
+      batch.deleteAll(accountTypes);
       batch.deleteAll(styles);
-      batch.deleteAll(currencies); // Referencing Languages
-      batch.deleteAll(languages); // Referenced by Currencies and AccountTypes
+      batch.deleteAll(currencies);
+      batch.deleteAll(languages);
       batch.deleteAll(settings);
     });
+
     // Re-seed the data after clearing
     await _seedData(this);
+
+    // Re-enable FK checks
+    await customStatement('PRAGMA foreign_keys = ON');
   }
 }
 
