@@ -198,6 +198,8 @@ class _TransactionListState extends State<TransactionList> {
                     );
                   }
                 },
+                mainCurrencyCode: state.mainCurrencyCode,
+                currencyDesignations: state.currencyDesignations,
               );
             },
             jumpToItemId: state.jumpToItemId,
@@ -257,6 +259,8 @@ class TransactionListItem extends StatefulWidget {
     required this.onTap,
     required this.onLongPress,
     required this.onSecondaryTapUp,
+    required this.mainCurrencyCode,
+    required this.currencyDesignations,
     super.key,
   });
 
@@ -265,6 +269,8 @@ class TransactionListItem extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final Function(TapUpDetails) onSecondaryTapUp;
+  final String mainCurrencyCode;
+  final List<CurrencyDesignation> currencyDesignations;
 
   @override
   State<TransactionListItem> createState() => _TransactionListItemState();
@@ -295,6 +301,14 @@ class _TransactionListItemState extends State<TransactionListItem> {
     } else {
       balanceColor = Colors.grey[600]!; // Default or specific for zero
     }
+
+    final designation = widget.currencyDesignations.firstWhereOrNull(
+      (d) =>
+          d.currencyCode ==
+          widget.transactionCategory.transaction.currencyCode,
+    );
+    final currencySymbol = designation?.value ??
+        widget.transactionCategory.transaction.currencyCode;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
@@ -333,23 +347,12 @@ class _TransactionListItemState extends State<TransactionListItem> {
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 )),
-            subtitle: BlocBuilder<TransactionsBloc, TransactionsState>(
-              builder: (context, state) {
-                final designation = state.currencyDesignations.firstWhereOrNull(
-                  (d) =>
-                      d.currencyCode ==
-                      widget.transactionCategory.transaction.currencyCode,
-                );
-                final currencySymbol = designation?.value ??
-                    widget.transactionCategory.transaction.currencyCode;
-                return Text(
-                  '${widget.transactionCategory.transaction.amount.toStringAsFixed(2)} $currencySymbol',
-                  style: TextStyle(
-                    color: balanceColor,
-                    fontSize: 14,
-                  ),
-                );
-              },
+            subtitle: Text(
+              '${widget.transactionCategory.transaction.amount.toStringAsFixed(2)} $currencySymbol',
+              style: TextStyle(
+                color: balanceColor,
+                fontSize: 14,
+              ),
             ),
           ),
         ),
