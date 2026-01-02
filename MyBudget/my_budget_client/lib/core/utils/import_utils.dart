@@ -442,7 +442,8 @@ static Future<void> getCurrenciesInitialDebug() async {
             fullHistory[key] = rates;
           }
         });
-      } catch (e) {}
+      // ignore: empty_catches
+      } catch (e){}
     }
 
     if (!await file.parent.exists()) {
@@ -463,6 +464,7 @@ static Future<void> getCurrenciesInitialDebug() async {
             '  ',
           ).convert(fullHistory);
           await file.writeAsString(jsonContent);
+        // ignore: empty_catches
         } catch (e) {}
         await Future.delayed(const Duration(milliseconds: 100));
       }

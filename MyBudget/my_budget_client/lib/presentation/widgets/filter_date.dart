@@ -16,8 +16,9 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   String _formatDate(TransactionsState state) {
     if (state.filterMode == FilterMode.range) {
       if (state.activeDateRange == null) return 'Select Range';
-      final start =
-          DateFormat('dd.MM.yyyy').format(state.activeDateRange!.start);
+      final start = DateFormat(
+        'dd.MM.yyyy',
+      ).format(state.activeDateRange!.start);
       final end = DateFormat('dd.MM.yyyy').format(state.activeDateRange!.end);
       return '$start - $end';
     }
@@ -32,120 +33,79 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
     }
   }
 
-  void _showDateStepPicker(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return SimpleDialog(
-          title: const Text('Выберите шаг'),
-          children: <Widget>[
-            SimpleDialogOption(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                context
-                    .read<TransactionsBloc>()
-                    .add(const DateStepChanged(DateStep.day));
-              },
-              child: const Row(
-                children: [
-                  Icon(Icons.calendar_view_day),
-                  SizedBox(width: 10),
-                  Text('День'),
-                ],
-              ),
-            ),
-            SimpleDialogOption(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                context
-                    .read<TransactionsBloc>()
-                    .add(const DateStepChanged(DateStep.month));
-              },
-              child: const Row(
-                children: [
-                  Icon(Icons.calendar_view_month),
-                  SizedBox(width: 10),
-                  Text('Месяц'),
-                ],
-              ),
-            ),
-            SimpleDialogOption(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                context
-                    .read<TransactionsBloc>()
-                    .add(const DateStepChanged(DateStep.year));
-              },
-              child: const Row(
-                children: [
-                  Icon(Icons.calendar_view_week),
-                  SizedBox(width: 10),
-                  Text('Год'),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // void _showDateStepPicker(BuildContext context) {
+  //   showDialog(
+  //     context: context,
+  //     builder: (BuildContext dialogContext) {
+  //       return SimpleDialog(
+  //         title: const Text('Выберите шаг'),
+  //         children: <Widget>[
+  //           SimpleDialogOption(
+  //             onPressed: () {
+  //               Navigator.pop(dialogContext);
+  //               context.read<TransactionsBloc>().add(
+  //                 const DateStepChanged(DateStep.day),
+  //               );
+  //             },
+  //             child: const Row(
+  //               children: [
+  //                 Icon(Icons.calendar_view_day),
+  //                 SizedBox(width: 10),
+  //                 Text('День'),
+  //               ],
+  //             ),
+  //           ),
+  //           SimpleDialogOption(
+  //             onPressed: () {
+  //               Navigator.pop(dialogContext);
+  //               context.read<TransactionsBloc>().add(
+  //                 const DateStepChanged(DateStep.month),
+  //               );
+  //             },
+  //             child: const Row(
+  //               children: [
+  //                 Icon(Icons.calendar_view_month),
+  //                 SizedBox(width: 10),
+  //                 Text('Месяц'),
+  //               ],
+  //             ),
+  //           ),
+  //           SimpleDialogOption(
+  //             onPressed: () {
+  //               Navigator.pop(dialogContext);
+  //               context.read<TransactionsBloc>().add(
+  //                 const DateStepChanged(DateStep.year),
+  //               );
+  //             },
+  //             child: const Row(
+  //               children: [
+  //                 Icon(Icons.calendar_view_week),
+  //                 SizedBox(width: 10),
+  //                 Text('Год'),
+  //               ],
+  //             ),
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+  // }
 
-  Future<void> _selectDateRange(
-      BuildContext context, DateTimeRange? initialRange) async {
-    final DateTimeRange? picked = await showDateRangePicker(
-      context: context,
-      initialDateRange: initialRange,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-      locale: const Locale('ru', 'RU'),
-    );
-    if (picked != null && context.mounted) {
-      context.read<TransactionsBloc>().add(ActiveDateRangeChanged(picked));
-    }
-  }
-
-  void _showDateOptionsDialog(
-      BuildContext context, TransactionsState currentState) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Выберите опцию даты'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  _showDateStepPicker(context);
-                },
-                child: const Row(
-                  children: [
-                    Icon(Icons.filter_list),
-                    SizedBox(width: 10),
-                    Text('Выбрать шаг даты'),
-                  ],
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  _selectDateRange(context, currentState.activeDateRange);
-                },
-                child: const Row(
-                  children: [
-                    Icon(Icons.date_range),
-                    SizedBox(width: 10),
-                    Text('Выбрать диапазон'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  // Future<void> _selectDateRange(
+  //   BuildContext context,
+  //   DateTimeRange? initialRange,
+  // ) async {
+  //   final DateTimeRange? picked = await showDateRangePicker(
+  //     context: context,
+  //     initialDateRange: initialRange,
+  //     firstDate: DateTime(2000),
+  //     lastDate: DateTime(2101),
+  //     locale: const Locale('ru', 'RU'),
+  //   );
+  //   if (picked != null && context.mounted) {
+  //     context.read<TransactionsBloc>().add(ActiveDateRangeChanged(picked));
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -204,6 +164,7 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
       },
     );
   }
+
   void _showCustomCalendar(BuildContext context, TransactionsState state) {
     showModalBottomSheet(
       context: context,
@@ -218,15 +179,15 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
           initialStep: state.dateStep,
           initialFilterMode: state.filterMode,
           // Hide range option if current Step is NOT Day (optional logic)
-          rangeOptionVisibility: PickerVisibility.visible, 
+          rangeOptionVisibility: PickerVisibility.visible,
           onApply: (date, range, step, mode) {
             final bloc = context.read<TransactionsBloc>();
-            
+
             // 1. Update Step if changed
             if (step != state.dateStep) {
               bloc.add(DateStepChanged(step));
             }
-            
+
             // 2. Update Mode if changed
             if (mode != state.filterMode) {
               bloc.add(FilterModeChanged(mode));

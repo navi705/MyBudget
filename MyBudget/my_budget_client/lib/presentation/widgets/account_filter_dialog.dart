@@ -189,9 +189,9 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final mainCurrencyCode =
-        context.watch<SettingsBloc>().state.settings['main_currency_code'] ??
-            'EUR';
+    // final mainCurrencyCode =
+    //     context.watch<SettingsBloc>().state.settings['main_currency_code'] ??
+    //         'EUR';
     return AlertDialog(
       title: const Text('Account Filters'),
       content: SingleChildScrollView(

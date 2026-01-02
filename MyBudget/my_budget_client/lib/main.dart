@@ -10,10 +10,10 @@ void main() async {
   await dotenv.load(fileName: ".env");
   await sl.init();
   if(kDebugMode){
-    //IntilizationData.InitilizateDebug();
+    //intilizationData.InitilizateDebug();
   }
   else{
-    IntilizationData.Initilizate();
+    IntilizationData.initilizate();
   }
   
   runApp(const App());

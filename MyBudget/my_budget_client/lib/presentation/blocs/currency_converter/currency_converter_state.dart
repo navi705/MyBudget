@@ -11,6 +11,7 @@ class CurrencyConverterInitial extends CurrencyConverterState {}
 
 class CurrencyConverterLoadInProgress extends CurrencyConverterState {}
 
+// ignore: must_be_immutable
 class CurrencyConverterLoadSuccess extends CurrencyConverterState {
   final List<Currency> allCurrencies;
   final List<ExchangeRateDomain> exchangeRates;

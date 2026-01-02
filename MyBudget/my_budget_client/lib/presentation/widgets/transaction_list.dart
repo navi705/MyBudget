@@ -315,7 +315,7 @@ class _TransactionListItemState extends State<TransactionListItem> {
           color: widget.isSelected
               ? Theme.of(context).highlightColor
               : _isHovering
-                  ? Colors.grey.withOpacity(0.1)
+                  ? Colors.grey.withValues(alpha: 0.1)
                   : null,
           child: ListTile(
             contentPadding:

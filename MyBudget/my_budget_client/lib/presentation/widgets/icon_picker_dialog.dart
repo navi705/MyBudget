@@ -272,7 +272,7 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
             width: 2,
           ),
           color: isSelected
-              ? Theme.of(context).primaryColor.withOpacity(0.1)
+              ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
               : Colors.transparent,
         ),
         padding: const EdgeInsets.all(4),

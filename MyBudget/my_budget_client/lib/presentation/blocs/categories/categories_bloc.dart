@@ -484,7 +484,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       }
     } catch (e, s) {
       // Tip: Always log 's' (stacktrace) to see where errors happen
-      print('Error loading categories: $e\n$s');
+      debugPrint('Error loading categories: $e\n$s');
       emit(CategoriesLoadFailure());
     }
   }
