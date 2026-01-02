@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:collection/collection.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/category_list_item.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/domain/entities/style.dart';
+import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/delete_category_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
@@ -13,6 +16,7 @@ import 'package:my_budget_client/presentation/blocs/transactions/transactions_bl
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/presentation/widgets/category_filter_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -593,22 +597,39 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
             BlocBuilder<StylesBloc, StylesState>(
               builder: (context, state) {
                 if (state is StylesLoadSuccess) {
-                  return DropdownButtonFormField<String>(
-                    initialValue: _selectedStyleId,
-                    decoration: const InputDecoration(labelText: 'Style'),
-                    items: state.styles.map((style) {
-                      return DropdownMenuItem<String>(
-                        value: style.id,
-                        child: Row(
+                  return GestureDetector(
+                    onTap: () async {
+                      final selectedStyle = await showSingleSelectDialog<Style>(
+                        context: context,
+                        items: state.styles,
+                        title: 'Select Style',
+                        selectedItem: state.styles.firstWhereOrNull(
+                            (s) => s.id == _selectedStyleId),
+                        itemBuilder: (style) => Row(
                           children: [
                             IconUtils.getIconWidget(style),
                             const SizedBox(width: 8),
                             Text(style.name),
                           ],
                         ),
+                        stringGetter: (style) => style.name,
                       );
-                    }).toList(),
-                    onChanged: (v) => setState(() => _selectedStyleId = v),
+                      if (mounted && selectedStyle != null) {
+                        setState(() {
+                          _selectedStyleId = selectedStyle.id;
+                        });
+                      }
+                    },
+                    child: AbsorbPointer(
+                      child: TextFormField(
+                        key: Key(_selectedStyleId ?? 'no_style'),
+                        initialValue: state.styles
+                                .firstWhereOrNull((s) => s.id == _selectedStyleId)
+                                ?.name ??
+                            'Select a style',
+                        decoration: const InputDecoration(labelText: 'Style'),
+                      ),
+                    ),
                   );
                 }
                 return const SizedBox.shrink();

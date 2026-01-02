@@ -14,6 +14,7 @@ import 'package:my_budget_client/domain/repositories/transaction_repository.dart
 import 'package:my_budget_client/presentation/blocs/add_edit_transaction/add_edit_transaction_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 
 class AddEditTransactionScreen extends StatelessWidget {
   final Transaction? transaction;
@@ -192,6 +193,49 @@ class _AmountField extends StatelessWidget {
 class _AccountField extends StatelessWidget {
   const _AccountField();
 
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
+      builder: (context, state) {
+        return GestureDetector(
+          onTap: () async {
+            final selectedAccount = await showSingleSelectDialog<Account>(
+              context: context,
+              items: state.accounts,
+              title: 'Select Account',
+              selectedItem: state.selectedAccount,
+              itemBuilder: (account) => _AccountTile(account: account),
+              stringGetter: (account) => account.name,
+            );
+            if (context.mounted && selectedAccount != null) {
+              context
+                  .read<AddEditTransactionBloc>()
+                  .add(AddEditTransactionAccountChanged(selectedAccount));
+            }
+          },
+          child: AbsorbPointer(
+            child: TextFormField(
+              key: Key(state.selectedAccount?.id ?? 'no_account'),
+              initialValue: state.selectedAccount?.name,
+              decoration: const InputDecoration(
+                labelText: 'Account',
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) =>
+                  state.selectedAccount == null ? 'Please select an account' : null,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AccountTile extends StatelessWidget {
+  final Account account;
+
+  const _AccountTile({required this.account});
+
   Color _getColorFromHex(String? hexColor) {
     hexColor = (hexColor ?? '#FF5733').replaceAll("#", "");
     if (hexColor.length == 6) {
@@ -207,60 +251,36 @@ class _AccountField extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<StylesBloc, StylesState>(
       builder: (context, stylesState) {
-        return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
-          builder: (context, state) {
-            return DropdownButtonFormField<Account>(
-              initialValue: state.selectedAccount,
-              decoration: const InputDecoration(
-                labelText: 'Account',
-                border: OutlineInputBorder(),
-              ),
-              items: state.accounts.map((acc) {
-                Style? style;
-                if (stylesState is StylesLoadSuccess) {
-                  style = stylesState.styles
-                      .firstWhereOrNull((s) => s.id == acc.styleId);
-                }
-                final finalStyle = style ??
-                    Style(
-                      id: 'default',
-                      name: 'Default',
-                      iconName: 'account_balance',
-                      colorHex: '#808080',
-                      iconType: IconType.material,
-                    );
-
-                return DropdownMenuItem<Account>(
-                  value: acc,
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 15,
-                        backgroundColor: _getColorFromHex(finalStyle.colorHex),
-                        child: IconUtils.getIconWidget(finalStyle),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(acc.name),
-                    ],
-                  ),
-                );
-              }).toList(),
-              onChanged: (account) {
-                if (account != null) {
-                  context
-                      .read<AddEditTransactionBloc>()
-                      .add(AddEditTransactionAccountChanged(account));
-                }
-              },
-              validator: (value) =>
-                  value == null ? 'Please select an account' : null,
+        Style? style;
+        if (stylesState is StylesLoadSuccess) {
+          style = stylesState.styles
+              .firstWhereOrNull((s) => s.id == account.styleId);
+        }
+        final finalStyle = style ??
+            Style(
+              id: 'default',
+              name: 'Default',
+              iconName: 'account_balance',
+              colorHex: '#808080',
+              iconType: IconType.material,
             );
-          },
+
+        return Row(
+          children: [
+            CircleAvatar(
+              radius: 15,
+              backgroundColor: _getColorFromHex(finalStyle.colorHex),
+              child: IconUtils.getIconWidget(finalStyle),
+            ),
+            const SizedBox(width: 10),
+            Text(account.name),
+          ],
         );
       },
     );
   }
 }
+
 
 class _CategoryField extends StatelessWidget {
   const _CategoryField();
@@ -268,27 +288,34 @@ class _CategoryField extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
       builder: (context, state) {
-        return DropdownButtonFormField<Category>(
-          initialValue: state.selectedCategory,
-          decoration: const InputDecoration(
-            labelText: 'Category',
-            border: OutlineInputBorder(),
-          ),
-          items: state.categories
-              .map((cat) => DropdownMenuItem<Category>(
-                    value: cat,
-                    child: Text(cat.name),
-                  ))
-              .toList(),
-          onChanged: (category) {
-            if (category != null) {
+        return GestureDetector(
+          onTap: () async {
+            final selectedCategory = await showSingleSelectDialog<Category>(
+              context: context,
+              items: state.categories,
+              title: 'Select Category',
+              selectedItem: state.selectedCategory,
+              itemBuilder: (category) => Text(category.name),
+              stringGetter: (category) => category.name,
+            );
+            if (context.mounted && selectedCategory != null) {
               context
                   .read<AddEditTransactionBloc>()
-                  .add(AddEditTransactionCategoryChanged(category));
+                  .add(AddEditTransactionCategoryChanged(selectedCategory));
             }
           },
-          validator: (value) =>
-              value == null ? 'Please select a category' : null,
+          child: AbsorbPointer(
+            child: TextFormField(
+              key: Key(state.selectedCategory?.id ?? 'no_category'),
+              initialValue: state.selectedCategory?.name,
+              decoration: const InputDecoration(
+                labelText: 'Category',
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) =>
+                  state.selectedCategory == null ? 'Please select a category' : null,
+            ),
+          ),
         );
       },
     );

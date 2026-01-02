@@ -7,6 +7,10 @@ import 'package:my_budget_client/l10n/app_localizations.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
+import 'package:my_budget_client/domain/entities/currency.dart';
+import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
+import 'package:my_budget_client/domain/entities/account_type.dart';
+import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/widgets/style_picker_dialog.dart';
 
 class AddAccountDialog extends StatefulWidget {
@@ -94,71 +98,44 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
               BlocBuilder<CurrencyBloc, CurrencyState>(
                 builder: (context, state) {
                   if (state is CurrencyLoadSuccess) {
-                    // Initialize selected currency and designation
-                    if (_selectedCurrencyCode == null &&
-                        state.currencies.isNotEmpty) {
-                      _selectedCurrencyCode = state.currencies.first.code;
-                      // Find first designation for the default currency
-                      final firstDesignation = state.designations
-                          .firstWhereOrNull(
-                              (d) => d.currencyCode == _selectedCurrencyCode);
-                      _selectedCurrencyDesignationId = firstDesignation?.id;
-                    }
-
-                    // Filter designations based on selected currency
-                    final availableDesignations = state.designations
-                        .where((d) => d.currencyCode == _selectedCurrencyCode)
-                        .toList();
-
-                    // Ensure a valid designation is selected if the current one is no longer available
-                    if (_selectedCurrencyDesignationId != null &&
-                        !availableDesignations.any(
-                            (d) => d.id == _selectedCurrencyDesignationId)) {
-                      _selectedCurrencyDesignationId =
-                          availableDesignations.first.id;
-                    }
-
-                    return Column(
-                      // Wrap in Column to add designation dropdown
-                      children: [
-                        DropdownButtonFormField<String>(
-                          initialValue: _selectedCurrencyCode,
+                    return GestureDetector(
+                      onTap: () async {
+                        final selectedCurrency =
+                            await showSingleSelectDialog<Currency>(
+                          context: context,
+                          items: state.currencies,
+                          title: 'Select Currency',
+                          selectedItem: state.currencies.firstWhereOrNull(
+                              (c) => c.code == _selectedCurrencyCode),
+                          itemBuilder: (currency) => Text(currency.name),
+                          stringGetter: (currency) =>
+                              '${currency.name} ${currency.code}',
+                        );
+                        if (mounted && selectedCurrency != null) {
+                          setState(() {
+                            _selectedCurrencyCode = selectedCurrency.code;
+                            _selectedCurrencyDesignationId = state
+                                .designations
+                                .firstWhereOrNull((d) =>
+                                    d.currencyCode == _selectedCurrencyCode)
+                                ?.id;
+                          });
+                        }
+                      },
+                      child: AbsorbPointer(
+                        child: TextFormField(
+                          key: Key(_selectedCurrencyCode ?? 'no_currency'),
+                          initialValue: state.currencies
+                              .firstWhereOrNull(
+                                  (c) => c.code == _selectedCurrencyCode)
+                              ?.name,
                           decoration:
                               InputDecoration(labelText: l10n.currencyLabel),
-                          items: state.currencies
-                              .map((c) => DropdownMenuItem<String>(
-                                  value: c.code, child: Text(c.code)))
-                              .toList(),
-                          onChanged: (v) {
-                            setState(() {
-                              _selectedCurrencyCode = v;
-                              // Update selected designation when currency changes
-                              _selectedCurrencyDesignationId = state
-                                  .designations
-                                  .firstWhereOrNull(
-                                      (d) => d.currencyCode == _selectedCurrencyCode)
-                                  ?.id;
-                            });
-                          },
-                          validator: (v) => v == null
+                          validator: (value) => _selectedCurrencyCode == null
                               ? l10n.formValidationPleaseSelectCurrency
                               : null,
                         ),
-                        const SizedBox(height: 16), // Spacing
-                        DropdownButtonFormField<String>(
-                          initialValue: _selectedCurrencyDesignationId,
-                          decoration: const InputDecoration(
-                              labelText: 'Currency Symbol'), // TODO: Localize
-                          items: availableDesignations
-                              .map((d) => DropdownMenuItem<String>(
-                                  value: d.id, child: Text(d.value)))
-                              .toList(),
-                          onChanged: (v) =>
-                              setState(() => _selectedCurrencyDesignationId = v),
-                          validator: (v) =>
-                              v == null ? 'Please select a symbol' : null, // TODO: Localize
-                        ),
-                      ],
+                      ),
                     );
                   }
                   return const Center(child: CircularProgressIndicator());
@@ -168,22 +145,38 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                 // NEW BLOC BUILDER FOR AccountTypes
                 builder: (context, state) {
                   if (state is AccountsLoadSuccess) {
-                    if (_selectedAccountTypeId == null &&
-                        state.accountTypes.isNotEmpty) {
-                      _selectedAccountTypeId = state.accountTypes.first.id;
-                    }
-                    return DropdownButtonFormField<String>(
-                      initialValue: _selectedAccountTypeId,
-                      decoration: const InputDecoration(
-                          labelText: 'Account Type'), // TODO: Localize
-                      items: state.accountTypes
-                          .map((type) => DropdownMenuItem<String>(
-                              value: type.id, child: Text(type.name)))
-                          .toList(),
-                      onChanged: (v) =>
-                          setState(() => _selectedAccountTypeId = v),
-                      validator: (v) =>
-                          v == null ? 'Please select an account type' : null, // TODO: Localize
+                    return GestureDetector(
+                      onTap: () async {
+                        final selectedAccountType =
+                            await showSingleSelectDialog<AccountType>(
+                          context: context,
+                          items: state.accountTypes,
+                          title: 'Select Account Type',
+                          selectedItem: state.accountTypes.firstWhereOrNull(
+                              (t) => t.id == _selectedAccountTypeId),
+                          itemBuilder: (type) => Text(type.name),
+                          stringGetter: (type) => type.name,
+                        );
+                        if (mounted && selectedAccountType != null) {
+                          setState(() {
+                            _selectedAccountTypeId = selectedAccountType.id;
+                          });
+                        }
+                      },
+                      child: AbsorbPointer(
+                        child: TextFormField(
+                          key: Key(_selectedAccountTypeId ?? 'no_type'),
+                          initialValue: state.accountTypes
+                              .firstWhereOrNull(
+                                  (t) => t.id == _selectedAccountTypeId)
+                              ?.name,
+                          decoration:
+                              const InputDecoration(labelText: 'Account Type'),
+                          validator: (value) => _selectedAccountTypeId == null
+                              ? 'Please select an account type'
+                              : null,
+                        ),
+                      ),
                     );
                   }
                   return const SizedBox.shrink();

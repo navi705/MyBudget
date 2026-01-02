@@ -32,15 +32,9 @@ class SettingsScreen extends StatelessWidget {
               ),
               ListTile(
                 leading: const Icon(Icons.brightness_6),
-                title: const Text('Toggle Theme'),
+                title: const Text('Manage Theme'),
                 onTap: () {
-                  final currentMode = settingsState.themeMode;
-                  final nextMode = switch (currentMode) {
-                    ThemeMode.system => ThemeMode.light,
-                    ThemeMode.light => ThemeMode.dark,
-                    ThemeMode.dark => ThemeMode.system,
-                  };
-                  context.read<SettingsBloc>().add(UpdateThemeMode(nextMode));
+                  
                 },
               ),
               BlocBuilder<CurrencyBloc, CurrencyState>(

@@ -16,11 +16,49 @@ Future<String?> showStylePickerDialog(
   );
 }
 
-class StylePickerDialog extends StatelessWidget {
+class StylePickerDialog extends StatefulWidget {
   final String currentStyleId;
 
   const StylePickerDialog({super.key, required this.currentStyleId});
-  
+
+  @override
+  State<StylePickerDialog> createState() => _StylePickerDialogState();
+}
+
+class _StylePickerDialogState extends State<StylePickerDialog> {
+  late TextEditingController _searchController;
+  List<dynamic> _filteredStyles = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    final stylesState = context.read<StylesBloc>().state;
+    if (stylesState is StylesLoadSuccess) {
+      _filteredStyles = stylesState.styles;
+    }
+    _searchController.addListener(_filterStyles);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_filterStyles);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterStyles() {
+    final stylesState = context.read<StylesBloc>().state;
+    if (stylesState is StylesLoadSuccess) {
+      final query = _searchController.text.toLowerCase();
+      setState(() {
+        _filteredStyles = stylesState.styles.where((style) {
+          return style.name.toLowerCase().contains(query);
+        }).toList();
+      });
+    }
+  }
+
   Color _getColorFromHex(String? hexColor) {
     hexColor = (hexColor ?? '#FF5733').replaceAll("#", "");
     if (hexColor.length == 6) {
@@ -38,59 +76,81 @@ class StylePickerDialog extends StatelessWidget {
       title: const Text('Select Style'),
       content: SizedBox(
         width: double.maxFinite,
-        child: BlocBuilder<StylesBloc, StylesState>(
-          builder: (context, state) {
-            if (state is StylesLoadSuccess) {
-              return GridView.builder(
-                shrinkWrap: true,
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 80,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                  },
                 ),
-                itemCount: state.styles.length,
-                itemBuilder: (context, index) {
-                  final style = state.styles[index];
-                  final bool isSelected = currentStyleId == style.id;
-                  
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.of(context).pop(style.id);
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected
-                              ? Theme.of(context).primaryColor
-                              : Colors.transparent,
-                          width: 3,
-                        ),
+              ),
+            ),
+            Expanded(
+              child: BlocBuilder<StylesBloc, StylesState>(
+                builder: (context, state) {
+                  if (state is StylesLoadSuccess) {
+                    return GridView.builder(
+                      shrinkWrap: true,
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 80,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircleAvatar(
-                            radius: 20,
-                            backgroundColor: _getColorFromHex(style.colorHex),
-                            child: IconUtils.getIconWidget(style),
+                      itemCount: _filteredStyles.length,
+                      itemBuilder: (context, index) {
+                        final style = _filteredStyles[index];
+                        final bool isSelected = widget.currentStyleId == style.id;
+
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).pop(style.id);
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isSelected
+                                    ? Theme.of(context).primaryColor
+                                    : Colors.transparent,
+                                width: 3,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor:
+                                      _getColorFromHex(style.colorHex),
+                                  child: IconUtils.getIconWidget(style),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  style.name,
+                                  textAlign: TextAlign.center,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            style.name,
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+                        );
+                      },
+                    );
+                  }
+                  return const Center(child: CircularProgressIndicator());
                 },
-              );
-            }
-            return const Center(child: CircularProgressIndicator());
-          },
+              ),
+            ),
+          ],
         ),
       ),
       actions: [
@@ -102,3 +162,4 @@ class StylePickerDialog extends StatelessWidget {
     );
   }
 }
+
