@@ -887,6 +887,8 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     return allResults;
   }
 
+  Future<List<ExchangeRate>> getAllExchangesRatesAll() => select(exchangeRates).get();
+
   Future<List<ExchangeRate>> getExchangeRates({
     int limit = 10,
     int offset = 0,

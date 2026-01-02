@@ -129,4 +129,10 @@ class LocalCurrencyRepository implements CurrencyRepository {
     final rates = await database.exchangeRatesDao.getAllExchangesRates(dates);
     return rates.toDomainList(); 
   }
+  
+  @override
+  Future<List<ExchangeRateDomain>> getLatestExchangeRatesAll() async{
+    final rate = await  database.exchangeRatesDao.getAllExchangesRatesAll();
+    return rate.toDomainList();
+  }
 }

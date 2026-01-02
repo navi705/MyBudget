@@ -4,4 +4,7 @@ class IntilizationData {
   static Future<void> Initilizate() async{
     await ImportDataUtils.getCurrenciesInitial();
   }
+  static Future<void> InitilizateDebug() async{
+    await ImportDataUtils.getCurrenciesInitialDebug();
+  }
 }

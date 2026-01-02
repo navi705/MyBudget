@@ -256,7 +256,7 @@ class _CategoriesDateAppBar extends StatelessWidget {
               Icons.sort,
               color: Colors.white,
             ),
-            tooltip: 'Sort by Name',
+            tooltip: 'Sort by amount',
             onPressed: () {
               final newSort = state.filters.sort == Sort.ascending
                   ? Sort.descending
