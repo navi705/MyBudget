@@ -16,10 +16,11 @@
 33. минимальное прогнозирование по тренду
 
 in diffrent currincies presets
-add tranaction in categories screen 
+
 theme changer (backgorund image)
 
-
+Please add page data where will be our data like rates and in futere is going to more.
+Where i need same bar for filters like in other my pages i need to see tranasction mulpie select, delete, change date. I need to functionaly delete or add our exchangeCurrencyRate. 
 
 Others tasks
 1. Add data page to control my currency rate  
