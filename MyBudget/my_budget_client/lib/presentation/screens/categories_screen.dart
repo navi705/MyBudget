@@ -181,7 +181,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       } else if (value == 'deselect_all') {
         bloc.add(ClearSelection());
       } else if (value == 'edit') {
-        _showAddEditCategoryDialog(context, category: category);
+        _showAddEditCategoryDialog(context,
+            category: category, allCategories: state.allCategories);
       } else if (value == 'delete') {
         _showDeleteConfirmationDialog(
           context,
@@ -286,7 +287,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       if (state.isSelectionModeActive) {
                         bloc.add(ToggleCategorySelection(category.id!));
                       } else {
-                        _showAddEditCategoryDialog(context, category: category);
+                        _showAddEditCategoryDialog(context,
+                            category: category,
+                            allCategories: state.allCategories);
                       }
                     },
                     onLongPress: () {
@@ -319,7 +322,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             }
             return FloatingActionButton(
               onPressed: () {
-                _showAddEditCategoryDialog(context);
+                final state = context.read<CategoriesBloc>().state;
+                if (state is CategoriesLoadSuccess) {
+                  _showAddEditCategoryDialog(context,
+                      allCategories: state.allCategories);
+                }
               },
               child: const Icon(Icons.add),
             );
@@ -329,7 +336,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  void _showAddEditCategoryDialog(BuildContext context, {Category? category}) {
+  void _showAddEditCategoryDialog(BuildContext context,
+      {Category? category, required List<Category> allCategories}) {
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -342,7 +350,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               value: BlocProvider.of<StylesBloc>(context),
             ),
           ],
-          child: AddEditCategoryDialog(category: category),
+          child: AddEditCategoryDialog(
+              category: category, allCategories: allCategories),
         );
       },
     );
@@ -519,8 +528,10 @@ class _SelectionAppBar extends StatelessWidget {
 
 class AddEditCategoryDialog extends StatefulWidget {
   final Category? category;
+  final List<Category> allCategories;
 
-  const AddEditCategoryDialog({super.key, this.category});
+  const AddEditCategoryDialog(
+      {super.key, this.category, required this.allCategories});
 
   @override
   State<AddEditCategoryDialog> createState() => _AddEditCategoryDialogState();
@@ -651,85 +662,72 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                 return const SizedBox.shrink();
               },
             ),
-            BlocBuilder<CategoriesBloc, CategoriesState>(
-              builder: (context, state) {
-                if (state is CategoriesLoadSuccess) {
-                  final categories = state.allCategories;
-                  return GestureDetector(
-                    onTap: () async {
-                      final selectedParent =
-                          await showSingleSelectDialog<Category>(
-                        context: context,
-                        items: categories,
-                        title: 'Select Parent Category',
-                        selectedItem: categories.firstWhereOrNull(
-                            (c) => c.id == _selectedParentId),
-                        itemBuilder: (category) => Row(
-                          children: [
-                            BlocBuilder<StylesBloc, StylesState>(
-                              builder: (context, stylesState) {
-                                if (stylesState is StylesLoadSuccess) {
+            GestureDetector(
+              onTap: () async {
+                final selectedParent = await showSingleSelectDialog<Category>(
+                  context: context,
+                  items: widget.allCategories,
+                  title: 'Select Parent Category',
+                  selectedItem: widget.allCategories
+                      .firstWhereOrNull((c) => c.id == _selectedParentId),
+                  itemBuilder: (category) => Row(
+                    children: [
+                      BlocBuilder<StylesBloc, StylesState>(
+                        builder: (context, stylesState) {
+                          if (stylesState is StylesLoadSuccess) {
+                            final style = stylesState.styles.firstWhereOrNull(
+                                (s) => s.id == category.styleId);
+                            if (style != null) {
+                              return IconUtils.getIconWidget(style);
+                            }
+                          }
+                          return const Icon(Icons.category);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      Text(category.name),
+                    ],
+                  ),
+                  stringGetter: (category) => category.name,
+                );
+                if (mounted) {
+                  setState(() {
+                    _selectedParentId = selectedParent?.id;
+                  });
+                }
+              },
+              child: AbsorbPointer(
+                child: TextFormField(
+                  key: Key(_selectedParentId ?? 'no_parent'),
+                  initialValue: widget.allCategories
+                          .firstWhereOrNull((c) => c.id == _selectedParentId)
+                          ?.name ??
+                      'None',
+                  decoration: InputDecoration(
+                    labelText: 'Parent Category',
+                    prefixIcon: _selectedParentId != null
+                        ? BlocBuilder<StylesBloc, StylesState>(
+                            builder: (context, stylesState) {
+                              if (stylesState is StylesLoadSuccess) {
+                                final parentCategory = widget.allCategories
+                                    .firstWhereOrNull(
+                                        (c) => c.id == _selectedParentId);
+                                if (parentCategory != null) {
                                   final style = stylesState.styles
-                                      .firstWhereOrNull(
-                                          (s) => s.id == category.styleId);
+                                      .firstWhereOrNull((s) =>
+                                          s.id == parentCategory.styleId);
                                   if (style != null) {
                                     return IconUtils.getIconWidget(style);
                                   }
                                 }
-                                return const Icon(Icons.category);
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            Text(category.name),
-                          ],
-                        ),
-                        stringGetter: (category) => category.name,
-                      );
-                      if (mounted) {
-                        setState(() {
-                          _selectedParentId = selectedParent?.id;
-                        });
-                      }
-                    },
-                    child: AbsorbPointer(
-                      child: TextFormField(
-                        key: Key(_selectedParentId ?? 'no_parent'),
-                        initialValue: categories
-                                .firstWhereOrNull(
-                                    (c) => c.id == _selectedParentId)
-                                ?.name ??
-                            'None',
-                        decoration: InputDecoration(
-                          labelText: 'Parent Category',
-                          prefixIcon: _selectedParentId != null
-                              ? BlocBuilder<StylesBloc, StylesState>(
-                                  builder: (context, stylesState) {
-                                    if (stylesState is StylesLoadSuccess) {
-                                      final parentCategory = categories
-                                          .firstWhereOrNull((c) =>
-                                              c.id == _selectedParentId);
-                                      if (parentCategory != null) {
-                                        final style = stylesState.styles
-                                            .firstWhereOrNull((s) =>
-                                                s.id ==
-                                                parentCategory.styleId);
-                                        if (style != null) {
-                                          return IconUtils.getIconWidget(
-                                              style);
-                                        }
-                                      }
-                                    }
-                                    return const Icon(Icons.category);
-                                  },
-                                )
-                              : null,
-                        ),
-                      ),
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
+                              }
+                              return const Icon(Icons.category);
+                            },
+                          )
+                        : null,
+                  ),
+                ),
+              ),
             ),
             GestureDetector(
               onTap: () async {

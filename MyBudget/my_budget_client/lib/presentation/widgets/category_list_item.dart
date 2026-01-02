@@ -157,6 +157,7 @@ class CategoryListItem extends StatelessWidget {
                         currencyDesignations: currencyDesignations,
                         isSelected: isSelected,
                         onLongPress: onLongPress,
+                        onSecondaryTapUp: onSecondaryTapUp,
                       ),
                     ))
                 .toList(),
