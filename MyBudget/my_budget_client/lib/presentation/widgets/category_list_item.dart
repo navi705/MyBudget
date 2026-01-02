@@ -19,6 +19,7 @@ class CategoryListItem extends StatelessWidget {
   final List<CurrencyDesignation> currencyDesignations;
   final bool isSelected;
   final VoidCallback? onLongPress;
+  final void Function(LongPressStartDetails)? onLongPressStart;
   final void Function(TapUpDetails)? onSecondaryTapUp;
 
   const CategoryListItem({
@@ -30,6 +31,7 @@ class CategoryListItem extends StatelessWidget {
     required this.currencyDesignations,
     this.isSelected = false,
     this.onLongPress,
+    this.onLongPressStart,
     this.onSecondaryTapUp,
   });
 
@@ -56,11 +58,13 @@ class CategoryListItem extends StatelessWidget {
       builder: (context, styleState) {
         Style? style;
         if (styleState is StylesLoadSuccess) {
-          style = styleState.styles
-              .firstWhereOrNull((s) => s.id == category.styleId);
+          style = styleState.styles.firstWhereOrNull(
+            (s) => s.id == category.styleId,
+          );
         }
 
-        final finalStyle = style ??
+        final finalStyle =
+            style ??
             Style(
               id: 'default',
               name: 'Default',
@@ -77,8 +81,9 @@ class CategoryListItem extends StatelessWidget {
         );
         final currencySymbol = designation?.value ?? mainCurrencyCode;
 
-        final formattedTotal =
-            NumberFormat.currency(symbol: currencySymbol).format(total);
+        final formattedTotal = NumberFormat.currency(
+          symbol: currencySymbol,
+        ).format(total);
 
         final subtitleText = category.type == CategoryType.income
             ? 'Received: $formattedTotal'
@@ -90,9 +95,12 @@ class CategoryListItem extends StatelessWidget {
 
         final listTile = GestureDetector(
           onSecondaryTapUp: onSecondaryTapUp,
+          onLongPressStart: onLongPressStart,
           child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20.0,
+              vertical: 10.0,
+            ),
             leading: Container(
               padding: const EdgeInsets.all(10.0),
               decoration: BoxDecoration(
@@ -103,20 +111,13 @@ class CategoryListItem extends StatelessWidget {
             ),
             title: Text(
               category.name,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             subtitle: Text(
               subtitleText,
-              style: TextStyle(
-                color: balanceColor,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: balanceColor, fontSize: 14),
             ),
             onTap: () => onTap(category),
-            onLongPress: onLongPress,
           ),
         );
 
@@ -144,19 +145,21 @@ class CategoryListItem extends StatelessWidget {
           child: ExpansionTile(
             title: listTile,
             children: children
-                .map((child) => Padding(
-                      padding: const EdgeInsets.only(left: 16.0),
-                      child: CategoryListItem(
-                        categoryWithTotal: child,
-                        allCategoriesWithTotals: allCategoriesWithTotals,
-                        onTap: onTap,
-                        mainCurrencyCode: mainCurrencyCode,
-                        currencyDesignations: currencyDesignations,
-                        isSelected: isSelected,
-                        onLongPress: onLongPress,
-                        onSecondaryTapUp: onSecondaryTapUp,
-                      ),
-                    ))
+                .map(
+                  (child) => Padding(
+                    padding: const EdgeInsets.only(left: 16.0),
+                    child: CategoryListItem(
+                      categoryWithTotal: child,
+                      allCategoriesWithTotals: allCategoriesWithTotals,
+                      onTap: onTap,
+                      mainCurrencyCode: mainCurrencyCode,
+                      currencyDesignations: currencyDesignations,
+                      isSelected: isSelected,
+                      onLongPress: onLongPress,
+                      onSecondaryTapUp: onSecondaryTapUp,
+                    ),
+                  ),
+                )
                 .toList(),
           ),
         );

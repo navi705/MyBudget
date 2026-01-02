@@ -346,11 +346,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           _navigateToAddTransaction(context, tappedCategory);
                         }
                       },
-                      onLongPress: () {
-                        if (!state.isSelectionModeActive) {
-                          bloc.add(const ToggleSelectionMode(true));
+                      onLongPressStart: (details) {
+                        if (state.isSelectionModeActive) {
+                          // In selection mode: toggle selection
+                          bloc.add(ToggleCategorySelection(category.id!));
+                        } else {
+                          // Not in selection mode: show context menu
+                          _showContextMenu(
+                            context,
+                            details.globalPosition,
+                            category,
+                            state,
+                          );
                         }
-                        bloc.add(ToggleCategorySelection(category.id!));
                       },
                       onSecondaryTapUp: (details) {
                         _showContextMenu(
