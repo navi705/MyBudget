@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -20,15 +20,20 @@ class App extends StatelessWidget {
           final hasWindowEffect =
               Platform.isWindows && state.windowEffect != WindowEffectType.none;
 
+          // Apply transparent theme if either window effect or background image is present
+          final useTransparentTheme =
+              hasWindowEffect || state.backgroundImagePath != null;
+
           final lightTheme = AppTheme.lightTheme(
             state.themeColor,
-            hasWindowEffect: hasWindowEffect,
+            hasWindowEffect: useTransparentTheme,
             windowOpacity: state.windowOpacity,
           ).copyWith(textTheme: GoogleFonts.interTextTheme());
+
           final darkTheme =
               AppTheme.darkTheme(
                 state.themeColor,
-                hasWindowEffect: hasWindowEffect,
+                hasWindowEffect: useTransparentTheme,
                 windowOpacity: state.windowOpacity,
               ).copyWith(
                 textTheme: GoogleFonts.interTextTheme(
@@ -36,15 +41,25 @@ class App extends StatelessWidget {
                 ),
               );
 
-          return MaterialApp.router(
-            title: 'MyBudget',
-            theme: lightTheme,
-            darkTheme: darkTheme,
-            themeMode: state.themeMode,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            routerConfig: router,
-            debugShowCheckedModeBanner: false,
+          return Container(
+            decoration: state.backgroundImagePath != null
+                ? BoxDecoration(
+                    image: DecorationImage(
+                      image: FileImage(File(state.backgroundImagePath!)),
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                : null,
+            child: MaterialApp.router(
+              title: 'MyBudget',
+              theme: lightTheme,
+              darkTheme: darkTheme,
+              themeMode: state.themeMode,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              routerConfig: router,
+              debugShowCheckedModeBanner: false,
+            ),
           );
         },
       ),

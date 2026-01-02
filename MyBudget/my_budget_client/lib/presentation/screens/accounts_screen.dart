@@ -63,8 +63,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final currentState = converterBloc.state;
     if (currentState is! CurrencyConverterLoadSuccess) return;
 
-    final tempSelectedCurrencies =
-        List<Currency>.from(currentState.selectedCurrencies);
+    final tempSelectedCurrencies = List<Currency>.from(
+      currentState.selectedCurrencies,
+    );
     String searchText = '';
 
     await showDialog(
@@ -96,8 +97,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         labelText: 'Search',
                         prefixIcon: Icon(Icons.search),
                         isDense: true,
-                        contentPadding:
-                            EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
+                        contentPadding: EdgeInsets.symmetric(
+                          vertical: 12.0,
+                          horizontal: 8.0,
+                        ),
                       ),
                     ),
                     Expanded(
@@ -105,8 +108,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         itemCount: filteredCurrencies.length,
                         itemBuilder: (context, index) {
                           final currency = filteredCurrencies[index];
-                          final isSelected = tempSelectedCurrencies
-                              .any((c) => c.code == currency.code);
+                          final isSelected = tempSelectedCurrencies.any(
+                            (c) => c.code == currency.code,
+                          );
                           return CheckboxListTile(
                             title: Text('${currency.name} (${currency.code})'),
                             value: isSelected,
@@ -146,7 +150,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   onPressed: () {
                     // Clear current selections
                     for (final currency in List<Currency>.from(
-                        currentState.selectedCurrencies)) {
+                      currentState.selectedCurrencies,
+                    )) {
                       converterBloc.add(RemoveSelectedCurrency(currency));
                     }
                     // Add new selections
@@ -390,17 +395,19 @@ class _AccountsScreenState extends State<AccountsScreen> {
           },
           listener: (context, state) {
             if (state is AccountsLoadSuccess) {
-              context
-                  .read<CurrencyConverterBloc>()
-                  .add(DateChanged(state.activeDate));
+              context.read<CurrencyConverterBloc>().add(
+                DateChanged(state.activeDate),
+              );
             }
           },
           child: Column(
             children: [
               BlocBuilder<AccountsBloc, AccountsState>(
                 builder: (context, accountsState) {
-                  return BlocBuilder<CurrencyConverterBloc,
-                      CurrencyConverterState>(
+                  return BlocBuilder<
+                    CurrencyConverterBloc,
+                    CurrencyConverterState
+                  >(
                     builder: (context, converterState) {
                       if (accountsState is AccountsLoadSuccess &&
                           converterState is CurrencyConverterLoadSuccess) {
@@ -447,8 +454,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
                                     account.balance)
                               : account.balance;
 
-                          final isSelected =
-                              state.selectedAccountIds.contains(account.id);
+                          final isSelected = state.selectedAccountIds.contains(
+                            account.id,
+                          );
 
                           final bloc = context.read<AccountsBloc>();
 
@@ -631,9 +639,9 @@ class TotalBalanceCard extends StatelessWidget {
                   } else {
                     balanceColor =
                         Theme.of(context).textTheme.bodyLarge?.color ??
-                            Colors.black;
+                        Colors.black;
                   }
-                   final formatter = NumberFormat.decimalPattern();
+                  final formatter = NumberFormat.decimalPattern();
                   return SelectableText(
                     '${currency.code}: ${formatter.format(total).replaceAll(',', ' ')}',
                     style: TextStyle(fontSize: 16, color: balanceColor),
@@ -703,22 +711,20 @@ class _AccountsDateAppBar extends StatelessWidget
   @override
   Widget build(BuildContext context) {
     final bloc = context.read<AccountsBloc>();
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     final centerWidget = Row(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          icon: const Icon(
-            Icons.tune,
-            color: Colors.white,
-          ),
+          icon: Icon(Icons.tune, color: onSurface),
           tooltip: 'Filter',
           onPressed: () {
             showAccountFilterDialog(context, state.filters);
           },
         ),
         IconButton(
-          icon: const Icon(Icons.chevron_left, color: Colors.white),
+          icon: Icon(Icons.chevron_left, color: onSurface),
           onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
         ),
         InkWell(
@@ -728,32 +734,29 @@ class _AccountsDateAppBar extends StatelessWidget
             alignment: Alignment.center,
             child: Text(
               _formatDate(context, state),
-              style: const TextStyle(color: Colors.white, fontSize: 18),
+              style: TextStyle(color: onSurface, fontSize: 18),
             ),
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.chevron_right, color: Colors.white),
+          icon: Icon(Icons.chevron_right, color: onSurface),
           onPressed: () => bloc.add(const DatePeriodNavigated(1)),
         ),
         const SizedBox(width: 24),
         RotatedBox(
           quarterTurns: state.sortAscending ? 2 : 0,
           child: IconButton(
-            icon: const Icon(
-              Icons.sort,
-              color: Colors.white,
-            ),
+            icon: Icon(Icons.sort, color: onSurface),
             tooltip: 'Sort by Balance',
             onPressed: () {
               context.read<AccountsBloc>().add(
-                    SortAccounts(!state.sortAscending),
-                  );
+                SortAccounts(!state.sortAscending),
+              );
             },
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.calculate, color: Colors.white),
+          icon: Icon(Icons.calculate, color: onSurface),
           tooltip: 'Select Currencies for Total Balance',
           onPressed: () {
             (context as Element)

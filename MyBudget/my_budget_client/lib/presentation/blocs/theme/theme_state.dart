@@ -5,6 +5,7 @@ class ThemeState extends Equatable {
   final ThemeMode themeMode;
   final WindowEffectType windowEffect;
   final double windowOpacity;
+  final String? backgroundImagePath;
   final bool isLoaded;
 
   const ThemeState({
@@ -12,6 +13,7 @@ class ThemeState extends Equatable {
     this.themeMode = ThemeMode.system,
     this.windowEffect = WindowEffectType.none,
     this.windowOpacity = 0.8,
+    this.backgroundImagePath,
     this.isLoaded = false,
   });
 
@@ -20,6 +22,7 @@ class ThemeState extends Equatable {
     ThemeMode? themeMode,
     WindowEffectType? windowEffect,
     double? windowOpacity,
+    String? backgroundImagePath,
     bool? isLoaded,
   }) {
     return ThemeState(
@@ -27,6 +30,7 @@ class ThemeState extends Equatable {
       themeMode: themeMode ?? this.themeMode,
       windowEffect: windowEffect ?? this.windowEffect,
       windowOpacity: windowOpacity ?? this.windowOpacity,
+      backgroundImagePath: backgroundImagePath ?? this.backgroundImagePath,
       isLoaded: isLoaded ?? this.isLoaded,
     );
   }
@@ -37,6 +41,7 @@ class ThemeState extends Equatable {
     themeMode,
     windowEffect,
     windowOpacity,
+    backgroundImagePath,
     isLoaded,
   ];
 }

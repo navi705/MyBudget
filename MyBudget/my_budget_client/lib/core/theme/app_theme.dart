@@ -22,14 +22,22 @@ class AppTheme {
     bool hasWindowEffect = false,
     double windowOpacity = 0.8,
   }) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: primaryColor,
-      brightness: Brightness.light,
-    );
     // surfaceOpacity scales with the slider but has a minimum for readability
     final surfaceOpacity = hasWindowEffect
         ? windowOpacity.clamp(0.2, 0.9)
         : 1.0;
+    final translucentSurface = Colors.white.withOpacity(surfaceOpacity * 0.6);
+
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: primaryColor,
+          brightness: Brightness.light,
+        ).copyWith(
+          surface: hasWindowEffect ? translucentSurface : null,
+          surfaceVariant: hasWindowEffect
+              ? Colors.white.withOpacity(surfaceOpacity * 0.4)
+              : null,
+        );
 
     return ThemeData(
       useMaterial3: true,
@@ -37,15 +45,13 @@ class AppTheme {
       brightness: Brightness.light,
       scaffoldBackgroundColor: hasWindowEffect ? Colors.transparent : null,
       canvasColor: hasWindowEffect ? Colors.transparent : null,
-      cardColor: hasWindowEffect
-          ? Colors.white.withOpacity(surfaceOpacity * 0.7)
-          : null,
-      dialogBackgroundColor: hasWindowEffect
-          ? Colors.white.withOpacity(surfaceOpacity * 0.9)
-          : null,
+      cardColor: hasWindowEffect ? translucentSurface : null,
+      dialogBackgroundColor: hasWindowEffect ? translucentSurface : null,
       cardTheme: hasWindowEffect
           ? CardThemeData(
               elevation: 4,
+              color: translucentSurface,
+              surfaceTintColor: Colors.transparent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
@@ -55,6 +61,24 @@ class AppTheme {
               ),
               shadowColor: Colors.black.withOpacity(0.2),
             )
+          : null,
+      dialogTheme: hasWindowEffect
+          ? DialogThemeData(
+              backgroundColor: translucentSurface,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            )
+          : null,
+      expansionTileTheme: hasWindowEffect
+          ? ExpansionTileThemeData(
+              backgroundColor: Colors.transparent,
+              collapsedBackgroundColor: Colors.transparent,
+            )
+          : null,
+      drawerTheme: hasWindowEffect
+          ? DrawerThemeData(backgroundColor: translucentSurface)
           : null,
       appBarTheme: hasWindowEffect
           ? AppBarTheme(
@@ -71,6 +95,10 @@ class AppTheme {
       navigationRailTheme: hasWindowEffect
           ? const NavigationRailThemeData(backgroundColor: Colors.transparent)
           : null,
+      highlightColor: hasWindowEffect
+          ? colorScheme.primary.withOpacity(0.2)
+          : null,
+      hoverColor: hasWindowEffect ? colorScheme.primary.withOpacity(0.1) : null,
       popupMenuTheme: hasWindowEffect
           ? PopupMenuThemeData(color: Colors.white.withOpacity(surfaceOpacity))
           : null,
@@ -83,14 +111,22 @@ class AppTheme {
     bool hasWindowEffect = false,
     double windowOpacity = 0.8,
   }) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: primaryColor,
-      brightness: Brightness.dark,
-    );
     // surfaceOpacity scales with the slider but has a minimum for readability
     final surfaceOpacity = hasWindowEffect
         ? windowOpacity.clamp(0.2, 0.9)
         : 1.0;
+    final translucentSurface = Colors.black.withOpacity(surfaceOpacity * 0.4);
+
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: primaryColor,
+          brightness: Brightness.dark,
+        ).copyWith(
+          surface: hasWindowEffect ? translucentSurface : null,
+          surfaceVariant: hasWindowEffect
+              ? Colors.black.withOpacity(surfaceOpacity * 0.3)
+              : null,
+        );
 
     return ThemeData(
       useMaterial3: true,
@@ -98,15 +134,13 @@ class AppTheme {
       brightness: Brightness.dark,
       scaffoldBackgroundColor: hasWindowEffect ? Colors.transparent : null,
       canvasColor: hasWindowEffect ? Colors.transparent : null,
-      cardColor: hasWindowEffect
-          ? Colors.black.withOpacity(surfaceOpacity * 0.7)
-          : null,
-      dialogBackgroundColor: hasWindowEffect
-          ? Colors.black.withOpacity(0.8)
-          : null,
+      cardColor: hasWindowEffect ? translucentSurface : null,
+      dialogBackgroundColor: hasWindowEffect ? translucentSurface : null,
       cardTheme: hasWindowEffect
           ? CardThemeData(
               elevation: 8,
+              color: translucentSurface,
+              surfaceTintColor: Colors.transparent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
@@ -116,6 +150,24 @@ class AppTheme {
               ),
               shadowColor: Colors.black.withOpacity(0.5),
             )
+          : null,
+      dialogTheme: hasWindowEffect
+          ? DialogThemeData(
+              backgroundColor: translucentSurface,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            )
+          : null,
+      expansionTileTheme: hasWindowEffect
+          ? ExpansionTileThemeData(
+              backgroundColor: Colors.transparent,
+              collapsedBackgroundColor: Colors.transparent,
+            )
+          : null,
+      drawerTheme: hasWindowEffect
+          ? DrawerThemeData(backgroundColor: translucentSurface)
           : null,
       appBarTheme: hasWindowEffect
           ? AppBarTheme(
@@ -131,6 +183,12 @@ class AppTheme {
           : null,
       navigationRailTheme: hasWindowEffect
           ? const NavigationRailThemeData(backgroundColor: Colors.transparent)
+          : null,
+      highlightColor: hasWindowEffect
+          ? colorScheme.primary.withOpacity(0.3)
+          : null,
+      hoverColor: hasWindowEffect
+          ? colorScheme.primary.withOpacity(0.15)
           : null,
       popupMenuTheme: hasWindowEffect
           ? PopupMenuThemeData(color: Colors.black.withOpacity(surfaceOpacity))

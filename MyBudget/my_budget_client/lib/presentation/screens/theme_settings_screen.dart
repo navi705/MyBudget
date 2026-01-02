@@ -1,5 +1,6 @@
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
@@ -22,6 +23,8 @@ class ThemeSettingsScreen extends StatelessWidget {
               _buildAppearanceSection(context, state),
               const SizedBox(height: 16),
               _buildColorSection(context, state),
+              const SizedBox(height: 24),
+              _buildBackgroundImageSection(context, state),
               const SizedBox(height: 24),
               if (Platform.isWindows)
                 _buildWindowEffectsSection(context, state),
@@ -140,6 +143,74 @@ class ThemeSettingsScreen extends StatelessWidget {
                   context.read<ThemeBloc>().add(ChangeThemeColor(color));
                 }
               },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBackgroundImageSection(BuildContext context, ThemeState state) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Background Image',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            if (state.backgroundImagePath != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(state.backgroundImagePath!),
+                  height: 150,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.image),
+                    label: Text(
+                      state.backgroundImagePath == null
+                          ? 'Select Image'
+                          : 'Change Image',
+                    ),
+                    onPressed: () async {
+                      final result = await FilePicker.platform.pickFiles(
+                        type: FileType.image,
+                      );
+                      if (result != null && result.files.single.path != null) {
+                        if (context.mounted) {
+                          context.read<ThemeBloc>().add(
+                            ChangeBackgroundImage(result.files.single.path),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ),
+                if (state.backgroundImagePath != null) ...[
+                  const SizedBox(width: 12),
+                  IconButton.filledTonal(
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () {
+                      context.read<ThemeBloc>().add(
+                        const ChangeBackgroundImage(null),
+                      );
+                    },
+                    color: Colors.red,
+                  ),
+                ],
+              ],
             ),
           ],
         ),

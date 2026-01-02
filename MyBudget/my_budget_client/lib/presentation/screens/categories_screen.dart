@@ -487,17 +487,18 @@ class _CategoriesDateAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bloc = context.read<CategoriesBloc>();
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     final centerWidget = Row(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          icon: const Icon(Icons.tune, color: Colors.white),
+          icon: Icon(Icons.tune, color: onSurface),
           tooltip: 'Filter',
           onPressed: () => showCategoryFilterDialog(context, state.filters),
         ),
         IconButton(
-          icon: const Icon(Icons.chevron_left, color: Colors.white),
+          icon: Icon(Icons.chevron_left, color: onSurface),
           onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
         ),
         InkWell(
@@ -507,19 +508,19 @@ class _CategoriesDateAppBar extends StatelessWidget {
             alignment: Alignment.center,
             child: Text(
               _formatDate(context, state),
-              style: const TextStyle(color: Colors.white, fontSize: 18),
+              style: TextStyle(color: onSurface, fontSize: 18),
             ),
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.chevron_right, color: Colors.white),
+          icon: Icon(Icons.chevron_right, color: onSurface),
           onPressed: () => bloc.add(const DatePeriodNavigated(1)),
         ),
         const SizedBox(width: 24),
         RotatedBox(
           quarterTurns: state.filters.sort == Sort.ascending ? 2 : 0,
           child: IconButton(
-            icon: const Icon(Icons.sort, color: Colors.white),
+            icon: Icon(Icons.sort, color: onSurface),
             tooltip: 'Sort by amount',
             onPressed: () {
               final newSort = state.filters.sort == Sort.ascending

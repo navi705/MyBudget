@@ -18,6 +18,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     on<ChangeWindowEffect>(_onChangeWindowEffect);
     on<ChangeWindowOpacity>(_onChangeWindowOpacity);
     on<ChangeThemeMode>(_onChangeThemeMode);
+    on<ChangeBackgroundImage>(_onChangeBackgroundImage);
   }
 
   Future<void> _onLoadThemeSettings(
@@ -30,6 +31,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     final themeColorHex = settings['theme_color'] ?? '#2196F3';
     final windowEffectStr = settings['window_effect'] ?? 'none';
     final windowOpacityStr = settings['window_opacity'] ?? '0.8';
+    final backgroundImagePath = settings['background_image_path'];
 
     final themeColor = AppTheme.parseHex(themeColorHex);
     final themeMode = _stringToThemeMode(currentThemeMode?.value ?? 'system');
@@ -45,6 +47,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
         themeMode: themeMode,
         windowEffect: windowEffect,
         windowOpacity: windowOpacity,
+        backgroundImagePath: backgroundImagePath,
         isLoaded: true,
       ),
     );
@@ -86,6 +89,21 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
   ) async {
     emit(state.copyWith(themeMode: event.mode));
     await _settingsRepository.setThemeMode(event.mode, 'all');
+  }
+
+  Future<void> _onChangeBackgroundImage(
+    ChangeBackgroundImage event,
+    Emitter<ThemeState> emit,
+  ) async {
+    emit(state.copyWith(backgroundImagePath: event.path));
+    if (event.path == null) {
+      await _settingsRepository.saveSetting('background_image_path', '');
+    } else {
+      await _settingsRepository.saveSetting(
+        'background_image_path',
+        event.path!,
+      );
+    }
   }
 
   ThemeMode _stringToThemeMode(String value) {

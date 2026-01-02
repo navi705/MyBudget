@@ -46,3 +46,12 @@ class ChangeThemeMode extends ThemeEvent {
   @override
   List<Object?> get props => [mode];
 }
+
+class ChangeBackgroundImage extends ThemeEvent {
+  final String? path;
+
+  const ChangeBackgroundImage(this.path);
+
+  @override
+  List<Object?> get props => [path];
+}
