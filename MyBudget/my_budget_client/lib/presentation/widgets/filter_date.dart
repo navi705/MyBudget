@@ -32,15 +32,6 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
     }
   }
 
-  void _showSortOptions(BuildContext context, Sort currentSort) {
-    if(currentSort == Sort.ascending){
-     context.read<TransactionsBloc>().add(SortChanged(Sort.descending)); 
-    }
-    else if(currentSort == Sort.descending){
-      context.read<TransactionsBloc>().add(SortChanged(Sort.ascending));
-    }
-  }
-
   void _showDateStepPicker(BuildContext context) {
     showDialog(
       context: context,

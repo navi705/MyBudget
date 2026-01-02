@@ -10,7 +10,6 @@ import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart'
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
-import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/widgets/style_picker_dialog.dart';
 
 class AddAccountDialog extends StatefulWidget {

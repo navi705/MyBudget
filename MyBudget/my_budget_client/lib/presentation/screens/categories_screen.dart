@@ -7,7 +7,6 @@ import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.d
 import 'package:my_budget_client/presentation/widgets/category_list_item.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
-import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/delete_category_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
@@ -638,40 +637,67 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
             BlocBuilder<CategoriesBloc, CategoriesState>(
               builder: (context, state) {
                 if (state is CategoriesLoadSuccess) {
-                  final categories = state.categoriesWithTotals
-                      .map((e) => e.category);
-                  return DropdownButtonFormField<String>(
-                    initialValue: _selectedParentId,
-                    decoration:
-                        const InputDecoration(labelText: 'Parent Category'),
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('None'),
+                  final categories =
+                      state.categoriesWithTotals.map((e) => e.category).toList();
+                  return GestureDetector(
+                    onTap: () async {
+                      final selectedParent =
+                          await showSingleSelectDialog<Category>(
+                        context: context,
+                        items: categories,
+                        title: 'Select Parent Category',
+                        selectedItem: categories.firstWhereOrNull(
+                            (c) => c.id == _selectedParentId),
+                        itemBuilder: (category) => Text(category.name),
+                        stringGetter: (category) => category.name,
+                      );
+                      if (mounted) {
+                        setState(() {
+                          _selectedParentId = selectedParent?.id;
+                        });
+                      }
+                    },
+                    child: AbsorbPointer(
+                      child: TextFormField(
+                        key: Key(_selectedParentId ?? 'no_parent'),
+                        initialValue: categories
+                                .firstWhereOrNull(
+                                    (c) => c.id == _selectedParentId)
+                                ?.name ??
+                            'None',
+                        decoration: const InputDecoration(
+                            labelText: 'Parent Category'),
                       ),
-                      ...categories
-                          .where((c) => c.id != widget.category?.id)
-                          .map((c) => DropdownMenuItem<String>(
-                                value: c.id,
-                                child: Text(c.name),
-                              )),
-                    ],
-                    onChanged: (v) => setState(() => _selectedParentId = v),
+                    ),
                   );
                 }
                 return const SizedBox.shrink();
               },
             ),
-            DropdownButtonFormField<CategoryType>(
-              initialValue: _selectedCategoryType,
-              decoration: const InputDecoration(labelText: 'Category Type'),
-              items: CategoryType.values
-                  .map((type) => DropdownMenuItem<CategoryType>(
-                        value: type,
-                        child: Text(type.toString().split('.').last),
-                      ))
-                  .toList(),
-              onChanged: (v) => setState(() => _selectedCategoryType = v!),
+            GestureDetector(
+              onTap: () async {
+                final selectedType = await showSingleSelectDialog<CategoryType>(
+                  context: context,
+                  items: CategoryType.values,
+                  title: 'Select Category Type',
+                  selectedItem: _selectedCategoryType,
+                  itemBuilder: (type) => Text(type.toString().split('.').last),
+                  stringGetter: (type) => type.toString().split('.').last,
+                );
+                if (mounted && selectedType != null) {
+                  setState(() {
+                    _selectedCategoryType = selectedType;
+                  });
+                }
+              },
+              child: AbsorbPointer(
+                child: TextFormField(
+                  key: Key(_selectedCategoryType.toString()),
+                  initialValue: _selectedCategoryType.toString().split('.').last,
+                  decoration:
+                      const InputDecoration(labelText: 'Category Type'),
+                ),
+              ),
             ),
           ],
         ),
