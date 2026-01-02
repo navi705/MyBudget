@@ -188,11 +188,6 @@ class ThemeSettingsScreen extends StatelessWidget {
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: [
-                  _buildPresetItem(
-                    context,
-                    'assets/backgrounds/bg_abstract_glass.png',
-                    state,
-                  ),
                   const SizedBox(width: 8),
                   _buildPresetItem(
                     context,
