@@ -626,7 +626,24 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                                 .firstWhereOrNull((s) => s.id == _selectedStyleId)
                                 ?.name ??
                             'Select a style',
-                        decoration: const InputDecoration(labelText: 'Style'),
+                        decoration: InputDecoration(
+                          labelText: 'Style',
+                          prefixIcon: _selectedStyleId != null
+                              ? BlocBuilder<StylesBloc, StylesState>(
+                                  builder: (context, stylesState) {
+                                    if (stylesState is StylesLoadSuccess) {
+                                      final style = stylesState.styles
+                                          .firstWhereOrNull(
+                                              (s) => s.id == _selectedStyleId);
+                                      if (style != null) {
+                                        return IconUtils.getIconWidget(style);
+                                      }
+                                    }
+                                    return const Icon(Icons.style);
+                                  },
+                                )
+                              : null,
+                        ),
                       ),
                     ),
                   );
@@ -637,8 +654,7 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
             BlocBuilder<CategoriesBloc, CategoriesState>(
               builder: (context, state) {
                 if (state is CategoriesLoadSuccess) {
-                  final categories =
-                      state.categoriesWithTotals.map((e) => e.category).toList();
+                  final categories = state.allCategories;
                   return GestureDetector(
                     onTap: () async {
                       final selectedParent =
@@ -648,7 +664,25 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                         title: 'Select Parent Category',
                         selectedItem: categories.firstWhereOrNull(
                             (c) => c.id == _selectedParentId),
-                        itemBuilder: (category) => Text(category.name),
+                        itemBuilder: (category) => Row(
+                          children: [
+                            BlocBuilder<StylesBloc, StylesState>(
+                              builder: (context, stylesState) {
+                                if (stylesState is StylesLoadSuccess) {
+                                  final style = stylesState.styles
+                                      .firstWhereOrNull(
+                                          (s) => s.id == category.styleId);
+                                  if (style != null) {
+                                    return IconUtils.getIconWidget(style);
+                                  }
+                                }
+                                return const Icon(Icons.category);
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            Text(category.name),
+                          ],
+                        ),
                         stringGetter: (category) => category.name,
                       );
                       if (mounted) {
@@ -665,8 +699,31 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                                     (c) => c.id == _selectedParentId)
                                 ?.name ??
                             'None',
-                        decoration: const InputDecoration(
-                            labelText: 'Parent Category'),
+                        decoration: InputDecoration(
+                          labelText: 'Parent Category',
+                          prefixIcon: _selectedParentId != null
+                              ? BlocBuilder<StylesBloc, StylesState>(
+                                  builder: (context, stylesState) {
+                                    if (stylesState is StylesLoadSuccess) {
+                                      final parentCategory = categories
+                                          .firstWhereOrNull((c) =>
+                                              c.id == _selectedParentId);
+                                      if (parentCategory != null) {
+                                        final style = stylesState.styles
+                                            .firstWhereOrNull((s) =>
+                                                s.id ==
+                                                parentCategory.styleId);
+                                        if (style != null) {
+                                          return IconUtils.getIconWidget(
+                                              style);
+                                        }
+                                      }
+                                    }
+                                    return const Icon(Icons.category);
+                                  },
+                                )
+                              : null,
+                        ),
                       ),
                     ),
                   );

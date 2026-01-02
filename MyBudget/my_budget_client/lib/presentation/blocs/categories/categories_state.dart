@@ -13,6 +13,7 @@ class CategoriesLoadInProgress extends CategoriesState {}
 
 class CategoriesLoadSuccess extends CategoriesState {
   final List<CategoryWithTotal> categoriesWithTotals;
+  final List<Category> allCategories;
   final bool hasReachedMax;
   final CategoryType? selectedTypeFilter;
   final CategoryFilters filters;
@@ -27,6 +28,7 @@ class CategoriesLoadSuccess extends CategoriesState {
 
   const CategoriesLoadSuccess({
     this.categoriesWithTotals = const [],
+    this.allCategories = const [],
     this.hasReachedMax = false,
     this.selectedTypeFilter,
     this.filters = const CategoryFilters(),
@@ -42,6 +44,7 @@ class CategoriesLoadSuccess extends CategoriesState {
 
   CategoriesLoadSuccess copyWith({
     List<CategoryWithTotal>? categoriesWithTotals,
+    List<Category>? allCategories,
     bool? hasReachedMax,
     ValueGetter<CategoryType?>? getSelectedTypeFilter,
     CategoryFilters? filters,
@@ -56,6 +59,7 @@ class CategoriesLoadSuccess extends CategoriesState {
   }) {
     return CategoriesLoadSuccess(
       categoriesWithTotals: categoriesWithTotals ?? this.categoriesWithTotals,
+      allCategories: allCategories ?? this.allCategories,
       hasReachedMax: hasReachedMax ?? this.hasReachedMax,
       selectedTypeFilter: getSelectedTypeFilter != null
           ? getSelectedTypeFilter()
@@ -76,6 +80,7 @@ class CategoriesLoadSuccess extends CategoriesState {
   @override
   List<Object?> get props => [
         categoriesWithTotals,
+        allCategories,
         hasReachedMax,
         selectedTypeFilter,
         filters,

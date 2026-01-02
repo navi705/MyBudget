@@ -12,7 +12,6 @@
 31. export data 
 32. Учитывать инфляцию
 33. минимальное прогнозирование по тренду
-34.
 
 in diffrent currincies presets
 add to search if i create somtheing or change

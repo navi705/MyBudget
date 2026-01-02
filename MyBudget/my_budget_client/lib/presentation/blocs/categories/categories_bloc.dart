@@ -464,6 +464,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         emit(
           currentState.copyWith(
             categoriesWithTotals: filteredItems,
+            allCategories: categories,
             hasReachedMax: true,
             filters: filters,
             mainCurrencyCode: mainCurrencyCode,
@@ -474,6 +475,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         emit(
           CategoriesLoadSuccess(
             categoriesWithTotals: filteredItems,
+            allCategories: categories,
             hasReachedMax: true,
             activeDate: DateTime.now(),
             filters: filters,
