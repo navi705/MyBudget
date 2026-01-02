@@ -163,226 +163,269 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Advanced Filters'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Persist Filters'),
-                Switch(
-                  value: _persistFilters,
-                  onChanged: (value) {
-                    setState(() {
-                      _persistFilters = value;
-                    });
-                  },
+            content: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.7,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Persist Filters'),
+                        Switch(
+                          value: _persistFilters,
+                          onChanged: (value) {
+                            setState(() {
+                              _persistFilters = value;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<TransactionTypeFilter>(
+                      initialValue: _selectedTransactionType,
+                      decoration:
+                          const InputDecoration(labelText: 'Transaction Type'),
+                      items: TransactionTypeFilter.values
+                          .map((TransactionTypeFilter type) {
+                        return DropdownMenuItem<TransactionTypeFilter>(
+                          value: type,
+                          child: Text(type.name),
+                        );
+                      }).toList(),
+                      onChanged: (TransactionTypeFilter? newValue) {
+                        setState(() {
+                          _selectedTransactionType = newValue!;
+                        });
+                      },
+                    ),
+                    TextFormField(
+                      controller: _descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                        hintText: 'Search description...',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _amountFromController,
+                      decoration: const InputDecoration(labelText: 'Amount From'),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _amountToController,
+                      decoration: const InputDecoration(labelText: 'Amount To'),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                    const SizedBox(height: 16),
+                    BlocBuilder<AccountsBloc, AccountsState>(
+                      builder: (context, state) {
+                        return ListTile(
+                          title: const Text('Account'),
+                          subtitle: Wrap(
+                            spacing: 4.0,
+                            runSpacing: 4.0,
+                            children: _selectedAccountId.map((accountId) {
+                              final account = state.accounts
+                                  .firstWhereOrNull((acc) => acc.id == accountId);
+                              if (account == null) {
+                                return const SizedBox.shrink();
+                              }
+                              return Chip(
+                                label: Text(account.name),
+                                avatar: BlocBuilder<StylesBloc, StylesState>(
+                                  builder: (context, stylesState) {
+                                    if (stylesState is StylesLoadSuccess) {
+                                      final style = stylesState.styles
+                                          .firstWhereOrNull(
+                                              (s) => s.id == account.styleId);
+                                      if (style != null) {
+                                        return IconUtils.getIconWidget(style);
+                                      }
+                                    }
+                                    return const Icon(Icons.account_balance);
+                                  },
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          onTap: () async {
+                            final selectedIds = await showDialog<List<String>>(
+                              context: context,
+                              builder: (_) => BlocProvider.value(
+                                value: context.read<StylesBloc>(),
+                                child: MultiSelectDialog<Account>(
+                                  items: state.accounts,
+                                  selectedIds: _selectedAccountId,
+                                  itemBuilder: (item) => Row(
+                                    children: [
+                                      BlocBuilder<StylesBloc, StylesState>(
+                                        builder: (context, stylesState) {
+                                          if (stylesState is StylesLoadSuccess) {
+                                            final style = stylesState.styles
+                                                .firstWhereOrNull(
+                                                    (s) => s.id == item.styleId);
+                                            if (style != null) {
+                                              return IconUtils.getIconWidget(style);
+                                            }
+                                          }
+                                          return const Icon(Icons.account_balance);
+                                        },
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(item.name),
+                                    ],
+                                  ),
+                                  idGetter: (item) => item.id!,
+                                  stringGetter: (item) => item.name,
+                                ),
+                              ),
+                            );
+      
+                            if (selectedIds != null) {
+                              setState(() {
+                                _selectedAccountId = selectedIds;
+                              });
+                            }
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    BlocBuilder<CategoriesBloc, CategoriesState>(
+                      builder: (context, state) {
+                        if (state is CategoriesLoadSuccess) {
+                          return ListTile(
+                            title: const Text('Category'),
+                            subtitle: Wrap(
+                              spacing: 4.0,
+                              runSpacing: 4.0,
+                              children: _selectedCategoryId.map((categoryId) {
+                                final categoryWithTotal = state
+                                    .categoriesWithTotals
+                                    .firstWhereOrNull(
+                                        (cat) => cat.category.id == categoryId);
+                                if (categoryWithTotal == null) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Chip(
+                                  label: Text(categoryWithTotal.category.name),
+                                  avatar: BlocBuilder<StylesBloc, StylesState>(
+                                    builder: (context, stylesState) {
+                                      if (stylesState is StylesLoadSuccess) {
+                                        final style = stylesState.styles
+                                            .firstWhereOrNull((s) =>
+                                                s.id ==
+                                                categoryWithTotal.category.styleId);
+                                        if (style != null) {
+                                          return IconUtils.getIconWidget(style);
+                                        }
+                                      }
+                                      return const Icon(Icons.category);
+                                    },
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                            onTap: () async {
+                              final selectedIds = await showDialog<List<String>>(
+                                context: context,
+                                builder: (_) => BlocProvider.value(
+                                  value: context.read<StylesBloc>(),
+                                  child: MultiSelectDialog<CategoryWithTotal>(
+                                    items: state.categoriesWithTotals,
+                                    selectedIds: _selectedCategoryId,
+                                    itemBuilder: (item) => Row(
+                                      children: [
+                                        BlocBuilder<StylesBloc, StylesState>(
+                                          builder: (context, stylesState) {
+                                            if (stylesState is StylesLoadSuccess) {
+                                              final style = stylesState.styles
+                                                  .firstWhereOrNull((s) =>
+                                                      s.id ==
+                                                      item.category.styleId);
+                                              if (style != null) {
+                                                return IconUtils.getIconWidget(
+                                                    style);
+                                              }
+                                            }
+                                            return const Icon(Icons.category);
+                                          },
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(item.category.name),
+                                      ],
+                                    ),
+                                    idGetter: (item) => item.category.id!,
+                                    stringGetter: (item) => item.category.name,
+                                  ),
+                                ),
+                              );
+      
+                              if (selectedIds != null) {
+                                setState(() {
+                                  _selectedCategoryId = selectedIds;
+                                });
+                              }
+                            },
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    BlocBuilder<CurrencyBloc, CurrencyState>(
+                      builder: (context, state) {
+                        if (state is CurrencyLoadSuccess) {
+                          return ListTile(
+                            title: const Text('Currency'),
+                            subtitle: Wrap(
+                              spacing: 4.0,
+                              runSpacing: 4.0,
+                              children: _selectedCurrencyCode.map((code) {
+                                final currency = state.currencies
+                                    .firstWhereOrNull((curr) => curr.code == code);
+                                if (currency == null) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Chip(
+                                  label: Text(currency.name),
+                                );
+                              }).toList(),
+                            ),
+                            onTap: () async {
+                              final selectedIds = await showDialog<List<String>>(
+                                context: context,
+                                builder: (_) => MultiSelectDialog<Currency>(
+                                  items: state.currencies,
+                                  selectedIds: _selectedCurrencyCode,
+                                  itemBuilder: (item) => Text(item.name),
+                                  idGetter: (item) => item.code,
+                                  stringGetter: (item) =>
+                                      '${item.name} ${item.code}',
+                                ),
+                              );
+      
+                              if (selectedIds != null) {
+                                setState(() {
+                                  _selectedCurrencyCode = selectedIds;
+                                });
+                              }
+                            },
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<TransactionTypeFilter>(
-              initialValue: _selectedTransactionType,
-              decoration: const InputDecoration(labelText: 'Transaction Type'),
-              items: TransactionTypeFilter.values
-                  .map((TransactionTypeFilter type) {
-                return DropdownMenuItem<TransactionTypeFilter>(
-                  value: type,
-                  child: Text(type.name),
-                );
-              }).toList(),
-              onChanged: (TransactionTypeFilter? newValue) {
-                setState(() {
-                  _selectedTransactionType = newValue!;
-                });
-              },
-            ),
-            TextFormField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                hintText: 'Search description...',
               ),
             ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _amountFromController,
-              decoration: const InputDecoration(labelText: 'Amount From'),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _amountToController,
-              decoration: const InputDecoration(labelText: 'Amount To'),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-            ),
-            const SizedBox(height: 16),
-            BlocBuilder<AccountsBloc, AccountsState>(
-              builder: (context, state) {
-                return ListTile(
-                  title: const Text('Account'),
-                  subtitle: Text(
-                    _selectedAccountId.isEmpty
-                        ? 'Any'
-                        : state.accounts
-                            .where((acc) => _selectedAccountId.contains(acc.id))
-                            .map((acc) => acc.name)
-                            .join(', '),
-                  ),
-                  onTap: () async {
-                    final selectedIds = await showDialog<List<String>>(
-                      context: context,
-                      builder: (_) => BlocProvider.value(
-                        value: context.read<StylesBloc>(),
-                        child: MultiSelectDialog<Account>(
-                          items: state.accounts,
-                          selectedIds: _selectedAccountId,
-                          itemBuilder: (item) => Row(
-                            children: [
-                              BlocBuilder<StylesBloc, StylesState>(
-                                builder: (context, stylesState) {
-                                  if (stylesState is StylesLoadSuccess) {
-                                    final style = stylesState.styles
-                                        .firstWhereOrNull(
-                                            (s) => s.id == item.styleId);
-                                    if (style != null) {
-                                      return IconUtils.getIconWidget(style);
-                                    }
-                                  }
-                                  return const Icon(Icons.account_balance);
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              Text(item.name),
-                            ],
-                          ),
-                          idGetter: (item) => item.id!,
-                          stringGetter: (item) => item.name,
-                        ),
-                      ),
-                    );
-
-                    if (selectedIds != null) {
-                      setState(() {
-                        _selectedAccountId = selectedIds;
-                      });
-                    }
-                  },
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            BlocBuilder<CategoriesBloc, CategoriesState>(
-              builder: (context, state) {
-                if (state is CategoriesLoadSuccess) {
-                  return ListTile(
-                    title: const Text('Category'),
-                  subtitle: Text(
-                    _selectedCategoryId.isEmpty
-                        ? 'Any'
-                        : state.categoriesWithTotals
-                            .where((cat) =>
-                                _selectedCategoryId.contains(cat.category.id))
-                            .map((cat) => cat.category.name)
-                            .join(', '),
-                  ),
-                                      onTap: () async {
-                                        final selectedIds = await showDialog<List<String>>(
-                                          context: context,
-                                          builder: (_) => BlocProvider.value(
-                                            value: context.read<StylesBloc>(),
-                                            child: MultiSelectDialog<CategoryWithTotal>(
-                                              items: state.categoriesWithTotals,
-                                              selectedIds: _selectedCategoryId,
-                                              itemBuilder: (item) => Row(
-                                                children: [
-                                                  BlocBuilder<StylesBloc,
-                                                      StylesState>(
-                                                    builder: (context,
-                                                        stylesState) {
-                                                      if (stylesState
-                                                          is StylesLoadSuccess) {
-                                                        final style = stylesState
-                                                            .styles
-                                                            .firstWhereOrNull(
-                                                                (s) =>
-                                                                    s.id ==
-                                                                    item.category
-                                                                        .styleId);
-                                                        if (style != null) {
-                                                          return IconUtils
-                                                              .getIconWidget(
-                                                                  style);
-                                                        }
-                                                      }
-                                                      return const Icon(
-                                                          Icons.category);
-                                                    },
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Text(item.category.name),
-                                                ],
-                                              ),
-                                              idGetter: (item) => item.category.id!,
-                                              stringGetter: (item) =>
-                                                  item.category.name,
-                                            ),
-                                          ),
-                                        );
-                    
-                                        if (selectedIds != null) {
-                                          setState(() {
-                                            _selectedCategoryId = selectedIds;
-                                          });
-                                        }
-                                      },                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-            const SizedBox(height: 16),
-            BlocBuilder<CurrencyBloc, CurrencyState>(
-              builder: (context, state) {
-                if (state is CurrencyLoadSuccess) {
-                  return ListTile(
-                    title: const Text('Currency'),
-                  subtitle: Text(
-                    _selectedCurrencyCode.isEmpty
-                        ? 'Any'
-                        : state.currencies
-                            .where((curr) =>
-                                _selectedCurrencyCode.contains(curr.code))
-                            .map((curr) => curr.name)
-                            .join(', '),
-                  ),
-                                      onTap: () async {
-                                        final selectedIds = await showDialog<List<String>>(
-                                          context: context,
-                                          builder: (_) => MultiSelectDialog<Currency>(
-                                            items: state.currencies,
-                                            selectedIds: _selectedCurrencyCode,
-                                            itemBuilder: (item) => Text(item.name),
-                                            idGetter: (item) => item.code,
-                                            stringGetter: (item) => '${item.name} ${item.code}',
-                                          ),
-                                        );
-                    
-                                        if (selectedIds != null) {
-                                          setState(() {
-                                            _selectedCurrencyCode = selectedIds;
-                                          });
-                                        }
-                                      },                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-          ],
-        ),
-      ),
       actions: <Widget>[
         TextButton(
           onPressed: _clearFilters,
