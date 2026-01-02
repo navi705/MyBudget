@@ -217,9 +217,23 @@ class _AccountField extends StatelessWidget {
             child: TextFormField(
               key: Key(state.selectedAccount?.id ?? 'no_account'),
               initialValue: state.selectedAccount?.name,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Account',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
+                prefixIcon: state.selectedAccount != null
+                    ? BlocBuilder<StylesBloc, StylesState>(
+                        builder: (context, stylesState) {
+                          if (stylesState is StylesLoadSuccess) {
+                            final style = stylesState.styles.firstWhereOrNull(
+                                (s) => s.id == state.selectedAccount!.styleId);
+                            if (style != null) {
+                              return IconUtils.getIconWidget(style);
+                            }
+                          }
+                          return const Icon(Icons.account_balance);
+                        },
+                      )
+                    : null,
               ),
               validator: (value) =>
                   state.selectedAccount == null ? 'Please select an account' : null,
@@ -325,9 +339,23 @@ class _CategoryField extends StatelessWidget {
             child: TextFormField(
               key: Key(state.selectedCategory?.id ?? 'no_category'),
               initialValue: state.selectedCategory?.name,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Category',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
+                prefixIcon: state.selectedCategory != null
+                    ? BlocBuilder<StylesBloc, StylesState>(
+                        builder: (context, stylesState) {
+                          if (stylesState is StylesLoadSuccess) {
+                            final style = stylesState.styles.firstWhereOrNull(
+                                (s) => s.id == state.selectedCategory!.styleId);
+                            if (style != null) {
+                              return IconUtils.getIconWidget(style);
+                            }
+                          }
+                          return const Icon(Icons.category);
+                        },
+                      )
+                    : null,
               ),
               validator: (value) =>
                   state.selectedCategory == null ? 'Please select a category' : null,
