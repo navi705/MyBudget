@@ -26,8 +26,9 @@ class AppTheme {
       seedColor: primaryColor,
       brightness: Brightness.light,
     );
+    // surfaceOpacity scales with the slider but has a minimum for readability
     final surfaceOpacity = hasWindowEffect
-        ? windowOpacity.clamp(0.0, 0.9)
+        ? windowOpacity.clamp(0.2, 0.9)
         : 1.0;
 
     return ThemeData(
@@ -37,10 +38,35 @@ class AppTheme {
       scaffoldBackgroundColor: hasWindowEffect ? Colors.transparent : null,
       canvasColor: hasWindowEffect ? Colors.transparent : null,
       cardColor: hasWindowEffect
-          ? Colors.white.withOpacity(surfaceOpacity * 0.5)
+          ? Colors.white.withOpacity(surfaceOpacity * 0.7)
           : null,
       dialogBackgroundColor: hasWindowEffect
-          ? Colors.white.withOpacity(surfaceOpacity * 0.8)
+          ? Colors.white.withOpacity(surfaceOpacity * 0.9)
+          : null,
+      cardTheme: hasWindowEffect
+          ? CardThemeData(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: Colors.white.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              shadowColor: Colors.black.withOpacity(0.2),
+            )
+          : null,
+      appBarTheme: hasWindowEffect
+          ? AppBarTheme(
+              backgroundColor: Colors.white.withOpacity(surfaceOpacity * 0.5),
+              elevation: 0,
+              iconTheme: IconThemeData(color: colorScheme.onSurface),
+              titleTextStyle: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            )
           : null,
       navigationRailTheme: hasWindowEffect
           ? const NavigationRailThemeData(backgroundColor: Colors.transparent)
@@ -61,8 +87,9 @@ class AppTheme {
       seedColor: primaryColor,
       brightness: Brightness.dark,
     );
+    // surfaceOpacity scales with the slider but has a minimum for readability
     final surfaceOpacity = hasWindowEffect
-        ? windowOpacity.clamp(0.0, 0.9)
+        ? windowOpacity.clamp(0.2, 0.9)
         : 1.0;
 
     return ThemeData(
@@ -72,10 +99,35 @@ class AppTheme {
       scaffoldBackgroundColor: hasWindowEffect ? Colors.transparent : null,
       canvasColor: hasWindowEffect ? Colors.transparent : null,
       cardColor: hasWindowEffect
-          ? Colors.black.withOpacity(surfaceOpacity * 0.5)
+          ? Colors.black.withOpacity(surfaceOpacity * 0.7)
           : null,
       dialogBackgroundColor: hasWindowEffect
-          ? Colors.black.withOpacity(surfaceOpacity * 0.8)
+          ? Colors.black.withOpacity(0.8)
+          : null,
+      cardTheme: hasWindowEffect
+          ? CardThemeData(
+              elevation: 8,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              shadowColor: Colors.black.withOpacity(0.5),
+            )
+          : null,
+      appBarTheme: hasWindowEffect
+          ? AppBarTheme(
+              backgroundColor: Colors.black.withOpacity(surfaceOpacity * 0.5),
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Colors.white),
+              titleTextStyle: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            )
           : null,
       navigationRailTheme: hasWindowEffect
           ? const NavigationRailThemeData(backgroundColor: Colors.transparent)
@@ -98,16 +150,21 @@ class AppTheme {
         : Colors.black;
 
     if (effect == WindowEffectType.mica) {
-      // Mica is very subtle, we use a much lower alpha for the overlay
+      // Mica is very subtle and generally doesn't support custom colors well on Windows
       return baseColor.withOpacity(opacity * 0.2);
     }
 
     if (effect == WindowEffectType.acrylic) {
-      // For acrylic, standard tint works well, but we can mix a bit of theme color
-      return Color.lerp(baseColor, themeColor, 0.05)!.withOpacity(opacity);
+      // For acrylic, we mix the base color with the theme color for a subtle brand feel
+      return Color.lerp(baseColor, themeColor, 0.15)!.withOpacity(opacity);
     }
 
-    // Transparent effect uses full opacity range
+    if (effect == WindowEffectType.transparent) {
+      // For 'Transparent', we use the theme color directly
+      // but slightly blended with white/black to ensure it's not too vibrant/harsh
+      return Color.lerp(baseColor, themeColor, 0.6)!.withOpacity(opacity);
+    }
+
     return baseColor.withOpacity(opacity);
   }
 
