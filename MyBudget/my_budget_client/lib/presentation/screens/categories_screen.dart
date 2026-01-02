@@ -283,12 +283,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     categoryWithTotal: categoryWithTotal,
                     allCategoriesWithTotals: filteredCategories,
                     isSelected: isSelected,
-                    onTap: () {
+                    onTap: (tappedCategory) {
                       if (state.isSelectionModeActive) {
-                        bloc.add(ToggleCategorySelection(category.id!));
+                        bloc.add(ToggleCategorySelection(tappedCategory.id!));
                       } else {
                         _showAddEditCategoryDialog(context,
-                            category: category,
+                            category: tappedCategory,
                             allCategories: state.allCategories);
                       }
                     },

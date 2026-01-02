@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
+import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
@@ -13,7 +14,7 @@ import 'package:intl/intl.dart';
 class CategoryListItem extends StatelessWidget {
   final CategoryWithTotal categoryWithTotal;
   final List<CategoryWithTotal> allCategoriesWithTotals;
-  final VoidCallback onTap;
+  final void Function(Category) onTap;
   final String mainCurrencyCode;
   final List<CurrencyDesignation> currencyDesignations;
   final bool isSelected;
@@ -114,7 +115,7 @@ class CategoryListItem extends StatelessWidget {
                 fontSize: 14,
               ),
             ),
-            onTap: onTap,
+            onTap: () => onTap(category),
             onLongPress: onLongPress,
           ),
         );
@@ -148,11 +149,7 @@ class CategoryListItem extends StatelessWidget {
                       child: CategoryListItem(
                         categoryWithTotal: child,
                         allCategoriesWithTotals: allCategoriesWithTotals,
-                        onTap: () {
-                          // This is a workaround to make children selectable.
-                          // A better solution would be to pass the category to the onTap callback.
-                          onTap();
-                        },
+                        onTap: onTap,
                         mainCurrencyCode: mainCurrencyCode,
                         currencyDesignations: currencyDesignations,
                         isSelected: isSelected,
