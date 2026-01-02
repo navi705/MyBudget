@@ -538,7 +538,7 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
                 amount: -record.amount,
                 accountId: fromAccountId,
                 categoryId: transferCategory.id!,
-                currencyCode: record.currency,
+                currencyCode: record.currency.toUpperCase(),
               ),
             );
             final creditAmount = record.amount2 ?? record.amount;
@@ -552,7 +552,7 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
                 amount: creditAmount,
                 accountId: toAccountId,
                 categoryId: transferCategory.id!,
-                currencyCode: creditCurrency,
+                currencyCode: creditCurrency.toUpperCase(),
               ),
             );
           }
@@ -573,8 +573,9 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
               description = description.substring(0, 100);
 
             final currencyCode =
-                state.currencyMappings[record.currency.toLowerCase()] ??
-                record.currency;
+                (state.currencyMappings[record.currency.toLowerCase()] ??
+                        record.currency)
+                    .toUpperCase();
 
             transactionsToInsert.add(
               Transaction(
