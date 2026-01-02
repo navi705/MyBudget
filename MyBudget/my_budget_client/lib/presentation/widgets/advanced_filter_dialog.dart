@@ -10,6 +10,7 @@ import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.d
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
 
 void showAdvancedFilterDialog(
     BuildContext context, TransactionFilters currentFilters) {
@@ -221,19 +222,27 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
             const SizedBox(height: 16),
             BlocBuilder<AccountsBloc, AccountsState>(
               builder: (context, state) {
-                return DropdownButtonFormField<String>(
-                  initialValue: _selectedAccountId,
-                  decoration: const InputDecoration(labelText: 'Account'),
-                  items: state.accounts
-                      .map((Account account) => DropdownMenuItem(
-                            value: account.id,
-                            child: Text(account.name),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedAccountId = value;
-                    });
+                return ListTile(
+                  title: const Text('Account'),
+                  subtitle: Text(_selectedAccountId ?? 'Any'),
+                  onTap: () async {
+                    final selectedId = await showDialog<String>(
+                      context: context,
+                      builder: (_) => MultiSelectDialog<Account>(
+                        items: state.accounts,
+                        selectedIds:
+                            _selectedAccountId != null ? [_selectedAccountId!] : [],
+                        itemBuilder: (item) => Text(item.name),
+                        idGetter: (item) => item.id!,
+                        stringGetter: (item) => item.name,
+                      ),
+                    );
+
+                    if (selectedId != null) {
+                      setState(() {
+                        _selectedAccountId = selectedId;
+                      });
+                    }
                   },
                 );
               },
@@ -242,20 +251,28 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
             BlocBuilder<CategoriesBloc, CategoriesState>(
               builder: (context, state) {
                 if (state is CategoriesLoadSuccess) {
-                  return DropdownButtonFormField<String>(
-                    initialValue: _selectedCategoryId,
-                    decoration: const InputDecoration(labelText: 'Category'),
-                    items: state.categoriesWithTotals
-                        .map((CategoryWithTotal categoryWithTotal) =>
-                            DropdownMenuItem<String>(
-                              value: categoryWithTotal.category.id,
-                              child: Text(categoryWithTotal.category.name),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedCategoryId = value;
-                      });
+                  return ListTile(
+                    title: const Text('Category'),
+                    subtitle: Text(_selectedCategoryId ?? 'Any'),
+                    onTap: () async {
+                      final selectedId = await showDialog<String>(
+                        context: context,
+                        builder: (_) => MultiSelectDialog<CategoryWithTotal>(
+                          items: state.categoriesWithTotals,
+                          selectedIds: _selectedCategoryId != null
+                              ? [_selectedCategoryId!]
+                              : [],
+                          itemBuilder: (item) => Text(item.category.name),
+                          idGetter: (item) => item.category.id!,
+                          stringGetter: (item) => item.category.name,
+                        ),
+                      );
+
+                      if (selectedId != null) {
+                        setState(() {
+                          _selectedCategoryId = selectedId;
+                        });
+                      }
                     },
                   );
                 }
@@ -265,21 +282,33 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
             const SizedBox(height: 16),
             BlocBuilder<CurrencyBloc, CurrencyState>(
               builder: (context, state) {
-                return DropdownButtonFormField<String>(
-                  initialValue: _selectedCurrencyCode,
-                  decoration: const InputDecoration(labelText: 'Currency'),
-                  items: state.currencies
-                      .map((Currency currency) => DropdownMenuItem(
-                            value: currency.code,
-                            child: Text(currency.code),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedCurrencyCode = value;
-                    });
-                  },
-                );
+                if (state is CurrencyLoadSuccess) {
+                  return ListTile(
+                    title: const Text('Currency'),
+                    subtitle: Text(_selectedCurrencyCode ?? 'Any'),
+                    onTap: () async {
+                      final selectedId = await showDialog<String>(
+                        context: context,
+                        builder: (_) => MultiSelectDialog<Currency>(
+                          items: state.currencies,
+                          selectedIds: _selectedCurrencyCode != null
+                              ? [_selectedCurrencyCode!]
+                              : [],
+                          itemBuilder: (item) => Text(item.name),
+                          idGetter: (item) => item.code,
+                          stringGetter: (item) => '${item.name} ${item.code}',
+                        ),
+                      );
+
+                      if (selectedId != null) {
+                        setState(() {
+                          _selectedCurrencyCode = selectedId;
+                        });
+                      }
+                    },
+                  );
+                }
+                return const SizedBox.shrink();
               },
             ),
           ],
