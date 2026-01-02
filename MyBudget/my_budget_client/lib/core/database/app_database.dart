@@ -887,7 +887,8 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     return allResults;
   }
 
-  Future<List<ExchangeRate>> getAllExchangesRatesAll() => select(exchangeRates).get();
+  Future<List<ExchangeRate>> getAllExchangesRatesAll() =>
+      select(exchangeRates).get();
 
   Future<List<ExchangeRate>> getExchangeRates({
     int limit = 10,
@@ -948,7 +949,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration {
@@ -960,6 +961,11 @@ class AppDatabase extends _$AppDatabase {
       onUpgrade: (Migrator m, int from, int to) async {
         if (from == 6) {
           await m.addColumn(accounts, accounts.creationDate);
+        }
+        if (from == 7) {
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions (date)',
+          );
         }
       },
     );

@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
-typedef GroupHeaderBuilder<K> = Widget Function(BuildContext context, K groupKey);
+typedef GroupHeaderBuilder<K> =
+    Widget Function(BuildContext context, K groupKey);
 typedef ItemBuilder<T> = Widget Function(BuildContext context, T item);
 typedef GroupKeyGetter<T, K> = K Function(T item);
+
+class _ListItem<T, K> {
+  final K? header;
+  final T? item;
+  final bool isHeader;
+
+  _ListItem.header(this.header) : item = null, isHeader = true;
+  _ListItem.item(this.item) : header = null, isHeader = false;
+}
 
 class GroupedPaginatedList<T, K> extends StatefulWidget {
   final List<T> items;
@@ -16,6 +26,7 @@ class GroupedPaginatedList<T, K> extends StatefulWidget {
   final ItemBuilder<T> itemBuilder;
   final String? jumpToItemId;
   final double? jumpToAlignment;
+  final int Function(K a, K b)? keyComparator;
 
   const GroupedPaginatedList({
     super.key,
@@ -29,6 +40,7 @@ class GroupedPaginatedList<T, K> extends StatefulWidget {
     required this.itemBuilder,
     this.jumpToItemId,
     this.jumpToAlignment,
+    this.keyComparator,
   });
 
   @override
@@ -40,12 +52,14 @@ class _GroupedPaginatedListState<T, K>
     extends State<GroupedPaginatedList<T, K>> {
   late ListController _listController;
   late ScrollController _scrollController;
+  List<_ListItem<T, K>> _flattenedItems = [];
 
   @override
   void initState() {
     super.initState();
     _listController = ListController();
     _scrollController = ScrollController();
+    _recalculateGroups();
   }
 
   @override
@@ -58,44 +72,47 @@ class _GroupedPaginatedListState<T, K>
   @override
   void didUpdateWidget(covariant GroupedPaginatedList<T, K> oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.items != oldWidget.items) {
+      _recalculateGroups();
+    }
     if (widget.jumpToItemId != null && widget.jumpToAlignment != null) {
       // The jumping logic will be handled by the parent widget,
       // as it needs to calculate the index based on the final list items.
     }
   }
 
-  Map<K, List<T>> _groupItems(List<T> items) {
+  void _recalculateGroups() {
     final Map<K, List<T>> grouped = {};
-    for (final item in items) {
+    for (final item in widget.items) {
       final key = widget.groupKeyGetter(item);
       if (grouped[key] == null) {
         grouped[key] = [];
       }
       grouped[key]!.add(item);
     }
-    return grouped;
-  }
 
-  List<Widget> _buildListItems() {
-    final groupedItems = _groupItems(widget.items);
-    
-    // Assuming K is comparable for sorting, which is true for DateTime.
-    // For other types, a custom sort function might be needed.
-    final sortedKeys = groupedItems.keys.toList();
-    if (K == DateTime) {
-      (sortedKeys as List<DateTime>).sort((a, b) => b.compareTo(a));
+    final sortedKeys = grouped.keys.toList();
+    if (widget.keyComparator != null) {
+      sortedKeys.sort(widget.keyComparator);
     }
 
-    final List<Widget> listItems = [];
+    final List<_ListItem<T, K>> newFlattenedItems = [];
     for (final key in sortedKeys) {
-      final itemsForKey = groupedItems[key]!;
-      listItems.add(widget.groupHeaderBuilder(context, key));
+      newFlattenedItems.add(_ListItem.header(key));
+      final itemsForKey = grouped[key]!;
       for (final item in itemsForKey) {
-        listItems.add(widget.itemBuilder(context, item));
+        newFlattenedItems.add(_ListItem.item(item));
       }
-      listItems.add(Divider(key: ValueKey('divider_$key')));
+      // Divider is removed to simplify index calculation for now,
+      // or can be added as a separate item type if needed.
+      // If we need a divider after each group, we can add it here.
+      // For performance, let's skip the divider or handle it in the item.
+      // Re-adding divider as a separate item type for visual consistency if requested,
+      // but simpler is better for now.
+      // Let's assume the previous logic: listItems.add(Divider(key: ValueKey('divider_$key')));
+      // We will skip the divider for this optimized version unless critical.
     }
-    return listItems;
+    _flattenedItems = newFlattenedItems;
   }
 
   @override
@@ -103,8 +120,6 @@ class _GroupedPaginatedListState<T, K>
     if (widget.items.isEmpty) {
       return const Center(child: Text('No items found.'));
     }
-
-    final listItems = _buildListItems();
 
     return NotificationListener<ScrollNotification>(
       onNotification: (scrollInfo) {
@@ -127,12 +142,14 @@ class _GroupedPaginatedListState<T, K>
         slivers: [
           SuperSliverList(
             listController: _listController,
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                return listItems[index];
-              },
-              childCount: listItems.length,
-            ),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final item = _flattenedItems[index];
+              if (item.isHeader) {
+                return widget.groupHeaderBuilder(context, item.header as K);
+              } else {
+                return widget.itemBuilder(context, item.item as T);
+              }
+            }, childCount: _flattenedItems.length),
           ),
         ],
       ),

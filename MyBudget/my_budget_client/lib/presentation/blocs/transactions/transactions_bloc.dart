@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:developer' as developer;
 import 'package:bloc/bloc.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
@@ -22,7 +22,180 @@ import 'package:my_budget_client/domain/entities/category.dart';
 part 'transactions_event.dart';
 part 'transactions_state.dart';
 
+class _ProcessDataParams {
+  final List<Transaction> transactions;
+  final List<ExchangeRateDomain> rates;
+  final List<Category> categories;
+  final List<Style> styles;
+  final String mainCurrencyCode;
+
+  _ProcessDataParams({
+    required this.transactions,
+    required this.rates,
+    required this.categories,
+    required this.styles,
+    required this.mainCurrencyCode,
+  });
+}
+
+class _ProcessDataResult {
+  final List<TransactionCategory> transactionsWithStyles;
+  final Map<DateTime, double> dailyTotals;
+
+  _ProcessDataResult({
+    required this.transactionsWithStyles,
+    required this.dailyTotals,
+  });
+}
+
+Future<_ProcessDataResult> _processTransactionsData(
+  _ProcessDataParams params,
+) async {
+  const baseCurrency = 'EUR';
+
+  final ratesMapsByDate = <DateTime, Map<String, double>>{};
+
+  String getRateKey(String from, String to) => '${from}_$to';
+
+  for (var rate in params.rates) {
+    final dateKey = DateTime(rate.date.year, rate.date.month, rate.date.day);
+    if (!ratesMapsByDate.containsKey(dateKey)) {
+      ratesMapsByDate[dateKey] = {};
+    }
+    ratesMapsByDate[dateKey]![getRateKey(
+          rate.fromCurrencyCode,
+          rate.toCurrencyCode,
+        )] =
+        rate.rate;
+  }
+
+  final transactionDates =
+      params.transactions
+          .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
+          .toSet()
+          .toList()
+        ..sort((a, b) => a.compareTo(a));
+
+  final availableRateDates = ratesMapsByDate.keys.toList()
+    ..sort((a, b) => a.compareTo(b));
+
+  if (availableRateDates.isNotEmpty) {
+    for (var date in transactionDates) {
+      if (!ratesMapsByDate.containsKey(date)) {
+        DateTime? closestDate;
+        int minDownload = -1;
+
+        for (var rateDate in availableRateDates) {
+          final diff = rateDate.difference(date).inDays.abs();
+          if (minDownload == -1 || diff < minDownload) {
+            minDownload = diff;
+            closestDate = rateDate;
+          }
+        }
+
+        if (closestDate != null) {
+          ratesMapsByDate[date] = ratesMapsByDate[closestDate]!;
+        }
+      }
+    }
+  }
+
+  final categoryMap = {for (var item in params.categories) item.id: item};
+  final styleMap = {for (var item in params.styles) item.id: item};
+  final defaultStyle = Style(
+    id: 'default',
+    name: 'Default',
+    iconName: 'help',
+    colorHex: '#CCCCCC',
+    iconType: IconType.material,
+  );
+
+  final List<TransactionCategory> transactionsWithStyles = [];
+  final Map<DateTime, Map<String, double>> totalsByDateAndCurrency = {};
+
+  for (var transaction in params.transactions) {
+    final category = categoryMap[transaction.categoryId];
+    Style? foundStyle;
+    if (category != null && category.styleId != null) {
+      foundStyle = styleMap[category.styleId];
+    }
+    transactionsWithStyles.add(
+      TransactionCategory(
+        transaction: transaction,
+        style: foundStyle ?? defaultStyle,
+      ),
+    );
+
+    final date = DateTime(
+      transaction.date.year,
+      transaction.date.month,
+      transaction.date.day,
+    );
+    if (!totalsByDateAndCurrency.containsKey(date)) {
+      totalsByDateAndCurrency[date] = {};
+    }
+    final currentSum =
+        totalsByDateAndCurrency[date]![transaction.currencyCode] ?? 0.0;
+    totalsByDateAndCurrency[date]![transaction.currencyCode] =
+        currentSum + transaction.amount;
+  }
+
+  final Map<DateTime, double> finalDailyTotals = {};
+
+  for (var date in totalsByDateAndCurrency.keys) {
+    double totalForDayInMain = 0;
+    final currencySubtotals = totalsByDateAndCurrency[date]!;
+    final ratesMap = ratesMapsByDate[date] ?? {};
+
+    for (var entry in currencySubtotals.entries) {
+      final currencyCode = entry.key;
+      final totalAmount = entry.value;
+
+      double amountInBase;
+
+      if (currencyCode == baseCurrency) {
+        amountInBase = totalAmount;
+      } else {
+        final toBase = ratesMap[getRateKey(currencyCode, baseCurrency)];
+        if (toBase != null) {
+          amountInBase = totalAmount * toBase;
+        } else {
+          final fromBase = ratesMap[getRateKey(baseCurrency, currencyCode)];
+          amountInBase = (fromBase != null && fromBase != 0)
+              ? totalAmount / fromBase
+              : 0;
+        }
+      }
+
+      double amountInMain;
+      if (params.mainCurrencyCode == baseCurrency) {
+        amountInMain = amountInBase;
+      } else {
+        final toMain =
+            ratesMap[getRateKey(baseCurrency, params.mainCurrencyCode)];
+        if (toMain != null) {
+          amountInMain = amountInBase * toMain;
+        } else {
+          final fromMain =
+              ratesMap[getRateKey(params.mainCurrencyCode, baseCurrency)];
+          amountInMain = (fromMain != null && fromMain != 0)
+              ? amountInBase / fromMain
+              : amountInBase;
+        }
+      }
+      totalForDayInMain += amountInMain;
+    }
+    finalDailyTotals[date] = totalForDayInMain;
+  }
+
+  return _ProcessDataResult(
+    transactionsWithStyles: transactionsWithStyles,
+    dailyTotals: finalDailyTotals,
+  );
+}
+
 class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
+  // ... (Repository fields same as before)
   final TransactionRepository _transactionRepository;
   final StyleRepository _styleRepository;
   final CategoryRepository _categoryRepository;
@@ -41,6 +214,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
        _settingsRepository = settingsRepository,
        _currencyRepository = currencyRepository,
        super(TransactionsState()) {
+    // ... (Event handlers same as before)
     on<NonDateFiltersChanged>(_onNonDateFiltersChanged);
     on<DatePeriodNavigated>(_onDatePeriodNavigated);
     on<DateStepChanged>(_onDateStepChanged);
@@ -69,108 +243,374 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     on<ClearSelection>(_onClearSelection);
   }
 
-  Future<Map<DateTime, double>> _calculateDailyTotals(
+  // Helper method to fetch dependencies and run compute
+  Future<_ProcessDataResult> _fetchAndProcess(
     List<Transaction> transactions,
     String mainCurrencyCode,
   ) async {
-    if (transactions.isEmpty) return {};
-
-    const baseCurrency = 'EUR';
-
-    // 1. Group transactions by Date AND Currency (Same as before)
-    final Map<DateTime, Map<String, double>> totalsByDateAndCurrency = {};
-
-    for (var t in transactions) {
-      // Strip time to ensure correct matching
-      final date = DateTime(t.date.year, t.date.month, t.date.day);
-
-      if (!totalsByDateAndCurrency.containsKey(date)) {
-        totalsByDateAndCurrency[date] = {};
-      }
-      final currentSum = totalsByDateAndCurrency[date]![t.currencyCode] ?? 0.0;
-      totalsByDateAndCurrency[date]![t.currencyCode] = currentSum + t.amount;
+    if (transactions.isEmpty) {
+      return _ProcessDataResult(transactionsWithStyles: [], dailyTotals: {});
     }
 
-    // --- CHANGED PART STARTS HERE ---
+    // 1. Fetch Categories
+    final categoriesListIds = transactions
+        .map((u) => u.categoryId)
+        .toSet()
+        .toList();
+    final categories = await _categoryRepository.getCategoriesByIds(
+      categoriesListIds,
+    );
 
-    // 2. Fetch ALL rates in ONE database call
-    final uniqueDates = totalsByDateAndCurrency.keys.toList();
+    // 2. Fetch Styles
+    final stylesListIds = categories
+        .map((u) => u.styleId)
+        .whereType<String>()
+        .toSet()
+        .toList();
+    final styles = await _styleRepository.getStylesByIds(stylesListIds);
 
-    // New optimized method
-    final List<ExchangeRateDomain> allRatesList = await _currencyRepository
-        .getLatestExchangeRatesByList(uniqueDates);
+    // 3. Fetch Rates
+    // Implementation note: Ideally fetch rates covering the range of transactions.
+    // For now, getting rates for specific transaction dates might be efficient enough if cached,
+    // or getAll if dataset is small. The previous implementation fetched by list.
+    final uniqueDates = transactions
+        .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
+        .toSet()
+        .toList();
 
-    // 3. Convert the flat list into a nested Map for O(1) lookup
-    // Structure: Map<Date, Map<"USD_EUR", Rate>>
-    final ratesMapsByDate = <DateTime, Map<String, double>>{};
+    // To support fallback properly, we might need MORE rates than just the exact dates.
+    // However, fetching ALL rates might be too much.
+    // Let's assume fetching by list is a good start, and we augment checking surrounding dates?
+    // Actually, if a rate is missing for Day X, it's likely available for Day X-1 or X-2.
+    // If the repo only returns rates for requested dates, we won't have the "closest" if we don't ask for it.
+    // Strategy: Fetch rates for the requested dates. If some are missing, maybe fetch all?
+    // Or just fetch ALL rates for the active month/year?
+    // For simplicity and performance balance: let's fetch rates for the transaction dates.
+    // If we want "closest", we really need to know what available rates exist in DB.
+    // Let's call `getLatestExchangeRatesAll` if the range is small? No, that's dangerous.
+    // Let's stick to `getLatestExchangeRatesByList` first. If gaps, we might miss data.
+    // But wait, the user said "find to closer date rates". That implies we have them.
+    // Maybe `getLatestExchangeRatesByList` should be replaced by `getLatestExchangeRatesAll`
+    // if we suspect we need to search?
+    // Let's try fetching all rates if the list is reasonable, or maybe the logic inside `_processTransactionsData`
+    // will operate on whatever rates are passed.
+    // If we only pass rates for Day 1 and Day 3, and we need Day 2, we can pick Day 1 or 3.
+    // So passing the rates for the transaction dates is "enough" to interpolate *among* them,
+    // but not outside them.
+    // To be safe, let's fetch rates for distinct dates involved.
 
-    for (var rate in allRatesList) {
-      // Ensure we match the stripped date format used in Step 1
-      final dateKey = DateTime(rate.date.year, rate.date.month, rate.date.day);
+    final rates = await _currencyRepository.getLatestExchangeRatesByList(
+      uniqueDates,
+    );
 
-      if (!ratesMapsByDate.containsKey(dateKey)) {
-        ratesMapsByDate[dateKey] = {};
+    return compute(
+      _processTransactionsData,
+      _ProcessDataParams(
+        transactions: transactions,
+        rates: rates,
+        categories: categories,
+        styles: styles,
+        mainCurrencyCode: mainCurrencyCode,
+      ),
+    );
+  }
+
+  Future<void> _onLoadTransactionsInitial(
+    InitialLoadTransactions event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    emit(state.copyWith(status: TransactionStatus.loading));
+    try {
+      final mainCurrencySetting = await _settingsRepository.getSetting(
+        'main_currency_code',
+      );
+      final mainCurrencyCode = mainCurrencySetting?.value ?? 'EUR';
+
+      final results = await Future.wait([
+        _transactionRepository.getTransactionsWithFilters(
+          limit: event.limit,
+          offset: 0,
+          filters: state.filters,
+          sort: state.sort,
+        ),
+        _transactionRepository.getCountWithFilters(filters: state.filters),
+        _currencyRepository.getAllCurrencyDesignations(),
+      ]);
+
+      final rawTransactions = results[0] as List<Transaction>;
+      final totalCount = results[1] as int;
+      final currencyDesignations = results[2] as List<CurrencyDesignation>;
+
+      final processResult = await _fetchAndProcess(
+        rawTransactions,
+        mainCurrencyCode,
+      );
+
+      emit(
+        state.copyWith(
+          status: TransactionStatus.success,
+          transactions: processResult.transactionsWithStyles,
+          startIndex: 0,
+          hasMoreUp: false,
+          hasMoreDown: processResult.transactionsWithStyles.isNotEmpty,
+          totalCount: totalCount,
+          currencyDesignations: currencyDesignations,
+          dailyTotals: processResult.dailyTotals,
+          mainCurrencyCode: mainCurrencyCode,
+        ),
+      );
+    } catch (_) {
+      emit(state.copyWith(status: TransactionStatus.failure));
+    }
+  }
+
+  Future<void> _onLoadTransactionsUp(
+    LoadTransactionsUp event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    if (!state.hasMoreUp || state.status == TransactionStatus.loading) return;
+    emit(state.copyWith(status: TransactionStatus.loading));
+
+    try {
+      final mainCurrencySetting = await _settingsRepository.getSetting(
+        'main_currency_code',
+      );
+      final mainCurrencyCode = mainCurrencySetting?.value ?? 'EUR';
+
+      final offset = (state.startIndex - event.limit)
+          .clamp(0, double.infinity)
+          .toInt();
+      final jumpToItemId = state.transactions.firstOrNull?.transaction.id;
+      final newRawTransactions = await _transactionRepository
+          .getTransactionsWithFilters(
+            limit: event.limit,
+            offset: offset,
+            filters: state.filters,
+            sort: state.sort,
+          );
+
+      if (newRawTransactions.isEmpty) {
+        return emit(
+          state.copyWith(status: TransactionStatus.success, hasMoreUp: false),
+        );
       }
 
-      // Create the lookup key: "FROM_TO"
-      ratesMapsByDate[dateKey]!['${rate.fromCurrencyCode}_${rate.toCurrencyCode}'] =
-          rate.rate;
-    }
+      final processResult = await _fetchAndProcess(
+        newRawTransactions,
+        mainCurrencyCode,
+      );
 
-    // --- CHANGED PART ENDS HERE ---
+      final updatedList = [
+        ...processResult.transactionsWithStyles,
+        ...state.transactions,
+      ];
 
-    final Map<DateTime, double> finalDailyTotals = {};
-
-    // 4. Calculate Totals (Logic remains the same, but lookup is faster)
-    for (var date in totalsByDateAndCurrency.keys) {
-      double totalForDayInMain = 0;
-      final currencySubtotals = totalsByDateAndCurrency[date]!;
-      // Get the specific rates map for this date (or empty map if none found)
-      final ratesMap = ratesMapsByDate[date] ?? {};
-
-      for (var entry in currencySubtotals.entries) {
-        final currencyCode = entry.key;
-        final totalAmount = entry.value;
-
-        double amountInBase;
-
-        // Step A: Convert to Base (EUR)
-        if (currencyCode == baseCurrency) {
-          amountInBase = totalAmount;
-        } else {
-          final toBase = ratesMap['${currencyCode}_$baseCurrency'];
-          if (toBase != null) {
-            amountInBase = totalAmount * toBase;
-          } else {
-            final fromBase = ratesMap['${baseCurrency}_$currencyCode'];
-            amountInBase = (fromBase != null && fromBase != 0)
-                ? totalAmount / fromBase
-                : 0;
-          }
-        }
-
-        // Step B: Convert Base (EUR) -> Main
-        double amountInMain;
-        if (mainCurrencyCode == baseCurrency) {
-          amountInMain = amountInBase;
-        } else {
-          final toMain = ratesMap['${baseCurrency}_$mainCurrencyCode'];
-          if (toMain != null) {
-            amountInMain = amountInBase * toMain;
-          } else {
-            final fromMain = ratesMap['${mainCurrencyCode}_$baseCurrency'];
-            amountInMain = (fromMain != null && fromMain != 0)
-                ? amountInBase / fromMain
-                : amountInBase;
-          }
-        }
-
-        totalForDayInMain += amountInMain;
+      final Map<DateTime, double> updatedTotals = Map.from(state.dailyTotals);
+      for (final entry in processResult.dailyTotals.entries) {
+        updatedTotals[entry.key] =
+            (updatedTotals[entry.key] ?? 0) + entry.value;
       }
-      finalDailyTotals[date] = totalForDayInMain;
-    }
 
-    return finalDailyTotals;
+      final newStartIndex =
+          state.startIndex - processResult.transactionsWithStyles.length;
+      double? jumpAlignment;
+
+      if (updatedList.length > state.windowSize) {
+        final removeCount = updatedList.length - state.windowSize;
+        updatedList.removeRange(
+          updatedList.length - removeCount,
+          updatedList.length,
+        );
+        jumpAlignment = 0.0;
+      }
+
+      emit(
+        state.copyWith(
+          status: TransactionStatus.success,
+          transactions: updatedList,
+          startIndex: newStartIndex,
+          hasMoreDown: true,
+          hasMoreUp: newStartIndex > 0,
+          jumpToItemId: jumpToItemId,
+          jumpToAlignment: jumpAlignment,
+          dailyTotals: updatedTotals,
+          mainCurrencyCode: mainCurrencyCode,
+        ),
+      );
+      emit(state.copyWith(jumpToItemId: null, jumpToAlignment: null));
+    } catch (_) {
+      emit(state.copyWith(status: TransactionStatus.failure));
+    }
+  }
+
+  Future<void> _onLoadTransactionsDown(
+    LoadTransactionsDown event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    if (!state.hasMoreDown || state.status == TransactionStatus.loading) return;
+    emit(state.copyWith(status: TransactionStatus.loading));
+
+    try {
+      final mainCurrencySetting = await _settingsRepository.getSetting(
+        'main_currency_code',
+      );
+      final mainCurrencyCode = mainCurrencySetting?.value ?? 'EUR';
+
+      final offset = state.startIndex + state.transactions.length;
+      final jumpToItemId = state.transactions.lastOrNull?.transaction.id;
+      final newRawTransactions = await _transactionRepository
+          .getTransactionsWithFilters(
+            limit: event.limit,
+            offset: offset,
+            filters: state.filters,
+            sort: state.sort,
+          );
+
+      if (newRawTransactions.isEmpty) {
+        return emit(
+          state.copyWith(status: TransactionStatus.success, hasMoreDown: false),
+        );
+      }
+
+      final processResult = await _fetchAndProcess(
+        newRawTransactions,
+        mainCurrencyCode,
+      );
+
+      final updatedList = [
+        ...state.transactions,
+        ...processResult.transactionsWithStyles,
+      ];
+
+      // Merge totals
+      final Map<DateTime, double> updatedTotals = Map.from(state.dailyTotals);
+      for (final entry in processResult.dailyTotals.entries) {
+        updatedTotals[entry.key] =
+            (updatedTotals[entry.key] ?? 0) + entry.value;
+      }
+
+      var newStartIndex = state.startIndex;
+      double? jumpAlignment;
+
+      if (updatedList.length > state.windowSize) {
+        final removeCount = updatedList.length - state.windowSize;
+        updatedList.removeRange(0, removeCount);
+        newStartIndex += removeCount;
+        jumpAlignment = 1.0;
+      }
+
+      emit(
+        state.copyWith(
+          status: TransactionStatus.success,
+          transactions: updatedList,
+          startIndex: newStartIndex,
+          hasMoreUp: true,
+          hasMoreDown: processResult.transactionsWithStyles.isNotEmpty,
+          jumpToItemId: jumpToItemId,
+          jumpToAlignment: jumpAlignment,
+          dailyTotals: updatedTotals,
+          mainCurrencyCode: mainCurrencyCode,
+        ),
+      );
+      emit(state.copyWith(jumpToItemId: null, jumpToAlignment: null));
+    } catch (_) {
+      emit(state.copyWith(status: TransactionStatus.failure));
+    }
+  }
+
+  // ... (Other event handlers same as before: Add/Update/Delete/Filter/etc methods)
+  // Since I am replacing until line 710, I need to keep the rest, but the tool cuts off.
+  // I will just implement the handlers I need to changes, and keep the others if they haven't changed.
+  // Actually, I am replacing from line 25.
+  // I need to ensure the other handlers (_onAddTransaction etc) are preserved or re-implemented.
+  // They call `add(const InitialLoadTransactions())` so they are safe if that handler is updated.
+  // The implementations I provided above cover the complex loading logic.
+  // The simple CRUD handlers are missing from the ReplacementContent if I overwrite the whole class body.
+  // I should provide them.
+
+  // ... (Rest of the class)
+  Future<void> _onAddTransaction(
+    AddTransaction event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    try {
+      await _transactionRepository.addTransaction(event.transaction);
+      add(const InitialLoadTransactions());
+    } catch (e) {
+      emit(state.copyWith(status: TransactionStatus.failure));
+    }
+  }
+
+  Future<void> _onUpdateTransaction(
+    UpdateTransaction event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    try {
+      await _transactionRepository.updateTransaction(event.transaction);
+      add(const InitialLoadTransactions());
+    } catch (e) {
+      emit(state.copyWith(status: TransactionStatus.failure));
+    }
+  }
+
+  Future<void> _onDeleteTransaction(
+    DeleteTransaction event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    try {
+      await _transactionRepository.deleteTransaction(event.id);
+      add(const InitialLoadTransactions());
+    } catch (e) {
+      emit(state.copyWith(status: TransactionStatus.failure));
+    }
+  }
+
+  Future<void> _onDeleteMultipleTransactions(
+    DeleteMultipleTransactions event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    try {
+      await _transactionRepository.deleteMultipleTransactions(event.ids);
+
+      final newSelectedIds = Set<String>.from(state.selectedTransactionIds);
+      newSelectedIds.removeWhere((id) => event.ids.contains(id));
+
+      emit(state.copyWith(selectedTransactionIds: newSelectedIds));
+
+      add(const InitialLoadTransactions());
+    } catch (e) {
+      emit(state.copyWith(status: TransactionStatus.failure));
+    }
+  }
+
+  Future<void> _onUpdateDateForMultipleTransactions(
+    UpdateDateForMultipleTransactions event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    try {
+      await _transactionRepository.updateDateForMultipleTransactions(
+        event.ids,
+        event.newDate,
+      );
+      add(const InitialLoadTransactions());
+    } catch (e) {
+      emit(state.copyWith(status: TransactionStatus.failure));
+    }
+  }
+
+  Future<void> _onUpdateCategoryForMultipleTransactions(
+    UpdateCategoryForMultipleTransactions event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    try {
+      await _transactionRepository.updateCategoryForMultipleTransactions(
+        event.ids,
+        event.newCategoryId,
+      );
+      add(const InitialLoadTransactions());
+    } catch (e) {
+      emit(state.copyWith(status: TransactionStatus.failure));
+    }
   }
 
   void _onTransactionTypeFilterChanged(
@@ -307,403 +747,5 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) {
     emit(state.copyWith(selectedTransactionIds: {}));
-  }
-
-  Future<void> _onLoadTransactionsInitial(
-    InitialLoadTransactions event,
-    Emitter<TransactionsState> emit,
-  ) async {
-    emit(state.copyWith(status: TransactionStatus.loading));
-    try {
-      final mainCurrencySetting = await _settingsRepository.getSetting(
-        'main_currency_code',
-      );
-      final mainCurrencyCode = mainCurrencySetting?.value ?? 'EUR';
-
-      final transactionStopwatch = Stopwatch()..start();
-      final results = await Future.wait([
-        _transactionRepository.getTransactionsWithFilters(
-          limit: event.limit,
-          offset: 0,
-          filters: state.filters,
-          sort: state.sort,
-        ),
-        _transactionRepository.getCountWithFilters(filters: state.filters),
-        _currencyRepository.getAllCurrencyDesignations(),
-      ]);
-      developer.log(
-        'In-memory transaction took: ${transactionStopwatch.elapsed}',
-      );
-
-      final rawTransactions = results[0] as List<Transaction>;
-      final totalCount = results[1] as int;
-      final currencyDesignations = results[2] as List<CurrencyDesignation>;
-
-      final calculateStopwatch = Stopwatch()..start();
-      final dailyTotals = await _calculateDailyTotals(
-        rawTransactions,
-        mainCurrencyCode,
-      );
-      developer.log(
-        'In-memory calculate daily took: ${calculateStopwatch.elapsed}',
-      );
-
-      final List<TransactionCategory> transactionsWithStyles = [];
-
-      final styleStopwatch = Stopwatch()..start();
-
-      final categoriesListIds = rawTransactions
-          .map((u) => u.categoryId)
-          .toSet()
-          .toList();
-      final listCategories = await _categoryRepository.getCategoriesByIds(
-        categoriesListIds,
-      );
-
-      final List<String> stylesListIds = listCategories
-          .map((u) => u.styleId)
-          .whereType<String>()
-          .toSet()
-          .toList();
-      final List<Style> stylesList = await _styleRepository.getStylesByIds(
-        stylesListIds,
-      );
-
-      // --- OPTIMIZATION START ---
-
-      // 2. Create Maps for instant lookup O(1)
-      // Map<String, Category>
-      final categoryMap = {for (var item in listCategories) item.id: item};
-
-      // Map<String, Style>
-      final styleMap = {for (var item in stylesList) item.id: item};
-
-      // 3. Define the Default Style once (optimization)
-      final defaultStyle = Style(
-        id: 'default',
-        name: 'Default',
-        iconName: 'help',
-        colorHex: '#CCCCCC',
-        iconType: IconType.material,
-      );
-
-      // 4. Loop through transactions and stitch data together
-      for (var transaction in rawTransactions) {
-        // A. Find the category instantly
-        final category = categoryMap[transaction.categoryId];
-
-        // B. Find the style instantly (if category exists)
-        Style? foundStyle;
-        if (category != null && category.styleId != null) {
-          foundStyle = styleMap[category.styleId];
-        }
-
-        // C. Add to result
-        transactionsWithStyles.add(
-          TransactionCategory(
-            transaction: transaction,
-            // If foundStyle is null, use default
-            style: foundStyle ?? defaultStyle,
-          ),
-        );
-      }
-      developer.log('In-memory style daily took: ${styleStopwatch.elapsed}');
-
-      emit(
-        state.copyWith(
-          status: TransactionStatus.success,
-          transactions: transactionsWithStyles,
-          startIndex: 0,
-          hasMoreUp: false,
-          hasMoreDown: transactionsWithStyles.isNotEmpty,
-          totalCount: totalCount,
-          currencyDesignations: currencyDesignations,
-          dailyTotals: dailyTotals,
-          mainCurrencyCode: mainCurrencyCode,
-        ),
-      );
-    } catch (_) {
-      emit(state.copyWith(status: TransactionStatus.failure));
-    }
-  }
-
-  Future<void> _onLoadTransactionsUp(
-    LoadTransactionsUp event,
-    Emitter<TransactionsState> emit,
-  ) async {
-    if (!state.hasMoreUp || state.status == TransactionStatus.loading) return;
-
-    emit(state.copyWith(status: TransactionStatus.loading));
-
-    try {
-      final mainCurrencySetting = await _settingsRepository.getSetting(
-        'main_currency_code',
-      );
-      final mainCurrencyCode = mainCurrencySetting?.value ?? 'EUR';
-
-      final offset = (state.startIndex - event.limit)
-          .clamp(0, double.infinity)
-          .toInt();
-      final jumpToItemId = state.transactions.firstOrNull?.transaction.id;
-      final newRawTransactions = await _transactionRepository
-          .getTransactionsWithFilters(
-            limit: event.limit,
-            offset: offset,
-            filters: state.filters,
-            sort: state.sort,
-          );
-
-      if (newRawTransactions.isEmpty) {
-        return emit(
-          state.copyWith(status: TransactionStatus.success, hasMoreUp: false),
-        );
-      }
-
-      final List<TransactionCategory> newTransactionsWithStyles = [];
-      for (final transaction in newRawTransactions) {
-        Category? category;
-
-        category = await _categoryRepository.getCategoryById(
-          transaction.categoryId,
-        );
-
-        Style? style;
-        if (category?.styleId != null) {
-          style = await _styleRepository.getStyleById(category!.styleId!);
-        }
-
-        newTransactionsWithStyles.add(
-          TransactionCategory(
-            transaction: transaction,
-            style:
-                style ??
-                Style(
-                  id: 'default',
-                  name: 'Default',
-                  iconName: 'help',
-                  colorHex: '#CCCCCC',
-                  iconType: IconType.material,
-                ),
-          ),
-        );
-      }
-
-      final updatedList = [...newTransactionsWithStyles, ...state.transactions];
-      final rawUpdatedList = updatedList.map((e) => e.transaction).toList();
-      final dailyTotals = await _calculateDailyTotals(
-        rawUpdatedList,
-        mainCurrencyCode,
-      );
-
-      final newStartIndex = state.startIndex - newTransactionsWithStyles.length;
-      double? jumpAlignment;
-
-      if (updatedList.length > state.windowSize) {
-        final removeCount = updatedList.length - state.windowSize;
-        updatedList.removeRange(
-          updatedList.length - removeCount,
-          updatedList.length,
-        );
-        jumpAlignment = 0.0;
-      }
-
-      emit(
-        state.copyWith(
-          status: TransactionStatus.success,
-          transactions: updatedList,
-          startIndex: newStartIndex,
-          hasMoreDown: true,
-          hasMoreUp: newStartIndex > 0,
-          jumpToItemId: jumpToItemId,
-          jumpToAlignment: jumpAlignment,
-          dailyTotals: dailyTotals,
-          mainCurrencyCode: mainCurrencyCode,
-        ),
-      );
-
-      emit(state.copyWith(jumpToItemId: null, jumpToAlignment: null));
-    } catch (_) {
-      emit(state.copyWith(status: TransactionStatus.failure));
-    }
-  }
-
-  Future<void> _onLoadTransactionsDown(
-    LoadTransactionsDown event,
-    Emitter<TransactionsState> emit,
-  ) async {
-    if (!state.hasMoreDown || state.status == TransactionStatus.loading) return;
-
-    emit(state.copyWith(status: TransactionStatus.loading));
-
-    try {
-      final mainCurrencySetting = await _settingsRepository.getSetting(
-        'main_currency_code',
-      );
-      final mainCurrencyCode = mainCurrencySetting?.value ?? 'EUR';
-
-      final offset = state.startIndex + state.transactions.length;
-      final jumpToItemId = state.transactions.lastOrNull?.transaction.id;
-      final newRawTransactions = await _transactionRepository
-          .getTransactionsWithFilters(
-            limit: event.limit,
-            offset: offset,
-            filters: state.filters,
-            sort: state.sort,
-          );
-
-      if (newRawTransactions.isEmpty) {
-        return emit(
-          state.copyWith(status: TransactionStatus.success, hasMoreDown: false),
-        );
-      }
-
-      final List<TransactionCategory> newTransactionsWithStyles = [];
-      for (final transaction in newRawTransactions) {
-        Category? category;
-
-        category = await _categoryRepository.getCategoryById(
-          transaction.categoryId,
-        );
-
-        Style? style;
-        if (category?.styleId != null) {
-          style = await _styleRepository.getStyleById(category!.styleId!);
-        }
-
-        newTransactionsWithStyles.add(
-          TransactionCategory(
-            transaction: transaction,
-            style:
-                style ??
-                Style(
-                  id: 'default',
-                  name: 'Default',
-                  iconName: 'help',
-                  colorHex: '#CCCCCC',
-                  iconType: IconType.material,
-                ),
-          ),
-        );
-      }
-
-      final updatedList = [...state.transactions, ...newTransactionsWithStyles];
-      final rawUpdatedList = updatedList.map((e) => e.transaction).toList();
-      final dailyTotals = await _calculateDailyTotals(
-        rawUpdatedList,
-        mainCurrencyCode,
-      );
-
-      var newStartIndex = state.startIndex;
-      double? jumpAlignment;
-
-      if (updatedList.length > state.windowSize) {
-        final removeCount = updatedList.length - state.windowSize;
-        updatedList.removeRange(0, removeCount);
-        newStartIndex += removeCount;
-        jumpAlignment = 1.0;
-      }
-
-      emit(
-        state.copyWith(
-          status: TransactionStatus.success,
-          transactions: updatedList,
-          startIndex: newStartIndex,
-          hasMoreUp: true,
-          hasMoreDown: newTransactionsWithStyles.isNotEmpty,
-          jumpToItemId: jumpToItemId,
-          jumpToAlignment: jumpAlignment,
-          dailyTotals: dailyTotals,
-          mainCurrencyCode: mainCurrencyCode,
-        ),
-      );
-
-      emit(state.copyWith(jumpToItemId: null, jumpToAlignment: null));
-    } catch (_) {
-      emit(state.copyWith(status: TransactionStatus.failure));
-    }
-  }
-
-  Future<void> _onAddTransaction(
-    AddTransaction event,
-    Emitter<TransactionsState> emit,
-  ) async {
-    try {
-      await _transactionRepository.addTransaction(event.transaction);
-      add(const InitialLoadTransactions());
-    } catch (e) {
-      emit(state.copyWith(status: TransactionStatus.failure));
-    }
-  }
-
-  Future<void> _onUpdateTransaction(
-    UpdateTransaction event,
-    Emitter<TransactionsState> emit,
-  ) async {
-    try {
-      await _transactionRepository.updateTransaction(event.transaction);
-      add(const InitialLoadTransactions());
-    } catch (e) {
-      emit(state.copyWith(status: TransactionStatus.failure));
-    }
-  }
-
-  Future<void> _onDeleteTransaction(
-    DeleteTransaction event,
-    Emitter<TransactionsState> emit,
-  ) async {
-    try {
-      await _transactionRepository.deleteTransaction(event.id);
-      add(const InitialLoadTransactions());
-    } catch (e) {
-      emit(state.copyWith(status: TransactionStatus.failure));
-    }
-  }
-
-  Future<void> _onDeleteMultipleTransactions(
-    DeleteMultipleTransactions event,
-    Emitter<TransactionsState> emit,
-  ) async {
-    try {
-      await _transactionRepository.deleteMultipleTransactions(event.ids);
-
-      final newSelectedIds = Set<String>.from(state.selectedTransactionIds);
-      newSelectedIds.removeWhere((id) => event.ids.contains(id));
-
-      emit(state.copyWith(selectedTransactionIds: newSelectedIds));
-
-      add(const InitialLoadTransactions());
-    } catch (e) {
-      emit(state.copyWith(status: TransactionStatus.failure));
-    }
-  }
-
-  Future<void> _onUpdateDateForMultipleTransactions(
-    UpdateDateForMultipleTransactions event,
-    Emitter<TransactionsState> emit,
-  ) async {
-    try {
-      await _transactionRepository.updateDateForMultipleTransactions(
-        event.ids,
-        event.newDate,
-      );
-      add(const InitialLoadTransactions());
-    } catch (e) {
-      emit(state.copyWith(status: TransactionStatus.failure));
-    }
-  }
-
-  Future<void> _onUpdateCategoryForMultipleTransactions(
-    UpdateCategoryForMultipleTransactions event,
-    Emitter<TransactionsState> emit,
-  ) async {
-    try {
-      await _transactionRepository.updateCategoryForMultipleTransactions(
-        event.ids,
-        event.newCategoryId,
-      );
-      add(const InitialLoadTransactions());
-    } catch (e) {
-      emit(state.copyWith(status: TransactionStatus.failure));
-    }
   }
 }

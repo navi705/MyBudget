@@ -47,24 +47,15 @@ class _TransactionListState extends State<TransactionList> {
           value: 'select',
           child: Text(isSelected ? 'Deselect' : 'Select'),
         ),
-        const PopupMenuItem(
-          value: 'select_all',
-          child: Text('Select All'),
-        ),
+        const PopupMenuItem(value: 'select_all', child: Text('Select All')),
         if (bloc.state.selectedTransactionIds.isNotEmpty)
           const PopupMenuItem(
             value: 'deselect_all',
             child: Text('Deselect All'),
           ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
-          value: 'edit',
-          child: Text('Edit'),
-        ),
-        const PopupMenuItem(
-          value: 'delete',
-          child: Text('Delete'),
-        ),
+        const PopupMenuItem(value: 'edit', child: Text('Edit')),
+        const PopupMenuItem(value: 'delete', child: Text('Delete')),
       ],
     ).then((value) {
       if (!mounted) return;
@@ -93,7 +84,8 @@ class _TransactionListState extends State<TransactionList> {
           builder: (dialogContext) => AlertDialog(
             title: const Text('Delete Transaction'),
             content: const Text(
-                'Are you sure you want to delete this transaction?'),
+              'Are you sure you want to delete this transaction?',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
@@ -138,72 +130,110 @@ class _TransactionListState extends State<TransactionList> {
             return const Center(child: Text('Failed to load transactions'));
           }
 
-          return GroupedPaginatedList<TransactionCategory, DateTime>(
-            items: state.transactions,
-            hasMoreUp: state.hasMoreUp,
-            hasMoreDown: state.hasMoreDown,
-            onFetchMoreUp: () => context
-                .read<TransactionsBloc>()
-                .add(const LoadTransactionsUp()),
-            onFetchMoreDown: () => context
-                .read<TransactionsBloc>()
-                .add(const LoadTransactionsDown()),
-            groupKeyGetter: (item) => DateTime(
-              item.transaction.date.year,
-              item.transaction.date.month,
-              item.transaction.date.day,
-            ),
-            groupHeaderBuilder: (context, date) {
-              final dailyTotal = state.dailyTotals[date] ?? 0.0;
-              return _DateHeader(
-                date: date,
-                dailySum: dailyTotal,
-                mainCurrencyCode: state.mainCurrencyCode,
-                currencyDesignations: state.currencyDesignations,
-              );
-            },
-            itemBuilder: (context, item) {
-              final bloc = context.read<TransactionsBloc>();
-              return TransactionListItem(
-                transactionCategory: item,
-                isSelected:
-                    state.selectedTransactionIds.contains(item.transaction.id),
-                onTap: () {
-                  if (state.isSelectionModeActive) {
-                    bloc.add(ToggleTransactionSelection(item.transaction.id!));
-                  } else {
-                    context.push(
-                      AppRoutes.addEditTransaction,
-                      extra: {'transaction': item.transaction},
-                    );
-                  }
+          return Stack(
+            children: [
+              GroupedPaginatedList<TransactionCategory, DateTime>(
+                items: state.transactions,
+                hasMoreUp: state.hasMoreUp,
+                hasMoreDown: state.hasMoreDown,
+                onFetchMoreUp: () => context.read<TransactionsBloc>().add(
+                  const LoadTransactionsUp(),
+                ),
+                onFetchMoreDown: () => context.read<TransactionsBloc>().add(
+                  const LoadTransactionsDown(),
+                ),
+                groupKeyGetter: (item) => DateTime(
+                  item.transaction.date.year,
+                  item.transaction.date.month,
+                  item.transaction.date.day,
+                ),
+                groupHeaderBuilder: (context, date) {
+                  final dailyTotal = state.dailyTotals[date] ?? 0.0;
+                  return _DateHeader(
+                    date: date,
+                    dailySum: dailyTotal,
+                    mainCurrencyCode: state.mainCurrencyCode,
+                    currencyDesignations: state.currencyDesignations,
+                  );
                 },
-                onLongPress: () {
-                  if (!state.isSelectionModeActive) {
-                    bloc.add(const ToggleSelectionMode(true));
-                  }
-                  bloc.add(ToggleTransactionSelection(item.transaction.id!));
+                itemBuilder: (context, item) {
+                  final bloc = context.read<TransactionsBloc>();
+                  return TransactionListItem(
+                    transactionCategory: item,
+                    isSelected: state.selectedTransactionIds.contains(
+                      item.transaction.id,
+                    ),
+                    onTap: () {
+                      if (state.isSelectionModeActive) {
+                        bloc.add(
+                          ToggleTransactionSelection(item.transaction.id!),
+                        );
+                      } else {
+                        context.push(
+                          AppRoutes.addEditTransaction,
+                          extra: {'transaction': item.transaction},
+                        );
+                      }
+                    },
+                    onLongPress: () {
+                      if (!state.isSelectionModeActive) {
+                        bloc.add(const ToggleSelectionMode(true));
+                      }
+                      bloc.add(
+                        ToggleTransactionSelection(item.transaction.id!),
+                      );
+                    },
+                    onSecondaryTapUp: (details) {
+                      if (kIsWeb ||
+                          defaultTargetPlatform == TargetPlatform.macOS ||
+                          defaultTargetPlatform == TargetPlatform.linux ||
+                          defaultTargetPlatform == TargetPlatform.windows) {
+                        _showContextMenu(
+                          context,
+                          details.globalPosition,
+                          state.selectedTransactionIds.contains(
+                            item.transaction.id,
+                          ),
+                          item,
+                        );
+                      }
+                    },
+                    mainCurrencyCode: state.mainCurrencyCode,
+                    currencyDesignations: state.currencyDesignations,
+                  );
                 },
-                onSecondaryTapUp: (details) {
-                  if (kIsWeb ||
-                      defaultTargetPlatform == TargetPlatform.macOS ||
-                      defaultTargetPlatform == TargetPlatform.linux ||
-                      defaultTargetPlatform == TargetPlatform.windows) {
-                    _showContextMenu(
-                      context,
-                      details.globalPosition,
-                      state.selectedTransactionIds
-                          .contains(item.transaction.id),
-                      item,
-                    );
+                jumpToItemId: state.jumpToItemId,
+                jumpToAlignment: state.jumpToAlignment,
+                keyComparator: (a, b) {
+                  // Assuming Sort is available and has ascending/descending
+                  // If Sort is definitely OrderingMode from drift:
+                  // if (state.sort == OrderingMode.asc) return a.compareTo(b);
+                  // return b.compareTo(a);
+                  // But checking for 'Sort' enum.
+                  if (state.sort.toString().contains('ascending') ||
+                      state.sort.index == 0) {
+                    // Safety fallback if Enum name unkown
+                    return a.compareTo(b);
                   }
+                  return b.compareTo(a);
                 },
-                mainCurrencyCode: state.mainCurrencyCode,
-                currencyDesignations: state.currencyDesignations,
-              );
-            },
-            jumpToItemId: state.jumpToItemId,
-            jumpToAlignment: state.jumpToAlignment,
+              ),
+              if (state.status == TransactionStatus.loading)
+                const Positioned(
+                  top: 20,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Card(
+                      shape: CircleBorder(),
+                      child: Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           );
         },
       ),
@@ -233,8 +263,10 @@ class _DateHeader extends StatelessWidget {
       (d) => d.currencyCode == mainCurrencyCode,
     );
     final currencySymbol = designation?.value ?? mainCurrencyCode;
-    
-    final formattedSum = NumberFormat.currency(symbol: currencySymbol).format(dailySum);
+
+    final formattedSum = NumberFormat.currency(
+      symbol: currencySymbol,
+    ).format(dailySum);
 
     return ListTile(
       title: Text(
@@ -290,7 +322,9 @@ class _TransactionListItemState extends State<TransactionListItem> {
   @override
   Widget build(BuildContext context) {
     final color = _getColorFromHex(widget.transactionCategory.style.colorHex);
-    final iconWidget = IconUtils.getIconWidget(widget.transactionCategory.style);
+    final iconWidget = IconUtils.getIconWidget(
+      widget.transactionCategory.style,
+    );
 
     final amount = widget.transactionCategory.transaction.amount;
     Color balanceColor;
@@ -304,10 +338,10 @@ class _TransactionListItemState extends State<TransactionListItem> {
 
     final designation = widget.currencyDesignations.firstWhereOrNull(
       (d) =>
-          d.currencyCode ==
-          widget.transactionCategory.transaction.currencyCode,
+          d.currencyCode == widget.transactionCategory.transaction.currencyCode,
     );
-    final currencySymbol = designation?.value ??
+    final currencySymbol =
+        designation?.value ??
         widget.transactionCategory.transaction.currencyCode;
 
     return MouseRegion(
@@ -329,11 +363,13 @@ class _TransactionListItemState extends State<TransactionListItem> {
           color: widget.isSelected
               ? Theme.of(context).highlightColor
               : _isHovering
-                  ? Colors.grey.withValues(alpha: 0.1)
-                  : null,
+              ? Colors.grey.withValues(alpha: 0.1)
+              : null,
           child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20.0,
+              vertical: 10.0,
+            ),
             leading: Container(
               padding: const EdgeInsets.all(10.0),
               decoration: BoxDecoration(
@@ -342,17 +378,13 @@ class _TransactionListItemState extends State<TransactionListItem> {
               ),
               child: iconWidget,
             ),
-            title: Text(widget.transactionCategory.transaction.description,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                )),
+            title: Text(
+              widget.transactionCategory.transaction.description,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
             subtitle: Text(
               '${widget.transactionCategory.transaction.amount.toStringAsFixed(2)} $currencySymbol',
-              style: TextStyle(
-                color: balanceColor,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: balanceColor, fontSize: 14),
             ),
           ),
         ),
