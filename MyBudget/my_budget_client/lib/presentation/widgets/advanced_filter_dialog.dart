@@ -35,9 +35,9 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
   late final TextEditingController _descriptionController;
   late final TextEditingController _amountFromController;
   late final TextEditingController _amountToController;
-  String? _selectedAccountId;
-  String? _selectedCategoryId;
-  String? _selectedCurrencyCode;
+  List<String> _selectedAccountId = [];
+  List<String> _selectedCategoryId = [];
+  List<String> _selectedCurrencyCode = [];
   late TransactionTypeFilter _selectedTransactionType;
   late bool _persistFilters;
 
@@ -51,9 +51,9 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
     TransactionFilters filters;
     if (_persistFilters) {
       final settings = settingsBloc.state.settings;
-      final accountId = settings['advanced_filter_account_id'];
-      final categoryId = settings['advanced_filter_category_id'];
-      final currencyCode = settings['advanced_filter_currency_code'];
+      final accountId = settings['advanced_filter_account_id']?.split(',');
+      final categoryId = settings['advanced_filter_category_id']?.split(',');
+      final currencyCode = settings['advanced_filter_currency_code']?.split(',');
       final transactionType = TransactionTypeFilter.values.firstWhere(
         (e) => e.toString() == settings['advanced_filter_transaction_type'],
         orElse: () => TransactionTypeFilter.all,
@@ -63,12 +63,9 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
         amountFrom:
             double.tryParse(settings['advanced_filter_amount_from'] ?? ''),
         amountTo: double.tryParse(settings['advanced_filter_amount_to'] ?? ''),
-        accountId: accountId != null && accountId.isNotEmpty ? accountId : null,
-        categoryId:
-            categoryId != null && categoryId.isNotEmpty ? categoryId : null,
-        currencyCode: currencyCode != null && currencyCode.isNotEmpty
-            ? currencyCode
-            : null,
+        accountId: accountId,
+        categoryId: categoryId,
+        currencyCode: currencyCode,
         transactionType: transactionType,
       );
     } else {
@@ -80,9 +77,9 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
         TextEditingController(text: filters.amountFrom?.toString());
     _amountToController =
         TextEditingController(text: filters.amountTo?.toString());
-    _selectedAccountId = filters.accountId;
-    _selectedCategoryId = filters.categoryId;
-    _selectedCurrencyCode = filters.currencyCode;
+    _selectedAccountId = filters.accountId ?? [];
+    _selectedCategoryId = filters.categoryId ?? [];
+    _selectedCurrencyCode = filters.currencyCode ?? [];
     _selectedTransactionType = filters.transactionType;
   }
 
@@ -123,11 +120,11 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
       settingsBloc.add(UpdateSetting(
           'advanced_filter_amount_to', newFilters.amountTo?.toString() ?? ''));
       settingsBloc.add(UpdateSetting(
-          'advanced_filter_account_id', newFilters.accountId ?? ''));
-      settingsBloc.add(UpdateSetting(
-          'advanced_filter_category_id', newFilters.categoryId ?? ''));
-      settingsBloc.add(UpdateSetting(
-          'advanced_filter_currency_code', newFilters.currencyCode ?? ''));
+          'advanced_filter_account_id', newFilters.accountId?.join(',') ?? ''));
+      settingsBloc.add(UpdateSetting('advanced_filter_category_id',
+          newFilters.categoryId?.join(',') ?? ''));
+      settingsBloc.add(UpdateSetting('advanced_filter_currency_code',
+          newFilters.currencyCode?.join(',') ?? ''));
       settingsBloc.add(UpdateSetting('advanced_filter_transaction_type',
           newFilters.transactionType.toString()));
     } else {
@@ -224,23 +221,29 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
               builder: (context, state) {
                 return ListTile(
                   title: const Text('Account'),
-                  subtitle: Text(_selectedAccountId ?? 'Any'),
+                  subtitle: Text(
+                    _selectedAccountId.isEmpty
+                        ? 'Any'
+                        : state.accounts
+                            .where((acc) => _selectedAccountId.contains(acc.id))
+                            .map((acc) => acc.name)
+                            .join(', '),
+                  ),
                   onTap: () async {
-                    final selectedId = await showDialog<String>(
+                    final selectedIds = await showDialog<List<String>>(
                       context: context,
                       builder: (_) => MultiSelectDialog<Account>(
                         items: state.accounts,
-                        selectedIds:
-                            _selectedAccountId != null ? [_selectedAccountId!] : [],
+                        selectedIds: _selectedAccountId,
                         itemBuilder: (item) => Text(item.name),
                         idGetter: (item) => item.id!,
                         stringGetter: (item) => item.name,
                       ),
                     );
 
-                    if (selectedId != null) {
+                    if (selectedIds != null) {
                       setState(() {
-                        _selectedAccountId = selectedId;
+                        _selectedAccountId = selectedIds;
                       });
                     }
                   },
@@ -253,28 +256,33 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
                 if (state is CategoriesLoadSuccess) {
                   return ListTile(
                     title: const Text('Category'),
-                    subtitle: Text(_selectedCategoryId ?? 'Any'),
-                    onTap: () async {
-                      final selectedId = await showDialog<String>(
-                        context: context,
-                        builder: (_) => MultiSelectDialog<CategoryWithTotal>(
-                          items: state.categoriesWithTotals,
-                          selectedIds: _selectedCategoryId != null
-                              ? [_selectedCategoryId!]
-                              : [],
-                          itemBuilder: (item) => Text(item.category.name),
-                          idGetter: (item) => item.category.id!,
-                          stringGetter: (item) => item.category.name,
-                        ),
-                      );
-
-                      if (selectedId != null) {
-                        setState(() {
-                          _selectedCategoryId = selectedId;
-                        });
-                      }
-                    },
-                  );
+                  subtitle: Text(
+                    _selectedCategoryId.isEmpty
+                        ? 'Any'
+                        : state.categoriesWithTotals
+                            .where((cat) =>
+                                _selectedCategoryId.contains(cat.category.id))
+                            .map((cat) => cat.category.name)
+                            .join(', '),
+                  ),
+                                      onTap: () async {
+                                        final selectedIds = await showDialog<List<String>>(
+                                          context: context,
+                                          builder: (_) => MultiSelectDialog<CategoryWithTotal>(
+                                            items: state.categoriesWithTotals,
+                                            selectedIds: _selectedCategoryId,
+                                            itemBuilder: (item) => Text(item.category.name),
+                                            idGetter: (item) => item.category.id!,
+                                            stringGetter: (item) => item.category.name,
+                                          ),
+                                        );
+                    
+                                        if (selectedIds != null) {
+                                          setState(() {
+                                            _selectedCategoryId = selectedIds;
+                                          });
+                                        }
+                                      },                  );
                 }
                 return const SizedBox.shrink();
               },
@@ -285,28 +293,33 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
                 if (state is CurrencyLoadSuccess) {
                   return ListTile(
                     title: const Text('Currency'),
-                    subtitle: Text(_selectedCurrencyCode ?? 'Any'),
-                    onTap: () async {
-                      final selectedId = await showDialog<String>(
-                        context: context,
-                        builder: (_) => MultiSelectDialog<Currency>(
-                          items: state.currencies,
-                          selectedIds: _selectedCurrencyCode != null
-                              ? [_selectedCurrencyCode!]
-                              : [],
-                          itemBuilder: (item) => Text(item.name),
-                          idGetter: (item) => item.code,
-                          stringGetter: (item) => '${item.name} ${item.code}',
-                        ),
-                      );
-
-                      if (selectedId != null) {
-                        setState(() {
-                          _selectedCurrencyCode = selectedId;
-                        });
-                      }
-                    },
-                  );
+                  subtitle: Text(
+                    _selectedCurrencyCode.isEmpty
+                        ? 'Any'
+                        : state.currencies
+                            .where((curr) =>
+                                _selectedCurrencyCode.contains(curr.code))
+                            .map((curr) => curr.name)
+                            .join(', '),
+                  ),
+                                      onTap: () async {
+                                        final selectedIds = await showDialog<List<String>>(
+                                          context: context,
+                                          builder: (_) => MultiSelectDialog<Currency>(
+                                            items: state.currencies,
+                                            selectedIds: _selectedCurrencyCode,
+                                            itemBuilder: (item) => Text(item.name),
+                                            idGetter: (item) => item.code,
+                                            stringGetter: (item) => '${item.name} ${item.code}',
+                                          ),
+                                        );
+                    
+                                        if (selectedIds != null) {
+                                          setState(() {
+                                            _selectedCurrencyCode = selectedIds;
+                                          });
+                                        }
+                                      },                  );
                 }
                 return const SizedBox.shrink();
               },

@@ -36,9 +36,9 @@ class TransactionFilters extends Equatable {
   final double? amountTo;
   final DateTime? dateFrom;
   final DateTime? dateTo;
-  final String? accountId;
-  final String? categoryId;
-  final String? currencyCode;
+  final List<String>? accountId;
+  final List<String>? categoryId;
+  final List<String>? currencyCode;
   final TransactionTypeFilter transactionType;
 
   const TransactionFilters({
@@ -59,9 +59,9 @@ class TransactionFilters extends Equatable {
     double? amountTo,
     DateTime? dateFrom,
     DateTime? dateTo,
-    String? accountId,
-    String? categoryId,
-    String? currencyCode,
+    List<String>? accountId,
+    List<String>? categoryId,
+    List<String>? currencyCode,
     TransactionTypeFilter? transactionType,
   }) {
     return TransactionFilters(

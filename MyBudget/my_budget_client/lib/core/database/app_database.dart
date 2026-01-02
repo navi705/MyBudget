@@ -673,9 +673,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     double? amountTo,
     DateTime? dateFrom,
     DateTime? dateTo,
-    String? accountId,
-    String? categoryId,
-    String? currencyCode,
+    List<String>? accountId,
+    List<String>? categoryId,
+    List<String>? currencyCode,
     TransactionTypeFilter? transactionType,
   }) {
     final query = select(transactions);
@@ -695,14 +695,14 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     if (dateTo != null) {
       query.where((tbl) => tbl.date.isSmallerOrEqualValue(dateTo));
     }
-    if (accountId != null) {
-      query.where((tbl) => tbl.accountId.equals(accountId));
+    if (accountId != null && accountId.isNotEmpty) {
+      query.where((tbl) => tbl.accountId.isIn(accountId));
     }
-    if (categoryId != null) {
-      query.where((tbl) => tbl.categoryId.equals(categoryId));
+    if (categoryId != null && categoryId.isNotEmpty) {
+      query.where((tbl) => tbl.categoryId.isIn(categoryId));
     }
-    if (currencyCode != null) {
-      query.where((tbl) => tbl.currencyCode.equals(currencyCode));
+    if (currencyCode != null && currencyCode.isNotEmpty) {
+      query.where((tbl) => tbl.currencyCode.isIn(currencyCode));
     }
     if (transactionType != null) {
       if (transactionType == TransactionTypeFilter.income) {
@@ -727,9 +727,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     double? amountTo,
     DateTime? dateFrom,
     DateTime? dateTo,
-    String? accountId,
-    String? categoryId,
-    String? currencyCode,
+    List<String>? accountId,
+    List<String>? categoryId,
+    List<String>? currencyCode,
     TransactionTypeFilter? transactionType,
   }) async {
     final query = selectOnly(transactions);
@@ -749,14 +749,14 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     if (dateTo != null) {
       query.where(transactions.date.isSmallerOrEqualValue(dateTo));
     }
-    if (accountId != null) {
-      query.where(transactions.accountId.equals(accountId));
+    if (accountId != null && accountId.isNotEmpty) {
+      query.where(transactions.accountId.isIn(accountId));
     }
-    if (categoryId != null) {
-      query.where(transactions.categoryId.equals(categoryId));
+    if (categoryId != null && categoryId.isNotEmpty) {
+      query.where(transactions.categoryId.isIn(categoryId));
     }
-    if (currencyCode != null) {
-      query.where(transactions.currencyCode.equals(currencyCode));
+    if (currencyCode != null && currencyCode.isNotEmpty) {
+      query.where(transactions.currencyCode.isIn(currencyCode));
     }
     if (transactionType != null) {
       if (transactionType == TransactionTypeFilter.income) {
