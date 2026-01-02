@@ -23,11 +23,13 @@ class App extends StatelessWidget {
           final lightTheme = AppTheme.lightTheme(
             state.themeColor,
             hasWindowEffect: hasWindowEffect,
+            windowOpacity: state.windowOpacity,
           ).copyWith(textTheme: GoogleFonts.interTextTheme());
           final darkTheme =
               AppTheme.darkTheme(
                 state.themeColor,
                 hasWindowEffect: hasWindowEffect,
+                windowOpacity: state.windowOpacity,
               ).copyWith(
                 textTheme: GoogleFonts.interTextTheme(
                   ThemeData.dark().textTheme,

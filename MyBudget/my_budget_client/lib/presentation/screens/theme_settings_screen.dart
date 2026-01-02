@@ -170,12 +170,19 @@ class ThemeSettingsScreen extends StatelessWidget {
               onSelectionChanged: (Set<WindowEffectType> selected) {
                 final effect = selected.first;
                 context.read<ThemeBloc>().add(ChangeWindowEffect(effect));
-                _applyWindowEffect(effect, state.windowOpacity);
+                _applyWindowEffect(
+                  context,
+                  effect,
+                  state.windowOpacity,
+                  state.themeColor,
+                );
               },
             ),
             if (state.windowEffect != WindowEffectType.none) ...[
               const SizedBox(height: 16),
-              Text('Opacity: ${(state.windowOpacity * 100).round()}%'),
+              Text(
+                'Material Transparency: ${(state.windowOpacity * 100).round()}%',
+              ),
               Slider(
                 value: state.windowOpacity,
                 min: 0.0,
@@ -184,8 +191,20 @@ class ThemeSettingsScreen extends StatelessWidget {
                 label: '${(state.windowOpacity * 100).round()}%',
                 onChanged: (value) {
                   context.read<ThemeBloc>().add(ChangeWindowOpacity(value));
-                  _applyWindowEffect(state.windowEffect, value);
+                  _applyWindowEffect(
+                    context,
+                    state.windowEffect,
+                    value,
+                    state.themeColor,
+                  );
                 },
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  '100% = Fully see-through blur | 0% = Solid background',
+                  style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                ),
               ),
             ],
           ],
@@ -194,8 +213,19 @@ class ThemeSettingsScreen extends StatelessWidget {
     );
   }
 
-  void _applyWindowEffect(WindowEffectType effect, double opacity) {
+  void _applyWindowEffect(
+    BuildContext context,
+    WindowEffectType effect,
+    double transparency,
+    Color themeColor,
+  ) {
     if (!Platform.isWindows) return;
+
+    final brightness = Theme.of(context).brightness;
+    // Map transparency to tint opacity:
+    // 100% transparency (1.0) = 0.0 tint opacity (Clear)
+    // 0% transparency (0.0) = 1.0 tint opacity (Solid)
+    final tintOpacity = 1.0 - transparency;
 
     WindowEffect windowEffect;
     switch (effect) {
@@ -215,7 +245,12 @@ class ThemeSettingsScreen extends StatelessWidget {
 
     Window.setEffect(
       effect: windowEffect,
-      color: Colors.black.withOpacity(opacity),
+      color: AppTheme.getWindowTintColor(
+        themeColor,
+        brightness,
+        tintOpacity,
+        effect,
+      ),
     );
   }
 }

@@ -54,7 +54,12 @@ class AppProviders extends StatelessWidget {
       child: BlocListener<ThemeBloc, ThemeState>(
         listener: (context, state) {
           if (state.isLoaded) {
-            _applyWindowEffect(state.windowEffect, state.windowOpacity);
+            _applyWindowEffect(
+              context,
+              state.windowEffect,
+              state.windowOpacity,
+              state.themeColor,
+            );
           }
         },
         child: BlocBuilder<SettingsBloc, SettingsState>(
@@ -66,8 +71,16 @@ class AppProviders extends StatelessWidget {
     );
   }
 
-  void _applyWindowEffect(WindowEffectType effect, double opacity) {
+  void _applyWindowEffect(
+    BuildContext context,
+    WindowEffectType effect,
+    double transparency,
+    Color themeColor,
+  ) {
     if (!Platform.isWindows) return;
+
+    final brightness = Theme.of(context).brightness;
+    final tintOpacity = 1.0 - transparency;
 
     WindowEffect windowEffect;
     switch (effect) {
@@ -87,7 +100,12 @@ class AppProviders extends StatelessWidget {
 
     Window.setEffect(
       effect: windowEffect,
-      color: Colors.black.withOpacity(opacity),
+      color: AppTheme.getWindowTintColor(
+        themeColor,
+        brightness,
+        tintOpacity,
+        effect,
+      ),
     );
   }
 }

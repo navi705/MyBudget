@@ -20,26 +20,33 @@ class AppTheme {
   static ThemeData lightTheme(
     Color primaryColor, {
     bool hasWindowEffect = false,
+    double windowOpacity = 0.8,
   }) {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: primaryColor,
       brightness: Brightness.light,
     );
+    final surfaceOpacity = hasWindowEffect
+        ? windowOpacity.clamp(0.0, 0.9)
+        : 1.0;
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       brightness: Brightness.light,
       scaffoldBackgroundColor: hasWindowEffect ? Colors.transparent : null,
       canvasColor: hasWindowEffect ? Colors.transparent : null,
-      cardColor: hasWindowEffect ? Colors.white.withOpacity(0.5) : null,
+      cardColor: hasWindowEffect
+          ? Colors.white.withOpacity(surfaceOpacity * 0.5)
+          : null,
       dialogBackgroundColor: hasWindowEffect
-          ? Colors.white.withOpacity(0.8)
+          ? Colors.white.withOpacity(surfaceOpacity * 0.8)
           : null,
       navigationRailTheme: hasWindowEffect
           ? const NavigationRailThemeData(backgroundColor: Colors.transparent)
           : null,
       popupMenuTheme: hasWindowEffect
-          ? PopupMenuThemeData(color: Colors.white.withOpacity(0.8))
+          ? PopupMenuThemeData(color: Colors.white.withOpacity(surfaceOpacity))
           : null,
     );
   }
@@ -48,28 +55,60 @@ class AppTheme {
   static ThemeData darkTheme(
     Color primaryColor, {
     bool hasWindowEffect = false,
+    double windowOpacity = 0.8,
   }) {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: primaryColor,
       brightness: Brightness.dark,
     );
+    final surfaceOpacity = hasWindowEffect
+        ? windowOpacity.clamp(0.0, 0.9)
+        : 1.0;
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: hasWindowEffect ? Colors.transparent : null,
       canvasColor: hasWindowEffect ? Colors.transparent : null,
-      cardColor: hasWindowEffect ? Colors.black.withOpacity(0.5) : null,
+      cardColor: hasWindowEffect
+          ? Colors.black.withOpacity(surfaceOpacity * 0.5)
+          : null,
       dialogBackgroundColor: hasWindowEffect
-          ? Colors.black.withOpacity(0.8)
+          ? Colors.black.withOpacity(surfaceOpacity * 0.8)
           : null,
       navigationRailTheme: hasWindowEffect
           ? const NavigationRailThemeData(backgroundColor: Colors.transparent)
           : null,
       popupMenuTheme: hasWindowEffect
-          ? PopupMenuThemeData(color: Colors.black.withOpacity(0.8))
+          ? PopupMenuThemeData(color: Colors.black.withOpacity(surfaceOpacity))
           : null,
     );
+  }
+
+  /// Get the tint color for the window effect based on theme and opacity
+  static Color getWindowTintColor(
+    Color themeColor,
+    Brightness brightness,
+    double opacity,
+    WindowEffectType effect,
+  ) {
+    final baseColor = brightness == Brightness.light
+        ? Colors.white
+        : Colors.black;
+
+    if (effect == WindowEffectType.mica) {
+      // Mica is very subtle, we use a much lower alpha for the overlay
+      return baseColor.withOpacity(opacity * 0.2);
+    }
+
+    if (effect == WindowEffectType.acrylic) {
+      // For acrylic, standard tint works well, but we can mix a bit of theme color
+      return Color.lerp(baseColor, themeColor, 0.05)!.withOpacity(opacity);
+    }
+
+    // Transparent effect uses full opacity range
+    return baseColor.withOpacity(opacity);
   }
 
   /// Parse hex color string to Color
