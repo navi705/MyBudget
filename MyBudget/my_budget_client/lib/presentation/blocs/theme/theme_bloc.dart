@@ -132,7 +132,6 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
       windowEffectType: event.windowEffectType,
       effectOpacity: event.effectOpacity,
       surfaceOpacity: event.surfaceOpacity,
-      surfaceBlur: event.surfaceBlur,
       themeMode: event.themeMode,
     );
 

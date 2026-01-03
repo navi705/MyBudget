@@ -46,7 +46,6 @@ class UpdateThemeProperty extends ThemeEvent {
   final WindowEffectType? windowEffectType;
   final double? effectOpacity;
   final double? surfaceOpacity;
-  final double? surfaceBlur;
   final ThemeMode? themeMode;
   final bool clearBackgroundImage;
 
@@ -61,7 +60,6 @@ class UpdateThemeProperty extends ThemeEvent {
     this.windowEffectType,
     this.effectOpacity,
     this.surfaceOpacity,
-    this.surfaceBlur,
     this.themeMode,
     this.clearBackgroundImage = false,
   });
@@ -78,7 +76,6 @@ class UpdateThemeProperty extends ThemeEvent {
     windowEffectType,
     effectOpacity,
     surfaceOpacity,
-    surfaceBlur,
     themeMode,
     clearBackgroundImage,
   ];

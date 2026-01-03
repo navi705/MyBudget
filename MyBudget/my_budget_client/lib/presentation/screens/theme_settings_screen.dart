@@ -105,7 +105,11 @@ class ThemeSettingsScreen extends StatelessWidget {
                                       File(preset.backgroundImagePath!),
                                     ),
                               fit: BoxFit.cover,
-                              opacity: 0.5,
+                              opacity: 0.6,
+                              colorFilter: ColorFilter.mode(
+                                preset.backgroundColor.withValues(alpha: 0.3),
+                                BlendMode.darken,
+                              ),
                             )
                           : null,
                     ),
@@ -338,15 +342,6 @@ class ThemeSettingsScreen extends StatelessWidget {
               onChanged: (v) => _update(context, surfaceOpacity: v),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Surface Blur (Glassmorphism): ${theme.surfaceBlur.round()}px',
-            ),
-            Slider(
-              value: theme.surfaceBlur,
-              min: 0,
-              max: 30,
-              onChanged: (v) => _update(context, surfaceBlur: v),
-            ),
           ],
         ),
       ),
@@ -473,7 +468,6 @@ class ThemeSettingsScreen extends StatelessWidget {
         windowEffectType: windowEffectType,
         effectOpacity: effectOpacity,
         surfaceOpacity: surfaceOpacity,
-        surfaceBlur: surfaceBlur,
         themeMode: themeMode,
         clearBackgroundImage: clearBackgroundImage,
       ),

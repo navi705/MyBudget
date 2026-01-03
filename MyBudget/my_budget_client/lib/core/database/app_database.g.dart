@@ -3772,18 +3772,6 @@ class $CustomThemesTable extends CustomThemes
     requiredDuringInsert: false,
     defaultValue: const Constant(1.0),
   );
-  static const VerificationMeta _surfaceBlurMeta = const VerificationMeta(
-    'surfaceBlur',
-  );
-  @override
-  late final GeneratedColumn<double> surfaceBlur = GeneratedColumn<double>(
-    'surface_blur',
-    aliasedName,
-    false,
-    type: DriftSqlType.double,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(0.0),
-  );
   static const VerificationMeta _themeModeMeta = const VerificationMeta(
     'themeMode',
   );
@@ -3839,7 +3827,6 @@ class $CustomThemesTable extends CustomThemes
     windowEffectType,
     effectOpacity,
     surfaceOpacity,
-    surfaceBlur,
     themeMode,
     isPreset,
     isActive,
@@ -3967,15 +3954,6 @@ class $CustomThemesTable extends CustomThemes
         ),
       );
     }
-    if (data.containsKey('surface_blur')) {
-      context.handle(
-        _surfaceBlurMeta,
-        surfaceBlur.isAcceptableOrUnknown(
-          data['surface_blur']!,
-          _surfaceBlurMeta,
-        ),
-      );
-    }
     if (data.containsKey('theme_mode')) {
       context.handle(
         _themeModeMeta,
@@ -4053,10 +4031,6 @@ class $CustomThemesTable extends CustomThemes
         DriftSqlType.double,
         data['${effectivePrefix}surface_opacity'],
       )!,
-      surfaceBlur: attachedDatabase.typeMapping.read(
-        DriftSqlType.double,
-        data['${effectivePrefix}surface_blur'],
-      )!,
       themeMode: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}theme_mode'],
@@ -4091,7 +4065,6 @@ class DbCustomTheme extends DataClass implements Insertable<DbCustomTheme> {
   final int windowEffectType;
   final double effectOpacity;
   final double surfaceOpacity;
-  final double surfaceBlur;
   final int themeMode;
   final bool isPreset;
   final bool isActive;
@@ -4108,7 +4081,6 @@ class DbCustomTheme extends DataClass implements Insertable<DbCustomTheme> {
     required this.windowEffectType,
     required this.effectOpacity,
     required this.surfaceOpacity,
-    required this.surfaceBlur,
     required this.themeMode,
     required this.isPreset,
     required this.isActive,
@@ -4130,7 +4102,6 @@ class DbCustomTheme extends DataClass implements Insertable<DbCustomTheme> {
     map['window_effect_type'] = Variable<int>(windowEffectType);
     map['effect_opacity'] = Variable<double>(effectOpacity);
     map['surface_opacity'] = Variable<double>(surfaceOpacity);
-    map['surface_blur'] = Variable<double>(surfaceBlur);
     map['theme_mode'] = Variable<int>(themeMode);
     map['is_preset'] = Variable<bool>(isPreset);
     map['is_active'] = Variable<bool>(isActive);
@@ -4153,7 +4124,6 @@ class DbCustomTheme extends DataClass implements Insertable<DbCustomTheme> {
       windowEffectType: Value(windowEffectType),
       effectOpacity: Value(effectOpacity),
       surfaceOpacity: Value(surfaceOpacity),
-      surfaceBlur: Value(surfaceBlur),
       themeMode: Value(themeMode),
       isPreset: Value(isPreset),
       isActive: Value(isActive),
@@ -4186,7 +4156,6 @@ class DbCustomTheme extends DataClass implements Insertable<DbCustomTheme> {
       windowEffectType: serializer.fromJson<int>(json['windowEffectType']),
       effectOpacity: serializer.fromJson<double>(json['effectOpacity']),
       surfaceOpacity: serializer.fromJson<double>(json['surfaceOpacity']),
-      surfaceBlur: serializer.fromJson<double>(json['surfaceBlur']),
       themeMode: serializer.fromJson<int>(json['themeMode']),
       isPreset: serializer.fromJson<bool>(json['isPreset']),
       isActive: serializer.fromJson<bool>(json['isActive']),
@@ -4210,7 +4179,6 @@ class DbCustomTheme extends DataClass implements Insertable<DbCustomTheme> {
       'windowEffectType': serializer.toJson<int>(windowEffectType),
       'effectOpacity': serializer.toJson<double>(effectOpacity),
       'surfaceOpacity': serializer.toJson<double>(surfaceOpacity),
-      'surfaceBlur': serializer.toJson<double>(surfaceBlur),
       'themeMode': serializer.toJson<int>(themeMode),
       'isPreset': serializer.toJson<bool>(isPreset),
       'isActive': serializer.toJson<bool>(isActive),
@@ -4230,7 +4198,6 @@ class DbCustomTheme extends DataClass implements Insertable<DbCustomTheme> {
     int? windowEffectType,
     double? effectOpacity,
     double? surfaceOpacity,
-    double? surfaceBlur,
     int? themeMode,
     bool? isPreset,
     bool? isActive,
@@ -4250,7 +4217,6 @@ class DbCustomTheme extends DataClass implements Insertable<DbCustomTheme> {
     windowEffectType: windowEffectType ?? this.windowEffectType,
     effectOpacity: effectOpacity ?? this.effectOpacity,
     surfaceOpacity: surfaceOpacity ?? this.surfaceOpacity,
-    surfaceBlur: surfaceBlur ?? this.surfaceBlur,
     themeMode: themeMode ?? this.themeMode,
     isPreset: isPreset ?? this.isPreset,
     isActive: isActive ?? this.isActive,
@@ -4289,9 +4255,6 @@ class DbCustomTheme extends DataClass implements Insertable<DbCustomTheme> {
       surfaceOpacity: data.surfaceOpacity.present
           ? data.surfaceOpacity.value
           : this.surfaceOpacity,
-      surfaceBlur: data.surfaceBlur.present
-          ? data.surfaceBlur.value
-          : this.surfaceBlur,
       themeMode: data.themeMode.present ? data.themeMode.value : this.themeMode,
       isPreset: data.isPreset.present ? data.isPreset.value : this.isPreset,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
@@ -4313,7 +4276,6 @@ class DbCustomTheme extends DataClass implements Insertable<DbCustomTheme> {
           ..write('windowEffectType: $windowEffectType, ')
           ..write('effectOpacity: $effectOpacity, ')
           ..write('surfaceOpacity: $surfaceOpacity, ')
-          ..write('surfaceBlur: $surfaceBlur, ')
           ..write('themeMode: $themeMode, ')
           ..write('isPreset: $isPreset, ')
           ..write('isActive: $isActive')
@@ -4335,7 +4297,6 @@ class DbCustomTheme extends DataClass implements Insertable<DbCustomTheme> {
     windowEffectType,
     effectOpacity,
     surfaceOpacity,
-    surfaceBlur,
     themeMode,
     isPreset,
     isActive,
@@ -4356,7 +4317,6 @@ class DbCustomTheme extends DataClass implements Insertable<DbCustomTheme> {
           other.windowEffectType == this.windowEffectType &&
           other.effectOpacity == this.effectOpacity &&
           other.surfaceOpacity == this.surfaceOpacity &&
-          other.surfaceBlur == this.surfaceBlur &&
           other.themeMode == this.themeMode &&
           other.isPreset == this.isPreset &&
           other.isActive == this.isActive);
@@ -4375,7 +4335,6 @@ class CustomThemesCompanion extends UpdateCompanion<DbCustomTheme> {
   final Value<int> windowEffectType;
   final Value<double> effectOpacity;
   final Value<double> surfaceOpacity;
-  final Value<double> surfaceBlur;
   final Value<int> themeMode;
   final Value<bool> isPreset;
   final Value<bool> isActive;
@@ -4393,7 +4352,6 @@ class CustomThemesCompanion extends UpdateCompanion<DbCustomTheme> {
     this.windowEffectType = const Value.absent(),
     this.effectOpacity = const Value.absent(),
     this.surfaceOpacity = const Value.absent(),
-    this.surfaceBlur = const Value.absent(),
     this.themeMode = const Value.absent(),
     this.isPreset = const Value.absent(),
     this.isActive = const Value.absent(),
@@ -4412,7 +4370,6 @@ class CustomThemesCompanion extends UpdateCompanion<DbCustomTheme> {
     required int windowEffectType,
     this.effectOpacity = const Value.absent(),
     this.surfaceOpacity = const Value.absent(),
-    this.surfaceBlur = const Value.absent(),
     required int themeMode,
     this.isPreset = const Value.absent(),
     this.isActive = const Value.absent(),
@@ -4437,7 +4394,6 @@ class CustomThemesCompanion extends UpdateCompanion<DbCustomTheme> {
     Expression<int>? windowEffectType,
     Expression<double>? effectOpacity,
     Expression<double>? surfaceOpacity,
-    Expression<double>? surfaceBlur,
     Expression<int>? themeMode,
     Expression<bool>? isPreset,
     Expression<bool>? isActive,
@@ -4460,7 +4416,6 @@ class CustomThemesCompanion extends UpdateCompanion<DbCustomTheme> {
       if (windowEffectType != null) 'window_effect_type': windowEffectType,
       if (effectOpacity != null) 'effect_opacity': effectOpacity,
       if (surfaceOpacity != null) 'surface_opacity': surfaceOpacity,
-      if (surfaceBlur != null) 'surface_blur': surfaceBlur,
       if (themeMode != null) 'theme_mode': themeMode,
       if (isPreset != null) 'is_preset': isPreset,
       if (isActive != null) 'is_active': isActive,
@@ -4481,7 +4436,6 @@ class CustomThemesCompanion extends UpdateCompanion<DbCustomTheme> {
     Value<int>? windowEffectType,
     Value<double>? effectOpacity,
     Value<double>? surfaceOpacity,
-    Value<double>? surfaceBlur,
     Value<int>? themeMode,
     Value<bool>? isPreset,
     Value<bool>? isActive,
@@ -4501,7 +4455,6 @@ class CustomThemesCompanion extends UpdateCompanion<DbCustomTheme> {
       windowEffectType: windowEffectType ?? this.windowEffectType,
       effectOpacity: effectOpacity ?? this.effectOpacity,
       surfaceOpacity: surfaceOpacity ?? this.surfaceOpacity,
-      surfaceBlur: surfaceBlur ?? this.surfaceBlur,
       themeMode: themeMode ?? this.themeMode,
       isPreset: isPreset ?? this.isPreset,
       isActive: isActive ?? this.isActive,
@@ -4554,9 +4507,6 @@ class CustomThemesCompanion extends UpdateCompanion<DbCustomTheme> {
     if (surfaceOpacity.present) {
       map['surface_opacity'] = Variable<double>(surfaceOpacity.value);
     }
-    if (surfaceBlur.present) {
-      map['surface_blur'] = Variable<double>(surfaceBlur.value);
-    }
     if (themeMode.present) {
       map['theme_mode'] = Variable<int>(themeMode.value);
     }
@@ -4587,7 +4537,6 @@ class CustomThemesCompanion extends UpdateCompanion<DbCustomTheme> {
           ..write('windowEffectType: $windowEffectType, ')
           ..write('effectOpacity: $effectOpacity, ')
           ..write('surfaceOpacity: $surfaceOpacity, ')
-          ..write('surfaceBlur: $surfaceBlur, ')
           ..write('themeMode: $themeMode, ')
           ..write('isPreset: $isPreset, ')
           ..write('isActive: $isActive, ')
@@ -9415,7 +9364,6 @@ typedef $$CustomThemesTableCreateCompanionBuilder =
       required int windowEffectType,
       Value<double> effectOpacity,
       Value<double> surfaceOpacity,
-      Value<double> surfaceBlur,
       required int themeMode,
       Value<bool> isPreset,
       Value<bool> isActive,
@@ -9435,7 +9383,6 @@ typedef $$CustomThemesTableUpdateCompanionBuilder =
       Value<int> windowEffectType,
       Value<double> effectOpacity,
       Value<double> surfaceOpacity,
-      Value<double> surfaceBlur,
       Value<int> themeMode,
       Value<bool> isPreset,
       Value<bool> isActive,
@@ -9508,11 +9455,6 @@ class $$CustomThemesTableFilterComposer
 
   ColumnFilters<double> get surfaceOpacity => $composableBuilder(
     column: $table.surfaceOpacity,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<double> get surfaceBlur => $composableBuilder(
-    column: $table.surfaceBlur,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9601,11 +9543,6 @@ class $$CustomThemesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<double> get surfaceBlur => $composableBuilder(
-    column: $table.surfaceBlur,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<int> get themeMode => $composableBuilder(
     column: $table.themeMode,
     builder: (column) => ColumnOrderings(column),
@@ -9687,11 +9624,6 @@ class $$CustomThemesTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<double> get surfaceBlur => $composableBuilder(
-    column: $table.surfaceBlur,
-    builder: (column) => column,
-  );
-
   GeneratedColumn<int> get themeMode =>
       $composableBuilder(column: $table.themeMode, builder: (column) => column);
 
@@ -9745,7 +9677,6 @@ class $$CustomThemesTableTableManager
                 Value<int> windowEffectType = const Value.absent(),
                 Value<double> effectOpacity = const Value.absent(),
                 Value<double> surfaceOpacity = const Value.absent(),
-                Value<double> surfaceBlur = const Value.absent(),
                 Value<int> themeMode = const Value.absent(),
                 Value<bool> isPreset = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
@@ -9763,7 +9694,6 @@ class $$CustomThemesTableTableManager
                 windowEffectType: windowEffectType,
                 effectOpacity: effectOpacity,
                 surfaceOpacity: surfaceOpacity,
-                surfaceBlur: surfaceBlur,
                 themeMode: themeMode,
                 isPreset: isPreset,
                 isActive: isActive,
@@ -9783,7 +9713,6 @@ class $$CustomThemesTableTableManager
                 required int windowEffectType,
                 Value<double> effectOpacity = const Value.absent(),
                 Value<double> surfaceOpacity = const Value.absent(),
-                Value<double> surfaceBlur = const Value.absent(),
                 required int themeMode,
                 Value<bool> isPreset = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
@@ -9801,7 +9730,6 @@ class $$CustomThemesTableTableManager
                 windowEffectType: windowEffectType,
                 effectOpacity: effectOpacity,
                 surfaceOpacity: surfaceOpacity,
-                surfaceBlur: surfaceBlur,
                 themeMode: themeMode,
                 isPreset: isPreset,
                 isActive: isActive,

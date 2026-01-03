@@ -170,7 +170,6 @@ class CustomThemes extends Table {
   IntColumn get windowEffectType => integer()();
   RealColumn get effectOpacity => real().withDefault(const Constant(1.0))();
   RealColumn get surfaceOpacity => real().withDefault(const Constant(1.0))();
-  RealColumn get surfaceBlur => real().withDefault(const Constant(0.0))();
   IntColumn get themeMode => integer()(); // 0: system, 1: light, 2: dark
   BoolColumn get isPreset => boolean().withDefault(const Constant(false))();
   BoolColumn get isActive => boolean().withDefault(const Constant(false))();

@@ -15,7 +15,6 @@ class CustomTheme extends Equatable {
   final WindowEffectType windowEffectType;
   final double effectOpacity;
   final double surfaceOpacity;
-  final double surfaceBlur;
   final ThemeMode themeMode;
   final bool isPreset;
   final bool isActive;
@@ -33,7 +32,6 @@ class CustomTheme extends Equatable {
     required this.windowEffectType,
     this.effectOpacity = 1.0,
     this.surfaceOpacity = 1.0,
-    this.surfaceBlur = 0.0,
     required this.themeMode,
     this.isPreset = false,
     this.isActive = false,
@@ -52,7 +50,6 @@ class CustomTheme extends Equatable {
     WindowEffectType? windowEffectType,
     double? effectOpacity,
     double? surfaceOpacity,
-    double? surfaceBlur,
     ThemeMode? themeMode,
     bool? isPreset,
     bool? isActive,
@@ -71,7 +68,6 @@ class CustomTheme extends Equatable {
       windowEffectType: windowEffectType ?? this.windowEffectType,
       effectOpacity: effectOpacity ?? this.effectOpacity,
       surfaceOpacity: surfaceOpacity ?? this.surfaceOpacity,
-      surfaceBlur: surfaceBlur ?? this.surfaceBlur,
       themeMode: themeMode ?? this.themeMode,
       isPreset: isPreset ?? this.isPreset,
       isActive: isActive ?? this.isActive,
@@ -92,7 +88,6 @@ class CustomTheme extends Equatable {
     windowEffectType,
     effectOpacity,
     surfaceOpacity,
-    surfaceBlur,
     themeMode,
     isPreset,
     isActive,

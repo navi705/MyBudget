@@ -47,7 +47,6 @@ final List<CustomTheme> defaultThemePresets = [
     windowEffectType: WindowEffectType.aero,
     effectOpacity: 0.1,
     surfaceOpacity: 0.2,
-    surfaceBlur: 20.0,
     themeMode: ThemeMode.system,
     isPreset: true,
   ),
