@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:bloc/bloc.dart';
+
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
@@ -12,6 +14,7 @@ import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 
 part 'accounts_event.dart';
@@ -165,12 +168,14 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           accountTypeIds: filters.accountTypeIds,
         ),
         _currencyRepository.getLatestExchangeRates(DateTime.now()),
+        _inflationRepository.getInflationRates(),
       ]);
 
       final accountTypes = results[0] as List<AccountType>;
       final accounts = results[1] as List<Account>;
       final totalCount = results[2] as int;
       final exchangeRates = results[3] as List<ExchangeRateDomain>;
+      final inflationRates = results[4] as List<InflationRateDomain>;
 
       final sortedAccounts = _sortAccounts(
         accounts,
@@ -178,37 +183,27 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         filters.sort == Sort.ascending,
       );
 
-      final inflationRates = await _inflationRepository.getInflationRates();
-      final Map<String, double> realBalances = {};
-      final Map<String, double> inflationLosses = {};
+      final accountIds = sortedAccounts
+          .map((e) => e.id)
+          .whereType<String>()
+          .toList();
 
-      for (final account in sortedAccounts) {
-        if (account.id != null) {
-          final transactions = await _transactionRepository
-              .getTransactionsWithFilters(
-                filters: TransactionFilters(accountId: [account.id!]),
-                limit: 1000000,
-              );
+      // Batch fetch transactions for all visible accounts
+      final allTransactions = await _transactionRepository
+          .getTransactionsWithFilters(
+            filters: TransactionFilters(accountId: accountIds),
+            limit: 1000000,
+          );
 
-          double realBalance = 0;
-          for (final tx in transactions) {
-            final cumulativeInflation = _calculateCumulativeInflation(
-              tx.date,
-              DateTime.now(),
-              inflationRates,
-              null, // Use null as Account currently has no country field
-            );
-            realBalance += tx.amount / cumulativeInflation;
-          }
-          realBalances[account.id!] = realBalance;
-          if (account.balance != 0) {
-            inflationLosses[account.id!] =
-                (account.balance - realBalance) / account.balance * 100;
-          } else {
-            inflationLosses[account.id!] = 0;
-          }
-        }
-      }
+      // Offload heavy inflation calculations to background isolate
+      final inflationResults = await compute(
+        _calculateInflationForAccounts,
+        _InflationParams(
+          accounts: sortedAccounts,
+          transactions: allTransactions,
+          inflationRates: inflationRates,
+        ),
+      );
 
       emit(
         AccountsLoadSuccess(
@@ -223,8 +218,8 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           selectedAccountIds: currentState.selectedAccountIds,
           dateStep: currentState.dateStep,
           exchangeRates: exchangeRates,
-          realBalances: realBalances,
-          inflationLosses: inflationLosses,
+          realBalances: inflationResults.realBalances,
+          inflationLosses: inflationResults.inflationLosses,
         ),
       );
     } catch (e) {
@@ -256,9 +251,33 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           currentState.exchangeRates,
           currentState.sortAscending,
         );
+
+        final inflationRates = await _inflationRepository.getInflationRates();
+        final accountIds = sortedAccounts
+            .map((e) => e.id)
+            .whereType<String>()
+            .toList();
+
+        final allTransactions = await _transactionRepository
+            .getTransactionsWithFilters(
+              filters: TransactionFilters(accountId: accountIds),
+              limit: 1000000,
+            );
+
+        final inflationResults = await compute(
+          _calculateInflationForAccounts,
+          _InflationParams(
+            accounts: sortedAccounts,
+            transactions: allTransactions,
+            inflationRates: inflationRates,
+          ),
+        );
+
         emit(
           currentState.copyWith(
             accounts: sortedAccounts,
+            realBalances: inflationResults.realBalances,
+            inflationLosses: inflationResults.inflationLosses,
             hasReachedMax:
                 (currentState.accounts.length + accounts.length) >=
                 currentState.totalCount,
@@ -468,38 +487,92 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     );
     add(LoadAccounts());
   }
+}
 
-  double _calculateCumulativeInflation(
-    DateTime from,
-    DateTime to,
-    List<InflationRateDomain> rates,
-    String? country,
-  ) {
+class _InflationParams {
+  final List<Account> accounts;
+  final List<Transaction> transactions;
+  final List<InflationRateDomain> inflationRates;
+
+  _InflationParams({
+    required this.accounts,
+    required this.transactions,
+    required this.inflationRates,
+  });
+}
+
+class _InflationResults {
+  final Map<String, double> realBalances;
+  final Map<String, double> inflationLosses;
+
+  _InflationResults({
+    required this.realBalances,
+    required this.inflationLosses,
+  });
+}
+
+_InflationResults _calculateInflationForAccounts(_InflationParams params) {
+  final Map<String, double> realBalances = {};
+  final Map<String, double> inflationLosses = {};
+
+  final transactionsByAccount = <String, List<Transaction>>{};
+  for (final tx in params.transactions) {
+    transactionsByAccount.putIfAbsent(tx.accountId, () => []).add(tx);
+  }
+
+  // Pre-calculate multipliers per month to avoid O(N*M) loops
+  // Multiplier from Date(year, month) to NOW
+  final now = DateTime.now();
+  final target = DateTime(now.year, now.month);
+
+  final multiplierCache = <DateTime, double>{};
+
+  final sortedRates = List<InflationRateDomain>.from(params.inflationRates)
+    ..sort((a, b) => a.date.compareTo(b.date));
+
+  // Build multipliers from target backwards
+  // This is slightly tricky if we want to be exact, let's just use the existing logic inside but maybe cached?
+  // Re-using the logic but memoizing:
+  double getMultiplier(DateTime date) {
+    final monthDate = DateTime(date.year, date.month);
+    if (multiplierCache.containsKey(monthDate)) {
+      return multiplierCache[monthDate]!;
+    }
+
     double cumulativeMultiplier = 1.0;
-
-    // Sort rates by date
-    final sortedRates = List<InflationRateDomain>.from(rates)
-      ..sort((a, b) => a.date.compareTo(b.date));
-
-    // Calculate months between from and to
-    DateTime current = DateTime(from.year, from.month);
-    final target = DateTime(to.year, to.month);
-
+    DateTime current = monthDate;
     while (current.isBefore(target)) {
-      // Find the rate for this month and country
       final rate = sortedRates.firstWhere(
-        (r) =>
-            r.date.year == current.year &&
-            r.date.month == current.month &&
-            (r.country == country || r.country == null),
+        (r) => r.date.year == current.year && r.date.month == current.month,
         orElse: () =>
             InflationRateDomain(percent: 0.0, date: DateTime(0), preset: 1),
       );
-
       cumulativeMultiplier *= (1 + (rate.percent / 100));
       current = DateTime(current.year, current.month + 1);
     }
-
+    multiplierCache[monthDate] = cumulativeMultiplier;
     return cumulativeMultiplier;
   }
+
+  for (final account in params.accounts) {
+    if (account.id != null) {
+      final transactions = transactionsByAccount[account.id] ?? [];
+      double realBalance = 0;
+      for (final tx in transactions) {
+        realBalance += tx.amount / getMultiplier(tx.date);
+      }
+      realBalances[account.id!] = realBalance;
+      if (account.balance != 0) {
+        inflationLosses[account.id!] =
+            (account.balance - realBalance) / account.balance * 100;
+      } else {
+        inflationLosses[account.id!] = 0;
+      }
+    }
+  }
+
+  return _InflationResults(
+    realBalances: realBalances,
+    inflationLosses: inflationLosses,
+  );
 }

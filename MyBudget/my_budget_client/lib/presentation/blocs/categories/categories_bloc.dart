@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
@@ -12,6 +13,7 @@ import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart'
     show DateStep, FilterMode;
 
@@ -349,83 +351,15 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         uniqueDates,
       );
 
-      // 4. Pre-process Rates into a Map
-      final ratesMap = <DateTime, Map<String, double>>{};
-
-      for (var rate in allRates) {
-        final dateKey = DateTime(
-          rate.date.year,
-          rate.date.month,
-          rate.date.day,
-        );
-        if (!ratesMap.containsKey(dateKey)) {
-          ratesMap[dateKey] = {};
-        }
-        ratesMap[dateKey]!['${rate.fromCurrencyCode}_${rate.toCurrencyCode}'] =
-            rate.rate;
-      }
-
-      // 5. Calculate Totals via Grouped Results
-      final Map<String, double> categoryTotalsMap = {};
-      const baseCurrency = 'EUR';
-
-      for (final totalItem in groupedTotals) {
-        final tDate = DateTime(
-          totalItem.date.year,
-          totalItem.date.month,
-          totalItem.date.day,
-        );
-        final dailyRates = ratesMap[tDate] ?? {};
-
-        double amountInMain;
-
-        if (totalItem.currencyCode == mainCurrencyCode) {
-          amountInMain = totalItem.total;
-        } else {
-          // 1. To Base (EUR)
-          double amountInBase;
-          if (totalItem.currencyCode == baseCurrency) {
-            amountInBase = totalItem.total;
-          } else {
-            final toBase =
-                dailyRates['${totalItem.currencyCode}_$baseCurrency'];
-            if (toBase != null) {
-              amountInBase = totalItem.total * toBase;
-            } else {
-              final fromBase =
-                  dailyRates['${baseCurrency}_${totalItem.currencyCode}'];
-              amountInBase = (fromBase != null && fromBase != 0)
-                  ? totalItem.total / fromBase
-                  : 0;
-            }
-          }
-
-          // 2. From Base (EUR) to Main
-          if (mainCurrencyCode == baseCurrency) {
-            amountInMain = amountInBase;
-          } else {
-            final toMain = dailyRates['${baseCurrency}_$mainCurrencyCode'];
-            if (toMain != null) {
-              amountInMain = amountInBase * toMain;
-            } else {
-              final fromMain = dailyRates['${mainCurrencyCode}_$baseCurrency'];
-              amountInMain = (fromMain != null && fromMain != 0)
-                  ? amountInBase / fromMain
-                  : amountInBase;
-            }
-          }
-        }
-
-        final currentTotal = categoryTotalsMap[totalItem.categoryId] ?? 0.0;
-        categoryTotalsMap[totalItem.categoryId] = currentTotal + amountInMain;
-      }
-
-      final categoriesWithTotals = categories.map((category) {
-        return CategoryWithTotal(
-          category: category,
-          total: categoryTotalsMap[category.id] ?? 0.0,
-        );
-      }).toList();
+      final categoriesWithTotals = await foundation.compute(
+        _calculateCategoryTotals,
+        _CategoryTotalsParams(
+          categories: categories,
+          groupedTotals: groupedTotals,
+          mainCurrencyCode: mainCurrencyCode,
+          allRates: allRates,
+        ),
+      );
 
       // --- OPTIMIZATION END ---
 
@@ -570,4 +504,90 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       );
     }
   }
+}
+
+class _CategoryTotalsParams {
+  final List<Category> categories;
+  final List<GroupedTransactionTotal> groupedTotals;
+  final String mainCurrencyCode;
+  final List<ExchangeRateDomain> allRates;
+
+  _CategoryTotalsParams({
+    required this.categories,
+    required this.groupedTotals,
+    required this.mainCurrencyCode,
+    required this.allRates,
+  });
+}
+
+List<CategoryWithTotal> _calculateCategoryTotals(_CategoryTotalsParams params) {
+  final ratesMap = <DateTime, Map<String, double>>{};
+
+  for (var rate in params.allRates) {
+    final dateKey = DateTime(rate.date.year, rate.date.month, rate.date.day);
+    if (!ratesMap.containsKey(dateKey)) {
+      ratesMap[dateKey] = {};
+    }
+    ratesMap[dateKey]!['${rate.fromCurrencyCode}_${rate.toCurrencyCode}'] =
+        rate.rate;
+  }
+
+  final Map<String, double> categoryTotalsMap = {};
+  const baseCurrency = 'EUR';
+
+  for (final totalItem in params.groupedTotals) {
+    final tDate = DateTime(
+      totalItem.date.year,
+      totalItem.date.month,
+      totalItem.date.day,
+    );
+    final dailyRates = ratesMap[tDate] ?? {};
+
+    double amountInMain;
+
+    if (totalItem.currencyCode == params.mainCurrencyCode) {
+      amountInMain = totalItem.total;
+    } else {
+      double amountInBase;
+      if (totalItem.currencyCode == baseCurrency) {
+        amountInBase = totalItem.total;
+      } else {
+        final toBase = dailyRates['${totalItem.currencyCode}_$baseCurrency'];
+        if (toBase != null) {
+          amountInBase = totalItem.total * toBase;
+        } else {
+          final fromBase =
+              dailyRates['${baseCurrency}_${totalItem.currencyCode}'];
+          amountInBase = (fromBase != null && fromBase != 0)
+              ? totalItem.total / fromBase
+              : 0;
+        }
+      }
+
+      if (params.mainCurrencyCode == baseCurrency) {
+        amountInMain = amountInBase;
+      } else {
+        final toMain = dailyRates['${baseCurrency}_${params.mainCurrencyCode}'];
+        if (toMain != null) {
+          amountInMain = amountInBase * toMain;
+        } else {
+          final fromMain =
+              dailyRates['${params.mainCurrencyCode}_$baseCurrency'];
+          amountInMain = (fromMain != null && fromMain != 0)
+              ? amountInBase / fromMain
+              : amountInBase;
+        }
+      }
+    }
+
+    final currentTotal = categoryTotalsMap[totalItem.categoryId] ?? 0.0;
+    categoryTotalsMap[totalItem.categoryId] = currentTotal + amountInMain;
+  }
+
+  return params.categories.map((category) {
+    return CategoryWithTotal(
+      category: category,
+      total: categoryTotalsMap[category.id] ?? 0.0,
+    );
+  }).toList();
 }
