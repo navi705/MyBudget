@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
+import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
@@ -272,11 +273,11 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     LoadCategories event,
     Emitter<CategoriesState> emit,
   ) async {
+    PerformanceLogger().start('Categories Screen Load');
     final currentState = state;
     emit(CategoriesLoadInProgress());
 
     try {
-      // 1. Setup Filters (Same as before)
       var filters = currentState is CategoriesLoadSuccess
           ? currentState.filters
           : const CategoryFilters();
@@ -290,7 +291,6 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       DateTime? dateFrom;
       DateTime? dateTo;
 
-      // ... (Keep your existing Date logic here) ...
       if (currentState is CategoriesLoadSuccess) {
         if (currentState.filterMode == FilterMode.date) {
           switch (currentState.dateStep) {
@@ -325,7 +325,6 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
           (await _settingsRepository.getSetting('main_currency_code'))?.value ??
           'EUR';
 
-      // 2. Fetch Core Data
       final results = await Future.wait([
         _categoryRepository.getCategories(),
         _transactionRepository.getTransactionTotalsGrouped(
@@ -339,9 +338,6 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       final groupedTotals = results[1] as List<GroupedTransactionTotal>;
       final currencyDesignations = results[2] as List<CurrencyDesignation>;
 
-      // --- OPTIMIZATION START ---
-
-      // 3. Batch Fetch Rates
       final uniqueDates = groupedTotals
           .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
           .toSet()
@@ -361,9 +357,8 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         ),
       );
 
-      // --- OPTIMIZATION END ---
+      await PerformanceLogger().stop('Categories Screen Load');
 
-      // 7. Apply Filters and Sorting (Same as before)
       final filteredItems = categoriesWithTotals.where((item) {
         if (filters.name != null &&
             !item.category.name.toLowerCase().contains(
@@ -414,7 +409,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         );
       }
     } catch (e, s) {
-      // Tip: Always log 's' (stacktrace) to see where errors happen
+      PerformanceLogger().stop('Categories Screen Load');
       debugPrint('Error loading categories: $e\n$s');
       emit(CategoriesLoadFailure());
     }

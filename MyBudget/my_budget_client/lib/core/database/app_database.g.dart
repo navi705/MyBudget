@@ -5748,6 +5748,26 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ApiFetchStatusesTable apiFetchStatuses = $ApiFetchStatusesTable(
     this,
   );
+  late final Index idxTransactionsDate = Index(
+    'idx_transactions_date',
+    'CREATE INDEX idx_transactions_date ON transactions (date)',
+  );
+  late final Index idxTransactionsAccount = Index(
+    'idx_transactions_account',
+    'CREATE INDEX idx_transactions_account ON transactions (account_id)',
+  );
+  late final Index idxTransactionsCategory = Index(
+    'idx_transactions_category',
+    'CREATE INDEX idx_transactions_category ON transactions (category_id)',
+  );
+  late final Index idxExchangeRatesDate = Index(
+    'idx_exchange_rates_date',
+    'CREATE INDEX idx_exchange_rates_date ON exchange_rates (date)',
+  );
+  late final Index idxExchangeRatesComposite = Index(
+    'idx_exchange_rates_composite',
+    'CREATE INDEX idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
+  );
   late final LanguageDao languageDao = LanguageDao(this as AppDatabase);
   late final CurrencyDesignationsDao currencyDesignationsDao =
       CurrencyDesignationsDao(this as AppDatabase);
@@ -5796,6 +5816,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     settings,
     customThemes,
     apiFetchStatuses,
+    idxTransactionsDate,
+    idxTransactionsAccount,
+    idxTransactionsCategory,
+    idxExchangeRatesDate,
+    idxExchangeRatesComposite,
   ];
 }
 

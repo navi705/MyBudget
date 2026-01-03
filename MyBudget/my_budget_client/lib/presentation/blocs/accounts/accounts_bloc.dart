@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:bloc/bloc.dart';
+import 'package:my_budget_client/core/utils/performance_logger.dart';
 
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
@@ -146,6 +147,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     LoadAccounts event,
     Emitter<AccountsState> emit,
   ) async {
+    PerformanceLogger().start('Accounts Screen Load');
     final currentState = state;
     emit(AccountsLoadInProgress());
     try {
@@ -188,14 +190,12 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           .whereType<String>()
           .toList();
 
-      // Batch fetch transactions for all visible accounts
       final allTransactions = await _transactionRepository
           .getTransactionsWithFilters(
             filters: TransactionFilters(accountId: accountIds),
             limit: 1000000,
           );
 
-      // Offload heavy inflation calculations to background isolate
       final inflationResults = await compute(
         _calculateInflationForAccounts,
         _InflationParams(
@@ -204,6 +204,8 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           inflationRates: inflationRates,
         ),
       );
+
+      await PerformanceLogger().stop('Accounts Screen Load');
 
       emit(
         AccountsLoadSuccess(
@@ -223,6 +225,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         ),
       );
     } catch (e) {
+      PerformanceLogger().stop('Accounts Screen Load');
       emit(AccountsLoadFailure());
     }
   }
@@ -236,6 +239,8 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       return;
     }
 
+    PerformanceLogger().start('Accounts Screen Load More');
+
     try {
       final accounts = await _accountRepository.getAccountsPaginatedFiltered(
         offset: currentState.accounts.length,
@@ -244,6 +249,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       );
       if (accounts.isEmpty) {
         emit(currentState.copyWith(hasReachedMax: true));
+        PerformanceLogger().stop('Accounts Screen Load More');
       } else {
         final newAccountList = List.of(currentState.accounts)..addAll(accounts);
         final sortedAccounts = _sortAccounts(
@@ -273,6 +279,8 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           ),
         );
 
+        await PerformanceLogger().stop('Accounts Screen Load More');
+
         emit(
           currentState.copyWith(
             accounts: sortedAccounts,
@@ -285,7 +293,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         );
       }
     } catch (_) {
-      // Keep current state on error
+      PerformanceLogger().stop('Accounts Screen Load More');
     }
   }
 

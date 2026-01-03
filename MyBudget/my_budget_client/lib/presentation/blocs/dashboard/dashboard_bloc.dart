@@ -1,8 +1,9 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
-import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart' as foundation;
+import 'package:my_budget_client/core/utils/performance_logger.dart';
 
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
@@ -59,11 +60,11 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     on<SelectDay>(_onSelectDay);
     on<ToggleChartType>(_onToggleChartType);
   }
-
   Future<void> _onLoadDashboard(
     LoadDashboard event,
     Emitter<DashboardState> emit,
   ) async {
+    PerformanceLogger().start('Dashboard Screen Load');
     emit(DashboardLoadInProgress());
 
     final stream = Rx.combineLatest5(
@@ -79,7 +80,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         List<Style> styles,
         _DashboardParams params,
       ) async {
-        // Fetch dependencies
         final dayBalances = await _accountRepository.getBalancesAtDate(
           params.selectedDay,
         );
@@ -89,98 +89,28 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
               dateTo: params.dateRangeEnd,
             );
 
-        // Fetch Main Currency
         final settingsMap = await _settingsRepository.getAllSettings();
         final mainCurrencyCode = settingsMap['main_currency_code'] ?? 'USD';
 
-        // Fetch Exchange Rates from today back to start for full history calculation
         final now = DateTime.now();
         final exchangeRates = await _currencyRepository
             .getLatestExchangeRatesByList(
               _getDateRangeList(params.dateRangeStart, now),
             );
 
-        // Aggregate daily income and expenses
-        final dailyIncomes = <DateTime, double>{};
-        final dailyExpenses = <DateTime, double>{};
-        final dailyNetWorth = <DateTime, double>{};
+        // Offload heavy data processing to background isolate
+        final computeResults = await foundation.compute(
+          _calculateDashboardData,
+          _DashboardComputeParams(
+            accounts: accounts,
+            transactions: transactions,
+            exchangeRates: exchangeRates,
+            mainCurrencyCode: mainCurrencyCode,
+            dateRangeStart: params.dateRangeStart,
+          ),
+        );
 
-        for (final transaction in transactions) {
-          final date = DateTime(
-            transaction.date.year,
-            transaction.date.month,
-            transaction.date.day,
-          );
-          if (transaction.amount > 0) {
-            dailyIncomes.update(
-              date,
-              (v) => v + transaction.amount,
-              ifAbsent: () => transaction.amount,
-            );
-          } else if (transaction.amount < 0) {
-            dailyExpenses.update(
-              date,
-              (v) => v + transaction.amount.abs(),
-              ifAbsent: () => transaction.amount.abs(),
-            );
-          }
-        }
-
-        // Calculate Daily Net Worth (Unified in Main Currency)
-        // 1. Get current balances
-        final currentBalances = <String, double>{};
-        for (final account in accounts) {
-          currentBalances[account.id!] = account.balance;
-        }
-
-        // 2. Iterate backwards from NOW to dateRangeStart
-        final today = DateTime.now();
-        final start = params.dateRangeStart;
-
-        // Ensure we handle dates properly (only year/month/day)
-        var iterDate = DateTime(today.year, today.month, today.day);
-        final historyLimit = DateTime(start.year, start.month, start.day);
-
-        while (iterDate.isAfter(historyLimit) ||
-            iterDate.isAtSameMomentAs(historyLimit)) {
-          double totalNetWorth = 0.0;
-
-          for (final account in accounts) {
-            final balance = currentBalances[account.id!] ?? 0.0;
-            if (account.currencyCode == mainCurrencyCode) {
-              totalNetWorth += balance;
-            } else {
-              final rate = _getRateForDate(
-                exchangeRates,
-                account.currencyCode,
-                mainCurrencyCode,
-                iterDate,
-              );
-              totalNetWorth += balance * rate;
-            }
-          }
-
-          dailyNetWorth[iterDate] = totalNetWorth;
-
-          // Subtract transactions of this day to get previous day's balance
-          for (final transaction in transactions) {
-            final tDate = DateTime(
-              transaction.date.year,
-              transaction.date.month,
-              transaction.date.day,
-            );
-            if (tDate.isAtSameMomentAs(iterDate)) {
-              if (currentBalances.containsKey(transaction.accountId)) {
-                currentBalances[transaction.accountId] =
-                    (currentBalances[transaction.accountId]!) -
-                    transaction.amount;
-              }
-            }
-          }
-
-          iterDate = iterDate.subtract(const Duration(days: 1));
-          if (iterDate.isBefore(historyLimit)) break;
-        }
+        await PerformanceLogger().stop('Dashboard Screen Load');
 
         return DashboardLoadSuccess(
           accounts: accounts,
@@ -194,9 +124,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           isIncomeView: params.isIncomeView,
           dayBalances: dayBalances,
           categoryTotals: categoryTotals,
-          dailyIncomes: dailyIncomes,
-          dailyExpenses: dailyExpenses,
-          dailyNetWorth: dailyNetWorth,
+          dailyIncomes: computeResults.dailyIncomes,
+          dailyExpenses: computeResults.dailyExpenses,
+          dailyNetWorth: computeResults.dailyNetWorth,
         );
       },
     ).flatMap((future) => Stream.fromFuture(future));
@@ -205,6 +135,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       stream,
       onData: (state) => state,
       onError: (e, st) {
+        PerformanceLogger().stop('Dashboard Screen Load');
         return DashboardLoadFailure();
       },
     );
@@ -219,34 +150,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       current = current.add(const Duration(days: 1));
     }
     return list;
-  }
-
-  double _getRateForDate(
-    List<ExchangeRateDomain> rates,
-    String from,
-    String to,
-    DateTime date,
-  ) {
-    if (from == to) return 1.0;
-    final d = DateTime(date.year, date.month, date.day);
-
-    final direct = rates.firstWhereOrNull(
-      (r) =>
-          r.fromCurrencyCode == from &&
-          r.toCurrencyCode == to &&
-          DateTime(r.date.year, r.date.month, r.date.day).isAtSameMomentAs(d),
-    );
-    if (direct != null) return direct.rate;
-
-    final inverse = rates.firstWhereOrNull(
-      (r) =>
-          r.fromCurrencyCode == to &&
-          r.toCurrencyCode == from &&
-          DateTime(r.date.year, r.date.month, r.date.day).isAtSameMomentAs(d),
-    );
-    if (inverse != null) return 1.0 / inverse.rate;
-
-    return 1.0;
   }
 
   void _onChangeTab(ChangeTab event, Emitter<DashboardState> emit) {
@@ -311,4 +214,148 @@ class _DashboardParams {
       isIncomeView: isIncomeView ?? this.isIncomeView,
     );
   }
+}
+
+class _DashboardComputeParams {
+  final List<Account> accounts;
+  final List<Transaction> transactions;
+  final List<ExchangeRateDomain> exchangeRates;
+  final String mainCurrencyCode;
+  final DateTime dateRangeStart;
+
+  _DashboardComputeParams({
+    required this.accounts,
+    required this.transactions,
+    required this.exchangeRates,
+    required this.mainCurrencyCode,
+    required this.dateRangeStart,
+  });
+}
+
+class _DashboardComputeResults {
+  final Map<DateTime, double> dailyIncomes;
+  final Map<DateTime, double> dailyExpenses;
+  final Map<DateTime, double> dailyNetWorth;
+
+  _DashboardComputeResults({
+    required this.dailyIncomes,
+    required this.dailyExpenses,
+    required this.dailyNetWorth,
+  });
+}
+
+_DashboardComputeResults _calculateDashboardData(
+  _DashboardComputeParams params,
+) {
+  final dailyIncomes = <DateTime, double>{};
+  final dailyExpenses = <DateTime, double>{};
+  final dailyNetWorth = <DateTime, double>{};
+
+  for (final transaction in params.transactions) {
+    final date = DateTime(
+      transaction.date.year,
+      transaction.date.month,
+      transaction.date.day,
+    );
+    if (transaction.amount > 0) {
+      dailyIncomes.update(
+        date,
+        (v) => v + transaction.amount,
+        ifAbsent: () => transaction.amount,
+      );
+    } else if (transaction.amount < 0) {
+      dailyExpenses.update(
+        date,
+        (v) => v + transaction.amount.abs(),
+        ifAbsent: () => transaction.amount.abs(),
+      );
+    }
+  }
+
+  final currentBalances = <String, double>{};
+  for (final account in params.accounts) {
+    currentBalances[account.id!] = account.balance;
+  }
+
+  // Pre-group transactions by date for faster lookup during net worth walk-back
+  final transactionsByDate = <DateTime, List<Transaction>>{};
+  for (final transaction in params.transactions) {
+    final date = DateTime(
+      transaction.date.year,
+      transaction.date.month,
+      transaction.date.day,
+    );
+    transactionsByDate.putIfAbsent(date, () => []).add(transaction);
+  }
+
+  final today = DateTime.now();
+  final start = params.dateRangeStart;
+
+  var iterDate = DateTime(today.year, today.month, today.day);
+  final historyLimit = DateTime(start.year, start.month, start.day);
+
+  while (iterDate.isAfter(historyLimit) ||
+      iterDate.isAtSameMomentAs(historyLimit)) {
+    double totalNetWorth = 0.0;
+
+    for (final account in params.accounts) {
+      final balance = currentBalances[account.id!] ?? 0.0;
+      if (account.currencyCode == params.mainCurrencyCode) {
+        totalNetWorth += balance;
+      } else {
+        final rate = _getRateForDateIsolate(
+          params.exchangeRates,
+          account.currencyCode,
+          params.mainCurrencyCode,
+          iterDate,
+        );
+        totalNetWorth += balance * rate;
+      }
+    }
+
+    dailyNetWorth[iterDate] = totalNetWorth;
+
+    // Use pre-grouped transactions for better performance
+    final dayTransactions = transactionsByDate[iterDate] ?? [];
+    for (final transaction in dayTransactions) {
+      if (currentBalances.containsKey(transaction.accountId)) {
+        currentBalances[transaction.accountId] =
+            (currentBalances[transaction.accountId]!) - transaction.amount;
+      }
+    }
+
+    iterDate = iterDate.subtract(const Duration(days: 1));
+  }
+
+  return _DashboardComputeResults(
+    dailyIncomes: dailyIncomes,
+    dailyExpenses: dailyExpenses,
+    dailyNetWorth: dailyNetWorth,
+  );
+}
+
+double _getRateForDateIsolate(
+  List<ExchangeRateDomain> rates,
+  String from,
+  String to,
+  DateTime date,
+) {
+  if (from == to) return 1.0;
+  final d = DateTime(date.year, date.month, date.day);
+
+  // Note: Using a simple find here, but could be optimized if rates list is large
+  for (final r in rates) {
+    if (r.fromCurrencyCode == from &&
+        r.toCurrencyCode == to &&
+        DateTime(r.date.year, r.date.month, r.date.day).isAtSameMomentAs(d)) {
+      return r.rate;
+    }
+    if (r.fromCurrencyCode == to &&
+        r.toCurrencyCode == from &&
+        DateTime(r.date.year, r.date.month, r.date.day).isAtSameMomentAs(d)) {
+      return 1.0 / r.rate;
+    }
+  }
+
+  return 1.0;
 }

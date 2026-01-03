@@ -3,6 +3,7 @@ import 'package:bloc/bloc.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
+import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
@@ -328,6 +329,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     InitialLoadTransactions event,
     Emitter<TransactionsState> emit,
   ) async {
+    PerformanceLogger().start('Transactions Screen Initial Load');
     emit(state.copyWith(status: TransactionStatus.loading));
     try {
       final mainCurrencySetting = await _settingsRepository.getSetting(
@@ -355,6 +357,8 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         mainCurrencyCode,
       );
 
+      await PerformanceLogger().stop('Transactions Screen Initial Load');
+
       emit(
         state.copyWith(
           status: TransactionStatus.success,
@@ -369,6 +373,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         ),
       );
     } catch (_) {
+      PerformanceLogger().stop('Transactions Screen Initial Load');
       emit(state.copyWith(status: TransactionStatus.failure));
     }
   }
@@ -378,6 +383,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) async {
     if (!state.hasMoreUp || state.status == TransactionStatus.loading) return;
+    PerformanceLogger().start('Transactions Window Load Up');
     emit(state.copyWith(status: TransactionStatus.loading));
 
     try {
@@ -399,6 +405,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           );
 
       if (newRawTransactions.isEmpty) {
+        PerformanceLogger().stop('Transactions Window Load Up');
         return emit(
           state.copyWith(status: TransactionStatus.success, hasMoreUp: false),
         );
@@ -433,6 +440,8 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         jumpAlignment = 0.0;
       }
 
+      await PerformanceLogger().stop('Transactions Window Load Up');
+
       emit(
         state.copyWith(
           status: TransactionStatus.success,
@@ -448,6 +457,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       );
       emit(state.copyWith(jumpToItemId: null, jumpToAlignment: null));
     } catch (_) {
+      PerformanceLogger().stop('Transactions Window Load Up');
       emit(state.copyWith(status: TransactionStatus.failure));
     }
   }
@@ -457,6 +467,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) async {
     if (!state.hasMoreDown || state.status == TransactionStatus.loading) return;
+    PerformanceLogger().start('Transactions Window Load Down');
     emit(state.copyWith(status: TransactionStatus.loading));
 
     try {
@@ -476,6 +487,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           );
 
       if (newRawTransactions.isEmpty) {
+        PerformanceLogger().stop('Transactions Window Load Down');
         return emit(
           state.copyWith(status: TransactionStatus.success, hasMoreDown: false),
         );
@@ -508,6 +520,8 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         jumpAlignment = 1.0;
       }
 
+      await PerformanceLogger().stop('Transactions Window Load Down');
+
       emit(
         state.copyWith(
           status: TransactionStatus.success,
@@ -523,6 +537,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       );
       emit(state.copyWith(jumpToItemId: null, jumpToAlignment: null));
     } catch (_) {
+      PerformanceLogger().stop('Transactions Window Load Down');
       emit(state.copyWith(status: TransactionStatus.failure));
     }
   }

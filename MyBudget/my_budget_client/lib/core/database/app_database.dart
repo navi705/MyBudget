@@ -117,6 +117,9 @@ class Accounts extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@TableIndex(name: 'idx_transactions_date', columns: {#date})
+@TableIndex(name: 'idx_transactions_account', columns: {#accountId})
+@TableIndex(name: 'idx_transactions_category', columns: {#categoryId})
 class Transactions extends Table {
   TextColumn get id => text().clientDefault(() => _uuid.v4())();
   TextColumn get description => text().withLength(min: 1, max: 100)();
@@ -130,6 +133,11 @@ class Transactions extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@TableIndex(name: 'idx_exchange_rates_date', columns: {#date})
+@TableIndex(
+  name: 'idx_exchange_rates_composite',
+  columns: {#fromCurrencyCode, #toCurrencyCode, #date},
+)
 class ExchangeRates extends Table {
   TextColumn get fromCurrencyCode => text().references(Currencies, #code)();
   @ReferenceName('ToCurrencyRates')
@@ -1284,31 +1292,13 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
         await m.createAll();
-        // Add indices for new databases as well, if createAll() doesn't include them (it won't unless defined in Table)
-        // Since we are adding them via customStatement, we must manually add them on create too if we want them?
-        // Actually, best way is to defined them in the Table using @TableIndex but that requires regeneration.
-        // User didn't want regen if possible? Actually I can run regen commands.
-        // But customStatement is safer purely in code.
-        await customStatement(
-          'CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions (account_id)',
-        );
-        await customStatement(
-          'CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions (category_id)',
-        );
-        await customStatement(
-          'CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates (date)',
-        );
-        await customStatement(
-          'CREATE INDEX IF NOT EXISTS idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
-        );
-
         await _seedData(this);
       },
       onUpgrade: (Migrator m, int from, int to) async {
@@ -1316,6 +1306,8 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(accounts, accounts.creationDate);
         }
         if (from < 8) {
+          // idx_transactions_date is now handled by @TableIndex,
+          // but for existing migrations we still run it if needed.
           await customStatement(
             'CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions (date)',
           );
@@ -1371,6 +1363,25 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 16) {
           await m.createTable(apiFetchStatuses);
+        }
+        if (from < 17) {
+          // Ensure all new/existing indices are created for existing users using custom statements
+          // as they are more robust during migration when generated objects might differ.
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions (date)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions (account_id)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions (category_id)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates (date)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
+          );
         }
       },
       beforeOpen: (details) async {

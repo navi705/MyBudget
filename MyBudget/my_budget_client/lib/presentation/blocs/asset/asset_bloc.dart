@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart';
 import 'asset_event.dart';
 import 'asset_state.dart';
@@ -17,11 +18,14 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     LoadAssetData event,
     Emitter<AssetState> emit,
   ) async {
+    PerformanceLogger().start('Asset Data Load');
     emit(AssetLoadInProgress());
     try {
       final data = await _repository.getAssetData(assetId: event.assetId);
+      await PerformanceLogger().stop('Asset Data Load');
       emit(AssetLoadSuccess(data));
     } catch (e) {
+      PerformanceLogger().stop('Asset Data Load');
       emit(AssetFailure(e.toString()));
     }
   }
