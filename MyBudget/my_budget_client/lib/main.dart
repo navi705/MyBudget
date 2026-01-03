@@ -15,9 +15,9 @@ void main() async {
   await dotenv.load(fileName: ".env");
   await sl.init();
   if (kDebugMode) {
-    //intilizationData.InitilizateDebug();
+    IntilizationData.initilizateDebug();
   } else {
-    IntilizationData.initilizate();
+    IntilizationData.initilizate(); 
   }
 
   runApp(const App());

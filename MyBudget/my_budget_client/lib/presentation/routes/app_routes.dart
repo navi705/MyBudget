@@ -12,4 +12,5 @@ class AppRoutes {
   static const String importScreen = '/import';
   static const String themeSettings = '/settings/theme';
   static const String exchangeRates = '/exchange-rates';
+  static const String apiSettings = '/settings/api';
 }

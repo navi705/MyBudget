@@ -6,13 +6,15 @@ abstract class AddEditTransactionEvent extends Equatable {
   @override
   List<Object?> get props => [];
 }
+
 class AddEditTransactionLoad extends AddEditTransactionEvent {
   final Transaction? transaction;
+  final String? accountId;
 
-  const AddEditTransactionLoad({this.transaction});
+  const AddEditTransactionLoad({this.transaction, this.accountId});
 
   @override
-  List<Object?> get props => [transaction];
+  List<Object?> get props => [transaction, accountId];
 }
 
 class AddEditTransactionDescriptionChanged extends AddEditTransactionEvent {
@@ -62,4 +64,36 @@ class AddEditTransactionDateChanged extends AddEditTransactionEvent {
 
 class AddEditTransactionSubmitted extends AddEditTransactionEvent {
   const AddEditTransactionSubmitted();
+}
+
+class AddEditTransactionCurrencyChanged extends AddEditTransactionEvent {
+  final Currency currency;
+  const AddEditTransactionCurrencyChanged(this.currency);
+  @override
+  List<Object> get props => [currency];
+}
+
+class AddEditTransactionRatePresetChanged extends AddEditTransactionEvent {
+  final ExchangeRateDomain? rate;
+  const AddEditTransactionRatePresetChanged(this.rate);
+  @override
+  List<Object?> get props => [rate];
+}
+
+class AddEditTransactionManualRateChanged extends AddEditTransactionEvent {
+  final String rate;
+  const AddEditTransactionManualRateChanged(this.rate);
+  @override
+  List<Object> get props => [rate];
+}
+
+class AddEditTransactionAddNewRate extends AddEditTransactionEvent {
+  const AddEditTransactionAddNewRate();
+}
+
+class AddEditTransactionUpdatePreset extends AddEditTransactionEvent {
+  final ExchangeRateDomain rate;
+  const AddEditTransactionUpdatePreset(this.rate);
+  @override
+  List<Object> get props => [rate];
 }

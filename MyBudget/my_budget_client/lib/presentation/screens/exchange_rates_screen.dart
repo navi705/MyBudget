@@ -7,20 +7,22 @@ import 'package:my_budget_client/presentation/blocs/exchange_rates/exchange_rate
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
 
 class ExchangeRatesScreen extends StatelessWidget {
-  const ExchangeRatesScreen({super.key});
+  final bool isStandalone;
+  const ExchangeRatesScreen({super.key, this.isStandalone = true});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) =>
           sl<ExchangeRatesBloc>()..add(const LoadExchangeRates()),
-      child: const _ExchangeRatesView(),
+      child: _ExchangeRatesView(isStandalone: isStandalone),
     );
   }
 }
 
 class _ExchangeRatesView extends StatefulWidget {
-  const _ExchangeRatesView();
+  final bool isStandalone;
+  const _ExchangeRatesView({this.isStandalone = true});
 
   @override
   State<_ExchangeRatesView> createState() => _ExchangeRatesViewState();
@@ -58,9 +60,13 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
   Widget build(BuildContext context) {
     return BlocBuilder<ExchangeRatesBloc, ExchangeRatesState>(
       builder: (context, state) {
+        final body = _buildBody(context, state);
+        if (!widget.isStandalone) {
+          return body;
+        }
         return Scaffold(
           appBar: _buildAppBar(context, state),
-          body: _buildBody(context, state),
+          body: body,
           floatingActionButton: FloatingActionButton(
             onPressed: () => _showAddExchangeRateDialog(context),
             child: const Icon(Icons.add),
@@ -227,6 +233,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
     final fromController = TextEditingController(text: 'EUR');
     final toController = TextEditingController();
     final rateController = TextEditingController();
+    final presetController = TextEditingController(text: '1');
     DateTime selectedDate = DateTime.now();
 
     showDialog(
@@ -249,12 +256,26 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
                   labelText: 'To Currency (e.g. USD)',
                 ),
               ),
-              TextField(
-                controller: rateController,
-                decoration: const InputDecoration(labelText: 'Rate'),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: rateController,
+                      decoration: const InputDecoration(labelText: 'Rate'),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: presetController,
+                      decoration: const InputDecoration(labelText: 'Preset ID'),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               ListTile(
@@ -282,6 +303,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
             FilledButton.tonal(
               onPressed: () {
                 final rate = double.tryParse(rateController.text);
+                final preset = int.tryParse(presetController.text) ?? 1;
                 if (fromController.text.isNotEmpty &&
                     toController.text.isNotEmpty &&
                     rate != null) {
@@ -292,7 +314,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
                         toCurrencyCode: toController.text.toUpperCase(),
                         rate: rate,
                         date: selectedDate,
-                        preset: 0,
+                        preset: preset,
                       ),
                     ),
                   );
@@ -356,9 +378,22 @@ class _ExchangeRateListItemState extends State<_ExchangeRateListItem> {
             DateFormat('dd.MM.yyyy').format(widget.rate.date),
             style: const TextStyle(fontSize: 14),
           ),
-          trailing: Text(
-            widget.rate.rate.toStringAsFixed(4),
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                widget.rate.rate.toStringAsFixed(4),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                ),
+              ),
+              Text(
+                'Preset: ${widget.rate.preset}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
           ),
         ),
       ),

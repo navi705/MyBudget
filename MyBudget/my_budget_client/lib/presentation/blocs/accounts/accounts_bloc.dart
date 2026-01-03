@@ -6,8 +6,10 @@ import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/entities/settings.dart';
+import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
+import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
@@ -19,15 +21,21 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   final AccountRepository _accountRepository;
   final SettingsRepository _settingsRepository;
   final CurrencyRepository _currencyRepository;
+  final InflationRepository _inflationRepository;
+  final TransactionRepository _transactionRepository;
 
-  AccountsBloc(
-      {required AccountRepository accountRepository,
-      required SettingsRepository settingsRepository,
-      required CurrencyRepository currencyRepository})
-      : _accountRepository = accountRepository,
-        _settingsRepository = settingsRepository,
-        _currencyRepository = currencyRepository,
-        super(AccountsInitial()) {
+  AccountsBloc({
+    required AccountRepository accountRepository,
+    required SettingsRepository settingsRepository,
+    required CurrencyRepository currencyRepository,
+    required InflationRepository inflationRepository,
+    required TransactionRepository transactionRepository,
+  }) : _accountRepository = accountRepository,
+       _settingsRepository = settingsRepository,
+       _currencyRepository = currencyRepository,
+       _inflationRepository = inflationRepository,
+       _transactionRepository = transactionRepository,
+       super(AccountsInitial()) {
     on<LoadAccounts>(_onLoadAccounts);
     on<LoadMoreAccounts>(_onLoadMoreAccounts);
     on<AddAccount>(_onAddAccount);
@@ -44,16 +52,20 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     on<ClearSelection>(_onClearSelection);
     on<DeleteMultipleAccounts>(_onDeleteMultipleAccounts);
     on<UpdateAccountTypeForMultipleAccounts>(
-        _onUpdateAccountTypeForMultipleAccounts);
+      _onUpdateAccountTypeForMultipleAccounts,
+    );
     on<DatePeriodNavigated>(_onDatePeriodNavigated);
     on<DateStepChanged>(_onDateStepChanged);
     on<ActiveDateChanged>(_onActiveDateChanged);
   }
 
   List<Account> _sortAccounts(
-      List<Account> accounts, List<ExchangeRateDomain> rates, bool ascending) {
+    List<Account> accounts,
+    List<ExchangeRateDomain> rates,
+    bool ascending,
+  ) {
     final Map<String, double> rateMap = {
-      for (var r in rates) r.toCurrencyCode: r.rate
+      for (var r in rates) r.toCurrencyCode: r.rate,
     };
     rateMap['EUR'] = 1.0; // Assume EUR is the base and has a rate of 1.0
 
@@ -108,10 +120,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     add(LoadHistoricalBalances(newDate));
   }
 
-  void _onDateStepChanged(
-    DateStepChanged event,
-    Emitter<AccountsState> emit,
-  ) {
+  void _onDateStepChanged(DateStepChanged event, Emitter<AccountsState> emit) {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
       emit(currentState.copyWith(dateStep: event.dateStep));
@@ -138,8 +147,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     emit(AccountsLoadInProgress());
     try {
       var filters = currentState.filters;
-      final savedFilters =
-          await _settingsRepository.getSetting('account_filters');
+      final savedFilters = await _settingsRepository.getSetting(
+        'account_filters',
+      );
       if (savedFilters != null) {
         filters = AccountFilters.fromJsonString(savedFilters.value);
       }
@@ -147,9 +157,13 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final results = await Future.wait([
         _accountRepository.getAccountTypes(),
         _accountRepository.getAccountsPaginatedFiltered(
-            limit: currentState.limit, offset: 0, accountFilters: filters),
+          limit: currentState.limit,
+          offset: 0,
+          accountFilters: filters,
+        ),
         _accountRepository.getCountWithFilters(
-            accountTypeIds: filters.accountTypeIds),
+          accountTypeIds: filters.accountTypeIds,
+        ),
         _currencyRepository.getLatestExchangeRates(DateTime.now()),
       ]);
 
@@ -158,22 +172,61 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final totalCount = results[2] as int;
       final exchangeRates = results[3] as List<ExchangeRateDomain>;
 
-      final sortedAccounts =
-          _sortAccounts(accounts, exchangeRates, filters.sort == Sort.ascending);
+      final sortedAccounts = _sortAccounts(
+        accounts,
+        exchangeRates,
+        filters.sort == Sort.ascending,
+      );
 
-      emit(AccountsLoadSuccess(
-        accounts: sortedAccounts,
-        accountTypes: accountTypes,
-        hasReachedMax: accounts.length >= totalCount,
-        totalCount: totalCount,
-        sortAscending: filters.sort == Sort.ascending,
-        filters: filters,
-        activeDate: currentState.activeDate,
-        isSelectionModeActive: currentState.isSelectionModeActive,
-        selectedAccountIds: currentState.selectedAccountIds,
-        dateStep: currentState.dateStep,
-        exchangeRates: exchangeRates,
-      ));
+      final inflationRates = await _inflationRepository.getInflationRates();
+      final Map<String, double> realBalances = {};
+      final Map<String, double> inflationLosses = {};
+
+      for (final account in sortedAccounts) {
+        if (account.id != null) {
+          final transactions = await _transactionRepository
+              .getTransactionsWithFilters(
+                filters: TransactionFilters(accountId: [account.id!]),
+                limit: 1000000,
+              );
+
+          double realBalance = 0;
+          for (final tx in transactions) {
+            final cumulativeInflation = _calculateCumulativeInflation(
+              tx.date,
+              DateTime.now(),
+              inflationRates,
+              null, // Use null as Account currently has no country field
+            );
+            realBalance += tx.amount / cumulativeInflation;
+          }
+          realBalances[account.id!] = realBalance;
+          if (account.balance != 0) {
+            inflationLosses[account.id!] =
+                (account.balance - realBalance) / account.balance * 100;
+          } else {
+            inflationLosses[account.id!] = 0;
+          }
+        }
+      }
+
+      emit(
+        AccountsLoadSuccess(
+          accounts: sortedAccounts,
+          accountTypes: accountTypes,
+          hasReachedMax: accounts.length >= totalCount,
+          totalCount: totalCount,
+          sortAscending: filters.sort == Sort.ascending,
+          filters: filters,
+          activeDate: currentState.activeDate,
+          isSelectionModeActive: currentState.isSelectionModeActive,
+          selectedAccountIds: currentState.selectedAccountIds,
+          dateStep: currentState.dateStep,
+          exchangeRates: exchangeRates,
+          realBalances: realBalances,
+          inflationLosses: inflationLosses,
+        ),
+      );
     } catch (e) {
       emit(AccountsLoadFailure());
     }
@@ -198,14 +251,17 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         emit(currentState.copyWith(hasReachedMax: true));
       } else {
         final newAccountList = List.of(currentState.accounts)..addAll(accounts);
-        final sortedAccounts = _sortAccounts(newAccountList,
-            currentState.exchangeRates, currentState.sortAscending);
+        final sortedAccounts = _sortAccounts(
+          newAccountList,
+          currentState.exchangeRates,
+          currentState.sortAscending,
+        );
         emit(
           currentState.copyWith(
             accounts: sortedAccounts,
             hasReachedMax:
                 (currentState.accounts.length + accounts.length) >=
-                    currentState.totalCount,
+                currentState.totalCount,
           ),
         );
       }
@@ -237,8 +293,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
       try {
-        final accountToDelete =
-            currentState.accounts.firstWhere((acc) => acc.id == event.id);
+        final accountToDelete = currentState.accounts.firstWhere(
+          (acc) => acc.id == event.id,
+        );
         emit(currentState.copyWith(recentlyDeletedAccount: accountToDelete));
         await _accountRepository.deleteAccount(event.id);
         add(LoadAccounts()); // Reload list
@@ -255,8 +312,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     final currentState = state;
     if (currentState is AccountsLoadSuccess &&
         currentState.recentlyDeletedAccount != null) {
-      await _accountRepository
-          .restoreAccount(currentState.recentlyDeletedAccount!);
+      await _accountRepository.restoreAccount(
+        currentState.recentlyDeletedAccount!,
+      );
       add(LoadAccounts()); // Reload list
     }
   }
@@ -265,29 +323,40 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
       final newSortAscending = event.sortAscending;
-      final newFilters =
-          currentState.filters.copyWith(sort: newSortAscending ? Sort.ascending : Sort.descending);
-      
-      final sortedAccounts = _sortAccounts(List.of(currentState.accounts), currentState.exchangeRates, newSortAscending);
-      
-      emit(currentState.copyWith(
-        accounts: sortedAccounts,
-        sortAscending: newSortAscending,
-        filters: newFilters,
-      ));
+      final newFilters = currentState.filters.copyWith(
+        sort: newSortAscending ? Sort.ascending : Sort.descending,
+      );
+
+      final sortedAccounts = _sortAccounts(
+        List.of(currentState.accounts),
+        currentState.exchangeRates,
+        newSortAscending,
+      );
+
+      emit(
+        currentState.copyWith(
+          accounts: sortedAccounts,
+          sortAscending: newSortAscending,
+          filters: newFilters,
+        ),
+      );
     }
   }
 
   Future<void> _onFiltersChanged(
-      FiltersChanged event, Emitter<AccountsState> emit) async {
+    FiltersChanged event,
+    Emitter<AccountsState> emit,
+  ) async {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
       final deviceName = await getDeviceName();
-      await _settingsRepository.setSetting(Settings(
-        key: 'account_filters',
-        value: event.filters.toJsonString(),
-        device: deviceName,
-      ));
+      await _settingsRepository.setSetting(
+        Settings(
+          key: 'account_filters',
+          value: event.filters.toJsonString(),
+          device: deviceName,
+        ),
+      );
       emit(currentState.copyWith(filters: event.filters));
       add(LoadAccounts());
     }
@@ -299,13 +368,12 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   ) async {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
-      final historicalBalances =
-          await _accountRepository.getBalancesAtDate(event.date);
+      final historicalBalances = await _accountRepository.getBalancesAtDate(
+        event.date,
+      );
 
       final updatedAccounts = currentState.accounts.map((account) {
-        return account.copyWith(
-          balance: historicalBalances[account.id] ?? 0.0,
-        );
+        return account.copyWith(balance: historicalBalances[account.id] ?? 0.0);
       }).toList();
 
       final sortedAccounts = _sortAccounts(
@@ -314,11 +382,13 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         currentState.sortAscending,
       );
 
-      emit(currentState.copyWith(
-        accounts: sortedAccounts,
-        historicalBalances: historicalBalances,
-        isHistorical: true,
-      ));
+      emit(
+        currentState.copyWith(
+          accounts: sortedAccounts,
+          historicalBalances: historicalBalances,
+          isHistorical: true,
+        ),
+      );
     }
   }
 
@@ -335,11 +405,14 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   ) {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
-      emit(currentState.copyWith(
-        isSelectionModeActive: event.isSelectionModeActive,
-        selectedAccountIds:
-            event.isSelectionModeActive ? currentState.selectedAccountIds : {},
-      ));
+      emit(
+        currentState.copyWith(
+          isSelectionModeActive: event.isSelectionModeActive,
+          selectedAccountIds: event.isSelectionModeActive
+              ? currentState.selectedAccountIds
+              : {},
+        ),
+      );
     }
   }
 
@@ -349,8 +422,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   ) {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
-      final newSelectedIds =
-          Set<String>.from(currentState.selectedAccountIds);
+      final newSelectedIds = Set<String>.from(currentState.selectedAccountIds);
       if (newSelectedIds.contains(event.accountId)) {
         newSelectedIds.remove(event.accountId);
       } else {
@@ -371,10 +443,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     }
   }
 
-  void _onClearSelection(
-    ClearSelection event,
-    Emitter<AccountsState> emit,
-  ) {
+  void _onClearSelection(ClearSelection event, Emitter<AccountsState> emit) {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
       emit(currentState.copyWith(selectedAccountIds: {}));
@@ -398,5 +467,39 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       event.accountTypeId,
     );
     add(LoadAccounts());
+  }
+
+  double _calculateCumulativeInflation(
+    DateTime from,
+    DateTime to,
+    List<InflationRateDomain> rates,
+    String? country,
+  ) {
+    double cumulativeMultiplier = 1.0;
+
+    // Sort rates by date
+    final sortedRates = List<InflationRateDomain>.from(rates)
+      ..sort((a, b) => a.date.compareTo(b.date));
+
+    // Calculate months between from and to
+    DateTime current = DateTime(from.year, from.month);
+    final target = DateTime(to.year, to.month);
+
+    while (current.isBefore(target)) {
+      // Find the rate for this month and country
+      final rate = sortedRates.firstWhere(
+        (r) =>
+            r.date.year == current.year &&
+            r.date.month == current.month &&
+            (r.country == country || r.country == null),
+        orElse: () =>
+            InflationRateDomain(percent: 0.0, date: DateTime(0), preset: 1),
+      );
+
+      cumulativeMultiplier *= (1 + (rate.percent / 100));
+      current = DateTime(current.year, current.month + 1);
+    }
+
+    return cumulativeMultiplier;
   }
 }

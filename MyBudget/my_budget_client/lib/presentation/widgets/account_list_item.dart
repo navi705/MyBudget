@@ -16,6 +16,8 @@ class AccountListItem extends StatefulWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final Function(TapUpDetails)? onSecondaryTapUp;
+  final double? realBalance;
+  final double? inflationLoss;
 
   const AccountListItem({
     super.key,
@@ -24,6 +26,8 @@ class AccountListItem extends StatefulWidget {
     this.onTap,
     this.onLongPress,
     this.onSecondaryTapUp,
+    this.realBalance,
+    this.inflationLoss,
   });
 
   @override
@@ -53,18 +57,21 @@ class _AccountListItemState extends State<AccountListItem> {
         CurrencyDesignation? designation;
         if (currencyState is CurrencyLoadSuccess) {
           designation = currencyState.designations.firstWhereOrNull(
-              (d) => d.id == widget.account.currencyDesignationId);
+            (d) => d.id == widget.account.currencyDesignationId,
+          );
         }
 
         return BlocBuilder<StylesBloc, StylesState>(
           builder: (context, styleState) {
             Style? style;
             if (styleState is StylesLoadSuccess) {
-              style = styleState.styles
-                  .firstWhereOrNull((s) => s.id == widget.account.styleId);
+              style = styleState.styles.firstWhereOrNull(
+                (s) => s.id == widget.account.styleId,
+              );
             }
 
-            final finalStyle = style ??
+            final finalStyle =
+                style ??
                 Style(
                   id: 'default',
                   name: 'Default',
@@ -96,22 +103,28 @@ class _AccountListItemState extends State<AccountListItem> {
                 child: Card(
                   elevation: 2.0,
                   margin: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 8.0),
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12.0),
                     side: _isHovering
                         ? BorderSide(
-                            color: Theme.of(context).primaryColor, width: 3.0)
+                            color: Theme.of(context).primaryColor,
+                            width: 3.0,
+                          )
                         : BorderSide.none,
                   ),
                   color: widget.isSelected
                       ? Theme.of(context).highlightColor
                       : _isHovering
-                          ? Colors.grey.withValues(alpha: 0.1)
-                          : null,
+                      ? Colors.grey.withValues(alpha: 0.1)
+                      : null,
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20.0, vertical: 10.0),
+                      horizontal: 20.0,
+                      vertical: 10.0,
+                    ),
                     leading: Container(
                       padding: const EdgeInsets.all(10.0),
                       decoration: BoxDecoration(
@@ -127,12 +140,27 @@ class _AccountListItemState extends State<AccountListItem> {
                         fontSize: 16,
                       ),
                     ),
-                    subtitle: SelectableText(
-                      '${designation?.value ?? ''} ${NumberFormat.decimalPattern().format(widget.account.balance).replaceAll(',', ' ')}',
-                      style: TextStyle(
-                        color: balanceColor,
-                        fontSize: 14,
-                      ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SelectableText(
+                          '${designation?.value ?? ''} ${NumberFormat.decimalPattern().format(widget.account.balance).replaceAll(',', ' ')}',
+                          style: TextStyle(
+                            color: balanceColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (widget.inflationLoss != null &&
+                            widget.inflationLoss! > 0.01)
+                          Text(
+                            'Real: ${designation?.value ?? ''} ${NumberFormat.decimalPattern().format(widget.realBalance).replaceAll(',', ' ')} (-${widget.inflationLoss!.toStringAsFixed(1)}%)',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.outline,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),

@@ -18,7 +18,7 @@ class CurrencyConverterLoadSuccess extends CurrencyConverterState {
   final List<Currency> selectedCurrencies;
   final String baseCurrencyCode;
 
-  Map<String, Map<String, List<ExchangeRateDomain>>>? _groupedRates;  
+  Map<String, Map<String, List<ExchangeRateDomain>>>? _groupedRates;
 
   CurrencyConverterLoadSuccess({
     this.allCurrencies = const [],
@@ -41,7 +41,7 @@ class CurrencyConverterLoadSuccess extends CurrencyConverterState {
   }
 
   Map<String, Map<String, List<ExchangeRateDomain>>> get groupedRates {
-  return _groupedRates!;
+    return _groupedRates!;
   }
 
   CurrencyConverterLoadSuccess copyWith({
@@ -60,11 +60,11 @@ class CurrencyConverterLoadSuccess extends CurrencyConverterState {
 
   @override
   List<Object> get props => [
-        allCurrencies,
-        exchangeRates,
-        selectedCurrencies,
-        baseCurrencyCode,
-      ];
+    allCurrencies,
+    exchangeRates,
+    selectedCurrencies,
+    baseCurrencyCode,
+  ];
 }
 
 class CurrencyConverterLoadFailure extends CurrencyConverterState {}
@@ -76,12 +76,17 @@ double totalBalanceFor({
   required String baseCurrencyCode,
   required DateTime date,
   required Map<String, Map<String, List<ExchangeRateDomain>>> groupedRates,
+  Map<String, double>? balancesOverride,
 }) {
   double totalInBase = 0.0;
 
   for (final account in accounts) {
+    final balance = (balancesOverride != null && account.id != null)
+        ? (balancesOverride[account.id!] ?? 0.0)
+        : account.balance;
+
     if (account.currencyCode == baseCurrencyCode) {
-      totalInBase += account.balance;
+      totalInBase += balance;
     } else {
       final rateToBase = _findRate(
         account.currencyCode,
@@ -91,7 +96,7 @@ double totalBalanceFor({
         groupedRates,
       );
       if (rateToBase != null) {
-        totalInBase += account.balance * rateToBase;
+        totalInBase += balance * rateToBase;
       }
     }
   }
@@ -112,15 +117,16 @@ double totalBalanceFor({
 }
 
 double? _findRate(
-    String fromCurrencyCode,
-    String toCurrencyCode,
-    List<ExchangeRateDomain> exchangeRates,
-    DateTime date,
-    Map<String, Map<String, List<ExchangeRateDomain>>> groupedRates) {
+  String fromCurrencyCode,
+  String toCurrencyCode,
+  List<ExchangeRateDomain> exchangeRates,
+  DateTime date,
+  Map<String, Map<String, List<ExchangeRateDomain>>> groupedRates,
+) {
   if (fromCurrencyCode == toCurrencyCode) {
     return 1.0;
   }
-  
+
   final ratesForFrom = groupedRates[fromCurrencyCode];
   if (ratesForFrom != null) {
     final ratesForTo = ratesForFrom[toCurrencyCode];
@@ -137,8 +143,9 @@ double? _findRate(
   if (reverseRatesForFrom != null) {
     final reverseRatesForTo = reverseRatesForFrom[fromCurrencyCode];
     if (reverseRatesForTo != null) {
-      final rate =
-          reverseRatesForTo.firstWhereOrNull((r) => !r.date.isAfter(date));
+      final rate = reverseRatesForTo.firstWhereOrNull(
+        (r) => !r.date.isAfter(date),
+      );
       if (rate != null && rate.rate != 0) {
         return 1 / rate.rate;
       }

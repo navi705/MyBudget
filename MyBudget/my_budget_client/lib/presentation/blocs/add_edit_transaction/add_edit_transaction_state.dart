@@ -13,8 +13,15 @@ class AddEditTransactionState extends Equatable {
     this.date,
     this.accounts = const [],
     this.categories = const [],
+    this.currencies = const [],
+    this.selectedCurrency,
+    this.availableExchangeRates = const [],
+    this.selectedExchangeRate,
+    this.manualExchangeRate = '',
+    this.isLoadingRates = false,
     this.isSaving = false,
     this.isSaveSuccess = false,
+    this.mainCurrencyCode = 'EUR',
   });
 
   final AddEditTransactionStatus status;
@@ -26,12 +33,27 @@ class AddEditTransactionState extends Equatable {
   final DateTime? date;
   final List<Account> accounts;
   final List<Category> categories;
+  final List<Currency> currencies;
+  final Currency? selectedCurrency;
+  final List<ExchangeRateDomain> availableExchangeRates;
+  final ExchangeRateDomain? selectedExchangeRate;
+  final String manualExchangeRate;
+  final bool isLoadingRates;
   final bool isSaving;
   final bool isSaveSuccess;
+  final String mainCurrencyCode;
 
   bool get isEditing =>
       initialTransaction != null &&
       (initialTransaction!.id?.isNotEmpty ?? false);
+
+  bool get isForeignCurrency {
+    if (selectedAccount == null || selectedCurrency == null) return false;
+    // Show rate section if transaction currency differs from account currency
+    // OR if transaction currency is not the main currency (so we can set the rate to main).
+    return selectedAccount!.currencyCode != selectedCurrency!.code ||
+        selectedCurrency!.code != mainCurrencyCode;
+  }
 
   AddEditTransactionState copyWith({
     AddEditTransactionStatus? status,
@@ -43,8 +65,15 @@ class AddEditTransactionState extends Equatable {
     DateTime? date,
     List<Account>? accounts,
     List<Category>? categories,
+    List<Currency>? currencies,
+    Currency? selectedCurrency,
+    List<ExchangeRateDomain>? availableExchangeRates,
+    ExchangeRateDomain? selectedExchangeRate,
+    String? manualExchangeRate,
+    bool? isLoadingRates,
     bool? isSaving,
     bool? isSaveSuccess,
+    String? mainCurrencyCode,
   }) {
     return AddEditTransactionState(
       status: status ?? this.status,
@@ -56,8 +85,16 @@ class AddEditTransactionState extends Equatable {
       date: date ?? this.date,
       accounts: accounts ?? this.accounts,
       categories: categories ?? this.categories,
+      currencies: currencies ?? this.currencies,
+      selectedCurrency: selectedCurrency ?? this.selectedCurrency,
+      availableExchangeRates:
+          availableExchangeRates ?? this.availableExchangeRates,
+      selectedExchangeRate: selectedExchangeRate ?? this.selectedExchangeRate,
+      manualExchangeRate: manualExchangeRate ?? this.manualExchangeRate,
+      isLoadingRates: isLoadingRates ?? this.isLoadingRates,
       isSaving: isSaving ?? this.isSaving,
       isSaveSuccess: isSaveSuccess ?? this.isSaveSuccess,
+      mainCurrencyCode: mainCurrencyCode ?? this.mainCurrencyCode,
     );
   }
 
@@ -72,7 +109,14 @@ class AddEditTransactionState extends Equatable {
     date,
     accounts,
     categories,
+    currencies,
+    selectedCurrency,
+    availableExchangeRates,
+    selectedExchangeRate,
+    manualExchangeRate,
+    isLoadingRates,
     isSaving,
     isSaveSuccess,
+    mainCurrencyCode,
   ];
 }

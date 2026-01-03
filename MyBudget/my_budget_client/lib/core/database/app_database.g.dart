@@ -67,6 +67,12 @@ mixin _$ExchangeRatesDaoMixin on DatabaseAccessor<AppDatabase> {
 mixin _$CustomThemesDaoMixin on DatabaseAccessor<AppDatabase> {
   $CustomThemesTable get customThemes => attachedDatabase.customThemes;
 }
+mixin _$InflationRatesDaoMixin on DatabaseAccessor<AppDatabase> {
+  $InflationRatesTable get inflationRates => attachedDatabase.inflationRates;
+}
+mixin _$AssetEntriesDaoMixin on DatabaseAccessor<AppDatabase> {
+  $AssetEntriesTable get assetEntries => attachedDatabase.assetEntries;
+}
 
 class $LanguagesTable extends Languages
     with TableInfo<$LanguagesTable, Language> {
@@ -3127,6 +3133,7 @@ class $ExchangeRatesTable extends ExchangeRates
     fromCurrencyCode,
     toCurrencyCode,
     date,
+    preset,
   };
   @override
   ExchangeRate map(Map<String, dynamic> data, {String? tablePrefix}) {
@@ -3368,6 +3375,871 @@ class ExchangeRatesCompanion extends UpdateCompanion<ExchangeRate> {
           ..write('rate: $rate, ')
           ..write('preset: $preset, ')
           ..write('date: $date, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $InflationRatesTable extends InflationRates
+    with TableInfo<$InflationRatesTable, InflationRate> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $InflationRatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
+    'date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _percentMeta = const VerificationMeta(
+    'percent',
+  );
+  @override
+  late final GeneratedColumn<double> percent = GeneratedColumn<double>(
+    'percent',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _countryMeta = const VerificationMeta(
+    'country',
+  );
+  @override
+  late final GeneratedColumn<String> country = GeneratedColumn<String>(
+    'country',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _presetMeta = const VerificationMeta('preset');
+  @override
+  late final GeneratedColumn<int> preset = GeneratedColumn<int>(
+    'preset',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [date, percent, country, preset];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'inflation_rates';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<InflationRate> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('date')) {
+      context.handle(
+        _dateMeta,
+        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
+    if (data.containsKey('percent')) {
+      context.handle(
+        _percentMeta,
+        percent.isAcceptableOrUnknown(data['percent']!, _percentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_percentMeta);
+    }
+    if (data.containsKey('country')) {
+      context.handle(
+        _countryMeta,
+        country.isAcceptableOrUnknown(data['country']!, _countryMeta),
+      );
+    }
+    if (data.containsKey('preset')) {
+      context.handle(
+        _presetMeta,
+        preset.isAcceptableOrUnknown(data['preset']!, _presetMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_presetMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {date, country, preset};
+  @override
+  InflationRate map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return InflationRate(
+      date: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}date'],
+      )!,
+      percent: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}percent'],
+      )!,
+      country: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}country'],
+      ),
+      preset: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}preset'],
+      )!,
+    );
+  }
+
+  @override
+  $InflationRatesTable createAlias(String alias) {
+    return $InflationRatesTable(attachedDatabase, alias);
+  }
+}
+
+class InflationRate extends DataClass implements Insertable<InflationRate> {
+  final DateTime date;
+  final double percent;
+  final String? country;
+  final int preset;
+  const InflationRate({
+    required this.date,
+    required this.percent,
+    this.country,
+    required this.preset,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['date'] = Variable<DateTime>(date);
+    map['percent'] = Variable<double>(percent);
+    if (!nullToAbsent || country != null) {
+      map['country'] = Variable<String>(country);
+    }
+    map['preset'] = Variable<int>(preset);
+    return map;
+  }
+
+  InflationRatesCompanion toCompanion(bool nullToAbsent) {
+    return InflationRatesCompanion(
+      date: Value(date),
+      percent: Value(percent),
+      country: country == null && nullToAbsent
+          ? const Value.absent()
+          : Value(country),
+      preset: Value(preset),
+    );
+  }
+
+  factory InflationRate.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return InflationRate(
+      date: serializer.fromJson<DateTime>(json['date']),
+      percent: serializer.fromJson<double>(json['percent']),
+      country: serializer.fromJson<String?>(json['country']),
+      preset: serializer.fromJson<int>(json['preset']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'date': serializer.toJson<DateTime>(date),
+      'percent': serializer.toJson<double>(percent),
+      'country': serializer.toJson<String?>(country),
+      'preset': serializer.toJson<int>(preset),
+    };
+  }
+
+  InflationRate copyWith({
+    DateTime? date,
+    double? percent,
+    Value<String?> country = const Value.absent(),
+    int? preset,
+  }) => InflationRate(
+    date: date ?? this.date,
+    percent: percent ?? this.percent,
+    country: country.present ? country.value : this.country,
+    preset: preset ?? this.preset,
+  );
+  InflationRate copyWithCompanion(InflationRatesCompanion data) {
+    return InflationRate(
+      date: data.date.present ? data.date.value : this.date,
+      percent: data.percent.present ? data.percent.value : this.percent,
+      country: data.country.present ? data.country.value : this.country,
+      preset: data.preset.present ? data.preset.value : this.preset,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('InflationRate(')
+          ..write('date: $date, ')
+          ..write('percent: $percent, ')
+          ..write('country: $country, ')
+          ..write('preset: $preset')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(date, percent, country, preset);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is InflationRate &&
+          other.date == this.date &&
+          other.percent == this.percent &&
+          other.country == this.country &&
+          other.preset == this.preset);
+}
+
+class InflationRatesCompanion extends UpdateCompanion<InflationRate> {
+  final Value<DateTime> date;
+  final Value<double> percent;
+  final Value<String?> country;
+  final Value<int> preset;
+  final Value<int> rowid;
+  const InflationRatesCompanion({
+    this.date = const Value.absent(),
+    this.percent = const Value.absent(),
+    this.country = const Value.absent(),
+    this.preset = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  InflationRatesCompanion.insert({
+    required DateTime date,
+    required double percent,
+    this.country = const Value.absent(),
+    required int preset,
+    this.rowid = const Value.absent(),
+  }) : date = Value(date),
+       percent = Value(percent),
+       preset = Value(preset);
+  static Insertable<InflationRate> custom({
+    Expression<DateTime>? date,
+    Expression<double>? percent,
+    Expression<String>? country,
+    Expression<int>? preset,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (date != null) 'date': date,
+      if (percent != null) 'percent': percent,
+      if (country != null) 'country': country,
+      if (preset != null) 'preset': preset,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  InflationRatesCompanion copyWith({
+    Value<DateTime>? date,
+    Value<double>? percent,
+    Value<String?>? country,
+    Value<int>? preset,
+    Value<int>? rowid,
+  }) {
+    return InflationRatesCompanion(
+      date: date ?? this.date,
+      percent: percent ?? this.percent,
+      country: country ?? this.country,
+      preset: preset ?? this.preset,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (date.present) {
+      map['date'] = Variable<DateTime>(date.value);
+    }
+    if (percent.present) {
+      map['percent'] = Variable<double>(percent.value);
+    }
+    if (country.present) {
+      map['country'] = Variable<String>(country.value);
+    }
+    if (preset.present) {
+      map['preset'] = Variable<int>(preset.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('InflationRatesCompanion(')
+          ..write('date: $date, ')
+          ..write('percent: $percent, ')
+          ..write('country: $country, ')
+          ..write('preset: $preset, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AssetEntriesTable extends AssetEntries
+    with TableInfo<$AssetEntriesTable, AssetEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AssetEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    clientDefault: () => _uuid.v4(),
+  );
+  static const VerificationMeta _assetIdMeta = const VerificationMeta(
+    'assetId',
+  );
+  @override
+  late final GeneratedColumn<String> assetId = GeneratedColumn<String>(
+    'asset_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
+    'date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<double> value = GeneratedColumn<double>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _quantityMeta = const VerificationMeta(
+    'quantity',
+  );
+  @override
+  late final GeneratedColumn<double> quantity = GeneratedColumn<double>(
+    'quantity',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1.0),
+  );
+  static const VerificationMeta _assetTypeMeta = const VerificationMeta(
+    'assetType',
+  );
+  @override
+  late final GeneratedColumn<String> assetType = GeneratedColumn<String>(
+    'asset_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _presetMeta = const VerificationMeta('preset');
+  @override
+  late final GeneratedColumn<int> preset = GeneratedColumn<int>(
+    'preset',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    assetId,
+    name,
+    date,
+    value,
+    quantity,
+    assetType,
+    description,
+    preset,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'asset_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AssetEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('asset_id')) {
+      context.handle(
+        _assetIdMeta,
+        assetId.isAcceptableOrUnknown(data['asset_id']!, _assetIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_assetIdMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('date')) {
+      context.handle(
+        _dateMeta,
+        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueMeta);
+    }
+    if (data.containsKey('quantity')) {
+      context.handle(
+        _quantityMeta,
+        quantity.isAcceptableOrUnknown(data['quantity']!, _quantityMeta),
+      );
+    }
+    if (data.containsKey('asset_type')) {
+      context.handle(
+        _assetTypeMeta,
+        assetType.isAcceptableOrUnknown(data['asset_type']!, _assetTypeMeta),
+      );
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('preset')) {
+      context.handle(
+        _presetMeta,
+        preset.isAcceptableOrUnknown(data['preset']!, _presetMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AssetEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AssetEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      assetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}asset_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      date: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}date'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}value'],
+      )!,
+      quantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}quantity'],
+      )!,
+      assetType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}asset_type'],
+      ),
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      preset: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}preset'],
+      )!,
+    );
+  }
+
+  @override
+  $AssetEntriesTable createAlias(String alias) {
+    return $AssetEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class AssetEntry extends DataClass implements Insertable<AssetEntry> {
+  final String id;
+  final String assetId;
+  final String name;
+  final DateTime date;
+  final double value;
+  final double quantity;
+  final String? assetType;
+  final String? description;
+  final int preset;
+  const AssetEntry({
+    required this.id,
+    required this.assetId,
+    required this.name,
+    required this.date,
+    required this.value,
+    required this.quantity,
+    this.assetType,
+    this.description,
+    required this.preset,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['asset_id'] = Variable<String>(assetId);
+    map['name'] = Variable<String>(name);
+    map['date'] = Variable<DateTime>(date);
+    map['value'] = Variable<double>(value);
+    map['quantity'] = Variable<double>(quantity);
+    if (!nullToAbsent || assetType != null) {
+      map['asset_type'] = Variable<String>(assetType);
+    }
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    map['preset'] = Variable<int>(preset);
+    return map;
+  }
+
+  AssetEntriesCompanion toCompanion(bool nullToAbsent) {
+    return AssetEntriesCompanion(
+      id: Value(id),
+      assetId: Value(assetId),
+      name: Value(name),
+      date: Value(date),
+      value: Value(value),
+      quantity: Value(quantity),
+      assetType: assetType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assetType),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      preset: Value(preset),
+    );
+  }
+
+  factory AssetEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AssetEntry(
+      id: serializer.fromJson<String>(json['id']),
+      assetId: serializer.fromJson<String>(json['assetId']),
+      name: serializer.fromJson<String>(json['name']),
+      date: serializer.fromJson<DateTime>(json['date']),
+      value: serializer.fromJson<double>(json['value']),
+      quantity: serializer.fromJson<double>(json['quantity']),
+      assetType: serializer.fromJson<String?>(json['assetType']),
+      description: serializer.fromJson<String?>(json['description']),
+      preset: serializer.fromJson<int>(json['preset']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'assetId': serializer.toJson<String>(assetId),
+      'name': serializer.toJson<String>(name),
+      'date': serializer.toJson<DateTime>(date),
+      'value': serializer.toJson<double>(value),
+      'quantity': serializer.toJson<double>(quantity),
+      'assetType': serializer.toJson<String?>(assetType),
+      'description': serializer.toJson<String?>(description),
+      'preset': serializer.toJson<int>(preset),
+    };
+  }
+
+  AssetEntry copyWith({
+    String? id,
+    String? assetId,
+    String? name,
+    DateTime? date,
+    double? value,
+    double? quantity,
+    Value<String?> assetType = const Value.absent(),
+    Value<String?> description = const Value.absent(),
+    int? preset,
+  }) => AssetEntry(
+    id: id ?? this.id,
+    assetId: assetId ?? this.assetId,
+    name: name ?? this.name,
+    date: date ?? this.date,
+    value: value ?? this.value,
+    quantity: quantity ?? this.quantity,
+    assetType: assetType.present ? assetType.value : this.assetType,
+    description: description.present ? description.value : this.description,
+    preset: preset ?? this.preset,
+  );
+  AssetEntry copyWithCompanion(AssetEntriesCompanion data) {
+    return AssetEntry(
+      id: data.id.present ? data.id.value : this.id,
+      assetId: data.assetId.present ? data.assetId.value : this.assetId,
+      name: data.name.present ? data.name.value : this.name,
+      date: data.date.present ? data.date.value : this.date,
+      value: data.value.present ? data.value.value : this.value,
+      quantity: data.quantity.present ? data.quantity.value : this.quantity,
+      assetType: data.assetType.present ? data.assetType.value : this.assetType,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      preset: data.preset.present ? data.preset.value : this.preset,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AssetEntry(')
+          ..write('id: $id, ')
+          ..write('assetId: $assetId, ')
+          ..write('name: $name, ')
+          ..write('date: $date, ')
+          ..write('value: $value, ')
+          ..write('quantity: $quantity, ')
+          ..write('assetType: $assetType, ')
+          ..write('description: $description, ')
+          ..write('preset: $preset')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    assetId,
+    name,
+    date,
+    value,
+    quantity,
+    assetType,
+    description,
+    preset,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AssetEntry &&
+          other.id == this.id &&
+          other.assetId == this.assetId &&
+          other.name == this.name &&
+          other.date == this.date &&
+          other.value == this.value &&
+          other.quantity == this.quantity &&
+          other.assetType == this.assetType &&
+          other.description == this.description &&
+          other.preset == this.preset);
+}
+
+class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
+  final Value<String> id;
+  final Value<String> assetId;
+  final Value<String> name;
+  final Value<DateTime> date;
+  final Value<double> value;
+  final Value<double> quantity;
+  final Value<String?> assetType;
+  final Value<String?> description;
+  final Value<int> preset;
+  final Value<int> rowid;
+  const AssetEntriesCompanion({
+    this.id = const Value.absent(),
+    this.assetId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.date = const Value.absent(),
+    this.value = const Value.absent(),
+    this.quantity = const Value.absent(),
+    this.assetType = const Value.absent(),
+    this.description = const Value.absent(),
+    this.preset = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AssetEntriesCompanion.insert({
+    this.id = const Value.absent(),
+    required String assetId,
+    required String name,
+    required DateTime date,
+    required double value,
+    this.quantity = const Value.absent(),
+    this.assetType = const Value.absent(),
+    this.description = const Value.absent(),
+    this.preset = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : assetId = Value(assetId),
+       name = Value(name),
+       date = Value(date),
+       value = Value(value);
+  static Insertable<AssetEntry> custom({
+    Expression<String>? id,
+    Expression<String>? assetId,
+    Expression<String>? name,
+    Expression<DateTime>? date,
+    Expression<double>? value,
+    Expression<double>? quantity,
+    Expression<String>? assetType,
+    Expression<String>? description,
+    Expression<int>? preset,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (assetId != null) 'asset_id': assetId,
+      if (name != null) 'name': name,
+      if (date != null) 'date': date,
+      if (value != null) 'value': value,
+      if (quantity != null) 'quantity': quantity,
+      if (assetType != null) 'asset_type': assetType,
+      if (description != null) 'description': description,
+      if (preset != null) 'preset': preset,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AssetEntriesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? assetId,
+    Value<String>? name,
+    Value<DateTime>? date,
+    Value<double>? value,
+    Value<double>? quantity,
+    Value<String?>? assetType,
+    Value<String?>? description,
+    Value<int>? preset,
+    Value<int>? rowid,
+  }) {
+    return AssetEntriesCompanion(
+      id: id ?? this.id,
+      assetId: assetId ?? this.assetId,
+      name: name ?? this.name,
+      date: date ?? this.date,
+      value: value ?? this.value,
+      quantity: quantity ?? this.quantity,
+      assetType: assetType ?? this.assetType,
+      description: description ?? this.description,
+      preset: preset ?? this.preset,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (assetId.present) {
+      map['asset_id'] = Variable<String>(assetId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (date.present) {
+      map['date'] = Variable<DateTime>(date.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<double>(value.value);
+    }
+    if (quantity.present) {
+      map['quantity'] = Variable<double>(quantity.value);
+    }
+    if (assetType.present) {
+      map['asset_type'] = Variable<String>(assetType.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (preset.present) {
+      map['preset'] = Variable<int>(preset.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AssetEntriesCompanion(')
+          ..write('id: $id, ')
+          ..write('assetId: $assetId, ')
+          ..write('name: $name, ')
+          ..write('date: $date, ')
+          ..write('value: $value, ')
+          ..write('quantity: $quantity, ')
+          ..write('assetType: $assetType, ')
+          ..write('description: $description, ')
+          ..write('preset: $preset, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4546,6 +5418,316 @@ class CustomThemesCompanion extends UpdateCompanion<DbCustomTheme> {
   }
 }
 
+class $ApiFetchStatusesTable extends ApiFetchStatuses
+    with TableInfo<$ApiFetchStatusesTable, ApiFetchStatus> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ApiFetchStatusesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _attemptsMeta = const VerificationMeta(
+    'attempts',
+  );
+  @override
+  late final GeneratedColumn<int> attempts = GeneratedColumn<int>(
+    'attempts',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastAttemptMeta = const VerificationMeta(
+    'lastAttempt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastAttempt = GeneratedColumn<DateTime>(
+    'last_attempt',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, attempts, lastAttempt, status];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'api_fetch_statuses';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ApiFetchStatus> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('attempts')) {
+      context.handle(
+        _attemptsMeta,
+        attempts.isAcceptableOrUnknown(data['attempts']!, _attemptsMeta),
+      );
+    }
+    if (data.containsKey('last_attempt')) {
+      context.handle(
+        _lastAttemptMeta,
+        lastAttempt.isAcceptableOrUnknown(
+          data['last_attempt']!,
+          _lastAttemptMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ApiFetchStatus map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ApiFetchStatus(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      attempts: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempts'],
+      )!,
+      lastAttempt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_attempt'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+    );
+  }
+
+  @override
+  $ApiFetchStatusesTable createAlias(String alias) {
+    return $ApiFetchStatusesTable(attachedDatabase, alias);
+  }
+}
+
+class ApiFetchStatus extends DataClass implements Insertable<ApiFetchStatus> {
+  final String id;
+  final int attempts;
+  final DateTime? lastAttempt;
+  final String status;
+  const ApiFetchStatus({
+    required this.id,
+    required this.attempts,
+    this.lastAttempt,
+    required this.status,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['attempts'] = Variable<int>(attempts);
+    if (!nullToAbsent || lastAttempt != null) {
+      map['last_attempt'] = Variable<DateTime>(lastAttempt);
+    }
+    map['status'] = Variable<String>(status);
+    return map;
+  }
+
+  ApiFetchStatusesCompanion toCompanion(bool nullToAbsent) {
+    return ApiFetchStatusesCompanion(
+      id: Value(id),
+      attempts: Value(attempts),
+      lastAttempt: lastAttempt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastAttempt),
+      status: Value(status),
+    );
+  }
+
+  factory ApiFetchStatus.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ApiFetchStatus(
+      id: serializer.fromJson<String>(json['id']),
+      attempts: serializer.fromJson<int>(json['attempts']),
+      lastAttempt: serializer.fromJson<DateTime?>(json['lastAttempt']),
+      status: serializer.fromJson<String>(json['status']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'attempts': serializer.toJson<int>(attempts),
+      'lastAttempt': serializer.toJson<DateTime?>(lastAttempt),
+      'status': serializer.toJson<String>(status),
+    };
+  }
+
+  ApiFetchStatus copyWith({
+    String? id,
+    int? attempts,
+    Value<DateTime?> lastAttempt = const Value.absent(),
+    String? status,
+  }) => ApiFetchStatus(
+    id: id ?? this.id,
+    attempts: attempts ?? this.attempts,
+    lastAttempt: lastAttempt.present ? lastAttempt.value : this.lastAttempt,
+    status: status ?? this.status,
+  );
+  ApiFetchStatus copyWithCompanion(ApiFetchStatusesCompanion data) {
+    return ApiFetchStatus(
+      id: data.id.present ? data.id.value : this.id,
+      attempts: data.attempts.present ? data.attempts.value : this.attempts,
+      lastAttempt: data.lastAttempt.present
+          ? data.lastAttempt.value
+          : this.lastAttempt,
+      status: data.status.present ? data.status.value : this.status,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ApiFetchStatus(')
+          ..write('id: $id, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastAttempt: $lastAttempt, ')
+          ..write('status: $status')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, attempts, lastAttempt, status);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ApiFetchStatus &&
+          other.id == this.id &&
+          other.attempts == this.attempts &&
+          other.lastAttempt == this.lastAttempt &&
+          other.status == this.status);
+}
+
+class ApiFetchStatusesCompanion extends UpdateCompanion<ApiFetchStatus> {
+  final Value<String> id;
+  final Value<int> attempts;
+  final Value<DateTime?> lastAttempt;
+  final Value<String> status;
+  final Value<int> rowid;
+  const ApiFetchStatusesCompanion({
+    this.id = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.lastAttempt = const Value.absent(),
+    this.status = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ApiFetchStatusesCompanion.insert({
+    required String id,
+    this.attempts = const Value.absent(),
+    this.lastAttempt = const Value.absent(),
+    this.status = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id);
+  static Insertable<ApiFetchStatus> custom({
+    Expression<String>? id,
+    Expression<int>? attempts,
+    Expression<DateTime>? lastAttempt,
+    Expression<String>? status,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (attempts != null) 'attempts': attempts,
+      if (lastAttempt != null) 'last_attempt': lastAttempt,
+      if (status != null) 'status': status,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ApiFetchStatusesCompanion copyWith({
+    Value<String>? id,
+    Value<int>? attempts,
+    Value<DateTime?>? lastAttempt,
+    Value<String>? status,
+    Value<int>? rowid,
+  }) {
+    return ApiFetchStatusesCompanion(
+      id: id ?? this.id,
+      attempts: attempts ?? this.attempts,
+      lastAttempt: lastAttempt ?? this.lastAttempt,
+      status: status ?? this.status,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (attempts.present) {
+      map['attempts'] = Variable<int>(attempts.value);
+    }
+    if (lastAttempt.present) {
+      map['last_attempt'] = Variable<DateTime>(lastAttempt.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ApiFetchStatusesCompanion(')
+          ..write('id: $id, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastAttempt: $lastAttempt, ')
+          ..write('status: $status, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4559,8 +5741,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AccountsTable accounts = $AccountsTable(this);
   late final $TransactionsTable transactions = $TransactionsTable(this);
   late final $ExchangeRatesTable exchangeRates = $ExchangeRatesTable(this);
+  late final $InflationRatesTable inflationRates = $InflationRatesTable(this);
+  late final $AssetEntriesTable assetEntries = $AssetEntriesTable(this);
   late final $SettingsTable settings = $SettingsTable(this);
   late final $CustomThemesTable customThemes = $CustomThemesTable(this);
+  late final $ApiFetchStatusesTable apiFetchStatuses = $ApiFetchStatusesTable(
+    this,
+  );
   late final LanguageDao languageDao = LanguageDao(this as AppDatabase);
   late final CurrencyDesignationsDao currencyDesignationsDao =
       CurrencyDesignationsDao(this as AppDatabase);
@@ -4581,6 +5768,15 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final CustomThemesDao customThemesDao = CustomThemesDao(
     this as AppDatabase,
   );
+  late final InflationRatesDao inflationRatesDao = InflationRatesDao(
+    this as AppDatabase,
+  );
+  late final AssetEntriesDao assetEntriesDao = AssetEntriesDao(
+    this as AppDatabase,
+  );
+  late final ApiFetchStatusesDao apiFetchStatusesDao = ApiFetchStatusesDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4595,8 +5791,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     accounts,
     transactions,
     exchangeRates,
+    inflationRates,
+    assetEntries,
     settings,
     customThemes,
+    apiFetchStatuses,
   ];
 }
 
@@ -9194,6 +10393,467 @@ typedef $$ExchangeRatesTableProcessedTableManager =
       ExchangeRate,
       PrefetchHooks Function({bool fromCurrencyCode, bool toCurrencyCode})
     >;
+typedef $$InflationRatesTableCreateCompanionBuilder =
+    InflationRatesCompanion Function({
+      required DateTime date,
+      required double percent,
+      Value<String?> country,
+      required int preset,
+      Value<int> rowid,
+    });
+typedef $$InflationRatesTableUpdateCompanionBuilder =
+    InflationRatesCompanion Function({
+      Value<DateTime> date,
+      Value<double> percent,
+      Value<String?> country,
+      Value<int> preset,
+      Value<int> rowid,
+    });
+
+class $$InflationRatesTableFilterComposer
+    extends Composer<_$AppDatabase, $InflationRatesTable> {
+  $$InflationRatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get percent => $composableBuilder(
+    column: $table.percent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get country => $composableBuilder(
+    column: $table.country,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get preset => $composableBuilder(
+    column: $table.preset,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$InflationRatesTableOrderingComposer
+    extends Composer<_$AppDatabase, $InflationRatesTable> {
+  $$InflationRatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get percent => $composableBuilder(
+    column: $table.percent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get country => $composableBuilder(
+    column: $table.country,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get preset => $composableBuilder(
+    column: $table.preset,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$InflationRatesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $InflationRatesTable> {
+  $$InflationRatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<DateTime> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<double> get percent =>
+      $composableBuilder(column: $table.percent, builder: (column) => column);
+
+  GeneratedColumn<String> get country =>
+      $composableBuilder(column: $table.country, builder: (column) => column);
+
+  GeneratedColumn<int> get preset =>
+      $composableBuilder(column: $table.preset, builder: (column) => column);
+}
+
+class $$InflationRatesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $InflationRatesTable,
+          InflationRate,
+          $$InflationRatesTableFilterComposer,
+          $$InflationRatesTableOrderingComposer,
+          $$InflationRatesTableAnnotationComposer,
+          $$InflationRatesTableCreateCompanionBuilder,
+          $$InflationRatesTableUpdateCompanionBuilder,
+          (
+            InflationRate,
+            BaseReferences<_$AppDatabase, $InflationRatesTable, InflationRate>,
+          ),
+          InflationRate,
+          PrefetchHooks Function()
+        > {
+  $$InflationRatesTableTableManager(
+    _$AppDatabase db,
+    $InflationRatesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$InflationRatesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$InflationRatesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$InflationRatesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<DateTime> date = const Value.absent(),
+                Value<double> percent = const Value.absent(),
+                Value<String?> country = const Value.absent(),
+                Value<int> preset = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => InflationRatesCompanion(
+                date: date,
+                percent: percent,
+                country: country,
+                preset: preset,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required DateTime date,
+                required double percent,
+                Value<String?> country = const Value.absent(),
+                required int preset,
+                Value<int> rowid = const Value.absent(),
+              }) => InflationRatesCompanion.insert(
+                date: date,
+                percent: percent,
+                country: country,
+                preset: preset,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$InflationRatesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $InflationRatesTable,
+      InflationRate,
+      $$InflationRatesTableFilterComposer,
+      $$InflationRatesTableOrderingComposer,
+      $$InflationRatesTableAnnotationComposer,
+      $$InflationRatesTableCreateCompanionBuilder,
+      $$InflationRatesTableUpdateCompanionBuilder,
+      (
+        InflationRate,
+        BaseReferences<_$AppDatabase, $InflationRatesTable, InflationRate>,
+      ),
+      InflationRate,
+      PrefetchHooks Function()
+    >;
+typedef $$AssetEntriesTableCreateCompanionBuilder =
+    AssetEntriesCompanion Function({
+      Value<String> id,
+      required String assetId,
+      required String name,
+      required DateTime date,
+      required double value,
+      Value<double> quantity,
+      Value<String?> assetType,
+      Value<String?> description,
+      Value<int> preset,
+      Value<int> rowid,
+    });
+typedef $$AssetEntriesTableUpdateCompanionBuilder =
+    AssetEntriesCompanion Function({
+      Value<String> id,
+      Value<String> assetId,
+      Value<String> name,
+      Value<DateTime> date,
+      Value<double> value,
+      Value<double> quantity,
+      Value<String?> assetType,
+      Value<String?> description,
+      Value<int> preset,
+      Value<int> rowid,
+    });
+
+class $$AssetEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $AssetEntriesTable> {
+  $$AssetEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assetId => $composableBuilder(
+    column: $table.assetId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get quantity => $composableBuilder(
+    column: $table.quantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assetType => $composableBuilder(
+    column: $table.assetType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get preset => $composableBuilder(
+    column: $table.preset,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AssetEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $AssetEntriesTable> {
+  $$AssetEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get assetId => $composableBuilder(
+    column: $table.assetId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get quantity => $composableBuilder(
+    column: $table.quantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get assetType => $composableBuilder(
+    column: $table.assetType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get preset => $composableBuilder(
+    column: $table.preset,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AssetEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AssetEntriesTable> {
+  $$AssetEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get assetId =>
+      $composableBuilder(column: $table.assetId, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<double> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<double> get quantity =>
+      $composableBuilder(column: $table.quantity, builder: (column) => column);
+
+  GeneratedColumn<String> get assetType =>
+      $composableBuilder(column: $table.assetType, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get preset =>
+      $composableBuilder(column: $table.preset, builder: (column) => column);
+}
+
+class $$AssetEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AssetEntriesTable,
+          AssetEntry,
+          $$AssetEntriesTableFilterComposer,
+          $$AssetEntriesTableOrderingComposer,
+          $$AssetEntriesTableAnnotationComposer,
+          $$AssetEntriesTableCreateCompanionBuilder,
+          $$AssetEntriesTableUpdateCompanionBuilder,
+          (
+            AssetEntry,
+            BaseReferences<_$AppDatabase, $AssetEntriesTable, AssetEntry>,
+          ),
+          AssetEntry,
+          PrefetchHooks Function()
+        > {
+  $$AssetEntriesTableTableManager(_$AppDatabase db, $AssetEntriesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AssetEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AssetEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AssetEntriesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> assetId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<DateTime> date = const Value.absent(),
+                Value<double> value = const Value.absent(),
+                Value<double> quantity = const Value.absent(),
+                Value<String?> assetType = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<int> preset = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AssetEntriesCompanion(
+                id: id,
+                assetId: assetId,
+                name: name,
+                date: date,
+                value: value,
+                quantity: quantity,
+                assetType: assetType,
+                description: description,
+                preset: preset,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                required String assetId,
+                required String name,
+                required DateTime date,
+                required double value,
+                Value<double> quantity = const Value.absent(),
+                Value<String?> assetType = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<int> preset = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AssetEntriesCompanion.insert(
+                id: id,
+                assetId: assetId,
+                name: name,
+                date: date,
+                value: value,
+                quantity: quantity,
+                assetType: assetType,
+                description: description,
+                preset: preset,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AssetEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AssetEntriesTable,
+      AssetEntry,
+      $$AssetEntriesTableFilterComposer,
+      $$AssetEntriesTableOrderingComposer,
+      $$AssetEntriesTableAnnotationComposer,
+      $$AssetEntriesTableCreateCompanionBuilder,
+      $$AssetEntriesTableUpdateCompanionBuilder,
+      (
+        AssetEntry,
+        BaseReferences<_$AppDatabase, $AssetEntriesTable, AssetEntry>,
+      ),
+      AssetEntry,
+      PrefetchHooks Function()
+    >;
 typedef $$SettingsTableCreateCompanionBuilder =
     SettingsCompanion Function({
       required String key,
@@ -9760,6 +11420,195 @@ typedef $$CustomThemesTableProcessedTableManager =
       DbCustomTheme,
       PrefetchHooks Function()
     >;
+typedef $$ApiFetchStatusesTableCreateCompanionBuilder =
+    ApiFetchStatusesCompanion Function({
+      required String id,
+      Value<int> attempts,
+      Value<DateTime?> lastAttempt,
+      Value<String> status,
+      Value<int> rowid,
+    });
+typedef $$ApiFetchStatusesTableUpdateCompanionBuilder =
+    ApiFetchStatusesCompanion Function({
+      Value<String> id,
+      Value<int> attempts,
+      Value<DateTime?> lastAttempt,
+      Value<String> status,
+      Value<int> rowid,
+    });
+
+class $$ApiFetchStatusesTableFilterComposer
+    extends Composer<_$AppDatabase, $ApiFetchStatusesTable> {
+  $$ApiFetchStatusesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastAttempt => $composableBuilder(
+    column: $table.lastAttempt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ApiFetchStatusesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ApiFetchStatusesTable> {
+  $$ApiFetchStatusesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastAttempt => $composableBuilder(
+    column: $table.lastAttempt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ApiFetchStatusesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ApiFetchStatusesTable> {
+  $$ApiFetchStatusesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get attempts =>
+      $composableBuilder(column: $table.attempts, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastAttempt => $composableBuilder(
+    column: $table.lastAttempt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+}
+
+class $$ApiFetchStatusesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ApiFetchStatusesTable,
+          ApiFetchStatus,
+          $$ApiFetchStatusesTableFilterComposer,
+          $$ApiFetchStatusesTableOrderingComposer,
+          $$ApiFetchStatusesTableAnnotationComposer,
+          $$ApiFetchStatusesTableCreateCompanionBuilder,
+          $$ApiFetchStatusesTableUpdateCompanionBuilder,
+          (
+            ApiFetchStatus,
+            BaseReferences<
+              _$AppDatabase,
+              $ApiFetchStatusesTable,
+              ApiFetchStatus
+            >,
+          ),
+          ApiFetchStatus,
+          PrefetchHooks Function()
+        > {
+  $$ApiFetchStatusesTableTableManager(
+    _$AppDatabase db,
+    $ApiFetchStatusesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ApiFetchStatusesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ApiFetchStatusesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ApiFetchStatusesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<DateTime?> lastAttempt = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ApiFetchStatusesCompanion(
+                id: id,
+                attempts: attempts,
+                lastAttempt: lastAttempt,
+                status: status,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<int> attempts = const Value.absent(),
+                Value<DateTime?> lastAttempt = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ApiFetchStatusesCompanion.insert(
+                id: id,
+                attempts: attempts,
+                lastAttempt: lastAttempt,
+                status: status,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ApiFetchStatusesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ApiFetchStatusesTable,
+      ApiFetchStatus,
+      $$ApiFetchStatusesTableFilterComposer,
+      $$ApiFetchStatusesTableOrderingComposer,
+      $$ApiFetchStatusesTableAnnotationComposer,
+      $$ApiFetchStatusesTableCreateCompanionBuilder,
+      $$ApiFetchStatusesTableUpdateCompanionBuilder,
+      (
+        ApiFetchStatus,
+        BaseReferences<_$AppDatabase, $ApiFetchStatusesTable, ApiFetchStatus>,
+      ),
+      ApiFetchStatus,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -9782,8 +11631,19 @@ class $AppDatabaseManager {
       $$TransactionsTableTableManager(_db, _db.transactions);
   $$ExchangeRatesTableTableManager get exchangeRates =>
       $$ExchangeRatesTableTableManager(_db, _db.exchangeRates);
+  $$InflationRatesTableTableManager get inflationRates =>
+      $$InflationRatesTableTableManager(_db, _db.inflationRates);
+  $$AssetEntriesTableTableManager get assetEntries =>
+      $$AssetEntriesTableTableManager(_db, _db.assetEntries);
   $$SettingsTableTableManager get settings =>
       $$SettingsTableTableManager(_db, _db.settings);
   $$CustomThemesTableTableManager get customThemes =>
       $$CustomThemesTableTableManager(_db, _db.customThemes);
+  $$ApiFetchStatusesTableTableManager get apiFetchStatuses =>
+      $$ApiFetchStatusesTableTableManager(_db, _db.apiFetchStatuses);
+}
+
+mixin _$ApiFetchStatusesDaoMixin on DatabaseAccessor<AppDatabase> {
+  $ApiFetchStatusesTable get apiFetchStatuses =>
+      attachedDatabase.apiFetchStatuses;
 }

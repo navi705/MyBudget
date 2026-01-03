@@ -277,6 +277,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
             value: 'deselect_all',
             child: Text('Deselect All'),
           ),
+        const PopupMenuItem(
+          value: 'add_transaction',
+          child: Text('Add Transaction'),
+        ),
         const PopupMenuDivider(),
         const PopupMenuItem(value: 'edit', child: Text('Edit')),
         const PopupMenuItem(value: 'delete', child: Text('Delete')),
@@ -297,6 +301,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
         bloc.add(SelectAllAccounts());
       } else if (value == 'deselect_all') {
         bloc.add(ClearSelection());
+      } else if (value == 'add_transaction') {
+        context.push(
+          AppRoutes.addEditTransaction,
+          extra: {'accountId': account.id},
+        );
       } else if (value == 'edit') {
         context.push(AppRoutes.editAccount, extra: account);
       } else if (value == 'delete') {
@@ -463,6 +472,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           return AccountListItem(
                             account: account.copyWith(balance: balance),
                             isSelected: isSelected,
+                            realBalance: state.realBalances[account.id],
+                            inflationLoss: state.inflationLosses[account.id],
                             onTap: () {
                               if (state.isSelectionModeActive) {
                                 bloc.add(ToggleAccountSelection(account.id!));
@@ -621,7 +632,7 @@ class TotalBalanceCard extends StatelessWidget {
             else
               Wrap(
                 spacing: 16.0,
-                runSpacing: 4.0,
+                runSpacing: 8.0,
                 children: converterState.selectedCurrencies.map((currency) {
                   final total = totalBalanceFor(
                     currency: currency,
@@ -631,6 +642,16 @@ class TotalBalanceCard extends StatelessWidget {
                     date: accountsState.activeDate,
                     groupedRates: converterState.groupedRates,
                   );
+                  final realTotal = totalBalanceFor(
+                    currency: currency,
+                    accounts: accountsState.accounts,
+                    exchangeRates: converterState.exchangeRates,
+                    baseCurrencyCode: converterState.baseCurrencyCode,
+                    date: accountsState.activeDate,
+                    groupedRates: converterState.groupedRates,
+                    balancesOverride: accountsState.realBalances,
+                  );
+
                   Color balanceColor;
                   if (total > 0) {
                     balanceColor = Colors.green;
@@ -642,9 +663,31 @@ class TotalBalanceCard extends StatelessWidget {
                         Colors.black;
                   }
                   final formatter = NumberFormat.decimalPattern();
-                  return SelectableText(
-                    '${currency.code}: ${formatter.format(total).replaceAll(',', ' ')}',
-                    style: TextStyle(fontSize: 16, color: balanceColor),
+                  final lossPercent = total != 0
+                      ? ((total - realTotal) / total * 100)
+                      : 0.0;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SelectableText(
+                        '${currency.code}: ${formatter.format(total).replaceAll(',', ' ')}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: balanceColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (lossPercent > 0.01)
+                        Text(
+                          'Real: ${formatter.format(realTotal).replaceAll(',', ' ')} (-${lossPercent.toStringAsFixed(1)}%)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                        ),
+                    ],
                   );
                 }).toList(),
               ),

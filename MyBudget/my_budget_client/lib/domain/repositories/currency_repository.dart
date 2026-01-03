@@ -42,4 +42,5 @@ abstract class CurrencyRepository {
   });
   Future<void> addExchangeRate(ExchangeRateDomain exchangeRate);
   Future<void> addExchangeRates(List<ExchangeRateDomain> exchangeRates);
+  Future<void> updateExchangeRate(ExchangeRateDomain exchangeRate);
 }

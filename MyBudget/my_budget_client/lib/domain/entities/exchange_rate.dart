@@ -16,5 +16,27 @@ class ExchangeRateDomain extends Equatable {
   });
 
   @override
-  List<Object?> get props => [fromCurrencyCode, toCurrencyCode, preset, rate, date];
+  List<Object?> get props => [
+    fromCurrencyCode,
+    toCurrencyCode,
+    preset,
+    rate,
+    date,
+  ];
+
+  ExchangeRateDomain copyWith({
+    String? fromCurrencyCode,
+    String? toCurrencyCode,
+    int? preset,
+    double? rate,
+    DateTime? date,
+  }) {
+    return ExchangeRateDomain(
+      fromCurrencyCode: fromCurrencyCode ?? this.fromCurrencyCode,
+      toCurrencyCode: toCurrencyCode ?? this.toCurrencyCode,
+      preset: preset ?? this.preset,
+      rate: rate ?? this.rate,
+      date: date ?? this.date,
+    );
+  }
 }

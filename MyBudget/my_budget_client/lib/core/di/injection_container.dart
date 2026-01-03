@@ -19,6 +19,14 @@ import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/theme/theme_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/exchange_rates/exchange_rates_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dart';
+import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
+import 'package:my_budget_client/data/repositories/local_db/local_inflation_repository.dart';
+import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/api_settings/api_settings_bloc.dart';
+import 'package:my_budget_client/core/services/exchange_rate_api_service.dart';
+import 'package:my_budget_client/domain/repositories/asset_repository.dart';
+import 'package:my_budget_client/data/repositories/local_db/local_asset_repository.dart';
 
 import '../../data/repositories/local_db/local_account_repository.dart';
 import '../../data/repositories/local_db/local_currency_designation_repository.dart';
@@ -39,6 +47,8 @@ Future<void> init() async {
       accountRepository: sl(),
       settingsRepository: sl(),
       currencyRepository: sl(),
+      inflationRepository: sl(),
+      transactionRepository: sl(),
     ),
   );
   sl.registerFactory(() => SettingsBloc(settingsRepository: sl()));
@@ -73,12 +83,27 @@ Future<void> init() async {
       accountRepository: sl(),
       transactionRepository: sl(),
       categoryRepository: sl(),
+      styleRepository: sl(),
+      currencyRepository: sl(),
+      settingsRepository: sl(),
     ),
   );
   sl.registerFactory(
     () => ThemeBloc(settingsRepository: sl(), themeRepository: sl()),
   );
   sl.registerFactory(() => ExchangeRatesBloc(currencyRepository: sl()));
+  sl.registerFactory(() => InflationBloc(inflationRepository: sl()));
+  sl.registerFactory(() => AssetBloc(sl()));
+  sl.registerFactory(() => ApiSettingsBloc(sl(), sl()));
+
+  // Services
+  sl.registerLazySingleton(
+    () => ExchangeRateApiService(
+      sl<AppDatabase>().exchangeRatesDao,
+      sl<AppDatabase>().apiFetchStatusesDao,
+      sl<AppDatabase>().settingsDao,
+    ),
+  );
 
   // Repositories
   sl.registerLazySingleton<AccountRepository>(
@@ -101,6 +126,12 @@ Future<void> init() async {
     () => LocalTransactionRepository(sl()),
   );
   sl.registerLazySingleton<ThemeRepository>(() => LocalThemeRepository(sl()));
+  sl.registerLazySingleton<InflationRepository>(
+    () => LocalInflationRepository(sl<AppDatabase>().inflationRatesDao),
+  );
+  sl.registerLazySingleton<AssetRepository>(
+    () => LocalAssetRepository(sl<AppDatabase>().assetEntriesDao),
+  );
   sl.registerLazySingleton<DbRepository>(() => LocalDbRepository(sl()));
 
   // Core

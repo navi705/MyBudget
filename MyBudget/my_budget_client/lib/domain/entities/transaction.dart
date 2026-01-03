@@ -8,6 +8,8 @@ class Transaction extends Equatable {
   final String accountId;
   final String categoryId;
   final String currencyCode;
+  final double? exchangeRate;
+  final int? exchangeRatePreset;
 
   const Transaction({
     this.id,
@@ -17,6 +19,8 @@ class Transaction extends Equatable {
     required this.accountId,
     required this.categoryId,
     required this.currencyCode,
+    this.exchangeRate,
+    this.exchangeRatePreset,
   });
 
   Transaction copyWith({
@@ -27,6 +31,8 @@ class Transaction extends Equatable {
     String? accountId,
     String? categoryId,
     String? currencyCode,
+    double? exchangeRate,
+    int? exchangeRatePreset,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -36,6 +42,8 @@ class Transaction extends Equatable {
       accountId: accountId ?? this.accountId,
       categoryId: categoryId ?? this.categoryId,
       currencyCode: currencyCode ?? this.currencyCode,
+      exchangeRate: exchangeRate ?? this.exchangeRate,
+      exchangeRatePreset: exchangeRatePreset ?? this.exchangeRatePreset,
     );
   }
 
@@ -48,17 +56,21 @@ class Transaction extends Equatable {
       'accountId': accountId,
       'categoryId': categoryId,
       'currencyCode': currencyCode,
+      'exchangeRate': exchangeRate,
+      'exchangeRatePreset': exchangeRatePreset,
     };
   }
 
   @override
   List<Object?> get props => [
-        id,
-        description,
-        amount,
-        date,
-        accountId,
-        categoryId,
-        currencyCode,
-      ];
+    id,
+    description,
+    amount,
+    date,
+    accountId,
+    categoryId,
+    currencyCode,
+    exchangeRate,
+    exchangeRatePreset,
+  ];
 }

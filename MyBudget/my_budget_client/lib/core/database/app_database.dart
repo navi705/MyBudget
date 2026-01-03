@@ -139,7 +139,37 @@ class ExchangeRates extends Table {
   DateTimeColumn get date => dateTime()();
 
   @override
-  Set<Column> get primaryKey => {fromCurrencyCode, toCurrencyCode, date};
+  Set<Column> get primaryKey => {
+    fromCurrencyCode,
+    toCurrencyCode,
+    date,
+    preset,
+  };
+}
+
+class InflationRates extends Table {
+  DateTimeColumn get date => dateTime()();
+  RealColumn get percent => real()();
+  TextColumn get country => text().nullable()();
+  IntColumn get preset => integer()();
+
+  @override
+  Set<Column> get primaryKey => {date, country, preset};
+}
+
+class AssetEntries extends Table {
+  TextColumn get id => text().clientDefault(() => _uuid.v4())();
+  TextColumn get assetId => text()();
+  TextColumn get name => text()(); // Added
+  DateTimeColumn get date => dateTime()();
+  RealColumn get value => real()();
+  RealColumn get quantity => real().withDefault(const Constant(1.0))();
+  TextColumn get assetType => text().nullable()();
+  TextColumn get description => text().nullable()();
+  IntColumn get preset => integer().withDefault(const Constant(1))();
+
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
 // --- Technical Tables ---
@@ -1086,6 +1116,9 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   Future<void> addExchangeRate(ExchangeRatesCompanion rate) =>
       into(exchangeRates).insert(rate);
 
+  Future<void> updateExchangeRate(ExchangeRatesCompanion rate) =>
+      update(exchangeRates).replace(rate);
+
   Future<void> insertAllExchangeRates(List<ExchangeRatesCompanion> rates) {
     return batch((batch) {
       batch.insertAll(exchangeRates, rates, mode: InsertMode.insertOrReplace);
@@ -1133,6 +1166,82 @@ class CustomThemesDao extends DatabaseAccessor<AppDatabase>
   }
 }
 
+@DriftAccessor(tables: [InflationRates])
+class InflationRatesDao extends DatabaseAccessor<AppDatabase>
+    with _$InflationRatesDaoMixin {
+  InflationRatesDao(super.db);
+
+  Future<List<InflationRate>> getAllInflationRates() =>
+      select(inflationRates).get();
+
+  Future<List<InflationRate>> getInflationRatesFiltered({
+    DateTime? date,
+    String? country,
+  }) {
+    final query = select(inflationRates);
+    if (date != null) {
+      query.where((tbl) => tbl.date.equals(date));
+    }
+    if (country != null) {
+      query.where((tbl) => tbl.country.equals(country));
+    } else {
+      query.where((tbl) => tbl.country.isNull());
+    }
+    return query.get();
+  }
+
+  Future<void> insertInflationRate(InflationRatesCompanion rate) =>
+      into(inflationRates).insert(rate, mode: InsertMode.insertOrReplace);
+
+  Future<void> deleteInflationRate(DateTime date, String? country, int preset) {
+    return (delete(inflationRates)..where(
+          (tbl) =>
+              tbl.date.equals(date) &
+              (country == null
+                  ? tbl.country.isNull()
+                  : tbl.country.equals(country)) &
+              tbl.preset.equals(preset),
+        ))
+        .go();
+  }
+
+  Future<bool> updateInflationRate(InflationRatesCompanion rate) =>
+      update(inflationRates).replace(rate);
+}
+
+@DriftAccessor(tables: [AssetEntries])
+class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
+    with _$AssetEntriesDaoMixin {
+  AssetEntriesDao(super.db);
+
+  Future<List<AssetEntry>> getAssetData({
+    String? assetId,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
+    final query = select(assetEntries);
+    if (assetId != null) {
+      query.where((t) => t.assetId.equals(assetId));
+    }
+    if (startDate != null) {
+      query.where((t) => t.date.isBiggerOrEqualValue(startDate));
+    }
+    if (endDate != null) {
+      query.where((t) => t.date.isSmallerOrEqualValue(endDate));
+    }
+    return query.get();
+  }
+
+  Future<void> addAssetData(AssetEntriesCompanion data) =>
+      into(assetEntries).insert(data);
+
+  Future<void> updateAssetData(AssetEntriesCompanion data) =>
+      update(assetEntries).replace(data);
+
+  Future<void> deleteAssetData(String id) =>
+      (delete(assetEntries)..where((t) => t.id.equals(id))).go();
+}
+
 @DriftDatabase(
   tables: [
     // Business Tables
@@ -1145,9 +1254,12 @@ class CustomThemesDao extends DatabaseAccessor<AppDatabase>
     AccountTypes,
     ExchangeRates,
     Languages,
+    InflationRates,
+    AssetEntries,
     // Technical Tables
     Settings,
     CustomThemes,
+    ApiFetchStatuses,
   ],
   daos: [
     LanguageDao,
@@ -1161,6 +1273,9 @@ class CustomThemesDao extends DatabaseAccessor<AppDatabase>
     SettingsDao,
     ExchangeRatesDao,
     CustomThemesDao,
+    InflationRatesDao,
+    AssetEntriesDao,
+    ApiFetchStatusesDao, // Added
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -1169,7 +1284,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration {
@@ -1223,6 +1338,39 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 11) {
           await m.createTable(customThemes);
+        }
+        if (from < 12) {
+          // Recreate ExchangeRates table to update Primary Key
+          await m.deleteTable('exchange_rates');
+          await m.createTable(exchangeRates);
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates (date)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
+          );
+        }
+        if (from < 13) {
+          // Explicitly drop the problematic index if it exists
+          await customStatement(
+            'DROP INDEX IF EXISTS idx_exchange_rates_composite',
+          );
+          // Re-recreate the table to be absolutely certain the PK is correct
+          await m.deleteTable('exchange_rates');
+          await m.createTable(exchangeRates);
+
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates (date)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
+          );
+        }
+        if (from < 15) {
+          await m.createTable(assetEntries);
+        }
+        if (from < 16) {
+          await m.createTable(apiFetchStatuses);
         }
       },
       beforeOpen: (details) async {
@@ -1311,4 +1459,33 @@ LazyDatabase _openConnection() {
     final file = File(p.join(dbFolder.path, 'db.sqlite'));
     return NativeDatabase(file);
   });
+}
+
+@DataClassName('ApiFetchStatus')
+class ApiFetchStatuses extends Table {
+  TextColumn get id => text()(); // Date string yyyy-MM-dd
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastAttempt => dateTime().nullable()();
+  TextColumn get status => text().withDefault(
+    const Constant('pending'),
+  )(); // pending, success, failed, permanent_fail
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftAccessor(tables: [ApiFetchStatuses])
+class ApiFetchStatusesDao extends DatabaseAccessor<AppDatabase>
+    with _$ApiFetchStatusesDaoMixin {
+  ApiFetchStatusesDao(super.db);
+
+  Future<ApiFetchStatus?> getStatus(String date) => (select(
+    apiFetchStatuses,
+  )..where((t) => t.id.equals(date))).getSingleOrNull();
+
+  Future<void> upsertStatus(ApiFetchStatusesCompanion companion) =>
+      into(apiFetchStatuses).insertOnConflictUpdate(companion);
+
+  Future<List<ApiFetchStatus>> getAllFailedStatuses() =>
+      (select(apiFetchStatuses)..where((t) => t.status.equals('failed'))).get();
 }

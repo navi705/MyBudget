@@ -11,6 +11,10 @@ import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+import 'package:my_budget_client/domain/repositories/currency_repository.dart';
+import 'package:my_budget_client/domain/repositories/settings_repository.dart'; // Added
+import 'package:my_budget_client/domain/entities/currency.dart';
+
 import 'package:my_budget_client/presentation/blocs/add_edit_transaction/add_edit_transaction_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
@@ -18,17 +22,26 @@ import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart'
 
 class AddEditTransactionScreen extends StatelessWidget {
   final Transaction? transaction;
+  final String? accountId;
 
-  const AddEditTransactionScreen({super.key, this.transaction});
+  const AddEditTransactionScreen({super.key, this.transaction, this.accountId});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => AddEditTransactionBloc(
-        transactionRepository: sl<TransactionRepository>(),
-        accountRepository: sl<AccountRepository>(),
-        categoryRepository: sl<CategoryRepository>(),
-      )..add(AddEditTransactionLoad(transaction: transaction)),
+      create: (context) =>
+          AddEditTransactionBloc(
+            transactionRepository: sl<TransactionRepository>(),
+            accountRepository: sl<AccountRepository>(),
+            categoryRepository: sl<CategoryRepository>(),
+            currencyRepository: sl<CurrencyRepository>(),
+            settingsRepository: sl<SettingsRepository>(), // Added
+          )..add(
+            AddEditTransactionLoad(
+              transaction: transaction,
+              accountId: accountId,
+            ),
+          ),
       child: _AddEditTransactionView(),
     );
   }
@@ -106,10 +119,15 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                         _DescriptionField(controller: _descriptionController),
                         const SizedBox(height: 16),
                         _AmountField(controller: _amountController),
+                        const _ConvertedAmountDisplay(), // Added
                         const SizedBox(height: 16),
                         const _AccountField(),
                         const SizedBox(height: 16),
                         const _CategoryField(),
+                        const SizedBox(height: 16),
+                        const _CurrencyField(), // Added
+                        const SizedBox(height: 16),
+                        const _ExchangeRateSection(), // Added
                         const SizedBox(height: 16),
                         const _DateField(),
                         const SizedBox(height: 32),
@@ -415,6 +433,230 @@ class _SaveButton extends StatelessWidget {
         minimumSize: const Size(double.infinity, 50),
       ),
       child: const Text('Save'),
+    );
+  }
+}
+
+class _CurrencyField extends StatelessWidget {
+  const _CurrencyField();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
+      builder: (context, state) {
+        return GestureDetector(
+          onTap: () async {
+            final selectedCurrency = await showSingleSelectDialog<Currency>(
+              context: context,
+              items: state.currencies,
+              title: 'Select Currency',
+              selectedItem: state.selectedCurrency,
+              itemBuilder: (currency) => ListTile(
+                title: Text('${currency.code} - ${currency.name}'),
+                leading: Text(currency.code),
+              ),
+              stringGetter: (currency) => currency.code,
+            );
+            if (context.mounted && selectedCurrency != null) {
+              context.read<AddEditTransactionBloc>().add(
+                AddEditTransactionCurrencyChanged(selectedCurrency),
+              );
+            }
+          },
+          child: AbsorbPointer(
+            child: TextFormField(
+              key: Key(state.selectedCurrency?.code ?? 'no_currency'),
+              initialValue: state.selectedCurrency?.code,
+              decoration: const InputDecoration(
+                labelText: 'Currency',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.monetization_on),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ExchangeRateSection extends StatelessWidget {
+  const _ExchangeRateSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
+      builder: (context, state) {
+        if (!state.isForeignCurrency) {
+          return const SizedBox.shrink();
+        }
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Exchange Rate',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '1 ${state.selectedCurrency?.code} = X ${state.selectedCurrency?.code == state.selectedAccount?.currencyCode ? state.mainCurrencyCode : state.selectedAccount?.currencyCode}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (state.isLoadingRates)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                else ...[
+                  if (state.availableExchangeRates.isNotEmpty) ...[
+                    const Text(
+                      'Available Presets:',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 8.0,
+                      runSpacing: 4.0,
+                      children: state.availableExchangeRates.map((rate) {
+                        final isSelected = state.selectedExchangeRate == rate;
+                        return ChoiceChip(
+                          label: Text('P${rate.preset}: ${rate.rate}'),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected) {
+                              context.read<AddEditTransactionBloc>().add(
+                                AddEditTransactionRatePresetChanged(rate),
+                              );
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          key: ValueKey(state.selectedExchangeRate?.rate),
+                          initialValue: state.manualExchangeRate,
+                          decoration: const InputDecoration(
+                            labelText: 'Rate Value',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          onChanged: (value) => context
+                              .read<AddEditTransactionBloc>()
+                              .add(AddEditTransactionManualRateChanged(value)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (state.selectedExchangeRate != null)
+                        IconButton.filledTonal(
+                          onPressed: () {
+                            context.read<AddEditTransactionBloc>().add(
+                              AddEditTransactionUpdatePreset(
+                                state.selectedExchangeRate!,
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.save),
+                          tooltip: 'Update Selected Preset',
+                        ),
+                      IconButton.filled(
+                        onPressed: () {
+                          context.read<AddEditTransactionBloc>().add(
+                            const AddEditTransactionAddNewRate(),
+                          );
+                        },
+                        icon: const Icon(Icons.add),
+                        tooltip: 'Add as New Preset',
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ConvertedAmountDisplay extends StatelessWidget {
+  const _ConvertedAmountDisplay();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
+      builder: (context, state) {
+        if (!state.isForeignCurrency || state.amount.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final amount = double.tryParse(state.amount) ?? 0;
+        final rate =
+            state.selectedExchangeRate?.rate ??
+            double.tryParse(state.manualExchangeRate) ??
+            0;
+        final converted = amount * rate;
+
+        if (rate == 0) return const SizedBox.shrink();
+
+        final isToAccount =
+            state.selectedCurrency?.code != state.selectedAccount?.currencyCode;
+        final targetLabel = isToAccount
+            ? 'Amount to Add to Account:'
+            : 'Value in Global (${state.mainCurrencyCode}):';
+        final targetCurrency = isToAccount
+            ? state.selectedAccount?.currencyCode
+            : state.mainCurrencyCode;
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  targetLabel,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  '$targetCurrency ${converted.toStringAsFixed(2)}',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

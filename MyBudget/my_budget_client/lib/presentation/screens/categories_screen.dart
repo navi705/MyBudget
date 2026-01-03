@@ -21,7 +21,8 @@ import 'package:my_budget_client/presentation/widgets/category_filter_dialog.dar
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 
 class CategoriesScreen extends StatefulWidget {
-  const CategoriesScreen({super.key});
+  final bool isStandalone;
+  const CategoriesScreen({super.key, this.isStandalone = true});
 
   @override
   State<CategoriesScreen> createState() => _CategoriesScreenState();
@@ -260,32 +261,34 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         }
       },
       child: Scaffold(
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight),
-          child: BlocBuilder<CategoriesBloc, CategoriesState>(
-            builder: (context, state) {
-              if (state is CategoriesLoadSuccess) {
-                if (state.isSelectionModeActive) {
-                  return _SelectionAppBar(
-                    state: state,
-                    onDelete: () => _showDeleteConfirmationDialog(
-                      context,
-                      bloc,
-                      state.selectedCategoryIds.toList(),
-                    ),
-                    onChangeType: () => _showChangeCategoryTypeDialog(
-                      context,
-                      bloc,
-                      state.selectedCategoryIds.toList(),
-                    ),
-                  );
-                }
-                return _CategoriesDateAppBar(state: state);
-              }
-              return AppBar(title: const Text('Categories'));
-            },
-          ),
-        ),
+        appBar: widget.isStandalone
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(kToolbarHeight),
+                child: BlocBuilder<CategoriesBloc, CategoriesState>(
+                  builder: (context, state) {
+                    if (state is CategoriesLoadSuccess) {
+                      if (state.isSelectionModeActive) {
+                        return _SelectionAppBar(
+                          state: state,
+                          onDelete: () => _showDeleteConfirmationDialog(
+                            context,
+                            bloc,
+                            state.selectedCategoryIds.toList(),
+                          ),
+                          onChangeType: () => _showChangeCategoryTypeDialog(
+                            context,
+                            bloc,
+                            state.selectedCategoryIds.toList(),
+                          ),
+                        );
+                      }
+                      return _CategoriesDateAppBar(state: state);
+                    }
+                    return AppBar(title: const Text('Categories'));
+                  },
+                ),
+              )
+            : null,
         body: BlocListener<CategoriesBloc, CategoriesState>(
           listener: (context, state) {
             if (state is CategoryDeletionConfirmationNeeded) {

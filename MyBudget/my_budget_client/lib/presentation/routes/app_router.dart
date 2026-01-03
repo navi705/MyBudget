@@ -6,7 +6,6 @@ import 'package:my_budget_client/presentation/debug/debug_screen.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/screens/accounts_screen.dart';
 import 'package:my_budget_client/presentation/screens/add_edit_transaction_screen.dart';
-import 'package:my_budget_client/presentation/screens/categories_screen.dart';
 import 'package:my_budget_client/presentation/screens/dashboard_screen.dart';
 import 'package:my_budget_client/presentation/screens/edit_account_screen.dart';
 import 'package:my_budget_client/presentation/screens/edit_style_screen.dart';
@@ -16,7 +15,9 @@ import 'package:my_budget_client/presentation/screens/manage_styles_screen.dart'
 import 'package:my_budget_client/presentation/screens/settings_screen.dart';
 import 'package:my_budget_client/presentation/screens/theme_settings_screen.dart';
 import 'package:my_budget_client/presentation/screens/transactions_screen.dart';
-import 'package:my_budget_client/presentation/screens/exchange_rates_screen.dart';
+import 'package:my_budget_client/presentation/screens/categories_screen.dart';
+import 'package:my_budget_client/presentation/screens/data_screen.dart';
+import 'package:my_budget_client/presentation/screens/api_settings_screen.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 
 // Private navigator keys
@@ -56,13 +57,13 @@ final GoRouter router = GoRouter(
         GoRoute(
           path: AppRoutes.categories,
           builder: (context, state) {
-            return const CategoriesScreen();
+            return const CategoriesScreen(isStandalone: true);
           },
         ),
         GoRoute(
           path: AppRoutes.exchangeRates,
           builder: (context, state) {
-            return const ExchangeRatesScreen();
+            return const DataScreen(initialTabIndex: 0);
           },
         ),
         GoRoute(
@@ -110,12 +111,17 @@ final GoRouter router = GoRouter(
       path: AppRoutes.addEditTransaction,
       builder: (context, state) {
         Transaction? transaction;
+        String? accountId;
         if (state.extra is Map<String, dynamic>) {
           final extra = state.extra as Map<String, dynamic>;
           transaction = extra['transaction'] as Transaction?;
+          accountId = extra['accountId'] as String?;
         }
 
-        return AddEditTransactionScreen(transaction: transaction);
+        return AddEditTransactionScreen(
+          transaction: transaction,
+          accountId: accountId,
+        );
       },
     ),
     GoRoute(
@@ -128,6 +134,12 @@ final GoRouter router = GoRouter(
       path: AppRoutes.themeSettings,
       builder: (context, state) {
         return const ThemeSettingsScreen();
+      },
+    ),
+    GoRoute(
+      path: AppRoutes.apiSettings,
+      builder: (context, state) {
+        return const ApiSettingsScreen();
       },
     ),
   ],

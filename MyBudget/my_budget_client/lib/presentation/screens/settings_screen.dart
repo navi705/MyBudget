@@ -127,6 +127,13 @@ class SettingsScreen extends StatelessWidget {
                   );
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.api),
+                title: const Text('API Management'),
+                onTap: () {
+                  context.push(AppRoutes.apiSettings);
+                },
+              ),
             ],
           );
         },
