@@ -918,10 +918,68 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   Future<List<ExchangeRate>> getAllExchangesRatesAll() =>
       select(exchangeRates).get();
 
-  Future<List<ExchangeRate>> getExchangeRates({
-    int limit = 10,
+  Future<List<ExchangeRate>> getExchangeRatesFiltered({
+    int limit = 100,
     int offset = 0,
-  }) => (select(exchangeRates)..limit(limit, offset: offset)).get();
+    DateTime? date,
+    String? fromCurrency,
+    String? toCurrency,
+  }) {
+    final query = select(exchangeRates);
+
+    if (date != null) {
+      final startOfDay = DateTime(date.year, date.month, date.day);
+      final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+      query.where(
+        (t) =>
+            t.date.isBiggerOrEqualValue(startOfDay) &
+            t.date.isSmallerOrEqualValue(endOfDay),
+      );
+    }
+    if (fromCurrency != null) {
+      query.where((t) => t.fromCurrencyCode.equals(fromCurrency));
+    }
+    if (toCurrency != null) {
+      query.where((t) => t.toCurrencyCode.equals(toCurrency));
+    }
+
+    query.orderBy([
+      (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+    ]);
+    query.limit(limit, offset: offset);
+
+    return query.get();
+  }
+
+  Future<int> getExchangeRatesCount({
+    DateTime? date,
+    String? fromCurrency,
+    String? toCurrency,
+  }) async {
+    final query = selectOnly(exchangeRates);
+
+    if (date != null) {
+      final startOfDay = DateTime(date.year, date.month, date.day);
+      final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+      query.where(
+        exchangeRates.date.isBiggerOrEqualValue(startOfDay) &
+            exchangeRates.date.isSmallerOrEqualValue(endOfDay),
+      );
+    }
+    if (fromCurrency != null) {
+      query.where(exchangeRates.fromCurrencyCode.equals(fromCurrency));
+    }
+    if (toCurrency != null) {
+      query.where(exchangeRates.toCurrencyCode.equals(toCurrency));
+    }
+
+    final countExp = exchangeRates.date.count();
+    query.addColumns([countExp]);
+    final count = await query
+        .map((row) => row.read(countExp))
+        .getSingleOrNull();
+    return count ?? 0;
+  }
 
   Future<List<ExchangeRate>> getLatestExchangeRates(DateTime date) {
     return customSelect(
@@ -978,7 +1036,7 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration {
@@ -999,6 +1057,9 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates (date)',
         );
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
+        );
 
         await _seedData(this);
       },
@@ -1011,15 +1072,20 @@ class AppDatabase extends _$AppDatabase {
             'CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions (date)',
           );
         }
-        if (from < 9) {
+        if (from < 10) {
+          if (from < 9) {
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions (account_id)',
+            );
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions (category_id)',
+            );
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates (date)',
+            );
+          }
           await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions (account_id)',
-          );
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions (category_id)',
-          );
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates (date)',
+            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
           );
         }
       },

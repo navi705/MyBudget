@@ -19,8 +19,40 @@ class ExchangeRatesScreen extends StatelessWidget {
   }
 }
 
-class _ExchangeRatesView extends StatelessWidget {
+class _ExchangeRatesView extends StatefulWidget {
   const _ExchangeRatesView();
+
+  @override
+  State<_ExchangeRatesView> createState() => _ExchangeRatesViewState();
+}
+
+class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_isBottom) {
+      context.read<ExchangeRatesBloc>().add(const LoadExchangeRates());
+    }
+  }
+
+  bool get _isBottom {
+    if (!_scrollController.hasClients) return false;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.offset;
+    return currentScroll >= (maxScroll * 0.9);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +77,7 @@ class _ExchangeRatesView extends StatelessWidget {
     final bloc = context.read<ExchangeRatesBloc>();
 
     return GenericFilterAppBar(
-      totalCountText: 'Total: ${state.filteredExchangeRates.length}',
+      totalCountText: 'Total: ${state.totalCount}',
       centerWidget: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -158,20 +190,33 @@ class _ExchangeRatesView extends StatelessWidget {
   }
 
   Widget _buildBody(BuildContext context, ExchangeRatesState state) {
-    if (state.status == ExchangeRatesStatus.loading) {
+    if (state.status == ExchangeRatesStatus.loading &&
+        state.exchangeRates.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.status == ExchangeRatesStatus.failure) {
       return Center(child: Text('Error: ${state.error}'));
     }
-    if (state.filteredExchangeRates.isEmpty) {
+    if (state.exchangeRates.isEmpty &&
+        state.status == ExchangeRatesStatus.success) {
       return const Center(child: Text('No exchange rates found.'));
     }
 
     return ListView.builder(
-      itemCount: state.filteredExchangeRates.length,
+      controller: _scrollController,
+      itemCount: state.hasReachedMax
+          ? state.exchangeRates.length
+          : state.exchangeRates.length + 1,
       itemBuilder: (context, index) {
-        final rate = state.filteredExchangeRates[index];
+        if (index >= state.exchangeRates.length) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        final rate = state.exchangeRates[index];
         return _ExchangeRateListItem(rate: rate);
       },
     );

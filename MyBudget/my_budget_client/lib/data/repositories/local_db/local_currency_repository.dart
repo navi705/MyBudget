@@ -14,9 +14,9 @@ class LocalCurrencyRepository implements CurrencyRepository {
 
   @override
   Stream<List<Currency>> watchCurrencies() {
-    return database.currenciesDao
-        .watchAllCurrencies()
-        .map((driftCurrencies) => driftCurrencies.toDomainList());
+    return database.currenciesDao.watchAllCurrencies().map(
+      (driftCurrencies) => driftCurrencies.toDomainList(),
+    );
   }
 
   @override
@@ -38,7 +38,9 @@ class LocalCurrencyRepository implements CurrencyRepository {
 
   @override
   Future<void> addCurrencies(List<Currency> currencies) async {
-    await database.currenciesDao.insertAllCurrencies(currencies.toCompanionList());
+    await database.currenciesDao.insertAllCurrencies(
+      currencies.toCompanionList(),
+    );
   }
 
   @override
@@ -55,10 +57,11 @@ class LocalCurrencyRepository implements CurrencyRepository {
 
   @override
   Stream<List<CurrencyDesignation>> watchCurrencyDesignationsForCurrency(
-      String currencyCode) {
-    return database.currencyDesignationsDao
-        .watchAllDesignations()
-        .map((driftDesignations) {
+    String currencyCode,
+  ) {
+    return database.currencyDesignationsDao.watchAllDesignations().map((
+      driftDesignations,
+    ) {
       return driftDesignations
           .where((d) => d.currencyCode == currencyCode)
           .map((d) => d.toDomain())
@@ -68,9 +71,10 @@ class LocalCurrencyRepository implements CurrencyRepository {
 
   @override
   Future<List<CurrencyDesignation>> getCurrencyDesignationsForCurrency(
-      String currencyCode) async {
-    final driftDesignations =
-        await database.currencyDesignationsDao.getAllDesignations();
+    String currencyCode,
+  ) async {
+    final driftDesignations = await database.currencyDesignationsDao
+        .getAllDesignations();
     return driftDesignations
         .where((d) => d.currencyCode == currencyCode)
         .map((d) => d.toDomain())
@@ -79,60 +83,95 @@ class LocalCurrencyRepository implements CurrencyRepository {
 
   @override
   Future<CurrencyDesignation?> getCurrencyDesignationById(String id) async {
-    final driftDesignation =
-        await database.currencyDesignationsDao.getDesignationById(id);
+    final driftDesignation = await database.currencyDesignationsDao
+        .getDesignationById(id);
     return driftDesignation?.toDomain();
   }
 
   @override
   Future<void> addCurrencyDesignation(CurrencyDesignation designation) async {
-    await database.currencyDesignationsDao
-        .insertDesignation(designation.toCompanion());
+    await database.currencyDesignationsDao.insertDesignation(
+      designation.toCompanion(),
+    );
   }
 
   @override
   Stream<List<CurrencyDesignation>> watchAllCurrencyDesignations() {
-    return database.currencyDesignationsDao
-        .watchAllDesignations()
-        .map((driftDesignations) {
+    return database.currencyDesignationsDao.watchAllDesignations().map((
+      driftDesignations,
+    ) {
       return driftDesignations.toDomainList();
     });
   }
 
   @override
   Future<List<CurrencyDesignation>> getAllCurrencyDesignations() async {
-    final driftDesignations =
-        await database.currencyDesignationsDao.getAllDesignations();
+    final driftDesignations = await database.currencyDesignationsDao
+        .getAllDesignations();
     return driftDesignations.toDomainList();
   }
 
   @override
   Future<List<ExchangeRateDomain>> getLatestExchangeRates(DateTime date) async {
-    final driftExchangeRates = await database.exchangeRatesDao.getLatestExchangeRates(date);
+    final driftExchangeRates = await database.exchangeRatesDao
+        .getLatestExchangeRates(date);
     return driftExchangeRates.toDomainList();
   }
 
   @override
   Future<void> addExchangeRate(ExchangeRateDomain exchangeRate) async {
-    await database.exchangeRatesDao
-        .addExchangeRate(exchangeRate.toCompanion());
+    await database.exchangeRatesDao.addExchangeRate(exchangeRate.toCompanion());
   }
 
   @override
   Future<void> addExchangeRates(List<ExchangeRateDomain> exchangeRates) async {
-    await database.exchangeRatesDao
-        .insertAllExchangeRates(exchangeRates.toCompanionList());
+    await database.exchangeRatesDao.insertAllExchangeRates(
+      exchangeRates.toCompanionList(),
+    );
   }
-  
+
   @override
-  Future<List<ExchangeRateDomain>> getLatestExchangeRatesByList(List<DateTime> dates) async {
+  Future<List<ExchangeRateDomain>> getLatestExchangeRatesByList(
+    List<DateTime> dates,
+  ) async {
     final rates = await database.exchangeRatesDao.getAllExchangesRates(dates);
-    return rates.toDomainList(); 
+    return rates.toDomainList();
   }
-  
+
   @override
-  Future<List<ExchangeRateDomain>> getLatestExchangeRatesAll() async{
-    final rate = await  database.exchangeRatesDao.getAllExchangesRatesAll();
+  Future<List<ExchangeRateDomain>> getLatestExchangeRatesAll() async {
+    final rate = await database.exchangeRatesDao.getAllExchangesRatesAll();
     return rate.toDomainList();
+  }
+
+  @override
+  Future<List<ExchangeRateDomain>> getExchangeRatesFiltered({
+    int limit = 100,
+    int offset = 0,
+    DateTime? date,
+    String? fromCurrency,
+    String? toCurrency,
+  }) async {
+    final rates = await database.exchangeRatesDao.getExchangeRatesFiltered(
+      limit: limit,
+      offset: offset,
+      date: date,
+      fromCurrency: fromCurrency,
+      toCurrency: toCurrency,
+    );
+    return rates.toDomainList();
+  }
+
+  @override
+  Future<int> getExchangeRatesCount({
+    DateTime? date,
+    String? fromCurrency,
+    String? toCurrency,
+  }) {
+    return database.exchangeRatesDao.getExchangeRatesCount(
+      date: date,
+      fromCurrency: fromCurrency,
+      toCurrency: toCurrency,
+    );
   }
 }

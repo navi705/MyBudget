@@ -12,9 +12,11 @@ abstract class CurrencyRepository {
   Future<void> deleteCurrency(Currency currency);
 
   Stream<List<CurrencyDesignation>> watchCurrencyDesignationsForCurrency(
-      String currencyCode);
+    String currencyCode,
+  );
   Future<List<CurrencyDesignation>> getCurrencyDesignationsForCurrency(
-      String currencyCode);
+    String currencyCode,
+  );
   Future<CurrencyDesignation?> getCurrencyDesignationById(String id);
   Future<void> addCurrencyDesignation(CurrencyDesignation designation);
 
@@ -23,7 +25,21 @@ abstract class CurrencyRepository {
 
   Future<List<ExchangeRateDomain>> getLatestExchangeRates(DateTime date);
   Future<List<ExchangeRateDomain>> getLatestExchangeRatesAll();
-  Future<List<ExchangeRateDomain>> getLatestExchangeRatesByList(List<DateTime> date); 
+  Future<List<ExchangeRateDomain>> getLatestExchangeRatesByList(
+    List<DateTime> date,
+  );
+  Future<List<ExchangeRateDomain>> getExchangeRatesFiltered({
+    int limit = 100,
+    int offset = 0,
+    DateTime? date,
+    String? fromCurrency,
+    String? toCurrency,
+  });
+  Future<int> getExchangeRatesCount({
+    DateTime? date,
+    String? fromCurrency,
+    String? toCurrency,
+  });
   Future<void> addExchangeRate(ExchangeRateDomain exchangeRate);
   Future<void> addExchangeRates(List<ExchangeRateDomain> exchangeRates);
 }

@@ -8,7 +8,11 @@ abstract class ExchangeRatesEvent extends Equatable {
 }
 
 class LoadExchangeRates extends ExchangeRatesEvent {
-  const LoadExchangeRates();
+  final bool isRefresh;
+  const LoadExchangeRates({this.isRefresh = false});
+
+  @override
+  List<Object?> get props => [isRefresh];
 }
 
 class AddExchangeRate extends ExchangeRatesEvent {

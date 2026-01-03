@@ -22,21 +22,49 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
     LoadExchangeRates event,
     Emitter<ExchangeRatesState> emit,
   ) async {
-    emit(state.copyWith(status: ExchangeRatesStatus.loading));
+    if (state.hasReachedMax && !event.isRefresh) return;
+
     try {
-      final rates = await _currencyRepository.getLatestExchangeRatesAll();
-      final currencies = await _currencyRepository.getCurrencies();
+      if (event.isRefresh || state.status == ExchangeRatesStatus.initial) {
+        emit(
+          state.copyWith(
+            status: ExchangeRatesStatus.loading,
+            exchangeRates: [],
+            hasReachedMax: false,
+          ),
+        );
+      }
+
+      final limit = 50;
+      final offset = event.isRefresh ? 0 : state.exchangeRates.length;
+
+      final rates = await _currencyRepository.getExchangeRatesFiltered(
+        limit: limit,
+        offset: offset,
+        date: state.dateFilter,
+        fromCurrency: state.fromCurrencyFilter,
+        toCurrency: state.toCurrencyFilter,
+      );
+
+      final totalCount = await _currencyRepository.getExchangeRatesCount(
+        date: state.dateFilter,
+        fromCurrency: state.fromCurrencyFilter,
+        toCurrency: state.toCurrencyFilter,
+      );
+
+      final currencies = state.currencies.isEmpty
+          ? await _currencyRepository.getCurrencies()
+          : state.currencies;
+
       emit(
         state.copyWith(
           status: ExchangeRatesStatus.success,
-          exchangeRates: rates,
-          filteredExchangeRates: _applyFilters(
-            rates,
-            state.dateFilter,
-            state.fromCurrencyFilter,
-            state.toCurrencyFilter,
-          ),
+          exchangeRates: event.isRefresh
+              ? rates
+              : [...state.exchangeRates, ...rates],
           currencies: currencies,
+          hasReachedMax: rates.length < limit,
+          totalCount: totalCount,
         ),
       );
     } catch (e) {
@@ -55,27 +83,16 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
   ) async {
     try {
       await _currencyRepository.addExchangeRate(event.exchangeRate);
-      final rates = await _currencyRepository.getLatestExchangeRatesAll();
-      emit(
-        state.copyWith(
-          exchangeRates: rates,
-          filteredExchangeRates: _applyFilters(
-            rates,
-            state.dateFilter,
-            state.fromCurrencyFilter,
-            state.toCurrencyFilter,
-          ),
-        ),
-      );
+      add(const LoadExchangeRates(isRefresh: true));
     } catch (e) {
       emit(state.copyWith(error: e.toString()));
     }
   }
 
-  void _onChangeExchangeRatesFilters(
+  Future<void> _onChangeExchangeRatesFilters(
     ChangeExchangeRatesFilters event,
     Emitter<ExchangeRatesState> emit,
-  ) {
+  ) async {
     emit(
       state.copyWith(
         dateFilter: event.date,
@@ -84,34 +101,9 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
         clearDateFilter: event.date == null,
         clearFromCurrencyFilter: event.fromCurrency == null,
         clearToCurrencyFilter: event.toCurrency == null,
-        filteredExchangeRates: _applyFilters(
-          state.exchangeRates,
-          event.date,
-          event.fromCurrency,
-          event.toCurrency,
-        ),
+        status: ExchangeRatesStatus.loading,
       ),
     );
-  }
-
-  List<ExchangeRateDomain> _applyFilters(
-    List<ExchangeRateDomain> rates,
-    DateTime? date,
-    String? fromCurrency,
-    String? toCurrency,
-  ) {
-    return rates.where((rate) {
-      bool dateMatch = true;
-      if (date != null) {
-        dateMatch =
-            rate.date.year == date.year &&
-            rate.date.month == date.month &&
-            rate.date.day == date.day;
-      }
-      final fromMatch =
-          fromCurrency == null || rate.fromCurrencyCode == fromCurrency;
-      final toMatch = toCurrency == null || rate.toCurrencyCode == toCurrency;
-      return dateMatch && fromMatch && toMatch;
-    }).toList();
+    add(const LoadExchangeRates(isRefresh: true));
   }
 }
