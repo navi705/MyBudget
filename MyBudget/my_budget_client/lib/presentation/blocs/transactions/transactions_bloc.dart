@@ -202,6 +202,9 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   final SettingsRepository _settingsRepository;
   final CurrencyRepository _currencyRepository;
 
+  final Map<String, Category> _categoryCache = {};
+  final Map<String, Style> _styleCache = {};
+
   TransactionsBloc({
     required TransactionRepository transactionRepository,
     required StyleRepository styleRepository,
@@ -261,52 +264,49 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       return _ProcessDataResult(transactionsWithStyles: [], dailyTotals: {});
     }
 
-    // 1. Fetch Categories
+    // 1. Fetch Missing Categories
     final categoriesListIds = transactions
         .map((u) => u.categoryId)
+        .where((id) => !_categoryCache.containsKey(id))
         .toSet()
         .toList();
-    final categories = await _categoryRepository.getCategoriesByIds(
-      categoriesListIds,
-    );
 
-    // 2. Fetch Styles
-    final stylesListIds = categories
+    if (categoriesListIds.isNotEmpty) {
+      final newCategories = await _categoryRepository.getCategoriesByIds(
+        categoriesListIds,
+      );
+      for (var cat in newCategories) {
+        _categoryCache[cat.id!] = cat;
+      }
+    }
+
+    final categories = transactions
+        .map((t) => _categoryCache[t.categoryId])
+        .whereType<Category>()
+        .toList();
+
+    // 2. Fetch Missing Styles
+    final stylesToFetchIds = categories
         .map((u) => u.styleId)
         .whereType<String>()
+        .where((id) => !_styleCache.containsKey(id))
         .toSet()
         .toList();
-    final styles = await _styleRepository.getStylesByIds(stylesListIds);
+
+    if (stylesToFetchIds.isNotEmpty) {
+      final newStyles = await _styleRepository.getStylesByIds(stylesToFetchIds);
+      for (var style in newStyles) {
+        _styleCache[style.id!] = style;
+      }
+    }
+
+    final styles = _styleCache.values.toList();
 
     // 3. Fetch Rates
-    // Implementation note: Ideally fetch rates covering the range of transactions.
-    // For now, getting rates for specific transaction dates might be efficient enough if cached,
-    // or getAll if dataset is small. The previous implementation fetched by list.
     final uniqueDates = transactions
         .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
         .toSet()
         .toList();
-
-    // To support fallback properly, we might need MORE rates than just the exact dates.
-    // However, fetching ALL rates might be too much.
-    // Let's assume fetching by list is a good start, and we augment checking surrounding dates?
-    // Actually, if a rate is missing for Day X, it's likely available for Day X-1 or X-2.
-    // If the repo only returns rates for requested dates, we won't have the "closest" if we don't ask for it.
-    // Strategy: Fetch rates for the requested dates. If some are missing, maybe fetch all?
-    // Or just fetch ALL rates for the active month/year?
-    // For simplicity and performance balance: let's fetch rates for the transaction dates.
-    // If we want "closest", we really need to know what available rates exist in DB.
-    // Let's call `getLatestExchangeRatesAll` if the range is small? No, that's dangerous.
-    // Let's stick to `getLatestExchangeRatesByList` first. If gaps, we might miss data.
-    // But wait, the user said "find to closer date rates". That implies we have them.
-    // Maybe `getLatestExchangeRatesByList` should be replaced by `getLatestExchangeRatesAll`
-    // if we suspect we need to search?
-    // Let's try fetching all rates if the list is reasonable, or maybe the logic inside `_processTransactionsData`
-    // will operate on whatever rates are passed.
-    // If we only pass rates for Day 1 and Day 3, and we need Day 2, we can pick Day 1 or 3.
-    // So passing the rates for the transaction dates is "enough" to interpolate *among* them,
-    // but not outside them.
-    // To be safe, let's fetch rates for distinct dates involved.
 
     final rates = await _currencyRepository.getLatestExchangeRatesByList(
       uniqueDates,

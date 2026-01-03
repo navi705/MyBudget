@@ -562,6 +562,9 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     final balances = <String, double>{};
     final startOfDate = DateTime(date.year, date.month, date.day);
 
+    final futureSums = await attachedDatabase.transactionsDao
+        .getFutureSumsGrouped(date);
+
     for (final account in allAccounts) {
       final startOfCreationDate = DateTime(
         account.creationDate.year,
@@ -572,8 +575,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
         balances[account.id] = 0.0;
       } else {
         final currentBalance = account.balance;
-        final sumOfFutureTransactions = await attachedDatabase.transactionsDao
-            .getSumOfTransactionsAfterDate(account.id, date);
+        final sumOfFutureTransactions = futureSums[account.id] ?? 0.0;
         balances[account.id] = currentBalance - sumOfFutureTransactions;
       }
     }
@@ -851,6 +853,72 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
         .getSingleOrNull();
     return result ?? 0.0;
   }
+
+  Future<Map<String, double>> getFutureSumsGrouped(DateTime date) async {
+    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+    final amountExp = transactions.amount.sum();
+    final query = selectOnly(transactions)
+      ..addColumns([transactions.accountId, amountExp])
+      ..where(transactions.date.isBiggerThanValue(endOfDay))
+      ..groupBy([transactions.accountId]);
+
+    final rows = await query.get();
+    return {
+      for (var row in rows)
+        row.read(transactions.accountId)!: row.read(amountExp) ?? 0.0,
+    };
+  }
+
+  Future<List<GroupedTransactionTotal>> getTransactionTotalsGrouped({
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) async {
+    final amountExp = transactions.amount.sum();
+    final query = selectOnly(transactions)
+      ..addColumns([
+        transactions.categoryId,
+        transactions.currencyCode,
+        transactions.date,
+        amountExp,
+      ]);
+
+    if (dateFrom != null) {
+      query.where(transactions.date.isBiggerOrEqualValue(dateFrom));
+    }
+    if (dateTo != null) {
+      query.where(transactions.date.isSmallerOrEqualValue(dateTo));
+    }
+
+    query.groupBy([
+      transactions.categoryId,
+      transactions.currencyCode,
+      transactions.date,
+    ]);
+
+    final rows = await query.get();
+    return rows.map((row) {
+      return GroupedTransactionTotal(
+        categoryId: row.read(transactions.categoryId)!,
+        currencyCode: row.read(transactions.currencyCode)!,
+        date: row.read(transactions.date)!,
+        total: row.read(amountExp) ?? 0.0,
+      );
+    }).toList();
+  }
+}
+
+class GroupedTransactionTotal {
+  final String categoryId;
+  final String currencyCode;
+  final DateTime date;
+  final double total;
+
+  GroupedTransactionTotal({
+    required this.categoryId,
+    required this.currencyCode,
+    required this.date,
+    required this.total,
+  });
 }
 
 @DriftAccessor(tables: [Settings])

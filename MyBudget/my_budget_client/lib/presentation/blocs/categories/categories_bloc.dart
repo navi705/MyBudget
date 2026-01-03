@@ -7,7 +7,6 @@ import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/domain/entities/settings.dart';
-import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
@@ -327,32 +326,30 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       // 2. Fetch Core Data
       final results = await Future.wait([
         _categoryRepository.getCategories(),
-        _transactionRepository.getTransactionsWithFilters(
-          limit: 99999,
-          filters: TransactionFilters(dateFrom: dateFrom, dateTo: dateTo),
+        _transactionRepository.getTransactionTotalsGrouped(
+          dateFrom: dateFrom,
+          dateTo: dateTo,
         ),
         _currencyRepository.getAllCurrencyDesignations(),
       ]);
 
       final categories = results[0] as List<Category>;
-      final transactions = results[1] as List<Transaction>;
+      final groupedTotals = results[1] as List<GroupedTransactionTotal>;
       final currencyDesignations = results[2] as List<CurrencyDesignation>;
 
       // --- OPTIMIZATION START ---
 
-      // 3. Batch Fetch Rates (1 Query instead of N queries)
-      final uniqueDates = transactions
+      // 3. Batch Fetch Rates
+      final uniqueDates = groupedTotals
           .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
           .toSet()
           .toList();
 
-      // Use the list-based method we created earlier
       final allRates = await _currencyRepository.getLatestExchangeRatesByList(
         uniqueDates,
       );
 
-      // 4. Pre-process Rates into a Map for O(1) lookup
-      // Map<Date, Map<"FROM_TO", Rate>>
+      // 4. Pre-process Rates into a Map
       final ratesMap = <DateTime, Map<String, double>>{};
 
       for (var rate in allRates) {
@@ -368,43 +365,38 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
             rate.rate;
       }
 
-      // 5. Calculate Totals via "Inverted Loop"
-      // Instead of Loop Categories -> Find Transactions (Slow)
-      // We Loop Transactions -> Add to Category Map (Fast)
-
+      // 5. Calculate Totals via Grouped Results
       final Map<String, double> categoryTotalsMap = {};
       const baseCurrency = 'EUR';
 
-      for (final transaction in transactions) {
-        // A. Setup
+      for (final totalItem in groupedTotals) {
         final tDate = DateTime(
-          transaction.date.year,
-          transaction.date.month,
-          transaction.date.day,
+          totalItem.date.year,
+          totalItem.date.month,
+          totalItem.date.day,
         );
         final dailyRates = ratesMap[tDate] ?? {};
 
-        // B. Convert Currency (Optimized Helper Logic)
         double amountInMain;
 
-        if (transaction.currencyCode == mainCurrencyCode) {
-          amountInMain = transaction.amount;
+        if (totalItem.currencyCode == mainCurrencyCode) {
+          amountInMain = totalItem.total;
         } else {
           // 1. To Base (EUR)
           double amountInBase;
-          if (transaction.currencyCode == baseCurrency) {
-            amountInBase = transaction.amount;
+          if (totalItem.currencyCode == baseCurrency) {
+            amountInBase = totalItem.total;
           } else {
             final toBase =
-                dailyRates['${transaction.currencyCode}_$baseCurrency'];
+                dailyRates['${totalItem.currencyCode}_$baseCurrency'];
             if (toBase != null) {
-              amountInBase = transaction.amount * toBase;
+              amountInBase = totalItem.total * toBase;
             } else {
               final fromBase =
-                  dailyRates['${baseCurrency}_${transaction.currencyCode}'];
+                  dailyRates['${baseCurrency}_${totalItem.currencyCode}'];
               amountInBase = (fromBase != null && fromBase != 0)
-                  ? transaction.amount / fromBase
-                  : 0; // or handle error
+                  ? totalItem.total / fromBase
+                  : 0;
             }
           }
 
@@ -424,13 +416,10 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
           }
         }
 
-        // C. Add to Accumulator
-        final currentTotal = categoryTotalsMap[transaction.categoryId] ?? 0.0;
-        categoryTotalsMap[transaction.categoryId] = currentTotal + amountInMain;
+        final currentTotal = categoryTotalsMap[totalItem.categoryId] ?? 0.0;
+        categoryTotalsMap[totalItem.categoryId] = currentTotal + amountInMain;
       }
 
-      // 6. Build Final List
-      // Now we just map the categories to the calculated totals
       final categoriesWithTotals = categories.map((category) {
         return CategoryWithTotal(
           category: category,

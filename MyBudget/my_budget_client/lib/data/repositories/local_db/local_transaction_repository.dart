@@ -11,9 +11,9 @@ class LocalTransactionRepository implements TransactionRepository {
 
   @override
   Stream<List<Transaction>> watchTransactions() {
-    return database.transactionsDao
-        .watchAllTransactions()
-        .map((transactions) => transactions.toDomainList());
+    return database.transactionsDao.watchAllTransactions().map(
+      (transactions) => transactions.toDomainList(),
+    );
   }
 
   @override
@@ -26,8 +26,9 @@ class LocalTransactionRepository implements TransactionRepository {
   Future<void> addTransactions(List<Transaction> transactions) async {
     await database.transaction(() async {
       // 1. Batch insert all transactions
-      await database.transactionsDao
-          .insertAllTransactions(transactions.toCompanionList());
+      await database.transactionsDao.insertAllTransactions(
+        transactions.toCompanionList(),
+      );
 
       // 2. Aggregate amounts by account ID
       final amountChanges = <String, double>{};
@@ -48,8 +49,9 @@ class LocalTransactionRepository implements TransactionRepository {
   Future<void> deleteTransaction(String id) async {
     final transaction = await getTransactionById(id);
     if (transaction != null) {
-      await database.transactionsDao
-          .deleteTransaction(db.TransactionsCompanion(id: Value(id)));
+      await database.transactionsDao.deleteTransaction(
+        db.TransactionsCompanion(id: Value(id)),
+      );
       await _updateAccountBalance(transaction.accountId, -transaction.amount);
     }
   }
@@ -57,7 +59,9 @@ class LocalTransactionRepository implements TransactionRepository {
   @override
   Future<void> deleteMultipleTransactions(List<String> ids) async {
     await database.transaction(() async {
-      final transactions = await database.transactionsDao.getTransactionsByIds(ids);
+      final transactions = await database.transactionsDao.getTransactionsByIds(
+        ids,
+      );
       final amountChanges = <String, double>{};
       for (final transaction in transactions) {
         amountChanges.update(
@@ -73,16 +77,24 @@ class LocalTransactionRepository implements TransactionRepository {
 
   @override
   Future<void> updateDateForMultipleTransactions(
-      List<String> ids, DateTime newDate) async {
-    await database.transactionsDao
-        .updateDateForMultipleTransactions(ids, newDate);
+    List<String> ids,
+    DateTime newDate,
+  ) async {
+    await database.transactionsDao.updateDateForMultipleTransactions(
+      ids,
+      newDate,
+    );
   }
 
   @override
   Future<void> updateCategoryForMultipleTransactions(
-      List<String> ids, String newCategoryId) async {
-    await database.transactionsDao
-        .updateCategoryForMultipleTransactions(ids, newCategoryId);
+    List<String> ids,
+    String newCategoryId,
+  ) async {
+    await database.transactionsDao.updateCategoryForMultipleTransactions(
+      ids,
+      newCategoryId,
+    );
   }
 
   @override
@@ -98,16 +110,21 @@ class LocalTransactionRepository implements TransactionRepository {
   }
 
   @override
-  Future<List<Transaction>> getTransactionsPaginated(
-      {int limit = 10, int offset = 0}) async {
-    final transactions = await database.transactionsDao
-        .getTransactions(limit: limit, offset: offset);
+  Future<List<Transaction>> getTransactionsPaginated({
+    int limit = 10,
+    int offset = 0,
+  }) async {
+    final transactions = await database.transactionsDao.getTransactions(
+      limit: limit,
+      offset: offset,
+    );
     return transactions.toDomainList();
   }
 
   @override
   Future<List<Transaction>> getTransactionsByCategoryId(
-      String categoryId) async {
+    String categoryId,
+  ) async {
     final transactions = await database.transactionsDao
         .getTransactionsByCategoryId(categoryId);
     return transactions.toDomainList();
@@ -119,14 +136,17 @@ class LocalTransactionRepository implements TransactionRepository {
     final oldTransaction = await getTransactionById(transaction.id!);
     if (oldTransaction != null) {
       // Update the transaction in the database first
-      await database.transactionsDao
-          .updateTransaction(transaction.toCompanion());
+      await database.transactionsDao.updateTransaction(
+        transaction.toCompanion(),
+      );
 
       // Check if the account has changed
       if (oldTransaction.accountId != transaction.accountId) {
         // Revert the amount from the old account
         await _updateAccountBalance(
-            oldTransaction.accountId, -oldTransaction.amount);
+          oldTransaction.accountId,
+          -oldTransaction.amount,
+        );
         // Apply the new amount to the new account
         await _updateAccountBalance(transaction.accountId, transaction.amount);
       } else {
@@ -153,21 +173,21 @@ class LocalTransactionRepository implements TransactionRepository {
     Sort sort = Sort.descending,
     TransactionFilters? filters,
   }) async {
-    final transactions =
-        await database.transactionsDao.getTransactionsWithFilters(
-      limit: limit,
-      offset: offset,
-      sort: sort == Sort.ascending ? OrderingMode.asc : OrderingMode.desc,
-      description: filters?.description,
-      amountFrom: filters?.amountFrom,
-      amountTo: filters?.amountTo,
-      dateFrom: filters?.dateFrom,
-      dateTo: filters?.dateTo,
-      accountId: filters?.accountId,
-      categoryId: filters?.categoryId,
-      currencyCode: filters?.currencyCode,
-      transactionType: filters?.transactionType,
-    );
+    final transactions = await database.transactionsDao
+        .getTransactionsWithFilters(
+          limit: limit,
+          offset: offset,
+          sort: sort == Sort.ascending ? OrderingMode.asc : OrderingMode.desc,
+          description: filters?.description,
+          amountFrom: filters?.amountFrom,
+          amountTo: filters?.amountTo,
+          dateFrom: filters?.dateFrom,
+          dateTo: filters?.dateTo,
+          accountId: filters?.accountId,
+          categoryId: filters?.categoryId,
+          currencyCode: filters?.currencyCode,
+          transactionType: filters?.transactionType,
+        );
     return transactions.toDomainList();
   }
 
@@ -184,5 +204,26 @@ class LocalTransactionRepository implements TransactionRepository {
       currencyCode: filters?.currencyCode,
       transactionType: filters?.transactionType,
     );
+  }
+
+  @override
+  Future<List<GroupedTransactionTotal>> getTransactionTotalsGrouped({
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) async {
+    final totals = await database.transactionsDao.getTransactionTotalsGrouped(
+      dateFrom: dateFrom,
+      dateTo: dateTo,
+    );
+    return totals
+        .map(
+          (t) => GroupedTransactionTotal(
+            categoryId: t.categoryId,
+            currencyCode: t.currencyCode,
+            date: t.date,
+            total: t.total,
+          ),
+        )
+        .toList();
   }
 }

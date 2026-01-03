@@ -23,11 +23,36 @@ abstract class TransactionRepository {
   Future<void> deleteTransaction(String id);
   Future<void> deleteMultipleTransactions(List<String> ids);
   Future<void> updateDateForMultipleTransactions(
-      List<String> ids, DateTime newDate);
+    List<String> ids,
+    DateTime newDate,
+  );
   Future<void> updateCategoryForMultipleTransactions(
-      List<String> ids, String newCategoryId);
+    List<String> ids,
+    String newCategoryId,
+  );
   Future<int> getCountWithFilters({TransactionFilters? filters});
   Future<int> getAllCount();
+  Future<List<GroupedTransactionTotal>> getTransactionTotalsGrouped({
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  });
+}
+
+class GroupedTransactionTotal extends Equatable {
+  final String categoryId;
+  final String currencyCode;
+  final DateTime date;
+  final double total;
+
+  const GroupedTransactionTotal({
+    required this.categoryId,
+    required this.currencyCode,
+    required this.date,
+    required this.total,
+  });
+
+  @override
+  List<Object?> get props => [categoryId, currencyCode, date, total];
 }
 
 class TransactionFilters extends Equatable {
@@ -79,16 +104,16 @@ class TransactionFilters extends Equatable {
 
   @override
   List<Object?> get props => [
-        description,
-        amountFrom,
-        amountTo,
-        dateFrom,
-        dateTo,
-        accountId,
-        categoryId,
-        currencyCode,
-        transactionType,
-      ];
+    description,
+    amountFrom,
+    amountTo,
+    dateFrom,
+    dateTo,
+    accountId,
+    categoryId,
+    currencyCode,
+    transactionType,
+  ];
 }
 
 enum Sort { ascending, descending }

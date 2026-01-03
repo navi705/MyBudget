@@ -105,6 +105,15 @@ class AppTheme {
       popupMenuTheme: hasWindowEffect
           ? PopupMenuThemeData(color: Colors.white.withOpacity(surfaceOpacity))
           : null,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: NoTransitionsBuilder(),
+          TargetPlatform.iOS: NoTransitionsBuilder(),
+          TargetPlatform.windows: NoTransitionsBuilder(),
+          TargetPlatform.linux: NoTransitionsBuilder(),
+          TargetPlatform.macOS: NoTransitionsBuilder(),
+        },
+      ),
     );
   }
 
@@ -199,6 +208,15 @@ class AppTheme {
       popupMenuTheme: hasWindowEffect
           ? PopupMenuThemeData(color: Colors.black.withOpacity(surfaceOpacity))
           : null,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: NoTransitionsBuilder(),
+          TargetPlatform.iOS: NoTransitionsBuilder(),
+          TargetPlatform.windows: NoTransitionsBuilder(),
+          TargetPlatform.linux: NoTransitionsBuilder(),
+          TargetPlatform.macOS: NoTransitionsBuilder(),
+        },
+      ),
     );
   }
 
@@ -238,6 +256,22 @@ class AppTheme {
   /// Convert Color to hex string
   static String toHex(Color color) {
     return '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
+  }
+}
+
+/// A transitions builder that performs no animation.
+class NoTransitionsBuilder extends PageTransitionsBuilder {
+  const NoTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T>? route,
+    BuildContext? context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
   }
 }
 
