@@ -53,6 +53,7 @@ class CustomTheme extends Equatable {
     ThemeMode? themeMode,
     bool? isPreset,
     bool? isActive,
+    bool? clearBackgroundImage,
   }) {
     return CustomTheme(
       id: id ?? this.id,
@@ -61,7 +62,9 @@ class CustomTheme extends Equatable {
       secondaryColor: secondaryColor ?? this.secondaryColor,
       surfaceColor: surfaceColor ?? this.surfaceColor,
       backgroundColor: backgroundColor ?? this.backgroundColor,
-      backgroundImagePath: backgroundImagePath ?? this.backgroundImagePath,
+      backgroundImagePath: clearBackgroundImage == true
+          ? null
+          : (backgroundImagePath ?? this.backgroundImagePath),
       backgroundImageOpacity:
           backgroundImageOpacity ?? this.backgroundImageOpacity,
       backgroundImageBlur: backgroundImageBlur ?? this.backgroundImageBlur,

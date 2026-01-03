@@ -47,138 +47,7 @@ class ThemeSettingsScreen extends StatelessWidget {
   }
 
   Widget _buildPresetsSection(BuildContext context, ThemeState state) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Presets', style: Theme.of(context).textTheme.titleLarge),
-            TextButton.icon(
-              onPressed: () => _showSavePresetDialog(context),
-              icon: const Icon(Icons.add),
-              label: const Text('Save Current'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 120,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: state.presets.length,
-            itemBuilder: (context, index) {
-              final preset = state.presets[index];
-              final isSelected = preset.id == state.activeTheme?.id;
-
-              return Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: GestureDetector(
-                  onTap: () {
-                    context.read<ThemeBloc>().add(SelectThemePreset(preset.id));
-                    if (Platform.isWindows) {
-                      _applyWindowEffect(context, preset);
-                    }
-                  },
-                  child: Container(
-                    width: 140,
-                    decoration: BoxDecoration(
-                      color: preset.backgroundColor,
-                      borderRadius: BorderRadius.circular(12),
-                      border: isSelected
-                          ? Border.all(
-                              color: Theme.of(context).primaryColor,
-                              width: 3,
-                            )
-                          : Border.all(color: Colors.white10),
-                      image:
-                          (preset.backgroundImagePath != null &&
-                              preset.backgroundImagePath!.isNotEmpty)
-                          ? DecorationImage(
-                              image:
-                                  preset.backgroundImagePath!.startsWith(
-                                    'assets/',
-                                  )
-                                  ? AssetImage(preset.backgroundImagePath!)
-                                        as ImageProvider
-                                  : FileImage(
-                                      File(preset.backgroundImagePath!),
-                                    ),
-                              fit: BoxFit.cover,
-                              opacity: 0.6,
-                              colorFilter: ColorFilter.mode(
-                                preset.backgroundColor.withValues(alpha: 0.3),
-                                BlendMode.darken,
-                              ),
-                            )
-                          : null,
-                    ),
-                    child: Stack(
-                      children: [
-                        Center(
-                          child: Text(
-                            preset.name,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              shadows: const [Shadow(blurRadius: 4)],
-                            ),
-                          ),
-                        ),
-                        if (!preset.isPreset)
-                          Positioned(
-                            top: 4,
-                            right: 4,
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.delete,
-                                size: 18,
-                                color: Colors.redAccent,
-                              ),
-                              onPressed: () => context.read<ThemeBloc>().add(
-                                DeleteThemePreset(preset.id),
-                              ),
-                            ),
-                          ),
-                        Positioned(
-                          bottom: 8,
-                          left: 0,
-                          right: 0,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _colorDot(preset.primaryColor),
-                              _colorDot(preset.secondaryColor),
-                              _colorDot(preset.surfaceColor),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _colorDot(Color color) {
-    return Container(
-      width: 12,
-      height: 12,
-      margin: const EdgeInsets.symmetric(horizontal: 2),
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white38, width: 1),
-      ),
-    );
+    return _PresetsSection(state: state);
   }
 
   Widget _buildColorsSection(BuildContext context, CustomTheme theme) {
@@ -277,12 +146,31 @@ class ThemeSettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<WindowEffectType>(
-              initialValue: theme.windowEffectType,
+              value:
+                  WindowEffectType.values
+                      .where((e) {
+                        if (Platform.isMacOS) return true;
+                        if (e == WindowEffectType.vibrancy ||
+                            e == WindowEffectType.aero)
+                          return false;
+                        return true;
+                      })
+                      .contains(theme.windowEffectType)
+                  ? theme.windowEffectType
+                  : WindowEffectType.none,
               decoration: const InputDecoration(
                 labelText: 'Effect Type',
                 border: OutlineInputBorder(),
               ),
               items: WindowEffectType.values
+                  .where((e) {
+                    if (Platform.isMacOS) return true;
+                    // Filter Check
+                    if (e == WindowEffectType.vibrancy ||
+                        e == WindowEffectType.aero)
+                      return false;
+                    return true;
+                  })
                   .map(
                     (e) =>
                         DropdownMenuItem(value: e, child: Text(e.displayName)),
@@ -300,6 +188,30 @@ class ThemeSettingsScreen extends StatelessWidget {
                 }
               },
             ),
+            if (theme.windowEffectType == WindowEffectType.transparent) ...[
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Remove background color'),
+                value: theme.backgroundColor.a == 0,
+                onChanged: (v) {
+                  if (v == true) {
+                    _update(context, backgroundColor: Colors.transparent);
+                  } else {
+                    // Restore to a default dark color if unchecked
+                    _update(context, backgroundColor: const Color(0xFF121212));
+                  }
+                },
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Transparent Surface (Cards)'),
+                value: theme.surfaceOpacity < 0.1,
+                onChanged: (v) {
+                  _update(context, surfaceOpacity: v == true ? 0.0 : 1.0);
+                },
+              ),
+            ],
             if (theme.windowEffectType != WindowEffectType.none) ...[
               const SizedBox(height: 16),
               Text(
@@ -452,7 +364,6 @@ class ThemeSettingsScreen extends StatelessWidget {
     WindowEffectType? windowEffectType,
     double? effectOpacity,
     double? surfaceOpacity,
-    double? surfaceBlur,
     ThemeMode? themeMode,
     bool clearBackgroundImage = false,
   }) {
@@ -471,6 +382,285 @@ class ThemeSettingsScreen extends StatelessWidget {
         themeMode: themeMode,
         clearBackgroundImage: clearBackgroundImage,
       ),
+    );
+  }
+
+  void _applyWindowEffect(BuildContext context, CustomTheme theme) {
+    if (!Platform.isWindows) return;
+
+    final brightness = theme.themeMode == ThemeMode.system
+        ? MediaQuery.platformBrightnessOf(context)
+        : (theme.themeMode == ThemeMode.dark
+              ? Brightness.dark
+              : Brightness.light);
+
+    WindowEffect windowEffect;
+    switch (theme.windowEffectType) {
+      case WindowEffectType.none:
+        windowEffect = WindowEffect.disabled;
+        break;
+      case WindowEffectType.acrylic:
+        windowEffect = WindowEffect.acrylic;
+        break;
+      case WindowEffectType.mica:
+        windowEffect = WindowEffect.mica;
+        break;
+      case WindowEffectType.aero:
+        windowEffect = WindowEffect.aero;
+        break;
+      case WindowEffectType.vibrancy:
+        windowEffect = WindowEffect.disabled; // Not on Windows
+        break;
+      case WindowEffectType.transparent:
+        windowEffect = WindowEffect.transparent;
+        break;
+    }
+
+    // If background color is transparent (e.g. "Remove background color" checked),
+    // use surface color as the tint base to preserve some theme color/neutrality
+    // instead of defaulting to pure black tint.
+    final tintColor = theme.backgroundColor.a == 0
+        ? theme.surfaceColor
+        : theme.backgroundColor;
+
+    // Fix for Transparent Glitch:
+    // If opacity is too low, the system might treat it as "Opaque".
+    // 0.05 failed. Trying 0.15 (15%).
+    final effectiveOpacity = theme.effectOpacity < 0.15
+        ? 0.15
+        : theme.effectOpacity;
+
+    final finalColor = AppTheme.getWindowTintColor(
+      tintColor,
+      brightness,
+      effectiveOpacity,
+      theme.windowEffectType,
+    );
+
+    Window.setEffect(
+      effect: windowEffect,
+      color: finalColor,
+      dark: brightness == Brightness.dark,
+    );
+  }
+}
+
+class _PresetsSection extends StatefulWidget {
+  final ThemeState state;
+
+  const _PresetsSection({required this.state});
+
+  @override
+  State<_PresetsSection> createState() => _PresetsSectionState();
+}
+
+class _PresetsSectionState extends State<_PresetsSection> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _applyWindowEffect(BuildContext context, CustomTheme theme) {
+    if (!Platform.isWindows) return;
+
+    final brightness = theme.themeMode == ThemeMode.system
+        ? MediaQuery.platformBrightnessOf(context)
+        : (theme.themeMode == ThemeMode.dark
+              ? Brightness.dark
+              : Brightness.light);
+
+    WindowEffect windowEffect;
+    switch (theme.windowEffectType) {
+      case WindowEffectType.none:
+        windowEffect = WindowEffect.disabled;
+        break;
+      case WindowEffectType.acrylic:
+        windowEffect = WindowEffect.acrylic;
+        break;
+      case WindowEffectType.mica:
+        windowEffect = WindowEffect.mica;
+        break;
+      case WindowEffectType.aero:
+        windowEffect = WindowEffect.aero;
+        break;
+      case WindowEffectType.vibrancy:
+        windowEffect = WindowEffect.disabled;
+        break;
+      case WindowEffectType.transparent:
+        windowEffect = WindowEffect.transparent;
+        break;
+    }
+
+    // If background color is transparent (e.g. "Remove background color" checked),
+    // use surface color as the tint base to preserve some theme color/neutrality
+    // instead of defaulting to pure black tint.
+    final tintColor = theme.backgroundColor.a == 0
+        ? theme.surfaceColor
+        : theme.backgroundColor;
+
+    // Fix for Transparent Glitch:
+    // If opacity is too low, the system might treat it as "Opaque".
+    // Clamping to 0.15 (15%) to ensure transparency remains active.
+    final effectiveOpacity = theme.effectOpacity < 0.15
+        ? 0.15
+        : theme.effectOpacity;
+
+    Window.setEffect(
+      effect: windowEffect,
+      color: AppTheme.getWindowTintColor(
+        tintColor,
+        brightness,
+        effectiveOpacity,
+        theme.windowEffectType,
+      ),
+      dark: brightness == Brightness.dark,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Presets', style: Theme.of(context).textTheme.titleLarge),
+            TextButton.icon(
+              onPressed: () {
+                // Find ancestor to show dialog
+                // Find ancestor to show dialog
+                // final themeScreen = context
+                //     .findAncestorWidgetOfExactType<ThemeSettingsScreen>();
+                // We can't easily call private method on ancestor.
+                // For now, let's just duplicate the dialog logic or pass a callback.
+                // Actually, simpler is to just let the Bloc handle the event if we can trigger the dialog.
+                // We'll reimplement the dialog opener here locally as it's cleaner.
+                _showSavePresetDialog(context);
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Save Current'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 140, // Increased height for scrollbar
+          child: Scrollbar(
+            controller: _scrollController,
+            thumbVisibility: true,
+            trackVisibility: true,
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.only(
+                bottom: 16,
+              ), // Padding for scrollbar
+              scrollDirection: Axis.horizontal,
+              itemCount: widget.state.presets.length,
+              itemBuilder: (context, index) {
+                final preset = widget.state.presets[index];
+                final isSelected = preset.id == widget.state.activeTheme?.id;
+
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: GestureDetector(
+                    onTap: () {
+                      context.read<ThemeBloc>().add(
+                        SelectThemePreset(preset.id),
+                      );
+                      if (Platform.isWindows) {
+                        _applyWindowEffect(context, preset);
+                      }
+                    },
+                    child: Container(
+                      width: 140,
+                      decoration: BoxDecoration(
+                        color: preset.backgroundColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: isSelected
+                            ? Border.all(
+                                color: Theme.of(context).primaryColor,
+                                width: 3,
+                              )
+                            : Border.all(color: Colors.white10),
+                        image:
+                            (preset.backgroundImagePath != null &&
+                                preset.backgroundImagePath!.isNotEmpty)
+                            ? DecorationImage(
+                                image:
+                                    preset.backgroundImagePath!.startsWith(
+                                      'assets/',
+                                    )
+                                    ? AssetImage(preset.backgroundImagePath!)
+                                          as ImageProvider
+                                    : FileImage(
+                                        File(preset.backgroundImagePath!),
+                                      ),
+                                fit: BoxFit.cover,
+                                opacity: 0.6,
+                                colorFilter: ColorFilter.mode(
+                                  preset.backgroundColor.withValues(alpha: 0.3),
+                                  BlendMode.darken,
+                                ),
+                              )
+                            : null,
+                      ),
+                      child: Stack(
+                        children: [
+                          Center(
+                            child: Text(
+                              preset.name,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                shadows: const [Shadow(blurRadius: 4)],
+                              ),
+                            ),
+                          ),
+                          if (!preset.isPreset)
+                            Positioned(
+                              top: 4,
+                              right: 4,
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  size: 18,
+                                  color: Colors.redAccent,
+                                ),
+                                onPressed: () => context.read<ThemeBloc>().add(
+                                  DeleteThemePreset(preset.id),
+                                ),
+                              ),
+                            ),
+                          Positioned(
+                            bottom: 8,
+                            left: 0,
+                            right: 0,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _colorDot(preset.primaryColor),
+                                _colorDot(preset.secondaryColor),
+                                _colorDot(preset.surfaceColor),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -507,44 +697,15 @@ class ThemeSettingsScreen extends StatelessWidget {
     );
   }
 
-  void _applyWindowEffect(BuildContext context, CustomTheme theme) {
-    if (!Platform.isWindows) return;
-
-    final brightness = theme.themeMode == ThemeMode.system
-        ? MediaQuery.platformBrightnessOf(context)
-        : (theme.themeMode == ThemeMode.dark
-              ? Brightness.dark
-              : Brightness.light);
-
-    WindowEffect windowEffect;
-    switch (theme.windowEffectType) {
-      case WindowEffectType.none:
-        windowEffect = WindowEffect.disabled;
-        break;
-      case WindowEffectType.acrylic:
-        windowEffect = WindowEffect.acrylic;
-        break;
-      case WindowEffectType.mica:
-        windowEffect = WindowEffect.mica;
-        break;
-      case WindowEffectType.aero:
-        windowEffect = WindowEffect.aero;
-        break;
-      case WindowEffectType.vibrancy:
-        windowEffect = WindowEffect.disabled; // Not on Windows
-        break;
-      case WindowEffectType.transparent:
-        windowEffect = WindowEffect.transparent;
-        break;
-    }
-
-    Window.setEffect(
-      effect: windowEffect,
-      color: AppTheme.getWindowTintColor(
-        theme.backgroundColor,
-        brightness,
-        1.0 - theme.effectOpacity,
-        theme.windowEffectType,
+  Widget _colorDot(Color color) {
+    return Container(
+      width: 12,
+      height: 12,
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white38, width: 1),
       ),
     );
   }

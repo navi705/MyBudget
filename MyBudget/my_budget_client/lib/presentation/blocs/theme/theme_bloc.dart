@@ -6,6 +6,9 @@ import 'package:my_budget_client/core/theme/default_themes.dart';
 import 'package:my_budget_client/domain/entities/custom_theme.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/theme_repository.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 part 'theme_event.dart';
 part 'theme_state.dart';
@@ -118,15 +121,43 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
   ) async {
     if (state.activeTheme == null) return;
 
+    String? bgPath = event.backgroundImagePath;
+
+    // Logic to save image to app storage if it's new and not an asset
+    if (bgPath != null &&
+        !event.clearBackgroundImage &&
+        !bgPath.startsWith('assets/')) {
+      try {
+        final File file = File(bgPath);
+        if (await file.exists()) {
+          final appDir = await getApplicationDocumentsDirectory();
+          final fileName = p.basename(bgPath);
+          final savedDir = Directory(p.join(appDir.path, 'custom_backgrounds'));
+          if (!await savedDir.exists()) {
+            await savedDir.create(recursive: true);
+          }
+          final savedFile = File(p.join(savedDir.path, fileName));
+
+          // Copy only if paths are different (avoid error if user picks same file from app dir)
+          if (file.path != savedFile.path) {
+            await file.copy(savedFile.path);
+            bgPath = savedFile.path;
+          }
+        }
+      } catch (e) {
+        debugPrint('Error saving background image: $e');
+        // Fallback to original path if copy fails
+      }
+    }
+
     CustomTheme updatedTheme = state.activeTheme!.copyWith(
       primaryColor: event.primaryColor,
       secondaryColor: event.secondaryColor,
-      surfaceColor: event.surfaceColor,
+      surfaceColor:
+          event.surfaceColor, // Keep color even if clearBackgroundImage is true
       backgroundColor: event.backgroundColor,
-      backgroundImagePath: event.clearBackgroundImage
-          ? null
-          : (event.backgroundImagePath ??
-                state.activeTheme!.backgroundImagePath),
+      backgroundImagePath: bgPath,
+      clearBackgroundImage: event.clearBackgroundImage,
       backgroundImageOpacity: event.backgroundImageOpacity,
       backgroundImageBlur: event.backgroundImageBlur,
       windowEffectType: event.windowEffectType,

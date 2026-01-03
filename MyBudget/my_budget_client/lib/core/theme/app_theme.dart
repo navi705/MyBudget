@@ -159,13 +159,13 @@ class AppTheme {
     WindowEffectType effect,
   ) {
     if (effect == WindowEffectType.mica) {
-      return surfaceColor.withValues(alpha: opacity * 0.2);
+      return surfaceColor.withValues(alpha: opacity);
     }
     if (effect == WindowEffectType.acrylic) {
       return surfaceColor.withValues(alpha: opacity);
     }
     if (effect == WindowEffectType.aero) {
-      return surfaceColor.withValues(alpha: opacity * 0.5);
+      return surfaceColor.withValues(alpha: opacity);
     }
     if (effect == WindowEffectType.vibrancy) {
       return surfaceColor.withValues(alpha: opacity);
