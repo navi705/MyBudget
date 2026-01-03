@@ -10,16 +10,17 @@ class CalendarStepPicker extends StatefulWidget {
   final DateTimeRange? initialRange;
   final DateStep initialStep;
   final FilterMode initialFilterMode;
-  
+
   // Configuration to hide specific sections
   final PickerVisibility rangeOptionVisibility;
-  
+
   final Function(
-    DateTime date, 
-    DateTimeRange? range, 
-    DateStep step, 
-    FilterMode mode
-  ) onApply;
+    DateTime date,
+    DateTimeRange? range,
+    DateStep step,
+    FilterMode mode,
+  )
+  onApply;
 
   const CalendarStepPicker({
     super.key,
@@ -41,7 +42,7 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
   late DateStep _currentStep;
   late FilterMode _currentFilterMode;
   DateTime? _tempRangeStart;
-  
+
   late ScrollController _monthScrollController;
   late ScrollController _yearScrollController;
 
@@ -52,11 +53,11 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
     _currentRange = widget.initialRange;
     _currentStep = widget.initialStep;
     _currentFilterMode = widget.initialFilterMode;
-    
+
     _monthScrollController = ScrollController();
     _yearScrollController = ScrollController();
-    
-    if (widget.rangeOptionVisibility == PickerVisibility.hidden && 
+
+    if (widget.rangeOptionVisibility == PickerVisibility.hidden &&
         _currentFilterMode == FilterMode.range) {
       _currentFilterMode = FilterMode.date;
     }
@@ -86,7 +87,7 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
 
   void _scrollToInitial() {
     if (_currentStep == DateStep.month) {
-      final monthIndex = _currentDate.month -1;
+      final monthIndex = _currentDate.month - 1;
       final screenWidth = MediaQuery.of(context).size.width;
       final gridWidth = screenWidth < 400 ? screenWidth - 32 : 400 - 32;
       final itemWidth = gridWidth / 3;
@@ -119,7 +120,7 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
           } else {
             _currentRange = DateTimeRange(start: _tempRangeStart!, end: date);
           }
-          _tempRangeStart = null; 
+          _tempRangeStart = null;
         }
       } else {
         _currentDate = date;
@@ -144,7 +145,7 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
         children: [
           _buildHeader(context),
           const SizedBox(height: 16),
-          
+
           if (widget.rangeOptionVisibility == PickerVisibility.visible) ...[
             _buildTopModeSelector(),
             const SizedBox(height: 16),
@@ -159,11 +160,11 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
               child: _buildPickerBody(),
             ),
           ),
-          
+
           const SizedBox(height: 16),
           _buildBottomStepSelector(),
           const SizedBox(height: 16),
-          
+
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -180,7 +181,7 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
                 child: const Text('Clear'),
               ),
               const SizedBox(width: 8),
-              ElevatedButton(
+              FilledButton.tonal(
                 onPressed: () {
                   widget.onApply(
                     _currentDate,
@@ -190,9 +191,14 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
                   );
                   Navigator.of(context).pop();
                 },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: const Text('Apply'),
               ),
@@ -238,15 +244,22 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
                   _currentFilterMode = FilterMode.date;
                   _tempRangeStart = null;
                 });
-              }
+              },
             ),
-            Container(width: 1, height: 40, color: Theme.of(context).dividerColor),
+            Container(
+              width: 1,
+              height: 40,
+              color: Theme.of(context).dividerColor,
+            ),
             _buildTabButton(
               label: 'Range',
               isSelected: _currentFilterMode == FilterMode.range,
               onTap: () => setState(() {
-                 _currentFilterMode = FilterMode.range;
-                 _currentRange ??= DateTimeRange(start: _currentDate, end: _currentDate);
+                _currentFilterMode = FilterMode.range;
+                _currentRange ??= DateTimeRange(
+                  start: _currentDate,
+                  end: _currentDate,
+                );
               }),
             ),
           ],
@@ -268,9 +281,17 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildStepButton('Day', DateStep.day),
-            Container(width: 1, height: 40, color: Theme.of(context).dividerColor),
+            Container(
+              width: 1,
+              height: 40,
+              color: Theme.of(context).dividerColor,
+            ),
             _buildStepButton('Month', DateStep.month),
-            Container(width: 1, height: 40, color: Theme.of(context).dividerColor),
+            Container(
+              width: 1,
+              height: 40,
+              color: Theme.of(context).dividerColor,
+            ),
             _buildStepButton('Year', DateStep.year),
           ],
         ),
@@ -290,9 +311,9 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
   }
 
   Widget _buildTabButton({
-    required String label, 
-    required bool isSelected, 
-    required VoidCallback onTap
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
   }) {
     final primaryColor = Theme.of(context).primaryColor;
     final onPrimaryColor = Theme.of(context).colorScheme.onPrimary;
@@ -323,7 +344,7 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
     final onPrimaryColor = Theme.of(context).colorScheme.onPrimary;
 
     if (_currentStep == DateStep.year) {
-       return GridView.builder(
+      return GridView.builder(
         controller: _yearScrollController,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
@@ -335,15 +356,23 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
           final yearDate = DateTime(year);
 
           bool isSelected = false;
-           if (_currentFilterMode == FilterMode.range && _currentRange != null) {
-              isSelected = year >= _currentRange!.start.year && year <= _currentRange!.end.year;
-           } else {
-              isSelected = year == _currentDate.year;
-           }
-          
-          bool isStart = _currentFilterMode == FilterMode.range && _currentRange != null && year == _currentRange!.start.year;
-          bool isEnd = _currentFilterMode == FilterMode.range && _currentRange != null && year == _currentRange!.end.year;
-          
+          if (_currentFilterMode == FilterMode.range && _currentRange != null) {
+            isSelected =
+                year >= _currentRange!.start.year &&
+                year <= _currentRange!.end.year;
+          } else {
+            isSelected = year == _currentDate.year;
+          }
+
+          bool isStart =
+              _currentFilterMode == FilterMode.range &&
+              _currentRange != null &&
+              year == _currentRange!.start.year;
+          bool isEnd =
+              _currentFilterMode == FilterMode.range &&
+              _currentRange != null &&
+              year == _currentRange!.end.year;
+
           Color? backgroundColor;
           if (isStart || isEnd) {
             backgroundColor = primaryColor;
@@ -360,7 +389,9 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
                 color: backgroundColor,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: year == DateTime.now().year ? primaryColor : Colors.grey.withAlpha(50)
+                  color: year == DateTime.now().year
+                      ? primaryColor
+                      : Colors.grey.withAlpha(50),
                 ),
               ),
               alignment: Alignment.center,
@@ -387,12 +418,28 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.chevron_left),
-                  onPressed: () => setState(() => _currentDate = DateTime(_currentDate.year - 1, _currentDate.month)),
+                  onPressed: () => setState(
+                    () => _currentDate = DateTime(
+                      _currentDate.year - 1,
+                      _currentDate.month,
+                    ),
+                  ),
                 ),
-                Text('${_currentDate.year}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  '${_currentDate.year}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 IconButton(
                   icon: const Icon(Icons.chevron_right),
-                  onPressed: () => setState(() => _currentDate = DateTime(_currentDate.year + 1, _currentDate.month)),
+                  onPressed: () => setState(
+                    () => _currentDate = DateTime(
+                      _currentDate.year + 1,
+                      _currentDate.month,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -410,16 +457,37 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
                 final monthDate = DateTime(_currentDate.year, index + 1);
 
                 bool isSelected = false;
-                if (_currentFilterMode == FilterMode.range && _currentRange != null) {
-                    final firstDayOfMonth = DateTime(monthDate.year, monthDate.month, 1);
-                    final lastDayOfMonth = DateTime(monthDate.year, monthDate.month + 1, 0);
-                    isSelected = !(firstDayOfMonth.isAfter(_currentRange!.end) || lastDayOfMonth.isBefore(_currentRange!.start));
+                if (_currentFilterMode == FilterMode.range &&
+                    _currentRange != null) {
+                  final firstDayOfMonth = DateTime(
+                    monthDate.year,
+                    monthDate.month,
+                    1,
+                  );
+                  final lastDayOfMonth = DateTime(
+                    monthDate.year,
+                    monthDate.month + 1,
+                    0,
+                  );
+                  isSelected =
+                      !(firstDayOfMonth.isAfter(_currentRange!.end) ||
+                          lastDayOfMonth.isBefore(_currentRange!.start));
                 } else {
-                    isSelected = monthDate.month == _currentDate.month && monthDate.year == _currentDate.year;
+                  isSelected =
+                      monthDate.month == _currentDate.month &&
+                      monthDate.year == _currentDate.year;
                 }
-                
-                bool isStart = _currentFilterMode == FilterMode.range && _currentRange != null && monthDate.year == _currentRange!.start.year && monthDate.month == _currentRange!.start.month;
-                bool isEnd = _currentFilterMode == FilterMode.range && _currentRange != null && monthDate.year == _currentRange!.end.year && monthDate.month == _currentRange!.end.month;
+
+                bool isStart =
+                    _currentFilterMode == FilterMode.range &&
+                    _currentRange != null &&
+                    monthDate.year == _currentRange!.start.year &&
+                    monthDate.month == _currentRange!.start.month;
+                bool isEnd =
+                    _currentFilterMode == FilterMode.range &&
+                    _currentRange != null &&
+                    monthDate.year == _currentRange!.end.year &&
+                    monthDate.month == _currentRange!.end.month;
 
                 Color? backgroundColor;
                 if (isStart || isEnd) {
@@ -437,7 +505,9 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
                       color: backgroundColor,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: isSelected ? primaryColor : Colors.grey.withAlpha(128)
+                        color: isSelected
+                            ? primaryColor
+                            : Colors.grey.withAlpha(128),
                       ),
                     ),
                     alignment: Alignment.center,
@@ -456,37 +526,44 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
         ],
       );
     }
-    
+
     if (_currentFilterMode == FilterMode.range) {
-      date_pickers.DatePickerRangeStyles styles = date_pickers.DatePickerRangeStyles(
-        selectedPeriodStartDecoration: BoxDecoration(
-          color: primaryColor,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(10.0),
-            bottomLeft: Radius.circular(10.0),
-          ),
-        ),
-        selectedPeriodMiddleDecoration: BoxDecoration(
-          color: primaryColor.withAlpha(100),
-        ),
-        selectedPeriodLastDecoration: BoxDecoration(
-          color: primaryColor,
-          borderRadius: const BorderRadius.only(
-            topRight: Radius.circular(10.0),
-            bottomRight: Radius.circular(10.0),
-          ),
-        ),
-        selectedDateStyle: TextStyle(
-          color: onPrimaryColor,
-          fontWeight: FontWeight.bold,
-        ),
-      );
+      date_pickers.DatePickerRangeStyles styles =
+          date_pickers.DatePickerRangeStyles(
+            selectedPeriodStartDecoration: BoxDecoration(
+              color: primaryColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(10.0),
+                bottomLeft: Radius.circular(10.0),
+              ),
+            ),
+            selectedPeriodMiddleDecoration: BoxDecoration(
+              color: primaryColor.withAlpha(100),
+            ),
+            selectedPeriodLastDecoration: BoxDecoration(
+              color: primaryColor,
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(10.0),
+                bottomRight: Radius.circular(10.0),
+              ),
+            ),
+            selectedDateStyle: TextStyle(
+              color: onPrimaryColor,
+              fontWeight: FontWeight.bold,
+            ),
+          );
 
       return date_pickers.RangePicker(
-        selectedPeriod: date_pickers.DatePeriod(_currentRange!.start, _currentRange!.end),
+        selectedPeriod: date_pickers.DatePeriod(
+          _currentRange!.start,
+          _currentRange!.end,
+        ),
         onChanged: (date_pickers.DatePeriod newPeriod) {
           setState(() {
-            _currentRange = DateTimeRange(start: newPeriod.start, end: newPeriod.end);
+            _currentRange = DateTimeRange(
+              start: newPeriod.start,
+              end: newPeriod.end,
+            );
           });
         },
         firstDate: DateTime(2000),

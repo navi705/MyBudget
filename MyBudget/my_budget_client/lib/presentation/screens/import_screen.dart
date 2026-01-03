@@ -152,11 +152,11 @@ class _ImportViewState extends State<_ImportView> {
           ),
           const SizedBox(height: 16),
           // JSON Backup Import
-          ElevatedButton.icon(
+          FilledButton.tonalIcon(
             icon: const Icon(Icons.restore),
             label: const Text('Restore Backup (JSON)'),
             onPressed: () => _handleGeneralImport(false), // JSON
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               textStyle: Theme.of(context).textTheme.titleMedium,
               backgroundColor: Theme.of(context).colorScheme.errorContainer,
@@ -236,7 +236,7 @@ class _ImportViewState extends State<_ImportView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              ElevatedButton.icon(
+              FilledButton.tonalIcon(
                 icon: const Icon(Icons.add_circle_outline),
                 label: const Text('Create All New'),
                 onPressed: () {
@@ -290,7 +290,7 @@ class _ImportViewState extends State<_ImportView> {
                             child: const Text('Map to Existing'),
                           ),
                           const SizedBox(width: 8),
-                          ElevatedButton(
+                          FilledButton.tonal(
                             onPressed: () {
                               context.read<ImportBloc>().add(
                                 MapAccount(accountName, 'new'),
@@ -320,7 +320,7 @@ class _ImportViewState extends State<_ImportView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              ElevatedButton.icon(
+              FilledButton.tonalIcon(
                 icon: const Icon(Icons.add_circle_outline),
                 label: const Text('Create All New'),
                 onPressed: () {
@@ -376,7 +376,7 @@ class _ImportViewState extends State<_ImportView> {
                             child: const Text('Map to Existing'),
                           ),
                           const SizedBox(width: 8),
-                          ElevatedButton(
+                          FilledButton.tonal(
                             onPressed: () {
                               context.read<ImportBloc>().add(
                                 MapCategory(categoryName, 'new'),
@@ -406,7 +406,7 @@ class _ImportViewState extends State<_ImportView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              ElevatedButton.icon(
+              FilledButton.tonalIcon(
                 icon: const Icon(Icons.add_circle_outline),
                 label: const Text('Create All New'),
                 onPressed: () {
@@ -462,7 +462,7 @@ class _ImportViewState extends State<_ImportView> {
                             child: const Text('Map to Existing'),
                           ),
                           const SizedBox(width: 8),
-                          ElevatedButton(
+                          FilledButton.tonal(
                             onPressed: () {
                               context.read<ImportBloc>().add(
                                 MapCurrency(currencyName, 'new'),
@@ -504,7 +504,7 @@ class _ImportViewState extends State<_ImportView> {
                 },
               ),
               const SizedBox(width: 8),
-              ElevatedButton.icon(
+              FilledButton.tonalIcon(
                 icon: const Icon(Icons.download),
                 label: const Text('Import All'),
                 onPressed: () {
@@ -558,7 +558,7 @@ class _ImportViewState extends State<_ImportView> {
                               child: const Text('Skip'),
                             ),
                             const SizedBox(width: 8),
-                            ElevatedButton(
+                            FilledButton.tonal(
                               onPressed: () {
                                 context.read<ImportBloc>().add(
                                   ResolveDuplicate(record, 'import'),
@@ -609,11 +609,11 @@ class _ImportViewState extends State<_ImportView> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton(
+            FilledButton.tonal(
               onPressed: () {
                 context.read<ImportBloc>().add(FinalizeImport());
               },
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 48,
                   vertical: 16,

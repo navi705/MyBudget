@@ -19,6 +19,8 @@ class AppTheme {
   /// Generate light theme from primary color
   static ThemeData lightTheme(
     Color primaryColor, {
+    Color secondaryColor = const Color(0xFF9C27B0),
+    Color surfaceColor = Colors.white,
     bool hasWindowEffect = false,
     double windowOpacity = 0.8,
   }) {
@@ -26,15 +28,17 @@ class AppTheme {
     final surfaceOpacity = hasWindowEffect
         ? windowOpacity.clamp(0.2, 0.9)
         : 1.0;
-    final translucentSurface = Colors.white.withOpacity(surfaceOpacity * 0.6);
+    final translucentSurface = surfaceColor.withOpacity(surfaceOpacity * 0.6);
 
     final colorScheme =
         ColorScheme.fromSeed(
           seedColor: primaryColor,
           brightness: Brightness.light,
+          primary: primaryColor,
+          secondary: secondaryColor,
+          surface: hasWindowEffect ? translucentSurface : surfaceColor,
         ).copyWith(
-          surface: hasWindowEffect ? translucentSurface : null,
-          surfaceVariant: hasWindowEffect
+          surfaceContainerHighest: hasWindowEffect
               ? Colors.white.withOpacity(surfaceOpacity * 0.4)
               : null,
         );
@@ -46,7 +50,6 @@ class AppTheme {
       scaffoldBackgroundColor: hasWindowEffect ? Colors.transparent : null,
       canvasColor: hasWindowEffect ? Colors.transparent : null,
       cardColor: hasWindowEffect ? translucentSurface : null,
-      dialogBackgroundColor: hasWindowEffect ? translucentSurface : null,
       cardTheme: hasWindowEffect
           ? CardThemeData(
               elevation: 4,
@@ -108,6 +111,8 @@ class AppTheme {
   /// Generate dark theme from primary color
   static ThemeData darkTheme(
     Color primaryColor, {
+    Color secondaryColor = const Color(0xFF9C27B0),
+    Color surfaceColor = const Color(0xFF121212),
     bool hasWindowEffect = false,
     double windowOpacity = 0.8,
   }) {
@@ -115,15 +120,17 @@ class AppTheme {
     final surfaceOpacity = hasWindowEffect
         ? windowOpacity.clamp(0.2, 0.9)
         : 1.0;
-    final translucentSurface = Colors.black.withOpacity(surfaceOpacity * 0.4);
+    final translucentSurface = surfaceColor.withOpacity(surfaceOpacity * 0.4);
 
     final colorScheme =
         ColorScheme.fromSeed(
           seedColor: primaryColor,
           brightness: Brightness.dark,
+          primary: primaryColor,
+          secondary: secondaryColor,
+          surface: hasWindowEffect ? translucentSurface : surfaceColor,
         ).copyWith(
-          surface: hasWindowEffect ? translucentSurface : null,
-          surfaceVariant: hasWindowEffect
+          surfaceContainerHighest: hasWindowEffect
               ? Colors.black.withOpacity(surfaceOpacity * 0.3)
               : null,
         );
@@ -135,7 +142,6 @@ class AppTheme {
       scaffoldBackgroundColor: hasWindowEffect ? Colors.transparent : null,
       canvasColor: hasWindowEffect ? Colors.transparent : null,
       cardColor: hasWindowEffect ? translucentSurface : null,
-      dialogBackgroundColor: hasWindowEffect ? translucentSurface : null,
       cardTheme: hasWindowEffect
           ? CardThemeData(
               elevation: 8,
@@ -198,32 +204,26 @@ class AppTheme {
 
   /// Get the tint color for the window effect based on theme and opacity
   static Color getWindowTintColor(
-    Color themeColor,
+    Color surfaceColor,
     Brightness brightness,
     double opacity,
     WindowEffectType effect,
   ) {
-    final baseColor = brightness == Brightness.light
-        ? Colors.white
-        : Colors.black;
-
     if (effect == WindowEffectType.mica) {
-      // Mica is very subtle and generally doesn't support custom colors well on Windows
-      return baseColor.withOpacity(opacity * 0.2);
+      // Mica is very subtle
+      return surfaceColor.withOpacity(opacity * 0.2);
     }
 
     if (effect == WindowEffectType.acrylic) {
-      // For acrylic, we mix the base color with the theme color for a subtle brand feel
-      return Color.lerp(baseColor, themeColor, 0.15)!.withOpacity(opacity);
+      // For acrylic, we use the user's surface color as the tint
+      return surfaceColor.withOpacity(opacity);
     }
 
     if (effect == WindowEffectType.transparent) {
-      // For 'Transparent', we use the theme color directly
-      // but slightly blended with white/black to ensure it's not too vibrant/harsh
-      return Color.lerp(baseColor, themeColor, 0.6)!.withOpacity(opacity);
+      return surfaceColor.withOpacity(opacity);
     }
 
-    return baseColor.withOpacity(opacity);
+    return surfaceColor.withOpacity(opacity);
   }
 
   /// Parse hex color string to Color

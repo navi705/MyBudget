@@ -23,37 +23,39 @@ class DebugScreen extends StatelessWidget {
     context.read<DashboardBloc>().add(LoadDashboard());
     context.read<SettingsBloc>().add(LoadSettings());
     context.read<StylesBloc>().add(LoadStyles());
-    context.read<TransactionsBloc>().add(const InitialLoadTransactions()); //TODO remove direction scroll
+    context.read<TransactionsBloc>().add(
+      const InitialLoadTransactions(),
+    ); //TODO remove direction scroll
   }
 
   @override
   Widget build(BuildContext context) {
     //final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Debug Menu'),
-      ),
+      appBar: AppBar(title: const Text('Debug Menu')),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              ElevatedButton(
+              FilledButton.tonal(
                 onPressed: () async {
                   await DebugDataSeeder.clearAllData();
                   if (!context.mounted) return;
                   _reloadAllBlocs(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content: Text(
-                            'All data cleared and re-seeded with defaults.')),
+                      content: Text(
+                        'All data cleared and re-seeded with defaults.',
+                      ),
+                    ),
                   );
                 },
                 child: const Text('Clear All Data (and re-seed defaults)'),
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
+              FilledButton.tonal(
                 onPressed: () async {
                   await DebugDataSeeder.seedMinimumData();
                   if (!context.mounted) return;
@@ -65,7 +67,7 @@ class DebugScreen extends StatelessWidget {
                 child: const Text('Seed Minimum Data'),
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
+              FilledButton.tonal(
                 onPressed: () async {
                   await DebugDataSeeder.seedMediumData();
                   if (!context.mounted) return;
@@ -77,7 +79,7 @@ class DebugScreen extends StatelessWidget {
                 child: const Text('Seed Medium Data'),
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
+              FilledButton.tonal(
                 onPressed: () async {
                   await DebugDataSeeder.seedMaximumData();
                   if (!context.mounted) return;

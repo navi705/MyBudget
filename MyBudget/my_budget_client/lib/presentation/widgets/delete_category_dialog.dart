@@ -50,7 +50,8 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-                'This category has associated transactions. What would you like to do?'),
+              'This category has associated transactions. What would you like to do?',
+            ),
             ListTile(
               title: const Text('Reassign transactions to another category'),
               leading: Radio<DeleteCategoryOption>(
@@ -66,10 +67,9 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
               DropdownButtonFormField<String>(
                 initialValue: _newCategoryId,
                 items: availableCategories
-                    .map((c) => DropdownMenuItem(
-                          value: c.id,
-                          child: Text(c.name),
-                        ))
+                    .map(
+                      (c) => DropdownMenuItem(value: c.id, child: Text(c.name)),
+                    )
                     .toList(),
                 onChanged: (value) {
                   setState(() {
@@ -97,7 +97,7 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
+        FilledButton.tonal(
           onPressed: () {
             if (_selectedOption == DeleteCategoryOption.reassign &&
                 _newCategoryId == null) {
@@ -105,13 +105,13 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
             }
 
             context.read<CategoriesBloc>().add(
-                  DeleteCategoryConfirmed(
-                    categoryToDelete: widget.categoryToDelete,
-                    deleteTransactions:
-                        _selectedOption == DeleteCategoryOption.delete,
-                    newCategoryId: _newCategoryId,
-                  ),
-                );
+              DeleteCategoryConfirmed(
+                categoryToDelete: widget.categoryToDelete,
+                deleteTransactions:
+                    _selectedOption == DeleteCategoryOption.delete,
+                newCategoryId: _newCategoryId,
+              ),
+            );
             Navigator.of(context).pop();
           },
           child: const Text('Confirm'),

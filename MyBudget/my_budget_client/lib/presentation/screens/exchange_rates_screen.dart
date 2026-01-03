@@ -234,7 +234,7 @@ class _ExchangeRatesView extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            ElevatedButton(
+            FilledButton.tonal(
               onPressed: () {
                 final rate = double.tryParse(rateController.text);
                 if (fromController.text.isNotEmpty &&

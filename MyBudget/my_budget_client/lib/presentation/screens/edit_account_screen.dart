@@ -40,10 +40,12 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     _initialAccount = widget.account;
 
     _nameController = TextEditingController(text: _initialAccount.name);
-    _descriptionController =
-        TextEditingController(text: _initialAccount.description ?? '');
-    _balanceController =
-        TextEditingController(text: _initialAccount.balance.toString());
+    _descriptionController = TextEditingController(
+      text: _initialAccount.description ?? '',
+    );
+    _balanceController = TextEditingController(
+      text: _initialAccount.balance.toString(),
+    );
     _selectedCurrencyCode = _initialAccount.currencyCode;
     _selectedCurrencyDesignationId = _initialAccount.currencyDesignationId;
     _selectedStyleId = _initialAccount.styleId;
@@ -57,7 +59,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     _balanceController.dispose();
     super.dispose();
   }
-  
+
   Color _getColorFromHex(String? hexColor) {
     hexColor = (hexColor ?? '#FF5733').replaceAll("#", "");
     if (hexColor.length == 6) {
@@ -98,7 +100,8 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Account'),
         content: Text(
-            'Are you sure you want to delete "${_initialAccount.name}"? This will also delete all associated transactions.'),
+          'Are you sure you want to delete "${_initialAccount.name}"? This will also delete all associated transactions.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
@@ -106,15 +109,17 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
           ),
           TextButton(
             onPressed: () {
-              context
-                  .read<AccountsBloc>()
-                  .add(DeleteAccount(_initialAccount.id!));
+              context.read<AccountsBloc>().add(
+                DeleteAccount(_initialAccount.id!),
+              );
               Navigator.of(dialogContext).pop();
               FocusScope.of(context).unfocus();
               context.pop();
             },
-            child: const Text('Delete',
-                style: TextStyle(color: Colors.redAccent)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.redAccent),
+            ),
           ),
         ],
       ),
@@ -190,22 +195,24 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                       onTap: () async {
                         final selectedCurrency =
                             await showSingleSelectDialog<Currency>(
-                          context: context,
-                          items: state.currencies,
-                          title: 'Select Currency',
-                          selectedItem: state.currencies.firstWhereOrNull(
-                              (c) => c.code == _selectedCurrencyCode),
-                          itemBuilder: (currency) => Text(currency.name),
-                          stringGetter: (currency) =>
-                              '${currency.name} ${currency.code}',
-                        );
+                              context: context,
+                              items: state.currencies,
+                              title: 'Select Currency',
+                              selectedItem: state.currencies.firstWhereOrNull(
+                                (c) => c.code == _selectedCurrencyCode,
+                              ),
+                              itemBuilder: (currency) => Text(currency.name),
+                              stringGetter: (currency) =>
+                                  '${currency.name} ${currency.code}',
+                            );
                         if (mounted && selectedCurrency != null) {
                           setState(() {
                             _selectedCurrencyCode = selectedCurrency.code;
-                            _selectedCurrencyDesignationId = state
-                                .designations
-                                .firstWhereOrNull((d) =>
-                                    d.currencyCode == _selectedCurrencyCode)
+                            _selectedCurrencyDesignationId = state.designations
+                                .firstWhereOrNull(
+                                  (d) =>
+                                      d.currencyCode == _selectedCurrencyCode,
+                                )
                                 ?.id;
                           });
                         }
@@ -215,10 +222,12 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                           key: Key(_selectedCurrencyCode ?? 'no_currency'),
                           initialValue: state.currencies
                               .firstWhereOrNull(
-                                  (c) => c.code == _selectedCurrencyCode)
+                                (c) => c.code == _selectedCurrencyCode,
+                              )
                               ?.name,
-                          decoration:
-                              InputDecoration(labelText: l10n.currencyLabel),
+                          decoration: InputDecoration(
+                            labelText: l10n.currencyLabel,
+                          ),
                           validator: (value) => _selectedCurrencyCode == null
                               ? l10n.formValidationPleaseSelectCurrency
                               : null,
@@ -237,14 +246,15 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                       onTap: () async {
                         final selectedAccountType =
                             await showSingleSelectDialog<AccountType>(
-                          context: context,
-                          items: state.accountTypes,
-                          title: 'Select Account Type',
-                          selectedItem: state.accountTypes.firstWhereOrNull(
-                              (t) => t.id == _selectedAccountTypeId),
-                          itemBuilder: (type) => Text(type.name),
-                          stringGetter: (type) => type.name,
-                        );
+                              context: context,
+                              items: state.accountTypes,
+                              title: 'Select Account Type',
+                              selectedItem: state.accountTypes.firstWhereOrNull(
+                                (t) => t.id == _selectedAccountTypeId,
+                              ),
+                              itemBuilder: (type) => Text(type.name),
+                              stringGetter: (type) => type.name,
+                            );
                         if (mounted && selectedAccountType != null) {
                           setState(() {
                             _selectedAccountTypeId = selectedAccountType.id;
@@ -256,10 +266,12 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                           key: Key(_selectedAccountTypeId ?? 'no_type'),
                           initialValue: state.accountTypes
                               .firstWhereOrNull(
-                                  (t) => t.id == _selectedAccountTypeId)
+                                (t) => t.id == _selectedAccountTypeId,
+                              )
                               ?.name,
-                          decoration:
-                              const InputDecoration(labelText: 'Account Type'),
+                          decoration: const InputDecoration(
+                            labelText: 'Account Type',
+                          ),
                           validator: (value) => _selectedAccountTypeId == null
                               ? 'Please select an account type'
                               : null,
@@ -282,7 +294,9 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                       contentPadding: EdgeInsets.zero,
                       leading: selectedStyle != null
                           ? CircleAvatar(
-                              backgroundColor: _getColorFromHex(selectedStyle.colorHex),
+                              backgroundColor: _getColorFromHex(
+                                selectedStyle.colorHex,
+                              ),
                               child: IconUtils.getIconWidget(selectedStyle),
                             )
                           : const CircleAvatar(child: Icon(Icons.style)),
@@ -305,12 +319,13 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                 },
               ),
               const SizedBox(height: 32),
-              ElevatedButton(
+              FilledButton.tonal(
                 onPressed: _onSave,
-                style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50)),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
                 child: Text(l10n.saveButton),
-              )
+              ),
             ],
           ),
         ),
@@ -318,4 +333,3 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     );
   }
 }
-

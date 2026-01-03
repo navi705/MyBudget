@@ -40,7 +40,7 @@ class _AddStyleDialogState extends State<AddStyleDialog> {
       Navigator.of(context).pop();
     }
   }
-  
+
   Future<void> _showIconPicker() async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -89,9 +89,7 @@ class _AddStyleDialogState extends State<AddStyleDialog> {
                     decoration: BoxDecoration(
                       color: _selectedColor,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Theme.of(context).dividerColor,
-                      ),
+                      border: Border.all(color: Theme.of(context).dividerColor),
                     ),
                   ),
                   onTap: () async {
@@ -101,7 +99,7 @@ class _AddStyleDialogState extends State<AddStyleDialog> {
                       pickersEnabled: const {
                         ColorPickerType.wheel: true,
                         ColorPickerType.primary: false,
-                        ColorPickerType.accent: false
+                        ColorPickerType.accent: false,
                       },
                     );
                     setState(() {
@@ -139,7 +137,7 @@ class _AddStyleDialogState extends State<AddStyleDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(onPressed: _onSave, child: const Text('Save')),
+        FilledButton.tonal(onPressed: _onSave, child: const Text('Save')),
       ],
     );
   }

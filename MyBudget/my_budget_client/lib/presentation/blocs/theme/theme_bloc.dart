@@ -25,6 +25,8 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     on<ChangeBackgroundImage>(_onChangeBackgroundImage);
     on<AddUserPreset>(_onAddUserPreset);
     on<DeleteUserPreset>(_onDeleteUserPreset);
+    on<ChangeSecondaryColor>(_onChangeSecondaryColor);
+    on<ChangeSurfaceColor>(_onChangeSurfaceColor);
   }
 
   Future<void> _onLoadThemeSettings(
@@ -35,11 +37,15 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     final currentThemeMode = await _settingsRepository.getSetting('themeMode');
 
     final themeColorHex = settings['theme_color'] ?? '#2196F3';
+    final secondaryColorHex = settings['secondary_color'] ?? '#9C27B0';
+    final surfaceColorHex = settings['surface_color'] ?? '#121212';
     final windowEffectStr = settings['window_effect'] ?? 'none';
     final windowOpacityStr = settings['window_opacity'] ?? '0.8';
     final backgroundImagePath = settings['background_image_path'];
 
     final themeColor = AppTheme.parseHex(themeColorHex);
+    final secondaryColor = AppTheme.parseHex(secondaryColorHex);
+    final surfaceColor = AppTheme.parseHex(surfaceColorHex);
     final themeMode = _stringToThemeMode(currentThemeMode?.value ?? 'system');
     final windowEffect = WindowEffectType.values.firstWhere(
       (e) => e.name == windowEffectStr,
@@ -58,6 +64,8 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     emit(
       state.copyWith(
         themeColor: themeColor,
+        secondaryColor: secondaryColor,
+        surfaceColor: surfaceColor,
         themeMode: themeMode,
         windowEffect: windowEffect,
         windowOpacity: windowOpacity,
@@ -167,6 +175,28 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     final newList = List<String>.from(state.userPresets)..remove(event.path);
     emit(state.copyWith(userPresets: newList));
     await _settingsRepository.saveSetting('user_presets', jsonEncode(newList));
+  }
+
+  Future<void> _onChangeSecondaryColor(
+    ChangeSecondaryColor event,
+    Emitter<ThemeState> emit,
+  ) async {
+    emit(state.copyWith(secondaryColor: event.color));
+    await _settingsRepository.saveSetting(
+      'secondary_color',
+      AppTheme.toHex(event.color),
+    );
+  }
+
+  Future<void> _onChangeSurfaceColor(
+    ChangeSurfaceColor event,
+    Emitter<ThemeState> emit,
+  ) async {
+    emit(state.copyWith(surfaceColor: event.color));
+    await _settingsRepository.saveSetting(
+      'surface_color',
+      AppTheme.toHex(event.color),
+    );
   }
 
   ThemeMode _stringToThemeMode(String value) {

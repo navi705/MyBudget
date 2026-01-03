@@ -120,33 +120,75 @@ class ThemeSettingsScreen extends StatelessWidget {
               }).toList(),
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.color_lens),
-              label: const Text('Custom Color'),
-              onPressed: () async {
-                final color = await showColorPickerDialog(
-                  context,
-                  state.themeColor,
-                  pickersEnabled: const {
-                    ColorPickerType.wheel: true,
-                    ColorPickerType.accent: false,
-                    ColorPickerType.primary: false,
-                  },
-                  title: Text(
-                    'Pick a color',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  showColorCode: true,
-                  colorCodeHasColor: true,
-                );
-                if (context.mounted) {
-                  context.read<ThemeBloc>().add(ChangeThemeColor(color));
-                }
-              },
+            _buildCustomColorRow(
+              context,
+              'Primary Color',
+              state.themeColor,
+              (color) => context.read<ThemeBloc>().add(ChangeThemeColor(color)),
+            ),
+            const SizedBox(height: 12),
+            _buildCustomColorRow(
+              context,
+              'Secondary Color',
+              state.secondaryColor,
+              (color) =>
+                  context.read<ThemeBloc>().add(ChangeSecondaryColor(color)),
+            ),
+            const SizedBox(height: 12),
+            _buildCustomColorRow(
+              context,
+              'Surface (Dark Mode)',
+              state.surfaceColor,
+              (color) =>
+                  context.read<ThemeBloc>().add(ChangeSurfaceColor(color)),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCustomColorRow(
+    BuildContext context,
+    String label,
+    Color currentColor,
+    Function(Color) onColorChanged,
+  ) {
+    return Row(
+      children: [
+        Expanded(child: Text(label)),
+        GestureDetector(
+          onTap: () async {
+            final color = await showColorPickerDialog(
+              context,
+              currentColor,
+              pickersEnabled: const {
+                ColorPickerType.wheel: true,
+                ColorPickerType.accent: false,
+                ColorPickerType.primary: false,
+              },
+              title: Text(
+                'Pick $label',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              showColorCode: true,
+              colorCodeHasColor: true,
+            );
+            if (context.mounted) {
+              onColorChanged(color);
+            }
+          },
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: currentColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white24, width: 2),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -220,7 +262,7 @@ class ThemeSettingsScreen extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
+                  child: FilledButton.tonalIcon(
                     icon: const Icon(Icons.image),
                     label: Text(
                       state.backgroundImagePath == null
@@ -354,7 +396,7 @@ class ThemeSettingsScreen extends StatelessWidget {
                   context,
                   effect,
                   state.windowOpacity,
-                  state.themeColor,
+                  state.surfaceColor,
                 );
               },
             ),
@@ -375,7 +417,7 @@ class ThemeSettingsScreen extends StatelessWidget {
                     context,
                     state.windowEffect,
                     value,
-                    state.themeColor,
+                    state.surfaceColor,
                   );
                 },
               ),
@@ -397,7 +439,7 @@ class ThemeSettingsScreen extends StatelessWidget {
     BuildContext context,
     WindowEffectType effect,
     double transparency,
-    Color themeColor,
+    Color surfaceColor,
   ) {
     if (!Platform.isWindows) return;
 
@@ -426,7 +468,7 @@ class ThemeSettingsScreen extends StatelessWidget {
     Window.setEffect(
       effect: windowEffect,
       color: AppTheme.getWindowTintColor(
-        themeColor,
+        surfaceColor,
         brightness,
         tintOpacity,
         effect,

@@ -569,8 +569,9 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
             var description = record.notes.isNotEmpty
                 ? record.notes
                 : record.to;
-            if (description.length > 100)
+            if (description.length > 100) {
               description = description.substring(0, 100);
+            }
 
             final currencyCode =
                 (state.currencyMappings[record.currency.toLowerCase()] ??
@@ -595,10 +596,12 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
               ),
             );
           } else {
-            if (accountId == null)
+            if (accountId == null) {
               debugPrint('Unmapped Account: ${record.from}');
-            if (categoryId == null)
+            }
+            if (categoryId == null) {
               debugPrint('Unmapped Category: ${record.to} ($recordType)');
+            }
           }
         }
       }

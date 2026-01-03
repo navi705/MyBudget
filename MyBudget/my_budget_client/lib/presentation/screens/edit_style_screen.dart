@@ -20,7 +20,7 @@ class EditStyleScreen extends StatefulWidget {
 class _EditStyleScreenState extends State<EditStyleScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  
+
   late String _selectedIconName;
   late IconType _selectedIconType;
   late Color _selectedColor;
@@ -76,7 +76,7 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
       context.pop();
     }
   }
-  
+
   Future<void> _showIconPicker() async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -104,9 +104,7 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Edit: ${_initialStyle!.name}'),
-      ),
+      appBar: AppBar(title: Text('Edit: ${_initialStyle!.name}')),
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -132,9 +130,7 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
                   decoration: BoxDecoration(
                     color: _selectedColor,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Theme.of(context).dividerColor,
-                    ),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                 ),
                 onTap: () async {
@@ -144,7 +140,7 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
                     pickersEnabled: const {
                       ColorPickerType.wheel: true,
                       ColorPickerType.primary: false,
-                      ColorPickerType.accent: false
+                      ColorPickerType.accent: false,
                     },
                   );
                   setState(() {
@@ -173,12 +169,13 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
                 onTap: _showIconPicker,
               ),
               const SizedBox(height: 32),
-              ElevatedButton(
+              FilledButton.tonal(
                 onPressed: _onSave,
-                style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50)),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
                 child: const Text('Save Changes'),
-              )
+              ),
             ],
           ),
         ),

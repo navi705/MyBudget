@@ -5,7 +5,9 @@ import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 
 void showCategoryFilterDialog(
-    BuildContext context, CategoryFilters currentFilters) {
+  BuildContext context,
+  CategoryFilters currentFilters,
+) {
   showDialog(
     context: context,
     builder: (dialogContext) {
@@ -37,9 +39,11 @@ class _CategoryFilterDialogState extends State<CategoryFilterDialog> {
     super.initState();
     _nameController = TextEditingController(text: widget.currentFilters.name);
     _amountFromController = TextEditingController(
-        text: widget.currentFilters.amountFrom?.toString());
-    _amountToController =
-        TextEditingController(text: widget.currentFilters.amountTo?.toString());
+      text: widget.currentFilters.amountFrom?.toString(),
+    );
+    _amountToController = TextEditingController(
+      text: widget.currentFilters.amountTo?.toString(),
+    );
     _selectedType = widget.currentFilters.type;
   }
 
@@ -82,14 +86,16 @@ class _CategoryFilterDialogState extends State<CategoryFilterDialog> {
             TextFormField(
               controller: _amountFromController,
               decoration: const InputDecoration(labelText: 'Amount From'),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             TextFormField(
               controller: _amountToController,
               decoration: const InputDecoration(labelText: 'Amount To'),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             DropdownButtonFormField<CategoryType>(
               initialValue: _selectedType,
@@ -116,7 +122,7 @@ class _CategoryFilterDialogState extends State<CategoryFilterDialog> {
                       ],
                     ),
                   );
-                })
+                }),
               ],
               onChanged: (value) {
                 setState(() {
@@ -131,9 +137,9 @@ class _CategoryFilterDialogState extends State<CategoryFilterDialog> {
         TextButton(
           child: const Text('Clear'),
           onPressed: () {
-            context
-                .read<CategoriesBloc>()
-                .add(const FiltersChanged(CategoryFilters()));
+            context.read<CategoriesBloc>().add(
+              const FiltersChanged(CategoryFilters()),
+            );
             Navigator.of(context).pop();
           },
         ),
@@ -143,11 +149,13 @@ class _CategoryFilterDialogState extends State<CategoryFilterDialog> {
             Navigator.of(context).pop();
           },
         ),
-        ElevatedButton(
+        FilledButton.tonal(
           child: const Text('Apply'),
           onPressed: () {
             final newFilters = widget.currentFilters.copyWith(
-              name: _nameController.text.isNotEmpty ? _nameController.text : null,
+              name: _nameController.text.isNotEmpty
+                  ? _nameController.text
+                  : null,
               amountFrom: _amountFromController.text.isNotEmpty
                   ? double.tryParse(_amountFromController.text)
                   : null,

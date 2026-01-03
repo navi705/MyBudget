@@ -130,10 +130,7 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
               SizedBox(
                 height: 400,
                 child: TabBarView(
-                  children: [
-                    _buildMaterialIconList(),
-                    _buildCustomIconGrid(),
-                  ],
+                  children: [_buildMaterialIconList(), _buildCustomIconGrid()],
                 ),
               ),
             ],
@@ -145,12 +142,11 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
+        FilledButton.tonal(
           onPressed: () {
-            Navigator.of(context).pop({
-              'name': _selectedIconName,
-              'type': _selectedIconType,
-            });
+            Navigator.of(
+              context,
+            ).pop({'name': _selectedIconName, 'type': _selectedIconType});
           },
           child: const Text('Select'),
         ),
@@ -218,16 +214,32 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
 
             Widget imageWidget;
             if (isAsset) {
-              imageWidget =
-                  isSvg ? SvgPicture.asset(iconPath, colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn)) : Image.asset(iconPath, color: Colors.white);
+              imageWidget = isSvg
+                  ? SvgPicture.asset(
+                      iconPath,
+                      colorFilter: const ColorFilter.mode(
+                        Colors.white,
+                        BlendMode.srcIn,
+                      ),
+                    )
+                  : Image.asset(iconPath, color: Colors.white);
             } else {
               if (isSvg) {
-                imageWidget = SvgPicture.file(File(iconPath), colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn));
+                imageWidget = SvgPicture.file(
+                  File(iconPath),
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                );
               } else {
                 final dir = p.dirname(iconPath);
                 final filename = p.basename(iconPath);
                 final displayPath = p.join(dir, '.thumbnails', filename);
-                imageWidget = Image.file(File(displayPath), color: Colors.white);
+                imageWidget = Image.file(
+                  File(displayPath),
+                  color: Colors.white,
+                );
               }
             }
 
@@ -267,8 +279,9 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color:
-                isSelected ? Theme.of(context).primaryColor : Colors.transparent,
+            color: isSelected
+                ? Theme.of(context).primaryColor
+                : Colors.transparent,
             width: 2,
           ),
           color: isSelected
@@ -276,10 +289,7 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
               : Colors.transparent,
         ),
         padding: const EdgeInsets.all(4),
-        child: FittedBox(
-          fit: BoxFit.contain,
-          child: iconWidget,
-        ),
+        child: FittedBox(fit: BoxFit.contain, child: iconWidget),
       ),
     );
   }

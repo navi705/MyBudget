@@ -26,6 +26,9 @@ class App extends StatelessWidget {
 
           final lightTheme = AppTheme.lightTheme(
             state.themeColor,
+            secondaryColor: state.secondaryColor,
+            surfaceColor: Colors
+                .white, // Standard light surface, can be made custom if desired
             hasWindowEffect: useTransparentTheme,
             windowOpacity: state.windowOpacity,
           ).copyWith(textTheme: GoogleFonts.interTextTheme());
@@ -33,6 +36,8 @@ class App extends StatelessWidget {
           final darkTheme =
               AppTheme.darkTheme(
                 state.themeColor,
+                secondaryColor: state.secondaryColor,
+                surfaceColor: state.surfaceColor,
                 hasWindowEffect: useTransparentTheme,
                 windowOpacity: state.windowOpacity,
               ).copyWith(

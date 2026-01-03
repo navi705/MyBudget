@@ -19,10 +19,7 @@ import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart'
 class AddEditTransactionScreen extends StatelessWidget {
   final Transaction? transaction;
 
-  const AddEditTransactionScreen({
-    super.key,
-    this.transaction,
-  });
+  const AddEditTransactionScreen({super.key, this.transaction});
 
   @override
   Widget build(BuildContext context) {
@@ -31,9 +28,7 @@ class AddEditTransactionScreen extends StatelessWidget {
         transactionRepository: sl<TransactionRepository>(),
         accountRepository: sl<AccountRepository>(),
         categoryRepository: sl<CategoryRepository>(),
-      )..add(AddEditTransactionLoad(
-          transaction: transaction,
-        )),
+      )..add(AddEditTransactionLoad(transaction: transaction)),
       child: _AddEditTransactionView(),
     );
   }
@@ -126,9 +121,7 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                 if (state.isSaving)
                   Container(
                     color: Colors.black.withAlpha(128),
-                    child: const Center(
-                      child: CircularProgressIndicator(),
-                    ),
+                    child: const Center(child: CircularProgressIndicator()),
                   ),
               ],
             );
@@ -152,11 +145,12 @@ class _DescriptionField extends StatelessWidget {
         labelText: 'Description',
         border: OutlineInputBorder(),
       ),
-      onChanged: (value) => context
-          .read<AddEditTransactionBloc>()
-          .add(AddEditTransactionDescriptionChanged(value)),
-      validator: (value) =>
-          (value == null || value.isEmpty) ? 'Please enter a description' : null,
+      onChanged: (value) => context.read<AddEditTransactionBloc>().add(
+        AddEditTransactionDescriptionChanged(value),
+      ),
+      validator: (value) => (value == null || value.isEmpty)
+          ? 'Please enter a description'
+          : null,
     );
   }
 }
@@ -174,9 +168,9 @@ class _AmountField extends StatelessWidget {
         border: OutlineInputBorder(),
       ),
       keyboardType: TextInputType.number,
-      onChanged: (value) => context
-          .read<AddEditTransactionBloc>()
-          .add(AddEditTransactionAmountChanged(value)),
+      onChanged: (value) => context.read<AddEditTransactionBloc>().add(
+        AddEditTransactionAmountChanged(value),
+      ),
       validator: (value) {
         if (value == null || value.isEmpty) {
           return 'Please enter an amount';
@@ -208,9 +202,9 @@ class _AccountField extends StatelessWidget {
               stringGetter: (account) => account.name,
             );
             if (context.mounted && selectedAccount != null) {
-              context
-                  .read<AddEditTransactionBloc>()
-                  .add(AddEditTransactionAccountChanged(selectedAccount));
+              context.read<AddEditTransactionBloc>().add(
+                AddEditTransactionAccountChanged(selectedAccount),
+              );
             }
           },
           child: AbsorbPointer(
@@ -225,7 +219,8 @@ class _AccountField extends StatelessWidget {
                         builder: (context, stylesState) {
                           if (stylesState is StylesLoadSuccess) {
                             final style = stylesState.styles.firstWhereOrNull(
-                                (s) => s.id == state.selectedAccount!.styleId);
+                              (s) => s.id == state.selectedAccount!.styleId,
+                            );
                             if (style != null) {
                               return IconUtils.getIconWidget(style);
                             }
@@ -235,8 +230,9 @@ class _AccountField extends StatelessWidget {
                       )
                     : null,
               ),
-              validator: (value) =>
-                  state.selectedAccount == null ? 'Please select an account' : null,
+              validator: (value) => state.selectedAccount == null
+                  ? 'Please select an account'
+                  : null,
             ),
           ),
         );
@@ -267,10 +263,12 @@ class _AccountTile extends StatelessWidget {
       builder: (context, stylesState) {
         Style? style;
         if (stylesState is StylesLoadSuccess) {
-          style = stylesState.styles
-              .firstWhereOrNull((s) => s.id == account.styleId);
+          style = stylesState.styles.firstWhereOrNull(
+            (s) => s.id == account.styleId,
+          );
         }
-        final finalStyle = style ??
+        final finalStyle =
+            style ??
             Style(
               id: 'default',
               name: 'Default',
@@ -295,7 +293,6 @@ class _AccountTile extends StatelessWidget {
   }
 }
 
-
 class _CategoryField extends StatelessWidget {
   const _CategoryField();
   @override
@@ -315,7 +312,8 @@ class _CategoryField extends StatelessWidget {
                     builder: (context, stylesState) {
                       if (stylesState is StylesLoadSuccess) {
                         final style = stylesState.styles.firstWhereOrNull(
-                            (s) => s.id == category.styleId);
+                          (s) => s.id == category.styleId,
+                        );
                         if (style != null) {
                           return IconUtils.getIconWidget(style);
                         }
@@ -330,9 +328,9 @@ class _CategoryField extends StatelessWidget {
               stringGetter: (category) => category.name,
             );
             if (context.mounted && selectedCategory != null) {
-              context
-                  .read<AddEditTransactionBloc>()
-                  .add(AddEditTransactionCategoryChanged(selectedCategory));
+              context.read<AddEditTransactionBloc>().add(
+                AddEditTransactionCategoryChanged(selectedCategory),
+              );
             }
           },
           child: AbsorbPointer(
@@ -347,7 +345,8 @@ class _CategoryField extends StatelessWidget {
                         builder: (context, stylesState) {
                           if (stylesState is StylesLoadSuccess) {
                             final style = stylesState.styles.firstWhereOrNull(
-                                (s) => s.id == state.selectedCategory!.styleId);
+                              (s) => s.id == state.selectedCategory!.styleId,
+                            );
                             if (style != null) {
                               return IconUtils.getIconWidget(style);
                             }
@@ -357,8 +356,9 @@ class _CategoryField extends StatelessWidget {
                       )
                     : null,
               ),
-              validator: (value) =>
-                  state.selectedCategory == null ? 'Please select a category' : null,
+              validator: (value) => state.selectedCategory == null
+                  ? 'Please select a category'
+                  : null,
             ),
           ),
         );
@@ -387,9 +387,9 @@ class _DateField extends StatelessWidget {
             );
 
             if (picked != null && context.mounted) {
-              context
-                  .read<AddEditTransactionBloc>()
-                  .add(AddEditTransactionDateChanged(picked));
+              context.read<AddEditTransactionBloc>().add(
+                AddEditTransactionDateChanged(picked),
+              );
             }
           },
         );
@@ -403,15 +403,15 @@ class _SaveButton extends StatelessWidget {
   const _SaveButton({required this.formKey});
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton(
+    return FilledButton.tonal(
       onPressed: () {
         if (formKey.currentState?.validate() ?? false) {
-          context
-              .read<AddEditTransactionBloc>()
-              .add(const AddEditTransactionSubmitted());
+          context.read<AddEditTransactionBloc>().add(
+            const AddEditTransactionSubmitted(),
+          );
         }
       },
-      style: ElevatedButton.styleFrom(
+      style: FilledButton.styleFrom(
         minimumSize: const Size(double.infinity, 50),
       ),
       child: const Text('Save'),

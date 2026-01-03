@@ -73,3 +73,21 @@ class DeleteUserPreset extends ThemeEvent {
   @override
   List<Object?> get props => [path];
 }
+
+class ChangeSecondaryColor extends ThemeEvent {
+  final Color color;
+
+  const ChangeSecondaryColor(this.color);
+
+  @override
+  List<Object?> get props => [color];
+}
+
+class ChangeSurfaceColor extends ThemeEvent {
+  final Color color;
+
+  const ChangeSurfaceColor(this.color);
+
+  @override
+  List<Object?> get props => [color];
+}

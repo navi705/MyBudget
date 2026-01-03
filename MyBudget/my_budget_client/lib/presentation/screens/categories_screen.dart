@@ -841,7 +841,7 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(onPressed: _onSave, child: const Text('Save')),
+        FilledButton.tonal(onPressed: _onSave, child: const Text('Save')),
       ],
     );
   }
