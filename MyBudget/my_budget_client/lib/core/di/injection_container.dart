@@ -7,6 +7,8 @@ import 'package:my_budget_client/data/repositories/local_db/local_style_reposito
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/style_repository.dart';
+import 'package:my_budget_client/domain/repositories/theme_repository.dart';
+import 'package:my_budget_client/data/repositories/local_db/local_theme_repository.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
@@ -73,7 +75,9 @@ Future<void> init() async {
       categoryRepository: sl(),
     ),
   );
-  sl.registerFactory(() => ThemeBloc(settingsRepository: sl()));
+  sl.registerFactory(
+    () => ThemeBloc(settingsRepository: sl(), themeRepository: sl()),
+  );
   sl.registerFactory(() => ExchangeRatesBloc(currencyRepository: sl()));
 
   // Repositories
@@ -96,6 +100,7 @@ Future<void> init() async {
   sl.registerLazySingleton<TransactionRepository>(
     () => LocalTransactionRepository(sl()),
   );
+  sl.registerLazySingleton<ThemeRepository>(() => LocalThemeRepository(sl()));
   sl.registerLazySingleton<DbRepository>(() => LocalDbRepository(sl()));
 
   // Core

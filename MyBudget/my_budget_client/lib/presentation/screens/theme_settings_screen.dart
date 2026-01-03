@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/theme/app_theme.dart';
+import 'package:my_budget_client/domain/entities/custom_theme.dart';
 import 'package:my_budget_client/presentation/blocs/theme/theme_bloc.dart';
 
 class ThemeSettingsScreen extends StatelessWidget {
@@ -14,20 +15,30 @@ class ThemeSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Theme Settings')),
+      appBar: AppBar(title: const Text('Theme Customization')),
       body: BlocBuilder<ThemeBloc, ThemeState>(
         builder: (context, state) {
+          if (!state.isLoaded || state.activeTheme == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final theme = state.activeTheme!;
+
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _buildAppearanceSection(context, state),
-              const SizedBox(height: 16),
-              _buildColorSection(context, state),
+              _buildPresetsSection(context, state),
               const SizedBox(height: 24),
-              _buildBackgroundImageSection(context, state),
+              _buildColorsSection(context, theme),
               const SizedBox(height: 24),
-              if (Platform.isWindows)
-                _buildWindowEffectsSection(context, state),
+              _buildWindowEffectsSection(context, theme),
+              const SizedBox(height: 24),
+              _buildSurfaceSection(context, theme),
+              const SizedBox(height: 24),
+              _buildBackgroundImageSection(context, theme),
+              const SizedBox(height: 32),
+              _buildModeSection(context, theme),
+              const SizedBox(height: 48),
             ],
           );
         },
@@ -35,164 +46,314 @@ class ThemeSettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAppearanceSection(BuildContext context, ThemeState state) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildPresetsSection(BuildContext context, ThemeState state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Appearance', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            SegmentedButton<ThemeMode>(
-              segments: const [
-                ButtonSegment(
-                  value: ThemeMode.system,
-                  icon: Icon(Icons.settings_brightness),
-                  label: Text('System'),
-                ),
-                ButtonSegment(
-                  value: ThemeMode.light,
-                  icon: Icon(Icons.light_mode),
-                  label: Text('Light'),
-                ),
-                ButtonSegment(
-                  value: ThemeMode.dark,
-                  icon: Icon(Icons.dark_mode),
-                  label: Text('Dark'),
-                ),
-              ],
-              selected: {state.themeMode},
-              onSelectionChanged: (Set<ThemeMode> selected) {
-                context.read<ThemeBloc>().add(ChangeThemeMode(selected.first));
-              },
+            Text('Presets', style: Theme.of(context).textTheme.titleLarge),
+            TextButton.icon(
+              onPressed: () => _showSavePresetDialog(context),
+              icon: const Icon(Icons.add),
+              label: const Text('Save Current'),
             ),
           ],
         ),
-      ),
-    );
-  }
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 120,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: state.presets.length,
+            itemBuilder: (context, index) {
+              final preset = state.presets[index];
+              final isSelected = preset.id == state.activeTheme?.id;
 
-  Widget _buildColorSection(BuildContext context, ThemeState state) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Theme Color', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            const Text('Preset Colors'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: AppTheme.presetColors.map((color) {
-                final isSelected = state.themeColor.value == color.value;
-                return GestureDetector(
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: GestureDetector(
                   onTap: () {
-                    context.read<ThemeBloc>().add(ChangeThemeColor(color));
+                    context.read<ThemeBloc>().add(SelectThemePreset(preset.id));
+                    if (Platform.isWindows) {
+                      _applyWindowEffect(context, preset);
+                    }
                   },
                   child: Container(
-                    width: 48,
-                    height: 48,
+                    width: 140,
                     decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
+                      color: preset.backgroundColor,
+                      borderRadius: BorderRadius.circular(12),
                       border: isSelected
-                          ? Border.all(color: Colors.white, width: 3)
-                          : null,
-                      boxShadow: isSelected
-                          ? [
-                              BoxShadow(
-                                color: color.withOpacity(0.5),
-                                blurRadius: 8,
-                                spreadRadius: 2,
-                              ),
-                            ]
+                          ? Border.all(
+                              color: Theme.of(context).primaryColor,
+                              width: 3,
+                            )
+                          : Border.all(color: Colors.white10),
+                      image:
+                          (preset.backgroundImagePath != null &&
+                              preset.backgroundImagePath!.isNotEmpty)
+                          ? DecorationImage(
+                              image:
+                                  preset.backgroundImagePath!.startsWith(
+                                    'assets/',
+                                  )
+                                  ? AssetImage(preset.backgroundImagePath!)
+                                        as ImageProvider
+                                  : FileImage(
+                                      File(preset.backgroundImagePath!),
+                                    ),
+                              fit: BoxFit.cover,
+                              opacity: 0.5,
+                            )
                           : null,
                     ),
-                    child: isSelected
-                        ? const Icon(Icons.check, color: Colors.white)
-                        : null,
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: Text(
+                            preset.name,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              shadows: const [Shadow(blurRadius: 4)],
+                            ),
+                          ),
+                        ),
+                        if (!preset.isPreset)
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.delete,
+                                size: 18,
+                                color: Colors.redAccent,
+                              ),
+                              onPressed: () => context.read<ThemeBloc>().add(
+                                DeleteThemePreset(preset.id),
+                              ),
+                            ),
+                          ),
+                        Positioned(
+                          bottom: 8,
+                          left: 0,
+                          right: 0,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _colorDot(preset.primaryColor),
+                              _colorDot(preset.secondaryColor),
+                              _colorDot(preset.surfaceColor),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            _buildCustomColorRow(
-              context,
-              'Primary Color',
-              state.themeColor,
-              (color) => context.read<ThemeBloc>().add(ChangeThemeColor(color)),
-            ),
-            const SizedBox(height: 12),
-            _buildCustomColorRow(
-              context,
-              'Secondary Color',
-              state.secondaryColor,
-              (color) =>
-                  context.read<ThemeBloc>().add(ChangeSecondaryColor(color)),
-            ),
-            const SizedBox(height: 12),
-            _buildCustomColorRow(
-              context,
-              'Surface (Dark Mode)',
-              state.surfaceColor,
-              (color) =>
-                  context.read<ThemeBloc>().add(ChangeSurfaceColor(color)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCustomColorRow(
-    BuildContext context,
-    String label,
-    Color currentColor,
-    Function(Color) onColorChanged,
-  ) {
-    return Row(
-      children: [
-        Expanded(child: Text(label)),
-        GestureDetector(
-          onTap: () async {
-            final color = await showColorPickerDialog(
-              context,
-              currentColor,
-              pickersEnabled: const {
-                ColorPickerType.wheel: true,
-                ColorPickerType.accent: false,
-                ColorPickerType.primary: false,
-              },
-              title: Text(
-                'Pick $label',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              showColorCode: true,
-              colorCodeHasColor: true,
-            );
-            if (context.mounted) {
-              onColorChanged(color);
-            }
-          },
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: currentColor,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white24, width: 2),
-            ),
+                ),
+              );
+            },
           ),
         ),
       ],
     );
   }
 
-  Widget _buildBackgroundImageSection(BuildContext context, ThemeState state) {
+  Widget _colorDot(Color color) {
+    return Container(
+      width: 12,
+      height: 12,
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white38, width: 1),
+      ),
+    );
+  }
+
+  Widget _buildColorsSection(BuildContext context, CustomTheme theme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Theme Colors',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            _buildColorRow(
+              context,
+              'Primary',
+              theme.primaryColor,
+              (c) => _update(context, primaryColor: c),
+            ),
+            _buildColorRow(
+              context,
+              'Secondary',
+              theme.secondaryColor,
+              (c) => _update(context, secondaryColor: c),
+            ),
+            _buildColorRow(
+              context,
+              'Surface',
+              theme.surfaceColor,
+              (c) => _update(context, surfaceColor: c),
+            ),
+            _buildColorRow(
+              context,
+              'Background',
+              theme.backgroundColor,
+              (c) => _update(context, backgroundColor: c),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildColorRow(
+    BuildContext context,
+    String label,
+    Color color,
+    Function(Color) onSelected,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          GestureDetector(
+            onTap: () async {
+              final newColor = await showColorPickerDialog(
+                context,
+                color,
+                pickersEnabled: const {ColorPickerType.wheel: true},
+                title: Text('Select $label Color'),
+                showColorCode: true,
+              );
+              onSelected(newColor);
+            },
+            child: Container(
+              width: 48,
+              height: 32,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white24),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWindowEffectsSection(BuildContext context, CustomTheme theme) {
+    if (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Window Effects',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<WindowEffectType>(
+              initialValue: theme.windowEffectType,
+              decoration: const InputDecoration(
+                labelText: 'Effect Type',
+                border: OutlineInputBorder(),
+              ),
+              items: WindowEffectType.values
+                  .map(
+                    (e) =>
+                        DropdownMenuItem(value: e, child: Text(e.displayName)),
+                  )
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) {
+                  _update(context, windowEffectType: v);
+                  if (Platform.isWindows) {
+                    _applyWindowEffect(
+                      context,
+                      theme.copyWith(windowEffectType: v),
+                    );
+                  }
+                }
+              },
+            ),
+            if (theme.windowEffectType != WindowEffectType.none) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Window Tint Opacity: ${(theme.effectOpacity * 100).round()}%',
+              ),
+              Slider(
+                value: theme.effectOpacity,
+                onChanged: (v) {
+                  _update(context, effectOpacity: v);
+                  if (Platform.isWindows) {
+                    _applyWindowEffect(
+                      context,
+                      theme.copyWith(effectOpacity: v),
+                    );
+                  }
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSurfaceSection(BuildContext context, CustomTheme theme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Surface/Glass Style',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            Text('Surface Opacity: ${(theme.surfaceOpacity * 100).round()}%'),
+            Slider(
+              value: theme.surfaceOpacity,
+              onChanged: (v) => _update(context, surfaceOpacity: v),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Surface Blur (Glassmorphism): ${theme.surfaceBlur.round()}px',
+            ),
+            Slider(
+              value: theme.surfaceBlur,
+              min: 0,
+              max: 30,
+              onChanged: (v) => _update(context, surfaceBlur: v),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBackgroundImageSection(BuildContext context, CustomTheme theme) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -201,232 +362,56 @@ class ThemeSettingsScreen extends StatelessWidget {
           children: [
             Text(
               'Background Image',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            if (state.backgroundImagePath != null &&
-                state.backgroundImagePath!.isNotEmpty) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: state.backgroundImagePath!.startsWith('assets/')
-                    ? Image.asset(
-                        state.backgroundImagePath!,
-                        height: 150,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      )
-                    : Image.file(
-                        File(state.backgroundImagePath!),
-                        height: 150,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-              ),
-              const SizedBox(height: 16),
-            ],
-            const Text('Presets'),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 100,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  const SizedBox(width: 8),
-                  _buildPresetItem(
-                    context,
-                    'assets/backgrounds/bg_telegram_light.png',
-                    state,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildPresetItem(
-                    context,
-                    'assets/backgrounds/bg_telegram_dark.png',
-                    state,
-                  ),
-                  ...state.userPresets.map(
-                    (path) => Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: _buildPresetItem(
-                        context,
-                        path,
-                        state,
-                        isUserPreset: true,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
-            const Text('Custom'),
-            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: FilledButton.tonalIcon(
-                    icon: const Icon(Icons.image),
-                    label: Text(
-                      state.backgroundImagePath == null
-                          ? 'Select Image'
-                          : 'Change Image',
-                    ),
                     onPressed: () async {
                       final result = await FilePicker.platform.pickFiles(
                         type: FileType.image,
                       );
                       if (result != null && result.files.single.path != null) {
                         if (context.mounted) {
-                          context.read<ThemeBloc>().add(
-                            ChangeBackgroundImage(result.files.single.path),
+                          _update(
+                            context,
+                            backgroundImagePath: result.files.single.path,
                           );
                         }
                       }
                     },
+                    icon: const Icon(Icons.add_photo_alternate),
+                    label: const Text('Change Image'),
                   ),
                 ),
-                if (state.backgroundImagePath != null) ...[
+                if (theme.backgroundImagePath != null) ...[
                   const SizedBox(width: 12),
-                  if (!state.backgroundImagePath!.startsWith('assets/') &&
-                      !state.userPresets.contains(state.backgroundImagePath!))
-                    IconButton.filledTonal(
-                      icon: const Icon(Icons.favorite_border),
-                      onPressed: () {
-                        context.read<ThemeBloc>().add(
-                          AddUserPreset(state.backgroundImagePath!),
-                        );
-                      },
-                      tooltip: 'Save to Presets',
-                    ),
-                  const SizedBox(width: 8),
                   IconButton.filledTonal(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () {
-                      context.read<ThemeBloc>().add(
-                        const ChangeBackgroundImage(null),
-                      );
-                    },
-                    color: Colors.red,
-                    tooltip: 'Remove Background',
+                    onPressed: () =>
+                        _update(context, clearBackgroundImage: true),
+                    icon: const Icon(Icons.delete, color: Colors.redAccent),
                   ),
                 ],
               ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPresetItem(
-    BuildContext context,
-    String path,
-    ThemeState state, {
-    bool isUserPreset = false,
-  }) {
-    final isSelected = state.backgroundImagePath == path;
-    final isAsset = path.startsWith('assets/');
-
-    return GestureDetector(
-      onTap: () {
-        context.read<ThemeBloc>().add(ChangeBackgroundImage(path));
-      },
-      child: Stack(
-        children: [
-          Container(
-            width: 120,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: isSelected
-                  ? Border.all(color: Theme.of(context).primaryColor, width: 3)
-                  : Border.all(color: Colors.grey.withOpacity(0.3)),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(5),
-              child: isAsset
-                  ? Image.asset(path, fit: BoxFit.cover)
-                  : Image.file(File(path), fit: BoxFit.cover),
-            ),
-          ),
-          if (isUserPreset)
-            Positioned(
-              top: 2,
-              right: 2,
-              child: GestureDetector(
-                onTap: () {
-                  context.read<ThemeBloc>().add(DeleteUserPreset(path));
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(
-                    color: Colors.black54,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.close, size: 16, color: Colors.white),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWindowEffectsSection(BuildContext context, ThemeState state) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Window Effects (Windows Only)',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            SegmentedButton<WindowEffectType>(
-              segments: WindowEffectType.values.map((effect) {
-                return ButtonSegment(
-                  value: effect,
-                  label: Text(effect.displayName),
-                );
-              }).toList(),
-              selected: {state.windowEffect},
-              onSelectionChanged: (Set<WindowEffectType> selected) {
-                final effect = selected.first;
-                context.read<ThemeBloc>().add(ChangeWindowEffect(effect));
-                _applyWindowEffect(
-                  context,
-                  effect,
-                  state.windowOpacity,
-                  state.surfaceColor,
-                );
-              },
-            ),
-            if (state.windowEffect != WindowEffectType.none) ...[
+            if (theme.backgroundImagePath != null) ...[
               const SizedBox(height: 16),
               Text(
-                'Material Transparency: ${(state.windowOpacity * 100).round()}%',
+                'Image Intensity (Opacity): ${(theme.backgroundImageOpacity * 100).round()}%',
               ),
               Slider(
-                value: state.windowOpacity,
-                min: 0.0,
-                max: 1.0,
-                divisions: 20,
-                label: '${(state.windowOpacity * 100).round()}%',
-                onChanged: (value) {
-                  context.read<ThemeBloc>().add(ChangeWindowOpacity(value));
-                  _applyWindowEffect(
-                    context,
-                    state.windowEffect,
-                    value,
-                    state.surfaceColor,
-                  );
-                },
+                value: theme.backgroundImageOpacity,
+                onChanged: (v) => _update(context, backgroundImageOpacity: v),
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  '100% = Fully see-through blur | 0% = Solid background',
-                  style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-                ),
+              const SizedBox(height: 8),
+              Text('Image Blur: ${theme.backgroundImageBlur.round()}px'),
+              Slider(
+                value: theme.backgroundImageBlur,
+                min: 0,
+                max: 20,
+                onChanged: (v) => _update(context, backgroundImageBlur: v),
               ),
             ],
           ],
@@ -435,22 +420,110 @@ class ThemeSettingsScreen extends StatelessWidget {
     );
   }
 
-  void _applyWindowEffect(
-    BuildContext context,
-    WindowEffectType effect,
-    double transparency,
-    Color surfaceColor,
-  ) {
+  Widget _buildModeSection(BuildContext context, CustomTheme theme) {
+    return SegmentedButton<ThemeMode>(
+      segments: const [
+        ButtonSegment(
+          value: ThemeMode.system,
+          label: Text('System'),
+          icon: Icon(Icons.settings),
+        ),
+        ButtonSegment(
+          value: ThemeMode.light,
+          label: Text('Light'),
+          icon: Icon(Icons.light_mode),
+        ),
+        ButtonSegment(
+          value: ThemeMode.dark,
+          label: Text('Dark'),
+          icon: Icon(Icons.dark_mode),
+        ),
+      ],
+      selected: {theme.themeMode},
+      onSelectionChanged: (Set<ThemeMode> v) =>
+          _update(context, themeMode: v.first),
+    );
+  }
+
+  void _update(
+    BuildContext context, {
+    Color? primaryColor,
+    Color? secondaryColor,
+    Color? surfaceColor,
+    Color? backgroundColor,
+    String? backgroundImagePath,
+    double? backgroundImageOpacity,
+    double? backgroundImageBlur,
+    WindowEffectType? windowEffectType,
+    double? effectOpacity,
+    double? surfaceOpacity,
+    double? surfaceBlur,
+    ThemeMode? themeMode,
+    bool clearBackgroundImage = false,
+  }) {
+    context.read<ThemeBloc>().add(
+      UpdateThemeProperty(
+        primaryColor: primaryColor,
+        secondaryColor: secondaryColor,
+        surfaceColor: surfaceColor,
+        backgroundColor: backgroundColor,
+        backgroundImagePath: backgroundImagePath,
+        backgroundImageOpacity: backgroundImageOpacity,
+        backgroundImageBlur: backgroundImageBlur,
+        windowEffectType: windowEffectType,
+        effectOpacity: effectOpacity,
+        surfaceOpacity: surfaceOpacity,
+        surfaceBlur: surfaceBlur,
+        themeMode: themeMode,
+        clearBackgroundImage: clearBackgroundImage,
+      ),
+    );
+  }
+
+  void _showSavePresetDialog(BuildContext context) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Save Theme Preset'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Preset Name',
+            hintText: 'My Amazing Theme',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (controller.text.isNotEmpty) {
+                context.read<ThemeBloc>().add(SaveThemePreset(controller.text));
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _applyWindowEffect(BuildContext context, CustomTheme theme) {
     if (!Platform.isWindows) return;
 
-    final brightness = Theme.of(context).brightness;
-    // Map transparency to tint opacity:
-    // 100% transparency (1.0) = 0.0 tint opacity (Clear)
-    // 0% transparency (0.0) = 1.0 tint opacity (Solid)
-    final tintOpacity = 1.0 - transparency;
+    final brightness = theme.themeMode == ThemeMode.system
+        ? MediaQuery.platformBrightnessOf(context)
+        : (theme.themeMode == ThemeMode.dark
+              ? Brightness.dark
+              : Brightness.light);
 
     WindowEffect windowEffect;
-    switch (effect) {
+    switch (theme.windowEffectType) {
       case WindowEffectType.none:
         windowEffect = WindowEffect.disabled;
         break;
@@ -460,6 +533,12 @@ class ThemeSettingsScreen extends StatelessWidget {
       case WindowEffectType.mica:
         windowEffect = WindowEffect.mica;
         break;
+      case WindowEffectType.aero:
+        windowEffect = WindowEffect.aero;
+        break;
+      case WindowEffectType.vibrancy:
+        windowEffect = WindowEffect.disabled; // Not on Windows
+        break;
       case WindowEffectType.transparent:
         windowEffect = WindowEffect.transparent;
         break;
@@ -468,10 +547,10 @@ class ThemeSettingsScreen extends StatelessWidget {
     Window.setEffect(
       effect: windowEffect,
       color: AppTheme.getWindowTintColor(
-        surfaceColor,
+        theme.backgroundColor,
         brightness,
-        tintOpacity,
-        effect,
+        1.0 - theme.effectOpacity,
+        theme.windowEffectType,
       ),
     );
   }

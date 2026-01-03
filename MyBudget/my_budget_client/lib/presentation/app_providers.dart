@@ -4,6 +4,7 @@ import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:my_budget_client/core/theme/app_theme.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/di/injection_container.dart' as di;
+import 'package:my_budget_client/domain/entities/custom_theme.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
@@ -53,13 +54,8 @@ class AppProviders extends StatelessWidget {
       ],
       child: BlocListener<ThemeBloc, ThemeState>(
         listener: (context, state) {
-          if (state.isLoaded) {
-            _applyWindowEffect(
-              context,
-              state.windowEffect,
-              state.windowOpacity,
-              state.themeColor,
-            );
+          if (state.isLoaded && state.activeTheme != null) {
+            _applyWindowEffect(context, state.activeTheme!);
           }
         },
         child: BlocBuilder<SettingsBloc, SettingsState>(
@@ -71,19 +67,14 @@ class AppProviders extends StatelessWidget {
     );
   }
 
-  void _applyWindowEffect(
-    BuildContext context,
-    WindowEffectType effect,
-    double transparency,
-    Color themeColor,
-  ) {
+  void _applyWindowEffect(BuildContext context, CustomTheme theme) {
     if (!Platform.isWindows) return;
 
     final brightness = Theme.of(context).brightness;
-    final tintOpacity = 1.0 - transparency;
+    final tintOpacity = 1.0 - theme.effectOpacity;
 
     WindowEffect windowEffect;
-    switch (effect) {
+    switch (theme.windowEffectType) {
       case WindowEffectType.none:
         windowEffect = WindowEffect.disabled;
         break;
@@ -93,6 +84,12 @@ class AppProviders extends StatelessWidget {
       case WindowEffectType.mica:
         windowEffect = WindowEffect.mica;
         break;
+      case WindowEffectType.aero:
+        windowEffect = WindowEffect.aero;
+        break;
+      case WindowEffectType.vibrancy:
+        windowEffect = WindowEffect.disabled; // Not on Windows
+        break;
       case WindowEffectType.transparent:
         windowEffect = WindowEffect.transparent;
         break;
@@ -101,10 +98,10 @@ class AppProviders extends StatelessWidget {
     Window.setEffect(
       effect: windowEffect,
       color: AppTheme.getWindowTintColor(
-        themeColor,
+        theme.backgroundColor,
         brightness,
         tintOpacity,
-        effect,
+        theme.windowEffectType,
       ),
     );
   }

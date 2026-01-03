@@ -64,6 +64,9 @@ mixin _$ExchangeRatesDaoMixin on DatabaseAccessor<AppDatabase> {
   $CurrenciesTable get currencies => attachedDatabase.currencies;
   $ExchangeRatesTable get exchangeRates => attachedDatabase.exchangeRates;
 }
+mixin _$CustomThemesDaoMixin on DatabaseAccessor<AppDatabase> {
+  $CustomThemesTable get customThemes => attachedDatabase.customThemes;
+}
 
 class $LanguagesTable extends Languages
     with TableInfo<$LanguagesTable, Language> {
@@ -3625,6 +3628,975 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   }
 }
 
+class $CustomThemesTable extends CustomThemes
+    with TableInfo<$CustomThemesTable, DbCustomTheme> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CustomThemesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    clientDefault: () => _uuid.v4(),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 50,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _primaryColorHexMeta = const VerificationMeta(
+    'primaryColorHex',
+  );
+  @override
+  late final GeneratedColumn<String> primaryColorHex = GeneratedColumn<String>(
+    'primary_color_hex',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _secondaryColorHexMeta = const VerificationMeta(
+    'secondaryColorHex',
+  );
+  @override
+  late final GeneratedColumn<String> secondaryColorHex =
+      GeneratedColumn<String>(
+        'secondary_color_hex',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _surfaceColorHexMeta = const VerificationMeta(
+    'surfaceColorHex',
+  );
+  @override
+  late final GeneratedColumn<String> surfaceColorHex = GeneratedColumn<String>(
+    'surface_color_hex',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _backgroundColorHexMeta =
+      const VerificationMeta('backgroundColorHex');
+  @override
+  late final GeneratedColumn<String> backgroundColorHex =
+      GeneratedColumn<String>(
+        'background_color_hex',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _backgroundImagePathMeta =
+      const VerificationMeta('backgroundImagePath');
+  @override
+  late final GeneratedColumn<String> backgroundImagePath =
+      GeneratedColumn<String>(
+        'background_image_path',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _backgroundImageOpacityMeta =
+      const VerificationMeta('backgroundImageOpacity');
+  @override
+  late final GeneratedColumn<double> backgroundImageOpacity =
+      GeneratedColumn<double>(
+        'background_image_opacity',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(1.0),
+      );
+  static const VerificationMeta _backgroundImageBlurMeta =
+      const VerificationMeta('backgroundImageBlur');
+  @override
+  late final GeneratedColumn<double> backgroundImageBlur =
+      GeneratedColumn<double>(
+        'background_image_blur',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0.0),
+      );
+  static const VerificationMeta _windowEffectTypeMeta = const VerificationMeta(
+    'windowEffectType',
+  );
+  @override
+  late final GeneratedColumn<int> windowEffectType = GeneratedColumn<int>(
+    'window_effect_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _effectOpacityMeta = const VerificationMeta(
+    'effectOpacity',
+  );
+  @override
+  late final GeneratedColumn<double> effectOpacity = GeneratedColumn<double>(
+    'effect_opacity',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1.0),
+  );
+  static const VerificationMeta _surfaceOpacityMeta = const VerificationMeta(
+    'surfaceOpacity',
+  );
+  @override
+  late final GeneratedColumn<double> surfaceOpacity = GeneratedColumn<double>(
+    'surface_opacity',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1.0),
+  );
+  static const VerificationMeta _surfaceBlurMeta = const VerificationMeta(
+    'surfaceBlur',
+  );
+  @override
+  late final GeneratedColumn<double> surfaceBlur = GeneratedColumn<double>(
+    'surface_blur',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _themeModeMeta = const VerificationMeta(
+    'themeMode',
+  );
+  @override
+  late final GeneratedColumn<int> themeMode = GeneratedColumn<int>(
+    'theme_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isPresetMeta = const VerificationMeta(
+    'isPreset',
+  );
+  @override
+  late final GeneratedColumn<bool> isPreset = GeneratedColumn<bool>(
+    'is_preset',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_preset" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isActiveMeta = const VerificationMeta(
+    'isActive',
+  );
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+    'is_active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    primaryColorHex,
+    secondaryColorHex,
+    surfaceColorHex,
+    backgroundColorHex,
+    backgroundImagePath,
+    backgroundImageOpacity,
+    backgroundImageBlur,
+    windowEffectType,
+    effectOpacity,
+    surfaceOpacity,
+    surfaceBlur,
+    themeMode,
+    isPreset,
+    isActive,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'custom_themes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DbCustomTheme> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('primary_color_hex')) {
+      context.handle(
+        _primaryColorHexMeta,
+        primaryColorHex.isAcceptableOrUnknown(
+          data['primary_color_hex']!,
+          _primaryColorHexMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_primaryColorHexMeta);
+    }
+    if (data.containsKey('secondary_color_hex')) {
+      context.handle(
+        _secondaryColorHexMeta,
+        secondaryColorHex.isAcceptableOrUnknown(
+          data['secondary_color_hex']!,
+          _secondaryColorHexMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_secondaryColorHexMeta);
+    }
+    if (data.containsKey('surface_color_hex')) {
+      context.handle(
+        _surfaceColorHexMeta,
+        surfaceColorHex.isAcceptableOrUnknown(
+          data['surface_color_hex']!,
+          _surfaceColorHexMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_surfaceColorHexMeta);
+    }
+    if (data.containsKey('background_color_hex')) {
+      context.handle(
+        _backgroundColorHexMeta,
+        backgroundColorHex.isAcceptableOrUnknown(
+          data['background_color_hex']!,
+          _backgroundColorHexMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_backgroundColorHexMeta);
+    }
+    if (data.containsKey('background_image_path')) {
+      context.handle(
+        _backgroundImagePathMeta,
+        backgroundImagePath.isAcceptableOrUnknown(
+          data['background_image_path']!,
+          _backgroundImagePathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('background_image_opacity')) {
+      context.handle(
+        _backgroundImageOpacityMeta,
+        backgroundImageOpacity.isAcceptableOrUnknown(
+          data['background_image_opacity']!,
+          _backgroundImageOpacityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('background_image_blur')) {
+      context.handle(
+        _backgroundImageBlurMeta,
+        backgroundImageBlur.isAcceptableOrUnknown(
+          data['background_image_blur']!,
+          _backgroundImageBlurMeta,
+        ),
+      );
+    }
+    if (data.containsKey('window_effect_type')) {
+      context.handle(
+        _windowEffectTypeMeta,
+        windowEffectType.isAcceptableOrUnknown(
+          data['window_effect_type']!,
+          _windowEffectTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_windowEffectTypeMeta);
+    }
+    if (data.containsKey('effect_opacity')) {
+      context.handle(
+        _effectOpacityMeta,
+        effectOpacity.isAcceptableOrUnknown(
+          data['effect_opacity']!,
+          _effectOpacityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('surface_opacity')) {
+      context.handle(
+        _surfaceOpacityMeta,
+        surfaceOpacity.isAcceptableOrUnknown(
+          data['surface_opacity']!,
+          _surfaceOpacityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('surface_blur')) {
+      context.handle(
+        _surfaceBlurMeta,
+        surfaceBlur.isAcceptableOrUnknown(
+          data['surface_blur']!,
+          _surfaceBlurMeta,
+        ),
+      );
+    }
+    if (data.containsKey('theme_mode')) {
+      context.handle(
+        _themeModeMeta,
+        themeMode.isAcceptableOrUnknown(data['theme_mode']!, _themeModeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_themeModeMeta);
+    }
+    if (data.containsKey('is_preset')) {
+      context.handle(
+        _isPresetMeta,
+        isPreset.isAcceptableOrUnknown(data['is_preset']!, _isPresetMeta),
+      );
+    }
+    if (data.containsKey('is_active')) {
+      context.handle(
+        _isActiveMeta,
+        isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DbCustomTheme map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DbCustomTheme(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      primaryColorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}primary_color_hex'],
+      )!,
+      secondaryColorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}secondary_color_hex'],
+      )!,
+      surfaceColorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}surface_color_hex'],
+      )!,
+      backgroundColorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}background_color_hex'],
+      )!,
+      backgroundImagePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}background_image_path'],
+      ),
+      backgroundImageOpacity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}background_image_opacity'],
+      )!,
+      backgroundImageBlur: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}background_image_blur'],
+      )!,
+      windowEffectType: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}window_effect_type'],
+      )!,
+      effectOpacity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}effect_opacity'],
+      )!,
+      surfaceOpacity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}surface_opacity'],
+      )!,
+      surfaceBlur: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}surface_blur'],
+      )!,
+      themeMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}theme_mode'],
+      )!,
+      isPreset: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_preset'],
+      )!,
+      isActive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_active'],
+      )!,
+    );
+  }
+
+  @override
+  $CustomThemesTable createAlias(String alias) {
+    return $CustomThemesTable(attachedDatabase, alias);
+  }
+}
+
+class DbCustomTheme extends DataClass implements Insertable<DbCustomTheme> {
+  final String id;
+  final String name;
+  final String primaryColorHex;
+  final String secondaryColorHex;
+  final String surfaceColorHex;
+  final String backgroundColorHex;
+  final String? backgroundImagePath;
+  final double backgroundImageOpacity;
+  final double backgroundImageBlur;
+  final int windowEffectType;
+  final double effectOpacity;
+  final double surfaceOpacity;
+  final double surfaceBlur;
+  final int themeMode;
+  final bool isPreset;
+  final bool isActive;
+  const DbCustomTheme({
+    required this.id,
+    required this.name,
+    required this.primaryColorHex,
+    required this.secondaryColorHex,
+    required this.surfaceColorHex,
+    required this.backgroundColorHex,
+    this.backgroundImagePath,
+    required this.backgroundImageOpacity,
+    required this.backgroundImageBlur,
+    required this.windowEffectType,
+    required this.effectOpacity,
+    required this.surfaceOpacity,
+    required this.surfaceBlur,
+    required this.themeMode,
+    required this.isPreset,
+    required this.isActive,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['primary_color_hex'] = Variable<String>(primaryColorHex);
+    map['secondary_color_hex'] = Variable<String>(secondaryColorHex);
+    map['surface_color_hex'] = Variable<String>(surfaceColorHex);
+    map['background_color_hex'] = Variable<String>(backgroundColorHex);
+    if (!nullToAbsent || backgroundImagePath != null) {
+      map['background_image_path'] = Variable<String>(backgroundImagePath);
+    }
+    map['background_image_opacity'] = Variable<double>(backgroundImageOpacity);
+    map['background_image_blur'] = Variable<double>(backgroundImageBlur);
+    map['window_effect_type'] = Variable<int>(windowEffectType);
+    map['effect_opacity'] = Variable<double>(effectOpacity);
+    map['surface_opacity'] = Variable<double>(surfaceOpacity);
+    map['surface_blur'] = Variable<double>(surfaceBlur);
+    map['theme_mode'] = Variable<int>(themeMode);
+    map['is_preset'] = Variable<bool>(isPreset);
+    map['is_active'] = Variable<bool>(isActive);
+    return map;
+  }
+
+  CustomThemesCompanion toCompanion(bool nullToAbsent) {
+    return CustomThemesCompanion(
+      id: Value(id),
+      name: Value(name),
+      primaryColorHex: Value(primaryColorHex),
+      secondaryColorHex: Value(secondaryColorHex),
+      surfaceColorHex: Value(surfaceColorHex),
+      backgroundColorHex: Value(backgroundColorHex),
+      backgroundImagePath: backgroundImagePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(backgroundImagePath),
+      backgroundImageOpacity: Value(backgroundImageOpacity),
+      backgroundImageBlur: Value(backgroundImageBlur),
+      windowEffectType: Value(windowEffectType),
+      effectOpacity: Value(effectOpacity),
+      surfaceOpacity: Value(surfaceOpacity),
+      surfaceBlur: Value(surfaceBlur),
+      themeMode: Value(themeMode),
+      isPreset: Value(isPreset),
+      isActive: Value(isActive),
+    );
+  }
+
+  factory DbCustomTheme.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DbCustomTheme(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      primaryColorHex: serializer.fromJson<String>(json['primaryColorHex']),
+      secondaryColorHex: serializer.fromJson<String>(json['secondaryColorHex']),
+      surfaceColorHex: serializer.fromJson<String>(json['surfaceColorHex']),
+      backgroundColorHex: serializer.fromJson<String>(
+        json['backgroundColorHex'],
+      ),
+      backgroundImagePath: serializer.fromJson<String?>(
+        json['backgroundImagePath'],
+      ),
+      backgroundImageOpacity: serializer.fromJson<double>(
+        json['backgroundImageOpacity'],
+      ),
+      backgroundImageBlur: serializer.fromJson<double>(
+        json['backgroundImageBlur'],
+      ),
+      windowEffectType: serializer.fromJson<int>(json['windowEffectType']),
+      effectOpacity: serializer.fromJson<double>(json['effectOpacity']),
+      surfaceOpacity: serializer.fromJson<double>(json['surfaceOpacity']),
+      surfaceBlur: serializer.fromJson<double>(json['surfaceBlur']),
+      themeMode: serializer.fromJson<int>(json['themeMode']),
+      isPreset: serializer.fromJson<bool>(json['isPreset']),
+      isActive: serializer.fromJson<bool>(json['isActive']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'primaryColorHex': serializer.toJson<String>(primaryColorHex),
+      'secondaryColorHex': serializer.toJson<String>(secondaryColorHex),
+      'surfaceColorHex': serializer.toJson<String>(surfaceColorHex),
+      'backgroundColorHex': serializer.toJson<String>(backgroundColorHex),
+      'backgroundImagePath': serializer.toJson<String?>(backgroundImagePath),
+      'backgroundImageOpacity': serializer.toJson<double>(
+        backgroundImageOpacity,
+      ),
+      'backgroundImageBlur': serializer.toJson<double>(backgroundImageBlur),
+      'windowEffectType': serializer.toJson<int>(windowEffectType),
+      'effectOpacity': serializer.toJson<double>(effectOpacity),
+      'surfaceOpacity': serializer.toJson<double>(surfaceOpacity),
+      'surfaceBlur': serializer.toJson<double>(surfaceBlur),
+      'themeMode': serializer.toJson<int>(themeMode),
+      'isPreset': serializer.toJson<bool>(isPreset),
+      'isActive': serializer.toJson<bool>(isActive),
+    };
+  }
+
+  DbCustomTheme copyWith({
+    String? id,
+    String? name,
+    String? primaryColorHex,
+    String? secondaryColorHex,
+    String? surfaceColorHex,
+    String? backgroundColorHex,
+    Value<String?> backgroundImagePath = const Value.absent(),
+    double? backgroundImageOpacity,
+    double? backgroundImageBlur,
+    int? windowEffectType,
+    double? effectOpacity,
+    double? surfaceOpacity,
+    double? surfaceBlur,
+    int? themeMode,
+    bool? isPreset,
+    bool? isActive,
+  }) => DbCustomTheme(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    primaryColorHex: primaryColorHex ?? this.primaryColorHex,
+    secondaryColorHex: secondaryColorHex ?? this.secondaryColorHex,
+    surfaceColorHex: surfaceColorHex ?? this.surfaceColorHex,
+    backgroundColorHex: backgroundColorHex ?? this.backgroundColorHex,
+    backgroundImagePath: backgroundImagePath.present
+        ? backgroundImagePath.value
+        : this.backgroundImagePath,
+    backgroundImageOpacity:
+        backgroundImageOpacity ?? this.backgroundImageOpacity,
+    backgroundImageBlur: backgroundImageBlur ?? this.backgroundImageBlur,
+    windowEffectType: windowEffectType ?? this.windowEffectType,
+    effectOpacity: effectOpacity ?? this.effectOpacity,
+    surfaceOpacity: surfaceOpacity ?? this.surfaceOpacity,
+    surfaceBlur: surfaceBlur ?? this.surfaceBlur,
+    themeMode: themeMode ?? this.themeMode,
+    isPreset: isPreset ?? this.isPreset,
+    isActive: isActive ?? this.isActive,
+  );
+  DbCustomTheme copyWithCompanion(CustomThemesCompanion data) {
+    return DbCustomTheme(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      primaryColorHex: data.primaryColorHex.present
+          ? data.primaryColorHex.value
+          : this.primaryColorHex,
+      secondaryColorHex: data.secondaryColorHex.present
+          ? data.secondaryColorHex.value
+          : this.secondaryColorHex,
+      surfaceColorHex: data.surfaceColorHex.present
+          ? data.surfaceColorHex.value
+          : this.surfaceColorHex,
+      backgroundColorHex: data.backgroundColorHex.present
+          ? data.backgroundColorHex.value
+          : this.backgroundColorHex,
+      backgroundImagePath: data.backgroundImagePath.present
+          ? data.backgroundImagePath.value
+          : this.backgroundImagePath,
+      backgroundImageOpacity: data.backgroundImageOpacity.present
+          ? data.backgroundImageOpacity.value
+          : this.backgroundImageOpacity,
+      backgroundImageBlur: data.backgroundImageBlur.present
+          ? data.backgroundImageBlur.value
+          : this.backgroundImageBlur,
+      windowEffectType: data.windowEffectType.present
+          ? data.windowEffectType.value
+          : this.windowEffectType,
+      effectOpacity: data.effectOpacity.present
+          ? data.effectOpacity.value
+          : this.effectOpacity,
+      surfaceOpacity: data.surfaceOpacity.present
+          ? data.surfaceOpacity.value
+          : this.surfaceOpacity,
+      surfaceBlur: data.surfaceBlur.present
+          ? data.surfaceBlur.value
+          : this.surfaceBlur,
+      themeMode: data.themeMode.present ? data.themeMode.value : this.themeMode,
+      isPreset: data.isPreset.present ? data.isPreset.value : this.isPreset,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DbCustomTheme(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('primaryColorHex: $primaryColorHex, ')
+          ..write('secondaryColorHex: $secondaryColorHex, ')
+          ..write('surfaceColorHex: $surfaceColorHex, ')
+          ..write('backgroundColorHex: $backgroundColorHex, ')
+          ..write('backgroundImagePath: $backgroundImagePath, ')
+          ..write('backgroundImageOpacity: $backgroundImageOpacity, ')
+          ..write('backgroundImageBlur: $backgroundImageBlur, ')
+          ..write('windowEffectType: $windowEffectType, ')
+          ..write('effectOpacity: $effectOpacity, ')
+          ..write('surfaceOpacity: $surfaceOpacity, ')
+          ..write('surfaceBlur: $surfaceBlur, ')
+          ..write('themeMode: $themeMode, ')
+          ..write('isPreset: $isPreset, ')
+          ..write('isActive: $isActive')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    primaryColorHex,
+    secondaryColorHex,
+    surfaceColorHex,
+    backgroundColorHex,
+    backgroundImagePath,
+    backgroundImageOpacity,
+    backgroundImageBlur,
+    windowEffectType,
+    effectOpacity,
+    surfaceOpacity,
+    surfaceBlur,
+    themeMode,
+    isPreset,
+    isActive,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DbCustomTheme &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.primaryColorHex == this.primaryColorHex &&
+          other.secondaryColorHex == this.secondaryColorHex &&
+          other.surfaceColorHex == this.surfaceColorHex &&
+          other.backgroundColorHex == this.backgroundColorHex &&
+          other.backgroundImagePath == this.backgroundImagePath &&
+          other.backgroundImageOpacity == this.backgroundImageOpacity &&
+          other.backgroundImageBlur == this.backgroundImageBlur &&
+          other.windowEffectType == this.windowEffectType &&
+          other.effectOpacity == this.effectOpacity &&
+          other.surfaceOpacity == this.surfaceOpacity &&
+          other.surfaceBlur == this.surfaceBlur &&
+          other.themeMode == this.themeMode &&
+          other.isPreset == this.isPreset &&
+          other.isActive == this.isActive);
+}
+
+class CustomThemesCompanion extends UpdateCompanion<DbCustomTheme> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> primaryColorHex;
+  final Value<String> secondaryColorHex;
+  final Value<String> surfaceColorHex;
+  final Value<String> backgroundColorHex;
+  final Value<String?> backgroundImagePath;
+  final Value<double> backgroundImageOpacity;
+  final Value<double> backgroundImageBlur;
+  final Value<int> windowEffectType;
+  final Value<double> effectOpacity;
+  final Value<double> surfaceOpacity;
+  final Value<double> surfaceBlur;
+  final Value<int> themeMode;
+  final Value<bool> isPreset;
+  final Value<bool> isActive;
+  final Value<int> rowid;
+  const CustomThemesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.primaryColorHex = const Value.absent(),
+    this.secondaryColorHex = const Value.absent(),
+    this.surfaceColorHex = const Value.absent(),
+    this.backgroundColorHex = const Value.absent(),
+    this.backgroundImagePath = const Value.absent(),
+    this.backgroundImageOpacity = const Value.absent(),
+    this.backgroundImageBlur = const Value.absent(),
+    this.windowEffectType = const Value.absent(),
+    this.effectOpacity = const Value.absent(),
+    this.surfaceOpacity = const Value.absent(),
+    this.surfaceBlur = const Value.absent(),
+    this.themeMode = const Value.absent(),
+    this.isPreset = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CustomThemesCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    required String primaryColorHex,
+    required String secondaryColorHex,
+    required String surfaceColorHex,
+    required String backgroundColorHex,
+    this.backgroundImagePath = const Value.absent(),
+    this.backgroundImageOpacity = const Value.absent(),
+    this.backgroundImageBlur = const Value.absent(),
+    required int windowEffectType,
+    this.effectOpacity = const Value.absent(),
+    this.surfaceOpacity = const Value.absent(),
+    this.surfaceBlur = const Value.absent(),
+    required int themeMode,
+    this.isPreset = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : name = Value(name),
+       primaryColorHex = Value(primaryColorHex),
+       secondaryColorHex = Value(secondaryColorHex),
+       surfaceColorHex = Value(surfaceColorHex),
+       backgroundColorHex = Value(backgroundColorHex),
+       windowEffectType = Value(windowEffectType),
+       themeMode = Value(themeMode);
+  static Insertable<DbCustomTheme> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? primaryColorHex,
+    Expression<String>? secondaryColorHex,
+    Expression<String>? surfaceColorHex,
+    Expression<String>? backgroundColorHex,
+    Expression<String>? backgroundImagePath,
+    Expression<double>? backgroundImageOpacity,
+    Expression<double>? backgroundImageBlur,
+    Expression<int>? windowEffectType,
+    Expression<double>? effectOpacity,
+    Expression<double>? surfaceOpacity,
+    Expression<double>? surfaceBlur,
+    Expression<int>? themeMode,
+    Expression<bool>? isPreset,
+    Expression<bool>? isActive,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (primaryColorHex != null) 'primary_color_hex': primaryColorHex,
+      if (secondaryColorHex != null) 'secondary_color_hex': secondaryColorHex,
+      if (surfaceColorHex != null) 'surface_color_hex': surfaceColorHex,
+      if (backgroundColorHex != null)
+        'background_color_hex': backgroundColorHex,
+      if (backgroundImagePath != null)
+        'background_image_path': backgroundImagePath,
+      if (backgroundImageOpacity != null)
+        'background_image_opacity': backgroundImageOpacity,
+      if (backgroundImageBlur != null)
+        'background_image_blur': backgroundImageBlur,
+      if (windowEffectType != null) 'window_effect_type': windowEffectType,
+      if (effectOpacity != null) 'effect_opacity': effectOpacity,
+      if (surfaceOpacity != null) 'surface_opacity': surfaceOpacity,
+      if (surfaceBlur != null) 'surface_blur': surfaceBlur,
+      if (themeMode != null) 'theme_mode': themeMode,
+      if (isPreset != null) 'is_preset': isPreset,
+      if (isActive != null) 'is_active': isActive,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CustomThemesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? primaryColorHex,
+    Value<String>? secondaryColorHex,
+    Value<String>? surfaceColorHex,
+    Value<String>? backgroundColorHex,
+    Value<String?>? backgroundImagePath,
+    Value<double>? backgroundImageOpacity,
+    Value<double>? backgroundImageBlur,
+    Value<int>? windowEffectType,
+    Value<double>? effectOpacity,
+    Value<double>? surfaceOpacity,
+    Value<double>? surfaceBlur,
+    Value<int>? themeMode,
+    Value<bool>? isPreset,
+    Value<bool>? isActive,
+    Value<int>? rowid,
+  }) {
+    return CustomThemesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      primaryColorHex: primaryColorHex ?? this.primaryColorHex,
+      secondaryColorHex: secondaryColorHex ?? this.secondaryColorHex,
+      surfaceColorHex: surfaceColorHex ?? this.surfaceColorHex,
+      backgroundColorHex: backgroundColorHex ?? this.backgroundColorHex,
+      backgroundImagePath: backgroundImagePath ?? this.backgroundImagePath,
+      backgroundImageOpacity:
+          backgroundImageOpacity ?? this.backgroundImageOpacity,
+      backgroundImageBlur: backgroundImageBlur ?? this.backgroundImageBlur,
+      windowEffectType: windowEffectType ?? this.windowEffectType,
+      effectOpacity: effectOpacity ?? this.effectOpacity,
+      surfaceOpacity: surfaceOpacity ?? this.surfaceOpacity,
+      surfaceBlur: surfaceBlur ?? this.surfaceBlur,
+      themeMode: themeMode ?? this.themeMode,
+      isPreset: isPreset ?? this.isPreset,
+      isActive: isActive ?? this.isActive,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (primaryColorHex.present) {
+      map['primary_color_hex'] = Variable<String>(primaryColorHex.value);
+    }
+    if (secondaryColorHex.present) {
+      map['secondary_color_hex'] = Variable<String>(secondaryColorHex.value);
+    }
+    if (surfaceColorHex.present) {
+      map['surface_color_hex'] = Variable<String>(surfaceColorHex.value);
+    }
+    if (backgroundColorHex.present) {
+      map['background_color_hex'] = Variable<String>(backgroundColorHex.value);
+    }
+    if (backgroundImagePath.present) {
+      map['background_image_path'] = Variable<String>(
+        backgroundImagePath.value,
+      );
+    }
+    if (backgroundImageOpacity.present) {
+      map['background_image_opacity'] = Variable<double>(
+        backgroundImageOpacity.value,
+      );
+    }
+    if (backgroundImageBlur.present) {
+      map['background_image_blur'] = Variable<double>(
+        backgroundImageBlur.value,
+      );
+    }
+    if (windowEffectType.present) {
+      map['window_effect_type'] = Variable<int>(windowEffectType.value);
+    }
+    if (effectOpacity.present) {
+      map['effect_opacity'] = Variable<double>(effectOpacity.value);
+    }
+    if (surfaceOpacity.present) {
+      map['surface_opacity'] = Variable<double>(surfaceOpacity.value);
+    }
+    if (surfaceBlur.present) {
+      map['surface_blur'] = Variable<double>(surfaceBlur.value);
+    }
+    if (themeMode.present) {
+      map['theme_mode'] = Variable<int>(themeMode.value);
+    }
+    if (isPreset.present) {
+      map['is_preset'] = Variable<bool>(isPreset.value);
+    }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomThemesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('primaryColorHex: $primaryColorHex, ')
+          ..write('secondaryColorHex: $secondaryColorHex, ')
+          ..write('surfaceColorHex: $surfaceColorHex, ')
+          ..write('backgroundColorHex: $backgroundColorHex, ')
+          ..write('backgroundImagePath: $backgroundImagePath, ')
+          ..write('backgroundImageOpacity: $backgroundImageOpacity, ')
+          ..write('backgroundImageBlur: $backgroundImageBlur, ')
+          ..write('windowEffectType: $windowEffectType, ')
+          ..write('effectOpacity: $effectOpacity, ')
+          ..write('surfaceOpacity: $surfaceOpacity, ')
+          ..write('surfaceBlur: $surfaceBlur, ')
+          ..write('themeMode: $themeMode, ')
+          ..write('isPreset: $isPreset, ')
+          ..write('isActive: $isActive, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3639,6 +4611,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TransactionsTable transactions = $TransactionsTable(this);
   late final $ExchangeRatesTable exchangeRates = $ExchangeRatesTable(this);
   late final $SettingsTable settings = $SettingsTable(this);
+  late final $CustomThemesTable customThemes = $CustomThemesTable(this);
   late final LanguageDao languageDao = LanguageDao(this as AppDatabase);
   late final CurrencyDesignationsDao currencyDesignationsDao =
       CurrencyDesignationsDao(this as AppDatabase);
@@ -3656,6 +4629,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final ExchangeRatesDao exchangeRatesDao = ExchangeRatesDao(
     this as AppDatabase,
   );
+  late final CustomThemesDao customThemesDao = CustomThemesDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3671,6 +4647,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     transactions,
     exchangeRates,
     settings,
+    customThemes,
   ];
 }
 
@@ -8424,6 +9401,437 @@ typedef $$SettingsTableProcessedTableManager =
       Setting,
       PrefetchHooks Function()
     >;
+typedef $$CustomThemesTableCreateCompanionBuilder =
+    CustomThemesCompanion Function({
+      Value<String> id,
+      required String name,
+      required String primaryColorHex,
+      required String secondaryColorHex,
+      required String surfaceColorHex,
+      required String backgroundColorHex,
+      Value<String?> backgroundImagePath,
+      Value<double> backgroundImageOpacity,
+      Value<double> backgroundImageBlur,
+      required int windowEffectType,
+      Value<double> effectOpacity,
+      Value<double> surfaceOpacity,
+      Value<double> surfaceBlur,
+      required int themeMode,
+      Value<bool> isPreset,
+      Value<bool> isActive,
+      Value<int> rowid,
+    });
+typedef $$CustomThemesTableUpdateCompanionBuilder =
+    CustomThemesCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String> primaryColorHex,
+      Value<String> secondaryColorHex,
+      Value<String> surfaceColorHex,
+      Value<String> backgroundColorHex,
+      Value<String?> backgroundImagePath,
+      Value<double> backgroundImageOpacity,
+      Value<double> backgroundImageBlur,
+      Value<int> windowEffectType,
+      Value<double> effectOpacity,
+      Value<double> surfaceOpacity,
+      Value<double> surfaceBlur,
+      Value<int> themeMode,
+      Value<bool> isPreset,
+      Value<bool> isActive,
+      Value<int> rowid,
+    });
+
+class $$CustomThemesTableFilterComposer
+    extends Composer<_$AppDatabase, $CustomThemesTable> {
+  $$CustomThemesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get primaryColorHex => $composableBuilder(
+    column: $table.primaryColorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get secondaryColorHex => $composableBuilder(
+    column: $table.secondaryColorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get surfaceColorHex => $composableBuilder(
+    column: $table.surfaceColorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get backgroundColorHex => $composableBuilder(
+    column: $table.backgroundColorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get backgroundImagePath => $composableBuilder(
+    column: $table.backgroundImagePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get backgroundImageOpacity => $composableBuilder(
+    column: $table.backgroundImageOpacity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get backgroundImageBlur => $composableBuilder(
+    column: $table.backgroundImageBlur,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get windowEffectType => $composableBuilder(
+    column: $table.windowEffectType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get effectOpacity => $composableBuilder(
+    column: $table.effectOpacity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get surfaceOpacity => $composableBuilder(
+    column: $table.surfaceOpacity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get surfaceBlur => $composableBuilder(
+    column: $table.surfaceBlur,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get themeMode => $composableBuilder(
+    column: $table.themeMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isPreset => $composableBuilder(
+    column: $table.isPreset,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CustomThemesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CustomThemesTable> {
+  $$CustomThemesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get primaryColorHex => $composableBuilder(
+    column: $table.primaryColorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get secondaryColorHex => $composableBuilder(
+    column: $table.secondaryColorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get surfaceColorHex => $composableBuilder(
+    column: $table.surfaceColorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get backgroundColorHex => $composableBuilder(
+    column: $table.backgroundColorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get backgroundImagePath => $composableBuilder(
+    column: $table.backgroundImagePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get backgroundImageOpacity => $composableBuilder(
+    column: $table.backgroundImageOpacity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get backgroundImageBlur => $composableBuilder(
+    column: $table.backgroundImageBlur,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get windowEffectType => $composableBuilder(
+    column: $table.windowEffectType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get effectOpacity => $composableBuilder(
+    column: $table.effectOpacity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get surfaceOpacity => $composableBuilder(
+    column: $table.surfaceOpacity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get surfaceBlur => $composableBuilder(
+    column: $table.surfaceBlur,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get themeMode => $composableBuilder(
+    column: $table.themeMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isPreset => $composableBuilder(
+    column: $table.isPreset,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CustomThemesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CustomThemesTable> {
+  $$CustomThemesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get primaryColorHex => $composableBuilder(
+    column: $table.primaryColorHex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get secondaryColorHex => $composableBuilder(
+    column: $table.secondaryColorHex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get surfaceColorHex => $composableBuilder(
+    column: $table.surfaceColorHex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get backgroundColorHex => $composableBuilder(
+    column: $table.backgroundColorHex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get backgroundImagePath => $composableBuilder(
+    column: $table.backgroundImagePath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get backgroundImageOpacity => $composableBuilder(
+    column: $table.backgroundImageOpacity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get backgroundImageBlur => $composableBuilder(
+    column: $table.backgroundImageBlur,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get windowEffectType => $composableBuilder(
+    column: $table.windowEffectType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get effectOpacity => $composableBuilder(
+    column: $table.effectOpacity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get surfaceOpacity => $composableBuilder(
+    column: $table.surfaceOpacity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get surfaceBlur => $composableBuilder(
+    column: $table.surfaceBlur,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get themeMode =>
+      $composableBuilder(column: $table.themeMode, builder: (column) => column);
+
+  GeneratedColumn<bool> get isPreset =>
+      $composableBuilder(column: $table.isPreset, builder: (column) => column);
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
+}
+
+class $$CustomThemesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CustomThemesTable,
+          DbCustomTheme,
+          $$CustomThemesTableFilterComposer,
+          $$CustomThemesTableOrderingComposer,
+          $$CustomThemesTableAnnotationComposer,
+          $$CustomThemesTableCreateCompanionBuilder,
+          $$CustomThemesTableUpdateCompanionBuilder,
+          (
+            DbCustomTheme,
+            BaseReferences<_$AppDatabase, $CustomThemesTable, DbCustomTheme>,
+          ),
+          DbCustomTheme,
+          PrefetchHooks Function()
+        > {
+  $$CustomThemesTableTableManager(_$AppDatabase db, $CustomThemesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CustomThemesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CustomThemesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CustomThemesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> primaryColorHex = const Value.absent(),
+                Value<String> secondaryColorHex = const Value.absent(),
+                Value<String> surfaceColorHex = const Value.absent(),
+                Value<String> backgroundColorHex = const Value.absent(),
+                Value<String?> backgroundImagePath = const Value.absent(),
+                Value<double> backgroundImageOpacity = const Value.absent(),
+                Value<double> backgroundImageBlur = const Value.absent(),
+                Value<int> windowEffectType = const Value.absent(),
+                Value<double> effectOpacity = const Value.absent(),
+                Value<double> surfaceOpacity = const Value.absent(),
+                Value<double> surfaceBlur = const Value.absent(),
+                Value<int> themeMode = const Value.absent(),
+                Value<bool> isPreset = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CustomThemesCompanion(
+                id: id,
+                name: name,
+                primaryColorHex: primaryColorHex,
+                secondaryColorHex: secondaryColorHex,
+                surfaceColorHex: surfaceColorHex,
+                backgroundColorHex: backgroundColorHex,
+                backgroundImagePath: backgroundImagePath,
+                backgroundImageOpacity: backgroundImageOpacity,
+                backgroundImageBlur: backgroundImageBlur,
+                windowEffectType: windowEffectType,
+                effectOpacity: effectOpacity,
+                surfaceOpacity: surfaceOpacity,
+                surfaceBlur: surfaceBlur,
+                themeMode: themeMode,
+                isPreset: isPreset,
+                isActive: isActive,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                required String name,
+                required String primaryColorHex,
+                required String secondaryColorHex,
+                required String surfaceColorHex,
+                required String backgroundColorHex,
+                Value<String?> backgroundImagePath = const Value.absent(),
+                Value<double> backgroundImageOpacity = const Value.absent(),
+                Value<double> backgroundImageBlur = const Value.absent(),
+                required int windowEffectType,
+                Value<double> effectOpacity = const Value.absent(),
+                Value<double> surfaceOpacity = const Value.absent(),
+                Value<double> surfaceBlur = const Value.absent(),
+                required int themeMode,
+                Value<bool> isPreset = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CustomThemesCompanion.insert(
+                id: id,
+                name: name,
+                primaryColorHex: primaryColorHex,
+                secondaryColorHex: secondaryColorHex,
+                surfaceColorHex: surfaceColorHex,
+                backgroundColorHex: backgroundColorHex,
+                backgroundImagePath: backgroundImagePath,
+                backgroundImageOpacity: backgroundImageOpacity,
+                backgroundImageBlur: backgroundImageBlur,
+                windowEffectType: windowEffectType,
+                effectOpacity: effectOpacity,
+                surfaceOpacity: surfaceOpacity,
+                surfaceBlur: surfaceBlur,
+                themeMode: themeMode,
+                isPreset: isPreset,
+                isActive: isActive,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CustomThemesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CustomThemesTable,
+      DbCustomTheme,
+      $$CustomThemesTableFilterComposer,
+      $$CustomThemesTableOrderingComposer,
+      $$CustomThemesTableAnnotationComposer,
+      $$CustomThemesTableCreateCompanionBuilder,
+      $$CustomThemesTableUpdateCompanionBuilder,
+      (
+        DbCustomTheme,
+        BaseReferences<_$AppDatabase, $CustomThemesTable, DbCustomTheme>,
+      ),
+      DbCustomTheme,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -8448,4 +9856,6 @@ class $AppDatabaseManager {
       $$ExchangeRatesTableTableManager(_db, _db.exchangeRates);
   $$SettingsTableTableManager get settings =>
       $$SettingsTableTableManager(_db, _db.settings);
+  $$CustomThemesTableTableManager get customThemes =>
+      $$CustomThemesTableTableManager(_db, _db.customThemes);
 }

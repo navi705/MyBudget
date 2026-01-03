@@ -1,213 +1,193 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/theme/app_theme.dart';
+import 'package:my_budget_client/core/theme/default_themes.dart';
+import 'package:my_budget_client/domain/entities/custom_theme.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
+import 'package:my_budget_client/domain/repositories/theme_repository.dart';
 
 part 'theme_event.dart';
 part 'theme_state.dart';
 
 class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
   final SettingsRepository _settingsRepository;
+  final ThemeRepository _themeRepository;
 
-  ThemeBloc({required SettingsRepository settingsRepository})
-    : _settingsRepository = settingsRepository,
-      super(const ThemeState()) {
+  ThemeBloc({
+    required SettingsRepository settingsRepository,
+    required ThemeRepository themeRepository,
+  }) : _settingsRepository = settingsRepository,
+       _themeRepository = themeRepository,
+       super(const ThemeState()) {
     on<LoadThemeSettings>(_onLoadThemeSettings);
-    on<ChangeThemeColor>(_onChangeThemeColor);
-    on<ChangeWindowEffect>(_onChangeWindowEffect);
-    on<ChangeWindowOpacity>(_onChangeWindowOpacity);
-    on<ChangeThemeMode>(_onChangeThemeMode);
-    on<ChangeBackgroundImage>(_onChangeBackgroundImage);
-    on<AddUserPreset>(_onAddUserPreset);
-    on<DeleteUserPreset>(_onDeleteUserPreset);
-    on<ChangeSecondaryColor>(_onChangeSecondaryColor);
-    on<ChangeSurfaceColor>(_onChangeSurfaceColor);
+    on<SelectThemePreset>(_onSelectThemePreset);
+    on<SaveThemePreset>(_onSaveThemePreset);
+    on<DeleteThemePreset>(_onDeleteThemePreset);
+    on<UpdateThemeProperty>(_onUpdateThemeProperty);
   }
 
   Future<void> _onLoadThemeSettings(
     LoadThemeSettings event,
     Emitter<ThemeState> emit,
   ) async {
-    final settings = await _settingsRepository.getAllSettings();
-    final currentThemeMode = await _settingsRepository.getSetting('themeMode');
+    // 1. Check if we have any themes
+    List<CustomTheme> themes = await _themeRepository.getAllThemes();
 
-    final themeColorHex = settings['theme_color'] ?? '#2196F3';
-    final secondaryColorHex = settings['secondary_color'] ?? '#9C27B0';
-    final surfaceColorHex = settings['surface_color'] ?? '#121212';
-    final windowEffectStr = settings['window_effect'] ?? 'none';
-    final windowOpacityStr = settings['window_opacity'] ?? '0.8';
-    final backgroundImagePath = settings['background_image_path'];
-
-    final themeColor = AppTheme.parseHex(themeColorHex);
-    final secondaryColor = AppTheme.parseHex(secondaryColorHex);
-    final surfaceColor = AppTheme.parseHex(surfaceColorHex);
-    final themeMode = _stringToThemeMode(currentThemeMode?.value ?? 'system');
-    final windowEffect = WindowEffectType.values.firstWhere(
-      (e) => e.name == windowEffectStr,
-      orElse: () => WindowEffectType.none,
-    );
-    final windowOpacity = double.tryParse(windowOpacityStr) ?? 0.8;
-
-    final userPresetsJson = settings['user_presets'] ?? '[]';
-    List<String> userPresets = [];
-    try {
-      userPresets = List<String>.from(jsonDecode(userPresetsJson));
-    } catch (e) {
-      debugPrint('Error decoding user presets: $e');
-    }
-
-    emit(
-      state.copyWith(
-        themeColor: themeColor,
-        secondaryColor: secondaryColor,
-        surfaceColor: surfaceColor,
-        themeMode: themeMode,
-        windowEffect: windowEffect,
-        windowOpacity: windowOpacity,
-        backgroundImagePath: backgroundImagePath,
-        userPresets: userPresets,
-        isLoaded: true,
-      ),
-    );
-  }
-
-  Future<void> _onChangeThemeColor(
-    ChangeThemeColor event,
-    Emitter<ThemeState> emit,
-  ) async {
-    emit(state.copyWith(themeColor: event.color));
-    await _settingsRepository.saveSetting(
-      'theme_color',
-      AppTheme.toHex(event.color),
-    );
-  }
-
-  Future<void> _onChangeWindowEffect(
-    ChangeWindowEffect event,
-    Emitter<ThemeState> emit,
-  ) async {
-    emit(state.copyWith(windowEffect: event.effect));
-    await _settingsRepository.saveSetting('window_effect', event.effect.name);
-  }
-
-  Future<void> _onChangeWindowOpacity(
-    ChangeWindowOpacity event,
-    Emitter<ThemeState> emit,
-  ) async {
-    emit(state.copyWith(windowOpacity: event.opacity));
-    await _settingsRepository.saveSetting(
-      'window_opacity',
-      event.opacity.toString(),
-    );
-  }
-
-  Future<void> _onChangeThemeMode(
-    ChangeThemeMode event,
-    Emitter<ThemeState> emit,
-  ) async {
-    emit(state.copyWith(themeMode: event.mode));
-    await _settingsRepository.setThemeMode(event.mode, 'all');
-  }
-
-  Future<void> _onChangeBackgroundImage(
-    ChangeBackgroundImage event,
-    Emitter<ThemeState> emit,
-  ) async {
-    String? pathToSave = event.path;
-
-    if (event.path != null && !event.path!.startsWith('assets/')) {
-      try {
-        final appSupportDir = await getApplicationSupportDirectory();
-        final fileName = p.basename(event.path!);
-        final localPath = p.join(appSupportDir.path, 'backgrounds', fileName);
-
-        // Ensure directory exists
-        final bgDir = Directory(p.dirname(localPath));
-        if (!await bgDir.exists()) {
-          await bgDir.create(recursive: true);
-        }
-
-        await File(event.path!).copy(localPath);
-        pathToSave = localPath;
-      } catch (e) {
-        debugPrint('Error saving background image: $e');
-        // Fallback to original path if copy fails
+    // 2. Seed default presets if none exist
+    if (themes.isEmpty) {
+      for (final preset in defaultThemePresets) {
+        await _themeRepository.saveTheme(preset);
       }
+      themes = await _themeRepository.getAllThemes();
+    }
+
+    // 3. Get active theme
+    CustomTheme? activeTheme = await _themeRepository.getActiveTheme();
+
+    // 4. Fallback: Check old settings if no active theme found (Migration)
+    if (activeTheme == null) {
+      final activeId = await _settingsRepository.getSetting('active_theme_id');
+      if (activeId != null) {
+        activeTheme = themes.firstWhere(
+          (t) => t.id == activeId.value,
+          orElse: () => themes.first,
+        );
+      } else {
+        // Migration from old separate settings
+        final settings = await _settingsRepository.getAllSettings();
+        if (settings.containsKey('theme_color')) {
+          activeTheme = CustomTheme(
+            id: 'custom-migrated',
+            name: 'Custom',
+            primaryColor: AppTheme.parseHex(settings['theme_color']!),
+            secondaryColor: AppTheme.parseHex(
+              settings['secondary_color'] ?? '#9C27B0',
+            ),
+            surfaceColor: AppTheme.parseHex(
+              settings['surface_color'] ?? '#121212',
+            ),
+            backgroundColor: AppTheme.parseHex(
+              settings['background_color'] ?? '#121212',
+            ),
+            backgroundImagePath: settings['background_image_path'],
+            windowEffectType: WindowEffectType.values.firstWhere(
+              (e) => e.name == (settings['window_effect'] ?? 'none'),
+              orElse: () => WindowEffectType.none,
+            ),
+            effectOpacity:
+                double.tryParse(settings['window_opacity'] ?? '0.8') ?? 0.8,
+            themeMode: ThemeMode.values.firstWhere(
+              (e) => e.name == (settings['themeMode'] ?? 'system'),
+              orElse: () => ThemeMode.system,
+            ),
+            isPreset: false,
+            isActive: true,
+          );
+          await _themeRepository.saveTheme(activeTheme);
+        } else {
+          activeTheme = themes.first;
+        }
+      }
+      await _themeRepository.setActiveTheme(activeTheme.id);
     }
 
     emit(
-      state.copyWith(
-        backgroundImagePath: pathToSave,
-        clearBackgroundImage: pathToSave == null,
-      ),
+      state.copyWith(activeTheme: activeTheme, presets: themes, isLoaded: true),
+    );
+  }
+
+  Future<void> _onSelectThemePreset(
+    SelectThemePreset event,
+    Emitter<ThemeState> emit,
+  ) async {
+    await _themeRepository.setActiveTheme(event.presetId);
+    final themes = await _themeRepository.getAllThemes();
+    final activeTheme = themes.firstWhere((t) => t.id == event.presetId);
+
+    // Also sync the old settings for backward compatibility if any parts still use them
+    await _settingsRepository.saveSetting('active_theme_id', event.presetId);
+    await _settingsRepository.setThemeMode(activeTheme.themeMode, 'all');
+
+    emit(state.copyWith(activeTheme: activeTheme, presets: themes));
+  }
+
+  Future<void> _onUpdateThemeProperty(
+    UpdateThemeProperty event,
+    Emitter<ThemeState> emit,
+  ) async {
+    if (state.activeTheme == null) return;
+
+    CustomTheme updatedTheme = state.activeTheme!.copyWith(
+      primaryColor: event.primaryColor,
+      secondaryColor: event.secondaryColor,
+      surfaceColor: event.surfaceColor,
+      backgroundColor: event.backgroundColor,
+      backgroundImagePath: event.clearBackgroundImage
+          ? null
+          : (event.backgroundImagePath ??
+                state.activeTheme!.backgroundImagePath),
+      backgroundImageOpacity: event.backgroundImageOpacity,
+      backgroundImageBlur: event.backgroundImageBlur,
+      windowEffectType: event.windowEffectType,
+      effectOpacity: event.effectOpacity,
+      surfaceOpacity: event.surfaceOpacity,
+      surfaceBlur: event.surfaceBlur,
+      themeMode: event.themeMode,
     );
 
-    if (pathToSave == null) {
-      await _settingsRepository.saveSetting('background_image_path', '');
-    } else {
-      await _settingsRepository.saveSetting(
-        'background_image_path',
-        pathToSave,
+    // If it was a preset, we create a NEW "Custom" theme or update the existing "Custom" theme
+    if (updatedTheme.isPreset) {
+      updatedTheme = updatedTheme.copyWith(
+        id: 'custom-theme',
+        name: 'Custom Theme',
+        isPreset: false,
+        isActive: true,
       );
     }
+
+    await _themeRepository.saveTheme(updatedTheme);
+    await _themeRepository.setActiveTheme(updatedTheme.id);
+
+    final themes = await _themeRepository.getAllThemes();
+    emit(state.copyWith(activeTheme: updatedTheme, presets: themes));
   }
 
-  Future<void> _onAddUserPreset(
-    AddUserPreset event,
+  Future<void> _onSaveThemePreset(
+    SaveThemePreset event,
     Emitter<ThemeState> emit,
   ) async {
-    if (state.userPresets.contains(event.path)) return;
+    if (state.activeTheme == null) return;
 
-    final newList = List<String>.from(state.userPresets)..add(event.path);
-    emit(state.copyWith(userPresets: newList));
-    await _settingsRepository.saveSetting('user_presets', jsonEncode(newList));
-  }
-
-  Future<void> _onDeleteUserPreset(
-    DeleteUserPreset event,
-    Emitter<ThemeState> emit,
-  ) async {
-    final newList = List<String>.from(state.userPresets)..remove(event.path);
-    emit(state.copyWith(userPresets: newList));
-    await _settingsRepository.saveSetting('user_presets', jsonEncode(newList));
-  }
-
-  Future<void> _onChangeSecondaryColor(
-    ChangeSecondaryColor event,
-    Emitter<ThemeState> emit,
-  ) async {
-    emit(state.copyWith(secondaryColor: event.color));
-    await _settingsRepository.saveSetting(
-      'secondary_color',
-      AppTheme.toHex(event.color),
+    final newId = DateTime.now().millisecondsSinceEpoch.toString();
+    final newPreset = state.activeTheme!.copyWith(
+      id: newId,
+      name: event.name,
+      isPreset: false,
+      isActive: true,
     );
+
+    await _themeRepository.saveTheme(newPreset);
+    await _themeRepository.setActiveTheme(newId);
+
+    final themes = await _themeRepository.getAllThemes();
+    emit(state.copyWith(activeTheme: newPreset, presets: themes));
   }
 
-  Future<void> _onChangeSurfaceColor(
-    ChangeSurfaceColor event,
+  Future<void> _onDeleteThemePreset(
+    DeleteThemePreset event,
     Emitter<ThemeState> emit,
   ) async {
-    emit(state.copyWith(surfaceColor: event.color));
-    await _settingsRepository.saveSetting(
-      'surface_color',
-      AppTheme.toHex(event.color),
-    );
-  }
-
-  ThemeMode _stringToThemeMode(String value) {
-    switch (value) {
-      case 'light':
-        return ThemeMode.light;
-      case 'dark':
-        return ThemeMode.dark;
-      case 'system':
-      default:
-        return ThemeMode.system;
+    if (event.presetId == state.activeTheme?.id) {
+      // Cannot delete active theme, or switch to default first
+      final defaultTheme = state.presets.firstWhere((t) => t.isPreset);
+      await _themeRepository.setActiveTheme(defaultTheme.id);
     }
+
+    await _themeRepository.deleteTheme(event.presetId);
+    final themes = await _themeRepository.getAllThemes();
+    final activeTheme = await _themeRepository.getActiveTheme();
+
+    emit(state.copyWith(activeTheme: activeTheme, presets: themes));
   }
 }

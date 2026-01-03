@@ -11,83 +11,75 @@ class LoadThemeSettings extends ThemeEvent {
   const LoadThemeSettings();
 }
 
-class ChangeThemeColor extends ThemeEvent {
-  final Color color;
-
-  const ChangeThemeColor(this.color);
+class SelectThemePreset extends ThemeEvent {
+  final String presetId;
+  const SelectThemePreset(this.presetId);
 
   @override
-  List<Object?> get props => [color];
+  List<Object?> get props => [presetId];
 }
 
-class ChangeWindowEffect extends ThemeEvent {
-  final WindowEffectType effect;
-
-  const ChangeWindowEffect(this.effect);
+class SaveThemePreset extends ThemeEvent {
+  final String name;
+  const SaveThemePreset(this.name);
 
   @override
-  List<Object?> get props => [effect];
+  List<Object?> get props => [name];
 }
 
-class ChangeWindowOpacity extends ThemeEvent {
-  final double opacity;
-
-  const ChangeWindowOpacity(this.opacity);
+class DeleteThemePreset extends ThemeEvent {
+  final String presetId;
+  const DeleteThemePreset(this.presetId);
 
   @override
-  List<Object?> get props => [opacity];
+  List<Object?> get props => [presetId];
 }
 
-class ChangeThemeMode extends ThemeEvent {
-  final ThemeMode mode;
+class UpdateThemeProperty extends ThemeEvent {
+  final Color? primaryColor;
+  final Color? secondaryColor;
+  final Color? surfaceColor;
+  final Color? backgroundColor;
+  final String? backgroundImagePath;
+  final double? backgroundImageOpacity;
+  final double? backgroundImageBlur;
+  final WindowEffectType? windowEffectType;
+  final double? effectOpacity;
+  final double? surfaceOpacity;
+  final double? surfaceBlur;
+  final ThemeMode? themeMode;
+  final bool clearBackgroundImage;
 
-  const ChangeThemeMode(this.mode);
-
-  @override
-  List<Object?> get props => [mode];
-}
-
-class ChangeBackgroundImage extends ThemeEvent {
-  final String? path;
-
-  const ChangeBackgroundImage(this.path);
-
-  @override
-  List<Object?> get props => [path];
-}
-
-class AddUserPreset extends ThemeEvent {
-  final String path;
-
-  const AddUserPreset(this.path);
-
-  @override
-  List<Object?> get props => [path];
-}
-
-class DeleteUserPreset extends ThemeEvent {
-  final String path;
-
-  const DeleteUserPreset(this.path);
-
-  @override
-  List<Object?> get props => [path];
-}
-
-class ChangeSecondaryColor extends ThemeEvent {
-  final Color color;
-
-  const ChangeSecondaryColor(this.color);
+  const UpdateThemeProperty({
+    this.primaryColor,
+    this.secondaryColor,
+    this.surfaceColor,
+    this.backgroundColor,
+    this.backgroundImagePath,
+    this.backgroundImageOpacity,
+    this.backgroundImageBlur,
+    this.windowEffectType,
+    this.effectOpacity,
+    this.surfaceOpacity,
+    this.surfaceBlur,
+    this.themeMode,
+    this.clearBackgroundImage = false,
+  });
 
   @override
-  List<Object?> get props => [color];
-}
-
-class ChangeSurfaceColor extends ThemeEvent {
-  final Color color;
-
-  const ChangeSurfaceColor(this.color);
-
-  @override
-  List<Object?> get props => [color];
+  List<Object?> get props => [
+    primaryColor,
+    secondaryColor,
+    surfaceColor,
+    backgroundColor,
+    backgroundImagePath,
+    backgroundImageOpacity,
+    backgroundImageBlur,
+    windowEffectType,
+    effectOpacity,
+    surfaceOpacity,
+    surfaceBlur,
+    themeMode,
+    clearBackgroundImage,
+  ];
 }

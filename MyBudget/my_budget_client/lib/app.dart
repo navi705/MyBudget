@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -17,64 +18,73 @@ class App extends StatelessWidget {
     return AppProviders(
       child: BlocBuilder<ThemeBloc, ThemeState>(
         builder: (context, state) {
-          final hasWindowEffect =
-              Platform.isWindows && state.windowEffect != WindowEffectType.none;
+          if (!state.isLoaded || state.activeTheme == null) {
+            return const MaterialApp(
+              home: Scaffold(body: Center(child: CircularProgressIndicator())),
+            );
+          }
 
-          // Apply transparent theme if either window effect or background image is present
-          final useTransparentTheme =
-              hasWindowEffect || state.backgroundImagePath != null;
+          final theme = state.activeTheme!;
 
-          final lightTheme = AppTheme.lightTheme(
-            state.themeColor,
-            secondaryColor: state.secondaryColor,
-            surfaceColor: Colors
-                .white, // Standard light surface, can be made custom if desired
-            hasWindowEffect: useTransparentTheme,
-            windowOpacity: state.windowOpacity,
+          final lightThemeData = AppTheme.lightTheme(
+            theme,
           ).copyWith(textTheme: GoogleFonts.interTextTheme());
 
-          final darkTheme =
-              AppTheme.darkTheme(
-                state.themeColor,
-                secondaryColor: state.secondaryColor,
-                surfaceColor: state.surfaceColor,
-                hasWindowEffect: useTransparentTheme,
-                windowOpacity: state.windowOpacity,
-              ).copyWith(
-                textTheme: GoogleFonts.interTextTheme(
-                  ThemeData.dark().textTheme,
-                ),
-              );
+          final darkThemeData = AppTheme.darkTheme(theme).copyWith(
+            textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+          );
 
           ImageProvider? backgroundImage;
-          if (state.backgroundImagePath != null &&
-              state.backgroundImagePath!.isNotEmpty) {
-            if (state.backgroundImagePath!.startsWith('assets/')) {
-              backgroundImage = AssetImage(state.backgroundImagePath!);
+          if (theme.backgroundImagePath != null &&
+              theme.backgroundImagePath!.isNotEmpty) {
+            if (theme.backgroundImagePath!.startsWith('assets/')) {
+              backgroundImage = AssetImage(theme.backgroundImagePath!);
             } else {
-              backgroundImage = FileImage(File(state.backgroundImagePath!));
+              backgroundImage = FileImage(File(theme.backgroundImagePath!));
             }
           }
 
-          return Container(
-            decoration: backgroundImage != null
-                ? BoxDecoration(
-                    image: DecorationImage(
-                      image: backgroundImage,
-                      fit: BoxFit.cover,
-                    ),
-                  )
-                : null,
-            child: MaterialApp.router(
-              title: 'MyBudget',
-              theme: lightTheme,
-              darkTheme: darkTheme,
-              themeMode: state.themeMode,
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              routerConfig: router,
-              debugShowCheckedModeBanner: false,
-            ),
+          return MaterialApp.router(
+            title: 'MyBudget',
+            theme: lightThemeData,
+            darkTheme: darkThemeData,
+            themeMode: theme.themeMode,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            routerConfig: router,
+            debugShowCheckedModeBanner: false,
+            builder: (context, child) {
+              return Container(
+                color: theme.backgroundColor.withValues(
+                  alpha: theme.effectOpacity,
+                ),
+                child: Stack(
+                  children: [
+                    if (backgroundImage != null)
+                      Positioned.fill(
+                        child: Opacity(
+                          opacity: theme.backgroundImageOpacity,
+                          child: Image(
+                            image: backgroundImage,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    if (theme.backgroundImageBlur > 0)
+                      Positioned.fill(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(
+                            sigmaX: theme.backgroundImageBlur,
+                            sigmaY: theme.backgroundImageBlur,
+                          ),
+                          child: Container(color: Colors.transparent),
+                        ),
+                      ),
+                    if (child != null) child,
+                  ],
+                ),
+              );
+            },
           );
         },
       ),

@@ -154,6 +154,31 @@ class Settings extends Table {
   Set<Column> get primaryKey => {key};
 }
 
+@DataClassName('DbCustomTheme')
+class CustomThemes extends Table {
+  TextColumn get id => text().clientDefault(() => _uuid.v4())();
+  TextColumn get name => text().withLength(min: 1, max: 50)();
+  TextColumn get primaryColorHex => text()();
+  TextColumn get secondaryColorHex => text()();
+  TextColumn get surfaceColorHex => text()();
+  TextColumn get backgroundColorHex => text()();
+  TextColumn get backgroundImagePath => text().nullable()();
+  RealColumn get backgroundImageOpacity =>
+      real().withDefault(const Constant(1.0))();
+  RealColumn get backgroundImageBlur =>
+      real().withDefault(const Constant(0.0))();
+  IntColumn get windowEffectType => integer()();
+  RealColumn get effectOpacity => real().withDefault(const Constant(1.0))();
+  RealColumn get surfaceOpacity => real().withDefault(const Constant(1.0))();
+  RealColumn get surfaceBlur => real().withDefault(const Constant(0.0))();
+  IntColumn get themeMode => integer()(); // 0: system, 1: light, 2: dark
+  BoolColumn get isPreset => boolean().withDefault(const Constant(false))();
+  BoolColumn get isActive => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 // --- Data Access Objects (DAOs) ---
 
 @DriftAccessor(tables: [Languages])
@@ -1069,6 +1094,46 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   }
 }
 
+@DriftAccessor(tables: [CustomThemes])
+class CustomThemesDao extends DatabaseAccessor<AppDatabase>
+    with _$CustomThemesDaoMixin {
+  CustomThemesDao(super.db);
+
+  Future<List<DbCustomTheme>> getAllThemes() => select(customThemes).get();
+  Future<DbCustomTheme?> getThemeById(String id) => (select(
+    customThemes,
+  )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+
+  Future<DbCustomTheme?> getActiveTheme() => (select(
+    customThemes,
+  )..where((tbl) => tbl.isActive.equals(true))).getSingleOrNull();
+
+  Future<void> insertTheme(CustomThemesCompanion theme) =>
+      into(customThemes).insert(theme, mode: InsertMode.insertOrReplace);
+
+  Future<void> insertAllThemes(List<CustomThemesCompanion> themes) {
+    return batch((batch) {
+      batch.insertAll(customThemes, themes, mode: InsertMode.insertOrReplace);
+    });
+  }
+
+  Future<bool> updateTheme(CustomThemesCompanion theme) =>
+      update(customThemes).replace(theme);
+
+  Future<int> deleteTheme(String id) =>
+      (delete(customThemes)..where((tbl) => tbl.id.equals(id))).go();
+
+  Future<void> setActiveTheme(String id) {
+    return transaction(() async {
+      await (update(customThemes)..where((tbl) => tbl.isActive.equals(true)))
+          .write(const CustomThemesCompanion(isActive: Value(false)));
+      await (update(customThemes)..where((tbl) => tbl.id.equals(id))).write(
+        const CustomThemesCompanion(isActive: Value(true)),
+      );
+    });
+  }
+}
+
 @DriftDatabase(
   tables: [
     // Business Tables
@@ -1083,6 +1148,7 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     Languages,
     // Technical Tables
     Settings,
+    CustomThemes,
   ],
   daos: [
     LanguageDao,
@@ -1095,6 +1161,7 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     TransactionsDao,
     SettingsDao,
     ExchangeRatesDao,
+    CustomThemesDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -1103,8 +1170,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration {
@@ -1155,6 +1221,9 @@ class AppDatabase extends _$AppDatabase {
           await customStatement(
             'CREATE INDEX IF NOT EXISTS idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
           );
+        }
+        if (from < 11) {
+          await m.createTable(customThemes);
         }
       },
       beforeOpen: (details) async {
