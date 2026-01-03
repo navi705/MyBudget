@@ -80,6 +80,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         List<Style> styles,
         _DashboardParams params,
       ) async {
+        PerformanceLogger().start('Dashboard: balances, totals, settings');
         final dayBalances = await _accountRepository.getBalancesAtDate(
           params.selectedDay,
         );
@@ -91,14 +92,20 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
         final settingsMap = await _settingsRepository.getAllSettings();
         final mainCurrencyCode = settingsMap['main_currency_code'] ?? 'USD';
+        await PerformanceLogger().stop('Dashboard: balances, totals, settings');
 
+        PerformanceLogger().start('Dashboard: getLatestExchangeRatesByList');
         final now = DateTime.now();
         final exchangeRates = await _currencyRepository
             .getLatestExchangeRatesByList(
               _getDateRangeList(params.dateRangeStart, now),
             );
+        await PerformanceLogger().stop(
+          'Dashboard: getLatestExchangeRatesByList',
+        );
 
         // Offload heavy data processing to background isolate
+        PerformanceLogger().start('Dashboard: compute');
         final computeResults = await foundation.compute(
           _calculateDashboardData,
           _DashboardComputeParams(
@@ -109,6 +116,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             dateRangeStart: params.dateRangeStart,
           ),
         );
+        await PerformanceLogger().stop('Dashboard: compute');
 
         await PerformanceLogger().stop('Dashboard Screen Load');
 

@@ -159,6 +159,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         filters = AccountFilters.fromJsonString(savedFilters.value);
       }
 
+      PerformanceLogger().start('Accounts: Future.wait');
       final results = await Future.wait([
         _accountRepository.getAccountTypes(),
         _accountRepository.getAccountsPaginatedFiltered(
@@ -172,6 +173,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         _currencyRepository.getLatestExchangeRates(DateTime.now()),
         _inflationRepository.getInflationRates(),
       ]);
+      await PerformanceLogger().stop('Accounts: Future.wait');
 
       final accountTypes = results[0] as List<AccountType>;
       final accounts = results[1] as List<Account>;
@@ -190,12 +192,15 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           .whereType<String>()
           .toList();
 
+      PerformanceLogger().start('Accounts: getTransactionsWithFilters');
       final allTransactions = await _transactionRepository
           .getTransactionsWithFilters(
             filters: TransactionFilters(accountId: accountIds),
             limit: 1000000,
           );
+      await PerformanceLogger().stop('Accounts: getTransactionsWithFilters');
 
+      PerformanceLogger().start('Accounts: compute inflation');
       final inflationResults = await compute(
         _calculateInflationForAccounts,
         _InflationParams(
@@ -204,6 +209,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           inflationRates: inflationRates,
         ),
       );
+      await PerformanceLogger().stop('Accounts: compute inflation');
 
       await PerformanceLogger().stop('Accounts Screen Load');
 

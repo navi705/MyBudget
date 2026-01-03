@@ -325,6 +325,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
           (await _settingsRepository.getSetting('main_currency_code'))?.value ??
           'EUR';
 
+      PerformanceLogger().start('Categories: Future.wait');
       final results = await Future.wait([
         _categoryRepository.getCategories(),
         _transactionRepository.getTransactionTotalsGrouped(
@@ -333,6 +334,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         ),
         _currencyRepository.getAllCurrencyDesignations(),
       ]);
+      await PerformanceLogger().stop('Categories: Future.wait');
 
       final categories = results[0] as List<Category>;
       final groupedTotals = results[1] as List<GroupedTransactionTotal>;
@@ -343,10 +345,15 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
           .toSet()
           .toList();
 
+      PerformanceLogger().start('Categories: getLatestExchangeRatesByList');
       final allRates = await _currencyRepository.getLatestExchangeRatesByList(
         uniqueDates,
       );
+      await PerformanceLogger().stop(
+        'Categories: getLatestExchangeRatesByList',
+      );
 
+      PerformanceLogger().start('Categories: compute totals');
       final categoriesWithTotals = await foundation.compute(
         _calculateCategoryTotals,
         _CategoryTotalsParams(
@@ -356,6 +363,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
           allRates: allRates,
         ),
       );
+      await PerformanceLogger().stop('Categories: compute totals');
 
       await PerformanceLogger().stop('Categories Screen Load');
 
