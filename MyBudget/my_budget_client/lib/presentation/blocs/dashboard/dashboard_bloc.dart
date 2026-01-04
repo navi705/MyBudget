@@ -106,16 +106,17 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
         // Offload heavy data processing to background isolate
         PerformanceLogger().start('Dashboard: compute');
-        final computeResults = await foundation.compute(
-          _calculateDashboardData,
-          _DashboardComputeParams(
-            accounts: accounts,
-            transactions: transactions,
-            exchangeRates: exchangeRates,
-            mainCurrencyCode: mainCurrencyCode,
-            dateRangeStart: params.dateRangeStart,
-          ),
+        // Skip compute overhead for small datasets - run inline instead
+        final computeParams = _DashboardComputeParams(
+          accounts: accounts,
+          transactions: transactions,
+          exchangeRates: exchangeRates,
+          mainCurrencyCode: mainCurrencyCode,
+          dateRangeStart: params.dateRangeStart,
         );
+        final computeResults = transactions.length < 100
+            ? _calculateDashboardData(computeParams)
+            : await foundation.compute(_calculateDashboardData, computeParams);
         await PerformanceLogger().stop('Dashboard: compute');
 
         await PerformanceLogger().stop('Dashboard Screen Load');

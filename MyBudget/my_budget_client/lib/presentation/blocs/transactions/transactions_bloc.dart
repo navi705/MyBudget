@@ -75,27 +75,49 @@ Future<_ProcessDataResult> _processTransactionsData(
           .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
           .toSet()
           .toList()
-        ..sort((a, b) => a.compareTo(a));
+        ..sort((a, b) => a.compareTo(b));
 
   final availableRateDates = ratesMapsByDate.keys.toList()
     ..sort((a, b) => a.compareTo(b));
 
+  // Optimize closest date lookup: find insertion point with binary search, then check neighbors
   if (availableRateDates.isNotEmpty) {
     for (var date in transactionDates) {
       if (!ratesMapsByDate.containsKey(date)) {
+        // Binary search for insertion point
+        int left = 0;
+        int right = availableRateDates.length;
+        while (left < right) {
+          int mid = (left + right) ~/ 2;
+          if (availableRateDates[mid].isBefore(date)) {
+            left = mid + 1;
+          } else {
+            right = mid;
+          }
+        }
+        
+        // Find closest date among insertion point and its neighbors
         DateTime? closestDate;
-        int minDownload = -1;
-
-        for (var rateDate in availableRateDates) {
-          final diff = rateDate.difference(date).inDays.abs();
-          if (minDownload == -1 || diff < minDownload) {
-            minDownload = diff;
-            closestDate = rateDate;
+        int minDiff = -1;
+        
+        // Check the element at insertion point (if exists)
+        if (left < availableRateDates.length) {
+          final diff = availableRateDates[left].difference(date).inDays.abs();
+          minDiff = diff;
+          closestDate = availableRateDates[left];
+        }
+        
+        // Check the element before insertion point (if exists)
+        if (left > 0) {
+          final diff = availableRateDates[left - 1].difference(date).inDays.abs();
+          if (minDiff == -1 || diff < minDiff) {
+            minDiff = diff;
+            closestDate = availableRateDates[left - 1];
           }
         }
 
         if (closestDate != null) {
-          ratesMapsByDate[date] = ratesMapsByDate[closestDate]!;
+          ratesMapsByDate[date] = Map.from(ratesMapsByDate[closestDate]!);
         }
       }
     }
@@ -266,6 +288,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     }
 
     // 1. Fetch Missing Categories
+    PerformanceLogger().start('Transactions: fetch categories');
     final categoriesListIds = transactions
         .map((u) => u.categoryId)
         .where((id) => !_categoryCache.containsKey(id))
@@ -280,6 +303,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         _categoryCache[cat.id!] = cat;
       }
     }
+    await PerformanceLogger().stop('Transactions: fetch categories');
 
     final categories = transactions
         .map((t) => _categoryCache[t.categoryId])
@@ -287,6 +311,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         .toList();
 
     // 2. Fetch Missing Styles
+    PerformanceLogger().start('Transactions: fetch styles');
     final stylesToFetchIds = categories
         .map((u) => u.styleId)
         .whereType<String>()
@@ -300,10 +325,12 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         _styleCache[style.id!] = style;
       }
     }
+    await PerformanceLogger().stop('Transactions: fetch styles');
 
     final styles = _styleCache.values.toList();
 
     // 3. Fetch Rates
+    PerformanceLogger().start('Transactions: fetch exchange rates');
     final uniqueDates = transactions
         .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
         .toSet()
@@ -312,8 +339,10 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     final rates = await _currencyRepository.getLatestExchangeRatesByList(
       uniqueDates,
     );
+    await PerformanceLogger().stop('Transactions: fetch exchange rates');
 
-    return compute(
+    PerformanceLogger().start('Transactions: compute processing');
+    final result = await compute(
       _processTransactionsData,
       _ProcessDataParams(
         transactions: transactions,
@@ -323,6 +352,9 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         mainCurrencyCode: mainCurrencyCode,
       ),
     );
+    await PerformanceLogger().stop('Transactions: compute processing');
+
+    return result;
   }
 
   Future<void> _onLoadTransactionsInitial(
@@ -332,33 +364,48 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     PerformanceLogger().start('Transactions Screen Initial Load');
     emit(state.copyWith(status: TransactionStatus.loading));
     try {
+      PerformanceLogger().start('Transactions: getSetting');
       final mainCurrencySetting = await _settingsRepository.getSetting(
         'main_currency_code',
       );
+      await PerformanceLogger().stop('Transactions: getSetting');
       final mainCurrencyCode = mainCurrencySetting?.value ?? 'EUR';
 
+      PerformanceLogger().start('Transactions: prepare DB queries');
+      final getTransactionsFuture = _transactionRepository.getTransactionsWithFilters(
+        limit: event.limit,
+        offset: 0,
+        filters: state.filters,
+        sort: state.sort,
+      );
+      final getCountFuture = _transactionRepository.getCountWithFilters(
+        filters: state.filters,
+      );
+      final getCurrenciesFuture = _currencyRepository.getAllCurrencyDesignations();
+      await PerformanceLogger().stop('Transactions: prepare DB queries');
+      
+      PerformanceLogger().start('Transactions: await all DB queries (parallel)');
       final results = await Future.wait([
-        _transactionRepository.getTransactionsWithFilters(
-          limit: event.limit,
-          offset: 0,
-          filters: state.filters,
-          sort: state.sort,
-        ),
-        _transactionRepository.getCountWithFilters(filters: state.filters),
-        _currencyRepository.getAllCurrencyDesignations(),
+        getTransactionsFuture,
+        getCountFuture,
+        getCurrenciesFuture,
       ]);
+      await PerformanceLogger().stop('Transactions: await all DB queries (parallel)');
 
+      PerformanceLogger().start('Transactions: extract results');
       final rawTransactions = results[0] as List<Transaction>;
       final totalCount = results[1] as int;
       final currencyDesignations = results[2] as List<CurrencyDesignation>;
+      await PerformanceLogger().stop('Transactions: extract results');
 
+      PerformanceLogger().start('Transactions: fetchAndProcess total');
       final processResult = await _fetchAndProcess(
         rawTransactions,
         mainCurrencyCode,
       );
+      await PerformanceLogger().stop('Transactions: fetchAndProcess total');
 
-      await PerformanceLogger().stop('Transactions Screen Initial Load');
-
+      PerformanceLogger().start('Transactions: emit state');
       emit(
         state.copyWith(
           status: TransactionStatus.success,
@@ -372,6 +419,9 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           mainCurrencyCode: mainCurrencyCode,
         ),
       );
+      await PerformanceLogger().stop('Transactions: emit state');
+
+      await PerformanceLogger().stop('Transactions Screen Initial Load');
     } catch (_) {
       PerformanceLogger().stop('Transactions Screen Initial Load');
       emit(state.copyWith(status: TransactionStatus.failure));

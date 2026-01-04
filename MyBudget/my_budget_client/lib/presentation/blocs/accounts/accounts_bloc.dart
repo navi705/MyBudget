@@ -201,14 +201,15 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       await PerformanceLogger().stop('Accounts: getTransactionsWithFilters');
 
       PerformanceLogger().start('Accounts: compute inflation');
-      final inflationResults = await compute(
-        _calculateInflationForAccounts,
-        _InflationParams(
-          accounts: sortedAccounts,
-          transactions: allTransactions,
-          inflationRates: inflationRates,
-        ),
+      // Skip compute overhead for small datasets - run inline instead
+      final inflationParams = _InflationParams(
+        accounts: sortedAccounts,
+        transactions: allTransactions,
+        inflationRates: inflationRates,
       );
+      final inflationResults = allTransactions.length < 100
+          ? _calculateInflationForAccounts(inflationParams)
+          : await compute(_calculateInflationForAccounts, inflationParams);
       await PerformanceLogger().stop('Accounts: compute inflation');
 
       await PerformanceLogger().stop('Accounts Screen Load');

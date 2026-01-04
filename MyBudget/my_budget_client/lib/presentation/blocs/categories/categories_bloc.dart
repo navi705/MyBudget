@@ -354,15 +354,16 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       );
 
       PerformanceLogger().start('Categories: compute totals');
-      final categoriesWithTotals = await foundation.compute(
-        _calculateCategoryTotals,
-        _CategoryTotalsParams(
-          categories: categories,
-          groupedTotals: groupedTotals,
-          mainCurrencyCode: mainCurrencyCode,
-          allRates: allRates,
-        ),
+      // Skip compute overhead for small datasets - run inline instead
+      final computeParams = _CategoryTotalsParams(
+        categories: categories,
+        groupedTotals: groupedTotals,
+        mainCurrencyCode: mainCurrencyCode,
+        allRates: allRates,
       );
+      final categoriesWithTotals = groupedTotals.length < 100
+          ? _calculateCategoryTotals(computeParams)
+          : await foundation.compute(_calculateCategoryTotals, computeParams);
       await PerformanceLogger().stop('Categories: compute totals');
 
       await PerformanceLogger().stop('Categories Screen Load');
