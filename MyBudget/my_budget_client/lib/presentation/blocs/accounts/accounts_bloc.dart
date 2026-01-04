@@ -559,7 +559,6 @@ _InflationResults _calculateInflationForAccounts(_InflationParams params) {
 
     double cumulativeMultiplier = 1.0;
     DateTime current = monthDate;
-    PerformanceLogger().start('while');
     while (current.isBefore(target)) {
       final rate = sortedRates.firstWhere(
         (r) => r.date.year == current.year && r.date.month == current.month,
@@ -572,7 +571,6 @@ _InflationResults _calculateInflationForAccounts(_InflationParams params) {
     multiplierCache[monthDate] = cumulativeMultiplier;
     return cumulativeMultiplier;
   }
-  PerformanceLogger().stop('while');
 
   PerformanceLogger().start('for');
   for (final account in params.accounts) {
