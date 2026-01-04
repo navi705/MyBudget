@@ -8,13 +8,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/theme/app_theme.dart';
 import 'package:my_budget_client/domain/entities/custom_theme.dart';
 import 'package:my_budget_client/presentation/blocs/theme/theme_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
 class ThemeSettingsScreen extends StatelessWidget {
   const ThemeSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return EscapeBackHandler(
+      child: Scaffold(
       appBar: AppBar(title: const Text('Theme Customization')),
       body: BlocBuilder<ThemeBloc, ThemeState>(
         builder: (context, state) {
@@ -43,6 +45,7 @@ class ThemeSettingsScreen extends StatelessWidget {
           );
         },
       ),
+    ),
     );
   }
 

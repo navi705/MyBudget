@@ -19,6 +19,7 @@ import 'package:my_budget_client/presentation/blocs/add_edit_transaction/add_edi
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
 class AddEditTransactionScreen extends StatelessWidget {
   final Transaction? transaction;
@@ -75,21 +76,22 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AddEditTransactionBloc, AddEditTransactionState>(
-      listener: (context, state) {
-        if (state.isSaveSuccess) {
-          context.read<TransactionsBloc>().add(const InitialLoadTransactions());
-          Navigator.of(context).pop();
-        }
+    return EscapeBackHandler(
+      child: BlocListener<AddEditTransactionBloc, AddEditTransactionState>(
+        listener: (context, state) {
+          if (state.isSaveSuccess) {
+            context.read<TransactionsBloc>().add(const InitialLoadTransactions());
+            Navigator.of(context).pop();
+          }
 
-        if (state.description != _descriptionController.text) {
-          _descriptionController.text = state.description;
-        }
-        if (state.amount != _amountController.text) {
-          _amountController.text = state.amount;
-        }
-      },
-      child: Scaffold(
+          if (state.description != _descriptionController.text) {
+            _descriptionController.text = state.description;
+          }
+          if (state.amount != _amountController.text) {
+            _amountController.text = state.amount;
+          }
+        },
+        child: Scaffold(
         appBar: AppBar(
           title: BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
             builder: (context, state) {
@@ -146,6 +148,7 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
           },
         ),
       ),
+    ),
     );
   }
 }

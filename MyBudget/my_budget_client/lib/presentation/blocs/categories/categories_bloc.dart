@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
-import 'package:flutter/foundation.dart' as foundation;
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
@@ -354,16 +353,13 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       );
 
       PerformanceLogger().start('Categories: compute totals');
-      // Skip compute overhead for small datasets - run inline instead
       final computeParams = _CategoryTotalsParams(
         categories: categories,
         groupedTotals: groupedTotals,
         mainCurrencyCode: mainCurrencyCode,
         allRates: allRates,
       );
-      final categoriesWithTotals = groupedTotals.length < 100
-          ? _calculateCategoryTotals(computeParams)
-          : await foundation.compute(_calculateCategoryTotals, computeParams);
+      final categoriesWithTotals = _calculateCategoryTotals(computeParams);
       await PerformanceLogger().stop('Categories: compute totals');
 
       await PerformanceLogger().stop('Categories Screen Load');

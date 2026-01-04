@@ -13,6 +13,7 @@ import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/import/import_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
 class ImportScreen extends StatelessWidget {
   const ImportScreen({super.key});
@@ -53,7 +54,8 @@ class _ImportViewState extends State<_ImportView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return EscapeBackHandler(
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Import Data'),
         actions: [
@@ -119,6 +121,7 @@ class _ImportViewState extends State<_ImportView> {
           }
         },
       ),
+    ),
     );
   }
 

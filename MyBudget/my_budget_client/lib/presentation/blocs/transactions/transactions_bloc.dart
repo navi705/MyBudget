@@ -4,7 +4,6 @@ import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
-import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
@@ -342,8 +341,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     await PerformanceLogger().stop('Transactions: fetch exchange rates');
 
     PerformanceLogger().start('Transactions: compute processing');
-    final result = await compute(
-      _processTransactionsData,
+    final result = await _processTransactionsData(
       _ProcessDataParams(
         transactions: transactions,
         rates: rates,

@@ -7,6 +7,7 @@ import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/icon_picker_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
 class EditStyleScreen extends StatefulWidget {
   final String styleId;
@@ -97,14 +98,17 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
   @override
   Widget build(BuildContext context) {
     if (_initialStyle == null) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: const Center(child: Text('Style not found.')),
+      return EscapeBackHandler(
+        child: Scaffold(
+          appBar: AppBar(),
+          body: const Center(child: Text('Style not found.')),
+        ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(title: Text('Edit: ${_initialStyle!.name}')),
+    return EscapeBackHandler(
+      child: Scaffold(
+        appBar: AppBar(title: Text('Edit: ${_initialStyle!.name}')),
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -180,6 +184,7 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }

@@ -207,7 +207,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         transactions: allTransactions,
         inflationRates: inflationRates,
       );
-      final inflationResults = allTransactions.length < 100
+      final inflationResults = allTransactions.length < 100000
           ? _calculateInflationForAccounts(inflationParams)
           : await compute(_calculateInflationForAccounts, inflationParams);
       await PerformanceLogger().stop('Accounts: compute inflation');
@@ -530,20 +530,23 @@ _InflationResults _calculateInflationForAccounts(_InflationParams params) {
   final Map<String, double> realBalances = {};
   final Map<String, double> inflationLosses = {};
 
+  PerformanceLogger().start('PutIfAbsent');
   final transactionsByAccount = <String, List<Transaction>>{};
   for (final tx in params.transactions) {
     transactionsByAccount.putIfAbsent(tx.accountId, () => []).add(tx);
   }
-
+  PerformanceLogger().stop('PutIfAbsent');
   // Pre-calculate multipliers per month to avoid O(N*M) loops
   // Multiplier from Date(year, month) to NOW
   final now = DateTime.now();
   final target = DateTime(now.year, now.month);
 
   final multiplierCache = <DateTime, double>{};
-
+  
+  PerformanceLogger().start('sort');
   final sortedRates = List<InflationRateDomain>.from(params.inflationRates)
     ..sort((a, b) => a.date.compareTo(b.date));
+  PerformanceLogger().stop('sort');
 
   // Build multipliers from target backwards
   // This is slightly tricky if we want to be exact, let's just use the existing logic inside but maybe cached?
@@ -556,6 +559,7 @@ _InflationResults _calculateInflationForAccounts(_InflationParams params) {
 
     double cumulativeMultiplier = 1.0;
     DateTime current = monthDate;
+    PerformanceLogger().start('while');
     while (current.isBefore(target)) {
       final rate = sortedRates.firstWhere(
         (r) => r.date.year == current.year && r.date.month == current.month,
@@ -568,7 +572,9 @@ _InflationResults _calculateInflationForAccounts(_InflationParams params) {
     multiplierCache[monthDate] = cumulativeMultiplier;
     return cumulativeMultiplier;
   }
+  PerformanceLogger().stop('while');
 
+  PerformanceLogger().start('for');
   for (final account in params.accounts) {
     if (account.id != null) {
       final transactions = transactionsByAccount[account.id] ?? [];
@@ -585,6 +591,7 @@ _InflationResults _calculateInflationForAccounts(_InflationParams params) {
       }
     }
   }
+  PerformanceLogger().stop('for');
 
   return _InflationResults(
     realBalances: realBalances,

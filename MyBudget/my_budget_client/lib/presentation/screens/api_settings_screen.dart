@@ -5,6 +5,7 @@ import 'package:my_budget_client/presentation/blocs/api_settings/api_settings_bl
 import 'package:my_budget_client/presentation/blocs/api_settings/api_settings_event.dart';
 import 'package:my_budget_client/presentation/blocs/api_settings/api_settings_state.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
+import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
 class ApiSettingsScreen extends StatefulWidget {
   const ApiSettingsScreen({super.key});
@@ -19,9 +20,10 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => sl<ApiSettingsBloc>()..add(LoadApiSettings()),
-      child: Scaffold(
+    return EscapeBackHandler(
+      child: BlocProvider(
+        create: (context) => sl<ApiSettingsBloc>()..add(LoadApiSettings()),
+        child: Scaffold(
         appBar: AppBar(title: const Text('API Management')),
         body: BlocConsumer<ApiSettingsBloc, ApiSettingsState>(
           listener: (context, state) {
@@ -160,6 +162,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
           },
         ),
       ),
+    ),
     );
   }
 }

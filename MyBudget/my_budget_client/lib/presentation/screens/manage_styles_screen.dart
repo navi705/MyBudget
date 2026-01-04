@@ -5,6 +5,7 @@ import 'package:my_budget_client/core/utils/icon_utils.dart'; // Import the new 
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/widgets/add_style_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
 class ManageStylesScreen extends StatelessWidget {
   const ManageStylesScreen({super.key});
@@ -19,7 +20,8 @@ class ManageStylesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return EscapeBackHandler(
+      child: Scaffold(
       appBar: AppBar(title: const Text('Manage Styles')),
       body: BlocBuilder<StylesBloc, StylesState>(
         builder: (context, state) {
@@ -113,6 +115,7 @@ class ManageStylesScreen extends StatelessWidget {
         },
         child: const Icon(Icons.add),
       ),
+    ),
     );
   }
 }

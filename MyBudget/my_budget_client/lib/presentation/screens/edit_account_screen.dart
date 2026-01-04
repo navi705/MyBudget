@@ -12,6 +12,7 @@ import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/style_picker_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
 class EditAccountScreen extends StatefulWidget {
   final Account account;
@@ -130,8 +131,9 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return Scaffold(
-      appBar: AppBar(
+    return EscapeBackHandler(
+      child: Scaffold(
+        appBar: AppBar(
         title: Text('Edit: ${_initialAccount.name}'),
         actions: [
           PopupMenuButton<String>(
@@ -330,6 +332,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }
