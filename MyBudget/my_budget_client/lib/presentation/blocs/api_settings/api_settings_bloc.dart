@@ -84,4 +84,10 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
       }
     }
   }
+
+
+  Future<void> _onGellAllMissedDate() async{
+
+  }
+  
 }

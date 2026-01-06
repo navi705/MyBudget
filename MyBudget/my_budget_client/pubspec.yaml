@@ -44,6 +44,7 @@ dependencies:
   csv: ^6.0.0
   flutter_date_pickers: ^0.4.3
   share_plus: ^10.0.0
+  json_annotation: ^4.9.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -54,6 +55,7 @@ dev_dependencies:
   bloc_test: ^10.0.0
   integration_test:
     sdk: flutter
+  json_serializable: ^6.11.2
 
 flutter:
   uses-material-design: true

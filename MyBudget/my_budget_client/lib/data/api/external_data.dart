@@ -1,11 +1,21 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
+import '../models/steam_inventory_model.dart';
+
+enum GameApiSteam { cs2, dota2, steamCommunity }
+
+const Map<String, int> gameApiIds = {
+  "cs2": 730,
+  "dota2": 570,
+  "steamCommunity": 753
+};
 
 class ExternalData {
   static Future<Map<String, String>>
-  getCurrenciesFromFreeExchangeRates() async {
+      getCurrenciesFromFreeExchangeRates() async {
     final uri = Uri.https(
       "cdn.jsdelivr.net",
       "/npm/@fawazahmed0/currency-api@latest/v1/currencies.json",
@@ -39,7 +49,7 @@ class ExternalData {
     try {
       final response = await http.get(uri);
       if (response.statusCode == 200) {
-        Map<dynamic,dynamic> body = jsonDecode(response.body);
+        Map<dynamic, dynamic> body = jsonDecode(response.body);
         Map<String, dynamic> data = body['eur'];
         Map<String, double> dictionary = {};
         data.forEach((key, value) {
@@ -49,7 +59,7 @@ class ExternalData {
             try {
               dictionary[key] = double.parse(value);
             } catch (e) {
-            throw Exception('Rate is not number: $e');
+              throw Exception('Rate is not number: $e');
             }
           }
         });
@@ -63,4 +73,62 @@ class ExternalData {
       throw Exception('Failed to fetch currency rates: $e');
     }
   }
+
+  static Future<Map<String, double>> getSteamInvetoryCost(
+      int accountId, GameApiSteam game) async {
+    String gameId = gameApiIds[game.name].toString();
+    Map<String, double> result = {};
+    final uriGetItems = Uri.https(
+      "wrcurzpfetyvtavbutcp.supabase.co",
+      "/functions/v1/steam-proxy",
+      {
+        'endpoint': 'inventory',
+        'steamid64': accountId.toString(),
+        'appid': gameId,
+        'contextid': '2'
+      },
+    );
+    try {
+      final response = await http.get(uriGetItems);
+      if (response.statusCode == 200) {
+        final inventoryResponse =
+            SteamInventoryResponse.fromJson(jsonDecode(response.body));
+        if (inventoryResponse.success == 1) {
+          final itemsToPrice = inventoryResponse.descriptions
+              .where((desc) => desc.marketable == 1)
+              .map((desc) => {
+                    'appid': desc.appid,
+                    'market_hash_name': desc.marketHashName,
+                  })
+              .toList();
+
+          final uriGetPrices = Uri.https(
+              "wrcurzpfetyvtavbutcp.supabase.co",
+              "/functions/v1/steam-proxy",
+              {'endpoint': 'bulkprices'});
+
+          final priceResponse = await http.post(
+            uriGetPrices,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'items': itemsToPrice, 'currency': 3}), // Assuming currency 3 is EUR
+          );
+
+          if (priceResponse.statusCode == 200) {
+            final bulkPrices =
+                BulkPricesResponse.fromJson(jsonDecode(priceResponse.body));
+            bulkPrices.items.forEach((key, value) {
+              if (value.success && value.lowestPrice != null) {
+                result[key] = value.lowestPrice!;
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint(e.toString());
+    }
+
+    return result;
+  }
 }
+

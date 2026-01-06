@@ -23,13 +23,6 @@ class ExchangeRateApiService {
   Future<void> fetchRatesForDate(DateTime date) async {
     final dateKey = DateFormat('yyyy-MM-dd').format(date);
 
-    // 1. Check if fetching is enabled
-    final enabledSetting = await (_settingsDao.select(
-      _settingsDao.settings,
-    )..where((t) => t.key.equals('api_fetching_enabled'))).getSingleOrNull();
-    if (enabledSetting?.value != 'true') return;
-
-    // 2. Check if we already have a status that prevents fetching
     final status = await _apiFetchStatusesDao.getStatus(dateKey);
     if (status != null &&
         (status.status == 'success' ||
