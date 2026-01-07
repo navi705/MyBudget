@@ -14,6 +14,8 @@ extension AssetDataMapper on AssetEntry {
       assetType: assetType,
       description: description,
       preset: preset,
+      source: source,
+      currency: currencyCode,
     );
   }
 }
@@ -30,6 +32,8 @@ extension AssetDataDomainMapper on AssetDataDomain {
       assetType: Value(assetType),
       description: Value(description),
       preset: Value(preset),
+      source: Value(source),
+      currencyCode: Value(currency),
     );
   }
 }

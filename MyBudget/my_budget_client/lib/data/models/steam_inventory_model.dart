@@ -2,6 +2,23 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'steam_inventory_model.g.dart';
 
+class PriceToDoubleConverter implements JsonConverter<double?, String?> {
+  const PriceToDoubleConverter();
+
+  @override
+  double? fromJson(String? json) {
+    if (json == null) return null;
+    return double.tryParse(json.replaceAll('€', '').replaceAll(',', '.'));
+  }
+
+  @override
+  String? toJson(double? object) {
+    if (object == null) return null;
+    return '${object.toStringAsFixed(2).replaceAll('.', ',')}€';
+  }
+}
+
+
 @JsonSerializable(fieldRename: FieldRename.snake)
 class SteamInventoryResponse {
   final List<Asset> assets;
@@ -172,9 +189,10 @@ class Tag {
 
 @JsonSerializable(fieldRename: FieldRename.snake)
 class BulkPricesResponse {
-  final Map<String, ItemPrice> items;
+  @JsonKey(name: 'results')
+  final Map<String, ItemPrice>? items;
 
-  BulkPricesResponse({required this.items});
+  BulkPricesResponse({this.items});
 
   factory BulkPricesResponse.fromJson(Map<String, dynamic> json) =>
       _$BulkPricesResponseFromJson(json);
@@ -184,11 +202,14 @@ class BulkPricesResponse {
 
 
 @JsonSerializable(fieldRename: FieldRename.snake)
+@PriceToDoubleConverter()
 class ItemPrice {
   final bool success;
+  @PriceToDoubleConverter()
   final double? lowestPrice;
+  @PriceToDoubleConverter()
   final double? medianPrice;
-  final int? volume;
+  final String? volume;
 
   ItemPrice({
     required this.success,

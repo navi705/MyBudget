@@ -151,24 +151,28 @@ Map<String, dynamic> _$TagToJson(Tag instance) => <String, dynamic>{
 
 BulkPricesResponse _$BulkPricesResponseFromJson(Map<String, dynamic> json) =>
     BulkPricesResponse(
-      items: (json['items'] as Map<String, dynamic>).map(
+      items: (json['results'] as Map<String, dynamic>?)?.map(
         (k, e) => MapEntry(k, ItemPrice.fromJson(e as Map<String, dynamic>)),
       ),
     );
 
 Map<String, dynamic> _$BulkPricesResponseToJson(BulkPricesResponse instance) =>
-    <String, dynamic>{'items': instance.items};
+    <String, dynamic>{'results': instance.items};
 
 ItemPrice _$ItemPriceFromJson(Map<String, dynamic> json) => ItemPrice(
   success: json['success'] as bool,
-  lowestPrice: (json['lowest_price'] as num?)?.toDouble(),
-  medianPrice: (json['median_price'] as num?)?.toDouble(),
-  volume: (json['volume'] as num?)?.toInt(),
+  lowestPrice: const PriceToDoubleConverter().fromJson(
+    json['lowest_price'] as String?,
+  ),
+  medianPrice: const PriceToDoubleConverter().fromJson(
+    json['median_price'] as String?,
+  ),
+  volume: json['volume'] as String?,
 );
 
 Map<String, dynamic> _$ItemPriceToJson(ItemPrice instance) => <String, dynamic>{
   'success': instance.success,
-  'lowest_price': instance.lowestPrice,
-  'median_price': instance.medianPrice,
+  'lowest_price': const PriceToDoubleConverter().toJson(instance.lowestPrice),
+  'median_price': const PriceToDoubleConverter().toJson(instance.medianPrice),
   'volume': instance.volume,
 };

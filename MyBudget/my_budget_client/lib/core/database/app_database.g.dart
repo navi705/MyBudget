@@ -71,6 +71,8 @@ mixin _$InflationRatesDaoMixin on DatabaseAccessor<AppDatabase> {
   $InflationRatesTable get inflationRates => attachedDatabase.inflationRates;
 }
 mixin _$AssetEntriesDaoMixin on DatabaseAccessor<AppDatabase> {
+  $LanguagesTable get languages => attachedDatabase.languages;
+  $CurrenciesTable get currencies => attachedDatabase.currencies;
   $AssetEntriesTable get assetEntries => attachedDatabase.assetEntries;
 }
 
@@ -3781,6 +3783,29 @@ class $AssetEntriesTable extends AssetEntries
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _currencyCodeMeta = const VerificationMeta(
+    'currencyCode',
+  );
+  @override
+  late final GeneratedColumn<String> currencyCode = GeneratedColumn<String>(
+    'currency_code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES currencies (code)',
+    ),
+  );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _presetMeta = const VerificationMeta('preset');
   @override
   late final GeneratedColumn<int> preset = GeneratedColumn<int>(
@@ -3801,6 +3826,8 @@ class $AssetEntriesTable extends AssetEntries
     quantity,
     assetType,
     description,
+    currencyCode,
+    source,
     preset,
   ];
   @override
@@ -3871,6 +3898,25 @@ class $AssetEntriesTable extends AssetEntries
         ),
       );
     }
+    if (data.containsKey('currency_code')) {
+      context.handle(
+        _currencyCodeMeta,
+        currencyCode.isAcceptableOrUnknown(
+          data['currency_code']!,
+          _currencyCodeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_currencyCodeMeta);
+    }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceMeta);
+    }
     if (data.containsKey('preset')) {
       context.handle(
         _presetMeta,
@@ -3918,6 +3964,14 @@ class $AssetEntriesTable extends AssetEntries
         DriftSqlType.string,
         data['${effectivePrefix}description'],
       ),
+      currencyCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}currency_code'],
+      )!,
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source'],
+      )!,
       preset: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}preset'],
@@ -3940,6 +3994,8 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
   final double quantity;
   final String? assetType;
   final String? description;
+  final String currencyCode;
+  final String source;
   final int preset;
   const AssetEntry({
     required this.id,
@@ -3950,6 +4006,8 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
     required this.quantity,
     this.assetType,
     this.description,
+    required this.currencyCode,
+    required this.source,
     required this.preset,
   });
   @override
@@ -3967,6 +4025,8 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
     }
+    map['currency_code'] = Variable<String>(currencyCode);
+    map['source'] = Variable<String>(source);
     map['preset'] = Variable<int>(preset);
     return map;
   }
@@ -3985,6 +4045,8 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
       description: description == null && nullToAbsent
           ? const Value.absent()
           : Value(description),
+      currencyCode: Value(currencyCode),
+      source: Value(source),
       preset: Value(preset),
     );
   }
@@ -4003,6 +4065,8 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
       quantity: serializer.fromJson<double>(json['quantity']),
       assetType: serializer.fromJson<String?>(json['assetType']),
       description: serializer.fromJson<String?>(json['description']),
+      currencyCode: serializer.fromJson<String>(json['currencyCode']),
+      source: serializer.fromJson<String>(json['source']),
       preset: serializer.fromJson<int>(json['preset']),
     );
   }
@@ -4018,6 +4082,8 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
       'quantity': serializer.toJson<double>(quantity),
       'assetType': serializer.toJson<String?>(assetType),
       'description': serializer.toJson<String?>(description),
+      'currencyCode': serializer.toJson<String>(currencyCode),
+      'source': serializer.toJson<String>(source),
       'preset': serializer.toJson<int>(preset),
     };
   }
@@ -4031,6 +4097,8 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
     double? quantity,
     Value<String?> assetType = const Value.absent(),
     Value<String?> description = const Value.absent(),
+    String? currencyCode,
+    String? source,
     int? preset,
   }) => AssetEntry(
     id: id ?? this.id,
@@ -4041,6 +4109,8 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
     quantity: quantity ?? this.quantity,
     assetType: assetType.present ? assetType.value : this.assetType,
     description: description.present ? description.value : this.description,
+    currencyCode: currencyCode ?? this.currencyCode,
+    source: source ?? this.source,
     preset: preset ?? this.preset,
   );
   AssetEntry copyWithCompanion(AssetEntriesCompanion data) {
@@ -4055,6 +4125,10 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
       description: data.description.present
           ? data.description.value
           : this.description,
+      currencyCode: data.currencyCode.present
+          ? data.currencyCode.value
+          : this.currencyCode,
+      source: data.source.present ? data.source.value : this.source,
       preset: data.preset.present ? data.preset.value : this.preset,
     );
   }
@@ -4070,6 +4144,8 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
           ..write('quantity: $quantity, ')
           ..write('assetType: $assetType, ')
           ..write('description: $description, ')
+          ..write('currencyCode: $currencyCode, ')
+          ..write('source: $source, ')
           ..write('preset: $preset')
           ..write(')'))
         .toString();
@@ -4085,6 +4161,8 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
     quantity,
     assetType,
     description,
+    currencyCode,
+    source,
     preset,
   );
   @override
@@ -4099,6 +4177,8 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
           other.quantity == this.quantity &&
           other.assetType == this.assetType &&
           other.description == this.description &&
+          other.currencyCode == this.currencyCode &&
+          other.source == this.source &&
           other.preset == this.preset);
 }
 
@@ -4111,6 +4191,8 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
   final Value<double> quantity;
   final Value<String?> assetType;
   final Value<String?> description;
+  final Value<String> currencyCode;
+  final Value<String> source;
   final Value<int> preset;
   final Value<int> rowid;
   const AssetEntriesCompanion({
@@ -4122,6 +4204,8 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
     this.quantity = const Value.absent(),
     this.assetType = const Value.absent(),
     this.description = const Value.absent(),
+    this.currencyCode = const Value.absent(),
+    this.source = const Value.absent(),
     this.preset = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -4134,12 +4218,16 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
     this.quantity = const Value.absent(),
     this.assetType = const Value.absent(),
     this.description = const Value.absent(),
+    required String currencyCode,
+    required String source,
     this.preset = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : assetId = Value(assetId),
        name = Value(name),
        date = Value(date),
-       value = Value(value);
+       value = Value(value),
+       currencyCode = Value(currencyCode),
+       source = Value(source);
   static Insertable<AssetEntry> custom({
     Expression<String>? id,
     Expression<String>? assetId,
@@ -4149,6 +4237,8 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
     Expression<double>? quantity,
     Expression<String>? assetType,
     Expression<String>? description,
+    Expression<String>? currencyCode,
+    Expression<String>? source,
     Expression<int>? preset,
     Expression<int>? rowid,
   }) {
@@ -4161,6 +4251,8 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
       if (quantity != null) 'quantity': quantity,
       if (assetType != null) 'asset_type': assetType,
       if (description != null) 'description': description,
+      if (currencyCode != null) 'currency_code': currencyCode,
+      if (source != null) 'source': source,
       if (preset != null) 'preset': preset,
       if (rowid != null) 'rowid': rowid,
     });
@@ -4175,6 +4267,8 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
     Value<double>? quantity,
     Value<String?>? assetType,
     Value<String?>? description,
+    Value<String>? currencyCode,
+    Value<String>? source,
     Value<int>? preset,
     Value<int>? rowid,
   }) {
@@ -4187,6 +4281,8 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
       quantity: quantity ?? this.quantity,
       assetType: assetType ?? this.assetType,
       description: description ?? this.description,
+      currencyCode: currencyCode ?? this.currencyCode,
+      source: source ?? this.source,
       preset: preset ?? this.preset,
       rowid: rowid ?? this.rowid,
     );
@@ -4219,6 +4315,12 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
     if (description.present) {
       map['description'] = Variable<String>(description.value);
     }
+    if (currencyCode.present) {
+      map['currency_code'] = Variable<String>(currencyCode.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
     if (preset.present) {
       map['preset'] = Variable<int>(preset.value);
     }
@@ -4239,6 +4341,8 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
           ..write('quantity: $quantity, ')
           ..write('assetType: $assetType, ')
           ..write('description: $description, ')
+          ..write('currencyCode: $currencyCode, ')
+          ..write('source: $source, ')
           ..write('preset: $preset, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -6331,6 +6435,27 @@ final class $$CurrenciesTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$AssetEntriesTable, List<AssetEntry>>
+  _assetEntriesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.assetEntries,
+    aliasName: $_aliasNameGenerator(
+      db.currencies.code,
+      db.assetEntries.currencyCode,
+    ),
+  );
+
+  $$AssetEntriesTableProcessedTableManager get assetEntriesRefs {
+    final manager = $$AssetEntriesTableTableManager($_db, $_db.assetEntries)
+        .filter(
+          (f) => f.currencyCode.code.sqlEquals($_itemColumn<String>('code')!),
+        );
+
+    final cache = $_typedResult.readTableOrNull(_assetEntriesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$CurrenciesTableFilterComposer
@@ -6497,6 +6622,31 @@ class $$CurrenciesTableFilterComposer
           }) => $$ExchangeRatesTableFilterComposer(
             $db: $db,
             $table: $db.exchangeRates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> assetEntriesRefs(
+    Expression<bool> Function($$AssetEntriesTableFilterComposer f) f,
+  ) {
+    final $$AssetEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.code,
+      referencedTable: $db.assetEntries,
+      getReferencedColumn: (t) => t.currencyCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AssetEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.assetEntries,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -6721,6 +6871,31 @@ class $$CurrenciesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> assetEntriesRefs<T extends Object>(
+    Expression<T> Function($$AssetEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$AssetEntriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.code,
+      referencedTable: $db.assetEntries,
+      getReferencedColumn: (t) => t.currencyCode,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AssetEntriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.assetEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$CurrenciesTableTableManager
@@ -6743,6 +6918,7 @@ class $$CurrenciesTableTableManager
             bool transactionsRefs,
             bool exchangeRatesRefs,
             bool ToCurrencyRates,
+            bool assetEntriesRefs,
           })
         > {
   $$CurrenciesTableTableManager(_$AppDatabase db, $CurrenciesTable table)
@@ -6800,6 +6976,7 @@ class $$CurrenciesTableTableManager
                 transactionsRefs = false,
                 exchangeRatesRefs = false,
                 ToCurrencyRates = false,
+                assetEntriesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -6809,6 +6986,7 @@ class $$CurrenciesTableTableManager
                     if (transactionsRefs) db.transactions,
                     if (exchangeRatesRefs) db.exchangeRates,
                     if (ToCurrencyRates) db.exchangeRates,
+                    if (assetEntriesRefs) db.assetEntries,
                   ],
                   addJoins:
                       <
@@ -6952,6 +7130,27 @@ class $$CurrenciesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (assetEntriesRefs)
+                        await $_getPrefetchedData<
+                          Currency,
+                          $CurrenciesTable,
+                          AssetEntry
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CurrenciesTableReferences
+                              ._assetEntriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CurrenciesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).assetEntriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.currencyCode == item.code,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -6979,6 +7178,7 @@ typedef $$CurrenciesTableProcessedTableManager =
         bool transactionsRefs,
         bool exchangeRatesRefs,
         bool ToCurrencyRates,
+        bool assetEntriesRefs,
       })
     >;
 typedef $$CurrencyDesignationsTableCreateCompanionBuilder =
@@ -10611,6 +10811,8 @@ typedef $$AssetEntriesTableCreateCompanionBuilder =
       Value<double> quantity,
       Value<String?> assetType,
       Value<String?> description,
+      required String currencyCode,
+      required String source,
       Value<int> preset,
       Value<int> rowid,
     });
@@ -10624,9 +10826,35 @@ typedef $$AssetEntriesTableUpdateCompanionBuilder =
       Value<double> quantity,
       Value<String?> assetType,
       Value<String?> description,
+      Value<String> currencyCode,
+      Value<String> source,
       Value<int> preset,
       Value<int> rowid,
     });
+
+final class $$AssetEntriesTableReferences
+    extends BaseReferences<_$AppDatabase, $AssetEntriesTable, AssetEntry> {
+  $$AssetEntriesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $CurrenciesTable _currencyCodeTable(_$AppDatabase db) =>
+      db.currencies.createAlias(
+        $_aliasNameGenerator(db.assetEntries.currencyCode, db.currencies.code),
+      );
+
+  $$CurrenciesTableProcessedTableManager get currencyCode {
+    final $_column = $_itemColumn<String>('currency_code')!;
+
+    final manager = $$CurrenciesTableTableManager(
+      $_db,
+      $_db.currencies,
+    ).filter((f) => f.code.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_currencyCodeTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
 
 class $$AssetEntriesTableFilterComposer
     extends Composer<_$AppDatabase, $AssetEntriesTable> {
@@ -10677,10 +10905,38 @@ class $$AssetEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get preset => $composableBuilder(
     column: $table.preset,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$CurrenciesTableFilterComposer get currencyCode {
+    final $$CurrenciesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.currencyCode,
+      referencedTable: $db.currencies,
+      getReferencedColumn: (t) => t.code,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CurrenciesTableFilterComposer(
+            $db: $db,
+            $table: $db.currencies,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$AssetEntriesTableOrderingComposer
@@ -10732,10 +10988,38 @@ class $$AssetEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get preset => $composableBuilder(
     column: $table.preset,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$CurrenciesTableOrderingComposer get currencyCode {
+    final $$CurrenciesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.currencyCode,
+      referencedTable: $db.currencies,
+      getReferencedColumn: (t) => t.code,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CurrenciesTableOrderingComposer(
+            $db: $db,
+            $table: $db.currencies,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$AssetEntriesTableAnnotationComposer
@@ -10773,8 +11057,34 @@ class $$AssetEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
   GeneratedColumn<int> get preset =>
       $composableBuilder(column: $table.preset, builder: (column) => column);
+
+  $$CurrenciesTableAnnotationComposer get currencyCode {
+    final $$CurrenciesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.currencyCode,
+      referencedTable: $db.currencies,
+      getReferencedColumn: (t) => t.code,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CurrenciesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.currencies,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$AssetEntriesTableTableManager
@@ -10788,12 +11098,9 @@ class $$AssetEntriesTableTableManager
           $$AssetEntriesTableAnnotationComposer,
           $$AssetEntriesTableCreateCompanionBuilder,
           $$AssetEntriesTableUpdateCompanionBuilder,
-          (
-            AssetEntry,
-            BaseReferences<_$AppDatabase, $AssetEntriesTable, AssetEntry>,
-          ),
+          (AssetEntry, $$AssetEntriesTableReferences),
           AssetEntry,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool currencyCode})
         > {
   $$AssetEntriesTableTableManager(_$AppDatabase db, $AssetEntriesTable table)
     : super(
@@ -10816,6 +11123,8 @@ class $$AssetEntriesTableTableManager
                 Value<double> quantity = const Value.absent(),
                 Value<String?> assetType = const Value.absent(),
                 Value<String?> description = const Value.absent(),
+                Value<String> currencyCode = const Value.absent(),
+                Value<String> source = const Value.absent(),
                 Value<int> preset = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AssetEntriesCompanion(
@@ -10827,6 +11136,8 @@ class $$AssetEntriesTableTableManager
                 quantity: quantity,
                 assetType: assetType,
                 description: description,
+                currencyCode: currencyCode,
+                source: source,
                 preset: preset,
                 rowid: rowid,
               ),
@@ -10840,6 +11151,8 @@ class $$AssetEntriesTableTableManager
                 Value<double> quantity = const Value.absent(),
                 Value<String?> assetType = const Value.absent(),
                 Value<String?> description = const Value.absent(),
+                required String currencyCode,
+                required String source,
                 Value<int> preset = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AssetEntriesCompanion.insert(
@@ -10851,13 +11164,60 @@ class $$AssetEntriesTableTableManager
                 quantity: quantity,
                 assetType: assetType,
                 description: description,
+                currencyCode: currencyCode,
+                source: source,
                 preset: preset,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$AssetEntriesTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({currencyCode = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (currencyCode) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.currencyCode,
+                                referencedTable: $$AssetEntriesTableReferences
+                                    ._currencyCodeTable(db),
+                                referencedColumn: $$AssetEntriesTableReferences
+                                    ._currencyCodeTable(db)
+                                    .code,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -10872,12 +11232,9 @@ typedef $$AssetEntriesTableProcessedTableManager =
       $$AssetEntriesTableAnnotationComposer,
       $$AssetEntriesTableCreateCompanionBuilder,
       $$AssetEntriesTableUpdateCompanionBuilder,
-      (
-        AssetEntry,
-        BaseReferences<_$AppDatabase, $AssetEntriesTable, AssetEntry>,
-      ),
+      (AssetEntry, $$AssetEntriesTableReferences),
       AssetEntry,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool currencyCode})
     >;
 typedef $$SettingsTableCreateCompanionBuilder =
     SettingsCompanion Function({

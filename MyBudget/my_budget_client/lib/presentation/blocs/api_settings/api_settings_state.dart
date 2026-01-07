@@ -12,27 +12,23 @@ class ApiSettingsInitial extends ApiSettingsState {}
 class ApiSettingsLoadInProgress extends ApiSettingsState {}
 
 class ApiSettingsLoadSuccess extends ApiSettingsState {
-  final bool isFetchingEnabled;
-  final String fetchMode;
+  final String? steamId;
   final String? lastError;
   final bool isOperationInProgress;
 
   const ApiSettingsLoadSuccess({
-    required this.isFetchingEnabled,
-    required this.fetchMode,
+    this.steamId,
     this.lastError,
     this.isOperationInProgress = false,
   });
 
   ApiSettingsLoadSuccess copyWith({
-    bool? isFetchingEnabled,
-    String? fetchMode,
+    String? steamId,
     String? lastError,
     bool? isOperationInProgress,
   }) {
     return ApiSettingsLoadSuccess(
-      isFetchingEnabled: isFetchingEnabled ?? this.isFetchingEnabled,
-      fetchMode: fetchMode ?? this.fetchMode,
+      steamId: steamId ?? this.steamId,
       lastError: lastError,
       isOperationInProgress:
           isOperationInProgress ?? this.isOperationInProgress,
@@ -41,11 +37,10 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
 
   @override
   List<Object?> get props => [
-    isFetchingEnabled,
-    fetchMode,
-    lastError,
-    isOperationInProgress,
-  ];
+        steamId,
+        lastError,
+        isOperationInProgress,
+      ];
 }
 
 class ApiSettingsFailure extends ApiSettingsState {

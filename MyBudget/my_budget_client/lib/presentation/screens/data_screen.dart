@@ -380,6 +380,7 @@ class _AssetView extends StatelessWidget {
                     description: descriptionController.text.isEmpty
                         ? null
                         : descriptionController.text,
+                    source: 'manual',
                   );
 
                   if (asset == null) {

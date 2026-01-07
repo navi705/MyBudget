@@ -94,7 +94,7 @@ class ExternalData {
         final inventoryResponse =
             SteamInventoryResponse.fromJson(jsonDecode(response.body));
         if (inventoryResponse.success == 1) {
-          final itemsToPrice = inventoryResponse.descriptions
+          var itemsToPrice = inventoryResponse.descriptions
               .where((desc) => desc.marketable == 1)
               .map((desc) => {
                     'appid': desc.appid,
@@ -107,20 +107,35 @@ class ExternalData {
               "/functions/v1/steam-proxy",
               {'endpoint': 'bulkprices'});
 
-          final priceResponse = await http.post(
-            uriGetPrices,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'items': itemsToPrice, 'currency': 3}), // Assuming currency 3 is EUR
-          );
+          for (int i = 0; i < 5 && itemsToPrice.isNotEmpty; i++) {
+            final priceResponse = await http.post(
+              uriGetPrices,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'items': itemsToPrice, 'currency': 3}), // Assuming currency 3 is EUR
+            );
 
-          if (priceResponse.statusCode == 200) {
-            final bulkPrices =
-                BulkPricesResponse.fromJson(jsonDecode(priceResponse.body));
-            bulkPrices.items.forEach((key, value) {
-              if (value.success && value.lowestPrice != null) {
-                result[key] = value.lowestPrice!;
+            if (priceResponse.statusCode == 200) {
+              final bulkPrices =
+                  BulkPricesResponse.fromJson(jsonDecode(priceResponse.body));
+              
+              var failedItems = <Map<String, Object>>[];
+              if (bulkPrices.items != null) {
+                for (var item in itemsToPrice) {
+                  final key = '${item['appid']}_${item['market_hash_name']}_3';
+                  final priceInfo = bulkPrices.items![key];
+
+                  if (priceInfo != null && priceInfo.success && priceInfo.lowestPrice != null) {
+                    result[item['market_hash_name'] as String] = priceInfo.lowestPrice!;
+                  } else {
+                    failedItems.add(item);
+                  }
+                }
+                itemsToPrice = failedItems;
               }
-            });
+            }
+            if (itemsToPrice.isNotEmpty) {
+              await Future.delayed(const Duration(seconds: 2));
+            }
           }
         }
       }
@@ -131,4 +146,3 @@ class ExternalData {
     return result;
   }
 }
-

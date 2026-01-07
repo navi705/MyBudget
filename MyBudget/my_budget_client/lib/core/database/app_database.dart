@@ -174,6 +174,8 @@ class AssetEntries extends Table {
   RealColumn get quantity => real().withDefault(const Constant(1.0))();
   TextColumn get assetType => text().nullable()();
   TextColumn get description => text().nullable()();
+  TextColumn get currencyCode => text().references(Currencies, #code)();
+  TextColumn get source => text()();
   IntColumn get preset => integer().withDefault(const Constant(1))();
 
   @override
@@ -1292,7 +1294,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration {
@@ -1382,6 +1384,12 @@ class AppDatabase extends _$AppDatabase {
           await customStatement(
             'CREATE INDEX IF NOT EXISTS idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
           );
+        }
+         if (from < 18) {
+          await customStatement(
+              "ALTER TABLE asset_entries ADD COLUMN currency_code TEXT NOT NULL DEFAULT 'EUR' REFERENCES currencies(code)");
+          await customStatement(
+              "ALTER TABLE asset_entries ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'");
         }
       },
       beforeOpen: (details) async {
