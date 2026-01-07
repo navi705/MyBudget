@@ -112,6 +112,7 @@ class Accounts extends Table {
   TextColumn get accountTypeId => text().references(AccountTypes, #id)();
   DateTimeColumn get creationDate =>
       dateTime().clientDefault(() => DateTime.now())();
+  TextColumn get country => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -1217,6 +1218,17 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
 
   Future<bool> updateInflationRate(InflationRatesCompanion rate) =>
       update(inflationRates).replace(rate);
+
+  Future<List<String>> getAvailableCountries() async {
+    final query = selectOnly(inflationRates, distinct: true)
+      ..addColumns([inflationRates.country])
+      ..where(inflationRates.country.isNotNull());
+
+    final results = await query
+        .map((row) => row.read(inflationRates.country))
+        .get();
+    return results.whereType<String>().toList();
+  }
 }
 
 @DriftAccessor(tables: [AssetEntries])
@@ -1385,11 +1397,13 @@ class AppDatabase extends _$AppDatabase {
             'CREATE INDEX IF NOT EXISTS idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
           );
         }
-         if (from < 18) {
+        if (from < 18) {
           await customStatement(
-              "ALTER TABLE asset_entries ADD COLUMN currency_code TEXT NOT NULL DEFAULT 'EUR' REFERENCES currencies(code)");
+            "ALTER TABLE asset_entries ADD COLUMN currency_code TEXT NOT NULL DEFAULT 'EUR' REFERENCES currencies(code)",
+          );
           await customStatement(
-              "ALTER TABLE asset_entries ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'");
+            "ALTER TABLE asset_entries ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'",
+          );
         }
       },
       beforeOpen: (details) async {

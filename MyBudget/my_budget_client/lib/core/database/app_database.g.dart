@@ -2033,6 +2033,17 @@ class $AccountsTable extends Accounts
     requiredDuringInsert: false,
     clientDefault: () => DateTime.now(),
   );
+  static const VerificationMeta _countryMeta = const VerificationMeta(
+    'country',
+  );
+  @override
+  late final GeneratedColumn<String> country = GeneratedColumn<String>(
+    'country',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2044,6 +2055,7 @@ class $AccountsTable extends Accounts
     styleId,
     accountTypeId,
     creationDate,
+    country,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2133,6 +2145,12 @@ class $AccountsTable extends Accounts
         ),
       );
     }
+    if (data.containsKey('country')) {
+      context.handle(
+        _countryMeta,
+        country.isAcceptableOrUnknown(data['country']!, _countryMeta),
+      );
+    }
     return context;
   }
 
@@ -2178,6 +2196,10 @@ class $AccountsTable extends Accounts
         DriftSqlType.dateTime,
         data['${effectivePrefix}creation_date'],
       )!,
+      country: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}country'],
+      ),
     );
   }
 
@@ -2197,6 +2219,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
   final String? styleId;
   final String accountTypeId;
   final DateTime creationDate;
+  final String? country;
   const DbAccount({
     required this.id,
     required this.name,
@@ -2207,6 +2230,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     this.styleId,
     required this.accountTypeId,
     required this.creationDate,
+    this.country,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2224,6 +2248,9 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     }
     map['account_type_id'] = Variable<String>(accountTypeId);
     map['creation_date'] = Variable<DateTime>(creationDate);
+    if (!nullToAbsent || country != null) {
+      map['country'] = Variable<String>(country);
+    }
     return map;
   }
 
@@ -2242,6 +2269,9 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
           : Value(styleId),
       accountTypeId: Value(accountTypeId),
       creationDate: Value(creationDate),
+      country: country == null && nullToAbsent
+          ? const Value.absent()
+          : Value(country),
     );
   }
 
@@ -2262,6 +2292,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
       styleId: serializer.fromJson<String?>(json['styleId']),
       accountTypeId: serializer.fromJson<String>(json['accountTypeId']),
       creationDate: serializer.fromJson<DateTime>(json['creationDate']),
+      country: serializer.fromJson<String?>(json['country']),
     );
   }
   @override
@@ -2277,6 +2308,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
       'styleId': serializer.toJson<String?>(styleId),
       'accountTypeId': serializer.toJson<String>(accountTypeId),
       'creationDate': serializer.toJson<DateTime>(creationDate),
+      'country': serializer.toJson<String?>(country),
     };
   }
 
@@ -2290,6 +2322,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     Value<String?> styleId = const Value.absent(),
     String? accountTypeId,
     DateTime? creationDate,
+    Value<String?> country = const Value.absent(),
   }) => DbAccount(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -2300,6 +2333,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     styleId: styleId.present ? styleId.value : this.styleId,
     accountTypeId: accountTypeId ?? this.accountTypeId,
     creationDate: creationDate ?? this.creationDate,
+    country: country.present ? country.value : this.country,
   );
   DbAccount copyWithCompanion(AccountsCompanion data) {
     return DbAccount(
@@ -2322,6 +2356,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
       creationDate: data.creationDate.present
           ? data.creationDate.value
           : this.creationDate,
+      country: data.country.present ? data.country.value : this.country,
     );
   }
 
@@ -2336,7 +2371,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
           ..write('currencyDesignationId: $currencyDesignationId, ')
           ..write('styleId: $styleId, ')
           ..write('accountTypeId: $accountTypeId, ')
-          ..write('creationDate: $creationDate')
+          ..write('creationDate: $creationDate, ')
+          ..write('country: $country')
           ..write(')'))
         .toString();
   }
@@ -2352,6 +2388,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     styleId,
     accountTypeId,
     creationDate,
+    country,
   );
   @override
   bool operator ==(Object other) =>
@@ -2365,7 +2402,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
           other.currencyDesignationId == this.currencyDesignationId &&
           other.styleId == this.styleId &&
           other.accountTypeId == this.accountTypeId &&
-          other.creationDate == this.creationDate);
+          other.creationDate == this.creationDate &&
+          other.country == this.country);
 }
 
 class AccountsCompanion extends UpdateCompanion<DbAccount> {
@@ -2378,6 +2416,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
   final Value<String?> styleId;
   final Value<String> accountTypeId;
   final Value<DateTime> creationDate;
+  final Value<String?> country;
   final Value<int> rowid;
   const AccountsCompanion({
     this.id = const Value.absent(),
@@ -2389,6 +2428,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     this.styleId = const Value.absent(),
     this.accountTypeId = const Value.absent(),
     this.creationDate = const Value.absent(),
+    this.country = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AccountsCompanion.insert({
@@ -2401,6 +2441,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     this.styleId = const Value.absent(),
     required String accountTypeId,
     this.creationDate = const Value.absent(),
+    this.country = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : name = Value(name),
        balance = Value(balance),
@@ -2417,6 +2458,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     Expression<String>? styleId,
     Expression<String>? accountTypeId,
     Expression<DateTime>? creationDate,
+    Expression<String>? country,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2430,6 +2472,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
       if (styleId != null) 'style_id': styleId,
       if (accountTypeId != null) 'account_type_id': accountTypeId,
       if (creationDate != null) 'creation_date': creationDate,
+      if (country != null) 'country': country,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2444,6 +2487,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     Value<String?>? styleId,
     Value<String>? accountTypeId,
     Value<DateTime>? creationDate,
+    Value<String?>? country,
     Value<int>? rowid,
   }) {
     return AccountsCompanion(
@@ -2457,6 +2501,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
       styleId: styleId ?? this.styleId,
       accountTypeId: accountTypeId ?? this.accountTypeId,
       creationDate: creationDate ?? this.creationDate,
+      country: country ?? this.country,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2493,6 +2538,9 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     if (creationDate.present) {
       map['creation_date'] = Variable<DateTime>(creationDate.value);
     }
+    if (country.present) {
+      map['country'] = Variable<String>(country.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2511,6 +2559,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
           ..write('styleId: $styleId, ')
           ..write('accountTypeId: $accountTypeId, ')
           ..write('creationDate: $creationDate, ')
+          ..write('country: $country, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8876,6 +8925,7 @@ typedef $$AccountsTableCreateCompanionBuilder =
       Value<String?> styleId,
       required String accountTypeId,
       Value<DateTime> creationDate,
+      Value<String?> country,
       Value<int> rowid,
     });
 typedef $$AccountsTableUpdateCompanionBuilder =
@@ -8889,6 +8939,7 @@ typedef $$AccountsTableUpdateCompanionBuilder =
       Value<String?> styleId,
       Value<String> accountTypeId,
       Value<DateTime> creationDate,
+      Value<String?> country,
       Value<int> rowid,
     });
 
@@ -9027,6 +9078,11 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<DateTime> get creationDate => $composableBuilder(
     column: $table.creationDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get country => $composableBuilder(
+    column: $table.country,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9182,6 +9238,11 @@ class $$AccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get country => $composableBuilder(
+    column: $table.country,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CurrenciesTableOrderingComposer get currencyCode {
     final $$CurrenciesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -9303,6 +9364,9 @@ class $$AccountsTableAnnotationComposer
     column: $table.creationDate,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get country =>
+      $composableBuilder(column: $table.country, builder: (column) => column);
 
   $$CurrenciesTableAnnotationComposer get currencyCode {
     final $$CurrenciesTableAnnotationComposer composer = $composerBuilder(
@@ -9466,6 +9530,7 @@ class $$AccountsTableTableManager
                 Value<String?> styleId = const Value.absent(),
                 Value<String> accountTypeId = const Value.absent(),
                 Value<DateTime> creationDate = const Value.absent(),
+                Value<String?> country = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AccountsCompanion(
                 id: id,
@@ -9477,6 +9542,7 @@ class $$AccountsTableTableManager
                 styleId: styleId,
                 accountTypeId: accountTypeId,
                 creationDate: creationDate,
+                country: country,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9490,6 +9556,7 @@ class $$AccountsTableTableManager
                 Value<String?> styleId = const Value.absent(),
                 required String accountTypeId,
                 Value<DateTime> creationDate = const Value.absent(),
+                Value<String?> country = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AccountsCompanion.insert(
                 id: id,
@@ -9501,6 +9568,7 @@ class $$AccountsTableTableManager
                 styleId: styleId,
                 accountTypeId: accountTypeId,
                 creationDate: creationDate,
+                country: country,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -201,12 +201,18 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           );
       await PerformanceLogger().stop('Accounts: getTransactionsWithFilters');
 
+      final defaultCountrySetting = await _settingsRepository.getSetting(
+        'default_inflation_country',
+      );
+      final defaultCountry = defaultCountrySetting?.value ?? 'SRB';
+
       PerformanceLogger().start('Accounts: compute inflation');
       // Skip compute overhead for small datasets - run inline instead
       final inflationParams = _InflationParams(
         accounts: sortedAccounts,
         transactions: allTransactions,
         inflationRates: inflationRates,
+        defaultCountry: defaultCountry,
       );
       final inflationResults = allTransactions.length < 100000
           ? _calculateInflationForAccounts(inflationParams)
@@ -216,7 +222,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       DateTime previousDate;
       switch (currentState.dateStep) {
         case DateStep.day:
-          previousDate = currentState.activeDate.subtract(const Duration(days: 1));
+          previousDate = currentState.activeDate.subtract(
+            const Duration(days: 1),
+          );
           break;
         case DateStep.month:
           previousDate = DateTime(
@@ -234,7 +242,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           break;
       }
 
-      final previousPeriodBalances = await _accountRepository.getBalancesAtDate(previousDate);
+      final previousPeriodBalances = await _accountRepository.getBalancesAtDate(
+        previousDate,
+      );
       final previousPeriodTransactions = await _transactionRepository
           .getTransactionsWithFilters(
             filters: TransactionFilters(
@@ -248,6 +258,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         accounts: sortedAccounts,
         transactions: previousPeriodTransactions,
         inflationRates: inflationRates,
+        defaultCountry: defaultCountry,
       );
 
       final prevInflationResults = previousPeriodTransactions.length < 100000
@@ -257,7 +268,8 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       double income = 0;
       double expense = 0;
       for (var tx in allTransactions) {
-        if (tx.date.isAfter(previousDate) && tx.date.isBefore(currentState.activeDate)) {
+        if (tx.date.isAfter(previousDate) &&
+            tx.date.isBefore(currentState.activeDate)) {
           if (tx.amount > 0) {
             income += tx.amount;
           } else {
@@ -335,12 +347,18 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
               limit: 1000000,
             );
 
+        final defaultCountrySetting = await _settingsRepository.getSetting(
+          'default_inflation_country',
+        );
+        final defaultCountry = defaultCountrySetting?.value ?? 'SRB';
+
         final inflationResults = await compute(
           _calculateInflationForAccounts,
           _InflationParams(
             accounts: sortedAccounts,
             transactions: allTransactions,
             inflationRates: inflationRates,
+            defaultCountry: defaultCountry,
           ),
         );
 
@@ -566,11 +584,13 @@ class _InflationParams {
   final List<Account> accounts;
   final List<Transaction> transactions;
   final List<InflationRateDomain> inflationRates;
+  final String defaultCountry;
 
   _InflationParams({
     required this.accounts,
     required this.transactions,
     required this.inflationRates,
+    required this.defaultCountry,
   });
 }
 
@@ -588,48 +608,69 @@ _InflationResults _calculateInflationForAccounts(_InflationParams params) {
   final Map<String, double> realBalances = {};
   final Map<String, double> inflationLosses = {};
 
+  // Group inflation rates by country for faster access
+  // Map<CountryCode, List<InflationRateDomain>>
+  final ratesByCountry = <String, List<InflationRateDomain>>{};
+  // Ensure rates are sorted by date
+  final sortedRates = List<InflationRateDomain>.from(params.inflationRates)
+    ..sort((a, b) => a.date.compareTo(b.date));
+
+  for (final rate in sortedRates) {
+    if (rate.country != null) {
+      ratesByCountry.putIfAbsent(rate.country!, () => []).add(rate);
+    }
+  }
+
   PerformanceLogger().start('PutIfAbsent');
   final transactionsByAccount = <String, List<Transaction>>{};
   for (final tx in params.transactions) {
     transactionsByAccount.putIfAbsent(tx.accountId, () => []).add(tx);
   }
   PerformanceLogger().stop('PutIfAbsent');
-  // Pre-calculate multipliers per month to avoid O(N*M) loops
-  // Multiplier from Date(year, month) to NOW
+
   final now = DateTime.now();
   final target = DateTime(now.year, now.month);
 
-  final multiplierCache = <DateTime, double>{};
-  
-  PerformanceLogger().start('sort');
-  final sortedRates = List<InflationRateDomain>.from(params.inflationRates)
-    ..sort((a, b) => a.date.compareTo(b.date));
-  PerformanceLogger().stop('sort');
+  // Cache multipliers: Map<Country, Map<DateTime, double>>
+  final multiplierCache = <String, Map<DateTime, double>>{};
 
-  // Build multipliers from target backwards
-  // This is slightly tricky if we want to be exact, let's just use the existing logic inside but maybe cached?
-  // Re-using the logic but memoizing:
-  double getMultiplier(DateTime date) {
+  double getMultiplier(DateTime date, String country) {
     final monthDate = DateTime(date.year, date.month);
-    if (multiplierCache.containsKey(monthDate)) {
-      return multiplierCache[monthDate]!;
+
+    // Check cache
+    if (multiplierCache.containsKey(country) &&
+        multiplierCache[country]!.containsKey(monthDate)) {
+      return multiplierCache[country]![monthDate]!;
     }
+
+    final countryRates = ratesByCountry[country] ?? [];
+    if (countryRates.isEmpty) return 1.0;
 
     double cumulativeMultiplier = 1.0;
     DateTime current = monthDate;
-    while (current.isBefore(target)) {
-      final rate = sortedRates.firstWhere(
+
+    // Limit loop to avoid infinite loops if something goes wrong, though dates should advance
+    int safeguard = 0;
+    while (current.isBefore(target) && safeguard < 1200) {
+      // 100 years max
+      safeguard++;
+      final rate = countryRates.firstWhere(
         (r) => r.date.year == current.year,
         orElse: () =>
             InflationRateDomain(percent: 0.0, date: DateTime(0), preset: 1),
       );
+
       if (rate.percent != 0.0) {
-        final monthlyRate = pow(1 + rate.percent / 100, 1/12) - 1;
+        // Assume annual rate is effectively for the year, convert to monthly component
+        // 1 + annual = (1 + monthly)^12  => monthly = (1+annual)^(1/12) - 1
+        final monthlyRate = pow(1 + rate.percent / 100, 1 / 12) - 1;
         cumulativeMultiplier *= (1 + monthlyRate);
       }
       current = DateTime(current.year, current.month + 1);
     }
-    multiplierCache[monthDate] = cumulativeMultiplier;
+
+    multiplierCache.putIfAbsent(country, () => {});
+    multiplierCache[country]![monthDate] = cumulativeMultiplier;
     return cumulativeMultiplier;
   }
 
@@ -638,9 +679,14 @@ _InflationResults _calculateInflationForAccounts(_InflationParams params) {
     if (account.id != null) {
       final transactions = transactionsByAccount[account.id] ?? [];
       double realBalance = 0;
+
+      // Determine effective country for this account
+      final effectiveCountry = account.country ?? params.defaultCountry;
+
       for (final tx in transactions) {
-        realBalance += tx.amount / getMultiplier(tx.date);
+        realBalance += tx.amount / getMultiplier(tx.date, effectiveCountry);
       }
+
       realBalances[account.id!] = realBalance;
       if (account.balance != 0) {
         inflationLosses[account.id!] =

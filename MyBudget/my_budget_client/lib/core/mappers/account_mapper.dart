@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as drift;
-import 'package:my_budget_client/domain/entities/account.dart' as domain_account;
+import 'package:my_budget_client/domain/entities/account.dart'
+    as domain_account;
 
 extension AccountMapper on drift.DbAccount {
   domain_account.Account toDomain() {
@@ -14,6 +15,7 @@ extension AccountMapper on drift.DbAccount {
       styleId: styleId,
       accountTypeId: accountTypeId,
       creationDate: creationDate,
+      country: country,
     );
   }
 }
@@ -34,6 +36,9 @@ extension AccountCompanionMapper on domain_account.Account {
           : Value(styleId),
       accountTypeId: Value(accountTypeId),
       creationDate: Value(creationDate),
+      country: country == null && nullToAbsent
+          ? const Value.absent()
+          : Value(country),
     );
   }
 }
@@ -46,7 +51,8 @@ extension AccountListMapper on List<drift.DbAccount> {
 
 extension AccountCompanionListMapper on List<domain_account.Account> {
   List<drift.AccountsCompanion> toCompanionList({bool nullToAbsent = false}) {
-    return map((account) => account.toCompanion(nullToAbsent: nullToAbsent))
-        .toList();
+    return map(
+      (account) => account.toCompanion(nullToAbsent: nullToAbsent),
+    ).toList();
   }
 }

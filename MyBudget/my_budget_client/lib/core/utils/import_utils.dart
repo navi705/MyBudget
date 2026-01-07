@@ -358,10 +358,8 @@ class ImportDataUtils {
       final dynamic dateValue = dateEntry.value;
 
       // Safely parse the date
-      DateTime? recordDate;
-      try {
-        recordDate = DateTime.parse(dateKey);
-      } catch (e) {
+      DateTime? recordDate = DateTime.tryParse(dateKey);
+      if (recordDate == null) {
         debugPrint('Skipping invalid date: $dateKey');
         continue;
       }
@@ -451,7 +449,9 @@ List<ExchangeRateDomain> _parseCurrencyHistoryJson(String content) {
     final Map<String, dynamic> jsonMap = jsonDecode(content);
 
     jsonMap.forEach((dateKey, dateValue) {
-      final DateTime recordDate = DateTime.parse(dateKey);
+      final DateTime? recordDate = DateTime.tryParse(dateKey);
+
+      if (recordDate == null) return;
 
       if (dateValue is Map) {
         dateValue.forEach((currencyKey, rateValue) {

@@ -6,6 +6,7 @@ import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
@@ -134,205 +135,247 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     return EscapeBackHandler(
       child: Scaffold(
         appBar: AppBar(
-        title: Text('Edit: ${_initialAccount.name}'),
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'delete') {
-                _onDelete();
-              }
-            },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(
-                value: 'delete',
-                child: Text('Delete'),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(labelText: l10n.accountNameHint),
-                validator: (value) => (value == null || value.isEmpty)
-                    ? l10n.formValidationPleaseEnterName
-                    : null,
-              ),
-              TextFormField(
-                // ADDED
-                controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-                // TODO: Localize
-                maxLines: 3,
-                keyboardType: TextInputType.multiline,
-              ),
-              const SizedBox(height: 16),
-              // Added spacing for new field
-              TextFormField(
-                controller: _balanceController,
-                decoration: InputDecoration(labelText: l10n.initialBalanceHint),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return l10n.formValidationPleaseEnterBalance;
-                  }
-                  if (double.tryParse(value) == null) {
-                    return l10n.formValidationPleaseEnterValidNumber;
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              BlocBuilder<CurrencyBloc, CurrencyState>(
-                builder: (context, state) {
-                  if (state is CurrencyLoadSuccess) {
-                    return GestureDetector(
-                      onTap: () async {
-                        final selectedCurrency =
-                            await showSingleSelectDialog<Currency>(
-                              context: context,
-                              items: state.currencies,
-                              title: 'Select Currency',
-                              selectedItem: state.currencies.firstWhereOrNull(
-                                (c) => c.code == _selectedCurrencyCode,
-                              ),
-                              itemBuilder: (currency) => Text(currency.name),
-                              stringGetter: (currency) =>
-                                  '${currency.name} ${currency.code}',
-                            );
-                        if (mounted && selectedCurrency != null) {
-                          setState(() {
-                            _selectedCurrencyCode = selectedCurrency.code;
-                            _selectedCurrencyDesignationId = state.designations
-                                .firstWhereOrNull(
-                                  (d) =>
-                                      d.currencyCode == _selectedCurrencyCode,
-                                )
-                                ?.id;
-                          });
-                        }
-                      },
-                      child: AbsorbPointer(
-                        child: TextFormField(
-                          key: Key(_selectedCurrencyCode ?? 'no_currency'),
-                          initialValue: state.currencies
-                              .firstWhereOrNull(
-                                (c) => c.code == _selectedCurrencyCode,
-                              )
-                              ?.name,
-                          decoration: InputDecoration(
-                            labelText: l10n.currencyLabel,
-                          ),
-                          validator: (value) => _selectedCurrencyCode == null
-                              ? l10n.formValidationPleaseSelectCurrency
-                              : null,
-                        ),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-              const SizedBox(height: 16),
-              BlocBuilder<AccountsBloc, AccountsState>(
-                builder: (context, state) {
-                  if (state is AccountsLoadSuccess) {
-                    return GestureDetector(
-                      onTap: () async {
-                        final selectedAccountType =
-                            await showSingleSelectDialog<AccountType>(
-                              context: context,
-                              items: state.accountTypes,
-                              title: 'Select Account Type',
-                              selectedItem: state.accountTypes.firstWhereOrNull(
-                                (t) => t.id == _selectedAccountTypeId,
-                              ),
-                              itemBuilder: (type) => Text(type.name),
-                              stringGetter: (type) => type.name,
-                            );
-                        if (mounted && selectedAccountType != null) {
-                          setState(() {
-                            _selectedAccountTypeId = selectedAccountType.id;
-                          });
-                        }
-                      },
-                      child: AbsorbPointer(
-                        child: TextFormField(
-                          key: Key(_selectedAccountTypeId ?? 'no_type'),
-                          initialValue: state.accountTypes
-                              .firstWhereOrNull(
-                                (t) => t.id == _selectedAccountTypeId,
-                              )
-                              ?.name,
-                          decoration: const InputDecoration(
-                            labelText: 'Account Type',
-                          ),
-                          validator: (value) => _selectedAccountTypeId == null
-                              ? 'Please select an account type'
-                              : null,
-                        ),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-              const SizedBox(height: 16),
-              BlocBuilder<StylesBloc, StylesState>(
-                builder: (context, state) {
-                  if (state is StylesLoadSuccess) {
-                    final selectedStyle = state.styles.firstWhereOrNull(
-                      (s) => s.id == _selectedStyleId,
-                    );
-
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: selectedStyle != null
-                          ? CircleAvatar(
-                              backgroundColor: _getColorFromHex(
-                                selectedStyle.colorHex,
-                              ),
-                              child: IconUtils.getIconWidget(selectedStyle),
-                            )
-                          : const CircleAvatar(child: Icon(Icons.style)),
-                      title: const Text('Style'),
-                      subtitle: Text(selectedStyle?.name ?? 'Select a style'),
-                      onTap: () async {
-                        final newStyleId = await showStylePickerDialog(
-                          context,
-                          _selectedStyleId ?? '',
-                        );
-                        if (newStyleId != null) {
-                          setState(() {
-                            _selectedStyleId = newStyleId;
-                          });
-                        }
-                      },
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-              const SizedBox(height: 32),
-              FilledButton.tonal(
-                onPressed: _onSave,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
+          title: Text('Edit: ${_initialAccount.name}'),
+          actions: [
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'delete') {
+                  _onDelete();
+                }
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(
+                  value: 'delete',
+                  child: Text('Delete'),
                 ),
-                child: Text(l10n.saveButton),
-              ),
-            ],
+              ],
+            ),
+          ],
+        ),
+        body: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(labelText: l10n.accountNameHint),
+                  validator: (value) => (value == null || value.isEmpty)
+                      ? l10n.formValidationPleaseEnterName
+                      : null,
+                ),
+                TextFormField(
+                  // ADDED
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(labelText: 'Description'),
+                  // TODO: Localize
+                  maxLines: 3,
+                  keyboardType: TextInputType.multiline,
+                ),
+                const SizedBox(height: 16),
+                // Added spacing for new field
+                TextFormField(
+                  controller: _balanceController,
+                  decoration: InputDecoration(
+                    labelText: l10n.initialBalanceHint,
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return l10n.formValidationPleaseEnterBalance;
+                    }
+                    if (double.tryParse(value) == null) {
+                      return l10n.formValidationPleaseEnterValidNumber;
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                BlocBuilder<CurrencyBloc, CurrencyState>(
+                  builder: (context, state) {
+                    if (state is CurrencyLoadSuccess) {
+                      return GestureDetector(
+                        onTap: () async {
+                          final selectedCurrency =
+                              await showSingleSelectDialog<Currency>(
+                                context: context,
+                                items: state.currencies,
+                                title: 'Select Currency',
+                                selectedItem: state.currencies.firstWhereOrNull(
+                                  (c) => c.code == _selectedCurrencyCode,
+                                ),
+                                itemBuilder: (currency) => Text(currency.name),
+                                stringGetter: (currency) =>
+                                    '${currency.name} ${currency.code}',
+                              );
+                          if (mounted && selectedCurrency != null) {
+                            setState(() {
+                              _selectedCurrencyCode = selectedCurrency.code;
+                              _selectedCurrencyDesignationId = state
+                                  .designations
+                                  .firstWhereOrNull(
+                                    (d) =>
+                                        d.currencyCode == _selectedCurrencyCode,
+                                  )
+                                  ?.id;
+                            });
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: TextFormField(
+                            key: Key(_selectedCurrencyCode ?? 'no_currency'),
+                            initialValue: state.currencies
+                                .firstWhereOrNull(
+                                  (c) => c.code == _selectedCurrencyCode,
+                                )
+                                ?.name,
+                            decoration: InputDecoration(
+                              labelText: l10n.currencyLabel,
+                            ),
+                            validator: (value) => _selectedCurrencyCode == null
+                                ? l10n.formValidationPleaseSelectCurrency
+                                : null,
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                const SizedBox(height: 16),
+                BlocBuilder<AccountsBloc, AccountsState>(
+                  builder: (context, state) {
+                    if (state is AccountsLoadSuccess) {
+                      return GestureDetector(
+                        onTap: () async {
+                          final selectedAccountType =
+                              await showSingleSelectDialog<AccountType>(
+                                context: context,
+                                items: state.accountTypes,
+                                title: 'Select Account Type',
+                                selectedItem: state.accountTypes
+                                    .firstWhereOrNull(
+                                      (t) => t.id == _selectedAccountTypeId,
+                                    ),
+                                itemBuilder: (type) => Text(type.name),
+                                stringGetter: (type) => type.name,
+                              );
+                          if (mounted && selectedAccountType != null) {
+                            setState(() {
+                              _selectedAccountTypeId = selectedAccountType.id;
+                            });
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: TextFormField(
+                            key: Key(_selectedAccountTypeId ?? 'no_type'),
+                            initialValue: state.accountTypes
+                                .firstWhereOrNull(
+                                  (t) => t.id == _selectedAccountTypeId,
+                                )
+                                ?.name,
+                            decoration: const InputDecoration(
+                              labelText: 'Account Type',
+                            ),
+                            validator: (value) => _selectedAccountTypeId == null
+                                ? 'Please select an account type'
+                                : null,
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                const SizedBox(height: 16),
+                BlocBuilder<SettingsBloc, SettingsState>(
+                  builder: (context, state) {
+                    return GestureDetector(
+                      onTap: () async {
+                        final selectedCountry =
+                            await showSingleSelectDialog<String>(
+                              context: context,
+                              items: state.countries,
+                              title: 'Select Country',
+                              selectedItem: _initialAccount.country,
+                              itemBuilder: (country) => Text(country),
+                              stringGetter: (country) => country,
+                            );
+                        if (mounted && selectedCountry != null) {
+                          // We need to update the _initialAccount directly or a controller for it
+                          // Since there is no controller for country, let's store it in a local variable
+                          // But wait, the UpdateAccount event uses _initialAccount.copyWith...
+                          // We should probably introduce a state variable for selectedCountry
+                          setState(() {
+                            _initialAccount = _initialAccount.copyWith(
+                              country: selectedCountry,
+                            );
+                          });
+                        }
+                      },
+                      child: AbsorbPointer(
+                        child: TextFormField(
+                          key: Key(_initialAccount.country ?? 'no_country'),
+                          initialValue: _initialAccount.country,
+                          decoration: const InputDecoration(
+                            labelText: 'Country (Inflation)',
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                BlocBuilder<StylesBloc, StylesState>(
+                  builder: (context, state) {
+                    if (state is StylesLoadSuccess) {
+                      final selectedStyle = state.styles.firstWhereOrNull(
+                        (s) => s.id == _selectedStyleId,
+                      );
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: selectedStyle != null
+                            ? CircleAvatar(
+                                backgroundColor: _getColorFromHex(
+                                  selectedStyle.colorHex,
+                                ),
+                                child: IconUtils.getIconWidget(selectedStyle),
+                              )
+                            : const CircleAvatar(child: Icon(Icons.style)),
+                        title: const Text('Style'),
+                        subtitle: Text(selectedStyle?.name ?? 'Select a style'),
+                        onTap: () async {
+                          final newStyleId = await showStylePickerDialog(
+                            context,
+                            _selectedStyleId ?? '',
+                          );
+                          if (newStyleId != null) {
+                            setState(() {
+                              _selectedStyleId = newStyleId;
+                            });
+                          }
+                        },
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                const SizedBox(height: 32),
+                FilledButton.tonal(
+                  onPressed: _onSave,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                  ),
+                  child: Text(l10n.saveButton),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 }
