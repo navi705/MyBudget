@@ -64,6 +64,19 @@ class AccountsLoadSuccess extends AccountsState {
   final Map<String, double> inflationLosses;
   final Map<String, double> previousPeriodRealBalances;
   final Map<String, double> previousPeriodBalances;
+
+  // Current Period Stats (Per Account)
+  final Map<String, double> accountIncomes;
+  final Map<String, double> accountExpenses;
+  final Map<String, double> accountRealIncomes;
+  final Map<String, double> accountRealExpenses;
+
+  // Previous Period Stats (Per Account)
+  final Map<String, double> previousAccountIncomes;
+  final Map<String, double> previousAccountExpenses;
+  final Map<String, double> previousAccountRealIncomes;
+  final Map<String, double> previousAccountRealExpenses;
+
   final double income;
   final double expense;
 
@@ -86,6 +99,14 @@ class AccountsLoadSuccess extends AccountsState {
     this.inflationLosses = const {},
     this.previousPeriodRealBalances = const {},
     this.previousPeriodBalances = const {},
+    this.accountIncomes = const {},
+    this.accountExpenses = const {},
+    this.accountRealIncomes = const {},
+    this.accountRealExpenses = const {},
+    this.previousAccountIncomes = const {},
+    this.previousAccountExpenses = const {},
+    this.previousAccountRealIncomes = const {},
+    this.previousAccountRealExpenses = const {},
     this.income = 0.0,
     this.expense = 0.0,
   });
@@ -109,6 +130,14 @@ class AccountsLoadSuccess extends AccountsState {
     Map<String, double>? inflationLosses,
     Map<String, double>? previousPeriodRealBalances,
     Map<String, double>? previousPeriodBalances,
+    Map<String, double>? accountIncomes,
+    Map<String, double>? accountExpenses,
+    Map<String, double>? accountRealIncomes,
+    Map<String, double>? accountRealExpenses,
+    Map<String, double>? previousAccountIncomes,
+    Map<String, double>? previousAccountExpenses,
+    Map<String, double>? previousAccountRealIncomes,
+    Map<String, double>? previousAccountRealExpenses,
     double? income,
     double? expense,
   }) {
@@ -135,6 +164,18 @@ class AccountsLoadSuccess extends AccountsState {
           previousPeriodRealBalances ?? this.previousPeriodRealBalances,
       previousPeriodBalances:
           previousPeriodBalances ?? this.previousPeriodBalances,
+      accountIncomes: accountIncomes ?? this.accountIncomes,
+      accountExpenses: accountExpenses ?? this.accountExpenses,
+      accountRealIncomes: accountRealIncomes ?? this.accountRealIncomes,
+      accountRealExpenses: accountRealExpenses ?? this.accountRealExpenses,
+      previousAccountIncomes:
+          previousAccountIncomes ?? this.previousAccountIncomes,
+      previousAccountExpenses:
+          previousAccountExpenses ?? this.previousAccountExpenses,
+      previousAccountRealIncomes:
+          previousAccountRealIncomes ?? this.previousAccountRealIncomes,
+      previousAccountRealExpenses:
+          previousAccountRealExpenses ?? this.previousAccountRealExpenses,
       income: income ?? this.income,
       expense: expense ?? this.expense,
     );
@@ -142,27 +183,35 @@ class AccountsLoadSuccess extends AccountsState {
 
   @override
   List<Object?> get props => [
-        accounts,
-        accountTypes,
-        hasReachedMax,
-        totalCount,
-        sortAscending,
-        recentlyDeletedAccount,
-        historicalBalances,
-        isHistorical,
-        isSelectionModeActive,
-        selectedAccountIds,
-        dateStep,
-        activeDate,
-        filters,
-        exchangeRates,
-        realBalances,
-        inflationLosses,
-        previousPeriodRealBalances,
-        previousPeriodBalances,
-        income,
-        expense,
-      ];
+    accounts,
+    accountTypes,
+    hasReachedMax,
+    totalCount,
+    sortAscending,
+    recentlyDeletedAccount,
+    historicalBalances,
+    isHistorical,
+    isSelectionModeActive,
+    selectedAccountIds,
+    dateStep,
+    activeDate,
+    filters,
+    exchangeRates,
+    realBalances,
+    inflationLosses,
+    previousPeriodRealBalances,
+    previousPeriodBalances,
+    accountIncomes,
+    accountExpenses,
+    accountRealIncomes,
+    accountRealExpenses,
+    previousAccountIncomes,
+    previousAccountExpenses,
+    previousAccountRealIncomes,
+    previousAccountRealExpenses,
+    income,
+    expense,
+  ];
 }
 
 class AccountsLoadFailure extends AccountsState {}

@@ -88,7 +88,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
       );
 
       // Only dispatch an update if the account has actually changed.
-      if (updatedAccount != _initialAccount) {
+      if (updatedAccount != widget.account) {
         context.read<AccountsBloc>().add(UpdateAccount(updatedAccount));
       }
       FocusScope.of(context).unfocus();

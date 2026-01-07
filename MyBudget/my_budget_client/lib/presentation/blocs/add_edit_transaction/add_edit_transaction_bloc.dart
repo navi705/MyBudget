@@ -11,6 +11,7 @@ import 'package:my_budget_client/domain/repositories/transaction_repository.dart
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart'; // Added
+import 'package:my_budget_client/domain/entities/category_type.dart';
 
 part 'add_edit_transaction_event.dart';
 part 'add_edit_transaction_state.dart';
@@ -189,10 +190,11 @@ class AddEditTransactionBloc
     emit(state.copyWith(isSaving: true));
 
     try {
-      final amount = double.tryParse(state.amount);
+      var amount = double.tryParse(state.amount);
       final date = state.date;
       final accountId = state.selectedAccount?.id;
       final categoryId = state.selectedCategory?.id;
+      final categoryType = state.selectedCategory?.type;
 
       if (amount == null ||
           accountId == null ||
@@ -201,6 +203,15 @@ class AddEditTransactionBloc
         // Handle validation failure
         emit(state.copyWith(isSaving: false));
         return;
+      }
+
+      // Enforce sign based on CategoryType
+      if (categoryType == CategoryType.expense) {
+        // Should be negative
+        if (amount > 0) amount = -amount;
+      } else if (categoryType == CategoryType.income) {
+        // Should be positive
+        if (amount < 0) amount = amount.abs();
       }
 
       double? finalExchangeRate;

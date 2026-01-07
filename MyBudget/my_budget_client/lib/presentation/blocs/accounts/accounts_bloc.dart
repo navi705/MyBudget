@@ -29,6 +29,8 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   final InflationRepository _inflationRepository;
   final TransactionRepository _transactionRepository;
 
+  StreamSubscription<List<Transaction>>? _transactionsSubscription;
+
   AccountsBloc({
     required AccountRepository accountRepository,
     required SettingsRepository settingsRepository,
@@ -62,6 +64,16 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     on<DatePeriodNavigated>(_onDatePeriodNavigated);
     on<DateStepChanged>(_onDateStepChanged);
     on<ActiveDateChanged>(_onActiveDateChanged);
+
+    _transactionsSubscription = _transactionRepository
+        .watchTransactions()
+        .listen((_) => add(LoadAccounts()));
+  }
+
+  @override
+  Future<void> close() {
+    _transactionsSubscription?.cancel();
+    return super.close();
   }
 
   List<Account> _sortAccounts(
@@ -265,18 +277,65 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           ? _calculateInflationForAccounts(prevInflationParams)
           : await compute(_calculateInflationForAccounts, prevInflationParams);
 
-      double income = 0;
-      double expense = 0;
-      for (var tx in allTransactions) {
-        if (tx.date.isAfter(previousDate) &&
-            tx.date.isBefore(currentState.activeDate)) {
-          if (tx.amount > 0) {
-            income += tx.amount;
-          } else {
-            expense += tx.amount;
-          }
-        }
+      DateTime p2Date;
+      switch (currentState.dateStep) {
+        case DateStep.day:
+          p2Date = previousDate.subtract(const Duration(days: 1));
+          break;
+        case DateStep.month:
+          p2Date = DateTime(
+            previousDate.year,
+            previousDate.month - 1,
+            previousDate.day,
+          );
+          break;
+        case DateStep.year:
+          p2Date = DateTime(
+            previousDate.year - 1,
+            previousDate.month,
+            previousDate.day,
+          );
+          break;
       }
+
+      final currentPeriodTx = allTransactions
+          .where(
+            (tx) =>
+                tx.date.isAfter(previousDate) &&
+                    tx.date.isBefore(currentState.activeDate) ||
+                tx.date.isAtSameMomentAs(currentState.activeDate),
+          ) // Inclusive end? Usually exclusive start, inclusive end
+          .toList();
+
+      final previousPeriodTx = allTransactions
+          .where(
+            (tx) =>
+                tx.date.isAfter(p2Date) && tx.date.isBefore(previousDate) ||
+                tx.date.isAtSameMomentAs(previousDate),
+          )
+          .toList();
+
+      final currentStats = _calculatePeriodStats(
+        _InflationParams(
+          accounts: sortedAccounts,
+          transactions: currentPeriodTx,
+          inflationRates: inflationRates,
+          defaultCountry: defaultCountry,
+        ),
+      );
+
+      final previousStats = _calculatePeriodStats(
+        _InflationParams(
+          accounts: sortedAccounts,
+          transactions: previousPeriodTx,
+          inflationRates: inflationRates,
+          defaultCountry: defaultCountry,
+        ),
+      );
+
+      // Sum totals from account stats
+      double income = currentStats.income.values.fold(0, (sum, v) => sum + v);
+      double expense = currentStats.expense.values.fold(0, (sum, v) => sum + v);
 
       await PerformanceLogger().stop('Accounts Screen Load');
 
@@ -297,6 +356,14 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           inflationLosses: inflationResults.inflationLosses,
           previousPeriodBalances: previousPeriodBalances,
           previousPeriodRealBalances: prevInflationResults.realBalances,
+          accountIncomes: currentStats.income,
+          accountExpenses: currentStats.expense,
+          accountRealIncomes: currentStats.realIncome,
+          accountRealExpenses: currentStats.realExpense,
+          previousAccountIncomes: previousStats.income,
+          previousAccountExpenses: previousStats.expense,
+          previousAccountRealIncomes: previousStats.realIncome,
+          previousAccountRealExpenses: previousStats.realExpense,
           income: income,
           expense: expense,
         ),
@@ -362,6 +429,86 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           ),
         );
 
+        // Period Stats Calculation (Duplicated from _onLoadAccounts for now)
+        DateTime previousDate;
+        switch (currentState.dateStep) {
+          case DateStep.day:
+            previousDate = currentState.activeDate.subtract(
+              const Duration(days: 1),
+            );
+            break;
+          case DateStep.month:
+            previousDate = DateTime(
+              currentState.activeDate.year,
+              currentState.activeDate.month - 1,
+              currentState.activeDate.day,
+            );
+            break;
+          case DateStep.year:
+            previousDate = DateTime(
+              currentState.activeDate.year - 1,
+              currentState.activeDate.month,
+              currentState.activeDate.day,
+            );
+            break;
+        }
+
+        DateTime p2Date;
+        switch (currentState.dateStep) {
+          case DateStep.day:
+            p2Date = previousDate.subtract(const Duration(days: 1));
+            break;
+          case DateStep.month:
+            p2Date = DateTime(
+              previousDate.year,
+              previousDate.month - 1,
+              previousDate.day,
+            );
+            break;
+          case DateStep.year:
+            p2Date = DateTime(
+              previousDate.year - 1,
+              previousDate.month,
+              previousDate.day,
+            );
+            break;
+        }
+
+        final currentPeriodTx = allTransactions
+            .where(
+              (tx) =>
+                  tx.date.isAfter(previousDate) &&
+                      tx.date.isBefore(currentState.activeDate) ||
+                  tx.date.isAtSameMomentAs(currentState.activeDate),
+            )
+            .toList();
+
+        final previousPeriodTx = allTransactions
+            .where(
+              (tx) =>
+                  tx.date.isAfter(p2Date) && tx.date.isBefore(previousDate) ||
+                  tx.date.isAtSameMomentAs(previousDate),
+            )
+            .toList();
+
+        final currentStats = _calculatePeriodStats(
+          _InflationParams(
+            accounts: sortedAccounts,
+            transactions: currentPeriodTx,
+            inflationRates: inflationRates,
+            defaultCountry: defaultCountry,
+          ),
+        );
+
+        final previousStats = _calculatePeriodStats(
+          _InflationParams(
+            accounts: sortedAccounts,
+            transactions: previousPeriodTx,
+            inflationRates: inflationRates,
+            defaultCountry: defaultCountry,
+          ),
+        );
+
         await PerformanceLogger().stop('Accounts Screen Load More');
 
         emit(
@@ -369,6 +516,14 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
             accounts: sortedAccounts,
             realBalances: inflationResults.realBalances,
             inflationLosses: inflationResults.inflationLosses,
+            accountIncomes: currentStats.income,
+            accountExpenses: currentStats.expense,
+            accountRealIncomes: currentStats.realIncome,
+            accountRealExpenses: currentStats.realExpense,
+            previousAccountIncomes: previousStats.income,
+            previousAccountExpenses: previousStats.expense,
+            previousAccountRealIncomes: previousStats.realIncome,
+            previousAccountRealExpenses: previousStats.realExpense,
             hasReachedMax:
                 (currentState.accounts.length + accounts.length) >=
                 currentState.totalCount,
@@ -701,5 +856,124 @@ _InflationResults _calculateInflationForAccounts(_InflationParams params) {
   return _InflationResults(
     realBalances: realBalances,
     inflationLosses: inflationLosses,
+  );
+}
+
+class _PeriodStats {
+  final Map<String, double> income;
+  final Map<String, double> expense;
+  final Map<String, double> realIncome;
+  final Map<String, double> realExpense;
+
+  _PeriodStats({
+    required this.income,
+    required this.expense,
+    required this.realIncome,
+    required this.realExpense,
+  });
+}
+
+_PeriodStats _calculatePeriodStats(_InflationParams params) {
+  final Map<String, double> income = {};
+  final Map<String, double> expense = {};
+  final Map<String, double> realIncome = {};
+  final Map<String, double> realExpense = {};
+
+  final ratesByCountry = <String, List<InflationRateDomain>>{};
+  final sortedRates = List<InflationRateDomain>.from(params.inflationRates)
+    ..sort((a, b) => a.date.compareTo(b.date));
+
+  for (final rate in sortedRates) {
+    if (rate.country != null) {
+      ratesByCountry.putIfAbsent(rate.country!, () => []).add(rate);
+    }
+  }
+
+  // Helper for multiplier
+  // Note: Optimally we should reuse the cache logic from _calculateInflationForAccounts
+  // But since this is a separate isolate function (potentially), we duplicate or refactor.
+  // For simplicity and correctness in this scope, I'll duplicate the helper logic or just inline simple lookups.
+  // Given we process period transactions (usually few), full caching might be overkill but robust.
+
+  final multiplierCache = <String, Map<DateTime, double>>{};
+  final now = DateTime.now();
+  final target = DateTime(now.year, now.month + 1); // Safety bounds
+
+  double getMultiplier(DateTime date, String country) {
+    final monthDate = DateTime(date.year, date.month);
+    if (multiplierCache.containsKey(country) &&
+        multiplierCache[country]!.containsKey(monthDate)) {
+      return multiplierCache[country]![monthDate]!;
+    }
+
+    final countryRates = ratesByCountry[country] ?? [];
+    if (countryRates.isEmpty) return 1.0;
+
+    double cumulativeMultiplier = 1.0;
+    DateTime current = monthDate;
+    int safeguard = 0;
+
+    // We only need multiplier FROM transaction date TO now (or target).
+    while (current.isBefore(target) && safeguard < 1200) {
+      safeguard++;
+      final rate = countryRates.firstWhere(
+        (r) => r.date.year == current.year,
+        orElse: () =>
+            InflationRateDomain(percent: 0.0, date: DateTime(0), preset: 1),
+      );
+
+      if (rate.percent != 0.0) {
+        final monthlyRate = pow(1 + rate.percent / 100, 1 / 12) - 1;
+        cumulativeMultiplier *= (1 + monthlyRate);
+      }
+      current = DateTime(current.year, current.month + 1);
+    }
+
+    multiplierCache.putIfAbsent(country, () => {});
+    multiplierCache[country]![monthDate] = cumulativeMultiplier;
+    return cumulativeMultiplier;
+  }
+
+  for (final account in params.accounts) {
+    if (account.id == null) continue;
+
+    // Filter transactions for this account
+    // Note: params.transactions passed here should ALREADY be filtered for the period
+    // But we need to filter by accountId
+    final accountTx = params.transactions.where(
+      (tx) => tx.accountId == account.id,
+    );
+
+    double accIncome = 0;
+    double accExpense = 0;
+    double accRealIncome = 0;
+    double accRealExpense = 0;
+
+    final effectiveCountry = account.country ?? params.defaultCountry;
+
+    for (final tx in accountTx) {
+      final multiplier = getMultiplier(tx.date, effectiveCountry);
+      final realAmount = tx.amount / multiplier;
+
+      if (tx.amount > 0) {
+        accIncome += tx.amount;
+        accRealIncome += realAmount;
+      } else {
+        accExpense += tx.amount;
+        accRealExpense += realAmount;
+      }
+    }
+
+    income[account.id!] = accIncome;
+    expense[account.id!] = accExpense;
+    realIncome[account.id!] = accRealIncome;
+    realExpense[account.id!] = accRealExpense;
+  }
+
+  return _PeriodStats(
+    income: income,
+    expense: expense,
+    realIncome: realIncome,
+    realExpense: realExpense,
   );
 }

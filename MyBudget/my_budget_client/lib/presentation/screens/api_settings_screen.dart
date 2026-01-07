@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
+import 'package:my_budget_client/core/utils/country_codes.dart';
 import 'package:my_budget_client/presentation/blocs/api_settings/api_settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/api_settings/api_settings_event.dart';
 import 'package:my_budget_client/presentation/blocs/api_settings/api_settings_state.dart';
@@ -116,21 +117,23 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: FilledButton.icon(
-                        onPressed: state.isOperationInProgress ||
+                        onPressed:
+                            state.isOperationInProgress ||
                                 _startDate == null ||
                                 _endDate == null
                             ? null
                             : () {
                                 context.read<ApiSettingsBloc>().add(
-                                      ManualFetchRange(_startDate!, _endDate!),
-                                    );
+                                  ManualFetchRange(_startDate!, _endDate!),
+                                );
                               },
                         icon: state.isOperationInProgress
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Icons.download),
                         label: const Text('Fetch Exchange Rates'),
@@ -156,23 +159,27 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                         ),
                         keyboardType: TextInputType.number,
                         onChanged: (value) {
-                          context
-                              .read<ApiSettingsBloc>()
-                              .add(SaveSteamId(value));
+                          context.read<ApiSettingsBloc>().add(
+                            SaveSteamId(value),
+                          );
                         },
                       ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16.0, vertical: 8.0),
+                        horizontal: 16.0,
+                        vertical: 8.0,
+                      ),
                       child: DropdownButtonFormField<GameApiSteam>(
                         value: _selectedGame,
                         hint: const Text('Select Game'),
                         items: GameApiSteam.values
-                            .map((game) => DropdownMenuItem(
-                                  value: game,
-                                  child: Text(game.name),
-                                ))
+                            .map(
+                              (game) => DropdownMenuItem(
+                                value: game,
+                                child: Text(game.name),
+                              ),
+                            )
                             .toList(),
                         onChanged: (value) {
                           setState(() {
@@ -184,29 +191,34 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: FilledButton.icon(
-                        onPressed: state.isOperationInProgress ||
+                        onPressed:
+                            state.isOperationInProgress ||
                                 _steamIdController.text.isEmpty ||
                                 _selectedGame == null
                             ? null
                             : () {
-                                final accountId =
-                                    int.tryParse(_steamIdController.text);
+                                final accountId = int.tryParse(
+                                  _steamIdController.text,
+                                );
                                 if (accountId != null) {
                                   context.read<ApiSettingsBloc>().add(
-                                        SaveSteamId(_steamIdController.text),
-                                      );
+                                    SaveSteamId(_steamIdController.text),
+                                  );
                                   context.read<ApiSettingsBloc>().add(
-                                        FetchSteamInventory(
-                                            accountId, _selectedGame!),
-                                      );
+                                    FetchSteamInventory(
+                                      accountId,
+                                      _selectedGame!,
+                                    ),
+                                  );
                                 }
                               },
                         icon: state.isOperationInProgress
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Icons.download),
                         label: const Text('Fetch Steam Inventory Value'),
@@ -225,15 +237,70 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: TextFormField(
-                        controller: _countryCodeController,
-                        decoration: const InputDecoration(
-                          labelText: 'Country Code (e.g. SRB)',
-                        ),
+                      child: SearchAnchor(
+                        builder:
+                            (
+                              BuildContext context,
+                              SearchController controller,
+                            ) {
+                              return TextField(
+                                controller: controller,
+                                decoration: const InputDecoration(
+                                  labelText: 'Country Code (e.g. SRB)',
+                                  suffixIcon: Icon(Icons.search),
+                                ),
+                                onTap: () {
+                                  controller.openView();
+                                },
+                                onChanged: (_) {
+                                  controller.openView();
+                                },
+                              );
+                            },
+                        suggestionsBuilder:
+                            (
+                              BuildContext context,
+                              SearchController controller,
+                            ) {
+                              final keyword = controller.text.toLowerCase();
+                              return worldBankCountryCodes.entries
+                                  .where(
+                                    (entry) =>
+                                        entry.key.toLowerCase().contains(
+                                          keyword,
+                                        ) ||
+                                        entry.value.toLowerCase().contains(
+                                          keyword,
+                                        ),
+                                  )
+                                  .map((entry) {
+                                    return ListTile(
+                                      title: Text(entry.key),
+                                      subtitle: Text(entry.value),
+                                      onTap: () {
+                                        setState(() {
+                                          controller.closeView(entry.value);
+                                          _countryCodeController.text =
+                                              entry.value;
+                                        });
+                                      },
+                                    );
+                                  });
+                            },
+                        viewOnChanged: (value) {
+                          _countryCodeController.text =
+                              value; // Keep controller synced if user types manually
+                        },
+                        viewOnSubmitted: (value) {
+                          _countryCodeController.text = value;
+                        },
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 8.0,
+                      ),
                       child: TextFormField(
                         controller: _dateRangeController,
                         decoration: const InputDecoration(
@@ -244,24 +311,26 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: FilledButton.icon(
-                        onPressed: state.isOperationInProgress ||
+                        onPressed:
+                            state.isOperationInProgress ||
                                 _countryCodeController.text.isEmpty ||
                                 _dateRangeController.text.isEmpty
                             ? null
                             : () {
                                 context.read<ApiSettingsBloc>().add(
-                                      FetchInflationData(
-                                        _countryCodeController.text,
-                                        _dateRangeController.text,
-                                      ),
-                                    );
+                                  FetchInflationData(
+                                    _countryCodeController.text,
+                                    _dateRangeController.text,
+                                  ),
+                                );
                               },
                         icon: state.isOperationInProgress
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Icons.download),
                         label: const Text('Fetch Inflation Data'),

@@ -14,6 +14,8 @@ import 'package:my_budget_client/domain/repositories/transaction_repository.dart
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart'; // Added
 import 'package:my_budget_client/domain/entities/currency.dart';
+import 'package:my_budget_client/domain/entities/category_type.dart';
+import 'package:flutter/services.dart';
 
 import 'package:my_budget_client/presentation/blocs/add_edit_transaction/add_edit_transaction_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
@@ -80,7 +82,9 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
       child: BlocListener<AddEditTransactionBloc, AddEditTransactionState>(
         listener: (context, state) {
           if (state.isSaveSuccess) {
-            context.read<TransactionsBloc>().add(const InitialLoadTransactions());
+            context.read<TransactionsBloc>().add(
+              const InitialLoadTransactions(),
+            );
             Navigator.of(context).pop();
           }
 
@@ -92,63 +96,63 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
           }
         },
         child: Scaffold(
-        appBar: AppBar(
-          title: BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
+          appBar: AppBar(
+            title: BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
+              builder: (context, state) {
+                return Text(
+                  state.isEditing ? 'Edit Transaction' : 'Add Transaction',
+                );
+              },
+            ),
+          ),
+          body: BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
             builder: (context, state) {
-              return Text(
-                state.isEditing ? 'Edit Transaction' : 'Add Transaction',
+              if (state.status == AddEditTransactionStatus.loading) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (state.status == AddEditTransactionStatus.failure) {
+                return const Center(child: Text('Failed to load data'));
+              }
+
+              return Stack(
+                children: [
+                  Form(
+                    key: _formKey,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _DescriptionField(controller: _descriptionController),
+                          const SizedBox(height: 16),
+                          _AmountField(controller: _amountController),
+                          const _ConvertedAmountDisplay(), // Added
+                          const SizedBox(height: 16),
+                          const _AccountField(),
+                          const SizedBox(height: 16),
+                          const _CategoryField(),
+                          const SizedBox(height: 16),
+                          const _CurrencyField(), // Added
+                          const SizedBox(height: 16),
+                          const _ExchangeRateSection(), // Added
+                          const SizedBox(height: 16),
+                          const _DateField(),
+                          const SizedBox(height: 32),
+                          _SaveButton(formKey: _formKey),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (state.isSaving)
+                    Container(
+                      color: Colors.black.withAlpha(128),
+                      child: const Center(child: CircularProgressIndicator()),
+                    ),
+                ],
               );
             },
           ),
         ),
-        body: BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
-          builder: (context, state) {
-            if (state.status == AddEditTransactionStatus.loading) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (state.status == AddEditTransactionStatus.failure) {
-              return const Center(child: Text('Failed to load data'));
-            }
-
-            return Stack(
-              children: [
-                Form(
-                  key: _formKey,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _DescriptionField(controller: _descriptionController),
-                        const SizedBox(height: 16),
-                        _AmountField(controller: _amountController),
-                        const _ConvertedAmountDisplay(), // Added
-                        const SizedBox(height: 16),
-                        const _AccountField(),
-                        const SizedBox(height: 16),
-                        const _CategoryField(),
-                        const SizedBox(height: 16),
-                        const _CurrencyField(), // Added
-                        const SizedBox(height: 16),
-                        const _ExchangeRateSection(), // Added
-                        const SizedBox(height: 16),
-                        const _DateField(),
-                        const SizedBox(height: 32),
-                        _SaveButton(formKey: _formKey),
-                      ],
-                    ),
-                  ),
-                ),
-                if (state.isSaving)
-                  Container(
-                    color: Colors.black.withAlpha(128),
-                    child: const Center(child: CircularProgressIndicator()),
-                  ),
-              ],
-            );
-          },
-        ),
       ),
-    ),
     );
   }
 }
@@ -182,24 +186,46 @@ class _AmountField extends StatelessWidget {
   const _AmountField({required this.controller});
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      decoration: const InputDecoration(
-        labelText: 'Amount',
-        border: OutlineInputBorder(),
-      ),
-      keyboardType: TextInputType.number,
-      onChanged: (value) => context.read<AddEditTransactionBloc>().add(
-        AddEditTransactionAmountChanged(value),
-      ),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter an amount';
-        }
-        if (double.tryParse(value) == null) {
-          return 'Please enter a valid number';
-        }
-        return null;
+    return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
+      builder: (context, state) {
+        final isIncome = state.selectedCategory?.type == CategoryType.income;
+        // Default to red for expense or if no category selected (assume expense)
+        final color = isIncome ? Colors.green : Colors.red;
+
+        return TextFormField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Amount',
+            border: OutlineInputBorder(),
+          ),
+          style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(
+              RegExp(r'[0-9.,]'),
+            ), // Allow numbers, dot, and comma
+            TextInputFormatter.withFunction((oldValue, newValue) {
+              return newValue.copyWith(
+                text: newValue.text.replaceAll(',', '.'),
+              );
+            }),
+            FilteringTextInputFormatter.deny(
+              RegExp(r'-'),
+            ), // Deny negative sign
+          ],
+          onChanged: (value) => context.read<AddEditTransactionBloc>().add(
+            AddEditTransactionAmountChanged(value),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter an amount';
+            }
+            if (double.tryParse(value) == null) {
+              return 'Please enter a valid number';
+            }
+            return null;
+          },
+        );
       },
     );
   }
@@ -327,25 +353,50 @@ class _CategoryField extends StatelessWidget {
               items: state.categories,
               title: 'Select Category',
               selectedItem: state.selectedCategory,
-              itemBuilder: (category) => Row(
-                children: [
-                  BlocBuilder<StylesBloc, StylesState>(
-                    builder: (context, stylesState) {
-                      if (stylesState is StylesLoadSuccess) {
-                        final style = stylesState.styles.firstWhereOrNull(
-                          (s) => s.id == category.styleId,
-                        );
-                        if (style != null) {
-                          return IconUtils.getIconWidget(style);
+              itemBuilder: (category) {
+                final isIncome = category.type == CategoryType.income;
+                final color = isIncome ? Colors.green : Colors.red;
+                final typeLabel = isIncome ? 'Income' : 'Expense';
+
+                return Row(
+                  children: [
+                    BlocBuilder<StylesBloc, StylesState>(
+                      builder: (context, stylesState) {
+                        if (stylesState is StylesLoadSuccess) {
+                          final style = stylesState.styles.firstWhereOrNull(
+                            (s) => s.id == category.styleId,
+                          );
+                          if (style != null) {
+                            return IconUtils.getIconWidget(style);
+                          }
                         }
-                      }
-                      return const Icon(Icons.category);
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  Text(category.name),
-                ],
-              ),
+                        return const Icon(Icons.category);
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(category.name)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: color),
+                      ),
+                      child: Text(
+                        typeLabel,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: color,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
               stringGetter: (category) => category.name,
             );
             if (context.mounted && selectedCategory != null) {
@@ -374,6 +425,22 @@ class _CategoryField extends StatelessWidget {
                           }
                           return const Icon(Icons.category);
                         },
+                      )
+                    : null,
+                suffixIcon: state.selectedCategory != null
+                    ? Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Icon(
+                          state.selectedCategory!.type == CategoryType.income
+                              ? Icons.arrow_upward
+                              : Icons.arrow_downward,
+                          color:
+                              state.selectedCategory!.type ==
+                                  CategoryType.income
+                              ? Colors.green
+                              : Colors.red,
+                          size: 16,
+                        ),
                       )
                     : null,
               ),

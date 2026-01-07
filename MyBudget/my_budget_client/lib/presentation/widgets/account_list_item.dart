@@ -18,6 +18,16 @@ class AccountListItem extends StatefulWidget {
   final Function(TapUpDetails)? onSecondaryTapUp;
   final double? realBalance;
   final double? inflationLoss;
+  final double? income;
+  final double? expense;
+  final double? realIncome;
+  final double? realExpense;
+  final double? prevBalance;
+  final double? prevIncome;
+  final double? prevExpense;
+  final double? prevRealBalance;
+  final double? prevRealIncome;
+  final double? prevRealExpense;
 
   const AccountListItem({
     super.key,
@@ -28,6 +38,16 @@ class AccountListItem extends StatefulWidget {
     this.onSecondaryTapUp,
     this.realBalance,
     this.inflationLoss,
+    this.income,
+    this.expense,
+    this.realIncome,
+    this.realExpense,
+    this.prevBalance,
+    this.prevIncome,
+    this.prevExpense,
+    this.prevRealBalance,
+    this.prevRealIncome,
+    this.prevRealExpense,
   });
 
   @override
@@ -49,6 +69,96 @@ class _AccountListItemState extends State<AccountListItem> {
     return Colors.orange; // Default color
   }
 
+  Widget _buildStatRow(
+    BuildContext context,
+    String label,
+    double value,
+    double? prevValue,
+    double? realValue,
+    double? prevRealValue,
+    Color color,
+    String symbol,
+  ) {
+    if (value.abs() < 0.01 && (realValue ?? 0).abs() < 0.01)
+      return const SizedBox.shrink();
+
+    final formatter = NumberFormat.decimalPattern();
+    final diff = prevValue != null ? value - prevValue : 0.0;
+
+    // Percentages
+    final pct = (prevValue != null && prevValue != 0)
+        ? (diff / prevValue.abs() * 100)
+        : 0.0;
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 70, // Increased width slightly for larger label
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14, // Increased 12 -> 14
+              color: Theme.of(context).textTheme.bodySmall?.color,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              RichText(
+                text: TextSpan(
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                    fontSize: 16, // Increased 13 -> 16
+                  ),
+                  children: [
+                    TextSpan(
+                      text:
+                          '$symbol ${formatter.format(value).replaceAll(',', ' ')}',
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (prevValue != null && diff.abs() >= 0.01) ...[
+                      const TextSpan(text: ' '),
+                      TextSpan(
+                        text:
+                            '${diff > 0 ? '+' : ''}${formatter.format(diff).replaceAll(',', ' ')} (${pct.toStringAsFixed(1)}%)',
+                        style: TextStyle(
+                          fontSize: 14, // Increased 10 -> 14
+                          color: diff > 0 ? Colors.green : Colors.red,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (realValue != null)
+                RichText(
+                  text: TextSpan(
+                    style: TextStyle(
+                      color: Theme.of(context).textTheme.bodySmall?.color,
+                      fontSize: 14, // Increased 11 -> 14
+                    ),
+                    children: [
+                      const TextSpan(text: 'Real: '),
+                      TextSpan(
+                        text:
+                            '$symbol ${formatter.format(realValue).replaceAll(',', ' ')}',
+                      ),
+                      // Comparison logic for real if needed
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<CurrencyBloc, CurrencyState>(
@@ -60,6 +170,7 @@ class _AccountListItemState extends State<AccountListItem> {
             (d) => d.id == widget.account.currencyDesignationId,
           );
         }
+        final symbol = designation?.value ?? '';
 
         return BlocBuilder<StylesBloc, StylesState>(
           builder: (context, styleState) {
@@ -137,29 +248,45 @@ class _AccountListItemState extends State<AccountListItem> {
                       widget.account.name,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: 18,
                       ),
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SelectableText(
-                          '${designation?.value ?? ''} ${NumberFormat.decimalPattern().format(widget.account.balance).replaceAll(',', ' ')}',
-                          style: TextStyle(
-                            color: balanceColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        const SizedBox(height: 8),
+                        _buildStatRow(
+                          context,
+                          "Balance",
+                          widget.account.balance,
+                          widget.prevBalance,
+                          widget.realBalance,
+                          widget.prevRealBalance,
+                          balanceColor,
+                          symbol,
                         ),
-                        if (widget.inflationLoss != null &&
-                            widget.inflationLoss! > 0.01)
-                          Text(
-                            'Real: ${designation?.value ?? ''} ${NumberFormat.decimalPattern().format(widget.realBalance).replaceAll(',', ' ')} (-${widget.inflationLoss!.toStringAsFixed(1)}%)',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.outline,
-                              fontSize: 12,
-                            ),
-                          ),
+                        const SizedBox(height: 4),
+                        _buildStatRow(
+                          context,
+                          "Income",
+                          widget.income ?? 0,
+                          widget.prevIncome,
+                          widget.realIncome,
+                          widget.prevRealIncome,
+                          Colors.green,
+                          symbol,
+                        ),
+                        const SizedBox(height: 4),
+                        _buildStatRow(
+                          context,
+                          "Expense",
+                          widget.expense ?? 0,
+                          widget.prevExpense,
+                          widget.realExpense,
+                          widget.prevRealExpense,
+                          Colors.red,
+                          symbol,
+                        ),
                       ],
                     ),
                   ),

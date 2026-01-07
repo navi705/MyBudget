@@ -18,6 +18,7 @@ import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart'
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart'
     show FilterMode, DateStep;
+import 'package:my_budget_client/presentation/widgets/total_balance_summary_widget.dart';
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
@@ -409,50 +410,56 @@ class _AccountsScreenState extends State<AccountsScreen> {
               );
             }
           },
-          child: Column(
-            children: [
-              BlocBuilder<AccountsBloc, AccountsState>(
-                builder: (context, accountsState) {
-                  return BlocBuilder<
-                    CurrencyConverterBloc,
-                    CurrencyConverterState
-                  >(
-                    builder: (context, converterState) {
-                      if (accountsState is AccountsLoadSuccess &&
-                          converterState is CurrencyConverterLoadSuccess) {
-                        return TotalBalanceCard(
-                          accountsState: accountsState,
-                          converterState: converterState,
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  );
-                },
-              ),
-              Expanded(
+          child: CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              SliverToBoxAdapter(
                 child: BlocBuilder<AccountsBloc, AccountsState>(
-                  builder: (context, state) {
-                    if (state is AccountsLoadInProgress) {
-                      return const Center(child: CircularProgressIndicator());
+                  builder: (context, accountsState) {
+                    return BlocBuilder<
+                      CurrencyConverterBloc,
+                      CurrencyConverterState
+                    >(
+                      builder: (context, converterState) {
+                        if (accountsState is AccountsLoadSuccess &&
+                            converterState is CurrencyConverterLoadSuccess) {
+                          return TotalBalanceSummaryWidget(
+                            accountsState: accountsState,
+                            converterState: converterState,
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    );
+                  },
+                ),
+              ),
+              BlocBuilder<AccountsBloc, AccountsState>(
+                builder: (context, state) {
+                  if (state is AccountsLoadInProgress) {
+                    return const SliverFillRemaining(
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+
+                  if (state is AccountsLoadSuccess) {
+                    final filteredAccounts = state.accounts;
+
+                    if (filteredAccounts.isEmpty) {
+                      return SliverFillRemaining(
+                        child: Center(child: Text(l10n.accountsEmptyState)),
+                      );
                     }
 
-                    if (state is AccountsLoadSuccess) {
-                      final filteredAccounts = state.accounts;
-
-                      if (filteredAccounts.isEmpty) {
-                        return Center(child: Text(l10n.accountsEmptyState));
-                      }
-
-                      return ListView.builder(
-                        controller: _scrollController,
-                        itemCount: state.hasReachedMax
-                            ? filteredAccounts.length
-                            : filteredAccounts.length + 1,
-                        itemBuilder: (context, index) {
+                    return SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
                           if (index >= filteredAccounts.length) {
                             return const Center(
-                              child: CircularProgressIndicator(),
+                              child: Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: CircularProgressIndicator(),
+                              ),
                             );
                           }
 
@@ -474,6 +481,22 @@ class _AccountsScreenState extends State<AccountsScreen> {
                             isSelected: isSelected,
                             realBalance: state.realBalances[account.id],
                             inflationLoss: state.inflationLosses[account.id],
+                            income: state.accountIncomes[account.id],
+                            expense: state.accountExpenses[account.id],
+                            realIncome: state.accountRealIncomes[account.id],
+                            realExpense: state.accountRealExpenses[account.id],
+                            prevBalance:
+                                state.previousPeriodBalances[account.id],
+                            prevIncome:
+                                state.previousAccountIncomes[account.id],
+                            prevExpense:
+                                state.previousAccountExpenses[account.id],
+                            prevRealBalance:
+                                state.previousPeriodRealBalances[account.id],
+                            prevRealIncome:
+                                state.previousAccountRealIncomes[account.id],
+                            prevRealExpense:
+                                state.previousAccountRealExpenses[account.id],
                             onTap: () {
                               if (state.isSelectionModeActive) {
                                 bloc.add(ToggleAccountSelection(account.id!));
@@ -500,12 +523,15 @@ class _AccountsScreenState extends State<AccountsScreen> {
                             },
                           );
                         },
-                      );
-                    }
+                        childCount: state.hasReachedMax
+                            ? filteredAccounts.length
+                            : filteredAccounts.length + 1,
+                      ),
+                    );
+                  }
 
-                    return const SizedBox.shrink();
-                  },
-                ),
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
+                },
               ),
             ],
           ),
@@ -516,23 +542,17 @@ class _AccountsScreenState extends State<AccountsScreen> {
         onPressed: () {
           showDialog(
             context: context,
-
             builder: (dialogContext) => MultiBlocProvider(
               providers: [
                 BlocProvider.value(value: context.read<AccountsBloc>()),
-
                 BlocProvider.value(value: context.read<CurrencyBloc>()),
-
                 BlocProvider.value(value: context.read<StylesBloc>()),
               ],
-
               child: const AddAccountDialog(),
             ),
           );
         },
-
         tooltip: l10n.accountsAddTooltip,
-
         child: const Icon(Icons.add),
       ),
     );
@@ -652,7 +672,7 @@ class TotalBalanceCard extends StatelessWidget {
                     groupedRates: converterState.groupedRates,
                     balancesOverride: accountsState.realBalances,
                   );
-                  
+
                   final prevTotal = totalBalanceFor(
                     currency: currency,
                     accounts: accountsState.accounts,
@@ -685,7 +705,7 @@ class TotalBalanceCard extends StatelessWidget {
                         Theme.of(context).textTheme.bodyLarge?.color ??
                         Colors.black;
                   }
-                  
+
                   final lossPercent = total != 0
                       ? ((total - realTotal) / total.abs() * 100)
                       : 0.0;
@@ -738,42 +758,44 @@ class TotalBalanceCard extends StatelessWidget {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Column(
-                    children: [
-                      Text(
-                        'Income',
-                        style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Column(
+                  children: [
+                    Text(
+                      'Income',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
                       ),
-                      Text(
-                        '${formatter.format(accountsState.income).replaceAll(',', ' ')}',
-                        style: TextStyle(fontSize: 14, color: Colors.green),
+                    ),
+                    Text(
+                      '${formatter.format(accountsState.income).replaceAll(',', ' ')}',
+                      style: TextStyle(fontSize: 14, color: Colors.green),
+                    ),
+                  ],
+                ),
+                Column(
+                  children: [
+                    Text(
+                      'Expense',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
-                  ),
-                  Column(
-                    children: [
-                      Text(
-                        'Expense',
-                        style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        '${formatter.format(accountsState.expense).replaceAll(',', ' ')}',
-                        style: TextStyle(fontSize: 14, color: Colors.red),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                    Text(
+                      '${formatter.format(accountsState.expense).replaceAll(',', ' ')}',
+                      style: TextStyle(fontSize: 14, color: Colors.red),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ],
         ),
       ),
