@@ -614,6 +614,7 @@ class TotalBalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final formatter = NumberFormat.decimalPattern();
     return Card(
       margin: const EdgeInsets.all(8.0),
       elevation: 4.0,
@@ -651,6 +652,28 @@ class TotalBalanceCard extends StatelessWidget {
                     groupedRates: converterState.groupedRates,
                     balancesOverride: accountsState.realBalances,
                   );
+                  
+                  final prevTotal = totalBalanceFor(
+                    currency: currency,
+                    accounts: accountsState.accounts,
+                    exchangeRates: converterState.exchangeRates,
+                    baseCurrencyCode: converterState.baseCurrencyCode,
+                    date: accountsState.activeDate,
+                    groupedRates: converterState.groupedRates,
+                    balancesOverride: accountsState.previousPeriodBalances,
+                  );
+                  final prevRealTotal = totalBalanceFor(
+                    currency: currency,
+                    accounts: accountsState.accounts,
+                    exchangeRates: converterState.exchangeRates,
+                    baseCurrencyCode: converterState.baseCurrencyCode,
+                    date: accountsState.activeDate,
+                    groupedRates: converterState.groupedRates,
+                    balancesOverride: accountsState.previousPeriodRealBalances,
+                  );
+
+                  final diff = total - prevTotal;
+                  final realDiff = realTotal - prevRealTotal;
 
                   Color balanceColor;
                   if (total > 0) {
@@ -662,34 +685,94 @@ class TotalBalanceCard extends StatelessWidget {
                         Theme.of(context).textTheme.bodyLarge?.color ??
                         Colors.black;
                   }
-                  final formatter = NumberFormat.decimalPattern();
+                  
                   final lossPercent = total != 0
-                      ? ((total - realTotal) / total * 100)
+                      ? ((total - realTotal) / total.abs() * 100)
                       : 0.0;
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SelectableText(
-                        '${currency.code}: ${formatter.format(total).replaceAll(',', ' ')}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: balanceColor,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          SelectableText(
+                            '${currency.code}: ${formatter.format(total).replaceAll(',', ' ')}',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: balanceColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            '${diff > 0 ? '+' : ''}${formatter.format(diff).replaceAll(',', ' ')} (${(diff / prevTotal * 100).toStringAsFixed(1)}%)',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: diff > 0 ? Colors.green : Colors.red,
+                            ),
+                          ),
+                        ],
                       ),
                       if (lossPercent > 0.01)
-                        Text(
-                          'Real: ${formatter.format(realTotal).replaceAll(',', ' ')} (-${lossPercent.toStringAsFixed(1)}%)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Real: ${formatter.format(realTotal).replaceAll(',', ' ')} (-${lossPercent.toStringAsFixed(1)}%)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
+                            ),
+                            Text(
+                              '${realDiff > 0 ? '+' : ''}${formatter.format(realDiff).replaceAll(',', ' ')} (${(realDiff / prevRealTotal * 100).toStringAsFixed(1)}%)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: realDiff > 0 ? Colors.green : Colors.red,
+                              ),
+                            ),
+                          ],
                         ),
                     ],
                   );
                 }).toList(),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Column(
+                    children: [
+                      Text(
+                        'Income',
+                        style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '${formatter.format(accountsState.income).replaceAll(',', ' ')}',
+                        style: TextStyle(fontSize: 14, color: Colors.green),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    children: [
+                      Text(
+                        'Expense',
+                        style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '${formatter.format(accountsState.expense).replaceAll(',', ' ')}',
+                        style: TextStyle(fontSize: 14, color: Colors.red),
+                      ),
+                    ],
+                  ),
+                ],
               ),
           ],
         ),

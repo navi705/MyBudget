@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/core/services/exchange_rate_api_service.dart';
+import 'package:my_budget_client/core/services/inflation_api_service.dart';
 import 'package:my_budget_client/core/services/steam_inventory_api_service.dart';
 import 'api_settings_event.dart';
 import 'api_settings_state.dart';
@@ -10,16 +11,19 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
   final SettingsRepository _settingsRepository;
   final ExchangeRateApiService _exchangeRateApiService;
   final SteamInventoryApiService _steamInventoryApiService;
+  final InflationApiService _inflationApiService;
 
   ApiSettingsBloc(
     this._settingsRepository,
     this._exchangeRateApiService,
     this._steamInventoryApiService,
+    this._inflationApiService,
   ) : super(ApiSettingsInitial()) {
     on<LoadApiSettings>(_onLoadApiSettings);
     on<ManualFetchRange>(_onManualFetchRange);
     on<FetchSteamInventory>(_onFetchSteamInventory);
     on<SaveSteamId>(_onSaveSteamId);
+    on<FetchInflationData>(_onFetchInflationData);
   }
 
   Future<void> _onLoadApiSettings(
@@ -96,4 +100,26 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
       }
     }
   }
-} 
+
+  Future<void> _onFetchInflationData(
+    FetchInflationData event,
+    Emitter<ApiSettingsState> emit,
+  ) async {
+    if (state is ApiSettingsLoadSuccess) {
+      final currentState = state as ApiSettingsLoadSuccess;
+      emit(currentState.copyWith(isOperationInProgress: true));
+      try {
+        await _inflationApiService.fetchInflationForCountry(event.countryCode, event.dateRange);
+        emit(currentState.copyWith(isOperationInProgress: false));
+      } catch (e) {
+        emit(
+          currentState.copyWith(
+            isOperationInProgress: false,
+            lastError: e.toString(),
+          ),
+        );
+      }
+    }
+  }
+}
+ 

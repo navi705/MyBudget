@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:bloc/bloc.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
@@ -212,6 +213,59 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           : await compute(_calculateInflationForAccounts, inflationParams);
       await PerformanceLogger().stop('Accounts: compute inflation');
 
+      DateTime previousDate;
+      switch (currentState.dateStep) {
+        case DateStep.day:
+          previousDate = currentState.activeDate.subtract(const Duration(days: 1));
+          break;
+        case DateStep.month:
+          previousDate = DateTime(
+            currentState.activeDate.year,
+            currentState.activeDate.month - 1,
+            currentState.activeDate.day,
+          );
+          break;
+        case DateStep.year:
+          previousDate = DateTime(
+            currentState.activeDate.year - 1,
+            currentState.activeDate.month,
+            currentState.activeDate.day,
+          );
+          break;
+      }
+
+      final previousPeriodBalances = await _accountRepository.getBalancesAtDate(previousDate);
+      final previousPeriodTransactions = await _transactionRepository
+          .getTransactionsWithFilters(
+            filters: TransactionFilters(
+              accountId: accountIds,
+              dateTo: previousDate,
+            ),
+            limit: 1000000,
+          );
+
+      final prevInflationParams = _InflationParams(
+        accounts: sortedAccounts,
+        transactions: previousPeriodTransactions,
+        inflationRates: inflationRates,
+      );
+
+      final prevInflationResults = previousPeriodTransactions.length < 100000
+          ? _calculateInflationForAccounts(prevInflationParams)
+          : await compute(_calculateInflationForAccounts, prevInflationParams);
+
+      double income = 0;
+      double expense = 0;
+      for (var tx in allTransactions) {
+        if (tx.date.isAfter(previousDate) && tx.date.isBefore(currentState.activeDate)) {
+          if (tx.amount > 0) {
+            income += tx.amount;
+          } else {
+            expense += tx.amount;
+          }
+        }
+      }
+
       await PerformanceLogger().stop('Accounts Screen Load');
 
       emit(
@@ -229,6 +283,10 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           exchangeRates: exchangeRates,
           realBalances: inflationResults.realBalances,
           inflationLosses: inflationResults.inflationLosses,
+          previousPeriodBalances: previousPeriodBalances,
+          previousPeriodRealBalances: prevInflationResults.realBalances,
+          income: income,
+          expense: expense,
         ),
       );
     } catch (e) {
@@ -561,11 +619,14 @@ _InflationResults _calculateInflationForAccounts(_InflationParams params) {
     DateTime current = monthDate;
     while (current.isBefore(target)) {
       final rate = sortedRates.firstWhere(
-        (r) => r.date.year == current.year && r.date.month == current.month,
+        (r) => r.date.year == current.year,
         orElse: () =>
             InflationRateDomain(percent: 0.0, date: DateTime(0), preset: 1),
       );
-      cumulativeMultiplier *= (1 + (rate.percent / 100));
+      if (rate.percent != 0.0) {
+        final monthlyRate = pow(1 + rate.percent / 100, 1/12) - 1;
+        cumulativeMultiplier *= (1 + monthlyRate);
+      }
       current = DateTime(current.year, current.month + 1);
     }
     multiplierCache[monthDate] = cumulativeMultiplier;

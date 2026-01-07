@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import '../models/steam_inventory_model.dart';
+import '../models/world_bank_inflation_model.dart';
 
 enum GameApiSteam { cs2, dota2, steamCommunity }
 
@@ -144,5 +145,27 @@ class ExternalData {
     }
 
     return result;
+  }
+
+  static Future<List<InflationDataPoint>> getInflationFromWorldBank(
+      String countryCode, String dateRange) async {
+    final uri = Uri.https(
+      "api.worldbank.org",
+      "/v2/country/$countryCode/indicator/FP.CPI.TOTL.ZG",
+      {'date': dateRange, 'format': 'json'},
+    );
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        return WorldBankInflationResponse.fromJson(decoded).data;
+      } else {
+        throw Exception(
+          'API request failed with status: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Failed to fetch inflation data: $e');
+    }
   }
 }

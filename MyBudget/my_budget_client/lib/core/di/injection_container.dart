@@ -25,6 +25,7 @@ import 'package:my_budget_client/data/repositories/local_db/local_inflation_repo
 import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/api_settings/api_settings_bloc.dart';
 import 'package:my_budget_client/core/services/exchange_rate_api_service.dart';
+import 'package:my_budget_client/core/services/inflation_api_service.dart';
 import 'package:my_budget_client/core/services/steam_inventory_api_service.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_asset_repository.dart';
@@ -95,7 +96,7 @@ Future<void> init() async {
   sl.registerFactory(() => ExchangeRatesBloc(currencyRepository: sl()));
   sl.registerFactory(() => InflationBloc(inflationRepository: sl()));
   sl.registerFactory(() => AssetBloc(sl()));
-  sl.registerFactory(() => ApiSettingsBloc(sl(), sl(), sl()));
+  sl.registerFactory(() => ApiSettingsBloc(sl(), sl(), sl(), sl()));
 
   // Services
   sl.registerLazySingleton(
@@ -110,6 +111,9 @@ Future<void> init() async {
       sl<AppDatabase>().assetEntriesDao,
       sl<AppDatabase>().apiFetchStatusesDao,
     ),
+  );
+  sl.registerLazySingleton(
+    () => InflationApiService(sl<AppDatabase>().inflationRatesDao),
   );
 
   // Repositories

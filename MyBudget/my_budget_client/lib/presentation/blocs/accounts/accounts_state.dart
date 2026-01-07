@@ -62,6 +62,10 @@ class AccountsLoadSuccess extends AccountsState {
   final Map<String, double> realBalances;
   @override
   final Map<String, double> inflationLosses;
+  final Map<String, double> previousPeriodRealBalances;
+  final Map<String, double> previousPeriodBalances;
+  final double income;
+  final double expense;
 
   const AccountsLoadSuccess({
     required this.accounts,
@@ -80,6 +84,10 @@ class AccountsLoadSuccess extends AccountsState {
     required this.exchangeRates,
     this.realBalances = const {},
     this.inflationLosses = const {},
+    this.previousPeriodRealBalances = const {},
+    this.previousPeriodBalances = const {},
+    this.income = 0.0,
+    this.expense = 0.0,
   });
 
   AccountsLoadSuccess copyWith({
@@ -99,6 +107,10 @@ class AccountsLoadSuccess extends AccountsState {
     List<ExchangeRateDomain>? exchangeRates,
     Map<String, double>? realBalances,
     Map<String, double>? inflationLosses,
+    Map<String, double>? previousPeriodRealBalances,
+    Map<String, double>? previousPeriodBalances,
+    double? income,
+    double? expense,
   }) {
     return AccountsLoadSuccess(
       accounts: accounts ?? this.accounts,
@@ -119,28 +131,38 @@ class AccountsLoadSuccess extends AccountsState {
       exchangeRates: exchangeRates ?? this.exchangeRates,
       realBalances: realBalances ?? this.realBalances,
       inflationLosses: inflationLosses ?? this.inflationLosses,
+      previousPeriodRealBalances:
+          previousPeriodRealBalances ?? this.previousPeriodRealBalances,
+      previousPeriodBalances:
+          previousPeriodBalances ?? this.previousPeriodBalances,
+      income: income ?? this.income,
+      expense: expense ?? this.expense,
     );
   }
 
   @override
   List<Object?> get props => [
-    accounts,
-    accountTypes,
-    hasReachedMax,
-    totalCount,
-    sortAscending,
-    recentlyDeletedAccount,
-    historicalBalances,
-    isHistorical,
-    isSelectionModeActive,
-    selectedAccountIds,
-    dateStep,
-    activeDate,
-    filters,
-    exchangeRates,
-    realBalances,
-    inflationLosses,
-  ];
+        accounts,
+        accountTypes,
+        hasReachedMax,
+        totalCount,
+        sortAscending,
+        recentlyDeletedAccount,
+        historicalBalances,
+        isHistorical,
+        isSelectionModeActive,
+        selectedAccountIds,
+        dateStep,
+        activeDate,
+        filters,
+        exchangeRates,
+        realBalances,
+        inflationLosses,
+        previousPeriodRealBalances,
+        previousPeriodBalances,
+        income,
+        expense,
+      ];
 }
 
 class AccountsLoadFailure extends AccountsState {}

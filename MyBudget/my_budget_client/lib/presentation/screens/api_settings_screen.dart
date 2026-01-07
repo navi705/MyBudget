@@ -21,6 +21,8 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
   DateTime? _endDate;
   GameApiSteam? _selectedGame;
   final _steamIdController = TextEditingController();
+  final _countryCodeController = TextEditingController(text: 'SRB');
+  final _dateRangeController = TextEditingController(text: '2000:2024');
 
   @override
   void initState() {
@@ -33,6 +35,8 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
   @override
   void dispose() {
     _steamIdController.dispose();
+    _countryCodeController.dispose();
+    _dateRangeController.dispose();
     super.dispose();
   }
 
@@ -151,6 +155,11 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                           labelText: 'Steam Account ID',
                         ),
                         keyboardType: TextInputType.number,
+                        onChanged: (value) {
+                          context
+                              .read<ApiSettingsBloc>()
+                              .add(SaveSteamId(value));
+                        },
                       ),
                     ),
                     Padding(
@@ -201,6 +210,61 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                               )
                             : const Icon(Icons.download),
                         label: const Text('Fetch Steam Inventory Value'),
+                      ),
+                    ),
+                    const Divider(),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: 8.0,
+                        horizontal: 16.0,
+                      ),
+                      child: Text(
+                        'World Bank Inflation Data',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: TextFormField(
+                        controller: _countryCodeController,
+                        decoration: const InputDecoration(
+                          labelText: 'Country Code (e.g. SRB)',
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      child: TextFormField(
+                        controller: _dateRangeController,
+                        decoration: const InputDecoration(
+                          labelText: 'Date Range (e.g. 2000:2024)',
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: FilledButton.icon(
+                        onPressed: state.isOperationInProgress ||
+                                _countryCodeController.text.isEmpty ||
+                                _dateRangeController.text.isEmpty
+                            ? null
+                            : () {
+                                context.read<ApiSettingsBloc>().add(
+                                      FetchInflationData(
+                                        _countryCodeController.text,
+                                        _dateRangeController.text,
+                                      ),
+                                    );
+                              },
+                        icon: state.isOperationInProgress
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.download),
+                        label: const Text('Fetch Inflation Data'),
                       ),
                     ),
                   ],

@@ -37,3 +37,13 @@ class SaveSteamId extends ApiSettingsEvent {
   @override
   List<Object?> get props => [steamId];
 }
+
+class FetchInflationData extends ApiSettingsEvent {
+  final String countryCode;
+  final String dateRange;
+
+  const FetchInflationData(this.countryCode, this.dateRange);
+
+  @override
+  List<Object?> get props => [countryCode, dateRange];
+}

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:my_budget_client/core/services/exchange_rate_api_service.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
+import 'package:my_budget_client/core/services/inflation_api_service.dart';
 import 'package:my_budget_client/core/services/steam_inventory_api_service.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
@@ -21,10 +22,12 @@ Future<void> _initInIsolate(bool shouldInit) async {
   if (steamIdSetting != null && steamIdSetting.value.isNotEmpty) {
     final accountId = int.tryParse(steamIdSetting.value);
     if (accountId != null) {
-        await steamService.fetchSteamInventoryValue(accountId, GameApiSteam.cs2);
-        await Future.delayed(const Duration(seconds: 5)); // To avoid API rate limiting
+      await steamService.fetchSteamInventoryValue(accountId, GameApiSteam.cs2);
     }
   }
+
+  final inflationService = sl<InflationApiService>();
+  await inflationService.fetchInflationForCountry('SRB', '2000:2024');
 }
 
 class IntilizationData {
