@@ -22,6 +22,8 @@ class SettingsScreen extends StatelessWidget {
               settingsState.settings['persist_advanced_filters'] == 'true';
           final mainCurrencyCode =
               settingsState.settings['main_currency_code'] ?? 'EUR';
+          final defaultInflationCountry =
+              settingsState.settings['default_inflation_country'] ?? 'SRB';
 
           return ListView(
             children: [
@@ -67,6 +69,28 @@ class SettingsScreen extends StatelessWidget {
                   }
                   return const SizedBox.shrink();
                 },
+              ),
+              ListTile(
+                leading: const Icon(Icons.public),
+                title: const Text('Default Inflation Country'),
+                trailing: DropdownButton<String>(
+                  value: defaultInflationCountry,
+                  items: settingsState.countries
+                      .map(
+                        (country) => DropdownMenuItem(
+                          value: country,
+                          child: Text(country),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      context.read<SettingsBloc>().add(
+                        UpdateSetting('default_inflation_country', newValue),
+                      );
+                    }
+                  },
+                ),
               ),
               ListTile(
                 leading: const Icon(Icons.save),

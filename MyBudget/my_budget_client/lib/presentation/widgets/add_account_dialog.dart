@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
+import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
@@ -28,6 +29,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
   String? _selectedCurrencyDesignationId;
   String? _selectedStyleId;
   String? _selectedAccountTypeId; // ADDED
+  String? _selectedCountry;
 
   @override
   void initState() {
@@ -189,6 +191,25 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                   return const SizedBox.shrink();
                 },
               ),
+              BlocBuilder<SettingsBloc, SettingsState>(
+                builder: (context, state) {
+                  return DropdownButtonFormField<String>(
+                    value: _selectedCountry,
+                    hint: const Text('Select Country'),
+                    items: state.countries
+                        .map((country) => DropdownMenuItem(
+                              value: country,
+                              child: Text(country),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCountry = value;
+                      });
+                    },
+                  );
+                },
+              ),
               BlocBuilder<StylesBloc, StylesState>(
                 builder: (context, state) {
                   if (state is StylesLoadSuccess) {
@@ -251,6 +272,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                 styleId: _selectedStyleId,
                 accountTypeId: _selectedAccountTypeId!,
                 creationDate: DateTime.now(),
+                country: _selectedCountry,
               );
               context.read<AccountsBloc>().add(AddAccount(newAccount));
               Navigator.of(context).pop();

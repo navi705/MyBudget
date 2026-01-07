@@ -10,6 +10,7 @@ class Account extends Equatable {
   final String? styleId;
   final String accountTypeId;
   final DateTime creationDate;
+  final String? country;
 
   const Account({
     this.id,
@@ -21,6 +22,7 @@ class Account extends Equatable {
     this.styleId,
     required this.accountTypeId,
     required this.creationDate,
+    this.country,
   });
 
   @override
@@ -34,6 +36,7 @@ class Account extends Equatable {
         styleId,
         accountTypeId,
         creationDate,
+        country,
       ];
 
   Account copyWith({
@@ -46,6 +49,7 @@ class Account extends Equatable {
     String? styleId,
     String? accountTypeId,
     DateTime? creationDate,
+    String? country,
   }) {
     return Account(
       id: id ?? this.id,
@@ -58,6 +62,7 @@ class Account extends Equatable {
       styleId: styleId ?? this.styleId,
       accountTypeId: accountTypeId ?? this.accountTypeId,
       creationDate: creationDate ?? this.creationDate,
+      country: country ?? this.country,
     );
   }
 }

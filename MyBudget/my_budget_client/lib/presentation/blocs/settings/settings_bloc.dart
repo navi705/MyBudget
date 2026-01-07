@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/domain/entities/settings.dart';
+import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 
 part 'settings_event.dart';
@@ -11,10 +12,14 @@ part 'settings_state.dart';
 
 class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   final SettingsRepository _settingsRepository;
+  final InflationRepository _inflationRepository;
   StreamSubscription? _settingsSubscription;
 
-  SettingsBloc({required SettingsRepository settingsRepository})
-      : _settingsRepository = settingsRepository,
+  SettingsBloc({
+    required SettingsRepository settingsRepository,
+    required InflationRepository inflationRepository,
+  })  : _settingsRepository = settingsRepository,
+        _inflationRepository = inflationRepository,
         super(const SettingsState()) {
     on<LoadSettings>(_onLoadSettings);
     on<UpdateSetting>(_onUpdateSetting);
@@ -49,17 +54,20 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     await _settingsRepository.setThemeMode(event.themeMode, deviceName);
   }
 
-  void _onSettingsChanged(
+  Future<void> _onSettingsChanged(
     _SettingsChanged event,
     Emitter<SettingsState> emit,
-  ) {
+  ) async {
     final settingsMap = {for (var s in event.settings) s.key: s.value};
     final themeModeValue = settingsMap['themeMode'] ?? 'system';
     final themeMode = _stringToThemeMode(themeModeValue);
 
+    final countries = await _inflationRepository.getAvailableCountries();
+
     emit(state.copyWith(
       settings: settingsMap,
       themeMode: themeMode,
+      countries: countries,
     ));
   }
 

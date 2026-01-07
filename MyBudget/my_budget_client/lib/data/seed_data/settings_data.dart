@@ -20,6 +20,11 @@ List<SettingsCompanion> getDefaultSettings(String deviceName) {
       value: 'EUR',
       device: deviceName,
     ),
+    SettingsCompanion.insert(
+      key: 'default_inflation_country',
+      value: 'SRB',
+      device: deviceName,
+    ),
 
     // transction list screen
     SettingsCompanion.insert(

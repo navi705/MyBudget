@@ -44,4 +44,10 @@ class LocalInflationRepository implements InflationRepository {
   ) async {
     await _dao.deleteInflationRate(date, country, preset);
   }
+
+  @override
+  Future<List<String>> getAvailableCountries() async {
+    final countries = await _dao.getAvailableCountries();
+    return countries.where((element) => element.isNotEmpty).toList();
+  }
 }
