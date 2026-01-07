@@ -19,6 +19,7 @@ CurrenciesCompanion.insert(name: 'Serbian Dinar', code: 'RSD', languageCode: 'en
 // --- The Added List (Categorized) ---
 CurrenciesCompanion.insert(name: '1inch', code: '1INCH', languageCode: 'en', type: Value(TypeCurrency.crypto)),
 CurrenciesCompanion.insert(name: 'Aave', code: 'AAVE', languageCode: 'en', type: Value(TypeCurrency.crypto)),
+CurrenciesCompanion.insert(name: 'SingularityNET', code: 'AGIX', languageCode: 'en', type: Value(TypeCurrency.crypto)),
 CurrenciesCompanion.insert(name: 'Cardano', code: 'ADA', languageCode: 'en', type: Value(TypeCurrency.crypto)),
 CurrenciesCompanion.insert(name: 'Emirati Dirham', code: 'AED', languageCode: 'en', type: Value(TypeCurrency.currency)),
 CurrenciesCompanion.insert(name: 'Afghan Afghani', code: 'AFN', languageCode: 'en', type: Value(TypeCurrency.currency)),

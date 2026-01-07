@@ -101,7 +101,7 @@ Future<void> init() async {
     () => ExchangeRateApiService(
       sl<AppDatabase>().exchangeRatesDao,
       sl<AppDatabase>().apiFetchStatusesDao,
-      sl<AppDatabase>().settingsDao,
+      sl<AppDatabase>().currenciesDao,
     ),
   );
 

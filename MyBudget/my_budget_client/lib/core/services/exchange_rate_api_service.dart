@@ -1,28 +1,88 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 class ExchangeRateApiService {
   final ExchangeRatesDao _exchangeRatesDao;
   final ApiFetchStatusesDao _apiFetchStatusesDao;
-  final SettingsDao _settingsDao;
+  final CurrenciesDao _currenciesDao;
 
   ExchangeRateApiService(
     this._exchangeRatesDao,
     this._apiFetchStatusesDao,
-    this._settingsDao,
+    this._currenciesDao,
   );
 
-  static const String _debugJsonPath =
-      r'C:\Users\vrclu\Documents\NewFilePC\Programing\Projects\MyBudget\MyBudget\my_budget_client\lib\data\currency_history.json';
-  static const String _prodJsonPath = r'assets/currency_history.json';
+  static const String _jsonPath = 'lib/data/currency_history.json';
+  static const String _prodJsonAssetPath = 'assets/currency_history.json';
+  static const String _metadataKey = '_metadata';
+  static const String _attemptsKey = 'attempts';
 
   Future<void> fetchRatesForDate(DateTime date) async {
     final dateKey = DateFormat('yyyy-MM-dd').format(date);
 
+    final ratesInDb = await (_exchangeRatesDao.select(_exchangeRatesDao.exchangeRates)
+          ..where((tbl) => tbl.date.equals(date)))
+        .get();
+
+    if (ratesInDb.isNotEmpty) {
+      return;
+    }
+
+    if (kDebugMode) {
+      await _handleDebugFetch(date, dateKey);
+    } else {
+      await _handleProdFetch(date, dateKey);
+    }
+  }
+
+  Future<void> _handleDebugFetch(DateTime date, String dateKey) async {
+    final file = File(_jsonPath);
+    if (!await file.exists()) return;
+
+    final content = await file.readAsString();
+    final Map<String, dynamic> fullJson = jsonDecode(content);
+
+    final metadata = (fullJson[_metadataKey] as Map<String, dynamic>?) ?? {};
+    final attempts = (metadata[_attemptsKey] as Map<String, dynamic>?) ?? {};
+    final int attemptCount = attempts[dateKey] ?? 0;
+
+    if (attemptCount >= 5) {
+      return;
+    }
+    
+    if (fullJson.containsKey(dateKey)) {
+      final rawRates = fullJson[dateKey] as Map<String, dynamic>;
+      final rates = rawRates.map((k, v) => MapEntry(k, (v as num).toDouble()));
+      if (rates.isNotEmpty) {
+        await _saveRatesToDb(date, rates);
+        return;
+      }
+    }
+
+    try {
+      final apiRates = await ExternalData.getCurrencyRatesFromFreeExchangeRates(date);
+      if (apiRates.isNotEmpty) {
+        await _saveRatesToDb(date, apiRates);
+        fullJson[dateKey] = apiRates;
+        // Do not increment attempts on success
+        fullJson[_metadataKey] = metadata;
+        await file.writeAsString(const JsonEncoder.withIndent('  ').convert(fullJson));
+      }
+    } catch (e) {
+      attempts[dateKey] = attemptCount + 1;
+      metadata[_attemptsKey] = attempts;
+      fullJson[_metadataKey] = metadata;
+      await file.writeAsString(const JsonEncoder.withIndent('  ').convert(fullJson));
+    }
+  }
+
+  Future<void> _handleProdFetch(DateTime date, String dateKey) async {
     final status = await _apiFetchStatusesDao.getStatus(dateKey);
     if (status != null &&
         (status.status == 'success' ||
@@ -31,57 +91,21 @@ class ExchangeRateApiService {
       return;
     }
 
-    // 3. Determine Mode
-    final modeSetting = await (_settingsDao.select(
-      _settingsDao.settings,
-    )..where((t) => t.key.equals('api_fetch_mode'))).getSingleOrNull();
-    final isDebugMode = modeSetting?.value == 'debug';
-
+    Map<String, double> rates = {};
     try {
-      Map<String, double> rates = {};
-
-      // Strategy: JSON (if exists) -> API
-      final jsonFile = File(isDebugMode ? _debugJsonPath : _prodJsonPath);
-      if (await jsonFile.exists()) {
-        final content = await jsonFile.readAsString();
-        final Map<String, dynamic> fullJson = jsonDecode(content);
-        if (fullJson.containsKey(dateKey)) {
-          final rawRates = fullJson[dateKey] as Map<String, dynamic>;
-          rates = rawRates.map((k, v) => MapEntry(k, (v as num).toDouble()));
-        }
+      final assetContent = await rootBundle.loadString(_prodJsonAssetPath);
+      final Map<String, dynamic> assetJson = jsonDecode(assetContent);
+      if (assetJson.containsKey(dateKey)) {
+        final rawRates = assetJson[dateKey] as Map<String, dynamic>;
+        rates = rawRates.map((k, v) => MapEntry(k, (v as num).toDouble()));
       }
 
       if (rates.isEmpty) {
-        // Call External API
         rates = await ExternalData.getCurrencyRatesFromFreeExchangeRates(date);
-
-        if (rates.isNotEmpty && isDebugMode) {
-          // Write back to JSON in debug mode
-          await _updateDebugJson(dateKey, rates);
-        }
       }
 
       if (rates.isNotEmpty) {
-        // Save to DB
-        final companions = rates.entries
-            .map(
-              (e) => ExchangeRatesCompanion(
-                fromCurrencyCode: const Value('EUR'),
-                toCurrencyCode: Value(e.key.toUpperCase()),
-                rate: Value(e.value),
-                date: Value(date),
-                preset: const Value(1),
-              ),
-            )
-            .toList();
-
-        await _exchangeRatesDao.batch((batch) {
-          batch.insertAllOnConflictUpdate(
-            _exchangeRatesDao.exchangeRates,
-            companions,
-          );
-        });
-
+        await _saveRatesToDb(date, rates);
         await _apiFetchStatusesDao.upsertStatus(
           ApiFetchStatusesCompanion(
             id: Value(dateKey),
@@ -106,19 +130,35 @@ class ExchangeRateApiService {
     }
   }
 
-  Future<void> _updateDebugJson(
-    String dateKey,
-    Map<String, double> rates,
-  ) async {
-    final file = File(_debugJsonPath);
-    Map<String, dynamic> fullJson = {};
-    if (await file.exists()) {
-      fullJson = jsonDecode(await file.readAsString());
+
+  Future<void> _saveRatesToDb(
+      DateTime date, Map<String, double> rates) async {
+    
+    final existingCodes = (await _currenciesDao.getAllCurrencies()).map((c) => c.code).toSet();
+    
+    final companions = rates.entries
+        .where((e) => existingCodes.contains(e.key.toUpperCase()))
+        .map(
+          (e) => ExchangeRatesCompanion(
+            fromCurrencyCode: const Value('EUR'),
+            toCurrencyCode: Value(e.key.toUpperCase()),
+            rate: Value(e.value),
+            date: Value(date),
+            preset: const Value(1),
+          ),
+        )
+        .toList();
+
+    if (companions.isEmpty) {
+      return;
     }
-    fullJson[dateKey] = rates;
-    await file.writeAsString(
-      const JsonEncoder.withIndent('  ').convert(fullJson),
-    );
+
+    await _exchangeRatesDao.batch((batch) {
+      batch.insertAllOnConflictUpdate(
+        _exchangeRatesDao.exchangeRates,
+        companions,
+      );
+    });
   }
 
   Future<void> fetchRatesForRange(DateTime start, DateTime end) async {
