@@ -5,7 +5,11 @@ enum ExchangeRatesStatus { initial, loading, success, failure }
 class ExchangeRatesState extends Equatable {
   final ExchangeRatesStatus status;
   final List<ExchangeRateDomain> exchangeRates;
-  final DateTime? dateFilter;
+  final DateTime activeDate;
+  final DateTimeRange? activeDateRange;
+  final DateStep dateStep;
+  final FilterMode filterMode;
+  final Sort sort;
   final String? fromCurrencyFilter;
   final String? toCurrencyFilter;
   final List<Currency> currencies;
@@ -13,25 +17,32 @@ class ExchangeRatesState extends Equatable {
   final bool hasReachedMax;
   final int totalCount;
 
-  const ExchangeRatesState({
+  ExchangeRatesState({
     this.status = ExchangeRatesStatus.initial,
     this.exchangeRates = const [],
-    this.dateFilter,
+    DateTime? activeDate,
+    this.activeDateRange,
+    this.dateStep = DateStep.month,
+    this.filterMode = FilterMode.date,
+    this.sort = Sort.descending,
     this.fromCurrencyFilter,
     this.toCurrencyFilter,
     this.currencies = const [],
     this.error,
     this.hasReachedMax = false,
     this.totalCount = 0,
-  });
+  }) : activeDate = activeDate ?? DateTime.now();
 
   ExchangeRatesState copyWith({
     ExchangeRatesStatus? status,
     List<ExchangeRateDomain>? exchangeRates,
-    DateTime? dateFilter,
+    DateTime? activeDate,
+    DateTimeRange? activeDateRange,
+    DateStep? dateStep,
+    FilterMode? filterMode,
+    Sort? sort,
     String? fromCurrencyFilter,
     String? toCurrencyFilter,
-    bool clearDateFilter = false,
     bool clearFromCurrencyFilter = false,
     bool clearToCurrencyFilter = false,
     List<Currency>? currencies,
@@ -42,7 +53,11 @@ class ExchangeRatesState extends Equatable {
     return ExchangeRatesState(
       status: status ?? this.status,
       exchangeRates: exchangeRates ?? this.exchangeRates,
-      dateFilter: clearDateFilter ? null : (dateFilter ?? this.dateFilter),
+      activeDate: activeDate ?? this.activeDate,
+      activeDateRange: activeDateRange ?? this.activeDateRange,
+      dateStep: dateStep ?? this.dateStep,
+      filterMode: filterMode ?? this.filterMode,
+      sort: sort ?? this.sort,
       fromCurrencyFilter: clearFromCurrencyFilter
           ? null
           : (fromCurrencyFilter ?? this.fromCurrencyFilter),
@@ -60,7 +75,11 @@ class ExchangeRatesState extends Equatable {
   List<Object?> get props => [
     status,
     exchangeRates,
-    dateFilter,
+    activeDate,
+    activeDateRange,
+    dateStep,
+    filterMode,
+    sort,
     fromCurrencyFilter,
     toCurrencyFilter,
     currencies,

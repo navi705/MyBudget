@@ -1,5 +1,7 @@
-import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
@@ -12,10 +14,33 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
 
   ExchangeRatesBloc({required CurrencyRepository currencyRepository})
     : _currencyRepository = currencyRepository,
-      super(const ExchangeRatesState()) {
+      super(ExchangeRatesState()) {
     on<LoadExchangeRates>(_onLoadExchangeRates);
     on<AddExchangeRate>(_onAddExchangeRate);
     on<ChangeExchangeRatesFilters>(_onChangeExchangeRatesFilters);
+    on<ChangeExchangeRatesDateStep>((event, emit) {
+      emit(state.copyWith(dateStep: event.dateStep));
+      add(const LoadExchangeRates(isRefresh: true));
+    });
+    on<ChangeExchangeRatesFilterMode>((event, emit) {
+      emit(state.copyWith(filterMode: event.filterMode));
+      add(const LoadExchangeRates(isRefresh: true));
+    });
+    on<ChangeExchangeRatesSort>((event, emit) {
+      emit(state.copyWith(sort: event.sort));
+      // Sorting is not supported by Repository yet, but we store state.
+      // If we did in-memory sorting, we'd do it here or in success state.
+      // For now just reload to be safe.
+      add(const LoadExchangeRates(isRefresh: true));
+    });
+    on<ChangeExchangeRatesActiveDate>((event, emit) {
+      emit(state.copyWith(activeDate: event.date));
+      add(const LoadExchangeRates(isRefresh: true));
+    });
+    on<ChangeExchangeRatesActiveDateRange>((event, emit) {
+      emit(state.copyWith(activeDateRange: event.dateRange));
+      add(const LoadExchangeRates(isRefresh: true));
+    });
   }
 
   Future<void> _onLoadExchangeRates(
@@ -41,13 +66,17 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
       final rates = await _currencyRepository.getExchangeRatesFiltered(
         limit: limit,
         offset: offset,
-        date: state.dateFilter,
+        date: state.filterMode == FilterMode.range
+            ? state.activeDateRange?.start
+            : state.activeDate, // Mapping new state to Repo's date
         fromCurrency: state.fromCurrencyFilter,
         toCurrency: state.toCurrencyFilter,
       );
 
       final totalCount = await _currencyRepository.getExchangeRatesCount(
-        date: state.dateFilter,
+        date: state.filterMode == FilterMode.range
+            ? state.activeDateRange?.start
+            : state.activeDate,
         fromCurrency: state.fromCurrencyFilter,
         toCurrency: state.toCurrencyFilter,
       );
@@ -93,12 +122,23 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
     ChangeExchangeRatesFilters event,
     Emitter<ExchangeRatesState> emit,
   ) async {
+    // Legacy support or if user still uses the old filter way.
+    // If date is provided, we update activeDate.
+    // If date is null (clear), we might set activeDate to now or keep it?
+    // Old logic: clearDateFilter: event.date == null.
+    // New logic: activeDate cannot be null.
+    // If event.date is null, we do nothing for activeDate or reset it?
+    // Let's assume if event.date is set, we update activeDate.
+
+    DateTime? newDate = event.date;
+    if (newDate != null) {
+      emit(state.copyWith(activeDate: newDate));
+    }
+
     emit(
       state.copyWith(
-        dateFilter: event.date,
         fromCurrencyFilter: event.fromCurrency,
         toCurrencyFilter: event.toCurrency,
-        clearDateFilter: event.date == null,
         clearFromCurrencyFilter: event.fromCurrency == null,
         clearToCurrencyFilter: event.toCurrency == null,
         status: ExchangeRatesStatus.loading,

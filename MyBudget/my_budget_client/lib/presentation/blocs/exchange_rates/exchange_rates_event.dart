@@ -38,3 +38,38 @@ class ChangeExchangeRatesFilters extends ExchangeRatesEvent {
   @override
   List<Object?> get props => [date, fromCurrency, toCurrency];
 }
+
+class ChangeExchangeRatesDateStep extends ExchangeRatesEvent {
+  final DateStep dateStep;
+  const ChangeExchangeRatesDateStep(this.dateStep);
+  @override
+  List<Object?> get props => [dateStep];
+}
+
+class ChangeExchangeRatesFilterMode extends ExchangeRatesEvent {
+  final FilterMode filterMode;
+  const ChangeExchangeRatesFilterMode(this.filterMode);
+  @override
+  List<Object?> get props => [filterMode];
+}
+
+class ChangeExchangeRatesSort extends ExchangeRatesEvent {
+  final Sort sort;
+  const ChangeExchangeRatesSort(this.sort);
+  @override
+  List<Object?> get props => [sort];
+}
+
+class ChangeExchangeRatesActiveDate extends ExchangeRatesEvent {
+  final DateTime date;
+  const ChangeExchangeRatesActiveDate(this.date);
+  @override
+  List<Object?> get props => [date];
+}
+
+class ChangeExchangeRatesActiveDateRange extends ExchangeRatesEvent {
+  final DateTimeRange dateRange;
+  const ChangeExchangeRatesActiveDateRange(this.dateRange);
+  @override
+  List<Object?> get props => [dateRange];
+}
