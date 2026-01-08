@@ -3,6 +3,7 @@ import 'package:my_budget_client/domain/entities/asset_data.dart';
 abstract class AssetRepository {
   Future<List<AssetDataDomain>> getAssetData({
     String? assetId,
+    String? accountId,
     DateTime? startDate,
     DateTime? endDate,
   });

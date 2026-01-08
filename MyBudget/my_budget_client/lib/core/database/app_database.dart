@@ -176,6 +176,8 @@ class AssetEntries extends Table {
   TextColumn get assetType => text().nullable()();
   TextColumn get description => text().nullable()();
   TextColumn get currencyCode => text().references(Currencies, #code)();
+  TextColumn get accountId =>
+      text().nullable().references(Accounts, #id)(); // Added
   TextColumn get source => text()();
   IntColumn get preset => integer().withDefault(const Constant(1))();
 
@@ -1238,12 +1240,16 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
 
   Future<List<AssetEntry>> getAssetData({
     String? assetId,
+    String? accountId, // Added
     DateTime? startDate,
     DateTime? endDate,
   }) {
     final query = select(assetEntries);
     if (assetId != null) {
       query.where((t) => t.assetId.equals(assetId));
+    }
+    if (accountId != null) {
+      query.where((t) => t.accountId.equals(accountId));
     }
     if (startDate != null) {
       query.where((t) => t.date.isBiggerOrEqualValue(startDate));

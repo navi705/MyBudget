@@ -6,9 +6,12 @@ import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_event.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_state.dart';
 import 'package:my_budget_client/presentation/screens/exchange_rates_screen.dart';
+import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart'; // Added
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
+import 'package:my_budget_client/domain/entities/account.dart'; // Added
+import 'package:my_budget_client/domain/repositories/account_repository.dart'; // Added
 import 'package:uuid/uuid.dart';
 
 class DataScreen extends StatefulWidget {
@@ -265,7 +268,10 @@ class AssetManager extends StatelessWidget {
 class _AssetView extends StatelessWidget {
   const _AssetView();
 
-  void _showAddEditAssetDialog(BuildContext context, {AssetDataDomain? asset}) {
+  Future<void> _showAddEditAssetDialog(
+    BuildContext context, {
+    AssetDataDomain? asset,
+  }) async {
     final bloc = context.read<AssetBloc>();
     final nameController = TextEditingController(text: asset?.name ?? '');
     final assetIdController = TextEditingController(text: asset?.assetId ?? '');
@@ -282,6 +288,17 @@ class _AssetView extends StatelessWidget {
       text: asset?.description ?? '',
     );
     DateTime selectedDate = asset?.date ?? DateTime.now();
+
+    final accountRepository = sl<AccountRepository>();
+    final accounts = await accountRepository.getAccounts();
+    Account? selectedAccount;
+    if (asset?.accountId != null) {
+      try {
+        selectedAccount = accounts.firstWhere((a) => a.id == asset!.accountId);
+      } catch (_) {}
+    }
+
+    if (!context.mounted) return;
 
     showDialog(
       context: context,
@@ -333,6 +350,28 @@ class _AssetView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final account = await showSingleSelectDialog<Account>(
+                      context: context,
+                      items: accounts,
+                      title: 'Select Linked Account',
+                      selectedItem: selectedAccount,
+                      itemBuilder: (account) => Text(account.name),
+                      stringGetter: (account) => account.name,
+                    );
+                    setState(() => selectedAccount = account);
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Linked Account (Optional)',
+                      suffixIcon: Icon(Icons.arrow_drop_down),
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Text(selectedAccount?.name ?? 'None'),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 ListTile(
                   title: Text(
                     'Date: ${DateFormat('dd MMM yyyy').format(selectedDate)}',
@@ -381,6 +420,7 @@ class _AssetView extends StatelessWidget {
                         ? null
                         : descriptionController.text,
                     source: 'manual',
+                    accountId: selectedAccount?.id, // Added
                   );
 
                   if (asset == null) {

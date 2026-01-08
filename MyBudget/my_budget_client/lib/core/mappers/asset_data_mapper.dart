@@ -16,6 +16,7 @@ extension AssetDataMapper on AssetEntry {
       preset: preset,
       source: source,
       currency: currencyCode,
+      accountId: accountId, // Added
     );
   }
 }
@@ -34,6 +35,9 @@ extension AssetDataDomainMapper on AssetDataDomain {
       preset: Value(preset),
       source: Value(source),
       currencyCode: Value(currency),
+      accountId: accountId != null
+          ? Value(accountId)
+          : const Value.absent(), // Added
     );
   }
 }

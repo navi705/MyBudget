@@ -16,6 +16,8 @@ import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+import 'package:my_budget_client/domain/repositories/asset_repository.dart'; // Added
+import 'package:my_budget_client/domain/entities/asset_data.dart'; // Added
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 
@@ -28,6 +30,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   final CurrencyRepository _currencyRepository;
   final InflationRepository _inflationRepository;
   final TransactionRepository _transactionRepository;
+  final AssetRepository _assetRepository; // Added
 
   StreamSubscription<List<Transaction>>? _transactionsSubscription;
 
@@ -37,11 +40,13 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     required CurrencyRepository currencyRepository,
     required InflationRepository inflationRepository,
     required TransactionRepository transactionRepository,
+    required AssetRepository assetRepository, // Added
   }) : _accountRepository = accountRepository,
        _settingsRepository = settingsRepository,
        _currencyRepository = currencyRepository,
        _inflationRepository = inflationRepository,
        _transactionRepository = transactionRepository,
+       _assetRepository = assetRepository, // Added
        super(AccountsInitial()) {
     on<LoadAccounts>(_onLoadAccounts);
     on<LoadMoreAccounts>(_onLoadMoreAccounts);
@@ -231,6 +236,14 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           : await compute(_calculateInflationForAccounts, inflationParams);
       await PerformanceLogger().stop('Accounts: compute inflation');
 
+      // Calculate Asset Values
+      final assets = await _assetRepository.getAssetData();
+      final assetValues = _calculateAssetValues(
+        sortedAccounts,
+        assets,
+        exchangeRates,
+      );
+
       DateTime previousDate;
       switch (currentState.dateStep) {
         case DateStep.day:
@@ -337,6 +350,15 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       double income = currentStats.income.values.fold(0, (sum, v) => sum + v);
       double expense = currentStats.expense.values.fold(0, (sum, v) => sum + v);
 
+      // Merge asset values into realBalances
+      final realBalances = Map<String, double>.from(
+        inflationResults.realBalances,
+      );
+      for (final accountId in assetValues.keys) {
+        realBalances[accountId] =
+            (realBalances[accountId] ?? 0.0) + assetValues[accountId]!;
+      }
+
       await PerformanceLogger().stop('Accounts Screen Load');
 
       emit(
@@ -352,7 +374,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           selectedAccountIds: currentState.selectedAccountIds,
           dateStep: currentState.dateStep,
           exchangeRates: exchangeRates,
-          realBalances: inflationResults.realBalances,
+          realBalances: realBalances, // Updated
           inflationLosses: inflationResults.inflationLosses,
           previousPeriodBalances: previousPeriodBalances,
           previousPeriodRealBalances: prevInflationResults.realBalances,
@@ -360,6 +382,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           accountExpenses: currentStats.expense,
           accountRealIncomes: currentStats.realIncome,
           accountRealExpenses: currentStats.realExpense,
+          assetValues: assetValues, // Added
           previousAccountIncomes: previousStats.income,
           previousAccountExpenses: previousStats.expense,
           previousAccountRealIncomes: previousStats.realIncome,
@@ -372,6 +395,43 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       PerformanceLogger().stop('Accounts Screen Load');
       emit(AccountsLoadFailure());
     }
+  }
+
+  Map<String, double> _calculateAssetValues(
+    List<Account> accounts,
+    List<AssetDataDomain> assets,
+    List<ExchangeRateDomain> rates,
+  ) {
+    // Map<CurrencyCode, Rate> (Base EUR = 1.0)
+    final rateMap = {for (var r in rates) r.toCurrencyCode: r.rate};
+    rateMap['EUR'] = 1.0;
+
+    final Map<String, double> result = {};
+
+    for (final account in accounts) {
+      final accountAssets = assets.where((a) => a.accountId == account.id);
+
+      // Group by assetId to get the latest entry for each asset
+      final latestAssets = <String, AssetDataDomain>{};
+      for (final asset in accountAssets) {
+        if (!latestAssets.containsKey(asset.assetId) ||
+            asset.date.isAfter(latestAssets[asset.assetId]!.date)) {
+          latestAssets[asset.assetId] = asset;
+        }
+      }
+
+      double totalValue = 0.0;
+      final accountRate = rateMap[account.currencyCode] ?? 1.0;
+
+      for (final asset in latestAssets.values) {
+        final assetRate = rateMap[asset.currency] ?? 1.0;
+        final valueInBase = (asset.value * asset.quantity) / assetRate;
+        final valueInAccount = valueInBase * accountRate;
+        totalValue += valueInAccount;
+      }
+      result[account.id!] = totalValue;
+    }
+    return result;
   }
 
   Future<void> _onLoadMoreAccounts(
@@ -429,7 +489,24 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           ),
         );
 
-        // Period Stats Calculation (Duplicated from _onLoadAccounts for now)
+        // Calculate Asset Values
+        final assets = await _assetRepository.getAssetData();
+        final assetValues = _calculateAssetValues(
+          sortedAccounts,
+          assets,
+          currentState.exchangeRates,
+        );
+
+        // Merge asset values into realBalances
+        final realBalances = Map<String, double>.from(
+          inflationResults.realBalances,
+        );
+        for (final accountId in assetValues.keys) {
+          realBalances[accountId] =
+              (realBalances[accountId] ?? 0.0) + assetValues[accountId]!;
+        }
+
+        // Period Stats Calculation
         DateTime previousDate;
         switch (currentState.dateStep) {
           case DateStep.day:
@@ -514,12 +591,13 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         emit(
           currentState.copyWith(
             accounts: sortedAccounts,
-            realBalances: inflationResults.realBalances,
+            realBalances: realBalances,
             inflationLosses: inflationResults.inflationLosses,
             accountIncomes: currentStats.income,
             accountExpenses: currentStats.expense,
             accountRealIncomes: currentStats.realIncome,
             accountRealExpenses: currentStats.realExpense,
+            assetValues: assetValues, // Added
             previousAccountIncomes: previousStats.income,
             previousAccountExpenses: previousStats.expense,
             previousAccountRealIncomes: previousStats.realIncome,

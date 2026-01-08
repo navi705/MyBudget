@@ -73,6 +73,11 @@ mixin _$InflationRatesDaoMixin on DatabaseAccessor<AppDatabase> {
 mixin _$AssetEntriesDaoMixin on DatabaseAccessor<AppDatabase> {
   $LanguagesTable get languages => attachedDatabase.languages;
   $CurrenciesTable get currencies => attachedDatabase.currencies;
+  $CurrencyDesignationsTable get currencyDesignations =>
+      attachedDatabase.currencyDesignations;
+  $StylesTable get styles => attachedDatabase.styles;
+  $AccountTypesTable get accountTypes => attachedDatabase.accountTypes;
+  $AccountsTable get accounts => attachedDatabase.accounts;
   $AssetEntriesTable get assetEntries => attachedDatabase.assetEntries;
 }
 
@@ -3846,6 +3851,20 @@ class $AssetEntriesTable extends AssetEntries
       'REFERENCES currencies (code)',
     ),
   );
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES accounts (id)',
+    ),
+  );
   static const VerificationMeta _sourceMeta = const VerificationMeta('source');
   @override
   late final GeneratedColumn<String> source = GeneratedColumn<String>(
@@ -3876,6 +3895,7 @@ class $AssetEntriesTable extends AssetEntries
     assetType,
     description,
     currencyCode,
+    accountId,
     source,
     preset,
   ];
@@ -3958,6 +3978,12 @@ class $AssetEntriesTable extends AssetEntries
     } else if (isInserting) {
       context.missing(_currencyCodeMeta);
     }
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    }
     if (data.containsKey('source')) {
       context.handle(
         _sourceMeta,
@@ -4017,6 +4043,10 @@ class $AssetEntriesTable extends AssetEntries
         DriftSqlType.string,
         data['${effectivePrefix}currency_code'],
       )!,
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      ),
       source: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}source'],
@@ -4044,6 +4074,7 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
   final String? assetType;
   final String? description;
   final String currencyCode;
+  final String? accountId;
   final String source;
   final int preset;
   const AssetEntry({
@@ -4056,6 +4087,7 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
     this.assetType,
     this.description,
     required this.currencyCode,
+    this.accountId,
     required this.source,
     required this.preset,
   });
@@ -4075,6 +4107,9 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
       map['description'] = Variable<String>(description);
     }
     map['currency_code'] = Variable<String>(currencyCode);
+    if (!nullToAbsent || accountId != null) {
+      map['account_id'] = Variable<String>(accountId);
+    }
     map['source'] = Variable<String>(source);
     map['preset'] = Variable<int>(preset);
     return map;
@@ -4095,6 +4130,9 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
           ? const Value.absent()
           : Value(description),
       currencyCode: Value(currencyCode),
+      accountId: accountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accountId),
       source: Value(source),
       preset: Value(preset),
     );
@@ -4115,6 +4153,7 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
       assetType: serializer.fromJson<String?>(json['assetType']),
       description: serializer.fromJson<String?>(json['description']),
       currencyCode: serializer.fromJson<String>(json['currencyCode']),
+      accountId: serializer.fromJson<String?>(json['accountId']),
       source: serializer.fromJson<String>(json['source']),
       preset: serializer.fromJson<int>(json['preset']),
     );
@@ -4132,6 +4171,7 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
       'assetType': serializer.toJson<String?>(assetType),
       'description': serializer.toJson<String?>(description),
       'currencyCode': serializer.toJson<String>(currencyCode),
+      'accountId': serializer.toJson<String?>(accountId),
       'source': serializer.toJson<String>(source),
       'preset': serializer.toJson<int>(preset),
     };
@@ -4147,6 +4187,7 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
     Value<String?> assetType = const Value.absent(),
     Value<String?> description = const Value.absent(),
     String? currencyCode,
+    Value<String?> accountId = const Value.absent(),
     String? source,
     int? preset,
   }) => AssetEntry(
@@ -4159,6 +4200,7 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
     assetType: assetType.present ? assetType.value : this.assetType,
     description: description.present ? description.value : this.description,
     currencyCode: currencyCode ?? this.currencyCode,
+    accountId: accountId.present ? accountId.value : this.accountId,
     source: source ?? this.source,
     preset: preset ?? this.preset,
   );
@@ -4177,6 +4219,7 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
       currencyCode: data.currencyCode.present
           ? data.currencyCode.value
           : this.currencyCode,
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
       source: data.source.present ? data.source.value : this.source,
       preset: data.preset.present ? data.preset.value : this.preset,
     );
@@ -4194,6 +4237,7 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
           ..write('assetType: $assetType, ')
           ..write('description: $description, ')
           ..write('currencyCode: $currencyCode, ')
+          ..write('accountId: $accountId, ')
           ..write('source: $source, ')
           ..write('preset: $preset')
           ..write(')'))
@@ -4211,6 +4255,7 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
     assetType,
     description,
     currencyCode,
+    accountId,
     source,
     preset,
   );
@@ -4227,6 +4272,7 @@ class AssetEntry extends DataClass implements Insertable<AssetEntry> {
           other.assetType == this.assetType &&
           other.description == this.description &&
           other.currencyCode == this.currencyCode &&
+          other.accountId == this.accountId &&
           other.source == this.source &&
           other.preset == this.preset);
 }
@@ -4241,6 +4287,7 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
   final Value<String?> assetType;
   final Value<String?> description;
   final Value<String> currencyCode;
+  final Value<String?> accountId;
   final Value<String> source;
   final Value<int> preset;
   final Value<int> rowid;
@@ -4254,6 +4301,7 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
     this.assetType = const Value.absent(),
     this.description = const Value.absent(),
     this.currencyCode = const Value.absent(),
+    this.accountId = const Value.absent(),
     this.source = const Value.absent(),
     this.preset = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -4268,6 +4316,7 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
     this.assetType = const Value.absent(),
     this.description = const Value.absent(),
     required String currencyCode,
+    this.accountId = const Value.absent(),
     required String source,
     this.preset = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -4287,6 +4336,7 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
     Expression<String>? assetType,
     Expression<String>? description,
     Expression<String>? currencyCode,
+    Expression<String>? accountId,
     Expression<String>? source,
     Expression<int>? preset,
     Expression<int>? rowid,
@@ -4301,6 +4351,7 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
       if (assetType != null) 'asset_type': assetType,
       if (description != null) 'description': description,
       if (currencyCode != null) 'currency_code': currencyCode,
+      if (accountId != null) 'account_id': accountId,
       if (source != null) 'source': source,
       if (preset != null) 'preset': preset,
       if (rowid != null) 'rowid': rowid,
@@ -4317,6 +4368,7 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
     Value<String?>? assetType,
     Value<String?>? description,
     Value<String>? currencyCode,
+    Value<String?>? accountId,
     Value<String>? source,
     Value<int>? preset,
     Value<int>? rowid,
@@ -4331,6 +4383,7 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
       assetType: assetType ?? this.assetType,
       description: description ?? this.description,
       currencyCode: currencyCode ?? this.currencyCode,
+      accountId: accountId ?? this.accountId,
       source: source ?? this.source,
       preset: preset ?? this.preset,
       rowid: rowid ?? this.rowid,
@@ -4367,6 +4420,9 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
     if (currencyCode.present) {
       map['currency_code'] = Variable<String>(currencyCode.value);
     }
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
     if (source.present) {
       map['source'] = Variable<String>(source.value);
     }
@@ -4391,6 +4447,7 @@ class AssetEntriesCompanion extends UpdateCompanion<AssetEntry> {
           ..write('assetType: $assetType, ')
           ..write('description: $description, ')
           ..write('currencyCode: $currencyCode, ')
+          ..write('accountId: $accountId, ')
           ..write('source: $source, ')
           ..write('preset: $preset, ')
           ..write('rowid: $rowid')
@@ -9045,6 +9102,24 @@ final class $$AccountsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$AssetEntriesTable, List<AssetEntry>>
+  _assetEntriesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.assetEntries,
+    aliasName: $_aliasNameGenerator(db.accounts.id, db.assetEntries.accountId),
+  );
+
+  $$AssetEntriesTableProcessedTableManager get assetEntriesRefs {
+    final manager = $$AssetEntriesTableTableManager(
+      $_db,
+      $_db.assetEntries,
+    ).filter((f) => f.accountId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_assetEntriesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$AccountsTableFilterComposer
@@ -9194,6 +9269,31 @@ class $$AccountsTableFilterComposer
           }) => $$TransactionsTableFilterComposer(
             $db: $db,
             $table: $db.transactions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> assetEntriesRefs(
+    Expression<bool> Function($$AssetEntriesTableFilterComposer f) f,
+  ) {
+    final $$AssetEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.assetEntries,
+      getReferencedColumn: (t) => t.accountId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AssetEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.assetEntries,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -9485,6 +9585,31 @@ class $$AccountsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> assetEntriesRefs<T extends Object>(
+    Expression<T> Function($$AssetEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$AssetEntriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.assetEntries,
+      getReferencedColumn: (t) => t.accountId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AssetEntriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.assetEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$AccountsTableTableManager
@@ -9506,6 +9631,7 @@ class $$AccountsTableTableManager
             bool styleId,
             bool accountTypeId,
             bool transactionsRefs,
+            bool assetEntriesRefs,
           })
         > {
   $$AccountsTableTableManager(_$AppDatabase db, $AccountsTable table)
@@ -9586,11 +9712,13 @@ class $$AccountsTableTableManager
                 styleId = false,
                 accountTypeId = false,
                 transactionsRefs = false,
+                assetEntriesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (transactionsRefs) db.transactions,
+                    if (assetEntriesRefs) db.assetEntries,
                   ],
                   addJoins:
                       <
@@ -9686,6 +9814,27 @@ class $$AccountsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (assetEntriesRefs)
+                        await $_getPrefetchedData<
+                          DbAccount,
+                          $AccountsTable,
+                          AssetEntry
+                        >(
+                          currentTable: table,
+                          referencedTable: $$AccountsTableReferences
+                              ._assetEntriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$AccountsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).assetEntriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.accountId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -9712,6 +9861,7 @@ typedef $$AccountsTableProcessedTableManager =
         bool styleId,
         bool accountTypeId,
         bool transactionsRefs,
+        bool assetEntriesRefs,
       })
     >;
 typedef $$TransactionsTableCreateCompanionBuilder =
@@ -10880,6 +11030,7 @@ typedef $$AssetEntriesTableCreateCompanionBuilder =
       Value<String?> assetType,
       Value<String?> description,
       required String currencyCode,
+      Value<String?> accountId,
       required String source,
       Value<int> preset,
       Value<int> rowid,
@@ -10895,6 +11046,7 @@ typedef $$AssetEntriesTableUpdateCompanionBuilder =
       Value<String?> assetType,
       Value<String?> description,
       Value<String> currencyCode,
+      Value<String?> accountId,
       Value<String> source,
       Value<int> preset,
       Value<int> rowid,
@@ -10917,6 +11069,25 @@ final class $$AssetEntriesTableReferences
       $_db.currencies,
     ).filter((f) => f.code.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_currencyCodeTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $AccountsTable _accountIdTable(_$AppDatabase db) =>
+      db.accounts.createAlias(
+        $_aliasNameGenerator(db.assetEntries.accountId, db.accounts.id),
+      );
+
+  $$AccountsTableProcessedTableManager? get accountId {
+    final $_column = $_itemColumn<String>('account_id');
+    if ($_column == null) return null;
+    final manager = $$AccountsTableTableManager(
+      $_db,
+      $_db.accounts,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_accountIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -10997,6 +11168,29 @@ class $$AssetEntriesTableFilterComposer
           }) => $$CurrenciesTableFilterComposer(
             $db: $db,
             $table: $db.currencies,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$AccountsTableFilterComposer get accountId {
+    final $$AccountsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableFilterComposer(
+            $db: $db,
+            $table: $db.accounts,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -11088,6 +11282,29 @@ class $$AssetEntriesTableOrderingComposer
     );
     return composer;
   }
+
+  $$AccountsTableOrderingComposer get accountId {
+    final $$AccountsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableOrderingComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$AssetEntriesTableAnnotationComposer
@@ -11153,6 +11370,29 @@ class $$AssetEntriesTableAnnotationComposer
     );
     return composer;
   }
+
+  $$AccountsTableAnnotationComposer get accountId {
+    final $$AccountsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$AssetEntriesTableTableManager
@@ -11168,7 +11408,7 @@ class $$AssetEntriesTableTableManager
           $$AssetEntriesTableUpdateCompanionBuilder,
           (AssetEntry, $$AssetEntriesTableReferences),
           AssetEntry,
-          PrefetchHooks Function({bool currencyCode})
+          PrefetchHooks Function({bool currencyCode, bool accountId})
         > {
   $$AssetEntriesTableTableManager(_$AppDatabase db, $AssetEntriesTable table)
     : super(
@@ -11192,6 +11432,7 @@ class $$AssetEntriesTableTableManager
                 Value<String?> assetType = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<String> currencyCode = const Value.absent(),
+                Value<String?> accountId = const Value.absent(),
                 Value<String> source = const Value.absent(),
                 Value<int> preset = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -11205,6 +11446,7 @@ class $$AssetEntriesTableTableManager
                 assetType: assetType,
                 description: description,
                 currencyCode: currencyCode,
+                accountId: accountId,
                 source: source,
                 preset: preset,
                 rowid: rowid,
@@ -11220,6 +11462,7 @@ class $$AssetEntriesTableTableManager
                 Value<String?> assetType = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 required String currencyCode,
+                Value<String?> accountId = const Value.absent(),
                 required String source,
                 Value<int> preset = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -11233,6 +11476,7 @@ class $$AssetEntriesTableTableManager
                 assetType: assetType,
                 description: description,
                 currencyCode: currencyCode,
+                accountId: accountId,
                 source: source,
                 preset: preset,
                 rowid: rowid,
@@ -11245,7 +11489,7 @@ class $$AssetEntriesTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({currencyCode = false}) {
+          prefetchHooksCallback: ({currencyCode = false, accountId = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [],
@@ -11278,6 +11522,19 @@ class $$AssetEntriesTableTableManager
                               )
                               as T;
                     }
+                    if (accountId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.accountId,
+                                referencedTable: $$AssetEntriesTableReferences
+                                    ._accountIdTable(db),
+                                referencedColumn: $$AssetEntriesTableReferences
+                                    ._accountIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
 
                     return state;
                   },
@@ -11302,7 +11559,7 @@ typedef $$AssetEntriesTableProcessedTableManager =
       $$AssetEntriesTableUpdateCompanionBuilder,
       (AssetEntry, $$AssetEntriesTableReferences),
       AssetEntry,
-      PrefetchHooks Function({bool currencyCode})
+      PrefetchHooks Function({bool currencyCode, bool accountId})
     >;
 typedef $$SettingsTableCreateCompanionBuilder =
     SettingsCompanion Function({

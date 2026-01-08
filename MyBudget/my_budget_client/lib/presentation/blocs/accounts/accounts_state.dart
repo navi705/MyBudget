@@ -70,6 +70,7 @@ class AccountsLoadSuccess extends AccountsState {
   final Map<String, double> accountExpenses;
   final Map<String, double> accountRealIncomes;
   final Map<String, double> accountRealExpenses;
+  final Map<String, double> assetValues; // Added
 
   // Previous Period Stats (Per Account)
   final Map<String, double> previousAccountIncomes;
@@ -103,6 +104,7 @@ class AccountsLoadSuccess extends AccountsState {
     this.accountExpenses = const {},
     this.accountRealIncomes = const {},
     this.accountRealExpenses = const {},
+    this.assetValues = const {}, // Added
     this.previousAccountIncomes = const {},
     this.previousAccountExpenses = const {},
     this.previousAccountRealIncomes = const {},
@@ -134,6 +136,7 @@ class AccountsLoadSuccess extends AccountsState {
     Map<String, double>? accountExpenses,
     Map<String, double>? accountRealIncomes,
     Map<String, double>? accountRealExpenses,
+    Map<String, double>? assetValues, // Added
     Map<String, double>? previousAccountIncomes,
     Map<String, double>? previousAccountExpenses,
     Map<String, double>? previousAccountRealIncomes,
@@ -168,6 +171,7 @@ class AccountsLoadSuccess extends AccountsState {
       accountExpenses: accountExpenses ?? this.accountExpenses,
       accountRealIncomes: accountRealIncomes ?? this.accountRealIncomes,
       accountRealExpenses: accountRealExpenses ?? this.accountRealExpenses,
+      assetValues: assetValues ?? this.assetValues, // Added
       previousAccountIncomes:
           previousAccountIncomes ?? this.previousAccountIncomes,
       previousAccountExpenses:
@@ -205,6 +209,7 @@ class AccountsLoadSuccess extends AccountsState {
     accountExpenses,
     accountRealIncomes,
     accountRealExpenses,
+    assetValues, // Added
     previousAccountIncomes,
     previousAccountExpenses,
     previousAccountRealIncomes,

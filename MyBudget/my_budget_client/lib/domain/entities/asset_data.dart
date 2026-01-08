@@ -10,6 +10,7 @@ class AssetDataDomain extends Equatable {
   final String? assetType;
   final String? description;
   final String currency;
+  final String? accountId; // Added
   final String source;
   final int preset;
 
@@ -23,24 +24,26 @@ class AssetDataDomain extends Equatable {
     this.assetType,
     this.description,
     this.currency = 'EUR',
+    this.accountId, // Added
     required this.source,
     this.preset = 1,
   });
 
   @override
   List<Object?> get props => [
-        id,
-        assetId,
-        name,
-        date,
-        value,
-        quantity,
-        assetType,
-        description,
-        currency,
-        source,
-        preset,
-      ];
+    id,
+    assetId,
+    name,
+    date,
+    value,
+    quantity,
+    assetType,
+    description,
+    currency,
+    accountId, // Added
+    source,
+    preset,
+  ];
 
   AssetDataDomain copyWith({
     String? id,
@@ -52,6 +55,7 @@ class AssetDataDomain extends Equatable {
     String? assetType,
     String? description,
     String? currency,
+    String? accountId, // Added
     String? source,
     int? preset,
   }) {
@@ -65,6 +69,7 @@ class AssetDataDomain extends Equatable {
       assetType: assetType ?? this.assetType,
       description: description ?? this.description,
       currency: currency ?? this.currency,
+      accountId: accountId ?? this.accountId, // Added
       source: source ?? this.source,
       preset: preset ?? this.preset,
     );

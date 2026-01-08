@@ -11,11 +11,13 @@ class LocalAssetRepository implements AssetRepository {
   @override
   Future<List<AssetDataDomain>> getAssetData({
     String? assetId,
+    String? accountId, // Added
     DateTime? startDate,
     DateTime? endDate,
   }) async {
     final entries = await _dao.getAssetData(
       assetId: assetId,
+      accountId: accountId, // Added
       startDate: startDate,
       endDate: endDate,
     );

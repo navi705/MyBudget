@@ -13,7 +13,11 @@ import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/style_picker_dialog.dart';
+
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
+import 'package:my_budget_client/domain/repositories/asset_repository.dart'; // Added
+import 'package:my_budget_client/domain/entities/asset_data.dart'; // Added
+import 'package:my_budget_client/core/di/injection_container.dart'; // Added for sl
 
 class EditAccountScreen extends StatefulWidget {
   final Account account;
@@ -361,6 +365,54 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                       );
                     }
                     return const SizedBox.shrink();
+                  },
+                ),
+                const SizedBox(height: 16),
+                // ASSET LIST Section
+                FutureBuilder<List<AssetDataDomain>>(
+                  future: sl<AssetRepository>().getAssetData(
+                    accountId: widget.account.id,
+                  ),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final assets = snapshot.data ?? [];
+                    if (assets.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Linked Assets",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ...assets.map((asset) {
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: const Icon(Icons.show_chart),
+                              title: Text(asset.name),
+                              subtitle: Text(
+                                '${asset.quantity} @ ${asset.value} ${asset.currency}',
+                              ),
+                              trailing: Text(
+                                '${(asset.quantity * asset.value).toStringAsFixed(2)} ${asset.currency}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                        const SizedBox(height: 16),
+                      ],
+                    );
                   },
                 ),
                 const SizedBox(height: 32),
