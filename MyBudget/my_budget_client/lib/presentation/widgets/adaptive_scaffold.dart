@@ -109,6 +109,7 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
                               ? Icons.keyboard_double_arrow_left
                               : Icons.keyboard_double_arrow_right,
                           color: colorScheme.onSurface,
+                          size: _isExtended ? 24.0 : 20.0,
                         ),
                         tooltip: _isExtended ? 'Collapse Menu' : 'Expand Menu',
                       ),
