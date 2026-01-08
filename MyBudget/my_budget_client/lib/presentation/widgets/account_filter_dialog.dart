@@ -4,32 +4,28 @@ import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
-import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
-import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart' hide FiltersChanged;
+import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart'
+    hide FiltersChanged;
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 
 void showAccountFilterDialog(
-    BuildContext context, AccountFilters currentFilters) {
+  BuildContext context,
+  AccountFilters currentFilters,
+) {
   showDialog(
     context: context,
     builder: (dialogContext) {
       return MultiBlocProvider(
         providers: [
-          BlocProvider.value(
-            value: BlocProvider.of<AccountsBloc>(context),
-          ),
-          BlocProvider.value(
-            value: BlocProvider.of<SettingsBloc>(context),
-          ),
-          BlocProvider.value(
-            value: BlocProvider.of<CategoriesBloc>(context),
-          ),
-          BlocProvider.value(
-            value: BlocProvider.of<CurrencyBloc>(context),
-          ),
+          BlocProvider.value(value: BlocProvider.of<AccountsBloc>(context)),
+          BlocProvider.value(value: BlocProvider.of<SettingsBloc>(context)),
+          BlocProvider.value(value: BlocProvider.of<CategoriesBloc>(context)),
+          BlocProvider.value(value: BlocProvider.of<CurrencyBloc>(context)),
         ],
         child: AccountFilterDialog(currentFilters: currentFilters),
       );
@@ -70,20 +66,19 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
         sort: Sort.descending, // Default sort
         name: settings['account_filter_name'],
         description: settings['account_filter_description'],
-        amountFrom:
-            double.tryParse(settings['account_filter_amount_from'] ?? ''),
+        amountFrom: double.tryParse(
+          settings['account_filter_amount_from'] ?? '',
+        ),
         amountTo: double.tryParse(settings['account_filter_amount_to'] ?? ''),
         date: DateTime.tryParse(settings['account_filter_account_date'] ?? ''),
-        currenciesIds:
-            (settings['account_selected_currencies'] ?? '')
-                .split(',')
-                .where((id) => id.isNotEmpty)
-                .toList(),
-        accountTypeIds:
-            (settings['account_filter_account_type_id'] ?? '')
-                .split(',')
-                .where((id) => id.isNotEmpty)
-                .toList(),
+        currenciesIds: (settings['account_selected_currencies'] ?? '')
+            .split(',')
+            .where((id) => id.isNotEmpty)
+            .toList(),
+        accountTypeIds: (settings['account_filter_account_type_id'] ?? '')
+            .split(',')
+            .where((id) => id.isNotEmpty)
+            .toList(),
       );
     } else {
       filters = widget.currentFilters;
@@ -91,10 +86,12 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
 
     _nameController = TextEditingController(text: filters.name);
     _descriptionController = TextEditingController(text: filters.description);
-    _amountFromController =
-        TextEditingController(text: filters.amountFrom?.toString());
-    _amountToController =
-        TextEditingController(text: filters.amountTo?.toString());
+    _amountFromController = TextEditingController(
+      text: filters.amountFrom?.toString(),
+    );
+    _amountToController = TextEditingController(
+      text: filters.amountTo?.toString(),
+    );
     _creationDate = filters.date;
     _selectedCurrencyIds = List<String>.from(filters.currenciesIds ?? []);
     _selectedAccountTypeIds = List<String>.from(filters.accountTypeIds ?? []);
@@ -112,7 +109,8 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
   void _applyFilters() {
     final settingsBloc = context.read<SettingsBloc>();
     settingsBloc.add(
-        UpdateSetting('persist_account_filters', _persistFilters.toString()));
+      UpdateSetting('persist_account_filters', _persistFilters.toString()),
+    );
 
     final newFilters = AccountFilters(
       sort: widget.currentFilters.sort,
@@ -132,20 +130,45 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
     );
 
     if (_persistFilters) {
-      settingsBloc
-          .add(UpdateSetting('account_filter_name', newFilters.name ?? ''));
-      settingsBloc.add(UpdateSetting(
-          'account_filter_description', newFilters.description ?? ''));
-      settingsBloc.add(UpdateSetting('account_filter_amount_from',
-          newFilters.amountFrom?.toString() ?? ''));
-      settingsBloc.add(UpdateSetting(
-          'account_filter_amount_to', newFilters.amountTo?.toString() ?? ''));
-      settingsBloc.add(UpdateSetting('account_filter_account_date',
-          newFilters.date?.toIso8601String() ?? ''));
-      settingsBloc.add(UpdateSetting('account_selected_currencies',
-          newFilters.currenciesIds?.join(',') ?? ''));
-      settingsBloc.add(UpdateSetting('account_filter_account_type_id',
-          newFilters.accountTypeIds?.join(',') ?? ''));
+      settingsBloc.add(
+        UpdateSetting('account_filter_name', newFilters.name ?? ''),
+      );
+      settingsBloc.add(
+        UpdateSetting(
+          'account_filter_description',
+          newFilters.description ?? '',
+        ),
+      );
+      settingsBloc.add(
+        UpdateSetting(
+          'account_filter_amount_from',
+          newFilters.amountFrom?.toString() ?? '',
+        ),
+      );
+      settingsBloc.add(
+        UpdateSetting(
+          'account_filter_amount_to',
+          newFilters.amountTo?.toString() ?? '',
+        ),
+      );
+      settingsBloc.add(
+        UpdateSetting(
+          'account_filter_account_date',
+          newFilters.date?.toIso8601String() ?? '',
+        ),
+      );
+      settingsBloc.add(
+        UpdateSetting(
+          'account_selected_currencies',
+          newFilters.currenciesIds?.join(',') ?? '',
+        ),
+      );
+      settingsBloc.add(
+        UpdateSetting(
+          'account_filter_account_type_id',
+          newFilters.accountTypeIds?.join(',') ?? '',
+        ),
+      );
     } else {
       _clearFilterSettings();
     }
@@ -156,9 +179,9 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
 
   void _clearFilters() {
     _clearFilterSettings();
-    context
-        .read<AccountsBloc>()
-        .add(const FiltersChanged(AccountFilters(sort: Sort.descending)));
+    context.read<AccountsBloc>().add(
+      const FiltersChanged(AccountFilters(sort: Sort.descending)),
+    );
     Navigator.of(context).pop();
   }
 
@@ -263,7 +286,7 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
                         _creationDate = null;
                       });
                     },
-                  )
+                  ),
               ],
             ),
             const SizedBox(height: 16),
@@ -272,7 +295,9 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
                 if (state is AccountsLoadSuccess) {
                   return ListTile(
                     title: const Text('Account Types'),
-                    subtitle: Text('${_selectedAccountTypeIds.length} selected'),
+                    subtitle: Text(
+                      '${_selectedAccountTypeIds.length} selected',
+                    ),
                     onTap: () async {
                       final List<String>? result = await showDialog(
                         context: context,
@@ -330,14 +355,8 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
         ),
       ),
       actions: <Widget>[
-        TextButton(
-          onPressed: _clearFilters,
-          child: const Text('Clear'),
-        ),
-        TextButton(
-          onPressed: _applyFilters,
-          child: const Text('Apply'),
-        ),
+        TextButton(onPressed: _clearFilters, child: const Text('Clear')),
+        TextButton(onPressed: _applyFilters, child: const Text('Apply')),
       ],
     );
   }

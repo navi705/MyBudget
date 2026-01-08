@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
-import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/balance_line_chart.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/category_pie_chart.dart';

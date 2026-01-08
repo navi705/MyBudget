@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
-import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+
 import 'package:my_budget_client/domain/entities/category_type.dart';
 
 class CategoryFilters extends Equatable {

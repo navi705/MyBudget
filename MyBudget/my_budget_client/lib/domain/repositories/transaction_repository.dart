@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/entities/transaction_type_filter.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 
 abstract class TransactionRepository {
   Stream<List<Transaction>> watchTransactions();
@@ -115,5 +116,3 @@ class TransactionFilters extends Equatable {
     transactionType,
   ];
 }
-
-enum Sort { ascending, descending }

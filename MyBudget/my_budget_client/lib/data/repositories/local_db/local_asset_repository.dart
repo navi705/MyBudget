@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/core/mappers/asset_data_mapper.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
@@ -10,16 +11,22 @@ class LocalAssetRepository implements AssetRepository {
 
   @override
   Future<List<AssetDataDomain>> getAssetData({
+    int limit = 50,
+    int offset = 0,
     String? assetId,
     String? accountId, // Added
     DateTime? startDate,
     DateTime? endDate,
+    bool sortAscending = false,
   }) async {
     final entries = await _dao.getAssetData(
+      limit: limit,
+      offset: offset,
       assetId: assetId,
       accountId: accountId, // Added
       startDate: startDate,
       endDate: endDate,
+      sort: sortAscending ? OrderingMode.asc : OrderingMode.desc,
     );
     return entries.map((e) => e.toDomain()).toList();
   }

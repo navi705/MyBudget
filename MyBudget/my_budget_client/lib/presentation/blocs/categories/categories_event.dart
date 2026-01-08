@@ -165,5 +165,3 @@ class UpdateCategoryTypeForMultipleCategories extends CategoriesEvent {
   @override
   List<Object> get props => [categoryIds, newType];
 }
-
-

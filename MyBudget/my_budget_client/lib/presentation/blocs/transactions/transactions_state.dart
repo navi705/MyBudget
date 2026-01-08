@@ -2,10 +2,6 @@ part of 'transactions_bloc.dart';
 
 enum TransactionStatus { initial, loading, success, failure }
 
-enum DateStep { day, month, year }
-
-enum FilterMode { date, range }
-
 class TransactionsState extends Equatable {
   final TransactionStatus status;
   final List<TransactionCategory> transactions; // Changed type here
@@ -134,8 +130,9 @@ class TransactionsState extends Equatable {
       dateStep: dateStep ?? this.dateStep,
       filterMode: filterMode ?? this.filterMode,
       activeDate: activeDate ?? this.activeDate,
-      activeDateRange:
-          activeDateRange != null ? activeDateRange() : this.activeDateRange,
+      activeDateRange: activeDateRange != null
+          ? activeDateRange()
+          : this.activeDateRange,
       nonDateFilters: nonDateFilters ?? this.nonDateFilters,
       isSelectionModeActive:
           isSelectionModeActive ?? this.isSelectionModeActive,
@@ -149,25 +146,25 @@ class TransactionsState extends Equatable {
 
   @override
   List<Object?> get props => [
-        status,
-        transactions,
-        windowSize,
-        hasMoreUp,
-        hasMoreDown,
-        startIndex,
-        jumpToItemId,
-        jumpToAlignment,
-        totalCount,
-        sort,
-        dateStep,
-        filterMode,
-        activeDate,
-        activeDateRange,
-        nonDateFilters,
-        isSelectionModeActive,
-        selectedTransactionIds,
-        currencyDesignations,
-        dailyTotals,
-        mainCurrencyCode,
-      ];
+    status,
+    transactions,
+    windowSize,
+    hasMoreUp,
+    hasMoreDown,
+    startIndex,
+    jumpToItemId,
+    jumpToAlignment,
+    totalCount,
+    sort,
+    dateStep,
+    filterMode,
+    activeDate,
+    activeDateRange,
+    nonDateFilters,
+    isSelectionModeActive,
+    selectedTransactionIds,
+    currencyDesignations,
+    dailyTotals,
+    mainCurrencyCode,
+  ];
 }

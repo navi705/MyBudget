@@ -3,6 +3,7 @@ import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/core/mappers/transaction_mapper.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 
 class LocalTransactionRepository implements TransactionRepository {
   final db.AppDatabase database;

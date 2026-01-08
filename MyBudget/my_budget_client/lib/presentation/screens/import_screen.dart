@@ -56,128 +56,135 @@ class _ImportViewState extends State<_ImportView> {
   Widget build(BuildContext context) {
     return EscapeBackHandler(
       child: Scaffold(
-      appBar: AppBar(
-        title: const Text('Import Data'),
-        actions: [
-          BlocBuilder<ImportBloc, ImportState>(
-            builder: (context, state) {
-              if (state.step != ImportStep.idle) {
-                return IconButton(
-                  icon: const Icon(Icons.refresh),
-                  tooltip: 'Start Over',
-                  onPressed: () {
-                    context.read<ImportBloc>().add(ResetImport());
-                  },
+        appBar: AppBar(
+          title: const Text('Import Data'),
+          actions: [
+            BlocBuilder<ImportBloc, ImportState>(
+              builder: (context, state) {
+                if (state.step != ImportStep.idle) {
+                  return IconButton(
+                    icon: const Icon(Icons.refresh),
+                    tooltip: 'Start Over',
+                    onPressed: () {
+                      context.read<ImportBloc>().add(ResetImport());
+                    },
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ],
+        ),
+        body: BlocBuilder<ImportBloc, ImportState>(
+          builder: (context, state) {
+            switch (state.step) {
+              case ImportStep.idle:
+                return _buildFileSelectionStep();
+              case ImportStep.parsing:
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Parsing CSV files...'),
+                    ],
+                  ),
                 );
-              }
-              return const SizedBox.shrink();
-            },
-          ),
-        ],
+              case ImportStep.mappingAccounts:
+                return _buildAccountMappingStep(state);
+              case ImportStep.mappingCategories:
+                return _buildCategoryMappingStep(state);
+              case ImportStep.mappingCurrencies:
+                return _buildCurrencyMappingStep(state);
+              case ImportStep.resolvingDuplicates:
+                return _buildDuplicateResolutionStep(state);
+              case ImportStep.fetchingRates:
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Fetching exchange rates...'),
+                    ],
+                  ),
+                );
+              case ImportStep.readyToImport:
+                return _buildReadyToImportStep(state);
+              case ImportStep.importing:
+                return _buildImportingStep(state);
+              case ImportStep.complete:
+                return _buildCompletionStep(state);
+              case ImportStep.failure:
+                return Center(child: Text('Error: ${state.errorMessage}'));
+            }
+          },
+        ),
       ),
-      body: BlocBuilder<ImportBloc, ImportState>(
-        builder: (context, state) {
-          switch (state.step) {
-            case ImportStep.idle:
-              return _buildFileSelectionStep();
-            case ImportStep.parsing:
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Parsing CSV files...'),
-                  ],
-                ),
-              );
-            case ImportStep.mappingAccounts:
-              return _buildAccountMappingStep(state);
-            case ImportStep.mappingCategories:
-              return _buildCategoryMappingStep(state);
-            case ImportStep.mappingCurrencies:
-              return _buildCurrencyMappingStep(state);
-            case ImportStep.resolvingDuplicates:
-              return _buildDuplicateResolutionStep(state);
-            case ImportStep.fetchingRates:
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Fetching exchange rates...'),
-                  ],
-                ),
-              );
-            case ImportStep.readyToImport:
-              return _buildReadyToImportStep(state);
-            case ImportStep.importing:
-              return _buildImportingStep(state);
-            case ImportStep.complete:
-              return _buildCompletionStep(state);
-            case ImportStep.failure:
-              return Center(child: Text('Error: ${state.errorMessage}'));
-          }
-        },
-      ),
-    ),
     );
   }
 
   Widget _buildFileSelectionStep() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Existing OneMoney Import
-          OutlinedButton.icon(
-            icon: const Icon(Icons.attach_money),
-            label: const Text('Import from OneMoney (CSV)'),
-            onPressed: _startOneMoneyImport,
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              textStyle: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // MyBudget CSV Import
-          OutlinedButton.icon(
-            icon: const Icon(Icons.table_chart),
-            label: const Text('Import MyBudget Transactions (CSV)'),
-            onPressed: () => _handleGeneralImport(true),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              textStyle: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // JSON Backup Import
-          FilledButton.tonalIcon(
-            icon: const Icon(Icons.restore),
-            label: const Text('Restore Backup (JSON)'),
-            onPressed: () => _handleGeneralImport(false), // JSON
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              textStyle: Theme.of(context).textTheme.titleMedium,
-              backgroundColor: Theme.of(context).colorScheme.errorContainer,
-              foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text(
-                "Select 'OneMoney' for migration, 'MyBudget' for adding transactions, or 'Restore Backup' to overwrite all data.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Existing OneMoney Import
+              OutlinedButton.icon(
+                icon: const Icon(Icons.attach_money),
+                label: const Text('Import from OneMoney (CSV)'),
+                onPressed: _startOneMoneyImport,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  textStyle: Theme.of(context).textTheme.titleMedium,
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+              // MyBudget CSV Import
+              OutlinedButton.icon(
+                icon: const Icon(Icons.table_chart),
+                label: const Text('Import MyBudget Transactions (CSV)'),
+                onPressed: () => _handleGeneralImport(true),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  textStyle: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // JSON Backup Import
+              FilledButton.tonalIcon(
+                icon: const Icon(Icons.restore),
+                label: const Text('Restore Backup (JSON)'),
+                onPressed: () => _handleGeneralImport(false), // JSON
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  textStyle: Theme.of(context).textTheme.titleMedium,
+                  backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                  foregroundColor: Theme.of(
+                    context,
+                  ).colorScheme.onErrorContainer,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text(
+                    "Select 'OneMoney' for migration, 'MyBudget' for adding transactions, or 'Restore Backup' to overwrite all data.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

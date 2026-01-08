@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
@@ -94,21 +95,24 @@ Future<_ProcessDataResult> _processTransactionsData(
             right = mid;
           }
         }
-        
+
         // Find closest date among insertion point and its neighbors
         DateTime? closestDate;
         int minDiff = -1;
-        
+
         // Check the element at insertion point (if exists)
         if (left < availableRateDates.length) {
           final diff = availableRateDates[left].difference(date).inDays.abs();
           minDiff = diff;
           closestDate = availableRateDates[left];
         }
-        
+
         // Check the element before insertion point (if exists)
         if (left > 0) {
-          final diff = availableRateDates[left - 1].difference(date).inDays.abs();
+          final diff = availableRateDates[left - 1]
+              .difference(date)
+              .inDays
+              .abs();
           if (minDiff == -1 || diff < minDiff) {
             minDiff = diff;
             closestDate = availableRateDates[left - 1];
@@ -370,25 +374,31 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       final mainCurrencyCode = mainCurrencySetting?.value ?? 'EUR';
 
       PerformanceLogger().start('Transactions: prepare DB queries');
-      final getTransactionsFuture = _transactionRepository.getTransactionsWithFilters(
-        limit: event.limit,
-        offset: 0,
-        filters: state.filters,
-        sort: state.sort,
-      );
+      final getTransactionsFuture = _transactionRepository
+          .getTransactionsWithFilters(
+            limit: event.limit,
+            offset: 0,
+            filters: state.filters,
+            sort: state.sort,
+          );
       final getCountFuture = _transactionRepository.getCountWithFilters(
         filters: state.filters,
       );
-      final getCurrenciesFuture = _currencyRepository.getAllCurrencyDesignations();
+      final getCurrenciesFuture = _currencyRepository
+          .getAllCurrencyDesignations();
       await PerformanceLogger().stop('Transactions: prepare DB queries');
-      
-      PerformanceLogger().start('Transactions: await all DB queries (parallel)');
+
+      PerformanceLogger().start(
+        'Transactions: await all DB queries (parallel)',
+      );
       final results = await Future.wait([
         getTransactionsFuture,
         getCountFuture,
         getCurrenciesFuture,
       ]);
-      await PerformanceLogger().stop('Transactions: await all DB queries (parallel)');
+      await PerformanceLogger().stop(
+        'Transactions: await all DB queries (parallel)',
+      );
 
       PerformanceLogger().start('Transactions: extract results');
       final rawTransactions = results[0] as List<Transaction>;

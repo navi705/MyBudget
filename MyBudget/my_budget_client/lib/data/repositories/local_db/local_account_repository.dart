@@ -3,9 +3,9 @@ import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/core/mappers/account_mapper.dart';
 import 'package:my_budget_client/core/mappers/account_type_mapper.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
-import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 
 class LocalAccountRepository implements AccountRepository {
   final db.AppDatabase database;
@@ -14,9 +14,9 @@ class LocalAccountRepository implements AccountRepository {
 
   @override
   Stream<List<Account>> watchAccounts() {
-    return database.accountsDao
-        .watchAllAccounts()
-        .map((accounts) => accounts.toDomainList());
+    return database.accountsDao.watchAllAccounts().map(
+      (accounts) => accounts.toDomainList(),
+    );
   }
 
   @override
@@ -49,10 +49,14 @@ class LocalAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<List<Account>> getAccountsPaginated(
-      {int limit = 10, int offset = 0}) async {
-    final accounts =
-        await database.accountsDao.getAccounts(limit: limit, offset: offset);
+  Future<List<Account>> getAccountsPaginated({
+    int limit = 10,
+    int offset = 0,
+  }) async {
+    final accounts = await database.accountsDao.getAccounts(
+      limit: limit,
+      offset: offset,
+    );
     return accounts.toDomainList();
   }
 
@@ -74,9 +78,9 @@ class LocalAccountRepository implements AccountRepository {
 
   @override
   Stream<List<AccountType>> watchAccountTypes() {
-    return database.accountTypesDao
-        .watchAllAccountTypes()
-        .map((accountTypes) => accountTypes.toDomainList());
+    return database.accountTypesDao.watchAllAccountTypes().map(
+      (accountTypes) => accountTypes.toDomainList(),
+    );
   }
 
   @override
@@ -87,7 +91,9 @@ class LocalAccountRepository implements AccountRepository {
 
   @override
   Future<void> addAccountTypes(List<AccountType> accountTypes) async {
-    await database.accountTypesDao.insertAllAccountTypes(accountTypes.toCompanionList());
+    await database.accountTypesDao.insertAllAccountTypes(
+      accountTypes.toCompanionList(),
+    );
   }
 
   @override
@@ -97,32 +103,46 @@ class LocalAccountRepository implements AccountRepository {
 
   @override
   Future<int> getCountWithFilters({List<String>? accountTypeIds}) {
-    return database.accountsDao.getCountWithFilters(accountTypeIds: accountTypeIds);
+    return database.accountsDao.getCountWithFilters(
+      accountTypeIds: accountTypeIds,
+    );
   }
-  
+
   @override
   Future<void> deleteMultipleAccounts(List<String> accountIds) {
-   return database.accountsDao.deleteMultipleAccounts(accountIds); 
+    return database.accountsDao.deleteMultipleAccounts(accountIds);
   }
-  
+
   @override
-  Future<void> updateAccountTypeForMultipleAccounts(List<String> accountIds, String accountTypeId) {
-    return database.accountsDao.updateAccountTypeForMultipleAccounts(accountIds, accountTypeId);
+  Future<void> updateAccountTypeForMultipleAccounts(
+    List<String> accountIds,
+    String accountTypeId,
+  ) {
+    return database.accountsDao.updateAccountTypeForMultipleAccounts(
+      accountIds,
+      accountTypeId,
+    );
   }
-  
+
   @override
-  Future<List<Account>> getAccountsPaginatedFiltered({int limit = 10, int offset = 0, AccountFilters? accountFilters}) async {
+  Future<List<Account>> getAccountsPaginatedFiltered({
+    int limit = 10,
+    int offset = 0,
+    AccountFilters? accountFilters,
+  }) async {
     final accounts = await database.accountsDao.getAccountWithFilters(
-     limit: limit,
-     offset: offset,  
-     sort: accountFilters?.sort == Sort.ascending ? OrderingMode.asc : OrderingMode.desc,
-     description: accountFilters?.description,
-     name: accountFilters?.name,
-     amountFrom: accountFilters?.amountFrom,
-     amountTo: accountFilters?.amountTo,
-     date: accountFilters?.date,
-     currenciesIds: accountFilters?.currenciesIds,
-     accountTypeIds: accountFilters?.accountTypeIds,
+      limit: limit,
+      offset: offset,
+      sort: accountFilters?.sort == Sort.ascending
+          ? OrderingMode.asc
+          : OrderingMode.desc,
+      description: accountFilters?.description,
+      name: accountFilters?.name,
+      amountFrom: accountFilters?.amountFrom,
+      amountTo: accountFilters?.amountTo,
+      date: accountFilters?.date,
+      currenciesIds: accountFilters?.currenciesIds,
+      accountTypeIds: accountFilters?.accountTypeIds,
     );
 
     return accounts.toDomainList();

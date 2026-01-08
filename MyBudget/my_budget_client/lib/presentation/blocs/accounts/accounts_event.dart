@@ -104,7 +104,10 @@ class UpdateAccountTypeForMultipleAccounts extends AccountsEvent {
   final List<String> accountIds;
   final String accountTypeId;
 
-  const UpdateAccountTypeForMultipleAccounts(this.accountIds, this.accountTypeId);
+  const UpdateAccountTypeForMultipleAccounts(
+    this.accountIds,
+    this.accountTypeId,
+  );
 
   @override
   List<Object> get props => [accountIds, accountTypeId];

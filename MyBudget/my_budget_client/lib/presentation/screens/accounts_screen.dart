@@ -16,8 +16,7 @@ import 'package:my_budget_client/presentation/widgets/account_list_item.dart';
 import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
-import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart'
-    show FilterMode, DateStep;
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/presentation/widgets/total_balance_summary_widget.dart';
 
 class AccountsScreen extends StatefulWidget {

@@ -203,11 +203,8 @@ class ApplyAdvancedFilter extends TransactionsEvent {
 }
 
 class ClearAdvancedFilter extends TransactionsEvent {
-
   const ClearAdvancedFilter();
-
 }
-
 
 class TransactionTypeFilterChanged extends TransactionsEvent {
   final TransactionTypeFilter transactionType;

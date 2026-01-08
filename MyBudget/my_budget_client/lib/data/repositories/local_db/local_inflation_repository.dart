@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/core/mappers/inflation_rate_mapper.dart';
 import 'package:my_budget_client/domain/entities/inflation_rate.dart';
@@ -16,12 +17,20 @@ class LocalInflationRepository implements InflationRepository {
 
   @override
   Future<List<InflationRateDomain>> getInflationRatesFiltered({
-    DateTime? date,
+    int limit = 50,
+    int offset = 0,
+    DateTime? dateFrom,
+    DateTime? dateTo,
     String? country,
+    bool sortAscending = false,
   }) async {
     final driftRates = await _dao.getInflationRatesFiltered(
-      date: date,
+      limit: limit,
+      offset: offset,
+      dateFrom: dateFrom,
+      dateTo: dateTo,
       country: country,
+      sort: sortAscending ? OrderingMode.asc : OrderingMode.desc,
     );
     return driftRates.toDomainList();
   }

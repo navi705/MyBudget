@@ -1188,18 +1188,30 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
       select(inflationRates).get();
 
   Future<List<InflationRate>> getInflationRatesFiltered({
-    DateTime? date,
+    int limit = 50,
+    int offset = 0,
+    DateTime? dateFrom,
+    DateTime? dateTo,
     String? country,
+    OrderingMode sort = OrderingMode.desc,
   }) {
     final query = select(inflationRates);
-    if (date != null) {
-      query.where((tbl) => tbl.date.equals(date));
+
+    if (dateFrom != null) {
+      query.where((tbl) => tbl.date.isBiggerOrEqualValue(dateFrom));
     }
-    if (country != null) {
+    if (dateTo != null) {
+      query.where((tbl) => tbl.date.isSmallerOrEqualValue(dateTo));
+    }
+
+    if (country != null && country.isNotEmpty) {
       query.where((tbl) => tbl.country.equals(country));
-    } else {
-      query.where((tbl) => tbl.country.isNull());
     }
+
+    query.orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
+
+    query.limit(limit, offset: offset);
+
     return query.get();
   }
 
@@ -1239,10 +1251,13 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
   AssetEntriesDao(super.db);
 
   Future<List<AssetEntry>> getAssetData({
+    int limit = 50,
+    int offset = 0,
     String? assetId,
     String? accountId, // Added
     DateTime? startDate,
     DateTime? endDate,
+    OrderingMode sort = OrderingMode.desc,
   }) {
     final query = select(assetEntries);
     if (assetId != null) {
@@ -1257,6 +1272,10 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     if (endDate != null) {
       query.where((t) => t.date.isSmallerOrEqualValue(endDate));
     }
+
+    query.orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
+    query.limit(limit, offset: offset);
+
     return query.get();
   }
 

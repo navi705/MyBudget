@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_date_pickers/flutter_date_pickers.dart' as date_pickers;
 import 'package:intl/intl.dart';
-import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 
 enum PickerVisibility { visible, hidden }
 

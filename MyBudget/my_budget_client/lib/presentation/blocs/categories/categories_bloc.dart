@@ -14,8 +14,7 @@ import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
-import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart'
-    show DateStep, FilterMode;
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 
 part 'categories_event.dart';
 part 'categories_state.dart';

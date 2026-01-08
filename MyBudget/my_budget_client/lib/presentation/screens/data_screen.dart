@@ -177,10 +177,10 @@ class _InflationView extends StatelessWidget {
     return Scaffold(
       body: BlocBuilder<InflationBloc, InflationState>(
         builder: (context, state) {
-          if (state is InflationLoadInProgress) {
+          if (state.status == InflationStatus.loading) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (state is InflationLoadSuccess) {
+          if (state.status == InflationStatus.success) {
             if (state.rates.isEmpty) {
               return const Center(child: Text('No inflation rates added.'));
             }
@@ -239,8 +239,8 @@ class _InflationView extends StatelessWidget {
               },
             );
           }
-          if (state is InflationFailure) {
-            return Center(child: Text('Error: ${state.message}'));
+          if (state.status == InflationStatus.failure) {
+            return Center(child: Text('Error: ${state.errorMessage}'));
           }
           return const Center(child: Text('Start adding inflation records.'));
         },
@@ -444,10 +444,10 @@ class _AssetView extends StatelessWidget {
     return Scaffold(
       body: BlocBuilder<AssetBloc, AssetState>(
         builder: (context, state) {
-          if (state is AssetLoadInProgress) {
+          if (state.status == AssetStatus.loading) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (state is AssetLoadSuccess) {
+          if (state.status == AssetStatus.success) {
             if (state.assetData.isEmpty) {
               return const Center(child: Text('No asset data added.'));
             }
@@ -508,8 +508,8 @@ class _AssetView extends StatelessWidget {
               },
             );
           }
-          if (state is AssetFailure) {
-            return Center(child: Text('Error: ${state.message}'));
+          if (state.status == AssetStatus.failure) {
+            return Center(child: Text('Error: ${state.errorMessage}'));
           }
           return const Center(child: Text('Start adding asset records.'));
         },

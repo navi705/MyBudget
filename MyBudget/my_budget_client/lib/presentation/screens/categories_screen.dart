@@ -13,9 +13,8 @@ import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/delete_category_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
-import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart'
-    show DateStep, FilterMode;
-import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart';
+
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/presentation/widgets/category_filter_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';

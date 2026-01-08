@@ -3,10 +3,10 @@ import 'package:my_budget_client/core/database/app_database.dart' as drift;
 import 'package:my_budget_client/core/mappers/category_mapper.dart';
 import 'package:my_budget_client/core/mappers/category_with_total_mapper.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart'
     as domain;
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
-import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 
 class LocalCategoryRepository implements CategoryRepository {
   final drift.AppDatabase _appDatabase;

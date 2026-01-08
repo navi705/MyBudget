@@ -1,29 +1,84 @@
 part of 'inflation_bloc.dart';
 
-abstract class InflationState extends Equatable {
-  const InflationState();
+enum InflationStatus { initial, loading, success, failure }
 
-  @override
-  List<Object?> get props => [];
-}
-
-class InflationInitial extends InflationState {}
-
-class InflationLoadInProgress extends InflationState {}
-
-class InflationLoadSuccess extends InflationState {
+class InflationState extends Equatable {
+  final InflationStatus status;
   final List<InflationRateDomain> rates;
+  final bool hasMore;
+  final int offset;
+  final int limit;
+  final bool isLoadingMore;
+  final DateStep dateStep;
+  final FilterMode filterMode;
+  final DateTime activeDate;
+  final DateTimeRange? activeDateRange;
+  final Sort sort;
+  final String? errorMessage;
+  final int totalCount;
 
-  const InflationLoadSuccess({this.rates = const []});
+  const InflationState({
+    this.status = InflationStatus.initial,
+    this.rates = const [],
+    this.hasMore = true,
+    this.offset = 0,
+    this.limit = 50,
+    this.isLoadingMore = false,
+    this.dateStep = DateStep.month,
+    this.filterMode = FilterMode.date,
+    required this.activeDate,
+    this.activeDateRange,
+    this.sort = Sort.descending,
+    this.errorMessage,
+    this.totalCount = 0,
+  });
+
+  InflationState copyWith({
+    InflationStatus? status,
+    List<InflationRateDomain>? rates,
+    bool? hasMore,
+    int? offset,
+    int? limit,
+    bool? isLoadingMore,
+    DateStep? dateStep,
+    FilterMode? filterMode,
+    DateTime? activeDate,
+    DateTimeRange? activeDateRange,
+    Sort? sort,
+    String? errorMessage,
+    int? totalCount,
+  }) {
+    return InflationState(
+      status: status ?? this.status,
+      rates: rates ?? this.rates,
+      hasMore: hasMore ?? this.hasMore,
+      offset: offset ?? this.offset,
+      limit: limit ?? this.limit,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      dateStep: dateStep ?? this.dateStep,
+      filterMode: filterMode ?? this.filterMode,
+      activeDate: activeDate ?? this.activeDate,
+      activeDateRange: activeDateRange ?? this.activeDateRange,
+      sort: sort ?? this.sort,
+      errorMessage: errorMessage ?? this.errorMessage,
+      totalCount: totalCount ?? this.totalCount,
+    );
+  }
 
   @override
-  List<Object?> get props => [rates];
-}
-
-class InflationFailure extends InflationState {
-  final String message;
-  const InflationFailure(this.message);
-
-  @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [
+    status,
+    rates,
+    hasMore,
+    offset,
+    limit,
+    isLoadingMore,
+    dateStep,
+    filterMode,
+    activeDate,
+    activeDateRange,
+    sort,
+    errorMessage,
+    totalCount,
+  ];
 }

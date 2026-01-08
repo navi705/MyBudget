@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/advanced_filter_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 
 class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   const FilterDate({super.key});

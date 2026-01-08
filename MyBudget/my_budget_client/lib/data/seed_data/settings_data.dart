@@ -1,7 +1,5 @@
 import 'package:my_budget_client/core/database/app_database.dart';
-import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
-
-import '../../domain/repositories/transaction_repository.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 
 List<SettingsCompanion> getDefaultSettings(String deviceName) {
   return [
