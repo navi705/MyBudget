@@ -7,18 +7,12 @@
 14. Сделать уровень дисирфекации
 15. Сделай свои быстрый курс конвертации и насклько я это проебал по отношению курсу ЦБ
 18. Разработь ML для оценки своей хаты
-20. Там сервак микросервесую архитектуру пощупать все дела for sync 
 29. add to custom widget for display calendar and day for my dashboard l
 30. get data from sms
-31. export data 
-32. Учитывать инфляцию
 33. минимальное прогнозирование по тренду
 
 in diffrent currincies presets
 
-
-Please add page data where will be our data like rates and in futere is going to more.
-Where i need same bar for filters like in other my pages i need to see tranasction mulpie select, delete, change date. I need to functionaly delete or add our exchangeCurrencyRate. 
 
 Others tasks
 1. Add data page to control my currency rate  
