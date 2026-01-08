@@ -45,4 +45,24 @@ class LocalAssetRepository implements AssetRepository {
   Future<void> deleteAssetData(String id) async {
     await _dao.deleteAssetData(id);
   }
+
+  @override
+  Future<List<String>> getAvailableAssetIds() async {
+    return _dao.getAvailableAssetIds();
+  }
+
+  @override
+  Future<int> getAssetDataCount({
+    String? assetId,
+    String? accountId,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
+    return _dao.getAssetDataCount(
+      assetId: assetId,
+      accountId: accountId,
+      startDate: startDate,
+      endDate: endDate,
+    );
+  }
 }

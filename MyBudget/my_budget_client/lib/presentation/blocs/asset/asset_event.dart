@@ -59,6 +59,13 @@ class ChangeAssetSort extends AssetEvent {
   List<Object?> get props => [sort];
 }
 
+class ChangeAssetFilters extends AssetEvent {
+  final String? assetId;
+  const ChangeAssetFilters({this.assetId});
+  @override
+  List<Object?> get props => [assetId];
+}
+
 class AddAssetData extends AssetEvent {
   final AssetDataDomain data;
   const AddAssetData(this.data);

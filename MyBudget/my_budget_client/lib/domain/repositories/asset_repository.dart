@@ -13,4 +13,11 @@ abstract class AssetRepository {
   Future<void> addAssetData(AssetDataDomain data);
   Future<void> updateAssetData(AssetDataDomain data);
   Future<void> deleteAssetData(String id);
+  Future<List<String>> getAvailableAssetIds();
+  Future<int> getAssetDataCount({
+    String? assetId,
+    String? accountId,
+    DateTime? startDate,
+    DateTime? endDate,
+  });
 }

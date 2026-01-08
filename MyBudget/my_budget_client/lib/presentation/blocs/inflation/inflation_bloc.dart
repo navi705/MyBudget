@@ -29,6 +29,7 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     on<ChangeInflationActiveDate>(_onChangeActiveDate);
     on<ChangeInflationActiveDateRange>(_onChangeActiveDateRange);
     on<ChangeInflationSort>(_onChangeSort);
+    on<ChangeInflationFilters>(_onChangeFilters);
     on<AddInflationRate>(_onAddInflationRate);
     on<UpdateInflationRate>(_onUpdateInflationRate);
     on<DeleteInflationRate>(_onDeleteInflationRate);
@@ -42,11 +43,20 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     try {
       final (dateFrom, dateTo) = _getDateRange();
 
+      final count = await _inflationRepository.getInflationRatesCount(
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+        country: state.countryFilter,
+        preset: state.presetFilter,
+      );
+
       final rates = await _inflationRepository.getInflationRatesFiltered(
         limit: state.limit,
         offset: 0,
         dateFrom: dateFrom,
         dateTo: dateTo,
+        country: state.countryFilter,
+        preset: state.presetFilter,
         sortAscending: state.sort == Sort.ascending,
       );
 
@@ -56,7 +66,7 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
           rates: rates,
           offset: rates.length,
           hasMore: rates.length == state.limit,
-          totalCount: 0, // TODO: Implement getCount in repo if needed
+          totalCount: count,
         ),
       );
     } catch (e) {
@@ -162,6 +172,16 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
 
   void _onChangeSort(ChangeInflationSort event, Emitter<InflationState> emit) {
     emit(state.copyWith(sort: event.sort));
+    add(LoadInflationRates());
+  }
+
+  void _onChangeFilters(
+    ChangeInflationFilters event,
+    Emitter<InflationState> emit,
+  ) {
+    emit(
+      state.copyWith(countryFilter: event.country, presetFilter: event.preset),
+    );
     add(LoadInflationRates());
   }
 

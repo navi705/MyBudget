@@ -25,6 +25,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     on<ChangeAssetActiveDate>(_onChangeActiveDate);
     on<ChangeAssetActiveDateRange>(_onChangeActiveDateRange);
     on<ChangeAssetSort>(_onChangeSort);
+    on<ChangeAssetFilters>(_onChangeFilters);
     on<AddAssetData>(_onAddAssetData);
     on<UpdateAssetData>(_onUpdateAssetData);
     on<DeleteAssetData>(_onDeleteAssetData);
@@ -38,10 +39,21 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     try {
       final (dateFrom, dateTo) = _getDateRange();
 
+      // Update selectedAssetId if provided in event, otherwise keep current state
+      if (event.assetId != null) {
+        emit(state.copyWith(selectedAssetId: event.assetId));
+      }
+
+      final count = await _repository.getAssetDataCount(
+        assetId: event.assetId ?? state.selectedAssetId,
+        startDate: dateFrom,
+        endDate: dateTo,
+      );
+
       final data = await _repository.getAssetData(
         limit: state.limit,
         offset: 0,
-        assetId: event.assetId,
+        assetId: event.assetId ?? state.selectedAssetId,
         startDate: dateFrom,
         endDate: dateTo,
         sortAscending: state.sort == Sort.ascending,
@@ -53,7 +65,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
           assetData: data,
           offset: data.length,
           hasMore: data.length == state.limit,
-          totalCount: 0, // TODO: Implement if needed
+          totalCount: count,
         ),
       );
     } catch (e) {
@@ -154,6 +166,11 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
 
   void _onChangeSort(ChangeAssetSort event, Emitter<AssetState> emit) {
     emit(state.copyWith(sort: event.sort));
+    add(const LoadAssetData());
+  }
+
+  void _onChangeFilters(ChangeAssetFilters event, Emitter<AssetState> emit) {
+    emit(state.copyWith(selectedAssetId: event.assetId));
     add(const LoadAssetData());
   }
 

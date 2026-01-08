@@ -1188,29 +1188,31 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
       select(inflationRates).get();
 
   Future<List<InflationRate>> getInflationRatesFiltered({
-    int limit = 50,
-    int offset = 0,
+    required int limit,
+    required int offset,
     DateTime? dateFrom,
     DateTime? dateTo,
     String? country,
+    int? preset,
     OrderingMode sort = OrderingMode.desc,
   }) {
-    final query = select(inflationRates);
+    final query = select(inflationRates)
+      ..limit(limit, offset: offset)
+      ..orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
 
     if (dateFrom != null) {
-      query.where((tbl) => tbl.date.isBiggerOrEqualValue(dateFrom));
+      query.where((t) => t.date.isBiggerOrEqualValue(dateFrom));
     }
     if (dateTo != null) {
-      query.where((tbl) => tbl.date.isSmallerOrEqualValue(dateTo));
+      query.where((t) => t.date.isSmallerOrEqualValue(dateTo));
     }
 
     if (country != null && country.isNotEmpty) {
-      query.where((tbl) => tbl.country.equals(country));
+      query.where((t) => t.country.equals(country));
     }
-
-    query.orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
-
-    query.limit(limit, offset: offset);
+    if (preset != null) {
+      query.where((t) => t.preset.equals(preset));
+    }
 
     return query.get();
   }
@@ -1242,6 +1244,37 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
         .map((row) => row.read(inflationRates.country))
         .get();
     return results.whereType<String>().toList();
+  }
+
+  Future<int> getInflationRatesCount({
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    String? country,
+    int? preset,
+  }) async {
+    final query = selectOnly(inflationRates);
+
+    if (dateFrom != null) {
+      query.where(inflationRates.date.isBiggerOrEqualValue(dateFrom));
+    }
+    if (dateTo != null) {
+      query.where(inflationRates.date.isSmallerOrEqualValue(dateTo));
+    }
+
+    if (country != null && country.isNotEmpty) {
+      query.where(inflationRates.country.equals(country));
+    }
+    if (preset != null) {
+      query.where(inflationRates.preset.equals(preset));
+    }
+
+    final countExp = inflationRates.preset
+        .count(); // Using preset or date or any non-null col
+    query.addColumns([countExp]);
+    final count = await query
+        .map((row) => row.read(countExp))
+        .getSingleOrNull();
+    return count ?? 0;
   }
 }
 
@@ -1279,6 +1312,34 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     return query.get();
   }
 
+  Future<int> getAssetDataCount({
+    String? assetId,
+    String? accountId,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final query = selectOnly(assetEntries);
+    if (assetId != null) {
+      query.where(assetEntries.assetId.equals(assetId));
+    }
+    if (accountId != null) {
+      query.where(assetEntries.accountId.equals(accountId));
+    }
+    if (startDate != null) {
+      query.where(assetEntries.date.isBiggerOrEqualValue(startDate));
+    }
+    if (endDate != null) {
+      query.where(assetEntries.date.isSmallerOrEqualValue(endDate));
+    }
+
+    final countExp = assetEntries.id.count();
+    query.addColumns([countExp]);
+    final count = await query
+        .map((row) => row.read(countExp))
+        .getSingleOrNull();
+    return count ?? 0;
+  }
+
   Future<void> addAssetData(AssetEntriesCompanion data) =>
       into(assetEntries).insert(data);
 
@@ -1287,6 +1348,16 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> deleteAssetData(String id) =>
       (delete(assetEntries)..where((t) => t.id.equals(id))).go();
+
+  Future<List<String>> getAvailableAssetIds() async {
+    final query = selectOnly(assetEntries, distinct: true)
+      ..addColumns([assetEntries.assetId]);
+
+    final results = await query
+        .map((row) => row.read(assetEntries.assetId))
+        .get();
+    return results.whereType<String>().toList();
+  }
 }
 
 @DriftDatabase(

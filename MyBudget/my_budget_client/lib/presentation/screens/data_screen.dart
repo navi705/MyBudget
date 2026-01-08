@@ -11,10 +11,12 @@ import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
 import 'package:my_budget_client/domain/entities/account.dart'; // Added
-import 'package:my_budget_client/domain/repositories/account_repository.dart'; // Added
+import 'package:my_budget_client/domain/repositories/account_repository.dart';
+import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
+import 'package:my_budget_client/domain/repositories/asset_repository.dart'; // Added
 import 'package:uuid/uuid.dart';
-import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
+import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 
 class DataScreen extends StatefulWidget {
@@ -33,6 +35,7 @@ class _DataScreenState extends State<DataScreen> {
       initialIndex: widget.initialTabIndex,
       child: Scaffold(
         appBar: AppBar(
+          toolbarHeight: 0,
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Exchange Rates', icon: Icon(Icons.currency_exchange)),
@@ -548,14 +551,20 @@ class _AssetView extends StatelessWidget {
   }
 }
 
-class _InflationDateAppBar extends StatelessWidget
-    implements PreferredSizeWidget {
+class _InflationDateAppBar extends StatelessWidget {
   final InflationState state;
 
   const _InflationDateAppBar({required this.state});
 
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  void _showFilterDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => BlocProvider.value(
+        value: context.read<InflationBloc>(),
+        child: const _InflationFilterDialog(),
+      ),
+    );
+  }
 
   void _showCustomCalendar(BuildContext context) {
     showModalBottomSheet(
@@ -619,56 +628,6 @@ class _InflationDateAppBar extends StatelessWidget
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final bloc = context.read<InflationBloc>();
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final centerWidget = Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: Icon(Icons.chevron_left, color: onSurface),
-          onPressed: () => _navigate(bloc, -1),
-        ),
-        InkWell(
-          onTap: () => _showCustomCalendar(context),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12.0),
-            alignment: Alignment.center,
-            child: Text(
-              _formatDate(context),
-              style: TextStyle(color: onSurface, fontSize: 18),
-            ),
-          ),
-        ),
-        IconButton(
-          icon: Icon(Icons.chevron_right, color: onSurface),
-          onPressed: () => _navigate(bloc, 1),
-        ),
-        const SizedBox(width: 24),
-        RotatedBox(
-          quarterTurns: state.sort == Sort.ascending ? 2 : 0,
-          child: IconButton(
-            icon: Icon(Icons.sort, color: onSurface),
-            tooltip: 'Sort',
-            onPressed: () {
-              final newSort = state.sort == Sort.ascending
-                  ? Sort.descending
-                  : Sort.ascending;
-              bloc.add(ChangeInflationSort(newSort));
-            },
-          ),
-        ),
-      ],
-    );
-
-    return GenericFilterAppBar(
-      centerWidget: centerWidget,
-      totalCountText: 'Total: ${state.rates.length}',
-    );
-  }
-
   void _navigate(InflationBloc bloc, int i) {
     if (state.filterMode == FilterMode.range) return;
 
@@ -682,15 +641,87 @@ class _InflationDateAppBar extends StatelessWidget
     }
     bloc.add(ChangeInflationActiveDate(newDate));
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final bloc = context.read<InflationBloc>();
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Theme.of(context).cardColor,
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.tune),
+            onPressed: () => _showFilterDialog(context),
+            tooltip: 'Filter',
+          ),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.chevron_left, color: onSurface),
+                  onPressed: () => _navigate(bloc, -1),
+                ),
+                InkWell(
+                  onTap: () => _showCustomCalendar(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    alignment: Alignment.center,
+                    child: Text(
+                      _formatDate(context),
+                      style: TextStyle(color: onSurface, fontSize: 18),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.chevron_right, color: onSurface),
+                  onPressed: () => _navigate(bloc, 1),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            'Total: ${state.totalCount}',
+            style: TextStyle(color: onSurface, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 8),
+          RotatedBox(
+            quarterTurns: state.sort == Sort.ascending ? 2 : 0,
+            child: IconButton(
+              icon: Icon(Icons.sort, color: onSurface),
+              tooltip: 'Sort',
+              onPressed: () {
+                final newSort = state.sort == Sort.ascending
+                    ? Sort.descending
+                    : Sort.ascending;
+                bloc.add(ChangeInflationSort(newSort));
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _AssetDateAppBar extends StatelessWidget implements PreferredSizeWidget {
+class _AssetDateAppBar extends StatelessWidget {
   final AssetState state;
 
   const _AssetDateAppBar({required this.state});
 
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  void _showFilterDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => BlocProvider.value(
+        value: context.read<AssetBloc>(),
+        child: const _AssetFilterDialog(),
+      ),
+    );
+  }
 
   void _showCustomCalendar(BuildContext context) {
     showModalBottomSheet(
@@ -754,56 +785,6 @@ class _AssetDateAppBar extends StatelessWidget implements PreferredSizeWidget {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final bloc = context.read<AssetBloc>();
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final centerWidget = Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: Icon(Icons.chevron_left, color: onSurface),
-          onPressed: () => _navigate(bloc, -1),
-        ),
-        InkWell(
-          onTap: () => _showCustomCalendar(context),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12.0),
-            alignment: Alignment.center,
-            child: Text(
-              _formatDate(context),
-              style: TextStyle(color: onSurface, fontSize: 18),
-            ),
-          ),
-        ),
-        IconButton(
-          icon: Icon(Icons.chevron_right, color: onSurface),
-          onPressed: () => _navigate(bloc, 1),
-        ),
-        const SizedBox(width: 24),
-        RotatedBox(
-          quarterTurns: state.sort == Sort.ascending ? 2 : 0,
-          child: IconButton(
-            icon: Icon(Icons.sort, color: onSurface),
-            tooltip: 'Sort',
-            onPressed: () {
-              final newSort = state.sort == Sort.ascending
-                  ? Sort.descending
-                  : Sort.ascending;
-              bloc.add(ChangeAssetSort(newSort));
-            },
-          ),
-        ),
-      ],
-    );
-
-    return GenericFilterAppBar(
-      centerWidget: centerWidget,
-      totalCountText: 'Total: ${state.assetData.length}',
-    );
-  }
-
   void _navigate(AssetBloc bloc, int i) {
     if (state.filterMode == FilterMode.range) return;
 
@@ -816,5 +797,296 @@ class _AssetDateAppBar extends StatelessWidget implements PreferredSizeWidget {
       newDate = DateTime(newDate.year + i, newDate.month, newDate.day);
     }
     bloc.add(ChangeAssetActiveDate(newDate));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bloc = context.read<AssetBloc>();
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Theme.of(context).cardColor,
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.tune),
+            onPressed: () => _showFilterDialog(context),
+            tooltip: 'Filter',
+          ),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.chevron_left, color: onSurface),
+                  onPressed: () => _navigate(bloc, -1),
+                ),
+                InkWell(
+                  onTap: () => _showCustomCalendar(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    alignment: Alignment.center,
+                    child: Text(
+                      _formatDate(context),
+                      style: TextStyle(color: onSurface, fontSize: 18),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.chevron_right, color: onSurface),
+                  onPressed: () => _navigate(bloc, 1),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            'Total: ${state.totalCount}',
+            style: TextStyle(color: onSurface, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 8),
+          RotatedBox(
+            quarterTurns: state.sort == Sort.ascending ? 2 : 0,
+            child: IconButton(
+              icon: Icon(Icons.sort, color: onSurface),
+              tooltip: 'Sort',
+              onPressed: () {
+                final newSort = state.sort == Sort.ascending
+                    ? Sort.descending
+                    : Sort.ascending;
+                bloc.add(ChangeAssetSort(newSort));
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InflationFilterDialog extends StatefulWidget {
+  const _InflationFilterDialog();
+
+  @override
+  State<_InflationFilterDialog> createState() => _InflationFilterDialogState();
+}
+
+class _InflationFilterDialogState extends State<_InflationFilterDialog> {
+  late Future<List<String>> _countriesFuture;
+  late TextEditingController _presetController;
+  // Temporary state for the dialog before applying
+  String? _selectedCountry;
+
+  @override
+  void initState() {
+    super.initState();
+    _countriesFuture = sl<InflationRepository>().getAvailableCountries();
+    final state = context.read<InflationBloc>().state;
+    _selectedCountry = state.countryFilter;
+    _presetController = TextEditingController(
+      text: state.presetFilter?.toString() ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _presetController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectCountry(List<String> availableCountries) async {
+    final result = await showDialog<List<String>>(
+      context: context,
+      builder: (_) => MultiSelectDialog<String>(
+        items: availableCountries,
+        selectedIds: _selectedCountry != null ? [_selectedCountry!] : [],
+        itemBuilder: (item) => Text(item),
+        idGetter: (item) => item,
+        stringGetter: (item) => item,
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedCountry = result.isNotEmpty ? result.first : null;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Filter Inflation Rates'),
+      content: FutureBuilder<List<String>>(
+        future: _countriesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const SizedBox(
+              height: 100,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (snapshot.hasError) {
+            return Text('Error: ${snapshot.error}');
+          }
+
+          final countries = snapshot.data ?? [];
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('Country'),
+                subtitle: Text(_selectedCountry ?? 'All Countries'),
+                trailing: const Icon(Icons.arrow_drop_down),
+                onTap: () => _selectCountry(countries),
+                shape: RoundedRectangleBorder(
+                  side: BorderSide(color: Theme.of(context).dividerColor),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _presetController,
+                decoration: const InputDecoration(
+                  labelText: 'Preset',
+                  hintText: 'Filter by preset value',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            // Clear filters
+            setState(() {
+              _selectedCountry = null;
+              _presetController.clear();
+            });
+            final bloc = context.read<InflationBloc>();
+            bloc.add(const ChangeInflationFilters(country: null));
+            Navigator.pop(context);
+          },
+          child: const Text('Clear'),
+        ),
+        TextButton(
+          onPressed: () {
+            final bloc = context.read<InflationBloc>();
+            bloc.add(
+              ChangeInflationFilters(
+                country: _selectedCountry,
+                preset: int.tryParse(_presetController.text),
+              ),
+            );
+            Navigator.pop(context);
+          },
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+}
+
+class _AssetFilterDialog extends StatefulWidget {
+  const _AssetFilterDialog();
+
+  @override
+  State<_AssetFilterDialog> createState() => _AssetFilterDialogState();
+}
+
+class _AssetFilterDialogState extends State<_AssetFilterDialog> {
+  late Future<List<String>> _assetIdsFuture;
+  String? _selectedAssetId;
+
+  @override
+  void initState() {
+    super.initState();
+    _assetIdsFuture = sl<AssetRepository>().getAvailableAssetIds();
+    _selectedAssetId = context.read<AssetBloc>().state.selectedAssetId;
+  }
+
+  Future<void> _selectAsset(List<String> assets) async {
+    final result = await showDialog<List<String>>(
+      context: context,
+      builder: (_) => MultiSelectDialog<String>(
+        items: assets,
+        selectedIds: _selectedAssetId != null ? [_selectedAssetId!] : [],
+        itemBuilder: (item) => Text(item),
+        idGetter: (item) => item,
+        stringGetter: (item) => item,
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedAssetId = result.isNotEmpty ? result.first : null;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Filter Assets'),
+      content: FutureBuilder<List<String>>(
+        future: _assetIdsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const SizedBox(
+              height: 100,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (snapshot.hasError) {
+            return Text('Error: ${snapshot.error}');
+          }
+
+          final assets = snapshot.data ?? [];
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('Asset'),
+                subtitle: Text(_selectedAssetId ?? 'All Assets'),
+                trailing: const Icon(Icons.arrow_drop_down),
+                onTap: () => _selectAsset(assets),
+                shape: RoundedRectangleBorder(
+                  side: BorderSide(color: Theme.of(context).dividerColor),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            setState(() {
+              _selectedAssetId = null;
+            });
+            context.read<AssetBloc>().add(
+              const ChangeAssetFilters(assetId: null),
+            );
+            Navigator.pop(context);
+          },
+          child: const Text('Clear'),
+        ),
+        TextButton(
+          onPressed: () {
+            context.read<AssetBloc>().add(
+              ChangeAssetFilters(assetId: _selectedAssetId),
+            );
+            Navigator.pop(context);
+          },
+          child: const Text('Apply'),
+        ),
+      ],
+    );
   }
 }

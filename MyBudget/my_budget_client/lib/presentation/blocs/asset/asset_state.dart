@@ -34,7 +34,10 @@ class AssetState extends Equatable {
     this.sort = Sort.descending,
     this.errorMessage,
     this.totalCount = 0,
+    this.selectedAssetId,
   });
+
+  final String? selectedAssetId;
 
   AssetState copyWith({
     AssetStatus? status,
@@ -50,6 +53,7 @@ class AssetState extends Equatable {
     Sort? sort,
     String? errorMessage,
     int? totalCount,
+    String? selectedAssetId,
   }) {
     return AssetState(
       status: status ?? this.status,
@@ -65,6 +69,7 @@ class AssetState extends Equatable {
       sort: sort ?? this.sort,
       errorMessage: errorMessage ?? this.errorMessage,
       totalCount: totalCount ?? this.totalCount,
+      selectedAssetId: selectedAssetId ?? this.selectedAssetId,
     );
   }
 
@@ -83,5 +88,6 @@ class AssetState extends Equatable {
     sort,
     errorMessage,
     totalCount,
+    selectedAssetId,
   ];
 }

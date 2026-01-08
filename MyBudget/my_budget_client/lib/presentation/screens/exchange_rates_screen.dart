@@ -379,87 +379,139 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
     final bloc = context.read<ExchangeRatesBloc>();
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
-    // Using a more compact layout to fit Currencies.
-    // Row: [Nav Left] [Date] [Nav Right] [Sort] | [From] [To]
-    final centerWidget = SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: Icon(Icons.chevron_left, color: onSurface),
-            onPressed: () => _navigate(bloc, -1),
-          ),
-          InkWell(
-            onTap: () => _showCustomCalendar(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                vertical: 12.0,
-                horizontal: 8.0,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                _formatDate(context),
-                style: TextStyle(color: onSurface, fontSize: 16),
-              ),
+    final centerWidget = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: Icon(Icons.tune, color: onSurface),
+          tooltip: 'Filter',
+          onPressed: () => _showFilterDialog(context),
+        ),
+        IconButton(
+          icon: Icon(Icons.chevron_left, color: onSurface),
+          onPressed: () => _navigate(bloc, -1),
+        ),
+        InkWell(
+          onTap: () => _showCustomCalendar(context),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12.0),
+            alignment: Alignment.center,
+            child: Text(
+              _formatDate(context),
+              style: TextStyle(color: onSurface, fontSize: 18),
             ),
           ),
-          IconButton(
-            icon: Icon(Icons.chevron_right, color: onSurface),
-            onPressed: () => _navigate(bloc, 1),
+        ),
+        IconButton(
+          icon: Icon(Icons.chevron_right, color: onSurface),
+          onPressed: () => _navigate(bloc, 1),
+        ),
+        const SizedBox(width: 24),
+        RotatedBox(
+          quarterTurns: state.sort == Sort.ascending ? 2 : 0,
+          child: IconButton(
+            icon: Icon(Icons.sort, color: onSurface),
+            tooltip: 'Sort',
+            onPressed: () {
+              final newSort = state.sort == Sort.ascending
+                  ? Sort.descending
+                  : Sort.ascending;
+              bloc.add(ChangeExchangeRatesSort(newSort));
+            },
           ),
-          const SizedBox(width: 8),
-          RotatedBox(
-            quarterTurns: state.sort == Sort.ascending ? 2 : 0,
-            child: IconButton(
-              icon: Icon(Icons.sort, color: onSurface),
-              tooltip: 'Sort',
-              onPressed: () {
-                final newSort = state.sort == Sort.ascending
-                    ? Sort.descending
-                    : Sort.ascending;
-                bloc.add(ChangeExchangeRatesSort(newSort));
-              },
-            ),
-          ),
-          const SizedBox(width: 16),
-          // Currency Filters
-          _buildCurrencyDropdown(
-            context,
-            'From',
-            state.fromCurrencyFilter,
-            state.currencies,
-            (val) => bloc.add(
-              ChangeExchangeRatesFilters(
-                date: state
-                    .activeDate, // Keeping activeDate in sync if needed by legacy
-                fromCurrency: val,
-                toCurrency: state.toCurrencyFilter,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          _buildCurrencyDropdown(
-            context,
-            'To',
-            state.toCurrencyFilter,
-            state.currencies,
-            (val) => bloc.add(
-              ChangeExchangeRatesFilters(
-                date: state.activeDate,
-                fromCurrency: state.fromCurrencyFilter,
-                toCurrency: val,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
 
     return GenericFilterAppBar(
       centerWidget: centerWidget,
       totalCountText: 'Total: ${state.totalCount}',
+    );
+  }
+
+  void _showFilterDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => BlocProvider.value(
+        value: context.read<ExchangeRatesBloc>(),
+        child: _ExchangeRatesFilterDialog(state: state),
+      ),
+    );
+  }
+}
+
+class _ExchangeRatesFilterDialog extends StatefulWidget {
+  final ExchangeRatesState state;
+  const _ExchangeRatesFilterDialog({required this.state});
+
+  @override
+  State<_ExchangeRatesFilterDialog> createState() =>
+      _ExchangeRatesFilterDialogState();
+}
+
+class _ExchangeRatesFilterDialogState
+    extends State<_ExchangeRatesFilterDialog> {
+  String? _fromCurrency;
+  String? _toCurrency;
+
+  @override
+  void initState() {
+    super.initState();
+    _fromCurrency = widget.state.fromCurrencyFilter;
+    _toCurrency = widget.state.toCurrencyFilter;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Filter Exchange Rates'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildCurrencyDropdown(
+            context,
+            'From Currency',
+            _fromCurrency,
+            widget.state.currencies,
+            (val) => setState(() => _fromCurrency = val),
+          ),
+          const SizedBox(height: 16),
+          _buildCurrencyDropdown(
+            context,
+            'To Currency',
+            _toCurrency,
+            widget.state.currencies,
+            (val) => setState(() => _toCurrency = val),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            context.read<ExchangeRatesBloc>().add(
+              const ChangeExchangeRatesFilters(
+                fromCurrency: null,
+                toCurrency: null,
+              ),
+            );
+            Navigator.pop(context);
+          },
+          child: const Text('Clear'),
+        ),
+        FilledButton(
+          onPressed: () {
+            context.read<ExchangeRatesBloc>().add(
+              ChangeExchangeRatesFilters(
+                fromCurrency: _fromCurrency,
+                toCurrency: _toCurrency,
+              ),
+            );
+            Navigator.pop(context);
+          },
+          child: const Text('Apply'),
+        ),
+      ],
     );
   }
 
@@ -470,32 +522,26 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
     List<Currency> currencies,
     ValueChanged<String?> onChanged,
   ) {
-    // Reusing the simple dropdown style from before but smaller logic
-    return SizedBox(
-      width: 100, // Fixed width to fit
-      child: DropdownButtonFormField<String>(
-        value: value,
-        isExpanded: true,
-        decoration: InputDecoration(
-          labelText: hint,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 0,
-          ),
-          border: const OutlineInputBorder(),
-        ),
-        items: currencies.map((c) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: hint,
+        border: const OutlineInputBorder(),
+      ),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('All')),
+        ...currencies.map((c) {
           return DropdownMenuItem(
             value: c.code,
             child: Text(
-              c.code,
-              style: const TextStyle(fontSize: 12),
+              '${c.name} (${c.code})',
               overflow: TextOverflow.ellipsis,
             ),
           );
-        }).toList(),
-        onChanged: onChanged,
-      ),
+        }),
+      ],
+      onChanged: onChanged,
     );
   }
 }
