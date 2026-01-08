@@ -46,8 +46,8 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
       final count = await _inflationRepository.getInflationRatesCount(
         dateFrom: dateFrom,
         dateTo: dateTo,
-        country: state.countryFilter,
-        preset: state.presetFilter,
+        countries: state.countryFilters,
+        presets: state.presetFilters,
       );
 
       final rates = await _inflationRepository.getInflationRatesFiltered(
@@ -55,8 +55,8 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
         offset: 0,
         dateFrom: dateFrom,
         dateTo: dateTo,
-        country: state.countryFilter,
-        preset: state.presetFilter,
+        countries: state.countryFilters,
+        presets: state.presetFilters,
         sortAscending: state.sort == Sort.ascending,
       );
 
@@ -94,6 +94,8 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
         offset: state.offset,
         dateFrom: dateFrom,
         dateTo: dateTo,
+        countries: state.countryFilters,
+        presets: state.presetFilters,
         sortAscending: state.sort == Sort.ascending,
       );
 
@@ -180,7 +182,10 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     Emitter<InflationState> emit,
   ) {
     emit(
-      state.copyWith(countryFilter: event.country, presetFilter: event.preset),
+      state.copyWith(
+        countryFilters: event.countries,
+        presetFilters: event.presets,
+      ),
     );
     add(LoadInflationRates());
   }

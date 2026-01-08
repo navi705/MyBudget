@@ -21,8 +21,8 @@ class LocalInflationRepository implements InflationRepository {
     int offset = 0,
     DateTime? dateFrom,
     DateTime? dateTo,
-    String? country,
-    int? preset,
+    List<String>? countries,
+    List<int>? presets,
     bool sortAscending = false,
   }) async {
     final driftRates = await _dao.getInflationRatesFiltered(
@@ -30,8 +30,8 @@ class LocalInflationRepository implements InflationRepository {
       offset: offset,
       dateFrom: dateFrom,
       dateTo: dateTo,
-      country: country,
-      preset: preset,
+      countries: countries,
+      presets: presets,
       sort: sortAscending ? OrderingMode.asc : OrderingMode.desc,
     );
     return driftRates.toDomainList();
@@ -63,17 +63,22 @@ class LocalInflationRepository implements InflationRepository {
   }
 
   @override
+  Future<List<int>> getAvailablePresets() async {
+    return _dao.getAvailablePresets();
+  }
+
+  @override
   Future<int> getInflationRatesCount({
     DateTime? dateFrom,
     DateTime? dateTo,
-    String? country,
-    int? preset,
+    List<String>? countries,
+    List<int>? presets,
   }) {
     return _dao.getInflationRatesCount(
       dateFrom: dateFrom,
       dateTo: dateTo,
-      country: country,
-      preset: preset,
+      countries: countries,
+      presets: presets,
     );
   }
 }

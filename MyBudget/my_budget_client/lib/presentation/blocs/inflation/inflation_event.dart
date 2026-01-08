@@ -47,11 +47,11 @@ class ChangeInflationSort extends InflationEvent {
 }
 
 class ChangeInflationFilters extends InflationEvent {
-  final String? country;
-  final int? preset;
-  const ChangeInflationFilters({this.country, this.preset});
+  final List<String>? countries;
+  final List<int>? presets;
+  const ChangeInflationFilters({this.countries, this.presets});
   @override
-  List<Object?> get props => [country, preset];
+  List<Object?> get props => [countries, presets];
 }
 
 class AddInflationRate extends InflationEvent {

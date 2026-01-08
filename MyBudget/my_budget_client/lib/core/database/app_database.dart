@@ -1059,6 +1059,7 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     DateTime? date,
     String? fromCurrency,
     String? toCurrency,
+    List<int>? presets,
   }) {
     final query = select(exchangeRates);
 
@@ -1077,6 +1078,9 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     if (toCurrency != null) {
       query.where((t) => t.toCurrencyCode.equals(toCurrency));
     }
+    if (presets != null && presets.isNotEmpty) {
+      query.where((t) => t.preset.isIn(presets));
+    }
 
     query.orderBy([
       (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
@@ -1090,6 +1094,7 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     DateTime? date,
     String? fromCurrency,
     String? toCurrency,
+    List<int>? presets,
   }) async {
     final query = selectOnly(exchangeRates);
 
@@ -1107,6 +1112,9 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     if (toCurrency != null) {
       query.where(exchangeRates.toCurrencyCode.equals(toCurrency));
     }
+    if (presets != null && presets.isNotEmpty) {
+      query.where(exchangeRates.preset.isIn(presets));
+    }
 
     final countExp = exchangeRates.date.count();
     query.addColumns([countExp]);
@@ -1114,6 +1122,16 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
         .map((row) => row.read(countExp))
         .getSingleOrNull();
     return count ?? 0;
+  }
+
+  Future<List<int>> getAvailablePresets() async {
+    final query = selectOnly(exchangeRates, distinct: true)
+      ..addColumns([exchangeRates.preset]);
+
+    final results = await query
+        .map((row) => row.read(exchangeRates.preset))
+        .get();
+    return results.whereType<int>().toList();
   }
 
   Future<List<ExchangeRate>> getLatestExchangeRates(DateTime date) {
@@ -1192,8 +1210,8 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
     required int offset,
     DateTime? dateFrom,
     DateTime? dateTo,
-    String? country,
-    int? preset,
+    List<String>? countries,
+    List<int>? presets,
     OrderingMode sort = OrderingMode.desc,
   }) {
     final query = select(inflationRates)
@@ -1207,11 +1225,11 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
       query.where((t) => t.date.isSmallerOrEqualValue(dateTo));
     }
 
-    if (country != null && country.isNotEmpty) {
-      query.where((t) => t.country.equals(country));
+    if (countries != null && countries.isNotEmpty) {
+      query.where((t) => t.country.isIn(countries));
     }
-    if (preset != null) {
-      query.where((t) => t.preset.equals(preset));
+    if (presets != null && presets.isNotEmpty) {
+      query.where((t) => t.preset.isIn(presets));
     }
 
     return query.get();
@@ -1249,8 +1267,8 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
   Future<int> getInflationRatesCount({
     DateTime? dateFrom,
     DateTime? dateTo,
-    String? country,
-    int? preset,
+    List<String>? countries,
+    List<int>? presets,
   }) async {
     final query = selectOnly(inflationRates);
 
@@ -1261,11 +1279,11 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
       query.where(inflationRates.date.isSmallerOrEqualValue(dateTo));
     }
 
-    if (country != null && country.isNotEmpty) {
-      query.where(inflationRates.country.equals(country));
+    if (countries != null && countries.isNotEmpty) {
+      query.where(inflationRates.country.isIn(countries));
     }
-    if (preset != null) {
-      query.where(inflationRates.preset.equals(preset));
+    if (presets != null && presets.isNotEmpty) {
+      query.where(inflationRates.preset.isIn(presets));
     }
 
     final countExp = inflationRates.preset
@@ -1275,6 +1293,17 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
         .map((row) => row.read(countExp))
         .getSingleOrNull();
     return count ?? 0;
+  }
+
+  Future<List<int>> getAvailablePresets() async {
+    final query = selectOnly(inflationRates, distinct: true)
+      ..addColumns([inflationRates.preset])
+      ..where(inflationRates.preset.isNotNull());
+
+    final results = await query
+        .map((row) => row.read(inflationRates.preset))
+        .get();
+    return results.whereType<int>().toList();
   }
 }
 
@@ -1290,6 +1319,14 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     String? accountId, // Added
     DateTime? startDate,
     DateTime? endDate,
+    String? name,
+    List<String>? assetTypes,
+    String? description,
+    List<String>? currencyCodes,
+    List<String>? sources,
+    List<int>? presets,
+    double? minValue,
+    double? maxValue,
     OrderingMode sort = OrderingMode.desc,
   }) {
     final query = select(assetEntries);
@@ -1306,6 +1343,31 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
       query.where((t) => t.date.isSmallerOrEqualValue(endDate));
     }
 
+    if (name != null && name.isNotEmpty) {
+      query.where((t) => t.name.like('%$name%'));
+    }
+    if (assetTypes != null && assetTypes.isNotEmpty) {
+      query.where((t) => t.assetType.isIn(assetTypes));
+    }
+    if (description != null && description.isNotEmpty) {
+      query.where((t) => t.description.like('%$description%'));
+    }
+    if (currencyCodes != null && currencyCodes.isNotEmpty) {
+      query.where((t) => t.currencyCode.isIn(currencyCodes));
+    }
+    if (sources != null && sources.isNotEmpty) {
+      query.where((t) => t.source.isIn(sources));
+    }
+    if (presets != null && presets.isNotEmpty) {
+      query.where((t) => t.preset.isIn(presets));
+    }
+    if (minValue != null) {
+      query.where((t) => t.value.isBiggerOrEqualValue(minValue));
+    }
+    if (maxValue != null) {
+      query.where((t) => t.value.isSmallerOrEqualValue(maxValue));
+    }
+
     query.orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
     query.limit(limit, offset: offset);
 
@@ -1317,6 +1379,14 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     String? accountId,
     DateTime? startDate,
     DateTime? endDate,
+    String? name,
+    List<String>? assetTypes,
+    String? description,
+    List<String>? currencyCodes,
+    List<String>? sources,
+    List<int>? presets,
+    double? minValue,
+    double? maxValue,
   }) async {
     final query = selectOnly(assetEntries);
     if (assetId != null) {
@@ -1330,6 +1400,31 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     }
     if (endDate != null) {
       query.where(assetEntries.date.isSmallerOrEqualValue(endDate));
+    }
+
+    if (name != null && name.isNotEmpty) {
+      query.where(assetEntries.name.like('%$name%'));
+    }
+    if (assetTypes != null && assetTypes.isNotEmpty) {
+      query.where(assetEntries.assetType.isIn(assetTypes));
+    }
+    if (description != null && description.isNotEmpty) {
+      query.where(assetEntries.description.like('%$description%'));
+    }
+    if (currencyCodes != null && currencyCodes.isNotEmpty) {
+      query.where(assetEntries.currencyCode.isIn(currencyCodes));
+    }
+    if (sources != null && sources.isNotEmpty) {
+      query.where(assetEntries.source.isIn(sources));
+    }
+    if (presets != null && presets.isNotEmpty) {
+      query.where(assetEntries.preset.isIn(presets));
+    }
+    if (minValue != null) {
+      query.where(assetEntries.value.isBiggerOrEqualValue(minValue));
+    }
+    if (maxValue != null) {
+      query.where(assetEntries.value.isSmallerOrEqualValue(maxValue));
     }
 
     final countExp = assetEntries.id.count();
@@ -1357,6 +1452,39 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
         .map((row) => row.read(assetEntries.assetId))
         .get();
     return results.whereType<String>().toList();
+  }
+
+  Future<List<String>> getAvailableAssetTypes() async {
+    final query = selectOnly(assetEntries, distinct: true)
+      ..addColumns([assetEntries.assetType])
+      ..where(assetEntries.assetType.isNotNull());
+
+    final results = await query
+        .map((row) => row.read(assetEntries.assetType))
+        .get();
+    return results.whereType<String>().toList();
+  }
+
+  Future<List<String>> getAvailableSources() async {
+    final query = selectOnly(assetEntries, distinct: true)
+      ..addColumns([assetEntries.source])
+      ..where(assetEntries.source.isNotNull());
+
+    final results = await query
+        .map((row) => row.read(assetEntries.source))
+        .get();
+    return results.whereType<String>().toList();
+  }
+
+  Future<List<int>> getAvailablePresets() async {
+    final query = selectOnly(assetEntries, distinct: true)
+      ..addColumns([assetEntries.preset])
+      ..where(assetEntries.preset.isNotNull());
+
+    final results = await query
+        .map((row) => row.read(assetEntries.preset))
+        .get();
+    return results.whereType<int>().toList();
   }
 }
 

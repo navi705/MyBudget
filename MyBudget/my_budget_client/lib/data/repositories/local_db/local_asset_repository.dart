@@ -17,6 +17,14 @@ class LocalAssetRepository implements AssetRepository {
     String? accountId, // Added
     DateTime? startDate,
     DateTime? endDate,
+    String? name,
+    List<String>? assetTypes,
+    String? description,
+    List<String>? currencyCodes,
+    List<String>? sources,
+    List<int>? presets,
+    double? minValue,
+    double? maxValue,
     bool sortAscending = false,
   }) async {
     final entries = await _dao.getAssetData(
@@ -26,6 +34,14 @@ class LocalAssetRepository implements AssetRepository {
       accountId: accountId, // Added
       startDate: startDate,
       endDate: endDate,
+      name: name,
+      assetTypes: assetTypes,
+      description: description,
+      currencyCodes: currencyCodes,
+      sources: sources,
+      presets: presets,
+      minValue: minValue,
+      maxValue: maxValue,
       sort: sortAscending ? OrderingMode.asc : OrderingMode.desc,
     );
     return entries.map((e) => e.toDomain()).toList();
@@ -52,17 +68,48 @@ class LocalAssetRepository implements AssetRepository {
   }
 
   @override
+  Future<List<String>> getAvailableAssetTypes() async {
+    return _dao.getAvailableAssetTypes();
+  }
+
+  @override
+  Future<List<String>> getAvailableSources() async {
+    return _dao.getAvailableSources();
+  }
+
+  @override
+  Future<List<int>> getAvailablePresets() async {
+    return _dao.getAvailablePresets();
+  }
+
+  @override
   Future<int> getAssetDataCount({
     String? assetId,
     String? accountId,
     DateTime? startDate,
     DateTime? endDate,
+    String? name,
+    List<String>? assetTypes,
+    String? description,
+    List<String>? currencyCodes,
+    List<String>? sources,
+    List<int>? presets,
+    double? minValue,
+    double? maxValue,
   }) {
     return _dao.getAssetDataCount(
       assetId: assetId,
       accountId: accountId,
       startDate: startDate,
       endDate: endDate,
+      name: name,
+      assetTypes: assetTypes,
+      description: description,
+      currencyCodes: currencyCodes,
+      sources: sources,
+      presets: presets,
+      minValue: minValue,
+      maxValue: maxValue,
     );
   }
 }

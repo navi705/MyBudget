@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-class MultiSelectDialog<T> extends StatefulWidget {
+class MultiSelectDialog<T, K> extends StatefulWidget {
   final List<T> items;
-  final List<String> selectedIds;
+  final List<K> selectedIds;
   final Widget Function(T) itemBuilder;
-  final String Function(T) idGetter;
+  final K Function(T) idGetter;
   final String Function(T) stringGetter;
 
   const MultiSelectDialog({
@@ -17,17 +17,18 @@ class MultiSelectDialog<T> extends StatefulWidget {
   });
 
   @override
-  State<MultiSelectDialog<T>> createState() => _MultiSelectDialogState<T>();
+  State<MultiSelectDialog<T, K>> createState() =>
+      _MultiSelectDialogState<T, K>();
 }
 
-class _MultiSelectDialogState<T> extends State<MultiSelectDialog<T>> {
-  late final List<String> _selectedIds;
+class _MultiSelectDialogState<T, K> extends State<MultiSelectDialog<T, K>> {
+  late final List<K> _selectedIds;
   String _searchText = '';
 
   @override
   void initState() {
     super.initState();
-    _selectedIds = List<String>.from(widget.selectedIds);
+    _selectedIds = List<K>.from(widget.selectedIds);
   }
 
   @override
@@ -57,8 +58,10 @@ class _MultiSelectDialogState<T> extends State<MultiSelectDialog<T>> {
                 labelText: 'Search',
                 prefixIcon: Icon(Icons.search),
                 isDense: true,
-                contentPadding:
-                    EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
+                contentPadding: EdgeInsets.symmetric(
+                  vertical: 12.0,
+                  horizontal: 8.0,
+                ),
               ),
             ),
             SizedBox(

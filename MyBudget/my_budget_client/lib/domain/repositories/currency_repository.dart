@@ -34,12 +34,17 @@ abstract class CurrencyRepository {
     DateTime? date,
     String? fromCurrency,
     String? toCurrency,
+    List<int>? presets,
   });
   Future<int> getExchangeRatesCount({
     DateTime? date,
     String? fromCurrency,
     String? toCurrency,
+    List<int>? presets,
   });
+
+  Future<List<int>> getAvailablePresets();
+
   Future<void> addExchangeRate(ExchangeRateDomain exchangeRate);
   Future<void> addExchangeRates(List<ExchangeRateDomain> exchangeRates);
   Future<void> updateExchangeRate(ExchangeRateDomain exchangeRate);

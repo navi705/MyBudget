@@ -12,6 +12,7 @@ class ExchangeRatesState extends Equatable {
   final Sort sort;
   final String? fromCurrencyFilter;
   final String? toCurrencyFilter;
+  final List<int> presetFilters;
   final List<Currency> currencies;
   final String? error;
   final bool hasReachedMax;
@@ -27,11 +28,14 @@ class ExchangeRatesState extends Equatable {
     this.sort = Sort.descending,
     this.fromCurrencyFilter,
     this.toCurrencyFilter,
+    this.presetFilters = const [],
     this.currencies = const [],
     this.error,
     this.hasReachedMax = false,
     this.totalCount = 0,
-  }) : activeDate = activeDate ?? DateTime.now();
+  }) : activeDate =
+           activeDate ??
+           DateTime.now(); // Note: removed const from constructor because of initializer? No, activeDate is final. But DateTime.now() is not const. So constructor can't be const.
 
   ExchangeRatesState copyWith({
     ExchangeRatesStatus? status,
@@ -43,6 +47,7 @@ class ExchangeRatesState extends Equatable {
     Sort? sort,
     String? fromCurrencyFilter,
     String? toCurrencyFilter,
+    List<int>? presetFilters,
     bool clearFromCurrencyFilter = false,
     bool clearToCurrencyFilter = false,
     List<Currency>? currencies,
@@ -64,6 +69,7 @@ class ExchangeRatesState extends Equatable {
       toCurrencyFilter: clearToCurrencyFilter
           ? null
           : (toCurrencyFilter ?? this.toCurrencyFilter),
+      presetFilters: presetFilters ?? this.presetFilters,
       currencies: currencies ?? this.currencies,
       error: error ?? this.error,
       hasReachedMax: hasReachedMax ?? this.hasReachedMax,
@@ -82,6 +88,7 @@ class ExchangeRatesState extends Equatable {
     sort,
     fromCurrencyFilter,
     toCurrencyFilter,
+    presetFilters,
     currencies,
     error,
     hasReachedMax,

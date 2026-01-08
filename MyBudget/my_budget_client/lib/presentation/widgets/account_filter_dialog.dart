@@ -301,7 +301,7 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
                     onTap: () async {
                       final List<String>? result = await showDialog(
                         context: context,
-                        builder: (_) => MultiSelectDialog<AccountType>(
+                        builder: (_) => MultiSelectDialog<AccountType, String>(
                           items: state.accountTypes,
                           selectedIds: _selectedAccountTypeIds,
                           itemBuilder: (item) => Text(item.name),
@@ -331,7 +331,7 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
                     onTap: () async {
                       final List<String>? result = await showDialog(
                         context: context,
-                        builder: (_) => MultiSelectDialog<Currency>(
+                        builder: (_) => MultiSelectDialog<Currency, String>(
                           items: state.currencies,
                           selectedIds: _selectedCurrencyIds,
                           itemBuilder: (item) => Text(item.code),

@@ -28,15 +28,17 @@ class ChangeExchangeRatesFilters extends ExchangeRatesEvent {
   final DateTime? date;
   final String? fromCurrency;
   final String? toCurrency;
+  final List<int>? presets;
 
   const ChangeExchangeRatesFilters({
     this.date,
     this.fromCurrency,
     this.toCurrency,
+    this.presets,
   });
 
   @override
-  List<Object?> get props => [date, fromCurrency, toCurrency];
+  List<Object?> get props => [date, fromCurrency, toCurrency, presets];
 }
 
 class ChangeExchangeRatesDateStep extends ExchangeRatesEvent {

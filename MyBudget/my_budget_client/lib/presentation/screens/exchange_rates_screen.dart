@@ -8,6 +8,8 @@ import 'package:my_budget_client/presentation/blocs/exchange_rates/exchange_rate
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
+import 'package:my_budget_client/domain/repositories/currency_repository.dart';
+import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
 
 class ExchangeRatesScreen extends StatelessWidget {
   final bool isStandalone;
@@ -454,38 +456,88 @@ class _ExchangeRatesFilterDialogState
     extends State<_ExchangeRatesFilterDialog> {
   String? _fromCurrency;
   String? _toCurrency;
+  List<int> _selectedPresets = [];
+  List<int> _availablePresets = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _fromCurrency = widget.state.fromCurrencyFilter;
     _toCurrency = widget.state.toCurrencyFilter;
+    _selectedPresets = List.from(widget.state.presetFilters);
+    _loadPresets();
+  }
+
+  Future<void> _loadPresets() async {
+    try {
+      final repo = context.read<CurrencyRepository>();
+      final presets = await repo.getAvailablePresets();
+      if (mounted) {
+        setState(() {
+          _availablePresets = presets;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Filter Exchange Rates'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildCurrencyDropdown(
-            context,
-            'From Currency',
-            _fromCurrency,
-            widget.state.currencies,
-            (val) => setState(() => _fromCurrency = val),
-          ),
-          const SizedBox(height: 16),
-          _buildCurrencyDropdown(
-            context,
-            'To Currency',
-            _toCurrency,
-            widget.state.currencies,
-            (val) => setState(() => _toCurrency = val),
-          ),
-        ],
-      ),
+      content: _isLoading
+          ? const SizedBox(
+              height: 100,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildCurrencyDropdown(
+                  context,
+                  'From Currency',
+                  _fromCurrency,
+                  widget.state.currencies,
+                  (val) => setState(() => _fromCurrency = val),
+                ),
+                const SizedBox(height: 16),
+                _buildCurrencyDropdown(
+                  context,
+                  'To Currency',
+                  _toCurrency,
+                  widget.state.currencies,
+                  (val) => setState(() => _toCurrency = val),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  title: const Text('Presets'),
+                  subtitle: Text(
+                    _selectedPresets.isEmpty
+                        ? 'All'
+                        : '${_selectedPresets.length} selected',
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () async {
+                    final results = await showDialog<List<int>>(
+                      context: context,
+                      builder: (context) => MultiSelectDialog<int, int>(
+                        items: _availablePresets,
+                        selectedIds: _selectedPresets,
+                        itemBuilder: (item) => Text(item.toString()),
+                        idGetter: (item) => item,
+                        stringGetter: (item) => item.toString(),
+                      ),
+                    );
+                    if (results != null) {
+                      setState(() => _selectedPresets = results);
+                    }
+                  },
+                ),
+              ],
+            ),
       actions: [
         TextButton(
           onPressed: () {
@@ -493,6 +545,7 @@ class _ExchangeRatesFilterDialogState
               const ChangeExchangeRatesFilters(
                 fromCurrency: null,
                 toCurrency: null,
+                presets: null,
               ),
             );
             Navigator.pop(context);
@@ -505,6 +558,7 @@ class _ExchangeRatesFilterDialogState
               ChangeExchangeRatesFilters(
                 fromCurrency: _fromCurrency,
                 toCurrency: _toCurrency,
+                presets: _selectedPresets.isEmpty ? null : _selectedPresets,
               ),
             );
             Navigator.pop(context);

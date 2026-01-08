@@ -151,6 +151,7 @@ class LocalCurrencyRepository implements CurrencyRepository {
     DateTime? date,
     String? fromCurrency,
     String? toCurrency,
+    List<int>? presets,
   }) async {
     final rates = await database.exchangeRatesDao.getExchangeRatesFiltered(
       limit: limit,
@@ -158,6 +159,7 @@ class LocalCurrencyRepository implements CurrencyRepository {
       date: date,
       fromCurrency: fromCurrency,
       toCurrency: toCurrency,
+      presets: presets,
     );
     return rates.toDomainList();
   }
@@ -167,12 +169,19 @@ class LocalCurrencyRepository implements CurrencyRepository {
     DateTime? date,
     String? fromCurrency,
     String? toCurrency,
+    List<int>? presets,
   }) {
     return database.exchangeRatesDao.getExchangeRatesCount(
       date: date,
       fromCurrency: fromCurrency,
       toCurrency: toCurrency,
+      presets: presets,
     );
+  }
+
+  @override
+  Future<List<int>> getAvailablePresets() {
+    return database.exchangeRatesDao.getAvailablePresets();
   }
 
   @override

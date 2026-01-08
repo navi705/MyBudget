@@ -48,6 +48,14 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
         assetId: event.assetId ?? state.selectedAssetId,
         startDate: dateFrom,
         endDate: dateTo,
+        name: state.nameFilter,
+        assetTypes: state.assetTypeFilters,
+        description: state.descriptionFilter,
+        currencyCodes: state.currencyCodeFilters,
+        sources: state.sourceFilters,
+        presets: state.presetFilters,
+        minValue: state.minValueFilter,
+        maxValue: state.maxValueFilter,
       );
 
       final data = await _repository.getAssetData(
@@ -56,6 +64,14 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
         assetId: event.assetId ?? state.selectedAssetId,
         startDate: dateFrom,
         endDate: dateTo,
+        name: state.nameFilter,
+        assetTypes: state.assetTypeFilters,
+        description: state.descriptionFilter,
+        currencyCodes: state.currencyCodeFilters,
+        sources: state.sourceFilters,
+        presets: state.presetFilters,
+        minValue: state.minValueFilter,
+        maxValue: state.maxValueFilter,
         sortAscending: state.sort == Sort.ascending,
       );
 
@@ -91,6 +107,14 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
         assetId: event.assetId,
         startDate: dateFrom,
         endDate: dateTo,
+        name: state.nameFilter,
+        assetTypes: state.assetTypeFilters,
+        description: state.descriptionFilter,
+        currencyCodes: state.currencyCodeFilters,
+        sources: state.sourceFilters,
+        presets: state.presetFilters,
+        minValue: state.minValueFilter,
+        maxValue: state.maxValueFilter,
         sortAscending: state.sort == Sort.ascending,
       );
 
@@ -170,7 +194,19 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
   }
 
   void _onChangeFilters(ChangeAssetFilters event, Emitter<AssetState> emit) {
-    emit(state.copyWith(selectedAssetId: event.assetId));
+    emit(
+      state.copyWith(
+        selectedAssetId: event.assetId,
+        nameFilter: event.name,
+        assetTypeFilters: event.assetTypes,
+        descriptionFilter: event.description,
+        currencyCodeFilters: event.currencyCodes,
+        sourceFilters: event.sources,
+        presetFilters: event.presets,
+        minValueFilter: event.minValue,
+        maxValueFilter: event.maxValue,
+      ),
+    );
     add(const LoadAssetData());
   }
 

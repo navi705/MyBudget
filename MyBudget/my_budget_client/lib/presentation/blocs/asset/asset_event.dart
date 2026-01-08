@@ -61,9 +61,39 @@ class ChangeAssetSort extends AssetEvent {
 
 class ChangeAssetFilters extends AssetEvent {
   final String? assetId;
-  const ChangeAssetFilters({this.assetId});
+  final String? name;
+  final List<String>? assetTypes;
+  final String? description;
+  final List<String>? currencyCodes;
+  final List<String>? sources;
+  final List<int>? presets;
+  final double? minValue;
+  final double? maxValue;
+
+  const ChangeAssetFilters({
+    this.assetId,
+    this.name,
+    this.assetTypes,
+    this.description,
+    this.currencyCodes,
+    this.sources,
+    this.presets,
+    this.minValue,
+    this.maxValue,
+  });
+
   @override
-  List<Object?> get props => [assetId];
+  List<Object?> get props => [
+    assetId,
+    name,
+    assetTypes,
+    description,
+    currencyCodes,
+    sources,
+    presets,
+    minValue,
+    maxValue,
+  ];
 }
 
 class AddAssetData extends AssetEvent {

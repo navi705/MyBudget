@@ -31,12 +31,12 @@ class InflationState extends Equatable {
     this.sort = Sort.descending,
     this.errorMessage,
     this.totalCount = 0,
-    this.countryFilter,
-    this.presetFilter,
+    this.countryFilters,
+    this.presetFilters,
   });
 
-  final String? countryFilter;
-  final int? presetFilter;
+  final List<String>? countryFilters;
+  final List<int>? presetFilters;
 
   InflationState copyWith({
     InflationStatus? status,
@@ -52,8 +52,8 @@ class InflationState extends Equatable {
     Sort? sort,
     String? errorMessage,
     int? totalCount,
-    String? countryFilter,
-    int? presetFilter,
+    List<String>? countryFilters,
+    List<int>? presetFilters,
   }) {
     return InflationState(
       status: status ?? this.status,
@@ -69,8 +69,8 @@ class InflationState extends Equatable {
       sort: sort ?? this.sort,
       errorMessage: errorMessage ?? this.errorMessage,
       totalCount: totalCount ?? this.totalCount,
-      countryFilter: countryFilter ?? this.countryFilter,
-      presetFilter: presetFilter ?? this.presetFilter,
+      countryFilters: countryFilters ?? this.countryFilters,
+      presetFilters: presetFilters ?? this.presetFilters,
     );
   }
 
@@ -89,7 +89,7 @@ class InflationState extends Equatable {
     sort,
     errorMessage,
     totalCount,
-    countryFilter,
-    presetFilter,
+    countryFilters,
+    presetFilters,
   ];
 }

@@ -71,6 +71,7 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
             : state.activeDate, // Mapping new state to Repo's date
         fromCurrency: state.fromCurrencyFilter,
         toCurrency: state.toCurrencyFilter,
+        presets: state.presetFilters,
       );
 
       final totalCount = await _currencyRepository.getExchangeRatesCount(
@@ -79,6 +80,7 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
             : state.activeDate,
         fromCurrency: state.fromCurrencyFilter,
         toCurrency: state.toCurrencyFilter,
+        presets: state.presetFilters,
       );
 
       final currencies = state.currencies.isEmpty
@@ -139,6 +141,7 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
       state.copyWith(
         fromCurrencyFilter: event.fromCurrency,
         toCurrencyFilter: event.toCurrency,
+        presetFilters: event.presets,
         clearFromCurrencyFilter: event.fromCurrency == null,
         clearToCurrencyFilter: event.toCurrency == null,
         status: ExchangeRatesStatus.loading,

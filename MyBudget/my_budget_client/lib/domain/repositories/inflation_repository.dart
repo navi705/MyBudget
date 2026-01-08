@@ -7,18 +7,19 @@ abstract class InflationRepository {
     required int offset,
     DateTime? dateFrom,
     DateTime? dateTo,
-    String? country,
-    int? preset,
+    List<String>? countries,
+    List<int>? presets,
     bool sortAscending = false,
   });
   Future<void> addInflationRate(InflationRateDomain rate);
   Future<void> updateInflationRate(InflationRateDomain rate);
   Future<void> deleteInflationRate(DateTime date, String? country, int preset);
   Future<List<String>> getAvailableCountries();
+  Future<List<int>> getAvailablePresets();
   Future<int> getInflationRatesCount({
     DateTime? dateFrom,
     DateTime? dateTo,
-    String? country,
-    int? preset,
+    List<String>? countries,
+    List<int>? presets,
   });
 }

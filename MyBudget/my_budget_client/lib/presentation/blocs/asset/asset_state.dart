@@ -35,9 +35,25 @@ class AssetState extends Equatable {
     this.errorMessage,
     this.totalCount = 0,
     this.selectedAssetId,
+    this.nameFilter,
+    this.assetTypeFilters,
+    this.descriptionFilter,
+    this.currencyCodeFilters,
+    this.sourceFilters,
+    this.presetFilters,
+    this.minValueFilter,
+    this.maxValueFilter,
   });
 
   final String? selectedAssetId;
+  final String? nameFilter;
+  final List<String>? assetTypeFilters;
+  final String? descriptionFilter;
+  final List<String>? currencyCodeFilters;
+  final List<String>? sourceFilters;
+  final List<int>? presetFilters;
+  final double? minValueFilter;
+  final double? maxValueFilter;
 
   AssetState copyWith({
     AssetStatus? status,
@@ -54,6 +70,14 @@ class AssetState extends Equatable {
     String? errorMessage,
     int? totalCount,
     String? selectedAssetId,
+    String? nameFilter,
+    List<String>? assetTypeFilters,
+    String? descriptionFilter,
+    List<String>? currencyCodeFilters,
+    List<String>? sourceFilters,
+    List<int>? presetFilters,
+    double? minValueFilter,
+    double? maxValueFilter,
   }) {
     return AssetState(
       status: status ?? this.status,
@@ -70,6 +94,14 @@ class AssetState extends Equatable {
       errorMessage: errorMessage ?? this.errorMessage,
       totalCount: totalCount ?? this.totalCount,
       selectedAssetId: selectedAssetId ?? this.selectedAssetId,
+      nameFilter: nameFilter ?? this.nameFilter,
+      assetTypeFilters: assetTypeFilters ?? this.assetTypeFilters,
+      descriptionFilter: descriptionFilter ?? this.descriptionFilter,
+      currencyCodeFilters: currencyCodeFilters ?? this.currencyCodeFilters,
+      sourceFilters: sourceFilters ?? this.sourceFilters,
+      presetFilters: presetFilters ?? this.presetFilters,
+      minValueFilter: minValueFilter ?? this.minValueFilter,
+      maxValueFilter: maxValueFilter ?? this.maxValueFilter,
     );
   }
 
@@ -89,5 +121,13 @@ class AssetState extends Equatable {
     errorMessage,
     totalCount,
     selectedAssetId,
+    nameFilter,
+    assetTypeFilters,
+    descriptionFilter,
+    currencyCodeFilters,
+    sourceFilters,
+    presetFilters,
+    minValueFilter,
+    maxValueFilter,
   ];
 }
