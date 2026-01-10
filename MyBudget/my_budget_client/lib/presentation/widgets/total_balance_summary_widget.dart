@@ -294,11 +294,11 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.labelSmall),
+        SelectableText(label, style: Theme.of(context).textTheme.labelSmall),
         const SizedBox(height: 4),
         // Nominal
-        RichText(
-          text: TextSpan(
+        SelectableText.rich(
+          TextSpan(
             style: TextStyle(
               color: Theme.of(context).textTheme.bodyMedium?.color,
               fontSize: 18,
@@ -323,14 +323,14 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
         ),
         // Real
         const SizedBox(height: 2),
-        RichText(
-          text: TextSpan(
+        SelectableText.rich(
+          TextSpan(
             style: TextStyle(
               color: Theme.of(context).textTheme.bodySmall?.color,
               fontSize: 14,
             ),
             children: [
-              TextSpan(text: 'Real: '),
+              const TextSpan(text: 'Real: '),
               TextSpan(text: formatter.format(real).replaceAll(',', ' ')),
               if (realDiff.abs() >= 0.01) ...[
                 const TextSpan(text: ' '),

@@ -106,8 +106,8 @@ class _AccountListItemState extends State<AccountListItem> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              RichText(
-                text: TextSpan(
+              SelectableText.rich(
+                TextSpan(
                   style: TextStyle(
                     color: Theme.of(context).textTheme.bodyMedium?.color,
                     fontSize: 16, // Increased 13 -> 16
@@ -136,8 +136,8 @@ class _AccountListItemState extends State<AccountListItem> {
                 ),
               ),
               if (realValue != null)
-                RichText(
-                  text: TextSpan(
+                SelectableText.rich(
+                  TextSpan(
                     style: TextStyle(
                       color: Theme.of(context).textTheme.bodySmall?.color,
                       fontSize: 14, // Increased 11 -> 14

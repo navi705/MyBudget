@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/core/database/app_database.dart'
-    hide Category, Currency;
+    hide Category, Currency, Style;
 import 'package:my_budget_client/core/services/data_import_service.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
@@ -14,6 +14,11 @@ import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/import/import_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
+import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
+import 'package:my_budget_client/core/utils/icon_utils.dart';
+import 'package:my_budget_client/domain/entities/style.dart';
+import 'package:my_budget_client/domain/entities/icon_type.dart';
+import 'package:collection/collection.dart';
 
 class ImportScreen extends StatelessWidget {
   const ImportScreen({super.key});
@@ -288,7 +293,53 @@ class _ImportViewState extends State<_ImportView> {
                                 builder: (_) => _MappingDialog<Account>(
                                   title: 'Map "$accountName" to...',
                                   items: existingAccounts,
-                                  itemBuilder: (account) => Text(account.name),
+                                  itemBuilder: (account) {
+                                    final stylesState = context
+                                        .read<StylesBloc>()
+                                        .state;
+                                    List<Style> styles = [];
+                                    if (stylesState is StylesLoadSuccess) {
+                                      styles = stylesState.styles;
+                                    }
+                                    final style =
+                                        styles.firstWhereOrNull(
+                                          (s) => s.id == account.styleId,
+                                        ) ??
+                                        Style(
+                                          id: 'default',
+                                          name: 'Default',
+                                          iconName: 'account_balance',
+                                          colorHex: '#808080',
+                                          iconType: IconType.material,
+                                        );
+
+                                    Color color = Colors.grey;
+                                    try {
+                                      String hex = style.colorHex.replaceAll(
+                                        '#',
+                                        '',
+                                      );
+                                      if (hex.length == 6) hex = 'FF$hex';
+                                      color = Color(int.parse('0x$hex'));
+                                    } catch (_) {}
+
+                                    return Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8.0),
+                                          decoration: BoxDecoration(
+                                            color: color.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(
+                                              8.0,
+                                            ),
+                                          ),
+                                          child: IconUtils.getIconWidget(style),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(account.name),
+                                      ],
+                                    );
+                                  },
                                 ),
                               );
                               if (selectedId != null && mounted) {
@@ -373,8 +424,53 @@ class _ImportViewState extends State<_ImportView> {
                                 builder: (_) => _MappingDialog<Category>(
                                   title: 'Map "$categoryName" to...',
                                   items: existingCategories,
-                                  itemBuilder: (category) =>
-                                      Text(category.name),
+                                  itemBuilder: (category) {
+                                    final stylesState = context
+                                        .read<StylesBloc>()
+                                        .state;
+                                    List<Style> styles = [];
+                                    if (stylesState is StylesLoadSuccess) {
+                                      styles = stylesState.styles;
+                                    }
+                                    final style =
+                                        styles.firstWhereOrNull(
+                                          (s) => s.id == category.styleId,
+                                        ) ??
+                                        Style(
+                                          id: 'default',
+                                          name: 'Default',
+                                          iconName: 'category',
+                                          colorHex: '#808080',
+                                          iconType: IconType.material,
+                                        );
+
+                                    Color color = Colors.grey;
+                                    try {
+                                      String hex = style.colorHex.replaceAll(
+                                        '#',
+                                        '',
+                                      );
+                                      if (hex.length == 6) hex = 'FF$hex';
+                                      color = Color(int.parse('0x$hex'));
+                                    } catch (_) {}
+
+                                    return Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8.0),
+                                          decoration: BoxDecoration(
+                                            color: color.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(
+                                              8.0,
+                                            ),
+                                          ),
+                                          child: IconUtils.getIconWidget(style),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(category.name),
+                                      ],
+                                    );
+                                  },
                                 ),
                               );
                               if (selectedId != null && mounted) {
