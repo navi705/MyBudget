@@ -114,7 +114,11 @@ class Accounts extends Table {
   DateTimeColumn get creationDate =>
       dateTime().clientDefault(() => DateTime.now())();
   TextColumn get country => text().nullable()();
+  TextColumn get assetId => text().nullable()(); // Added
+  RealColumn get assetQuantity =>
+      real().withDefault(const Constant(0.0))(); // Added
 
+  @override
   @override
   Set<Column> get primaryKey => {id};
 }

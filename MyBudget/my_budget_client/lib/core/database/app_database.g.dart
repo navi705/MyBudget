@@ -2049,6 +2049,29 @@ class $AccountsTable extends Accounts
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _assetIdMeta = const VerificationMeta(
+    'assetId',
+  );
+  @override
+  late final GeneratedColumn<String> assetId = GeneratedColumn<String>(
+    'asset_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _assetQuantityMeta = const VerificationMeta(
+    'assetQuantity',
+  );
+  @override
+  late final GeneratedColumn<double> assetQuantity = GeneratedColumn<double>(
+    'asset_quantity',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2061,6 +2084,8 @@ class $AccountsTable extends Accounts
     accountTypeId,
     creationDate,
     country,
+    assetId,
+    assetQuantity,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2156,6 +2181,21 @@ class $AccountsTable extends Accounts
         country.isAcceptableOrUnknown(data['country']!, _countryMeta),
       );
     }
+    if (data.containsKey('asset_id')) {
+      context.handle(
+        _assetIdMeta,
+        assetId.isAcceptableOrUnknown(data['asset_id']!, _assetIdMeta),
+      );
+    }
+    if (data.containsKey('asset_quantity')) {
+      context.handle(
+        _assetQuantityMeta,
+        assetQuantity.isAcceptableOrUnknown(
+          data['asset_quantity']!,
+          _assetQuantityMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2205,6 +2245,14 @@ class $AccountsTable extends Accounts
         DriftSqlType.string,
         data['${effectivePrefix}country'],
       ),
+      assetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}asset_id'],
+      ),
+      assetQuantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}asset_quantity'],
+      )!,
     );
   }
 
@@ -2225,6 +2273,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
   final String accountTypeId;
   final DateTime creationDate;
   final String? country;
+  final String? assetId;
+  final double assetQuantity;
   const DbAccount({
     required this.id,
     required this.name,
@@ -2236,6 +2286,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     required this.accountTypeId,
     required this.creationDate,
     this.country,
+    this.assetId,
+    required this.assetQuantity,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2256,6 +2308,10 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     if (!nullToAbsent || country != null) {
       map['country'] = Variable<String>(country);
     }
+    if (!nullToAbsent || assetId != null) {
+      map['asset_id'] = Variable<String>(assetId);
+    }
+    map['asset_quantity'] = Variable<double>(assetQuantity);
     return map;
   }
 
@@ -2277,6 +2333,10 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
       country: country == null && nullToAbsent
           ? const Value.absent()
           : Value(country),
+      assetId: assetId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assetId),
+      assetQuantity: Value(assetQuantity),
     );
   }
 
@@ -2298,6 +2358,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
       accountTypeId: serializer.fromJson<String>(json['accountTypeId']),
       creationDate: serializer.fromJson<DateTime>(json['creationDate']),
       country: serializer.fromJson<String?>(json['country']),
+      assetId: serializer.fromJson<String?>(json['assetId']),
+      assetQuantity: serializer.fromJson<double>(json['assetQuantity']),
     );
   }
   @override
@@ -2314,6 +2376,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
       'accountTypeId': serializer.toJson<String>(accountTypeId),
       'creationDate': serializer.toJson<DateTime>(creationDate),
       'country': serializer.toJson<String?>(country),
+      'assetId': serializer.toJson<String?>(assetId),
+      'assetQuantity': serializer.toJson<double>(assetQuantity),
     };
   }
 
@@ -2328,6 +2392,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     String? accountTypeId,
     DateTime? creationDate,
     Value<String?> country = const Value.absent(),
+    Value<String?> assetId = const Value.absent(),
+    double? assetQuantity,
   }) => DbAccount(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -2339,6 +2405,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     accountTypeId: accountTypeId ?? this.accountTypeId,
     creationDate: creationDate ?? this.creationDate,
     country: country.present ? country.value : this.country,
+    assetId: assetId.present ? assetId.value : this.assetId,
+    assetQuantity: assetQuantity ?? this.assetQuantity,
   );
   DbAccount copyWithCompanion(AccountsCompanion data) {
     return DbAccount(
@@ -2362,6 +2430,10 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
           ? data.creationDate.value
           : this.creationDate,
       country: data.country.present ? data.country.value : this.country,
+      assetId: data.assetId.present ? data.assetId.value : this.assetId,
+      assetQuantity: data.assetQuantity.present
+          ? data.assetQuantity.value
+          : this.assetQuantity,
     );
   }
 
@@ -2377,7 +2449,9 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
           ..write('styleId: $styleId, ')
           ..write('accountTypeId: $accountTypeId, ')
           ..write('creationDate: $creationDate, ')
-          ..write('country: $country')
+          ..write('country: $country, ')
+          ..write('assetId: $assetId, ')
+          ..write('assetQuantity: $assetQuantity')
           ..write(')'))
         .toString();
   }
@@ -2394,6 +2468,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     accountTypeId,
     creationDate,
     country,
+    assetId,
+    assetQuantity,
   );
   @override
   bool operator ==(Object other) =>
@@ -2408,7 +2484,9 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
           other.styleId == this.styleId &&
           other.accountTypeId == this.accountTypeId &&
           other.creationDate == this.creationDate &&
-          other.country == this.country);
+          other.country == this.country &&
+          other.assetId == this.assetId &&
+          other.assetQuantity == this.assetQuantity);
 }
 
 class AccountsCompanion extends UpdateCompanion<DbAccount> {
@@ -2422,6 +2500,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
   final Value<String> accountTypeId;
   final Value<DateTime> creationDate;
   final Value<String?> country;
+  final Value<String?> assetId;
+  final Value<double> assetQuantity;
   final Value<int> rowid;
   const AccountsCompanion({
     this.id = const Value.absent(),
@@ -2434,6 +2514,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     this.accountTypeId = const Value.absent(),
     this.creationDate = const Value.absent(),
     this.country = const Value.absent(),
+    this.assetId = const Value.absent(),
+    this.assetQuantity = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AccountsCompanion.insert({
@@ -2447,6 +2529,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     required String accountTypeId,
     this.creationDate = const Value.absent(),
     this.country = const Value.absent(),
+    this.assetId = const Value.absent(),
+    this.assetQuantity = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : name = Value(name),
        balance = Value(balance),
@@ -2464,6 +2548,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     Expression<String>? accountTypeId,
     Expression<DateTime>? creationDate,
     Expression<String>? country,
+    Expression<String>? assetId,
+    Expression<double>? assetQuantity,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2478,6 +2564,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
       if (accountTypeId != null) 'account_type_id': accountTypeId,
       if (creationDate != null) 'creation_date': creationDate,
       if (country != null) 'country': country,
+      if (assetId != null) 'asset_id': assetId,
+      if (assetQuantity != null) 'asset_quantity': assetQuantity,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2493,6 +2581,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     Value<String>? accountTypeId,
     Value<DateTime>? creationDate,
     Value<String?>? country,
+    Value<String?>? assetId,
+    Value<double>? assetQuantity,
     Value<int>? rowid,
   }) {
     return AccountsCompanion(
@@ -2507,6 +2597,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
       accountTypeId: accountTypeId ?? this.accountTypeId,
       creationDate: creationDate ?? this.creationDate,
       country: country ?? this.country,
+      assetId: assetId ?? this.assetId,
+      assetQuantity: assetQuantity ?? this.assetQuantity,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2546,6 +2638,12 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     if (country.present) {
       map['country'] = Variable<String>(country.value);
     }
+    if (assetId.present) {
+      map['asset_id'] = Variable<String>(assetId.value);
+    }
+    if (assetQuantity.present) {
+      map['asset_quantity'] = Variable<double>(assetQuantity.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2565,6 +2663,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
           ..write('accountTypeId: $accountTypeId, ')
           ..write('creationDate: $creationDate, ')
           ..write('country: $country, ')
+          ..write('assetId: $assetId, ')
+          ..write('assetQuantity: $assetQuantity, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8983,6 +9083,8 @@ typedef $$AccountsTableCreateCompanionBuilder =
       required String accountTypeId,
       Value<DateTime> creationDate,
       Value<String?> country,
+      Value<String?> assetId,
+      Value<double> assetQuantity,
       Value<int> rowid,
     });
 typedef $$AccountsTableUpdateCompanionBuilder =
@@ -8997,6 +9099,8 @@ typedef $$AccountsTableUpdateCompanionBuilder =
       Value<String> accountTypeId,
       Value<DateTime> creationDate,
       Value<String?> country,
+      Value<String?> assetId,
+      Value<double> assetQuantity,
       Value<int> rowid,
     });
 
@@ -9158,6 +9262,16 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<String> get country => $composableBuilder(
     column: $table.country,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assetId => $composableBuilder(
+    column: $table.assetId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get assetQuantity => $composableBuilder(
+    column: $table.assetQuantity,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9343,6 +9457,16 @@ class $$AccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get assetId => $composableBuilder(
+    column: $table.assetId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get assetQuantity => $composableBuilder(
+    column: $table.assetQuantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CurrenciesTableOrderingComposer get currencyCode {
     final $$CurrenciesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -9467,6 +9591,14 @@ class $$AccountsTableAnnotationComposer
 
   GeneratedColumn<String> get country =>
       $composableBuilder(column: $table.country, builder: (column) => column);
+
+  GeneratedColumn<String> get assetId =>
+      $composableBuilder(column: $table.assetId, builder: (column) => column);
+
+  GeneratedColumn<double> get assetQuantity => $composableBuilder(
+    column: $table.assetQuantity,
+    builder: (column) => column,
+  );
 
   $$CurrenciesTableAnnotationComposer get currencyCode {
     final $$CurrenciesTableAnnotationComposer composer = $composerBuilder(
@@ -9657,6 +9789,8 @@ class $$AccountsTableTableManager
                 Value<String> accountTypeId = const Value.absent(),
                 Value<DateTime> creationDate = const Value.absent(),
                 Value<String?> country = const Value.absent(),
+                Value<String?> assetId = const Value.absent(),
+                Value<double> assetQuantity = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AccountsCompanion(
                 id: id,
@@ -9669,6 +9803,8 @@ class $$AccountsTableTableManager
                 accountTypeId: accountTypeId,
                 creationDate: creationDate,
                 country: country,
+                assetId: assetId,
+                assetQuantity: assetQuantity,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9683,6 +9819,8 @@ class $$AccountsTableTableManager
                 required String accountTypeId,
                 Value<DateTime> creationDate = const Value.absent(),
                 Value<String?> country = const Value.absent(),
+                Value<String?> assetId = const Value.absent(),
+                Value<double> assetQuantity = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AccountsCompanion.insert(
                 id: id,
@@ -9695,6 +9833,8 @@ class $$AccountsTableTableManager
                 accountTypeId: accountTypeId,
                 creationDate: creationDate,
                 country: country,
+                assetId: assetId,
+                assetQuantity: assetQuantity,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

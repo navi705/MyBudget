@@ -16,6 +16,8 @@ extension AccountMapper on drift.DbAccount {
       accountTypeId: accountTypeId,
       creationDate: creationDate,
       country: country,
+      assetId: assetId,
+      assetQuantity: assetQuantity,
     );
   }
 }
@@ -39,6 +41,10 @@ extension AccountCompanionMapper on domain_account.Account {
       country: country == null && nullToAbsent
           ? const Value.absent()
           : Value(country),
+      assetId: assetId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assetId),
+      assetQuantity: Value(assetQuantity),
     );
   }
 }

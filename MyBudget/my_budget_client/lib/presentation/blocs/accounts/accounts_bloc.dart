@@ -355,8 +355,15 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         inflationResults.realBalances,
       );
       for (final accountId in assetValues.keys) {
-        realBalances[accountId] =
-            (realBalances[accountId] ?? 0.0) + assetValues[accountId]!;
+        final account = sortedAccounts.firstWhere((a) => a.id == accountId);
+        if (account.assetId != null) {
+          // If bound to an asset, the balance determines the value, ignoring transactions/history for now
+          realBalances[accountId] = assetValues[accountId]!;
+        } else {
+          // Legacy: Add linked asset values to existing balance
+          realBalances[accountId] =
+              (realBalances[accountId] ?? 0.0) + assetValues[accountId]!;
+        }
       }
 
       await PerformanceLogger().stop('Accounts Screen Load');
@@ -422,6 +429,27 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
 
       double totalValue = 0.0;
       final accountRate = rateMap[account.currencyCode] ?? 1.0;
+
+      // 2. Bound Asset Logic
+      if (account.assetId != null) {
+        // Find latest entry for this assetId
+        final specificAssetHistory = assets
+            .where((a) => a.assetId == account.assetId)
+            .toList();
+
+        if (specificAssetHistory.isNotEmpty) {
+          // Sort by date desc to get latest
+          specificAssetHistory.sort((a, b) => b.date.compareTo(a.date));
+          final latest = specificAssetHistory.first;
+
+          final assetRate = rateMap[latest.currency] ?? 1.0;
+          // Value = Quantity * ValuePerUnit
+          final valueInBase =
+              (latest.value * account.assetQuantity) / assetRate;
+          final valueInAccount = valueInBase * accountRate;
+          totalValue += valueInAccount;
+        }
+      }
 
       for (final asset in latestAssets.values) {
         final assetRate = rateMap[asset.currency] ?? 1.0;
@@ -502,8 +530,13 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           inflationResults.realBalances,
         );
         for (final accountId in assetValues.keys) {
-          realBalances[accountId] =
-              (realBalances[accountId] ?? 0.0) + assetValues[accountId]!;
+          final account = sortedAccounts.firstWhere((a) => a.id == accountId);
+          if (account.assetId != null) {
+            realBalances[accountId] = assetValues[accountId]!;
+          } else {
+            realBalances[accountId] =
+                (realBalances[accountId] ?? 0.0) + assetValues[accountId]!;
+          }
         }
 
         // Period Stats Calculation

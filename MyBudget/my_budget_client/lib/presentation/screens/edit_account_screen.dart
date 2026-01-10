@@ -13,6 +13,8 @@ import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/style_picker_dialog.dart';
+import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/asset/asset_state.dart';
 
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart'; // Added
@@ -35,8 +37,13 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   late TextEditingController _balanceController;
   String? _selectedCurrencyCode;
   String? _selectedCurrencyDesignationId;
+
   String? _selectedStyleId;
-  String? _selectedAccountTypeId; // ADDED
+  String? _selectedAccountTypeId;
+  String? _selectedAssetId; // ADDED
+  late TextEditingController _assetQuantityController; // ADDED
+  double? _currentAssetPrice; // To display price
+  String? _assetCurrency; // To display currency
 
   late Account _initialAccount;
 
@@ -55,14 +62,22 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     _selectedCurrencyCode = _initialAccount.currencyCode;
     _selectedCurrencyDesignationId = _initialAccount.currencyDesignationId;
     _selectedStyleId = _initialAccount.styleId;
+
     _selectedAccountTypeId = _initialAccount.accountTypeId;
+    _selectedAssetId = _initialAccount.assetId;
+    _assetQuantityController = TextEditingController(
+      text: _initialAccount.assetQuantity.toString(),
+    );
+    // Trigger initial balance calculation/update if asset is selected?
+    // For now, just load state.
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _descriptionController.dispose(); // ADDED
+    _descriptionController.dispose();
     _balanceController.dispose();
+    _assetQuantityController.dispose(); // ADDED
     super.dispose();
   }
 
@@ -89,6 +104,10 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
         currencyDesignationId: _selectedCurrencyDesignationId,
         styleId: _selectedStyleId,
         accountTypeId: _selectedAccountTypeId,
+        assetId: _selectedAssetId,
+        assetQuantity: _selectedAssetId != null
+            ? double.tryParse(_assetQuantityController.text) ?? 0.0
+            : 0.0,
       );
 
       // Only dispatch an update if the account has actually changed.
@@ -182,8 +201,11 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                 // Added spacing for new field
                 TextFormField(
                   controller: _balanceController,
+                  readOnly:
+                      _selectedAssetId != null, // Make read-only if asset bound
                   decoration: InputDecoration(
                     labelText: l10n.initialBalanceHint,
+                    filled: _selectedAssetId != null, // Visual cue
                   ),
                   keyboardType: TextInputType.number,
                   validator: (value) {
@@ -196,6 +218,14 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                     return null;
                   },
                 ),
+                if (_selectedAssetId != null)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      'Balance is calculated from Asset Quantity * Price',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
                 const SizedBox(height: 16),
                 BlocBuilder<CurrencyBloc, CurrencyState>(
                   builder: (context, state) {
@@ -368,6 +398,128 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
+
+                // --- ASSET BINDING SECTION ---
+                BlocBuilder<AssetBloc, AssetState>(
+                  builder: (context, state) {
+                    // Get latest versions of unique assets by ID
+                    final uniqueAssets = <String, AssetDataDomain>{};
+                    for (var asset in state.assetData) {
+                      if (!uniqueAssets.containsKey(asset.assetId) ||
+                          asset.date.isAfter(
+                            uniqueAssets[asset.assetId]!.date,
+                          )) {
+                        uniqueAssets[asset.assetId] = asset;
+                      }
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Divider(),
+                        const Text(
+                          'Bind to Asset (Optional)',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: () async {
+                            final selectedId =
+                                await showSingleSelectDialog<String>(
+                                  context: context,
+                                  items: uniqueAssets.keys.toList(),
+                                  title: 'Select Asset',
+                                  selectedItem: _selectedAssetId,
+                                  itemBuilder: (id) {
+                                    final asset = uniqueAssets[id]!;
+                                    return Text(
+                                      '${asset.name} (${asset.assetId})',
+                                    );
+                                  },
+                                  stringGetter: (id) => uniqueAssets[id]!.name,
+                                );
+
+                            if (mounted) {
+                              setState(() {
+                                if (selectedId != null) {
+                                  _selectedAssetId = selectedId;
+                                  final asset = uniqueAssets[selectedId]!;
+                                  _currentAssetPrice = asset.value;
+                                  _assetCurrency = asset.currency;
+
+                                  // Recalculate Balance
+                                  final qty =
+                                      double.tryParse(
+                                        _assetQuantityController.text,
+                                      ) ??
+                                      0.0;
+                                  _balanceController.text = (qty * asset.value)
+                                      .toStringAsFixed(2);
+                                }
+                              });
+                            }
+                          },
+                          child: AbsorbPointer(
+                            child: TextFormField(
+                              key: Key(_selectedAssetId ?? 'no_asset'),
+                              initialValue: _selectedAssetId != null
+                                  ? uniqueAssets[_selectedAssetId]?.name
+                                  : null,
+                              decoration: InputDecoration(
+                                labelText: 'Selected Asset',
+                                helperText: _selectedAssetId != null
+                                    ? 'Balance is calculated automatically'
+                                    : 'Tap to bind an asset',
+                                suffixIcon: _selectedAssetId != null
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear),
+                                        onPressed: () {
+                                          setState(() {
+                                            _selectedAssetId = null;
+                                            _currentAssetPrice = null;
+                                            _assetCurrency = null;
+                                          });
+                                        },
+                                      )
+                                    : null,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+
+                if (_selectedAssetId != null) ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _assetQuantityController,
+                    decoration: InputDecoration(
+                      labelText: 'Asset Quantity',
+                      helperText:
+                          _currentAssetPrice != null && _assetCurrency != null
+                          ? 'Current Price: $_currentAssetPrice $_assetCurrency'
+                          : null,
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    onChanged: (val) {
+                      final qty = double.tryParse(val) ?? 0.0;
+                      if (_currentAssetPrice != null) {
+                        setState(() {
+                          _balanceController.text = (qty * _currentAssetPrice!)
+                              .toStringAsFixed(2);
+                        });
+                      }
+                    },
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+                // --- END ASSET BINDING SECTION ---
+
                 // ASSET LIST Section
                 FutureBuilder<List<AssetDataDomain>>(
                   future: sl<AssetRepository>().getAssetData(
