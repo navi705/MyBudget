@@ -57,6 +57,11 @@ class LocalInflationRepository implements InflationRepository {
   }
 
   @override
+  Future<void> deleteInflationRates(List<InflationRateDomain> rates) async {
+    await _dao.deleteInflationRates(rates);
+  }
+
+  @override
   Future<List<String>> getAvailableCountries() async {
     final countries = await _dao.getAvailableCountries();
     return countries.where((element) => element.isNotEmpty).toList();

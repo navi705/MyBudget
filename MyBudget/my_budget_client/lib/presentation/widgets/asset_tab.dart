@@ -208,10 +208,12 @@ class _AssetTabContent extends StatelessWidget {
           body: AssetView(
             onEdit: (asset) => _showAddEditAssetDialog(context, asset: asset),
           ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () => _showAddEditAssetDialog(context),
-            child: const Icon(Icons.add),
-          ),
+          floatingActionButton: state.isSelectionModeActive
+              ? null
+              : FloatingActionButton(
+                  onPressed: () => _showAddEditAssetDialog(context),
+                  child: const Icon(Icons.add),
+                ),
         );
       },
     );

@@ -82,3 +82,16 @@ class DeleteInflationRate extends InflationEvent {
   @override
   List<Object?> get props => [date, country, preset];
 }
+
+class ToggleInflationSelection extends InflationEvent {
+  final InflationRateDomain rate;
+  const ToggleInflationSelection(this.rate);
+  @override
+  List<Object?> get props => [rate];
+}
+
+class SelectAllInflationRates extends InflationEvent {}
+
+class DeselectAllInflationRates extends InflationEvent {}
+
+class DeleteSelectedInflationRates extends InflationEvent {}

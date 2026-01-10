@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 
 import 'package:my_budget_client/core/enums/filter_enums.dart';
+import 'package:my_budget_client/domain/entities/asset_data.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart';
 import 'asset_event.dart';
 import 'asset_state.dart';
@@ -29,6 +30,10 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     on<AddAssetData>(_onAddAssetData);
     on<UpdateAssetData>(_onUpdateAssetData);
     on<DeleteAssetData>(_onDeleteAssetData);
+    on<ToggleAssetSelection>(_onToggleSelection);
+    on<SelectAllAssets>(_onSelectAll);
+    on<DeselectAllAssets>(_onDeselectAll);
+    on<DeleteSelectedAssets>(_onDeleteSelected);
   }
 
   Future<void> _onLoadAssetData(
@@ -244,6 +249,57 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
   ) async {
     try {
       await _repository.deleteAssetData(event.id);
+      add(const LoadAssetData());
+    } catch (e) {
+      emit(
+        state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
+      );
+    }
+  }
+
+  void _onToggleSelection(
+    ToggleAssetSelection event,
+    Emitter<AssetState> emit,
+  ) {
+    final selectedAssets = Set<AssetDataDomain>.from(state.selectedAssets);
+    if (selectedAssets.contains(event.asset)) {
+      selectedAssets.remove(event.asset);
+    } else {
+      selectedAssets.add(event.asset);
+    }
+
+    emit(
+      state.copyWith(
+        selectedAssets: selectedAssets,
+        isSelectionModeActive: selectedAssets.isNotEmpty,
+      ),
+    );
+  }
+
+  void _onSelectAll(SelectAllAssets event, Emitter<AssetState> emit) {
+    emit(
+      state.copyWith(
+        selectedAssets: Set.from(state.assetData),
+        isSelectionModeActive: true,
+      ),
+    );
+  }
+
+  void _onDeselectAll(DeselectAllAssets event, Emitter<AssetState> emit) {
+    emit(state.copyWith(selectedAssets: {}, isSelectionModeActive: false));
+  }
+
+  Future<void> _onDeleteSelected(
+    DeleteSelectedAssets event,
+    Emitter<AssetState> emit,
+  ) async {
+    try {
+      final idsToDelete = state.selectedAssets
+          .map((e) => e.id)
+          .whereType<String>()
+          .toList();
+      await _repository.deleteAssets(idsToDelete);
+      emit(state.copyWith(selectedAssets: {}, isSelectionModeActive: false));
       add(const LoadAssetData());
     } catch (e) {
       emit(

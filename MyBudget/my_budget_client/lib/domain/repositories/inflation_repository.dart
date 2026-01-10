@@ -14,6 +14,7 @@ abstract class InflationRepository {
   Future<void> addInflationRate(InflationRateDomain rate);
   Future<void> updateInflationRate(InflationRateDomain rate);
   Future<void> deleteInflationRate(DateTime date, String? country, int preset);
+  Future<void> deleteInflationRates(List<InflationRateDomain> rates);
   Future<List<String>> getAvailableCountries();
   Future<List<int>> getAvailablePresets();
   Future<int> getInflationRatesCount({

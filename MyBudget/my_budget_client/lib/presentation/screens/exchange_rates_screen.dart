@@ -70,7 +70,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
           appBar: _buildAppBar(context, state),
           body: body,
           floatingActionButton: FloatingActionButton(
-            onPressed: () => _showAddExchangeRateDialog(context),
+            onPressed: () => _showAddEditExchangeRateDialog(context),
             child: const Icon(Icons.add),
           ),
         );
@@ -153,6 +153,8 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
           isSelectionMode: state.isSelectionModeActive,
           onSecondaryTapUp: (details) =>
               _showContextMenu(context, details, rate, state),
+          onTap: () =>
+              _showAddEditExchangeRateDialog(context, existingRate: rate),
         );
       },
     );
@@ -245,19 +247,22 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
     });
   }
 
-  void _showAddExchangeRateDialog(BuildContext context) {
+  void _showAddEditExchangeRateDialog(
+    BuildContext context, {
+    ExchangeRateDomain? existingRate,
+  }) {
     final bloc = context.read<ExchangeRatesBloc>();
     final currencies = bloc.state.currencies;
 
-    // We need to use stateful builders for the dialog to update.
-    // However, the helper method _buildCurrencySelector works best in a State class or with a dedicated builder.
-    // Let's create a dedicated stateful widget for the content or just manage state here.
-
-    String? fromCurrency = 'EUR';
-    String? toCurrency;
-    final rateController = TextEditingController();
-    final presetController = TextEditingController(text: '1');
-    DateTime selectedDate = DateTime.now();
+    String fromCurrency = existingRate?.fromCurrencyCode ?? 'EUR';
+    String? toCurrency = existingRate?.toCurrencyCode;
+    final rateController = TextEditingController(
+      text: existingRate != null ? existingRate.rate.toString() : '',
+    );
+    final presetController = TextEditingController(
+      text: existingRate != null ? existingRate.preset.toString() : '1',
+    );
+    DateTime selectedDate = existingRate?.date ?? DateTime.now();
 
     showDialog(
       context: context,
@@ -300,7 +305,9 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
           }
 
           return AlertDialog(
-            title: const Text('Add Exchange Rate'),
+            title: Text(
+              existingRate == null ? 'Add Exchange Rate' : 'Edit Exchange Rate',
+            ),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -308,7 +315,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
                   buildCurrencySelector(
                     'From Currency',
                     fromCurrency,
-                    (val) => setState(() => fromCurrency = val),
+                    (val) => setState(() => fromCurrency = val!),
                   ),
                   const SizedBox(height: 8),
                   buildCurrencySelector(
@@ -368,13 +375,13 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
                 onPressed: () {
                   final rate = double.tryParse(rateController.text);
                   final preset = int.tryParse(presetController.text) ?? 1;
-                  if (fromCurrency != null &&
+                  if (fromCurrency.isNotEmpty &&
                       toCurrency != null &&
                       rate != null) {
                     bloc.add(
                       AddExchangeRate(
                         ExchangeRateDomain(
-                          fromCurrencyCode: fromCurrency!,
+                          fromCurrencyCode: fromCurrency,
                           toCurrencyCode: toCurrency!,
                           rate: rate,
                           date: selectedDate,
@@ -385,7 +392,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
                     Navigator.pop(context);
                   }
                 },
-                child: const Text('Add'),
+                child: const Text('Save'),
               ),
             ],
           );
@@ -400,12 +407,14 @@ class _ExchangeRateListItem extends StatefulWidget {
   final bool isSelected;
   final bool isSelectionMode;
   final void Function(TapUpDetails)? onSecondaryTapUp;
+  final VoidCallback? onTap;
 
   const _ExchangeRateListItem({
     required this.rate,
     this.isSelected = false,
     this.isSelectionMode = false,
     this.onSecondaryTapUp,
+    this.onTap,
   });
 
   @override
@@ -420,6 +429,8 @@ class _ExchangeRateListItemState extends State<_ExchangeRateListItem> {
       context.read<ExchangeRatesBloc>().add(
         ToggleExchangeRateSelection(widget.rate),
       );
+    } else {
+      widget.onTap?.call();
     }
   }
 
@@ -468,15 +479,15 @@ class _ExchangeRateListItemState extends State<_ExchangeRateListItem> {
                     value: widget.isSelected,
                     onChanged: (value) => _handleTap(),
                   )
-                : Container(
-                    padding: const EdgeInsets.all(10.0),
-                    decoration: BoxDecoration(
-                      color: theme.primaryColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                    child: const Icon(
-                      Icons.currency_exchange,
-                      color: Colors.white,
+                : CircleAvatar(
+                    backgroundColor: theme.colorScheme.primaryContainer,
+                    foregroundColor: theme.colorScheme.onPrimaryContainer,
+                    child: Text(
+                      widget.rate.toCurrencyCode,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
             title: Text(

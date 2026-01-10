@@ -18,6 +18,7 @@ import 'package:my_budget_client/data/seed_data/languages_data.dart';
 import 'package:my_budget_client/data/seed_data/settings_data.dart';
 import 'package:my_budget_client/data/seed_data/account_types_data.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
+import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:uuid/uuid.dart';
 
 part 'app_database.g.dart';
@@ -1296,6 +1297,21 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
   Future<bool> updateInflationRate(InflationRatesCompanion rate) =>
       update(inflationRates).replace(rate);
 
+  Future<void> deleteInflationRates(List<InflationRateDomain> rates) async {
+    await batch((batch) {
+      for (final rate in rates) {
+        batch.delete(
+          inflationRates,
+          InflationRatesCompanion(
+            date: Value(rate.date),
+            country: Value(rate.country),
+            preset: Value(rate.preset),
+          ),
+        );
+      }
+    });
+  }
+
   Future<List<String>> getAvailableCountries() async {
     final query = selectOnly(inflationRates, distinct: true)
       ..addColumns([inflationRates.country])
@@ -1484,8 +1500,13 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateAssetData(AssetEntriesCompanion data) =>
       update(assetEntries).replace(data);
 
-  Future<void> deleteAssetData(String id) =>
-      (delete(assetEntries)..where((t) => t.id.equals(id))).go();
+  Future<void> deleteAssetEntry(String id) {
+    return (delete(assetEntries)..where((tbl) => tbl.id.equals(id))).go();
+  }
+
+  Future<void> deleteAssets(List<String> ids) async {
+    await (delete(assetEntries)..where((tbl) => tbl.id.isIn(ids))).go();
+  }
 
   Future<List<String>> getAvailableAssetIds() async {
     final query = selectOnly(assetEntries, distinct: true)

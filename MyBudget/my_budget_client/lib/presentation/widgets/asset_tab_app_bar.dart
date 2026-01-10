@@ -97,6 +97,22 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
     final bloc = context.read<AssetBloc>();
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
+    if (state.isSelectionModeActive) {
+      return _SelectionAppBar(
+        selectionCount: state.selectedAssets.length,
+        totalCount: state.assetData.length,
+        onClearSelection: () => bloc.add(DeselectAllAssets()),
+        onSelectAll: () {
+          if (state.selectedAssets.length == state.assetData.length) {
+            bloc.add(DeselectAllAssets());
+          } else {
+            bloc.add(SelectAllAssets());
+          }
+        },
+        onDelete: () => _showDeleteConfirmation(context, bloc),
+      );
+    }
+
     final centerWidget = Row(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
@@ -147,4 +163,76 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
       totalCountText: 'Total: ${state.totalCount}',
     );
   }
+
+  void _showDeleteConfirmation(BuildContext context, AssetBloc bloc) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Selected Assets?'),
+        content: Text(
+          'Are you sure you want to delete ${state.selectedAssets.length} assets?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              bloc.add(DeleteSelectedAssets());
+              Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final int selectionCount;
+  final int totalCount;
+  final VoidCallback onClearSelection;
+  final VoidCallback onSelectAll;
+  final VoidCallback onDelete;
+
+  const _SelectionAppBar({
+    required this.selectionCount,
+    required this.totalCount,
+    required this.onClearSelection,
+    required this.onSelectAll,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isAllSelected = selectionCount == totalCount && totalCount > 0;
+
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        onPressed: onClearSelection,
+      ),
+      title: Text('$selectionCount selected'),
+      actions: [
+        IconButton(
+          icon: Icon(
+            isAllSelected ? Icons.deselect_outlined : Icons.select_all_outlined,
+          ),
+          onPressed: onSelectAll,
+          tooltip: isAllSelected ? 'Deselect All' : 'Select All',
+        ),
+        if (selectionCount > 0)
+          IconButton(
+            icon: const Icon(Icons.delete),
+            onPressed: onDelete,
+            tooltip: 'Delete',
+          ),
+      ],
+    );
+  }
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }

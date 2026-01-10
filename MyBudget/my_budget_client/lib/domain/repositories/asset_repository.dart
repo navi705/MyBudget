@@ -21,6 +21,7 @@ abstract class AssetRepository {
   Future<void> addAssetData(AssetDataDomain data);
   Future<void> updateAssetData(AssetDataDomain data);
   Future<void> deleteAssetData(String id);
+  Future<void> deleteAssets(List<String> ids);
   Future<List<String>> getAvailableAssetIds();
   Future<List<String>> getAvailableAssetTypes();
   Future<List<String>> getAvailableSources();

@@ -59,7 +59,12 @@ class LocalAssetRepository implements AssetRepository {
 
   @override
   Future<void> deleteAssetData(String id) async {
-    await _dao.deleteAssetData(id);
+    await _dao.deleteAssetEntry(id);
+  }
+
+  @override
+  Future<void> deleteAssets(List<String> ids) async {
+    await _dao.deleteAssets(ids);
   }
 
   @override

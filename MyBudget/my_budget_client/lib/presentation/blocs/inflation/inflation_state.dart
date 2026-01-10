@@ -33,10 +33,14 @@ class InflationState extends Equatable {
     this.totalCount = 0,
     this.countryFilters,
     this.presetFilters,
+    this.selectedRates = const {},
+    this.isSelectionModeActive = false,
   });
 
   final List<String>? countryFilters;
   final List<int>? presetFilters;
+  final Set<InflationRateDomain> selectedRates;
+  final bool isSelectionModeActive;
 
   InflationState copyWith({
     InflationStatus? status,
@@ -54,6 +58,8 @@ class InflationState extends Equatable {
     int? totalCount,
     List<String>? countryFilters,
     List<int>? presetFilters,
+    Set<InflationRateDomain>? selectedRates,
+    bool? isSelectionModeActive,
   }) {
     return InflationState(
       status: status ?? this.status,
@@ -71,6 +77,9 @@ class InflationState extends Equatable {
       totalCount: totalCount ?? this.totalCount,
       countryFilters: countryFilters ?? this.countryFilters,
       presetFilters: presetFilters ?? this.presetFilters,
+      selectedRates: selectedRates ?? this.selectedRates,
+      isSelectionModeActive:
+          isSelectionModeActive ?? this.isSelectionModeActive,
     );
   }
 
@@ -91,5 +100,7 @@ class InflationState extends Equatable {
     totalCount,
     countryFilters,
     presetFilters,
+    selectedRates,
+    isSelectionModeActive,
   ];
 }

@@ -63,32 +63,26 @@ class AssetView extends StatelessWidget {
                   );
                 },
                 itemBuilder: (context, item) {
-                  return ListTile(
-                    title: Text(item.name),
-                    subtitle: Text(
-                      '${item.assetType ?? 'Type'} • ${item.source} • ${DateFormat.yMMMMd().format(item.date)}',
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${item.value.toStringAsFixed(2)} ${item.currency}',
-                          style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(width: 16),
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () => onEdit(item),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () => context.read<AssetBloc>().add(
-                            DeleteAssetData(item.id!),
-                          ),
-                        ),
-                      ],
-                    ),
+                  final isSelected = state.selectedAssets.contains(item);
+                  return _AssetListItem(
+                    item: item,
+                    isSelected: isSelected,
+                    isSelectionMode: state.isSelectionModeActive,
+                    onTap: () {
+                      if (state.isSelectionModeActive) {
+                        context.read<AssetBloc>().add(
+                          ToggleAssetSelection(item),
+                        );
+                      } else {
+                        onEdit(item);
+                      }
+                    },
+                    onLongPress: () {
+                      context.read<AssetBloc>().add(ToggleAssetSelection(item));
+                    },
+                    onSecondaryTapUp: (details) {
+                      _showContextMenu(context, details.globalPosition, item);
+                    },
                   );
                 },
               ),
@@ -97,6 +91,179 @@ class AssetView extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  void _showContextMenu(
+    BuildContext context,
+    Offset position,
+    AssetDataDomain item,
+  ) {
+    final bloc = context.read<AssetBloc>();
+    final state = bloc.state;
+    final isSelected = state.selectedAssets.contains(item);
+
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: [
+        PopupMenuItem(
+          onTap: () {
+            bloc.add(ToggleAssetSelection(item));
+          },
+          child: Row(
+            children: [
+              Icon(
+                isSelected ? Icons.deselect : Icons.select_all,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              const SizedBox(width: 8),
+              Text(isSelected ? 'Deselect' : 'Select'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          onTap: () {
+            bloc.add(SelectAllAssets());
+          },
+          child: Row(
+            children: [
+              Icon(
+                Icons.select_all,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              const SizedBox(width: 8),
+              const Text('Select All'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          onTap: () {
+            if (!isSelected) {
+              bloc.add(ToggleAssetSelection(item));
+            }
+            Future.delayed(Duration.zero, () {
+              if (context.mounted) _showDeleteConfirmation(context, bloc);
+            });
+          },
+          child: const Row(
+            children: [
+              Icon(Icons.delete, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Delete', style: TextStyle(color: Colors.red)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, AssetBloc bloc) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Assets?'),
+        content: Text(
+          'Are you sure you want to delete the selected assets?', // Context menu delete usually implies simple delete or selection delete
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              bloc.add(DeleteSelectedAssets());
+              Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AssetListItem extends StatelessWidget {
+  final AssetDataDomain item;
+  final bool isSelected;
+  final bool isSelectionMode;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final Function(TapUpDetails) onSecondaryTapUp;
+
+  const _AssetListItem({
+    required this.item,
+    required this.isSelected,
+    required this.isSelectionMode,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onSecondaryTapUp,
+  });
+
+  IconData _getIconForType(String? type) {
+    if (type == null) return Icons.category;
+    final lowerType = type.toLowerCase();
+    if (lowerType.contains('stock') ||
+        lowerType.contains('fund') ||
+        lowerType.contains('etf')) {
+      return Icons.show_chart;
+    }
+    if (lowerType.contains('real estate') ||
+        lowerType.contains('property') ||
+        lowerType.contains('house')) {
+      return Icons.house;
+    }
+    if (lowerType.contains('crypto') || lowerType.contains('bitcoin')) {
+      return Icons.currency_bitcoin;
+    }
+    if (lowerType.contains('cash') || lowerType.contains('savings')) {
+      return Icons.attach_money;
+    }
+    if (lowerType.contains('vehicle') || lowerType.contains('car')) {
+      return Icons.directions_car;
+    }
+    return Icons.category;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      onSecondaryTapUp: onSecondaryTapUp,
+      child: Container(
+        color: isSelected
+            ? theme.colorScheme.primaryContainer.withOpacity(0.3)
+            : null,
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: theme.colorScheme.primaryContainer,
+            foregroundColor: theme.colorScheme.onPrimaryContainer,
+            child: Icon(_getIconForType(item.assetType)),
+          ),
+          title: Text(
+            item.name,
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+          subtitle: Text(
+            '${item.assetType ?? 'Type'} • ${item.source} • ${DateFormat.yMMMMd().format(item.date)}',
+          ),
+          trailing: Text(
+            '${item.value.toStringAsFixed(2)} ${item.currency}',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -10,6 +10,7 @@
 29. add to custom widget for display calendar and day for my dashboard l
 30. get data from sms
 33. минимальное прогнозирование по тренду
+34. Привести все элементы к одному виду напимер если я нажимаю для изменения и там страница то везде должна быть страница
 
 in diffrent currincies presets
 

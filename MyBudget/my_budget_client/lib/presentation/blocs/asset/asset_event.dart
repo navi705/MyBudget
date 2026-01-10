@@ -116,3 +116,16 @@ class DeleteAssetData extends AssetEvent {
   @override
   List<Object?> get props => [id];
 }
+
+class ToggleAssetSelection extends AssetEvent {
+  final AssetDataDomain asset;
+  const ToggleAssetSelection(this.asset);
+  @override
+  List<Object?> get props => [asset];
+}
+
+class SelectAllAssets extends AssetEvent {}
+
+class DeselectAllAssets extends AssetEvent {}
+
+class DeleteSelectedAssets extends AssetEvent {}

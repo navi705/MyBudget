@@ -96,6 +96,26 @@ class InflationTabAppBar extends StatelessWidget
     final bloc = context.read<InflationBloc>();
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
+    if (state.isSelectionModeActive) {
+      return _SelectionAppBar(
+        selectionCount: state.selectedRates.length,
+        totalCount: state
+            .rates
+            .length, // Should ideally use loaded count for "Select All" logic if we want to limit to loaded, but "Select All" usually means "Select All Loaded" or "All in DB"?
+        // ExchangeRates implementation selects all in layout.
+        // selectAll event in Bloc selects state.rates.
+        onClearSelection: () => bloc.add(DeselectAllInflationRates()),
+        onSelectAll: () {
+          if (state.selectedRates.length == state.rates.length) {
+            bloc.add(DeselectAllInflationRates());
+          } else {
+            bloc.add(SelectAllInflationRates());
+          }
+        },
+        onDelete: () => _showDeleteConfirmation(context, bloc),
+      );
+    }
+
     final centerWidget = Row(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
@@ -146,4 +166,76 @@ class InflationTabAppBar extends StatelessWidget
       totalCountText: 'Total: ${state.totalCount}',
     );
   }
+
+  void _showDeleteConfirmation(BuildContext context, InflationBloc bloc) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Selected Rates?'),
+        content: Text(
+          'Are you sure you want to delete ${state.selectedRates.length} rates?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              bloc.add(DeleteSelectedInflationRates());
+              Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final int selectionCount;
+  final int totalCount;
+  final VoidCallback onClearSelection;
+  final VoidCallback onSelectAll;
+  final VoidCallback onDelete;
+
+  const _SelectionAppBar({
+    required this.selectionCount,
+    required this.totalCount,
+    required this.onClearSelection,
+    required this.onSelectAll,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isAllSelected = selectionCount == totalCount && totalCount > 0;
+
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        onPressed: onClearSelection,
+      ),
+      title: Text('$selectionCount selected'),
+      actions: [
+        IconButton(
+          icon: Icon(
+            isAllSelected ? Icons.deselect_outlined : Icons.select_all_outlined,
+          ),
+          onPressed: onSelectAll,
+          tooltip: isAllSelected ? 'Deselect All' : 'Select All',
+        ),
+        if (selectionCount > 0)
+          IconButton(
+            icon: const Icon(Icons.delete),
+            onPressed: onDelete,
+            tooltip: 'Delete',
+          ),
+      ],
+    );
+  }
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }

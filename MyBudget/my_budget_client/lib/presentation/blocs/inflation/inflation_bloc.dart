@@ -33,6 +33,10 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     on<AddInflationRate>(_onAddInflationRate);
     on<UpdateInflationRate>(_onUpdateInflationRate);
     on<DeleteInflationRate>(_onDeleteInflationRate);
+    on<ToggleInflationSelection>(_onToggleSelection);
+    on<SelectAllInflationRates>(_onSelectAll);
+    on<DeselectAllInflationRates>(_onDeselectAll);
+    on<DeleteSelectedInflationRates>(_onDeleteSelected);
   }
 
   Future<void> _onLoadInflationRates(
@@ -234,6 +238,63 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
         event.country,
         event.preset,
       );
+      add(LoadInflationRates());
+    } catch (e) {
+      emit(
+        state.copyWith(
+          status: InflationStatus.failure,
+          errorMessage: e.toString(),
+        ),
+      );
+    }
+  }
+
+  void _onToggleSelection(
+    ToggleInflationSelection event,
+    Emitter<InflationState> emit,
+  ) {
+    final selectedRates = Set<InflationRateDomain>.from(state.selectedRates);
+    if (selectedRates.contains(event.rate)) {
+      selectedRates.remove(event.rate);
+    } else {
+      selectedRates.add(event.rate);
+    }
+
+    emit(
+      state.copyWith(
+        selectedRates: selectedRates,
+        isSelectionModeActive: selectedRates.isNotEmpty,
+      ),
+    );
+  }
+
+  void _onSelectAll(
+    SelectAllInflationRates event,
+    Emitter<InflationState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        selectedRates: Set.from(state.rates),
+        isSelectionModeActive: true,
+      ),
+    );
+  }
+
+  void _onDeselectAll(
+    DeselectAllInflationRates event,
+    Emitter<InflationState> emit,
+  ) {
+    emit(state.copyWith(selectedRates: {}, isSelectionModeActive: false));
+  }
+
+  Future<void> _onDeleteSelected(
+    DeleteSelectedInflationRates event,
+    Emitter<InflationState> emit,
+  ) async {
+    try {
+      final ratesToDelete = state.selectedRates.toList();
+      await _inflationRepository.deleteInflationRates(ratesToDelete);
+      emit(state.copyWith(selectedRates: {}, isSelectionModeActive: false));
       add(LoadInflationRates());
     } catch (e) {
       emit(

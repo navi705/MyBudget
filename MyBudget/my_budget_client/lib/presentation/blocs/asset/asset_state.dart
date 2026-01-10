@@ -43,6 +43,8 @@ class AssetState extends Equatable {
     this.presetFilters,
     this.minValueFilter,
     this.maxValueFilter,
+    this.selectedAssets = const {},
+    this.isSelectionModeActive = false,
   });
 
   final String? selectedAssetId;
@@ -54,6 +56,8 @@ class AssetState extends Equatable {
   final List<int>? presetFilters;
   final double? minValueFilter;
   final double? maxValueFilter;
+  final Set<AssetDataDomain> selectedAssets;
+  final bool isSelectionModeActive;
 
   AssetState copyWith({
     AssetStatus? status,
@@ -78,6 +82,8 @@ class AssetState extends Equatable {
     List<int>? presetFilters,
     double? minValueFilter,
     double? maxValueFilter,
+    Set<AssetDataDomain>? selectedAssets,
+    bool? isSelectionModeActive,
   }) {
     return AssetState(
       status: status ?? this.status,
@@ -102,6 +108,9 @@ class AssetState extends Equatable {
       presetFilters: presetFilters ?? this.presetFilters,
       minValueFilter: minValueFilter ?? this.minValueFilter,
       maxValueFilter: maxValueFilter ?? this.maxValueFilter,
+      selectedAssets: selectedAssets ?? this.selectedAssets,
+      isSelectionModeActive:
+          isSelectionModeActive ?? this.isSelectionModeActive,
     );
   }
 
@@ -129,5 +138,7 @@ class AssetState extends Equatable {
     presetFilters,
     minValueFilter,
     maxValueFilter,
+    selectedAssets,
+    isSelectionModeActive,
   ];
 }
