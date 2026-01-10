@@ -60,6 +60,8 @@ class InflationState extends Equatable {
     List<int>? presetFilters,
     Set<InflationRateDomain>? selectedRates,
     bool? isSelectionModeActive,
+    bool forceNullCountryFilters = false,
+    bool forceNullPresetFilters = false,
   }) {
     return InflationState(
       status: status ?? this.status,
@@ -75,8 +77,12 @@ class InflationState extends Equatable {
       sort: sort ?? this.sort,
       errorMessage: errorMessage ?? this.errorMessage,
       totalCount: totalCount ?? this.totalCount,
-      countryFilters: countryFilters ?? this.countryFilters,
-      presetFilters: presetFilters ?? this.presetFilters,
+      countryFilters: forceNullCountryFilters
+          ? null
+          : (countryFilters ?? this.countryFilters),
+      presetFilters: forceNullPresetFilters
+          ? null
+          : (presetFilters ?? this.presetFilters),
       selectedRates: selectedRates ?? this.selectedRates,
       isSelectionModeActive:
           isSelectionModeActive ?? this.isSelectionModeActive,

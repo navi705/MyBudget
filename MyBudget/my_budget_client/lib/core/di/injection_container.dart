@@ -97,8 +97,10 @@ Future<void> init() async {
     () => ThemeBloc(settingsRepository: sl(), themeRepository: sl()),
   );
   sl.registerFactory(() => ExchangeRatesBloc(currencyRepository: sl()));
-  sl.registerFactory(() => InflationBloc(inflationRepository: sl()));
-  sl.registerFactory(() => AssetBloc(sl()));
+  sl.registerFactory(
+    () => InflationBloc(inflationRepository: sl(), settingsRepository: sl()),
+  );
+  sl.registerFactory(() => AssetBloc(sl(), sl()));
   sl.registerFactory(() => ApiSettingsBloc(sl(), sl(), sl(), sl()));
 
   // Services

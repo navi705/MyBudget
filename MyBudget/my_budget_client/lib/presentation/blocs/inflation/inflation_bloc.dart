@@ -5,23 +5,30 @@ import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 
+import 'package:my_budget_client/domain/repositories/settings_repository.dart';
+
 part 'inflation_event.dart';
 part 'inflation_state.dart';
 
 class InflationBloc extends Bloc<InflationEvent, InflationState> {
   final InflationRepository _inflationRepository;
+  final SettingsRepository _settingsRepository;
 
-  InflationBloc({required InflationRepository inflationRepository})
-    : _inflationRepository = inflationRepository,
-      super(
-        InflationState(
-          activeDate: DateTime(
-            DateTime.now().year,
-            DateTime.now().month,
-            DateTime.now().day,
-          ),
-        ),
-      ) {
+  InflationBloc({
+    required InflationRepository inflationRepository,
+    required SettingsRepository settingsRepository,
+  }) : _inflationRepository = inflationRepository,
+       _settingsRepository = settingsRepository,
+       super(
+         InflationState(
+           dateStep: DateStep.year,
+           activeDate: DateTime(
+             DateTime.now().year,
+             DateTime.now().month,
+             DateTime.now().day,
+           ),
+         ),
+       ) {
     on<LoadInflationRates>(_onLoadInflationRates);
     on<LoadMoreInflationRates>(_onLoadMoreInflationRates);
     on<ChangeInflationDateStep>(_onChangeDateStep);
@@ -43,8 +50,40 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     LoadInflationRates event,
     Emitter<InflationState> emit,
   ) async {
-    emit(state.copyWith(status: InflationStatus.loading, offset: 0, rates: []));
+    emit(
+      state.copyWith(status: InflationStatus.loading, offset: 0, rates: []),
+    ); // Modified
     try {
+      // Load persisted settings
+      final dateStepSetting = await _settingsRepository.getSetting(
+        'inflation_date_step',
+      );
+      final filterModeSetting = await _settingsRepository.getSetting(
+        'inflation_filter_mode',
+      );
+
+      DateStep dateStep = state.dateStep;
+      if (dateStepSetting != null) {
+        // Simple enum parsing by name or index
+        try {
+          dateStep = DateStep.values.firstWhere(
+            (e) => e.toString() == dateStepSetting.value,
+          );
+        } catch (_) {}
+      }
+
+      FilterMode filterMode = state.filterMode;
+      if (filterModeSetting != null) {
+        try {
+          filterMode = FilterMode.values.firstWhere(
+            (e) => e.toString() == filterModeSetting.value,
+          );
+        } catch (_) {}
+      }
+
+      // Restore settings first
+      emit(state.copyWith(dateStep: dateStep, filterMode: filterMode)); // Added
+
       final (dateFrom, dateTo) = _getDateRange();
 
       final count = await _inflationRepository.getInflationRatesCount(
@@ -123,8 +162,8 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
   }
 
   (DateTime?, DateTime?) _getDateRange() {
-    if (state.filterMode == FilterMode.range) {
-      return (state.activeDateRange?.start, state.activeDateRange?.end);
+    if (state.filterMode == FilterMode.range && state.activeDateRange != null) {
+      return (state.activeDateRange!.start, state.activeDateRange!.end);
     }
 
     final date = state.activeDate;
@@ -188,7 +227,9 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     emit(
       state.copyWith(
         countryFilters: event.countries,
+        forceNullCountryFilters: event.countries == null,
         presetFilters: event.presets,
+        forceNullPresetFilters: event.presets == null,
       ),
     );
     add(LoadInflationRates());

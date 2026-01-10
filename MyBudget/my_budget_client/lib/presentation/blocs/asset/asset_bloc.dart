@@ -3,13 +3,15 @@ import 'package:bloc/bloc.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart';
+import 'package:my_budget_client/domain/repositories/settings_repository.dart'; // Added missing import
 import 'asset_event.dart';
 import 'asset_state.dart';
 
 class AssetBloc extends Bloc<AssetEvent, AssetState> {
-  final AssetRepository _repository;
+  final AssetRepository _assetRepository;
+  final SettingsRepository _settingsRepository;
 
-  AssetBloc(this._repository)
+  AssetBloc(this._assetRepository, this._settingsRepository)
     : super(
         AssetState(
           activeDate: DateTime(
@@ -30,6 +32,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     on<AddAssetData>(_onAddAssetData);
     on<UpdateAssetData>(_onUpdateAssetData);
     on<DeleteAssetData>(_onDeleteAssetData);
+    // Selection Events
     on<ToggleAssetSelection>(_onToggleSelection);
     on<SelectAllAssets>(_onSelectAll);
     on<DeselectAllAssets>(_onDeselectAll);
@@ -40,52 +43,97 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     LoadAssetData event,
     Emitter<AssetState> emit,
   ) async {
-    emit(state.copyWith(status: AssetStatus.loading, offset: 0, assetData: []));
+    emit(
+      state.copyWith(
+        status: AssetStatus.loading,
+        offset: 0,
+        assetData: [],
+        isLoadingMore: false,
+      ),
+    );
     try {
-      final (dateFrom, dateTo) = _getDateRange();
-
-      // Update selectedAssetId if provided in event, otherwise keep current state
-      if (event.assetId != null) {
-        emit(state.copyWith(selectedAssetId: event.assetId));
-      }
-
-      final count = await _repository.getAssetDataCount(
-        assetId: event.assetId ?? state.selectedAssetId,
-        startDate: dateFrom,
-        endDate: dateTo,
-        name: state.nameFilter,
-        assetTypes: state.assetTypeFilters,
-        description: state.descriptionFilter,
-        currencyCodes: state.currencyCodeFilters,
-        sources: state.sourceFilters,
-        presets: state.presetFilters,
-        minValue: state.minValueFilter,
-        maxValue: state.maxValueFilter,
+      // Load persisted settings
+      final dateStepSetting = await _settingsRepository.getSetting(
+        'asset_date_step',
+      );
+      final filterModeSetting = await _settingsRepository.getSetting(
+        'asset_filter_mode',
       );
 
-      final data = await _repository.getAssetData(
-        limit: state.limit,
-        offset: 0,
-        assetId: event.assetId ?? state.selectedAssetId,
+      DateStep dateStep = state.dateStep;
+      if (dateStepSetting != null) {
+        try {
+          dateStep = DateStep.values.firstWhere(
+            (e) => e.toString() == dateStepSetting.value,
+          );
+        } catch (_) {}
+      }
+
+      FilterMode filterMode = state.filterMode;
+      if (filterModeSetting != null) {
+        try {
+          filterMode = FilterMode.values.firstWhere(
+            (e) => e.toString() == filterModeSetting.value,
+          );
+        } catch (_) {}
+      }
+
+      // We don't emit the restored settings immediately to avoid flickering or double loads
+      // We use them in the state.copyWith below or just update local vars?
+      // Better to update state so subsequent logic uses correct values.
+      var currentState = state.copyWith(
+        dateStep: dateStep,
+        filterMode: filterMode,
+      );
+      // But we can't emit yet if we are in 'try' block and want to emit success later?
+      // Actually we can emit partial state.
+      emit(currentState);
+
+      final (dateFrom, dateTo) = _getDateRange();
+
+      // Update selectedAssetId if provided in event
+      if (event.assetId != null) {
+        currentState = currentState.copyWith(selectedAssetId: event.assetId);
+        emit(currentState);
+      }
+
+      final count = await _assetRepository.getAssetDataCount(
+        assetId: currentState.selectedAssetId,
         startDate: dateFrom,
         endDate: dateTo,
-        name: state.nameFilter,
-        assetTypes: state.assetTypeFilters,
-        description: state.descriptionFilter,
-        currencyCodes: state.currencyCodeFilters,
-        sources: state.sourceFilters,
-        presets: state.presetFilters,
-        minValue: state.minValueFilter,
-        maxValue: state.maxValueFilter,
-        sortAscending: state.sort == Sort.ascending,
+        name: currentState.nameFilter,
+        assetTypes: currentState.assetTypeFilters,
+        description: currentState.descriptionFilter,
+        currencyCodes: currentState.currencyCodeFilters,
+        sources: currentState.sourceFilters,
+        presets: currentState.presetFilters,
+        minValue: currentState.minValueFilter,
+        maxValue: currentState.maxValueFilter,
+      );
+
+      final data = await _assetRepository.getAssetData(
+        limit: currentState.limit,
+        offset: 0,
+        assetId: event.assetId ?? currentState.selectedAssetId,
+        startDate: dateFrom,
+        endDate: dateTo,
+        name: currentState.nameFilter,
+        assetTypes: currentState.assetTypeFilters,
+        description: currentState.descriptionFilter,
+        currencyCodes: currentState.currencyCodeFilters,
+        sources: currentState.sourceFilters,
+        presets: currentState.presetFilters,
+        minValue: currentState.minValueFilter,
+        maxValue: currentState.maxValueFilter,
+        sortAscending: currentState.sort == Sort.ascending,
       );
 
       emit(
-        state.copyWith(
+        currentState.copyWith(
           status: AssetStatus.success,
           assetData: data,
           offset: data.length,
-          hasMore: data.length == state.limit,
+          hasMore: data.length == currentState.limit,
           totalCount: count,
         ),
       );
@@ -106,7 +154,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     try {
       final (dateFrom, dateTo) = _getDateRange();
 
-      final data = await _repository.getAssetData(
+      final data = await _assetRepository.getAssetData(
         limit: state.limit,
         offset: state.offset,
         assetId: event.assetId,
@@ -143,8 +191,8 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
   }
 
   (DateTime?, DateTime?) _getDateRange() {
-    if (state.filterMode == FilterMode.range) {
-      return (state.activeDateRange?.start, state.activeDateRange?.end);
+    if (state.filterMode == FilterMode.range && state.activeDateRange != null) {
+      return (state.activeDateRange!.start, state.activeDateRange!.end);
     }
 
     final date = state.activeDate;
@@ -202,14 +250,23 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     emit(
       state.copyWith(
         selectedAssetId: event.assetId,
+        forceNullSelectedAssetId: event.assetId == null,
         nameFilter: event.name,
+        forceNullName: event.name == null,
         assetTypeFilters: event.assetTypes,
+        forceNullAssetTypes: event.assetTypes == null,
         descriptionFilter: event.description,
+        forceNullDescription: event.description == null,
         currencyCodeFilters: event.currencyCodes,
+        forceNullCurrencyCodes: event.currencyCodes == null,
         sourceFilters: event.sources,
+        forceNullSources: event.sources == null,
         presetFilters: event.presets,
+        forceNullPresets: event.presets == null,
         minValueFilter: event.minValue,
+        forceNullMinValue: event.minValue == null,
         maxValueFilter: event.maxValue,
+        forceNullMaxValue: event.maxValue == null,
       ),
     );
     add(const LoadAssetData());
@@ -220,7 +277,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     Emitter<AssetState> emit,
   ) async {
     try {
-      await _repository.addAssetData(event.data);
+      await _assetRepository.addAssetData(event.data);
       add(LoadAssetData(assetId: event.data.assetId));
     } catch (e) {
       emit(
@@ -234,7 +291,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     Emitter<AssetState> emit,
   ) async {
     try {
-      await _repository.updateAssetData(event.data);
+      await _assetRepository.updateAssetData(event.data);
       add(LoadAssetData(assetId: event.data.assetId));
     } catch (e) {
       emit(
@@ -248,7 +305,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     Emitter<AssetState> emit,
   ) async {
     try {
-      await _repository.deleteAssetData(event.id);
+      await _assetRepository.deleteAssetData(event.id);
       add(const LoadAssetData());
     } catch (e) {
       emit(
@@ -298,7 +355,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
           .map((e) => e.id)
           .whereType<String>()
           .toList();
-      await _repository.deleteAssets(idsToDelete);
+      await _assetRepository.deleteAssets(idsToDelete);
       emit(state.copyWith(selectedAssets: {}, isSelectionModeActive: false));
       add(const LoadAssetData());
     } catch (e) {

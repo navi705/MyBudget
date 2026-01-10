@@ -84,6 +84,15 @@ class AssetState extends Equatable {
     double? maxValueFilter,
     Set<AssetDataDomain>? selectedAssets,
     bool? isSelectionModeActive,
+    bool forceNullName = false,
+    bool forceNullAssetTypes = false,
+    bool forceNullDescription = false,
+    bool forceNullCurrencyCodes = false,
+    bool forceNullSources = false,
+    bool forceNullPresets = false,
+    bool forceNullMinValue = false,
+    bool forceNullMaxValue = false,
+    bool forceNullSelectedAssetId = false,
   }) {
     return AssetState(
       status: status ?? this.status,
@@ -99,15 +108,31 @@ class AssetState extends Equatable {
       sort: sort ?? this.sort,
       errorMessage: errorMessage ?? this.errorMessage,
       totalCount: totalCount ?? this.totalCount,
-      selectedAssetId: selectedAssetId ?? this.selectedAssetId,
-      nameFilter: nameFilter ?? this.nameFilter,
-      assetTypeFilters: assetTypeFilters ?? this.assetTypeFilters,
-      descriptionFilter: descriptionFilter ?? this.descriptionFilter,
-      currencyCodeFilters: currencyCodeFilters ?? this.currencyCodeFilters,
-      sourceFilters: sourceFilters ?? this.sourceFilters,
-      presetFilters: presetFilters ?? this.presetFilters,
-      minValueFilter: minValueFilter ?? this.minValueFilter,
-      maxValueFilter: maxValueFilter ?? this.maxValueFilter,
+      selectedAssetId: forceNullSelectedAssetId
+          ? null
+          : (selectedAssetId ?? this.selectedAssetId),
+      nameFilter: forceNullName ? null : (nameFilter ?? this.nameFilter),
+      assetTypeFilters: forceNullAssetTypes
+          ? null
+          : (assetTypeFilters ?? this.assetTypeFilters),
+      descriptionFilter: forceNullDescription
+          ? null
+          : (descriptionFilter ?? this.descriptionFilter),
+      currencyCodeFilters: forceNullCurrencyCodes
+          ? null
+          : (currencyCodeFilters ?? this.currencyCodeFilters),
+      sourceFilters: forceNullSources
+          ? null
+          : (sourceFilters ?? this.sourceFilters),
+      presetFilters: forceNullPresets
+          ? null
+          : (presetFilters ?? this.presetFilters),
+      minValueFilter: forceNullMinValue
+          ? null
+          : (minValueFilter ?? this.minValueFilter),
+      maxValueFilter: forceNullMaxValue
+          ? null
+          : (maxValueFilter ?? this.maxValueFilter),
       selectedAssets: selectedAssets ?? this.selectedAssets,
       isSelectionModeActive:
           isSelectionModeActive ?? this.isSelectionModeActive,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
@@ -234,6 +235,20 @@ class _AssetListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isSteam = item.source.toLowerCase() == 'steam';
+
+    Widget? leadingIcon;
+    if (isSteam) {
+      leadingIcon = SvgPicture.asset(
+        'lib/icons/steam.svg',
+        colorFilter: ColorFilter.mode(
+          theme.colorScheme.onPrimaryContainer,
+          BlendMode.srcIn,
+        ),
+      );
+    } else {
+      leadingIcon = Icon(_getIconForType(item.assetType));
+    }
 
     return InkWell(
       onTap: onTap,
@@ -247,7 +262,7 @@ class _AssetListItem extends StatelessWidget {
           leading: CircleAvatar(
             backgroundColor: theme.colorScheme.primaryContainer,
             foregroundColor: theme.colorScheme.onPrimaryContainer,
-            child: Icon(_getIconForType(item.assetType)),
+            child: leadingIcon,
           ),
           title: Text(
             item.name,
