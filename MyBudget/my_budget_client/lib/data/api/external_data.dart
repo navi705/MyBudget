@@ -11,12 +11,12 @@ enum GameApiSteam { cs2, dota2, steamCommunity }
 const Map<String, int> gameApiIds = {
   "cs2": 730,
   "dota2": 570,
-  "steamCommunity": 753
+  "steamCommunity": 753,
 };
 
 class ExternalData {
   static Future<Map<String, String>>
-      getCurrenciesFromFreeExchangeRates() async {
+  getCurrenciesFromFreeExchangeRates() async {
     final uri = Uri.https(
       "cdn.jsdelivr.net",
       "/npm/@fawazahmed0/currency-api@latest/v1/currencies.json",
@@ -76,7 +76,9 @@ class ExternalData {
   }
 
   static Future<Map<String, double>> getSteamInvetoryCost(
-      int accountId, GameApiSteam game) async {
+    int accountId,
+    GameApiSteam game,
+  ) async {
     String gameId = gameApiIds[game.name].toString();
     Map<String, double> result = {};
     final uriGetItems = Uri.https(
@@ -86,69 +88,101 @@ class ExternalData {
         'endpoint': 'inventory',
         'steamid64': accountId.toString(),
         'appid': gameId,
-        'contextid': '2'
+        'contextid': '2',
       },
     );
-    try {
-      final response = await http.get(uriGetItems);
-      if (response.statusCode == 200) {
-        final inventoryResponse =
-            SteamInventoryResponse.fromJson(jsonDecode(response.body));
-        if (inventoryResponse.success == 1) {
-          var itemsToPrice = inventoryResponse.descriptions
-              .where((desc) => desc.marketable == 1)
-              .map((desc) => {
+
+    List<Map<String, dynamic>> itemsToPrice = [];
+    for (int i = 0; i < 10; i++) {
+      try {
+        debugPrint(
+          'Sending inventory request for acc: $accountId, attempt: ${i + 1}',
+        );
+        final response = await http.get(uriGetItems);
+        if (response.statusCode == 200) {
+          final inventoryResponse = SteamInventoryResponse.fromJson(
+            jsonDecode(response.body),
+          );
+          if (inventoryResponse.success == 1) {
+            itemsToPrice = inventoryResponse.descriptions
+                .where((desc) => desc.marketable == 1)
+                .map(
+                  (desc) => {
                     'appid': desc.appid,
                     'market_hash_name': desc.marketHashName,
-                  })
-              .toList();
-
-          final uriGetPrices = Uri.https(
-              "wrcurzpfetyvtavbutcp.supabase.co",
-              "/functions/v1/steam-proxy",
-              {'endpoint': 'bulkprices'});
-
-          for (int i = 0; i < 5 && itemsToPrice.isNotEmpty; i++) {
-            final priceResponse = await http.post(
-              uriGetPrices,
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'items': itemsToPrice, 'currency': 3}), // Assuming currency 3 is EUR
-            );
-
-            if (priceResponse.statusCode == 200) {
-              final bulkPrices =
-                  BulkPricesResponse.fromJson(jsonDecode(priceResponse.body));
-              
-              var failedItems = <Map<String, Object>>[];
-              if (bulkPrices.items != null) {
-                for (var item in itemsToPrice) {
-                  final key = '${item['appid']}_${item['market_hash_name']}_3';
-                  final priceInfo = bulkPrices.items![key];
-
-                  if (priceInfo != null && priceInfo.success && priceInfo.lowestPrice != null) {
-                    result[item['market_hash_name'] as String] = priceInfo.lowestPrice!;
-                  } else {
-                    failedItems.add(item);
-                  }
-                }
-                itemsToPrice = failedItems;
-              }
-            }
-            if (itemsToPrice.isNotEmpty) {
-              await Future.delayed(const Duration(seconds: 2));
-            }
+                  },
+                )
+                .toList();
+            break;
           }
         }
+      } catch (e) {
+        debugPrint("Attempt ${i + 1} failed: $e");
       }
-    } catch (e) {
-      debugPrint(e.toString());
+      await Future.delayed(const Duration(seconds: 5));
+    }
+
+    if (itemsToPrice.isEmpty) return result;
+
+    final uriGetPrices = Uri.https(
+      "wrcurzpfetyvtavbutcp.supabase.co",
+      "/functions/v1/steam-proxy",
+      {'endpoint': 'bulkprices'},
+    );
+
+    for (int i = 0; i < 10 && itemsToPrice.isNotEmpty; i++) {
+      try {
+        debugPrint(
+          'Sending bulk price request, attempt: ${i + 1}, items: ${itemsToPrice.length}',
+        );
+        final priceResponse = await http.post(
+          uriGetPrices,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'items': itemsToPrice,
+            'currency': 3,
+          }), // Assuming currency 3 is EUR
+        );
+
+        if (priceResponse.statusCode == 200) {
+          final bulkPrices = BulkPricesResponse.fromJson(
+            jsonDecode(priceResponse.body),
+          );
+
+          var failedItems = <Map<String, dynamic>>[];
+          if (bulkPrices.items != null) {
+            for (var item in itemsToPrice) {
+              final key = '${item['appid']}_${item['market_hash_name']}_3';
+              final priceInfo = bulkPrices.items![key];
+
+              if (priceInfo != null &&
+                  priceInfo.success &&
+                  priceInfo.lowestPrice != null) {
+                result[item['market_hash_name'] as String] =
+                    priceInfo.lowestPrice!;
+              } else {
+                failedItems.add(item);
+              }
+            }
+            itemsToPrice = failedItems;
+          }
+        }
+      } catch (e) {
+        debugPrint("Bulk price attempt ${i + 1} failed: $e");
+      }
+
+      if (itemsToPrice.isNotEmpty) {
+        await Future.delayed(const Duration(seconds: 5));
+      }
     }
 
     return result;
   }
 
   static Future<List<InflationDataPoint>> getInflationFromWorldBank(
-      String countryCode, String dateRange) async {
+    String countryCode,
+    String dateRange,
+  ) async {
     final uri = Uri.https(
       "api.worldbank.org",
       "/v2/country/$countryCode/indicator/FP.CPI.TOTL.ZG",

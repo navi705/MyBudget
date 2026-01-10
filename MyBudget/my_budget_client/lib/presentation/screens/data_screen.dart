@@ -17,38 +17,50 @@ class _DataScreenState extends State<DataScreen> {
     return DefaultTabController(
       length: 3,
       initialIndex: widget.initialTabIndex,
-      child: Scaffold(
-        appBar: AppBar(
-          toolbarHeight: 0,
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(74),
-            child: Align(
-              alignment: Alignment.centerLeft,
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: Theme.of(context).dividerColor,
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
+                constraints: const BoxConstraints(maxWidth: 800),
                 child: const TabBar(
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
                   tabs: [
                     Tab(
                       text: 'Exchange Rates',
-                      icon: Icon(Icons.currency_exchange),
+                      icon: Icon(Icons.currency_exchange, size: 28),
                     ),
-                    Tab(text: 'Inflation', icon: Icon(Icons.trending_up)),
-                    Tab(text: 'Assets', icon: Icon(Icons.inventory_2)),
+                    Tab(
+                      text: 'Inflation',
+                      icon: Icon(Icons.trending_up, size: 28),
+                    ),
+                    Tab(
+                      text: 'Assets',
+                      icon: Icon(Icons.inventory_2, size: 28),
+                    ),
                   ],
                 ),
               ),
             ),
           ),
-        ),
-        body: TabBarView(
-          children: [
-            const ExchangeRatesScreen(isStandalone: false),
-            const InflationTab(),
-            const AssetTab(),
-          ],
-        ),
+          const Expanded(
+            child: TabBarView(
+              children: [
+                ExchangeRatesScreen(isStandalone: false),
+                InflationTab(),
+                AssetTab(),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
