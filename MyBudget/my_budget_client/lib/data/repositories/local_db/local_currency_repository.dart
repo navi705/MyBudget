@@ -188,6 +188,7 @@ class LocalCurrencyRepository implements CurrencyRepository {
 
   @override
   Future<List<int>> getAvailablePresets() {
+    print('Repo: calling database.exchangeRatesDao.getAvailablePresets()');
     return database.exchangeRatesDao.getAvailablePresets();
   }
 

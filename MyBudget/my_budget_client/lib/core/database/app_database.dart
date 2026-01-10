@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 import 'package:my_budget_client/core/mappers/exchange_rate_mapper.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/core/utils/import_utils.dart';
@@ -1121,14 +1122,16 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<List<int>> getAvailablePresets() async {
-    final query = selectOnly(exchangeRates, distinct: true)
-      ..addColumns([exchangeRates.preset]);
+    // Simplified query to ensure we get results
+    final query = select(exchangeRates);
+    final allRates = await query.get();
+    print('DAO: All exchange rates count: ${allRates.length}');
+    if (allRates.isNotEmpty) {
+      print('DAO: First rate preset: ${allRates.first.preset}');
+    }
 
-    final results = await query
-        .map((row) => row.read(exchangeRates.preset))
-        .get();
-
-    final presets = results.whereType<int>().toList()..sort();
+    final presets = allRates.map((r) => r.preset).toSet().toList()..sort();
+    print('DAO: Computed presets: $presets');
     return presets;
   }
 
@@ -1142,8 +1145,10 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
-  Future<void> addExchangeRate(ExchangeRatesCompanion rate) =>
-      into(exchangeRates).insert(rate);
+  Future<void> addExchangeRate(ExchangeRatesCompanion rate) {
+    print('DAO: Adding exchange rate with preset: ${rate.preset.value}');
+    return into(exchangeRates).insert(rate);
+  }
 
   Future<void> updateExchangeRate(ExchangeRatesCompanion rate) =>
       update(exchangeRates).replace(rate);

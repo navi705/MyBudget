@@ -14,6 +14,9 @@ import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart'
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/theme/theme_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
+import 'package:my_budget_client/domain/repositories/asset_repository.dart';
+import 'package:my_budget_client/domain/repositories/currency_repository.dart';
+import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 
 class AppProviders extends StatelessWidget {
   final Widget child;
@@ -21,47 +24,54 @@ class AppProviders extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
+    return MultiRepositoryProvider(
       providers: [
-        BlocProvider(
-          create: (context) => di.sl<SettingsBloc>()..add(LoadSettings()),
-        ),
-        BlocProvider(
-          create: (context) => di.sl<AccountsBloc>()..add(LoadAccounts()),
-        ),
-        BlocProvider(
-          create: (context) => di.sl<CurrencyBloc>()..add(LoadCurrencies()),
-        ),
-        BlocProvider(
-          create: (context) => di.sl<StylesBloc>()..add(LoadStyles()),
-        ),
-        BlocProvider(
-          create: (context) => di.sl<CategoriesBloc>()..add(LoadCategories()),
-        ),
-        BlocProvider(
-          create: (context) =>
-              di.sl<TransactionsBloc>()..add(const InitialLoadTransactions()),
-        ),
-        BlocProvider(
-          create: (context) =>
-              di.sl<CurrencyConverterBloc>()..add(LoadCurrencyConverter()),
-        ),
-        BlocProvider(create: (context) => di.sl<DashboardBloc>()),
-        BlocProvider(
-          create: (context) =>
-              di.sl<ThemeBloc>()..add(const LoadThemeSettings()),
-        ),
+        RepositoryProvider(create: (context) => di.sl<CurrencyRepository>()),
+        RepositoryProvider(create: (context) => di.sl<AssetRepository>()),
+        RepositoryProvider(create: (context) => di.sl<InflationRepository>()),
       ],
-      child: BlocListener<ThemeBloc, ThemeState>(
-        listener: (context, state) {
-          if (state.isLoaded && state.activeTheme != null) {
-            _applyWindowEffect(context, state.activeTheme!);
-          }
-        },
-        child: BlocBuilder<SettingsBloc, SettingsState>(
-          builder: (context, state) {
-            return child;
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (context) => di.sl<SettingsBloc>()..add(LoadSettings()),
+          ),
+          BlocProvider(
+            create: (context) => di.sl<AccountsBloc>()..add(LoadAccounts()),
+          ),
+          BlocProvider(
+            create: (context) => di.sl<CurrencyBloc>()..add(LoadCurrencies()),
+          ),
+          BlocProvider(
+            create: (context) => di.sl<StylesBloc>()..add(LoadStyles()),
+          ),
+          BlocProvider(
+            create: (context) => di.sl<CategoriesBloc>()..add(LoadCategories()),
+          ),
+          BlocProvider(
+            create: (context) =>
+                di.sl<TransactionsBloc>()..add(const InitialLoadTransactions()),
+          ),
+          BlocProvider(
+            create: (context) =>
+                di.sl<CurrencyConverterBloc>()..add(LoadCurrencyConverter()),
+          ),
+          BlocProvider(create: (context) => di.sl<DashboardBloc>()),
+          BlocProvider(
+            create: (context) =>
+                di.sl<ThemeBloc>()..add(const LoadThemeSettings()),
+          ),
+        ],
+        child: BlocListener<ThemeBloc, ThemeState>(
+          listener: (context, state) {
+            if (state.isLoaded && state.activeTheme != null) {
+              _applyWindowEffect(context, state.activeTheme!);
+            }
           },
+          child: BlocBuilder<SettingsBloc, SettingsState>(
+            builder: (context, state) {
+              return child;
+            },
+          ),
         ),
       ),
     );

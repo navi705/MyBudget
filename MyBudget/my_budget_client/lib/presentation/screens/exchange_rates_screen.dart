@@ -482,11 +482,12 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
   }
 
   void _showFilterDialog(BuildContext context) {
+    final repository = context.read<CurrencyRepository>();
     showDialog(
       context: context,
       builder: (_) => BlocProvider.value(
         value: context.read<ExchangeRatesBloc>(),
-        child: _ExchangeRatesFilterDialog(state: state),
+        child: _ExchangeRatesFilterDialog(state: state, repository: repository),
       ),
     );
   }
@@ -494,7 +495,11 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
 
 class _ExchangeRatesFilterDialog extends StatefulWidget {
   final ExchangeRatesState state;
-  const _ExchangeRatesFilterDialog({required this.state});
+  final CurrencyRepository repository;
+  const _ExchangeRatesFilterDialog({
+    required this.state,
+    required this.repository,
+  });
 
   @override
   State<_ExchangeRatesFilterDialog> createState() =>
@@ -512,6 +517,7 @@ class _ExchangeRatesFilterDialogState
   @override
   void initState() {
     super.initState();
+    print('UI: ExchangeRatesFilterDialog initState');
     _fromCurrency = widget.state.fromCurrencyFilter;
     _toCurrency = widget.state.toCurrencyFilter;
     _selectedPresets = List.from(widget.state.presetFilters);
@@ -520,15 +526,18 @@ class _ExchangeRatesFilterDialogState
 
   Future<void> _loadPresets() async {
     try {
-      final repo = context.read<CurrencyRepository>();
+      print('UI: _loadPresets called');
+      final repo = widget.repository;
       final presets = await repo.getAvailablePresets();
+      print('UI: Loaded presets: $presets');
       if (mounted) {
         setState(() {
           _availablePresets = presets;
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      print('UI: Error loading presets: $e\n$stack');
       if (mounted) setState(() => _isLoading = false);
     }
   }
