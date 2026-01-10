@@ -60,7 +60,7 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
         );
       }
 
-      final limit = 50;
+      final limit = 100;
       final offset = event.isRefresh ? 0 : state.exchangeRates.length;
 
       final rates = await _currencyRepository.getExchangeRatesFiltered(

@@ -100,6 +100,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
 
     return ListView.builder(
       controller: _scrollController,
+      itemExtent: 88.0,
       itemCount: state.hasReachedMax
           ? state.exchangeRates.length
           : state.exchangeRates.length + 1,
