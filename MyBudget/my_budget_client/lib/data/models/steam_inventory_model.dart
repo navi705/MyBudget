@@ -18,19 +18,22 @@ class PriceToDoubleConverter implements JsonConverter<double?, String?> {
   }
 }
 
-
 @JsonSerializable(fieldRename: FieldRename.snake)
 class SteamInventoryResponse {
-  final List<Asset> assets;
-  final List<Description> descriptions;
-  final int totalInventoryCount;
-  final int success;
+  final List<Asset>? assets;
+  final List<Description>? descriptions;
+  final int? totalInventoryCount;
+  final int? success;
+  final int? moreItems;
+  final String? lastAssetid;
 
   SteamInventoryResponse({
-    required this.assets,
-    required this.descriptions,
-    required this.totalInventoryCount,
-    required this.success,
+    this.assets,
+    this.descriptions,
+    this.totalInventoryCount,
+    this.success,
+    this.moreItems,
+    this.lastAssetid,
   });
 
   factory SteamInventoryResponse.fromJson(Map<String, dynamic> json) =>
@@ -125,7 +128,7 @@ class DescriptionItem {
     required this.type,
     required this.value,
     this.color,
-    this.name
+    this.name,
   });
 
   factory DescriptionItem.fromJson(Map<String, dynamic> json) =>
@@ -139,10 +142,7 @@ class Action {
   final String link;
   final String name;
 
-  Action({
-    required this.link,
-    required this.name,
-  });
+  Action({required this.link, required this.name});
 
   factory Action.fromJson(Map<String, dynamic> json) => _$ActionFromJson(json);
 
@@ -154,10 +154,7 @@ class MarketAction {
   final String link;
   final String name;
 
-  MarketAction({
-    required this.link,
-    required this.name,
-  });
+  MarketAction({required this.link, required this.name});
 
   factory MarketAction.fromJson(Map<String, dynamic> json) =>
       _$MarketActionFromJson(json);
@@ -172,7 +169,6 @@ class Tag {
   final String localizedCategoryName;
   final String localizedTagName;
   final String? color;
-
 
   Tag({
     required this.category,
@@ -199,7 +195,6 @@ class BulkPricesResponse {
 
   Map<String, dynamic> toJson() => _$BulkPricesResponseToJson(this);
 }
-
 
 @JsonSerializable(fieldRename: FieldRename.snake)
 @PriceToDoubleConverter()

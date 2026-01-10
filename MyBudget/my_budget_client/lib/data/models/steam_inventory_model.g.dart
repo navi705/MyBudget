@@ -9,14 +9,16 @@ part of 'steam_inventory_model.dart';
 SteamInventoryResponse _$SteamInventoryResponseFromJson(
   Map<String, dynamic> json,
 ) => SteamInventoryResponse(
-  assets: (json['assets'] as List<dynamic>)
-      .map((e) => Asset.fromJson(e as Map<String, dynamic>))
+  assets: (json['assets'] as List<dynamic>?)
+      ?.map((e) => Asset.fromJson(e as Map<String, dynamic>))
       .toList(),
-  descriptions: (json['descriptions'] as List<dynamic>)
-      .map((e) => Description.fromJson(e as Map<String, dynamic>))
+  descriptions: (json['descriptions'] as List<dynamic>?)
+      ?.map((e) => Description.fromJson(e as Map<String, dynamic>))
       .toList(),
-  totalInventoryCount: (json['total_inventory_count'] as num).toInt(),
-  success: (json['success'] as num).toInt(),
+  totalInventoryCount: (json['total_inventory_count'] as num?)?.toInt(),
+  success: (json['success'] as num?)?.toInt(),
+  moreItems: (json['more_items'] as num?)?.toInt(),
+  lastAssetid: json['last_assetid'] as String?,
 );
 
 Map<String, dynamic> _$SteamInventoryResponseToJson(
@@ -26,6 +28,8 @@ Map<String, dynamic> _$SteamInventoryResponseToJson(
   'descriptions': instance.descriptions,
   'total_inventory_count': instance.totalInventoryCount,
   'success': instance.success,
+  'more_items': instance.moreItems,
+  'last_assetid': instance.lastAssetid,
 };
 
 Asset _$AssetFromJson(Map<String, dynamic> json) => Asset(

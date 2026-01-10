@@ -104,12 +104,11 @@ class SteamInventoryApiService {
     }
 
     try {
-      final inventory = await ExternalData.getSteamInvetoryCost(
+      final totalValue = await ExternalData.getSteamInventoryValue(
         accountId,
         game,
       );
-      if (inventory.isNotEmpty) {
-        final totalValue = inventory.values.reduce((a, b) => a + b);
+      if (totalValue > 0) {
         await _saveInventoryValueToDb(date, totalValue, assetId, game);
 
         if (!fullJson.containsKey(dateKey)) {
@@ -148,12 +147,11 @@ class SteamInventoryApiService {
     }
 
     try {
-      final inventory = await ExternalData.getSteamInvetoryCost(
+      final totalValue = await ExternalData.getSteamInventoryValue(
         accountId,
         game,
       );
-      if (inventory.isNotEmpty) {
-        final totalValue = inventory.values.reduce((a, b) => a + b);
+      if (totalValue > 0) {
         await _saveInventoryValueToDb(date, totalValue, assetId, game);
         await _apiFetchStatusesDao.upsertStatus(
           ApiFetchStatusesCompanion(
