@@ -42,7 +42,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
               ).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
                 tilePadding: EdgeInsets.zero,
-                initiallyExpanded: true,
+                initiallyExpanded: false,
                 title: Text(
                   'Total Net Worth',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(

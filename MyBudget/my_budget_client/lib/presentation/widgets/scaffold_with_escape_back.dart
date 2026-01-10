@@ -5,10 +5,7 @@ import 'package:go_router/go_router.dart';
 /// A widget that wraps a child and adds Escape key handling to pop the route
 /// when the back button would be visible (i.e., when there's a route to pop).
 class EscapeBackHandler extends StatelessWidget {
-  const EscapeBackHandler({
-    required this.child,
-    super.key,
-  });
+  const EscapeBackHandler({required this.child, super.key});
 
   final Widget child;
 
@@ -30,10 +27,7 @@ class EscapeBackHandler extends StatelessWidget {
             },
           ),
         },
-        child: Focus(
-          autofocus: true,
-          child: child,
-        ),
+        child: Focus(autofocus: false, child: child),
       ),
     );
   }
@@ -42,4 +36,3 @@ class EscapeBackHandler extends StatelessWidget {
 class _EscapeBackIntent extends Intent {
   const _EscapeBackIntent();
 }
-

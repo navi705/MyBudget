@@ -34,7 +34,6 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
   @override
   void initState() {
     super.initState();
-    _descriptionController.text = ''; // Initialize
   }
 
   @override
@@ -197,10 +196,12 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                     value: _selectedCountry,
                     hint: const Text('Select Country'),
                     items: state.countries
-                        .map((country) => DropdownMenuItem(
-                              value: country,
-                              child: Text(country),
-                            ))
+                        .map(
+                          (country) => DropdownMenuItem(
+                            value: country,
+                            child: Text(country),
+                          ),
+                        )
                         .toList(),
                     onChanged: (value) {
                       setState(() {

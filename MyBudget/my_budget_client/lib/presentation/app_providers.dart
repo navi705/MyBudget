@@ -17,6 +17,9 @@ import 'package:my_budget_client/presentation/blocs/transactions/transactions_bl
 import 'package:my_budget_client/domain/repositories/asset_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
+import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/asset/asset_event.dart';
+import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dart';
 
 class AppProviders extends StatelessWidget {
   final Widget child;
@@ -59,6 +62,13 @@ class AppProviders extends StatelessWidget {
           BlocProvider(
             create: (context) =>
                 di.sl<ThemeBloc>()..add(const LoadThemeSettings()),
+          ),
+          BlocProvider(
+            create: (context) => di.sl<AssetBloc>()..add(const LoadAssetData()),
+          ),
+          BlocProvider(
+            create: (context) =>
+                di.sl<InflationBloc>()..add(LoadInflationRates()),
           ),
         ],
         child: BlocListener<ThemeBloc, ThemeState>(
