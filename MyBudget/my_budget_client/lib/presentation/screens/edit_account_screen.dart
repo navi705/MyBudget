@@ -12,7 +12,7 @@ import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart'
 import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
-import 'package:my_budget_client/presentation/widgets/style_picker_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/icon_selection_dialog.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_state.dart';
 
@@ -379,10 +379,10 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                 child: IconUtils.getIconWidget(selectedStyle),
                               )
                             : const CircleAvatar(child: Icon(Icons.style)),
-                        title: const Text('Style'),
-                        subtitle: Text(selectedStyle?.name ?? 'Select a style'),
+                        title: const Text('Icon'),
+                        subtitle: Text(selectedStyle?.name ?? 'Select an icon'),
                         onTap: () async {
-                          final newStyleId = await showStylePickerDialog(
+                          final newStyleId = await showIconSelectionDialog(
                             context,
                             _selectedStyleId ?? '',
                           );

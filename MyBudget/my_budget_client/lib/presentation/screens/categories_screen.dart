@@ -9,7 +9,7 @@ import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/category_list_item.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
-import 'package:my_budget_client/domain/entities/style.dart';
+// Style import removed
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/delete_category_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
@@ -18,6 +18,7 @@ import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/presentation/widgets/category_filter_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/icon_selection_dialog.dart';
 
 class CategoriesScreen extends StatefulWidget {
   final bool isStandalone;
@@ -678,25 +679,13 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                 if (state is StylesLoadSuccess) {
                   return GestureDetector(
                     onTap: () async {
-                      final selectedStyle = await showSingleSelectDialog<Style>(
-                        context: context,
-                        items: state.styles,
-                        title: 'Select Style',
-                        selectedItem: state.styles.firstWhereOrNull(
-                          (s) => s.id == _selectedStyleId,
-                        ),
-                        itemBuilder: (style) => Row(
-                          children: [
-                            IconUtils.getIconWidget(style),
-                            const SizedBox(width: 8),
-                            Text(style.name),
-                          ],
-                        ),
-                        stringGetter: (style) => style.name,
+                      final selectedIconId = await showIconSelectionDialog(
+                        context,
+                        _selectedStyleId,
                       );
-                      if (mounted && selectedStyle != null) {
+                      if (mounted && selectedIconId != null) {
                         setState(() {
-                          _selectedStyleId = selectedStyle.id;
+                          _selectedStyleId = selectedIconId;
                         });
                       }
                     },
@@ -709,9 +698,9 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                                   (s) => s.id == _selectedStyleId,
                                 )
                                 ?.name ??
-                            'Select a style',
+                            'Select an icon',
                         decoration: InputDecoration(
-                          labelText: 'Style',
+                          labelText: 'Icon',
                           prefixIcon: _selectedStyleId != null
                               ? BlocBuilder<StylesBloc, StylesState>(
                                   builder: (context, stylesState) {

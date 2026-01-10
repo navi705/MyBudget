@@ -293,6 +293,7 @@ class _ImportViewState extends State<_ImportView> {
                                 builder: (_) => _MappingDialog<Account>(
                                   title: 'Map "$accountName" to...',
                                   items: existingAccounts,
+                                  itemNameProvider: (account) => account.name,
                                   itemBuilder: (account) {
                                     final stylesState = context
                                         .read<StylesBloc>()
@@ -424,6 +425,7 @@ class _ImportViewState extends State<_ImportView> {
                                 builder: (_) => _MappingDialog<Category>(
                                   title: 'Map "$categoryName" to...',
                                   items: existingCategories,
+                                  itemNameProvider: (category) => category.name,
                                   itemBuilder: (category) {
                                     final stylesState = context
                                         .read<StylesBloc>()
@@ -555,6 +557,7 @@ class _ImportViewState extends State<_ImportView> {
                                 builder: (_) => _MappingDialog<Currency>(
                                   title: 'Map "$currencyName" to...',
                                   items: existingCurrencies,
+                                  itemNameProvider: (currency) => currency.name,
                                   itemBuilder: (currency) =>
                                       Text(currency.name),
                                 ),
@@ -779,35 +782,89 @@ class _ImportViewState extends State<_ImportView> {
   }
 }
 
-class _MappingDialog<T> extends StatelessWidget {
+class _MappingDialog<T> extends StatefulWidget {
   final String title;
   final List<T> items;
   final Widget Function(T) itemBuilder;
+  final String Function(T) itemNameProvider;
 
   const _MappingDialog({
     required this.title,
     required this.items,
     required this.itemBuilder,
+    required this.itemNameProvider,
   });
+
+  @override
+  State<_MappingDialog<T>> createState() => _MappingDialogState<T>();
+}
+
+class _MappingDialogState<T> extends State<_MappingDialog<T>> {
+  late TextEditingController _searchController;
+  late List<T> _filteredItems;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _filteredItems = widget.items;
+    _searchController.addListener(_filterItems);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterItems() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredItems = widget.items.where((item) {
+        return widget.itemNameProvider(item).toLowerCase().contains(query);
+      }).toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(title),
+      title: Text(widget.title),
       content: SizedBox(
         width: double.maxFinite,
-        child: ListView.builder(
-          shrinkWrap: true,
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final item = items[index];
-            return ListTile(
-              title: itemBuilder(item),
-              onTap: () {
-                Navigator.of(context).pop((item as dynamic).id);
-              },
-            );
-          },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _filteredItems.length,
+                itemBuilder: (context, index) {
+                  final item = _filteredItems[index];
+                  return ListTile(
+                    title: widget.itemBuilder(item),
+                    onTap: () {
+                      Navigator.of(context).pop((item as dynamic).id);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
       actions: [

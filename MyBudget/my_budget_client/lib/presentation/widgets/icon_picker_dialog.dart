@@ -280,12 +280,12 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: isSelected
-                ? Theme.of(context).primaryColor
+                ? Theme.of(context).colorScheme.primary
                 : Colors.transparent,
-            width: 2,
+            width: 3,
           ),
           color: isSelected
-              ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)
               : Colors.transparent,
         ),
         padding: const EdgeInsets.all(4),

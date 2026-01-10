@@ -22,100 +22,103 @@ class ManageStylesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return EscapeBackHandler(
       child: Scaffold(
-      appBar: AppBar(title: const Text('Manage Styles')),
-      body: BlocBuilder<StylesBloc, StylesState>(
-        builder: (context, state) {
-          if (state is StylesLoadInProgress) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (state is StylesLoadSuccess) {
-            if (state.styles.isEmpty) {
-              return const Center(child: Text('No styles created yet.'));
+        appBar: AppBar(title: const Text('Manage Icons')),
+        body: BlocBuilder<StylesBloc, StylesState>(
+          builder: (context, state) {
+            if (state is StylesLoadInProgress) {
+              return const Center(child: CircularProgressIndicator());
             }
-            return ListView.builder(
-              itemCount: state.styles.length,
-              itemBuilder: (context, index) {
-                final style = state.styles[index];
-                final color = _getColorFromHex(style.colorHex);
-                final Widget iconWidget = IconUtils.getIconWidget(style);
+            if (state is StylesLoadSuccess) {
+              if (state.styles.isEmpty) {
+                return const Center(child: Text('No icons created yet.'));
+              }
+              return ListView.builder(
+                itemCount: state.styles.length,
+                itemBuilder: (context, index) {
+                  final style = state.styles[index];
+                  final color = _getColorFromHex(style.colorHex);
+                  final Widget iconWidget = IconUtils.getIconWidget(style);
 
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: color,
-                    child: iconWidget,
-                  ),
-                  title: Text(style.name),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: () {
-                          if (style.id != null) {
-                            context.push(
-                              AppRoutes.editAccountStyle.replaceFirst(
-                                ':id',
-                                style.id!.toString(),
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: color,
+                      child: iconWidget,
+                    ),
+                    title: Text(style.name),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () {
+                            if (style.id != null) {
+                              context.push(
+                                AppRoutes.editAccountStyle.replaceFirst(
+                                  ':id',
+                                  style.id!.toString(),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete,
+                            color: Colors.redAccent,
+                          ),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (dialogContext) => AlertDialog(
+                                title: const Text('Delete Icon'),
+                                content: Text(
+                                  'Are you sure you want to delete "${style.name}"?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(dialogContext).pop(),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      context.read<StylesBloc>().add(
+                                        DeleteStyle(style.id!),
+                                      );
+                                      Navigator.of(dialogContext).pop();
+                                    },
+                                    child: const Text(
+                                      'Delete',
+                                      style: TextStyle(color: Colors.redAccent),
+                                    ),
+                                  ),
+                                ],
                               ),
                             );
-                          }
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.redAccent),
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (dialogContext) => AlertDialog(
-                              title: const Text('Delete Style'),
-                              content: Text(
-                                'Are you sure you want to delete "${style.name}"?',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(dialogContext).pop(),
-                                  child: const Text('Cancel'),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    context.read<StylesBloc>().add(
-                                      DeleteStyle(style.id!),
-                                    );
-                                    Navigator.of(dialogContext).pop();
-                                  },
-                                  child: const Text(
-                                    'Delete',
-                                    style: TextStyle(color: Colors.redAccent),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                );
-              },
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            }
+            return const Center(child: Text('Failed to load icons.'));
+          },
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (_) => BlocProvider.value(
+                value: BlocProvider.of<StylesBloc>(context),
+                child: const AddStyleDialog(),
+              ),
             );
-          }
-          return const Center(child: Text('Failed to load styles.'));
-        },
+          },
+          child: const Icon(Icons.add),
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (_) => BlocProvider.value(
-              value: BlocProvider.of<StylesBloc>(context),
-              child: const AddStyleDialog(),
-            ),
-          );
-        },
-        child: const Icon(Icons.add),
-      ),
-    ),
     );
   }
 }

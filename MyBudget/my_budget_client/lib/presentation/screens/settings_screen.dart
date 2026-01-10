@@ -29,7 +29,7 @@ class SettingsScreen extends StatelessWidget {
             children: [
               ListTile(
                 leading: const Icon(Icons.palette),
-                title: const Text('Manage Account Styles'),
+                title: const Text('Manage Icons'),
                 onTap: () {
                   context.push(AppRoutes.manageAccountStyles);
                 },
