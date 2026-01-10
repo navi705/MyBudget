@@ -18,6 +18,7 @@ import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart'
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/presentation/widgets/total_balance_summary_widget.dart';
+import 'package:my_budget_client/presentation/widgets/currency_selection_dialog.dart';
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
@@ -63,110 +64,28 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final currentState = converterBloc.state;
     if (currentState is! CurrencyConverterLoadSuccess) return;
 
-    final tempSelectedCurrencies = List<Currency>.from(
-      currentState.selectedCurrencies,
-    );
-    String searchText = '';
-
-    await showDialog(
+    final result = await showDialog<List<Currency>>(
       context: context,
       builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final screenHeight = MediaQuery.of(context).size.height;
-            final filteredCurrencies = currentState.allCurrencies.where((c) {
-              return c.name.toLowerCase().contains(searchText.toLowerCase()) ||
-                  c.code.toLowerCase().contains(searchText.toLowerCase());
-            }).toList();
-
-            return AlertDialog(
-              title: const Text('Select Currencies'),
-              content: SizedBox(
-                width: double.maxFinite,
-                height: screenHeight * 0.7,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      onChanged: (value) {
-                        setDialogState(() {
-                          searchText = value;
-                        });
-                      },
-                      decoration: const InputDecoration(
-                        labelText: 'Search',
-                        prefixIcon: Icon(Icons.search),
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          vertical: 12.0,
-                          horizontal: 8.0,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: filteredCurrencies.length,
-                        itemBuilder: (context, index) {
-                          final currency = filteredCurrencies[index];
-                          final isSelected = tempSelectedCurrencies.any(
-                            (c) => c.code == currency.code,
-                          );
-                          return CheckboxListTile(
-                            title: Text('${currency.name} (${currency.code})'),
-                            value: isSelected,
-                            onChanged: (bool? value) {
-                              setDialogState(() {
-                                if (value == true) {
-                                  tempSelectedCurrencies.add(currency);
-                                } else {
-                                  tempSelectedCurrencies.removeWhere(
-                                    (c) => c.code == currency.code,
-                                  );
-                                }
-                              });
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  child: const Text('Clear All'),
-                  onPressed: () {
-                    setDialogState(() {
-                      tempSelectedCurrencies.clear();
-                    });
-                  },
-                ),
-                TextButton(
-                  child: const Text('Cancel'),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                TextButton(
-                  child: const Text('OK'),
-                  onPressed: () {
-                    // Clear current selections
-                    for (final currency in List<Currency>.from(
-                      currentState.selectedCurrencies,
-                    )) {
-                      converterBloc.add(RemoveSelectedCurrency(currency));
-                    }
-                    // Add new selections
-                    for (final currency in tempSelectedCurrencies) {
-                      converterBloc.add(AddSelectedCurrency(currency));
-                    }
-                    Navigator.of(context).pop();
-                  },
-                ),
-              ],
-            );
-          },
+        return CurrencySelectionDialog(
+          allCurrencies: currentState.allCurrencies,
+          selectedCurrencies: currentState.selectedCurrencies,
         );
       },
     );
+
+    if (result != null) {
+      // Clear current selections
+      for (final currency in List<Currency>.from(
+        currentState.selectedCurrencies,
+      )) {
+        converterBloc.add(RemoveSelectedCurrency(currency));
+      }
+      // Add new selections
+      for (final currency in result) {
+        converterBloc.add(AddSelectedCurrency(currency));
+      }
+    }
   }
 
   void _showDeleteConfirmationDialog(
