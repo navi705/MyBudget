@@ -72,6 +72,38 @@ class ChangeExchangeRatesActiveDate extends ExchangeRatesEvent {
 class ChangeExchangeRatesActiveDateRange extends ExchangeRatesEvent {
   final DateTimeRange dateRange;
   const ChangeExchangeRatesActiveDateRange(this.dateRange);
-  @override
   List<Object?> get props => [dateRange];
+}
+
+class ToggleSelectionMode extends ExchangeRatesEvent {
+  final bool isSelectionModeActive;
+  const ToggleSelectionMode(this.isSelectionModeActive);
+  @override
+  List<Object?> get props => [isSelectionModeActive];
+}
+
+class ToggleExchangeRateSelection extends ExchangeRatesEvent {
+  final ExchangeRateDomain exchangeRate;
+  const ToggleExchangeRateSelection(this.exchangeRate);
+  @override
+  List<Object?> get props => [exchangeRate];
+}
+
+class SelectAllExchangeRates extends ExchangeRatesEvent {
+  const SelectAllExchangeRates();
+}
+
+class ClearSelection extends ExchangeRatesEvent {
+  const ClearSelection();
+}
+
+class DeleteSelectedExchangeRates extends ExchangeRatesEvent {
+  const DeleteSelectedExchangeRates();
+}
+
+class UpdateSelectedExchangeRatesPreset extends ExchangeRatesEvent {
+  final int newPreset;
+  const UpdateSelectedExchangeRatesPreset(this.newPreset);
+  @override
+  List<Object?> get props => [newPreset];
 }

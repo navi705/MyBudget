@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
-import 'package:flutter/foundation.dart';
 import 'package:my_budget_client/core/mappers/exchange_rate_mapper.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/core/utils/import_utils.dart';
@@ -1150,6 +1149,53 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   Future<void> insertAllExchangeRates(List<ExchangeRatesCompanion> rates) {
     return batch((batch) {
       batch.insertAll(exchangeRates, rates, mode: InsertMode.insertOrReplace);
+    });
+  }
+
+  Future<void> deleteExchangeRates(List<ExchangeRateDomain> rates) {
+    return batch((batch) {
+      for (final rate in rates) {
+        batch.delete(
+          exchangeRates,
+          ExchangeRatesCompanion(
+            fromCurrencyCode: Value(rate.fromCurrencyCode),
+            toCurrencyCode: Value(rate.toCurrencyCode),
+            date: Value(rate.date),
+            preset: Value(rate.preset),
+          ),
+        );
+      }
+    });
+  }
+
+  Future<void> updateExchangeRatePresets(
+    List<ExchangeRateDomain> rates,
+    int newPreset,
+  ) {
+    return transaction(() async {
+      for (final rate in rates) {
+        // Delete old entry
+        await (delete(exchangeRates)..where(
+              (t) =>
+                  t.fromCurrencyCode.equals(rate.fromCurrencyCode) &
+                  t.toCurrencyCode.equals(rate.toCurrencyCode) &
+                  t.date.equals(rate.date) &
+                  t.preset.equals(rate.preset),
+            ))
+            .go();
+
+        // Insert new entry with updated preset
+        await into(exchangeRates).insert(
+          ExchangeRatesCompanion(
+            fromCurrencyCode: Value(rate.fromCurrencyCode),
+            toCurrencyCode: Value(rate.toCurrencyCode),
+            date: Value(rate.date),
+            preset: Value(newPreset),
+            rate: Value(rate.rate),
+          ),
+          mode: InsertMode.replace,
+        );
+      }
     });
   }
 }

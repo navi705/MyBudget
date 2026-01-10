@@ -82,6 +82,38 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
     BuildContext context,
     ExchangeRatesState state,
   ) {
+    if (state.isSelectionModeActive) {
+      // Capture the bloc here to pass it to the dialogs
+      final bloc = context.read<ExchangeRatesBloc>();
+      return _SelectionAppBar(
+        selectionCount: state.selectedExchangeRates.length,
+        totalCount: state.exchangeRates.length,
+        onClearSelection: () {
+          if (state.selectedExchangeRates.isNotEmpty) {
+            bloc.add(const ClearSelection());
+          } else {
+            bloc.add(const ToggleSelectionMode(false));
+          }
+        },
+        onSelectAll: () {
+          final isAllSelected =
+              state.selectedExchangeRates.length ==
+                  state.exchangeRates.length &&
+              state.exchangeRates.isNotEmpty;
+          if (isAllSelected) {
+            bloc.add(const ClearSelection());
+          } else {
+            bloc.add(const SelectAllExchangeRates());
+          }
+        },
+        onDelete: () => _showDeleteConfirmation(
+          context,
+          bloc,
+          state.selectedExchangeRates.length,
+        ),
+        onChangePreset: () => _showBulkPresetUpdate(context, bloc),
+      );
+    }
     return _ExchangeRatesDateAppBar(state: state);
   }
 
@@ -114,9 +146,103 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
           );
         }
         final rate = state.exchangeRates[index];
-        return _ExchangeRateListItem(rate: rate);
+        final isSelected = state.selectedExchangeRates.contains(rate);
+        return _ExchangeRateListItem(
+          rate: rate,
+          isSelected: isSelected,
+          isSelectionMode: state.isSelectionModeActive,
+          onSecondaryTapUp: (details) =>
+              _showContextMenu(context, details, rate, state),
+        );
       },
     );
+  }
+
+  void _showContextMenu(
+    BuildContext context,
+    TapUpDetails details,
+    ExchangeRateDomain rate,
+    ExchangeRatesState state,
+  ) {
+    final bloc = context.read<ExchangeRatesBloc>();
+    final isSelected = state.selectedExchangeRates.contains(rate);
+
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    showMenu(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTRB(
+          details.globalPosition.dx,
+          details.globalPosition.dy,
+          details.globalPosition.dx,
+          details.globalPosition.dy,
+        ),
+        Offset.zero & overlay.size,
+      ),
+      items: <PopupMenuEntry<String>>[
+        PopupMenuItem(
+          value: 'select',
+          child: Text(isSelected ? 'Deselect' : 'Select'),
+        ),
+        const PopupMenuItem(value: 'select_all', child: Text('Select All')),
+        if (state.selectedExchangeRates.isNotEmpty)
+          const PopupMenuItem(
+            value: 'deselect_all',
+            child: Text('Deselect All'),
+          ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: 'change_preset',
+          child: Text('Change Preset'),
+        ),
+        const PopupMenuItem(value: 'delete', child: Text('Delete')),
+      ],
+    ).then((value) {
+      if (!mounted) return;
+      if (value == 'select') {
+        if (!state.isSelectionModeActive) {
+          bloc.add(const ToggleSelectionMode(true));
+        }
+        bloc.add(ToggleExchangeRateSelection(rate));
+      } else if (value == 'select_all') {
+        if (!state.isSelectionModeActive) {
+          bloc.add(const ToggleSelectionMode(true));
+        }
+        bloc.add(const SelectAllExchangeRates());
+      } else if (value == 'deselect_all') {
+        bloc.add(const ClearSelection());
+      } else if (value == 'change_preset') {
+        // If not selected, select it first for the action
+        if (!isSelected) {
+          if (!state.isSelectionModeActive) {
+            bloc.add(const ToggleSelectionMode(true));
+          }
+          bloc.add(ToggleExchangeRateSelection(rate));
+        }
+        // Small delay to let selection update propagate if needed, though bloc is async.
+        // For better UX, we might just pass the list directly if we had immediate state,
+        // but here we rely on the bloc state.
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (mounted) _showBulkPresetUpdate(context, bloc);
+        });
+      } else if (value == 'delete') {
+        if (!isSelected) {
+          if (!state.isSelectionModeActive) {
+            bloc.add(const ToggleSelectionMode(true));
+          }
+          bloc.add(ToggleExchangeRateSelection(rate));
+        }
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (mounted) {
+            // We need to get the latest count, but state here is stale from the closure.
+            // We can read the bloc's current state.
+            final currentCount = bloc.state.selectedExchangeRates.length;
+            _showDeleteConfirmation(context, bloc, currentCount);
+          }
+        });
+      }
+    });
   }
 
   void _showAddExchangeRateDialog(BuildContext context) {
@@ -271,8 +397,16 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
 
 class _ExchangeRateListItem extends StatefulWidget {
   final ExchangeRateDomain rate;
+  final bool isSelected;
+  final bool isSelectionMode;
+  final void Function(TapUpDetails)? onSecondaryTapUp;
 
-  const _ExchangeRateListItem({required this.rate});
+  const _ExchangeRateListItem({
+    required this.rate,
+    this.isSelected = false,
+    this.isSelectionMode = false,
+    this.onSecondaryTapUp,
+  });
 
   @override
   State<_ExchangeRateListItem> createState() => _ExchangeRateListItemState();
@@ -281,58 +415,95 @@ class _ExchangeRateListItem extends StatefulWidget {
 class _ExchangeRateListItemState extends State<_ExchangeRateListItem> {
   bool _isHovering = false;
 
+  void _handleTap() {
+    if (widget.isSelectionMode) {
+      context.read<ExchangeRatesBloc>().add(
+        ToggleExchangeRateSelection(widget.rate),
+      );
+    }
+  }
+
+  void _handleLongPress() {
+    if (!widget.isSelectionMode) {
+      context.read<ExchangeRatesBloc>().add(const ToggleSelectionMode(true));
+      context.read<ExchangeRatesBloc>().add(
+        ToggleExchangeRateSelection(widget.rate),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final selectedColor = colorScheme.primaryContainer.withValues(alpha: 0.3);
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
       onExit: (_) => setState(() => _isHovering = false),
       child: Card(
-        elevation: _isHovering ? 4.0 : 2.0,
+        elevation: widget.isSelected || _isHovering || widget.isSelectionMode
+            ? 4.0
+            : 2.0,
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.0),
-          side: _isHovering
-              ? BorderSide(color: Theme.of(context).primaryColor, width: 2.0)
+          side: widget.isSelected || _isHovering
+              ? BorderSide(color: theme.primaryColor, width: 2.0)
               : BorderSide.none,
         ),
-        color: _isHovering ? Colors.grey.withValues(alpha: 0.1) : null,
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20.0,
-            vertical: 10.0,
-          ),
-          leading: Container(
-            padding: const EdgeInsets.all(10.0),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12.0),
+        color: widget.isSelected ? selectedColor : null,
+        child: InkWell(
+          onTap: _handleTap,
+          onLongPress: _handleLongPress,
+          onSecondaryTapUp: widget.onSecondaryTapUp,
+          borderRadius: BorderRadius.circular(12.0),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20.0,
+              vertical: 10.0,
             ),
-            child: const Icon(Icons.currency_exchange, color: Colors.white),
-          ),
-          title: Text(
-            '${widget.rate.fromCurrencyCode} ➔ ${widget.rate.toCurrencyCode}',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          subtitle: Text(
-            DateFormat('dd.MM.yyyy').format(widget.rate.date),
-            style: const TextStyle(fontSize: 14),
-          ),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                widget.rate.rate.toStringAsFixed(4),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18,
+            leading: widget.isSelectionMode
+                ? Checkbox(
+                    value: widget.isSelected,
+                    onChanged: (value) => _handleTap(),
+                  )
+                : Container(
+                    padding: const EdgeInsets.all(10.0),
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    child: const Icon(
+                      Icons.currency_exchange,
+                      color: Colors.white,
+                    ),
+                  ),
+            title: Text(
+              '${widget.rate.fromCurrencyCode} ➔ ${widget.rate.toCurrencyCode}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            subtitle: Text(
+              DateFormat('dd.MM.yyyy').format(widget.rate.date),
+              style: const TextStyle(fontSize: 14),
+            ),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  widget.rate.rate.toStringAsFixed(4),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                  ),
                 ),
-              ),
-              Text(
-                'Preset: ${widget.rate.preset}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+                Text(
+                  'Preset: ${widget.rate.preset}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -660,4 +831,128 @@ class _ExchangeRatesFilterDialogState
       },
     );
   }
+}
+
+class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final int selectionCount;
+  final int totalCount;
+  final VoidCallback onClearSelection;
+  final VoidCallback onSelectAll;
+  final VoidCallback onDelete;
+  final VoidCallback onChangePreset;
+
+  const _SelectionAppBar({
+    required this.selectionCount,
+    required this.totalCount,
+    required this.onClearSelection,
+    required this.onSelectAll,
+    required this.onDelete,
+    required this.onChangePreset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isAllSelected = selectionCount == totalCount && totalCount > 0;
+
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        onPressed: onClearSelection,
+      ),
+      title: Text('$selectionCount selected'),
+      actions: [
+        IconButton(
+          icon: Icon(
+            isAllSelected ? Icons.deselect_outlined : Icons.select_all_outlined,
+          ),
+          onPressed: onSelectAll,
+          tooltip: isAllSelected ? 'Deselect All' : 'Select All',
+        ),
+        if (selectionCount > 0) ...[
+          IconButton(
+            icon: const Icon(Icons.drive_file_rename_outline),
+            onPressed: onChangePreset,
+            tooltip: 'Change Preset',
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete),
+            onPressed: onDelete,
+            tooltip: 'Delete',
+          ),
+        ],
+      ],
+    );
+  }
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+}
+
+void _showDeleteConfirmation(
+  BuildContext context,
+  ExchangeRatesBloc bloc,
+  int count,
+) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Delete Exchange Rates'),
+      content: Text('Are you sure you want to delete $count exchange rates?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            bloc.add(const DeleteSelectedExchangeRates());
+            Navigator.pop(context);
+          },
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+}
+
+void _showBulkPresetUpdate(BuildContext context, ExchangeRatesBloc bloc) {
+  final presetController = TextEditingController(text: '1');
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Update Preset'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Enter the new preset ID for the selected items:'),
+          const SizedBox(height: 16),
+          TextField(
+            controller: presetController,
+            decoration: const InputDecoration(
+              labelText: 'Preset ID',
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.number,
+            autofocus: true,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final newPreset = int.tryParse(presetController.text);
+            if (newPreset != null) {
+              bloc.add(UpdateSelectedExchangeRatesPreset(newPreset));
+              Navigator.pop(context);
+            }
+          },
+          child: const Text('Update'),
+        ),
+      ],
+    ),
+  );
 }

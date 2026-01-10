@@ -170,6 +170,22 @@ class LocalCurrencyRepository implements CurrencyRepository {
   }
 
   @override
+  Future<void> deleteExchangeRates(List<ExchangeRateDomain> rates) {
+    return database.exchangeRatesDao.deleteExchangeRates(rates);
+  }
+
+  @override
+  Future<void> updateExchangeRatePresets(
+    List<ExchangeRateDomain> rates,
+    int newPreset,
+  ) {
+    return database.exchangeRatesDao.updateExchangeRatePresets(
+      rates,
+      newPreset,
+    );
+  }
+
+  @override
   Future<int> getExchangeRatesCount({
     DateTime? startDate,
     DateTime? endDate,

@@ -17,6 +17,8 @@ class ExchangeRatesState extends Equatable {
   final String? error;
   final bool hasReachedMax;
   final int totalCount;
+  final bool isSelectionModeActive;
+  final Set<ExchangeRateDomain> selectedExchangeRates;
 
   ExchangeRatesState({
     this.status = ExchangeRatesStatus.initial,
@@ -33,6 +35,8 @@ class ExchangeRatesState extends Equatable {
     this.error,
     this.hasReachedMax = false,
     this.totalCount = 0,
+    this.isSelectionModeActive = false,
+    this.selectedExchangeRates = const {},
   }) : activeDate =
            activeDate ??
            DateTime.now(); // Note: removed const from constructor because of initializer? No, activeDate is final. But DateTime.now() is not const. So constructor can't be const.
@@ -54,6 +58,8 @@ class ExchangeRatesState extends Equatable {
     String? error,
     bool? hasReachedMax,
     int? totalCount,
+    bool? isSelectionModeActive,
+    Set<ExchangeRateDomain>? selectedExchangeRates,
   }) {
     return ExchangeRatesState(
       status: status ?? this.status,
@@ -74,6 +80,10 @@ class ExchangeRatesState extends Equatable {
       error: error ?? this.error,
       hasReachedMax: hasReachedMax ?? this.hasReachedMax,
       totalCount: totalCount ?? this.totalCount,
+      isSelectionModeActive:
+          isSelectionModeActive ?? this.isSelectionModeActive,
+      selectedExchangeRates:
+          selectedExchangeRates ?? this.selectedExchangeRates,
     );
   }
 
@@ -93,5 +103,7 @@ class ExchangeRatesState extends Equatable {
     error,
     hasReachedMax,
     totalCount,
+    isSelectionModeActive,
+    selectedExchangeRates,
   ];
 }

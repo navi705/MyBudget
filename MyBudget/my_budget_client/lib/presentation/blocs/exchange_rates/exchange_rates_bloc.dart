@@ -41,6 +41,12 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
       emit(state.copyWith(activeDateRange: event.dateRange));
       add(const LoadExchangeRates(isRefresh: true));
     });
+    on<ToggleSelectionMode>(_onToggleSelectionMode);
+    on<ToggleExchangeRateSelection>(_onToggleExchangeRateSelection);
+    on<SelectAllExchangeRates>(_onSelectAllExchangeRates);
+    on<ClearSelection>(_onClearSelection);
+    on<DeleteSelectedExchangeRates>(_onDeleteSelectedExchangeRates);
+    on<UpdateSelectedExchangeRatesPreset>(_onUpdateSelectedExchangeRatesPreset);
   }
 
   Future<void> _onLoadExchangeRates(
@@ -190,5 +196,84 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
       ),
     );
     add(const LoadExchangeRates(isRefresh: true));
+  }
+
+  Future<void> _onToggleSelectionMode(
+    ToggleSelectionMode event,
+    Emitter<ExchangeRatesState> emit,
+  ) async {
+    emit(state.copyWith(isSelectionModeActive: event.isSelectionModeActive));
+    if (!event.isSelectionModeActive) {
+      add(const ClearSelection());
+    }
+  }
+
+  Future<void> _onToggleExchangeRateSelection(
+    ToggleExchangeRateSelection event,
+    Emitter<ExchangeRatesState> emit,
+  ) async {
+    final updatedSelection = Set<ExchangeRateDomain>.from(
+      state.selectedExchangeRates,
+    );
+    if (updatedSelection.contains(event.exchangeRate)) {
+      updatedSelection.remove(event.exchangeRate);
+    } else {
+      updatedSelection.add(event.exchangeRate);
+    }
+    emit(state.copyWith(selectedExchangeRates: updatedSelection));
+  }
+
+  Future<void> _onSelectAllExchangeRates(
+    SelectAllExchangeRates event,
+    Emitter<ExchangeRatesState> emit,
+  ) async {
+    final allRates = Set<ExchangeRateDomain>.from(state.exchangeRates);
+    emit(state.copyWith(selectedExchangeRates: allRates));
+  }
+
+  Future<void> _onClearSelection(
+    ClearSelection event,
+    Emitter<ExchangeRatesState> emit,
+  ) async {
+    emit(state.copyWith(selectedExchangeRates: const {}));
+  }
+
+  Future<void> _onDeleteSelectedExchangeRates(
+    DeleteSelectedExchangeRates event,
+    Emitter<ExchangeRatesState> emit,
+  ) async {
+    try {
+      if (state.selectedExchangeRates.isEmpty) return;
+
+      final ratesToDelete = state.selectedExchangeRates.toList();
+      await _currencyRepository.deleteExchangeRates(ratesToDelete);
+
+      add(const LoadExchangeRates(isRefresh: true));
+      add(const ClearSelection());
+      add(const ToggleSelectionMode(false));
+    } catch (e) {
+      emit(state.copyWith(error: e.toString()));
+    }
+  }
+
+  Future<void> _onUpdateSelectedExchangeRatesPreset(
+    UpdateSelectedExchangeRatesPreset event,
+    Emitter<ExchangeRatesState> emit,
+  ) async {
+    try {
+      if (state.selectedExchangeRates.isEmpty) return;
+
+      final ratesToUpdate = state.selectedExchangeRates.toList();
+      await _currencyRepository.updateExchangeRatePresets(
+        ratesToUpdate,
+        event.newPreset,
+      );
+
+      add(const LoadExchangeRates(isRefresh: true));
+      add(const ClearSelection());
+      add(const ToggleSelectionMode(false));
+    } catch (e) {
+      emit(state.copyWith(error: e.toString()));
+    }
   }
 }
