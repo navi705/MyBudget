@@ -135,8 +135,6 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
       _selectedSources = [];
       _selectedPresets = [];
     });
-    context.read<AssetBloc>().add(const ChangeAssetFilters());
-    Navigator.of(context).pop();
   }
 
   @override

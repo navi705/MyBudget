@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/core/mappers/currency_designation_mapper.dart';
 import 'package:my_budget_client/core/mappers/currency_mapper.dart';
@@ -148,31 +149,37 @@ class LocalCurrencyRepository implements CurrencyRepository {
   Future<List<ExchangeRateDomain>> getExchangeRatesFiltered({
     int limit = 100,
     int offset = 0,
-    DateTime? date,
+    DateTime? startDate,
+    DateTime? endDate,
     String? fromCurrency,
     String? toCurrency,
     List<int>? presets,
+    bool sortAscending = false,
   }) async {
     final rates = await database.exchangeRatesDao.getExchangeRatesFiltered(
       limit: limit,
       offset: offset,
-      date: date,
+      startDate: startDate,
+      endDate: endDate,
       fromCurrency: fromCurrency,
       toCurrency: toCurrency,
       presets: presets,
+      sort: sortAscending ? OrderingMode.asc : OrderingMode.desc,
     );
     return rates.toDomainList();
   }
 
   @override
   Future<int> getExchangeRatesCount({
-    DateTime? date,
+    DateTime? startDate,
+    DateTime? endDate,
     String? fromCurrency,
     String? toCurrency,
     List<int>? presets,
   }) {
     return database.exchangeRatesDao.getExchangeRatesCount(
-      date: date,
+      startDate: startDate,
+      endDate: endDate,
       fromCurrency: fromCurrency,
       toCurrency: toCurrency,
       presets: presets,

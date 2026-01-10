@@ -63,21 +63,63 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
       final limit = 100;
       final offset = event.isRefresh ? 0 : state.exchangeRates.length;
 
+      DateTime startDate;
+      DateTime endDate;
+
+      if (state.filterMode == FilterMode.range &&
+          state.activeDateRange != null) {
+        startDate = state.activeDateRange!.start;
+        endDate = state.activeDateRange!.end;
+      } else {
+        final activeDate = state.activeDate;
+        switch (state.dateStep) {
+          case DateStep.day:
+            startDate = DateTime(
+              activeDate.year,
+              activeDate.month,
+              activeDate.day,
+            );
+            endDate = DateTime(
+              activeDate.year,
+              activeDate.month,
+              activeDate.day,
+              23,
+              59,
+              59,
+            );
+            break;
+          case DateStep.month:
+            startDate = DateTime(activeDate.year, activeDate.month, 1);
+            endDate = DateTime(
+              activeDate.year,
+              activeDate.month + 1,
+              0,
+              23,
+              59,
+              59,
+            );
+            break;
+          case DateStep.year:
+            startDate = DateTime(activeDate.year, 1, 1);
+            endDate = DateTime(activeDate.year, 12, 31, 23, 59, 59);
+            break;
+        }
+      }
+
       final rates = await _currencyRepository.getExchangeRatesFiltered(
         limit: limit,
         offset: offset,
-        date: state.filterMode == FilterMode.range
-            ? state.activeDateRange?.start
-            : state.activeDate, // Mapping new state to Repo's date
+        startDate: startDate,
+        endDate: endDate,
         fromCurrency: state.fromCurrencyFilter,
         toCurrency: state.toCurrencyFilter,
         presets: state.presetFilters,
+        sortAscending: state.sort == Sort.ascending,
       );
 
       final totalCount = await _currencyRepository.getExchangeRatesCount(
-        date: state.filterMode == FilterMode.range
-            ? state.activeDateRange?.start
-            : state.activeDate,
+        startDate: startDate,
+        endDate: endDate,
         fromCurrency: state.fromCurrencyFilter,
         toCurrency: state.toCurrencyFilter,
         presets: state.presetFilters,

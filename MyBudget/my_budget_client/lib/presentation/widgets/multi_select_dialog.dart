@@ -6,6 +6,7 @@ class MultiSelectDialog<T, K> extends StatefulWidget {
   final Widget Function(T) itemBuilder;
   final K Function(T) idGetter;
   final String Function(T) stringGetter;
+  final bool isSingleSelect;
 
   const MultiSelectDialog({
     super.key,
@@ -14,6 +15,7 @@ class MultiSelectDialog<T, K> extends StatefulWidget {
     required this.itemBuilder,
     required this.idGetter,
     required this.stringGetter,
+    this.isSingleSelect = false,
   });
 
   @override
@@ -41,7 +43,7 @@ class _MultiSelectDialogState<T, K> extends State<MultiSelectDialog<T, K>> {
     }).toList();
 
     return AlertDialog(
-      title: const Text('Select Items'),
+      title: Text(widget.isSingleSelect ? 'Select Item' : 'Select Items'),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -80,6 +82,9 @@ class _MultiSelectDialogState<T, K> extends State<MultiSelectDialog<T, K>> {
                     onChanged: (bool? value) {
                       setState(() {
                         if (value == true) {
+                          if (widget.isSingleSelect) {
+                            _selectedIds.clear();
+                          }
                           _selectedIds.add(itemId);
                         } else {
                           _selectedIds.remove(itemId);

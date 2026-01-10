@@ -1056,21 +1056,20 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   Future<List<ExchangeRate>> getExchangeRatesFiltered({
     int limit = 100,
     int offset = 0,
-    DateTime? date,
+    DateTime? startDate,
+    DateTime? endDate,
     String? fromCurrency,
     String? toCurrency,
     List<int>? presets,
+    OrderingMode sort = OrderingMode.desc,
   }) {
     final query = select(exchangeRates);
 
-    if (date != null) {
-      final startOfDay = DateTime(date.year, date.month, date.day);
-      final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
-      query.where(
-        (t) =>
-            t.date.isBiggerOrEqualValue(startOfDay) &
-            t.date.isSmallerOrEqualValue(endOfDay),
-      );
+    if (startDate != null) {
+      query.where((t) => t.date.isBiggerOrEqualValue(startDate));
+    }
+    if (endDate != null) {
+      query.where((t) => t.date.isSmallerOrEqualValue(endDate));
     }
     if (fromCurrency != null) {
       query.where((t) => t.fromCurrencyCode.equals(fromCurrency));
@@ -1082,29 +1081,26 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
       query.where((t) => t.preset.isIn(presets));
     }
 
-    query.orderBy([
-      (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
-    ]);
+    query.orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
     query.limit(limit, offset: offset);
 
     return query.get();
   }
 
   Future<int> getExchangeRatesCount({
-    DateTime? date,
+    DateTime? startDate,
+    DateTime? endDate,
     String? fromCurrency,
     String? toCurrency,
     List<int>? presets,
   }) async {
     final query = selectOnly(exchangeRates);
 
-    if (date != null) {
-      final startOfDay = DateTime(date.year, date.month, date.day);
-      final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
-      query.where(
-        exchangeRates.date.isBiggerOrEqualValue(startOfDay) &
-            exchangeRates.date.isSmallerOrEqualValue(endOfDay),
-      );
+    if (startDate != null) {
+      query.where(exchangeRates.date.isBiggerOrEqualValue(startDate));
+    }
+    if (endDate != null) {
+      query.where(exchangeRates.date.isSmallerOrEqualValue(endDate));
     }
     if (fromCurrency != null) {
       query.where(exchangeRates.fromCurrencyCode.equals(fromCurrency));
@@ -1131,7 +1127,9 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     final results = await query
         .map((row) => row.read(exchangeRates.preset))
         .get();
-    return results.whereType<int>().toList();
+
+    final presets = results.whereType<int>().toList()..sort();
+    return presets;
   }
 
   Future<List<ExchangeRate>> getLatestExchangeRates(DateTime date) {

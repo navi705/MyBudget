@@ -31,13 +31,16 @@ abstract class CurrencyRepository {
   Future<List<ExchangeRateDomain>> getExchangeRatesFiltered({
     int limit = 100,
     int offset = 0,
-    DateTime? date,
+    DateTime? startDate,
+    DateTime? endDate,
     String? fromCurrency,
     String? toCurrency,
     List<int>? presets,
+    bool sortAscending = false,
   });
   Future<int> getExchangeRatesCount({
-    DateTime? date,
+    DateTime? startDate,
+    DateTime? endDate,
     String? fromCurrency,
     String? toCurrency,
     List<int>? presets,

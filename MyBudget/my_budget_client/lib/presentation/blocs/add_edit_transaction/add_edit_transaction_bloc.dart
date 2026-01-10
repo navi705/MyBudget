@@ -300,7 +300,8 @@ class AddEditTransactionBloc
     try {
       List<ExchangeRateDomain> rates = await _currencyRepository
           .getExchangeRatesFiltered(
-            date: date,
+            startDate: date,
+            endDate: date,
             fromCurrency: fromCurrency.code,
             toCurrency: toCurrencyCode,
           );

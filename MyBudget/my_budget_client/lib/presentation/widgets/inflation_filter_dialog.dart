@@ -78,10 +78,6 @@ class _InflationFilterDialogState extends State<InflationFilterDialog> {
       _selectedCountries = [];
       _selectedPresets = [];
     });
-    context.read<InflationBloc>().add(
-      const ChangeInflationFilters(countries: null, presets: null),
-    );
-    Navigator.of(context).pop();
   }
 
   @override

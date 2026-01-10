@@ -121,8 +121,14 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
 
   void _showAddExchangeRateDialog(BuildContext context) {
     final bloc = context.read<ExchangeRatesBloc>();
-    final fromController = TextEditingController(text: 'EUR');
-    final toController = TextEditingController();
+    final currencies = bloc.state.currencies;
+
+    // We need to use stateful builders for the dialog to update.
+    // However, the helper method _buildCurrencySelector works best in a State class or with a dedicated builder.
+    // Let's create a dedicated stateful widget for the content or just manage state here.
+
+    String? fromCurrency = 'EUR';
+    String? toCurrency;
     final rateController = TextEditingController();
     final presetController = TextEditingController(text: '1');
     DateTime selectedDate = DateTime.now();
@@ -130,92 +136,134 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Add Exchange Rate'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: fromController,
-                decoration: const InputDecoration(
-                  labelText: 'From Currency (e.g. EUR)',
-                ),
-              ),
-              TextField(
-                controller: toController,
-                decoration: const InputDecoration(
-                  labelText: 'To Currency (e.g. USD)',
-                ),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: rateController,
-                      decoration: const InputDecoration(labelText: 'Rate'),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                    ),
+        builder: (context, setState) {
+          Widget buildCurrencySelector(
+            String label,
+            String? selectedCode,
+            ValueChanged<String?> onChanged,
+          ) {
+            final selectedCurrency = selectedCode != null
+                ? currencies.where((c) => c.code == selectedCode).firstOrNull
+                : null;
+
+            final displayText = selectedCurrency != null
+                ? '${selectedCurrency.name} (${selectedCurrency.code})'
+                : 'Select Currency';
+
+            return ListTile(
+              title: Text(label),
+              subtitle: Text(displayText),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () async {
+                final results = await showDialog<List<String>>(
+                  context: context,
+                  builder: (context) => MultiSelectDialog<Currency, String>(
+                    items: currencies,
+                    selectedIds: selectedCode != null ? [selectedCode] : [],
+                    itemBuilder: (c) => Text('${c.name} (${c.code})'),
+                    idGetter: (c) => c.code,
+                    stringGetter: (c) => '${c.name} ${c.code}',
+                    isSingleSelect: true,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: presetController,
-                      decoration: const InputDecoration(labelText: 'Preset ID'),
-                      keyboardType: TextInputType.number,
+                );
+                if (results != null && results.isNotEmpty) {
+                  onChanged(results.first);
+                }
+              },
+            );
+          }
+
+          return AlertDialog(
+            title: const Text('Add Exchange Rate'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  buildCurrencySelector(
+                    'From Currency',
+                    fromCurrency,
+                    (val) => setState(() => fromCurrency = val),
+                  ),
+                  const SizedBox(height: 8),
+                  buildCurrencySelector(
+                    'To Currency',
+                    toCurrency,
+                    (val) => setState(() => toCurrency = val),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: rateController,
+                          decoration: const InputDecoration(labelText: 'Rate'),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: presetController,
+                          decoration: const InputDecoration(
+                            labelText: 'Preset ID',
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    title: Text(
+                      'Date: ${DateFormat('dd.MM.yyyy').format(selectedDate)}',
                     ),
+                    trailing: const Icon(Icons.calendar_today),
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (date != null) setState(() => selectedDate = date);
+                    },
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              ListTile(
-                title: Text(
-                  'Date: ${DateFormat('dd.MM.yyyy').format(selectedDate)}',
-                ),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: selectedDate,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                  );
-                  if (date != null) setState(() => selectedDate = date);
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              FilledButton.tonal(
+                onPressed: () {
+                  final rate = double.tryParse(rateController.text);
+                  final preset = int.tryParse(presetController.text) ?? 1;
+                  if (fromCurrency != null &&
+                      toCurrency != null &&
+                      rate != null) {
+                    bloc.add(
+                      AddExchangeRate(
+                        ExchangeRateDomain(
+                          fromCurrencyCode: fromCurrency!,
+                          toCurrencyCode: toCurrency!,
+                          rate: rate,
+                          date: selectedDate,
+                          preset: preset,
+                        ),
+                      ),
+                    );
+                    Navigator.pop(context);
+                  }
                 },
+                child: const Text('Add'),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton.tonal(
-              onPressed: () {
-                final rate = double.tryParse(rateController.text);
-                final preset = int.tryParse(presetController.text) ?? 1;
-                if (fromController.text.isNotEmpty &&
-                    toController.text.isNotEmpty &&
-                    rate != null) {
-                  bloc.add(
-                    AddExchangeRate(
-                      ExchangeRateDomain(
-                        fromCurrencyCode: fromController.text.toUpperCase(),
-                        toCurrencyCode: toController.text.toUpperCase(),
-                        rate: rate,
-                        date: selectedDate,
-                        preset: preset,
-                      ),
-                    ),
-                  );
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -497,7 +545,7 @@ class _ExchangeRatesFilterDialogState
           : Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildCurrencyDropdown(
+                _buildCurrencySelector(
                   context,
                   'From Currency',
                   _fromCurrency,
@@ -505,7 +553,7 @@ class _ExchangeRatesFilterDialogState
                   (val) => setState(() => _fromCurrency = val),
                 ),
                 const SizedBox(height: 16),
-                _buildCurrencyDropdown(
+                _buildCurrencySelector(
                   context,
                   'To Currency',
                   _toCurrency,
@@ -542,14 +590,11 @@ class _ExchangeRatesFilterDialogState
       actions: [
         TextButton(
           onPressed: () {
-            context.read<ExchangeRatesBloc>().add(
-              const ChangeExchangeRatesFilters(
-                fromCurrency: null,
-                toCurrency: null,
-                presets: null,
-              ),
-            );
-            Navigator.pop(context);
+            setState(() {
+              _fromCurrency = null;
+              _toCurrency = null;
+              _selectedPresets = [];
+            });
           },
           child: const Text('Clear'),
         ),
@@ -570,33 +615,41 @@ class _ExchangeRatesFilterDialogState
     );
   }
 
-  Widget _buildCurrencyDropdown(
+  Widget _buildCurrencySelector(
     BuildContext context,
-    String hint,
-    String? value,
+    String label,
+    String? selectedCode,
     List<Currency> currencies,
     ValueChanged<String?> onChanged,
   ) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: hint,
-        border: const OutlineInputBorder(),
-      ),
-      items: [
-        const DropdownMenuItem(value: null, child: Text('All')),
-        ...currencies.map((c) {
-          return DropdownMenuItem(
-            value: c.code,
-            child: Text(
-              '${c.name} (${c.code})',
-              overflow: TextOverflow.ellipsis,
-            ),
-          );
-        }),
-      ],
-      onChanged: onChanged,
+    final selectedCurrency = selectedCode != null
+        ? currencies.where((c) => c.code == selectedCode).firstOrNull
+        : null;
+
+    final displayText = selectedCurrency != null
+        ? '${selectedCurrency.name} (${selectedCurrency.code})'
+        : 'All';
+
+    return ListTile(
+      title: Text(label),
+      subtitle: Text(displayText),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      onTap: () async {
+        final results = await showDialog<List<String>>(
+          context: context,
+          builder: (context) => MultiSelectDialog<Currency, String>(
+            items: currencies,
+            selectedIds: selectedCode != null ? [selectedCode] : [],
+            itemBuilder: (c) => Text('${c.name} (${c.code})'),
+            idGetter: (c) => c.code,
+            stringGetter: (c) => '${c.name} ${c.code}',
+            isSingleSelect: true,
+          ),
+        );
+        if (results != null) {
+          onChanged(results.isNotEmpty ? results.first : null);
+        }
+      },
     );
   }
 }
