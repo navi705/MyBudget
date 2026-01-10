@@ -46,6 +46,12 @@ abstract class CurrencyRepository {
     List<int>? presets,
   });
 
+  Future<void> deleteExchangeRates(List<ExchangeRateDomain> rates);
+  Future<void> updateExchangeRatePresets(
+    List<ExchangeRateDomain> rates,
+    int newPreset,
+  );
+
   Future<List<int>> getAvailablePresets();
 
   Future<void> addExchangeRate(ExchangeRateDomain exchangeRate);

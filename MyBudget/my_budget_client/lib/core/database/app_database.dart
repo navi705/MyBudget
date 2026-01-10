@@ -1122,17 +1122,11 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<List<int>> getAvailablePresets() async {
-    // Simplified query to ensure we get results
-    final query = select(exchangeRates);
-    final allRates = await query.get();
-    print('DAO: All exchange rates count: ${allRates.length}');
-    if (allRates.isNotEmpty) {
-      print('DAO: First rate preset: ${allRates.first.preset}');
-    }
-
-    final presets = allRates.map((r) => r.preset).toSet().toList()..sort();
-    print('DAO: Computed presets: $presets');
-    return presets;
+    final result = await customSelect(
+      'SELECT DISTINCT preset FROM exchange_rates ORDER BY preset ASC',
+      readsFrom: {exchangeRates},
+    ).get();
+    return result.map((row) => row.read<int>('preset')).toList();
   }
 
   Future<List<ExchangeRate>> getLatestExchangeRates(DateTime date) {

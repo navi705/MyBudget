@@ -529,7 +529,6 @@ class _ExchangeRatesFilterDialogState
       print('UI: _loadPresets called');
       final repo = widget.repository;
       final presets = await repo.getAvailablePresets();
-      print('UI: Loaded presets: $presets');
       if (mounted) {
         setState(() {
           _availablePresets = presets;
