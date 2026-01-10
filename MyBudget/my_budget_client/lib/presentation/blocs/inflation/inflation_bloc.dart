@@ -6,6 +6,8 @@ import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
+import 'package:my_budget_client/domain/entities/settings.dart';
+import 'package:my_budget_client/core/utils/device_utils.dart'; // Added import
 
 part 'inflation_event.dart';
 part 'inflation_state.dart';
@@ -63,7 +65,7 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
       );
 
       DateStep dateStep = state.dateStep;
-      if (dateStepSetting != null) {
+      if (dateStepSetting != null && state.status == InflationStatus.initial) {
         // Simple enum parsing by name or index
         try {
           dateStep = DateStep.values.firstWhere(
@@ -73,7 +75,8 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
       }
 
       FilterMode filterMode = state.filterMode;
-      if (filterModeSetting != null) {
+      if (filterModeSetting != null &&
+          state.status == InflationStatus.initial) {
         try {
           filterMode = FilterMode.values.firstWhere(
             (e) => e.toString() == filterModeSetting.value,
@@ -82,9 +85,20 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
       }
 
       // Restore settings first
-      emit(state.copyWith(dateStep: dateStep, filterMode: filterMode)); // Added
+      // Actually, we should construct the state we expect to be used.
+      var currentState = state.copyWith(
+        dateStep: dateStep,
+        filterMode: filterMode,
+      );
 
-      final (dateFrom, dateTo) = _getDateRange();
+      if (state.status == InflationStatus.initial) {
+        emit(currentState);
+      } else {
+        // If not initial, we keep the existing dateStep/filterMode from state and ignore loaded ones
+        currentState = state;
+      }
+
+      final (dateFrom, dateTo) = _getDateRange(currentState);
 
       final count = await _inflationRepository.getInflationRatesCount(
         dateFrom: dateFrom,
@@ -130,7 +144,7 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
 
     emit(state.copyWith(isLoadingMore: true));
     try {
-      final (dateFrom, dateTo) = _getDateRange();
+      final (dateFrom, dateTo) = _getDateRange(state);
 
       final rates = await _inflationRepository.getInflationRatesFiltered(
         limit: state.limit,
@@ -161,13 +175,14 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     }
   }
 
-  (DateTime?, DateTime?) _getDateRange() {
-    if (state.filterMode == FilterMode.range && state.activeDateRange != null) {
-      return (state.activeDateRange!.start, state.activeDateRange!.end);
+  (DateTime?, DateTime?) _getDateRange([InflationState? stateOverride]) {
+    final s = stateOverride ?? state;
+    if (s.filterMode == FilterMode.range && s.activeDateRange != null) {
+      return (s.activeDateRange!.start, s.activeDateRange!.end);
     }
 
-    final date = state.activeDate;
-    switch (state.dateStep) {
+    final date = s.activeDate;
+    switch (s.dateStep) {
       case DateStep.day:
         final start = DateTime(date.year, date.month, date.day);
         final end = DateTime(date.year, date.month, date.day, 23, 59, 59);
@@ -183,19 +198,35 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     }
   }
 
-  void _onChangeDateStep(
+  Future<void> _onChangeDateStep(
     ChangeInflationDateStep event,
     Emitter<InflationState> emit,
-  ) {
+  ) async {
+    final deviceName = await getDeviceName();
     emit(state.copyWith(dateStep: event.dateStep));
+    await _settingsRepository.setSetting(
+      Settings(
+        key: 'inflation_date_step',
+        value: event.dateStep.toString(),
+        device: deviceName,
+      ),
+    );
     add(LoadInflationRates());
   }
 
-  void _onChangeFilterMode(
+  Future<void> _onChangeFilterMode(
     ChangeInflationFilterMode event,
     Emitter<InflationState> emit,
-  ) {
+  ) async {
+    final deviceName = await getDeviceName();
     emit(state.copyWith(filterMode: event.filterMode));
+    await _settingsRepository.setSetting(
+      Settings(
+        key: 'inflation_filter_mode',
+        value: event.filterMode.toString(),
+        device: deviceName,
+      ),
+    );
     add(LoadInflationRates());
   }
 

@@ -3,7 +3,9 @@ import 'package:bloc/bloc.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart';
-import 'package:my_budget_client/domain/repositories/settings_repository.dart'; // Added missing import
+import 'package:my_budget_client/domain/repositories/settings_repository.dart';
+import 'package:my_budget_client/domain/entities/settings.dart'; // Added entity import
+import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'asset_event.dart';
 import 'asset_state.dart';
 
@@ -61,7 +63,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       );
 
       DateStep dateStep = state.dateStep;
-      if (dateStepSetting != null) {
+      if (dateStepSetting != null && state.status == AssetStatus.initial) {
         try {
           dateStep = DateStep.values.firstWhere(
             (e) => e.toString() == dateStepSetting.value,
@@ -70,7 +72,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       }
 
       FilterMode filterMode = state.filterMode;
-      if (filterModeSetting != null) {
+      if (filterModeSetting != null && state.status == AssetStatus.initial) {
         try {
           filterMode = FilterMode.values.firstWhere(
             (e) => e.toString() == filterModeSetting.value,
@@ -87,9 +89,15 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       );
       // But we can't emit yet if we are in 'try' block and want to emit success later?
       // Actually we can emit partial state.
-      emit(currentState);
 
-      final (dateFrom, dateTo) = _getDateRange();
+      if (state.status == AssetStatus.initial) {
+        emit(currentState);
+      } else {
+        // If not initial, we keep the existing dateStep/filterMode from state and ignore loaded ones
+        currentState = state;
+      }
+
+      final (dateFrom, dateTo) = _getDateRange(currentState);
 
       // Update selectedAssetId if provided in event
       if (event.assetId != null) {
@@ -152,7 +160,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
 
     emit(state.copyWith(isLoadingMore: true));
     try {
-      final (dateFrom, dateTo) = _getDateRange();
+      final (dateFrom, dateTo) = _getDateRange(state); // Explicitly pass state
 
       final data = await _assetRepository.getAssetData(
         limit: state.limit,
@@ -190,13 +198,14 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     }
   }
 
-  (DateTime?, DateTime?) _getDateRange() {
-    if (state.filterMode == FilterMode.range && state.activeDateRange != null) {
-      return (state.activeDateRange!.start, state.activeDateRange!.end);
+  (DateTime?, DateTime?) _getDateRange([AssetState? stateOverride]) {
+    final s = stateOverride ?? state;
+    if (s.filterMode == FilterMode.range && s.activeDateRange != null) {
+      return (s.activeDateRange!.start, s.activeDateRange!.end);
     }
 
-    final date = state.activeDate;
-    switch (state.dateStep) {
+    final date = s.activeDate;
+    switch (s.dateStep) {
       case DateStep.day:
         final start = DateTime(date.year, date.month, date.day);
         final end = DateTime(date.year, date.month, date.day, 23, 59, 59);
@@ -212,16 +221,35 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     }
   }
 
-  void _onChangeDateStep(ChangeAssetDateStep event, Emitter<AssetState> emit) {
+  Future<void> _onChangeDateStep(
+    ChangeAssetDateStep event,
+    Emitter<AssetState> emit,
+  ) async {
+    final deviceName = await getDeviceName();
     emit(state.copyWith(dateStep: event.dateStep));
+    await _settingsRepository.setSetting(
+      Settings(
+        key: 'asset_date_step',
+        value: event.dateStep.toString(),
+        device: deviceName,
+      ),
+    );
     add(const LoadAssetData());
   }
 
-  void _onChangeFilterMode(
+  Future<void> _onChangeFilterMode(
     ChangeAssetFilterMode event,
     Emitter<AssetState> emit,
-  ) {
+  ) async {
+    final deviceName = await getDeviceName();
     emit(state.copyWith(filterMode: event.filterMode));
+    await _settingsRepository.setSetting(
+      Settings(
+        key: 'asset_filter_mode',
+        value: event.filterMode.toString(),
+        device: deviceName,
+      ),
+    );
     add(const LoadAssetData());
   }
 
@@ -249,8 +277,8 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
   void _onChangeFilters(ChangeAssetFilters event, Emitter<AssetState> emit) {
     emit(
       state.copyWith(
-        selectedAssetId: event.assetId,
-        forceNullSelectedAssetId: event.assetId == null,
+        selectedAssetId: event.assetId ?? state.selectedAssetId,
+        forceNullSelectedAssetId: false, // Don't force null from filter changes
         nameFilter: event.name,
         forceNullName: event.name == null,
         assetTypeFilters: event.assetTypes,
