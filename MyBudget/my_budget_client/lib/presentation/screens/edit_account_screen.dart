@@ -13,6 +13,7 @@ import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/icon_selection_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/delete_account_dialog.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_state.dart';
 
@@ -120,35 +121,42 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   }
 
   void _onDelete() {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Account'),
-        content: Text(
-          'Are you sure you want to delete "${_initialAccount.name}"? This will also delete all associated transactions.',
+    final state = context.read<AccountsBloc>().state;
+    if (state is AccountsLoadSuccess) {
+      showDialog(
+        context: context,
+        builder: (context) => DeleteAccountDialog(
+          accountToDelete: _initialAccount,
+          allAccounts: state.accounts,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              context.read<AccountsBloc>().add(
-                DeleteAccount(_initialAccount.id!),
-              );
-              Navigator.of(dialogContext).pop();
-              FocusScope.of(context).unfocus();
-              context.pop();
-            },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.redAccent),
-            ),
-          ),
-        ],
-      ),
-    );
+      ).then((_) {
+        // Dialog handles the bloc event.
+        // If deleted, we should pop.
+        // But better to listen to Bloc state change (RecentlyDeleted) in Screen?
+        // Actually typical flow: Dialog adds event -> Bloc updates state -> Listener Pops.
+        // But here we are in Edit Screen. If deleted, we should manually pop?
+        // The dialog confirms and closes itself.
+        // We need to close *this* screen if delete happened.
+        // But we don't know if user cancelled or deleted from the dialog result unless we return it.
+        // Let's assume user might manually navigate back or we rely on some listener.
+        // Simple fix: Check if account exists in list?
+        // Actually, `DeleteAccountDialog` returns void.
+        // I will just pop `EditAccountScreen` if the dialog *was confirmed*.
+        // But `DeleteAccountDialog` creates the event.
+        // I'll make `DeleteAccountScreen` close automatically.
+        // Wait, `EditAccountScreen` is pushed on stack.
+        // If I delete account, `AccountsScreen` (underneath) updates.
+        // `EditAccountScreen` remains open?
+        // I should stick to: Dialog handles deletion. logic.
+        // Ideally, `EditAccountScreen` should listen to Bloc and pop if current account is deleted.
+        // Or I can pass a callback?
+        // Let's just pop `EditAccountScreen` here assuming success if we want, OR just let user go back.
+        // BETTER: `DeleteAccountDialog` handles deletion.
+        // If I want to close `EditAccountScreen` on success, I should listen to `AccountsBloc`.
+        // But `AccountsBloc` listener is in `AccountsScreen`.
+        // Let's add a `BlocListener` in `EditAccountScreen`.
+      });
+    }
   }
 
   @override
@@ -156,430 +164,449 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     final l10n = AppLocalizations.of(context)!;
 
     return EscapeBackHandler(
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text('Edit: ${_initialAccount.name}'),
-          actions: [
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'delete') {
-                  _onDelete();
-                }
-              },
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(
-                  value: 'delete',
-                  child: Text('Delete'),
-                ),
-              ],
-            ),
-          ],
-        ),
-        body: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(labelText: l10n.accountNameHint),
-                  validator: (value) => (value == null || value.isEmpty)
-                      ? l10n.formValidationPleaseEnterName
-                      : null,
-                ),
-                TextFormField(
-                  // ADDED
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                  // TODO: Localize
-                  maxLines: 3,
-                  keyboardType: TextInputType.multiline,
-                ),
-                const SizedBox(height: 16),
-                // Added spacing for new field
-                TextFormField(
-                  controller: _balanceController,
-                  readOnly:
-                      _selectedAssetId != null, // Make read-only if asset bound
-                  decoration: InputDecoration(
-                    labelText: l10n.initialBalanceHint,
-                    filled: _selectedAssetId != null, // Visual cue
+      child: BlocListener<AccountsBloc, AccountsState>(
+        listener: (context, state) {
+          if (state is AccountsLoadSuccess &&
+              state.recentlyDeletedAccount?.id == widget.account.id) {
+            context.pop();
+          }
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text('Edit: ${_initialAccount.name}'),
+            actions: [
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'delete') {
+                    _onDelete();
+                  }
+                },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(
+                    value: 'delete',
+                    child: Text('Delete'),
                   ),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return l10n.formValidationPleaseEnterBalance;
-                    }
-                    if (double.tryParse(value) == null) {
-                      return l10n.formValidationPleaseEnterValidNumber;
-                    }
-                    return null;
-                  },
-                ),
-                if (_selectedAssetId != null)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4.0),
-                    child: Text(
-                      'Balance is calculated from Asset Quantity * Price',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                ],
+              ),
+            ],
+          ),
+          body: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: l10n.accountNameHint,
                     ),
+                    validator: (value) => (value == null || value.isEmpty)
+                        ? l10n.formValidationPleaseEnterName
+                        : null,
                   ),
-                const SizedBox(height: 16),
-                BlocBuilder<CurrencyBloc, CurrencyState>(
-                  builder: (context, state) {
-                    if (state is CurrencyLoadSuccess) {
-                      return GestureDetector(
-                        onTap: () async {
-                          final selectedCurrency =
-                              await showSingleSelectDialog<Currency>(
-                                context: context,
-                                items: state.currencies,
-                                title: 'Select Currency',
-                                selectedItem: state.currencies.firstWhereOrNull(
-                                  (c) => c.code == _selectedCurrencyCode,
-                                ),
-                                itemBuilder: (currency) => Text(currency.name),
-                                stringGetter: (currency) =>
-                                    '${currency.name} ${currency.code}',
-                              );
-                          if (mounted && selectedCurrency != null) {
-                            setState(() {
-                              _selectedCurrencyCode = selectedCurrency.code;
-                              _selectedCurrencyDesignationId = state
-                                  .designations
-                                  .firstWhereOrNull(
-                                    (d) =>
-                                        d.currencyCode == _selectedCurrencyCode,
-                                  )
-                                  ?.id;
-                            });
-                          }
-                        },
-                        child: AbsorbPointer(
-                          child: TextFormField(
-                            key: Key(_selectedCurrencyCode ?? 'no_currency'),
-                            initialValue: state.currencies
-                                .firstWhereOrNull(
-                                  (c) => c.code == _selectedCurrencyCode,
-                                )
-                                ?.name,
-                            decoration: InputDecoration(
-                              labelText: l10n.currencyLabel,
-                            ),
-                            validator: (value) => _selectedCurrencyCode == null
-                                ? l10n.formValidationPleaseSelectCurrency
-                                : null,
-                          ),
-                        ),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
-                const SizedBox(height: 16),
-                BlocBuilder<AccountsBloc, AccountsState>(
-                  builder: (context, state) {
-                    if (state is AccountsLoadSuccess) {
-                      return GestureDetector(
-                        onTap: () async {
-                          final selectedAccountType =
-                              await showSingleSelectDialog<AccountType>(
-                                context: context,
-                                items: state.accountTypes,
-                                title: 'Select Account Type',
-                                selectedItem: state.accountTypes
-                                    .firstWhereOrNull(
-                                      (t) => t.id == _selectedAccountTypeId,
-                                    ),
-                                itemBuilder: (type) => Text(type.name),
-                                stringGetter: (type) => type.name,
-                              );
-                          if (mounted && selectedAccountType != null) {
-                            setState(() {
-                              _selectedAccountTypeId = selectedAccountType.id;
-                            });
-                          }
-                        },
-                        child: AbsorbPointer(
-                          child: TextFormField(
-                            key: Key(_selectedAccountTypeId ?? 'no_type'),
-                            initialValue: state.accountTypes
-                                .firstWhereOrNull(
-                                  (t) => t.id == _selectedAccountTypeId,
-                                )
-                                ?.name,
-                            decoration: const InputDecoration(
-                              labelText: 'Account Type',
-                            ),
-                            validator: (value) => _selectedAccountTypeId == null
-                                ? 'Please select an account type'
-                                : null,
-                          ),
-                        ),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
-                const SizedBox(height: 16),
-                BlocBuilder<SettingsBloc, SettingsState>(
-                  builder: (context, state) {
-                    return GestureDetector(
-                      onTap: () async {
-                        final selectedCountry =
-                            await showSingleSelectDialog<String>(
-                              context: context,
-                              items: state.countries,
-                              title: 'Select Country',
-                              selectedItem: _initialAccount.country,
-                              itemBuilder: (country) => Text(country),
-                              stringGetter: (country) => country,
-                            );
-                        if (mounted && selectedCountry != null) {
-                          // We need to update the _initialAccount directly or a controller for it
-                          // Since there is no controller for country, let's store it in a local variable
-                          // But wait, the UpdateAccount event uses _initialAccount.copyWith...
-                          // We should probably introduce a state variable for selectedCountry
-                          setState(() {
-                            _initialAccount = _initialAccount.copyWith(
-                              country: selectedCountry,
-                            );
-                          });
-                        }
-                      },
-                      child: AbsorbPointer(
-                        child: TextFormField(
-                          key: Key(_initialAccount.country ?? 'no_country'),
-                          initialValue: _initialAccount.country,
-                          decoration: const InputDecoration(
-                            labelText: 'Country (Inflation)',
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                BlocBuilder<StylesBloc, StylesState>(
-                  builder: (context, state) {
-                    if (state is StylesLoadSuccess) {
-                      final selectedStyle = state.styles.firstWhereOrNull(
-                        (s) => s.id == _selectedStyleId,
-                      );
-
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: selectedStyle != null
-                            ? CircleAvatar(
-                                backgroundColor: _getColorFromHex(
-                                  selectedStyle.colorHex,
-                                ),
-                                child: IconUtils.getIconWidget(selectedStyle),
-                              )
-                            : const CircleAvatar(child: Icon(Icons.style)),
-                        title: const Text('Icon'),
-                        subtitle: Text(selectedStyle?.name ?? 'Select an icon'),
-                        onTap: () async {
-                          final newStyleId = await showIconSelectionDialog(
-                            context,
-                            _selectedStyleId ?? '',
-                          );
-                          if (newStyleId != null) {
-                            setState(() {
-                              _selectedStyleId = newStyleId;
-                            });
-                          }
-                        },
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // --- ASSET BINDING SECTION ---
-                BlocBuilder<AssetBloc, AssetState>(
-                  builder: (context, state) {
-                    // Get latest versions of unique assets by ID
-                    final uniqueAssets = <String, AssetDataDomain>{};
-                    for (var asset in state.assetData) {
-                      if (!uniqueAssets.containsKey(asset.assetId) ||
-                          asset.date.isAfter(
-                            uniqueAssets[asset.assetId]!.date,
-                          )) {
-                        uniqueAssets[asset.assetId] = asset;
+                  TextFormField(
+                    // ADDED
+                    controller: _descriptionController,
+                    decoration: const InputDecoration(labelText: 'Description'),
+                    // TODO: Localize
+                    maxLines: 3,
+                    keyboardType: TextInputType.multiline,
+                  ),
+                  const SizedBox(height: 16),
+                  // Added spacing for new field
+                  TextFormField(
+                    controller: _balanceController,
+                    readOnly:
+                        _selectedAssetId !=
+                        null, // Make read-only if asset bound
+                    decoration: InputDecoration(
+                      labelText: l10n.initialBalanceHint,
+                      filled: _selectedAssetId != null, // Visual cue
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return l10n.formValidationPleaseEnterBalance;
                       }
-                    }
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Divider(),
-                        const Text(
-                          'Bind to Asset (Optional)',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        GestureDetector(
+                      if (double.tryParse(value) == null) {
+                        return l10n.formValidationPleaseEnterValidNumber;
+                      }
+                      return null;
+                    },
+                  ),
+                  if (_selectedAssetId != null)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4.0),
+                      child: Text(
+                        'Balance is calculated from Asset Quantity * Price',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  BlocBuilder<CurrencyBloc, CurrencyState>(
+                    builder: (context, state) {
+                      if (state is CurrencyLoadSuccess) {
+                        return GestureDetector(
                           onTap: () async {
-                            final selectedId =
-                                await showSingleSelectDialog<String>(
+                            final selectedCurrency =
+                                await showSingleSelectDialog<Currency>(
                                   context: context,
-                                  items: uniqueAssets.keys.toList(),
-                                  title: 'Select Asset',
-                                  selectedItem: _selectedAssetId,
-                                  itemBuilder: (id) {
-                                    final asset = uniqueAssets[id]!;
-                                    return Text(
-                                      '${asset.name} (${asset.assetId})',
-                                    );
-                                  },
-                                  stringGetter: (id) => uniqueAssets[id]!.name,
+                                  items: state.currencies,
+                                  title: 'Select Currency',
+                                  selectedItem: state.currencies
+                                      .firstWhereOrNull(
+                                        (c) => c.code == _selectedCurrencyCode,
+                                      ),
+                                  itemBuilder: (currency) =>
+                                      Text(currency.name),
+                                  stringGetter: (currency) =>
+                                      '${currency.name} ${currency.code}',
                                 );
-
-                            if (mounted) {
+                            if (mounted && selectedCurrency != null) {
                               setState(() {
-                                if (selectedId != null) {
-                                  _selectedAssetId = selectedId;
-                                  final asset = uniqueAssets[selectedId]!;
-                                  _currentAssetPrice = asset.value;
-                                  _assetCurrency = asset.currency;
-
-                                  // Recalculate Balance
-                                  final qty =
-                                      double.tryParse(
-                                        _assetQuantityController.text,
-                                      ) ??
-                                      0.0;
-                                  _balanceController.text = (qty * asset.value)
-                                      .toStringAsFixed(2);
-                                }
+                                _selectedCurrencyCode = selectedCurrency.code;
+                                _selectedCurrencyDesignationId = state
+                                    .designations
+                                    .firstWhereOrNull(
+                                      (d) =>
+                                          d.currencyCode ==
+                                          _selectedCurrencyCode,
+                                    )
+                                    ?.id;
                               });
                             }
                           },
                           child: AbsorbPointer(
                             child: TextFormField(
-                              key: Key(_selectedAssetId ?? 'no_asset'),
-                              initialValue: _selectedAssetId != null
-                                  ? uniqueAssets[_selectedAssetId]?.name
-                                  : null,
+                              key: Key(_selectedCurrencyCode ?? 'no_currency'),
+                              initialValue: state.currencies
+                                  .firstWhereOrNull(
+                                    (c) => c.code == _selectedCurrencyCode,
+                                  )
+                                  ?.name,
                               decoration: InputDecoration(
-                                labelText: 'Selected Asset',
-                                helperText: _selectedAssetId != null
-                                    ? 'Balance is calculated automatically'
-                                    : 'Tap to bind an asset',
-                                suffixIcon: _selectedAssetId != null
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear),
-                                        onPressed: () {
-                                          setState(() {
-                                            _selectedAssetId = null;
-                                            _currentAssetPrice = null;
-                                            _assetCurrency = null;
-                                          });
-                                        },
-                                      )
-                                    : null,
+                                labelText: l10n.currencyLabel,
                               ),
+                              validator: (value) =>
+                                  _selectedCurrencyCode == null
+                                  ? l10n.formValidationPleaseSelectCurrency
+                                  : null,
+                            ),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  BlocBuilder<AccountsBloc, AccountsState>(
+                    builder: (context, state) {
+                      if (state is AccountsLoadSuccess) {
+                        return GestureDetector(
+                          onTap: () async {
+                            final selectedAccountType =
+                                await showSingleSelectDialog<AccountType>(
+                                  context: context,
+                                  items: state.accountTypes,
+                                  title: 'Select Account Type',
+                                  selectedItem: state.accountTypes
+                                      .firstWhereOrNull(
+                                        (t) => t.id == _selectedAccountTypeId,
+                                      ),
+                                  itemBuilder: (type) => Text(type.name),
+                                  stringGetter: (type) => type.name,
+                                );
+                            if (mounted && selectedAccountType != null) {
+                              setState(() {
+                                _selectedAccountTypeId = selectedAccountType.id;
+                              });
+                            }
+                          },
+                          child: AbsorbPointer(
+                            child: TextFormField(
+                              key: Key(_selectedAccountTypeId ?? 'no_type'),
+                              initialValue: state.accountTypes
+                                  .firstWhereOrNull(
+                                    (t) => t.id == _selectedAccountTypeId,
+                                  )
+                                  ?.name,
+                              decoration: const InputDecoration(
+                                labelText: 'Account Type',
+                              ),
+                              validator: (value) =>
+                                  _selectedAccountTypeId == null
+                                  ? 'Please select an account type'
+                                  : null,
+                            ),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  BlocBuilder<SettingsBloc, SettingsState>(
+                    builder: (context, state) {
+                      return GestureDetector(
+                        onTap: () async {
+                          final selectedCountry =
+                              await showSingleSelectDialog<String>(
+                                context: context,
+                                items: state.countries,
+                                title: 'Select Country',
+                                selectedItem: _initialAccount.country,
+                                itemBuilder: (country) => Text(country),
+                                stringGetter: (country) => country,
+                              );
+                          if (mounted && selectedCountry != null) {
+                            // We need to update the _initialAccount directly or a controller for it
+                            // Since there is no controller for country, let's store it in a local variable
+                            // But wait, the UpdateAccount event uses _initialAccount.copyWith...
+                            // We should probably introduce a state variable for selectedCountry
+                            setState(() {
+                              _initialAccount = _initialAccount.copyWith(
+                                country: selectedCountry,
+                              );
+                            });
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: TextFormField(
+                            key: Key(_initialAccount.country ?? 'no_country'),
+                            initialValue: _initialAccount.country,
+                            decoration: const InputDecoration(
+                              labelText: 'Country (Inflation)',
                             ),
                           ),
                         ),
-                      ],
-                    );
-                  },
-                ),
-
-                if (_selectedAssetId != null) ...[
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _assetQuantityController,
-                    decoration: InputDecoration(
-                      labelText: 'Asset Quantity',
-                      helperText:
-                          _currentAssetPrice != null && _assetCurrency != null
-                          ? 'Current Price: $_currentAssetPrice $_assetCurrency'
-                          : null,
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    onChanged: (val) {
-                      final qty = double.tryParse(val) ?? 0.0;
-                      if (_currentAssetPrice != null) {
-                        setState(() {
-                          _balanceController.text = (qty * _currentAssetPrice!)
-                              .toStringAsFixed(2);
-                        });
-                      }
+                      );
                     },
                   ),
-                ],
+                  const SizedBox(height: 16),
+                  BlocBuilder<StylesBloc, StylesState>(
+                    builder: (context, state) {
+                      if (state is StylesLoadSuccess) {
+                        final selectedStyle = state.styles.firstWhereOrNull(
+                          (s) => s.id == _selectedStyleId,
+                        );
 
-                const SizedBox(height: 16),
-                // --- END ASSET BINDING SECTION ---
-
-                // ASSET LIST Section
-                FutureBuilder<List<AssetDataDomain>>(
-                  future: sl<AssetRepository>().getAssetData(
-                    accountId: widget.account.id,
-                  ),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final assets = snapshot.data ?? [];
-                    if (assets.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Linked Assets",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: selectedStyle != null
+                              ? CircleAvatar(
+                                  backgroundColor: _getColorFromHex(
+                                    selectedStyle.colorHex,
+                                  ),
+                                  child: IconUtils.getIconWidget(selectedStyle),
+                                )
+                              : const CircleAvatar(child: Icon(Icons.style)),
+                          title: const Text('Icon'),
+                          subtitle: Text(
+                            selectedStyle?.name ?? 'Select an icon',
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        ...assets.map((asset) {
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: ListTile(
-                              leading: const Icon(Icons.show_chart),
-                              title: Text(asset.name),
-                              subtitle: Text(
-                                '${asset.quantity} @ ${asset.value} ${asset.currency}',
-                              ),
-                              trailing: Text(
-                                '${(asset.quantity * asset.value).toStringAsFixed(2)} ${asset.currency}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
+                          onTap: () async {
+                            final newStyleId = await showIconSelectionDialog(
+                              context,
+                              _selectedStyleId ?? '',
+                            );
+                            if (newStyleId != null) {
+                              setState(() {
+                                _selectedStyleId = newStyleId;
+                              });
+                            }
+                          },
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // --- ASSET BINDING SECTION ---
+                  BlocBuilder<AssetBloc, AssetState>(
+                    builder: (context, state) {
+                      // Get latest versions of unique assets by ID
+                      final uniqueAssets = <String, AssetDataDomain>{};
+                      for (var asset in state.assetData) {
+                        if (!uniqueAssets.containsKey(asset.assetId) ||
+                            asset.date.isAfter(
+                              uniqueAssets[asset.assetId]!.date,
+                            )) {
+                          uniqueAssets[asset.assetId] = asset;
+                        }
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Divider(),
+                          const Text(
+                            'Bind to Asset (Optional)',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () async {
+                              final selectedId =
+                                  await showSingleSelectDialog<String>(
+                                    context: context,
+                                    items: uniqueAssets.keys.toList(),
+                                    title: 'Select Asset',
+                                    selectedItem: _selectedAssetId,
+                                    itemBuilder: (id) {
+                                      final asset = uniqueAssets[id]!;
+                                      return Text(
+                                        '${asset.name} (${asset.assetId})',
+                                      );
+                                    },
+                                    stringGetter: (id) =>
+                                        uniqueAssets[id]!.name,
+                                  );
+
+                              if (mounted) {
+                                setState(() {
+                                  if (selectedId != null) {
+                                    _selectedAssetId = selectedId;
+                                    final asset = uniqueAssets[selectedId]!;
+                                    _currentAssetPrice = asset.value;
+                                    _assetCurrency = asset.currency;
+
+                                    // Recalculate Balance
+                                    final qty =
+                                        double.tryParse(
+                                          _assetQuantityController.text,
+                                        ) ??
+                                        0.0;
+                                    _balanceController.text =
+                                        (qty * asset.value).toStringAsFixed(2);
+                                  }
+                                });
+                              }
+                            },
+                            child: AbsorbPointer(
+                              child: TextFormField(
+                                key: Key(_selectedAssetId ?? 'no_asset'),
+                                initialValue: _selectedAssetId != null
+                                    ? uniqueAssets[_selectedAssetId]?.name
+                                    : null,
+                                decoration: InputDecoration(
+                                  labelText: 'Selected Asset',
+                                  helperText: _selectedAssetId != null
+                                      ? 'Balance is calculated automatically'
+                                      : 'Tap to bind an asset',
+                                  suffixIcon: _selectedAssetId != null
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear),
+                                          onPressed: () {
+                                            setState(() {
+                                              _selectedAssetId = null;
+                                              _currentAssetPrice = null;
+                                              _assetCurrency = null;
+                                            });
+                                          },
+                                        )
+                                      : null,
                                 ),
                               ),
                             ),
-                          );
-                        }),
-                        const SizedBox(height: 16),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 32),
-                FilledButton.tonal(
-                  onPressed: _onSave,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
+                          ),
+                        ],
+                      );
+                    },
                   ),
-                  child: Text(l10n.saveButton),
-                ),
-              ],
+
+                  if (_selectedAssetId != null) ...[
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _assetQuantityController,
+                      decoration: InputDecoration(
+                        labelText: 'Asset Quantity',
+                        helperText:
+                            _currentAssetPrice != null && _assetCurrency != null
+                            ? 'Current Price: $_currentAssetPrice $_assetCurrency'
+                            : null,
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      onChanged: (val) {
+                        final qty = double.tryParse(val) ?? 0.0;
+                        if (_currentAssetPrice != null) {
+                          setState(() {
+                            _balanceController.text =
+                                (qty * _currentAssetPrice!).toStringAsFixed(2);
+                          });
+                        }
+                      },
+                    ),
+                  ],
+
+                  const SizedBox(height: 16),
+                  // --- END ASSET BINDING SECTION ---
+
+                  // ASSET LIST Section
+                  FutureBuilder<List<AssetDataDomain>>(
+                    future: sl<AssetRepository>().getAssetData(
+                      accountId: widget.account.id,
+                    ),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final assets = snapshot.data ?? [];
+                      if (assets.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Linked Assets",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ...assets.map((asset) {
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                leading: const Icon(Icons.show_chart),
+                                title: Text(asset.name),
+                                subtitle: Text(
+                                  '${asset.quantity} @ ${asset.value} ${asset.currency}',
+                                ),
+                                trailing: Text(
+                                  '${(asset.quantity * asset.value).toStringAsFixed(2)} ${asset.currency}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                          const SizedBox(height: 16),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 32),
+                  FilledButton.tonal(
+                    onPressed: _onSave,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
+                    child: Text(l10n.saveButton),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ),
-    );
+        ), // Scaffold
+      ), // BlocListener
+    ); // EscapeBackHandler
   }
 }

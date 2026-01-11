@@ -20,6 +20,11 @@ abstract class AccountRepository {
   Future<void> updateAccount(Account account);
   Future<void> deleteAccount(String id);
   Future<void> deleteMultipleAccounts(List<String> accountIds);
+  Future<void> deleteAccountWithTransactions(String accountId);
+  Future<void> deleteAccountAndReassignTransactions(
+    String accountId,
+    String newAccountId,
+  );
   Future<void> restoreAccount(Account account);
   Future<Map<String, double>> getBalancesAtDate(DateTime date);
   Future<int> getCountWithFilters({List<String>? accountTypeIds});

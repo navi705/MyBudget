@@ -24,6 +24,21 @@ import 'package:my_budget_client/domain/entities/transaction.dart';
 part 'accounts_event.dart';
 part 'accounts_state.dart';
 
+class DeleteAccountWithTransactions extends AccountsEvent {
+  final String accountId;
+  const DeleteAccountWithTransactions(this.accountId);
+  @override
+  List<Object> get props => [accountId];
+}
+
+class DeleteAccountAndReassign extends AccountsEvent {
+  final String accountId;
+  final String newAccountId;
+  const DeleteAccountAndReassign(this.accountId, this.newAccountId);
+  @override
+  List<Object> get props => [accountId, newAccountId];
+}
+
 class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   final AccountRepository _accountRepository;
   final SettingsRepository _settingsRepository;
@@ -63,6 +78,8 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     on<SelectAllAccounts>(_onSelectAllAccounts);
     on<ClearSelection>(_onClearSelection);
     on<DeleteMultipleAccounts>(_onDeleteMultipleAccounts);
+    on<DeleteAccountWithTransactions>(_onDeleteAccountWithTransactions);
+    on<DeleteAccountAndReassign>(_onDeleteAccountAndReassign);
     on<UpdateAccountTypeForMultipleAccounts>(
       _onUpdateAccountTypeForMultipleAccounts,
     );
@@ -673,11 +690,44 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           (acc) => acc.id == event.id,
         );
         emit(currentState.copyWith(recentlyDeletedAccount: accountToDelete));
-        await _accountRepository.deleteAccount(event.id);
-        add(LoadAccounts()); // Reload list
+        await _accountRepository.deleteAccountWithTransactions(event.id);
+        add(LoadAccounts());
       } catch (e) {
         // Handle case where account is not found or other errors
       }
+    }
+  }
+
+  Future<void> _onDeleteAccountWithTransactions(
+    DeleteAccountWithTransactions event,
+    Emitter<AccountsState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is AccountsLoadSuccess) {
+      final accountToDelete = currentState.accounts.firstWhere(
+        (acc) => acc.id == event.accountId,
+      );
+      emit(currentState.copyWith(recentlyDeletedAccount: accountToDelete));
+      await _accountRepository.deleteAccountWithTransactions(event.accountId);
+      add(LoadAccounts());
+    }
+  }
+
+  Future<void> _onDeleteAccountAndReassign(
+    DeleteAccountAndReassign event,
+    Emitter<AccountsState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is AccountsLoadSuccess) {
+      final accountToDelete = currentState.accounts.firstWhere(
+        (acc) => acc.id == event.accountId,
+      );
+      emit(currentState.copyWith(recentlyDeletedAccount: accountToDelete));
+      await _accountRepository.deleteAccountAndReassignTransactions(
+        event.accountId,
+        event.newAccountId,
+      );
+      add(LoadAccounts());
     }
   }
 
@@ -830,7 +880,13 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     DeleteMultipleAccounts event,
     Emitter<AccountsState> emit,
   ) async {
-    await _accountRepository.deleteMultipleAccounts(event.accountIds);
+    // Loop through IDs and delete each with transactions to ensure safety from FK crashes.
+    // Using simple loop for now as we don't have a bulk cascading delete in repo/DAO yet.
+    for (final id in event.accountIds) {
+      await _accountRepository.deleteAccountWithTransactions(id);
+    }
+    // Note: We aren't setting recentlyDeletedAccount for bulk delete because UI doesn't usually undo bulk.
+    // Undo only supports single account for now based on state model.
     add(LoadAccounts());
   }
 

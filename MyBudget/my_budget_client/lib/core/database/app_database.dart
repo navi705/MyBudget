@@ -724,6 +724,27 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       AccountsCompanion(accountTypeId: Value(accountTypeId)),
     );
   }
+
+  Future<void> deleteAccountWithTransactions(String accountId) {
+    return db.transaction(() async {
+      await (delete(
+        db.transactions,
+      )..where((t) => t.accountId.equals(accountId))).go();
+      await (delete(accounts)..where((a) => a.id.equals(accountId))).go();
+    });
+  }
+
+  Future<void> deleteAccountAndReassignTransactions(
+    String accountId,
+    String newAccountId,
+  ) {
+    return db.transaction(() async {
+      await (update(db.transactions)
+            ..where((t) => t.accountId.equals(accountId)))
+          .write(TransactionsCompanion(accountId: Value(newAccountId)));
+      await (delete(accounts)..where((a) => a.id.equals(accountId))).go();
+    });
+  }
 }
 
 @DriftAccessor(tables: [Transactions])

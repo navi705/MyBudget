@@ -114,6 +114,22 @@ class LocalAccountRepository implements AccountRepository {
   }
 
   @override
+  Future<void> deleteAccountWithTransactions(String accountId) {
+    return database.accountsDao.deleteAccountWithTransactions(accountId);
+  }
+
+  @override
+  Future<void> deleteAccountAndReassignTransactions(
+    String accountId,
+    String newAccountId,
+  ) {
+    return database.accountsDao.deleteAccountAndReassignTransactions(
+      accountId,
+      newAccountId,
+    );
+  }
+
+  @override
   Future<void> updateAccountTypeForMultipleAccounts(
     List<String> accountIds,
     String accountTypeId,
