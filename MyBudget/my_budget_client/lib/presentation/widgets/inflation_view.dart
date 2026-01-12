@@ -276,7 +276,7 @@ class _InflationListItem extends StatelessWidget {
           ),
           subtitle: Text(DateFormat.yMMMMd().format(item.date)),
           trailing: Text(
-            '${item.percent.toStringAsFixed(2)}%',
+            '${item.percent > 0 ? '+' : ''}${item.percent.toStringAsFixed(2)}%',
             style: theme.textTheme.bodyLarge?.copyWith(
               fontWeight: FontWeight.bold,
               color: item.percent >= 0 ? Colors.red : Colors.green,

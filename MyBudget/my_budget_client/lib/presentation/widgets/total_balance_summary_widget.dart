@@ -310,8 +310,17 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
               ),
               if (nominalDiff.abs() >= 0.01) ...[
                 TextSpan(
+                  text: '  Change: ',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.color?.withOpacity(0.7),
+                  ),
+                ),
+                TextSpan(
                   text:
-                      ' ${nominalDiff > 0 ? '+' : ''}${formatter.format(nominalDiff).replaceAll(',', ' ')} (${nominalPct.toStringAsFixed(1)}%)',
+                      '${nominalDiff > 0 ? '+' : ''}${formatter.format(nominalDiff).replaceAll(',', ' ')} (${nominalPct > 0 ? '+' : ''}${nominalPct.toStringAsFixed(1)}%)',
                   style: TextStyle(
                     fontSize: 14,
                     color: nominalDiff > 0 ? Colors.green : Colors.red,

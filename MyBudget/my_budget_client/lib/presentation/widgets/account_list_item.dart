@@ -128,10 +128,19 @@ class _AccountListItemState extends State<AccountListItem> {
                     if (prevValue != null && diff.abs() >= 0.01) ...[
                       const TextSpan(text: ' '),
                       TextSpan(
-                        text:
-                            '${diff > 0 ? '+' : ''}${formatter.format(diff).replaceAll(',', ' ')} (${pct.toStringAsFixed(1)}%)',
+                        text: 'Change: ',
                         style: TextStyle(
-                          fontSize: 14, // Increased 10 -> 14
+                          fontSize: 12,
+                          color: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.color?.withOpacity(0.7),
+                        ),
+                      ),
+                      TextSpan(
+                        text:
+                            '${diff > 0 ? '+' : ''}${formatter.format(diff).replaceAll(',', ' ')} (${pct > 0 ? '+' : ''}${pct.toStringAsFixed(1)}%)',
+                        style: TextStyle(
+                          fontSize: 14,
                           color: diff > 0 ? Colors.green : Colors.red,
                         ),
                       ),
