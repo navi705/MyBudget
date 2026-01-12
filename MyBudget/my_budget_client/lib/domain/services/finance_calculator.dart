@@ -1,3 +1,5 @@
+import 'dart:math';
+// import 'package:flutter/foundation.dart'; // Removed to avoid Category collision
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
@@ -119,7 +121,6 @@ class FinanceCalculator {
     }
 
     // 2. Pre-calculate asset values for the specific date
-    final assetValues = <String, double>{};
     // Optimization: Group asset data by assetId -> List<AssetDataDomain>
     final assetDataMap = <String, List<AssetDataDomain>>{};
     for (final entry in data.assetData) {
@@ -184,8 +185,6 @@ class FinanceCalculator {
   }) {
     final balances = calculateBalances(data);
     final realBalances = <String, double>{};
-    final now = DateTime.now();
-
     // Optimisation: Pre-calculate multipliers per country
     // Group inflation rates by country
     final ratesByCountry = <String, List<InflationRateDomain>>{};
@@ -195,9 +194,6 @@ class FinanceCalculator {
       }
     }
 
-    // Memoize multipliers
-    final multipliers = <String, double>{};
-
     for (final accountId in balances.keys) {
       final balance = balances[accountId]!;
       final account = data.accounts.firstWhere((a) => a.id == accountId);
@@ -205,19 +201,29 @@ class FinanceCalculator {
       // Determine country: Account's country > Default > null
       final country = account.country ?? defaultCountry;
 
+      // New Strategy: Deflate to Account Creation Date (Anchor)
+      // Real Value = Nominal / (1 + Cumulative Inflation)
+      // This shows purchasing power relative to when the account started.
+      final anchorDate = account.creationDate;
+
       double multiplier = 1.0;
       if (country != null) {
-        if (!multipliers.containsKey(country)) {
-          multipliers[country] = _calculateInflationMultiplier(
-            data.date,
-            now,
-            ratesByCountry[country] ?? [],
-          );
-        }
-        multiplier = multipliers[country] ?? 1.0;
+        // Multipliers are now specific to (Anchor -> Current Date), not just Country
+        // We cannot easily memoize by Country alone unless we assume same creation date.
+        // For correctness, we calculate per account.
+        // Optimization: We could cache (Country, AnchorDate) -> Multiplier if needed.
+
+        multiplier = _calculateInflationMultiplier(
+          anchorDate,
+          data.date,
+          ratesByCountry[country] ?? [],
+        );
       }
 
-      realBalances[accountId] = balance * multiplier;
+      // Avoid division by zero (though multiplier starts at 1.0 and goes up with positive inflation)
+      if (multiplier == 0) multiplier = 1.0;
+
+      realBalances[accountId] = balance / multiplier;
     }
     return realBalances;
   }
@@ -227,6 +233,7 @@ class FinanceCalculator {
     DateTime end,
     List<InflationRateDomain> rates,
   ) {
+    // debugPrint('  Calc Multiplier for $start to $end with ${rates.length} rates');
     double multiplier = 1.0;
 
     // Sort rates by date (ascending) to process chronologically
@@ -248,21 +255,20 @@ class FinanceCalculator {
         final yearDuration = const Duration(days: 365); // Simplified
 
         // Fraction of the year covered
-        double fraction =
-            overlapDuration.inMilliseconds / yearDuration.inMilliseconds;
+        final fraction = overlapDuration.inSeconds / yearDuration.inSeconds;
 
-        // Clamp fraction to [0, 1] just in case (though math above should be safe)
-        if (fraction > 1.0) fraction = 1.0;
-        if (fraction < 0.0) fraction = 0.0;
+        // Annual Rate = r.
+        // Effective Rate for fraction = (1+r)^fraction - 1?
+        // OR simply linear scalar if rate is "Annualized"?
+        // Most accurately: (1 + r)^fraction
 
-        // Apply fractional inflation (Linear Approximation for simplicity/performance)
-        // Advanced: (1 + rate)^fraction - 1
-        // Linear: rate * fraction
+        final partialMultiplier = pow(1 + (rate.percent / 100), fraction);
+        multiplier *= partialMultiplier;
 
-        final effectiveRate = (rate.percent / 100.0) * fraction;
-        multiplier *= (1.0 + effectiveRate);
+        // debugPrint('    Rate ${rate.percent}% in ${rate.date.year}: Fraction $fraction -> Partial $partialMultiplier');
       }
     }
+    // debugPrint('  Total Multiplier: $multiplier');
     return multiplier;
   }
 
@@ -384,9 +390,7 @@ class FinanceCalculator {
     double totalIncome = 0.0;
     double totalExpense = 0.0;
 
-    final now = DateTime.now();
-
-    // Group inflation rates by country for optimization
+    // Map Category types for quick lookup
     final ratesByCountry = <String, List<InflationRateDomain>>{};
     for (final r in data.inflationRates) {
       if (r.country != null) {
@@ -441,15 +445,17 @@ class FinanceCalculator {
       double multiplier = 1.0;
       final country = account?.country ?? defaultCountry;
 
-      if (country != null) {
+      if (country != null && account != null) {
         multiplier = _calculateInflationMultiplier(
+          account.creationDate,
           tx.date,
-          now,
           ratesByCountry[country] ?? [],
         );
       }
 
-      final realAmount = amount * multiplier;
+      if (multiplier == 0) multiplier = 1.0;
+
+      final realAmount = amount / multiplier;
       if (realAmount > 0) {
         realIncomeMap[accountId] =
             (realIncomeMap[accountId] ?? 0.0) + realAmount;
