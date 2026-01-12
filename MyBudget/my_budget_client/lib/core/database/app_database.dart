@@ -1396,6 +1396,8 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     with _$AssetEntriesDaoMixin {
   AssetEntriesDao(super.db);
 
+  Future<List<AssetEntry>> getAllAssetEntries() => select(assetEntries).get();
+
   Future<List<AssetEntry>> getAssetData({
     int limit = 50,
     int offset = 0,

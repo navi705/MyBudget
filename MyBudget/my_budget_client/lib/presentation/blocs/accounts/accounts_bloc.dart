@@ -1,6 +1,5 @@
 import 'dart:async';
-import 'dart:math';
-import 'package:flutter/foundation.dart';
+
 import 'package:bloc/bloc.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
@@ -20,6 +19,8 @@ import 'package:my_budget_client/domain/repositories/transaction_repository.dart
 import 'package:my_budget_client/domain/repositories/asset_repository.dart'; // Added
 import 'package:my_budget_client/domain/entities/asset_data.dart'; // Added
 import 'package:my_budget_client/domain/entities/transaction.dart';
+
+import 'package:my_budget_client/domain/services/finance_calculator.dart'; // Added
 
 part 'accounts_event.dart';
 part 'accounts_state.dart';
@@ -45,7 +46,8 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   final CurrencyRepository _currencyRepository;
   final InflationRepository _inflationRepository;
   final TransactionRepository _transactionRepository;
-  final AssetRepository _assetRepository; // Added
+  final AssetRepository _assetRepository;
+  final FinanceCalculator _financeCalculator; // Added
 
   StreamSubscription<List<Transaction>>? _transactionsSubscription;
 
@@ -55,13 +57,15 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     required CurrencyRepository currencyRepository,
     required InflationRepository inflationRepository,
     required TransactionRepository transactionRepository,
-    required AssetRepository assetRepository, // Added
+    required AssetRepository assetRepository,
+    required FinanceCalculator financeCalculator, // Added
   }) : _accountRepository = accountRepository,
        _settingsRepository = settingsRepository,
        _currencyRepository = currencyRepository,
        _inflationRepository = inflationRepository,
        _transactionRepository = transactionRepository,
-       _assetRepository = assetRepository, // Added
+       _assetRepository = assetRepository,
+       _financeCalculator = financeCalculator, // Added
        super(AccountsInitial()) {
     on<LoadAccounts>(_onLoadAccounts);
     on<LoadMoreAccounts>(_onLoadMoreAccounts);
@@ -96,36 +100,6 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   Future<void> close() {
     _transactionsSubscription?.cancel();
     return super.close();
-  }
-
-  List<Account> _sortAccounts(
-    List<Account> accounts,
-    List<ExchangeRateDomain> rates,
-    bool ascending,
-  ) {
-    final Map<String, double> rateMap = {
-      for (var r in rates) r.toCurrencyCode: r.rate,
-    };
-    rateMap['EUR'] = 1.0; // Assume EUR is the base and has a rate of 1.0
-
-    accounts.sort((a, b) {
-      final aRate = rateMap[a.currencyCode];
-      final bRate = rateMap[b.currencyCode];
-
-      if (aRate == null || aRate == 0) {
-        return 1; // move a to the end
-      }
-      if (bRate == null || bRate == 0) {
-        return -1; // move b to the end
-      }
-
-      final aValueInBase = a.balance / aRate;
-      final bValueInBase = b.balance / bRate;
-
-      final comparison = aValueInBase.compareTo(bValueInBase);
-      return ascending ? comparison : -comparison;
-    });
-    return accounts;
   }
 
   void _onDatePeriodNavigated(
@@ -207,6 +181,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         ),
         _currencyRepository.getLatestExchangeRates(DateTime.now()),
         _inflationRepository.getInflationRates(),
+        _assetRepository.getAssetData(), // Include assets in initial fetch
       ]);
       await PerformanceLogger().stop('Accounts: Future.wait');
 
@@ -215,14 +190,20 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final totalCount = results[2] as int;
       final exchangeRates = results[3] as List<ExchangeRateDomain>;
       final inflationRates = results[4] as List<InflationRateDomain>;
+      final assets = results[5] as List<AssetDataDomain>;
 
-      final sortedAccounts = _sortAccounts(
+      // Fetch ALL transactions for proper calculation (FinanceCalculator needs history)
+      // Note: For large datasets we might need optimization, but FinanceCalculator is designed for full history.
+      // However, we can optimize by only fetching if standard account logic triggers.
+      // But FinanceCalculator expects the full snapshot.
+
+      final sortedAccountsTemp = _sortAccounts(
         accounts,
         exchangeRates,
         filters.sort == Sort.ascending,
       );
 
-      final accountIds = sortedAccounts
+      final accountIds = sortedAccountsTemp
           .map((e) => e.id)
           .whereType<String>()
           .toList();
@@ -238,152 +219,164 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final defaultCountrySetting = await _settingsRepository.getSetting(
         'default_inflation_country',
       );
-      final defaultCountry = defaultCountrySetting?.value ?? 'SRB';
+      final defaultCountry =
+          defaultCountrySetting?.value ?? 'SRB'; // Default to Serbia
 
-      PerformanceLogger().start('Accounts: compute inflation');
-      // Skip compute overhead for small datasets - run inline instead
-      final inflationParams = _InflationParams(
-        accounts: sortedAccounts,
+      // Construct Snapshot
+      final snapshot = FinancialSnapshot(
+        accounts: accounts,
         transactions: allTransactions,
+        assetData: assets,
+        exchangeRates: exchangeRates,
         inflationRates: inflationRates,
-        defaultCountry: defaultCountry,
-      );
-      final inflationResults = allTransactions.length < 100000
-          ? _calculateInflationForAccounts(inflationParams)
-          : await compute(_calculateInflationForAccounts, inflationParams);
-      await PerformanceLogger().stop('Accounts: compute inflation');
-
-      // Calculate Asset Values
-      final assets = await _assetRepository.getAssetData();
-      final assetValues = _calculateAssetValues(
-        sortedAccounts,
-        assets,
-        exchangeRates,
+        date: currentState.activeDate,
+        dateStep: currentState.dateStep,
+        baseCurrency: 'EUR', // Should likely get this from User Settings
       );
 
-      DateTime previousDate;
-      switch (currentState.dateStep) {
-        case DateStep.day:
-          previousDate = currentState.activeDate.subtract(
-            const Duration(days: 1),
-          );
-          break;
-        case DateStep.month:
-          previousDate = DateTime(
-            currentState.activeDate.year,
-            currentState.activeDate.month - 1,
-            currentState.activeDate.day,
-          );
-          break;
-        case DateStep.year:
-          previousDate = DateTime(
-            currentState.activeDate.year - 1,
-            currentState.activeDate.month,
-            currentState.activeDate.day,
-          );
-          break;
-      }
+      PerformanceLogger().start('FinanceCalculator: Calculations');
 
-      final previousPeriodBalances = await _accountRepository.getBalancesAtDate(
-        previousDate,
-      );
-      final previousPeriodTransactions = await _transactionRepository
-          .getTransactionsWithFilters(
-            filters: TransactionFilters(
-              accountId: accountIds,
-              dateTo: previousDate,
-            ),
-            limit: 1000000,
-          );
+      // 1. Calculate Nominal Balances (handles Asset Binding)
+      final nominalBalances = _financeCalculator.calculateBalances(snapshot);
 
-      final prevInflationParams = _InflationParams(
-        accounts: sortedAccounts,
-        transactions: previousPeriodTransactions,
-        inflationRates: inflationRates,
-        defaultCountry: defaultCountry,
-      );
-
-      final prevInflationResults = previousPeriodTransactions.length < 100000
-          ? _calculateInflationForAccounts(prevInflationParams)
-          : await compute(_calculateInflationForAccounts, prevInflationParams);
-
-      DateTime p2Date;
-      switch (currentState.dateStep) {
-        case DateStep.day:
-          p2Date = previousDate.subtract(const Duration(days: 1));
-          break;
-        case DateStep.month:
-          p2Date = DateTime(
-            previousDate.year,
-            previousDate.month - 1,
-            previousDate.day,
-          );
-          break;
-        case DateStep.year:
-          p2Date = DateTime(
-            previousDate.year - 1,
-            previousDate.month,
-            previousDate.day,
-          );
-          break;
-      }
-
-      final currentPeriodTx = allTransactions
-          .where(
-            (tx) =>
-                tx.date.isAfter(previousDate) &&
-                    tx.date.isBefore(currentState.activeDate) ||
-                tx.date.isAtSameMomentAs(currentState.activeDate),
-          ) // Inclusive end? Usually exclusive start, inclusive end
-          .toList();
-
-      final previousPeriodTx = allTransactions
-          .where(
-            (tx) =>
-                tx.date.isAfter(p2Date) && tx.date.isBefore(previousDate) ||
-                tx.date.isAtSameMomentAs(previousDate),
-          )
-          .toList();
-
-      final currentStats = _calculatePeriodStats(
-        _InflationParams(
-          accounts: sortedAccounts,
-          transactions: currentPeriodTx,
-          inflationRates: inflationRates,
-          defaultCountry: defaultCountry,
-        ),
-      );
-
-      final previousStats = _calculatePeriodStats(
-        _InflationParams(
-          accounts: sortedAccounts,
-          transactions: previousPeriodTx,
-          inflationRates: inflationRates,
-          defaultCountry: defaultCountry,
-        ),
-      );
-
-      // Sum totals from account stats
-      double income = currentStats.income.values.fold(0, (sum, v) => sum + v);
-      double expense = currentStats.expense.values.fold(0, (sum, v) => sum + v);
-
-      // Merge asset values into realBalances
-      final realBalances = Map<String, double>.from(
-        inflationResults.realBalances,
-      );
-      for (final accountId in assetValues.keys) {
-        final account = sortedAccounts.firstWhere((a) => a.id == accountId);
-        if (account.assetId != null) {
-          // If bound to an asset, the balance determines the value, ignoring transactions/history for now
-          realBalances[accountId] = assetValues[accountId]!;
-        } else {
-          // Legacy: Add linked asset values to existing balance
-          realBalances[accountId] =
-              (realBalances[accountId] ?? 0.0) + assetValues[accountId]!;
+      // Update Account Objects with Calculated Balances (for Grid)
+      final accountsWithBalances = accounts.map((a) {
+        if (nominalBalances.containsKey(a.id)) {
+          return a.copyWith(balance: nominalBalances[a.id]!);
         }
+        return a;
+      }).toList();
+
+      // Sort with updated balances
+      final sortedAccounts = _sortAccounts(
+        accountsWithBalances,
+        exchangeRates,
+        filters.sort == Sort.ascending,
+      );
+
+      // 2. Calculate Real Balances (Inflation Adjusted)
+      final realBalances = _financeCalculator.calculateRealBalances(
+        snapshot,
+        defaultCountry: defaultCountry,
+      );
+
+      // 3. Asset Values (Already computed in calculateBalances logic, but AccountsState expects a separate map)
+      // We can reuse nominalBalances for this if account is asset-bound.
+      // Or we can ask Calculator for specific asset breakdown?
+      // FinanceCalculator doesn't expose asset map directly, but calculateBalances returns AccountId -> Value.
+      // For legacy compatibility, we can pass nominalBalances as assetValues for asset-bound accounts.
+
+      // 4. Period Stats (Current)
+      // We need to define the period manually if snapshot doesn't auto-derive from DateStep
+      // FinanceCalculator helper needed? 'calculatePeriodStats' takes a DatePeriod.
+
+      DateTime periodStart;
+      DateTime periodEnd = currentState.activeDate; // Inclusive end usually?
+
+      switch (currentState.dateStep) {
+        case DateStep.day:
+          periodStart = currentState.activeDate;
+          break;
+        case DateStep.month:
+          periodStart = DateTime(
+            currentState.activeDate.year,
+            currentState.activeDate.month,
+            1,
+          );
+          // Set end to last second of month? Or just strict range.
+          // FinanceCalculator logic: start <= t < end or start <= t <= end.
+          // Let's rely on standard period construction.
+          periodEnd = DateTime(
+            currentState.activeDate.year,
+            currentState.activeDate.month + 1,
+            0,
+            23,
+            59,
+            59,
+          );
+          break;
+        case DateStep.year:
+          periodStart = DateTime(currentState.activeDate.year, 1, 1);
+          periodEnd = DateTime(
+            currentState.activeDate.year,
+            12,
+            31,
+            23,
+            59,
+            59,
+          );
+          break;
+      }
+      // Override periodEnd to 'activeDate' if we want 'upto now'?
+      // Usually "Period Stats" means "For this entire Month".
+      // Let's use the full natural period for the step.
+
+      final currentStats = _financeCalculator.calculatePeriodStats(
+        snapshot,
+        DatePeriod(periodStart, periodEnd),
+        defaultCountry: defaultCountry,
+      );
+
+      // 5. Period Stats (Previous)
+      DateTime prevStart;
+      DateTime prevEnd;
+
+      switch (currentState.dateStep) {
+        case DateStep.day:
+          prevStart = periodStart.subtract(const Duration(days: 1));
+          prevEnd = prevStart; // Single day
+          break;
+        case DateStep.month:
+          final p = DateTime(periodStart.year, periodStart.month - 1, 1);
+          prevStart = p;
+          prevEnd = DateTime(p.year, p.month + 1, 0, 23, 59, 59);
+          break;
+        case DateStep.year:
+          prevStart = DateTime(periodStart.year - 1, 1, 1);
+          prevEnd = DateTime(periodStart.year - 1, 12, 31, 23, 59, 59);
+          break;
       }
 
-      await PerformanceLogger().stop('Accounts Screen Load');
+      final prevStats = _financeCalculator.calculatePeriodStats(
+        snapshot,
+        DatePeriod(prevStart, prevEnd),
+        defaultCountry: defaultCountry,
+      );
+      // 6. Inflation Losses
+      // This is a specific map <AccountId, Loss>.
+      // FinanceCalculator.calculateRealBalances returns the *Balance*.
+      // Loss = Real - Nominal? Or Real(t) - Real(t-1)?
+      // The Legacy logic calculated "Loss due to inflation" over the period.
+      // Use calculatePeriodStats().realIncome vs income?
+      // Or we can just calculate Loss = Nominal - Real? No, that's cumulative devaluation.
+      // If the UI expects "Loss this month", use stats.
+      // If UI expects "Total Loss", use Nominal - Real (at current date).
+      final inflationLosses = <String, double>{};
+      for (var id in realBalances.keys) {
+        final nom = nominalBalances[id] ?? 0.0;
+        final real = realBalances[id] ?? 0.0;
+        inflationLosses[id] = real - nom; // Usually negative
+      }
+
+      await PerformanceLogger().stop('FinanceCalculator: Calculations');
+
+      // Previous Period Balances (Snapshot at T-1)
+      // We need a new snapshot for previous date reference?
+      // Or just use calculateBalances with a different date override?
+      // FinanceCalculator doesn't allow 'date' override in methods efficiently without recreating snapshot.
+      // We can Re-create snapshot or add 'date' param to calculateBalances?
+      // Defined: calculateBalances(FinancialSnapshot data). Data has .date.
+      final prevSnapshot = snapshot.copyWith(
+        date: prevEnd,
+      ); // Use end of prev period
+      final prevBalances = _financeCalculator.calculateBalances(prevSnapshot);
+      final prevRealBalances = _financeCalculator.calculateRealBalances(
+        prevSnapshot,
+        defaultCountry: defaultCountry,
+      );
+
+      double income = currentStats.totalIncome;
+      double expense = currentStats.totalExpense;
 
       emit(
         AccountsLoadSuccess(
@@ -398,19 +391,20 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           selectedAccountIds: currentState.selectedAccountIds,
           dateStep: currentState.dateStep,
           exchangeRates: exchangeRates,
-          realBalances: realBalances, // Updated
-          inflationLosses: inflationResults.inflationLosses,
-          previousPeriodBalances: previousPeriodBalances,
-          previousPeriodRealBalances: prevInflationResults.realBalances,
+          realBalances: realBalances,
+          inflationLosses: inflationLosses,
+          previousPeriodBalances: prevBalances,
+          previousPeriodRealBalances: prevRealBalances,
           accountIncomes: currentStats.income,
           accountExpenses: currentStats.expense,
           accountRealIncomes: currentStats.realIncome,
           accountRealExpenses: currentStats.realExpense,
-          assetValues: assetValues, // Added
-          previousAccountIncomes: previousStats.income,
-          previousAccountExpenses: previousStats.expense,
-          previousAccountRealIncomes: previousStats.realIncome,
-          previousAccountRealExpenses: previousStats.realExpense,
+          assetValues:
+              nominalBalances, // Using nominal balances as source for asset values (simplification)
+          previousAccountIncomes: prevStats.income,
+          previousAccountExpenses: prevStats.expense,
+          previousAccountRealIncomes: prevStats.realIncome,
+          previousAccountRealExpenses: prevStats.realExpense,
           income: income,
           expense: expense,
         ),
@@ -419,64 +413,6 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       PerformanceLogger().stop('Accounts Screen Load');
       emit(AccountsLoadFailure());
     }
-  }
-
-  Map<String, double> _calculateAssetValues(
-    List<Account> accounts,
-    List<AssetDataDomain> assets,
-    List<ExchangeRateDomain> rates,
-  ) {
-    // Map<CurrencyCode, Rate> (Base EUR = 1.0)
-    final rateMap = {for (var r in rates) r.toCurrencyCode: r.rate};
-    rateMap['EUR'] = 1.0;
-
-    final Map<String, double> result = {};
-
-    for (final account in accounts) {
-      final accountAssets = assets.where((a) => a.accountId == account.id);
-
-      // Group by assetId to get the latest entry for each asset
-      final latestAssets = <String, AssetDataDomain>{};
-      for (final asset in accountAssets) {
-        if (!latestAssets.containsKey(asset.assetId) ||
-            asset.date.isAfter(latestAssets[asset.assetId]!.date)) {
-          latestAssets[asset.assetId] = asset;
-        }
-      }
-
-      double totalValue = 0.0;
-      final accountRate = rateMap[account.currencyCode] ?? 1.0;
-
-      // 2. Bound Asset Logic
-      if (account.assetId != null) {
-        // Find latest entry for this assetId
-        final specificAssetHistory = assets
-            .where((a) => a.assetId == account.assetId)
-            .toList();
-
-        if (specificAssetHistory.isNotEmpty) {
-          // Sort by date desc to get latest
-          specificAssetHistory.sort((a, b) => b.date.compareTo(a.date));
-          final latest = specificAssetHistory.first;
-
-          final assetRate = rateMap[latest.currency] ?? 1.0;
-          // Value = Quantity * ValuePerUnit
-          final valueInBase =
-              (latest.value * account.assetQuantity) / assetRate;
-          final valueInAccount = valueInBase * accountRate;
-          totalValue += valueInAccount;
-        }
-      }
-
-      for (final asset in latestAssets.values) {
-        final assetRate = rateMap[asset.currency] ?? 1.0;
-        final valueInBase = (asset.value * asset.quantity) / assetRate;
-        final valueInAccount = valueInBase * accountRate;
-        totalValue += valueInAccount;
-      }
-      result[account.id!] = totalValue;
-    }
-    return result;
   }
 
   Future<void> _onLoadMoreAccounts(
@@ -500,158 +436,210 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         emit(currentState.copyWith(hasReachedMax: true));
         PerformanceLogger().stop('Accounts Screen Load More');
       } else {
-        final newAccountList = List.of(currentState.accounts)..addAll(accounts);
-        final sortedAccounts = _sortAccounts(
-          newAccountList,
-          currentState.exchangeRates,
-          currentState.sortAscending,
-        );
+        // Fetch Assets early
+        final assets = await _assetRepository.getAssetData();
 
+        // Load additional data needed for Calculator
         final inflationRates = await _inflationRepository.getInflationRates();
-        final accountIds = sortedAccounts
-            .map((e) => e.id)
-            .whereType<String>()
-            .toList();
-
-        final allTransactions = await _transactionRepository
-            .getTransactionsWithFilters(
-              filters: TransactionFilters(accountId: accountIds),
-              limit: 1000000,
-            );
-
         final defaultCountrySetting = await _settingsRepository.getSetting(
           'default_inflation_country',
         );
         final defaultCountry = defaultCountrySetting?.value ?? 'SRB';
 
-        final inflationResults = await compute(
-          _calculateInflationForAccounts,
-          _InflationParams(
-            accounts: sortedAccounts,
-            transactions: allTransactions,
-            inflationRates: inflationRates,
-            defaultCountry: defaultCountry,
-          ),
+        // Merge new accounts with existing for full sort and calc
+        // (FinanceCalculator usually needs full context for sorting,
+        //  but inflation/asset calc is per account usually.
+        //  Real balance relative to others affects sort.)
+
+        // Simplest strategy: Combine lists, re-run full calc.
+        // Optimization: Run calc only on NEW accounts, then merge?
+        // Sorting depends on real/nominal balances.
+
+        final combinedAccounts = List.of(currentState.accounts)
+          ..addAll(accounts);
+
+        // Fetch transactions for ALL combined accounts?
+        // Or just fetch for new, and merge with old transactions?
+        // To be safe and simpler: Fetch for new accounts, merge with existing 'allTransactions' if we had them.
+        // But we don't store 'allTransactions' in state, only derived stats.
+        // So we might need to fetch for new accounts, calculate their stats, and merge into state maps.
+
+        final newAccountIds = accounts.map((e) => e.id!).toList();
+        final newTransactions = await _transactionRepository
+            .getTransactionsWithFilters(
+              filters: TransactionFilters(accountId: newAccountIds),
+              limit: 1000000,
+            );
+
+        // We probably need transaction history for existing accounts to maintain TOTAL stats?
+        // State has 'accountIncomes', 'realBalances' etc.
+        // We can just ADD new entries to these maps.
+
+        // 1. Calculate for NEW accounts
+        // We need a snapshot. But snapshot usually expects the full list of accounts/txs to be consistent?
+        // FinanceCalculator.calculateBalances iterates data.transactions.
+        // If we only pass new accounts and new transactions, we get balances for new accounts.
+
+        final snapshotForNew = FinancialSnapshot(
+          accounts: accounts,
+          transactions: newTransactions,
+          assetData: assets,
+          exchangeRates: currentState.exchangeRates,
+          inflationRates: inflationRates,
+          date: currentState.activeDate,
+          dateStep: currentState.dateStep,
+          baseCurrency: 'EUR',
         );
 
-        // Calculate Asset Values
-        final assets = await _assetRepository.getAssetData();
-        final assetValues = _calculateAssetValues(
-          sortedAccounts,
-          assets,
-          currentState.exchangeRates,
+        final newNominalBalances = _financeCalculator.calculateBalances(
+          snapshotForNew,
+        );
+        final newRealBalances = _financeCalculator.calculateRealBalances(
+          snapshotForNew,
+          defaultCountry: defaultCountry,
         );
 
-        // Merge asset values into realBalances
-        final realBalances = Map<String, double>.from(
-          inflationResults.realBalances,
+        // Period Stats for New
+        final period = snapshotForNew.currentPeriod;
+        final newCurrentStats = _financeCalculator.calculatePeriodStats(
+          snapshotForNew,
+          period,
+          defaultCountry: defaultCountry,
         );
-        for (final accountId in assetValues.keys) {
-          final account = sortedAccounts.firstWhere((a) => a.id == accountId);
-          if (account.assetId != null) {
-            realBalances[accountId] = assetValues[accountId]!;
+
+        // Previous Period Stats for New
+        DateTime prevStart;
+        DateTime prevEnd;
+        // Replicate logic or use helper if we exposed one.
+        // Since we didn't expose 'getPreviousPeriod', manual again or just ignore if load more?
+        // Let's implement correctly.
+        switch (currentState.dateStep) {
+          case DateStep.day:
+            prevStart = period.start.subtract(const Duration(days: 1));
+            prevEnd = prevStart; // Single day
+            break;
+          case DateStep.month:
+            final p = DateTime(period.start.year, period.start.month - 1, 1);
+            prevStart = p;
+            prevEnd = DateTime(p.year, p.month + 1, 0, 23, 59, 59);
+            break;
+          case DateStep.year:
+            prevStart = DateTime(period.start.year - 1, 1, 1);
+            prevEnd = DateTime(period.start.year - 1, 12, 31, 23, 59, 59);
+            break;
+        }
+
+        final snapshotPrev = snapshotForNew.copyWith(
+          date: prevEnd,
+        ); // Date doesn't affect stats as much as period param, but good practice
+        final newPrevStats = _financeCalculator.calculatePeriodStats(
+          snapshotPrev,
+          DatePeriod(prevStart, prevEnd),
+          defaultCountry: defaultCountry,
+        );
+
+        final prevNominalBalances = _financeCalculator.calculateBalances(
+          snapshotPrev,
+        );
+        final prevRealBalances = _financeCalculator.calculateRealBalances(
+          snapshotPrev,
+          defaultCountry: defaultCountry,
+        );
+
+        // Merge Results
+        final updatedNominalBalances = Map<String, double>.from(
+          currentState.assetValues,
+        )..addAll(newNominalBalances);
+        // Note: state.assetValues is acting as nominalBalances map.
+
+        final updatedRealBalances = Map<String, double>.from(
+          currentState.realBalances,
+        )..addAll(newRealBalances);
+        final updatedPrevBalances = Map<String, double>.from(
+          currentState.previousPeriodBalances,
+        )..addAll(prevNominalBalances);
+        final updatedPrevRealBalances = Map<String, double>.from(
+          currentState.previousPeriodRealBalances,
+        )..addAll(prevRealBalances);
+
+        final updatedIncomes = Map<String, double>.from(
+          currentState.accountIncomes,
+        )..addAll(newCurrentStats.income);
+        final updatedExpenses = Map<String, double>.from(
+          currentState.accountExpenses,
+        )..addAll(newCurrentStats.expense);
+        final updatedRealIncomes = Map<String, double>.from(
+          currentState.accountRealIncomes,
+        )..addAll(newCurrentStats.realIncome);
+        final updatedRealExpenses = Map<String, double>.from(
+          currentState.accountRealExpenses,
+        )..addAll(newCurrentStats.realExpense);
+
+        final updatedPrevIncomes = Map<String, double>.from(
+          currentState.previousAccountIncomes,
+        )..addAll(newPrevStats.income);
+        final updatedPrevExpenses = Map<String, double>.from(
+          currentState.previousAccountExpenses,
+        )..addAll(newPrevStats.expense);
+        final updatedPrevRealIncomes = Map<String, double>.from(
+          currentState.previousAccountRealIncomes,
+        )..addAll(newPrevStats.realIncome);
+        final updatedPrevRealExpenses = Map<String, double>.from(
+          currentState.previousAccountRealExpenses,
+        )..addAll(newPrevStats.realExpense);
+
+        final updatedInflationLosses = Map<String, double>.from(
+          currentState.inflationLosses,
+        );
+        for (var id in newRealBalances.keys) {
+          final nom = newNominalBalances[id] ?? 0.0;
+          final real = newRealBalances[id] ?? 0.0;
+          if (nom != 0) {
+            updatedInflationLosses[id] = (nom - real) / nom * 100;
           } else {
-            realBalances[accountId] =
-                (realBalances[accountId] ?? 0.0) + assetValues[accountId]!;
+            updatedInflationLosses[id] = 0.0;
           }
         }
 
-        // Period Stats Calculation
-        DateTime previousDate;
-        switch (currentState.dateStep) {
-          case DateStep.day:
-            previousDate = currentState.activeDate.subtract(
-              const Duration(days: 1),
-            );
-            break;
-          case DateStep.month:
-            previousDate = DateTime(
-              currentState.activeDate.year,
-              currentState.activeDate.month - 1,
-              currentState.activeDate.day,
-            );
-            break;
-          case DateStep.year:
-            previousDate = DateTime(
-              currentState.activeDate.year - 1,
-              currentState.activeDate.month,
-              currentState.activeDate.day,
-            );
-            break;
-        }
+        // Update Account Objects with Balances
+        final accountsWithBalances = combinedAccounts.map((a) {
+          if (updatedNominalBalances.containsKey(a.id)) {
+            return a.copyWith(balance: updatedNominalBalances[a.id]!);
+          }
+          return a;
+        }).toList();
 
-        DateTime p2Date;
-        switch (currentState.dateStep) {
-          case DateStep.day:
-            p2Date = previousDate.subtract(const Duration(days: 1));
-            break;
-          case DateStep.month:
-            p2Date = DateTime(
-              previousDate.year,
-              previousDate.month - 1,
-              previousDate.day,
-            );
-            break;
-          case DateStep.year:
-            p2Date = DateTime(
-              previousDate.year - 1,
-              previousDate.month,
-              previousDate.day,
-            );
-            break;
-        }
-
-        final currentPeriodTx = allTransactions
-            .where(
-              (tx) =>
-                  tx.date.isAfter(previousDate) &&
-                      tx.date.isBefore(currentState.activeDate) ||
-                  tx.date.isAtSameMomentAs(currentState.activeDate),
-            )
-            .toList();
-
-        final previousPeriodTx = allTransactions
-            .where(
-              (tx) =>
-                  tx.date.isAfter(p2Date) && tx.date.isBefore(previousDate) ||
-                  tx.date.isAtSameMomentAs(previousDate),
-            )
-            .toList();
-
-        final currentStats = _calculatePeriodStats(
-          _InflationParams(
-            accounts: sortedAccounts,
-            transactions: currentPeriodTx,
-            inflationRates: inflationRates,
-            defaultCountry: defaultCountry,
-          ),
+        final sortedAccounts = _sortAccounts(
+          accountsWithBalances,
+          currentState.exchangeRates,
+          currentState.sortAscending,
         );
 
-        final previousStats = _calculatePeriodStats(
-          _InflationParams(
-            accounts: sortedAccounts,
-            transactions: previousPeriodTx,
-            inflationRates: inflationRates,
-            defaultCountry: defaultCountry,
-          ),
-        );
+        // Recalculate totals by adding new stats to existing totals
+        double totalIncome = currentState.income + newCurrentStats.totalIncome;
+        double totalExpense =
+            currentState.expense + newCurrentStats.totalExpense;
 
         await PerformanceLogger().stop('Accounts Screen Load More');
 
         emit(
           currentState.copyWith(
             accounts: sortedAccounts,
-            realBalances: realBalances,
-            inflationLosses: inflationResults.inflationLosses,
-            accountIncomes: currentStats.income,
-            accountExpenses: currentStats.expense,
-            accountRealIncomes: currentStats.realIncome,
-            accountRealExpenses: currentStats.realExpense,
-            assetValues: assetValues, // Added
-            previousAccountIncomes: previousStats.income,
-            previousAccountExpenses: previousStats.expense,
-            previousAccountRealIncomes: previousStats.realIncome,
-            previousAccountRealExpenses: previousStats.realExpense,
+            realBalances: updatedRealBalances,
+            inflationLosses: updatedInflationLosses,
+            accountIncomes: updatedIncomes,
+            accountExpenses: updatedExpenses,
+            accountRealIncomes: updatedRealIncomes,
+            accountRealExpenses: updatedRealExpenses,
+            assetValues: updatedNominalBalances,
+            previousPeriodBalances: updatedPrevBalances,
+            previousPeriodRealBalances: updatedPrevRealBalances,
+            previousAccountIncomes: updatedPrevIncomes,
+            previousAccountExpenses: updatedPrevExpenses,
+            previousAccountRealIncomes: updatedPrevRealIncomes,
+            previousAccountRealExpenses: updatedPrevRealExpenses,
+            income: totalIncome,
+            expense: totalExpense,
             hasReachedMax:
                 (currentState.accounts.length + accounts.length) >=
                 currentState.totalCount,
@@ -793,28 +781,175 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     Emitter<AccountsState> emit,
   ) async {
     final currentState = state;
-    if (currentState is AccountsLoadSuccess) {
-      final historicalBalances = await _accountRepository.getBalancesAtDate(
-        event.date,
+    if (currentState is! AccountsLoadSuccess) return;
+
+    try {
+      // 1. Fetch Fresh Data (Needed to ensure we have "Latest" balances for Reverse Calc)
+      // We must reload ALL currently displayed accounts.
+      final currentCount = currentState.accounts.length;
+      final limit = currentCount > currentState.limit
+          ? currentCount
+          : currentState.limit;
+
+      final results = await Future.wait([
+        _accountRepository.getAccountsPaginatedFiltered(
+          limit: limit,
+          offset: 0,
+          accountFilters: currentState.filters,
+        ),
+        _currencyRepository.getLatestExchangeRates(DateTime.now()),
+        _inflationRepository.getInflationRates(),
+        _assetRepository.getAssetData(),
+      ]);
+
+      final accounts = results[0] as List<Account>;
+      final exchangeRates = results[1] as List<ExchangeRateDomain>;
+      final inflationRates = results[2] as List<InflationRateDomain>;
+      final assets = results[3] as List<AssetDataDomain>;
+
+      // Fetch ALL transactions (FinanceCalculator needs history)
+      final sortedAccountsTemp = _sortAccounts(
+        accounts,
+        exchangeRates,
+        currentState.filters.sort == Sort.ascending,
+      );
+      final accountIds = sortedAccountsTemp
+          .map((e) => e.id)
+          .whereType<String>()
+          .toList();
+
+      PerformanceLogger().start('Accounts: getTransactionsWithFilters');
+      final allTransactions = await _transactionRepository
+          .getTransactionsWithFilters(
+            filters: TransactionFilters(accountId: accountIds),
+            limit: 1000000,
+          );
+      await PerformanceLogger().stop('Accounts: getTransactionsWithFilters');
+
+      final defaultCountrySetting = await _settingsRepository.getSetting(
+        'default_inflation_country',
+      );
+      final defaultCountry = defaultCountrySetting?.value ?? 'SRB';
+
+      // 2. Construct Snapshot at Target Date
+      final snapshot = FinancialSnapshot(
+        accounts: accounts,
+        transactions: allTransactions,
+        assetData: assets,
+        exchangeRates: exchangeRates,
+        inflationRates: inflationRates,
+        date: event.date, // Target Date
+        dateStep: currentState.dateStep,
+        baseCurrency: 'EUR',
       );
 
-      final updatedAccounts = currentState.accounts.map((account) {
-        return account.copyWith(balance: historicalBalances[account.id] ?? 0.0);
+      PerformanceLogger().start('FinanceCalculator: Calculations');
+
+      // 3. Nominal Balances
+      final nominalBalances = _financeCalculator.calculateBalances(snapshot);
+
+      // Update Accounts
+      final accountsWithBalances = accounts.map((a) {
+        if (nominalBalances.containsKey(a.id)) {
+          return a.copyWith(balance: nominalBalances[a.id]!);
+        }
+        return a;
       }).toList();
 
       final sortedAccounts = _sortAccounts(
-        updatedAccounts,
-        currentState.exchangeRates,
-        currentState.sortAscending,
+        accountsWithBalances,
+        exchangeRates,
+        currentState.filters.sort == Sort.ascending,
       );
+
+      // 4. Real Balances
+      final realBalances = _financeCalculator.calculateRealBalances(
+        snapshot,
+        defaultCountry: defaultCountry,
+      );
+
+      // 5. Period Stats (Current)
+      final period = snapshot.currentPeriod;
+      final currentStats = _financeCalculator.calculatePeriodStats(
+        snapshot,
+        period,
+        defaultCountry: defaultCountry,
+      );
+
+      // 6. Period Stats (Previous)
+      DateTime prevStart;
+      DateTime prevEnd;
+
+      switch (currentState.dateStep) {
+        case DateStep.day:
+          prevStart = period.start.subtract(const Duration(days: 1));
+          prevEnd = prevStart;
+          break;
+        case DateStep.month:
+          final p = DateTime(period.start.year, period.start.month - 1, 1);
+          prevStart = p;
+          prevEnd = DateTime(p.year, p.month + 1, 0, 23, 59, 59);
+          break;
+        case DateStep.year:
+          prevStart = DateTime(period.start.year - 1, 1, 1);
+          prevEnd = DateTime(period.start.year - 1, 12, 31, 23, 59, 59);
+          break;
+      }
+
+      final prevSnapshot = snapshot.copyWith(date: prevEnd);
+      final prevStats = _financeCalculator.calculatePeriodStats(
+        prevSnapshot,
+        DatePeriod(prevStart, prevEnd),
+        defaultCountry: defaultCountry,
+      );
+
+      final prevBalances = _financeCalculator.calculateBalances(prevSnapshot);
+      final prevRealBalances = _financeCalculator.calculateRealBalances(
+        prevSnapshot,
+        defaultCountry: defaultCountry,
+      );
+
+      final inflationLosses = <String, double>{};
+      for (var id in realBalances.keys) {
+        final nom = nominalBalances[id] ?? 0.0;
+        final real = realBalances[id] ?? 0.0;
+        if (nom != 0) {
+          inflationLosses[id] = (nom - real) / nom * 100;
+        } else {
+          inflationLosses[id] = 0.0;
+        }
+      }
+
+      await PerformanceLogger().stop('FinanceCalculator: Calculations');
+
+      double income = currentStats.totalIncome;
+      double expense = currentStats.totalExpense;
 
       emit(
         currentState.copyWith(
           accounts: sortedAccounts,
-          historicalBalances: historicalBalances,
-          isHistorical: true,
+          realBalances: realBalances,
+          inflationLosses: inflationLosses,
+          accountIncomes: currentStats.income,
+          accountExpenses: currentStats.expense,
+          accountRealIncomes: currentStats.realIncome,
+          accountRealExpenses: currentStats.realExpense,
+          assetValues: nominalBalances,
+          previousPeriodBalances: prevBalances,
+          previousPeriodRealBalances: prevRealBalances,
+          previousAccountIncomes: prevStats.income,
+          previousAccountExpenses: prevStats.expense,
+          previousAccountRealIncomes: prevStats.realIncome,
+          previousAccountRealExpenses: prevStats.realExpense,
+          income: income,
+          expense: expense,
+          isHistorical: true, // Set to true when historical data is loaded
+          activeDate: event.date, // Set the active date to the historical date
         ),
       );
+    } catch (e) {
+      // Keep old state if error, maybe show snackbar?
+      print('HistoricalLoad Error: $e');
     }
   }
 
@@ -900,247 +1035,30 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     );
     add(LoadAccounts());
   }
-}
 
-class _InflationParams {
-  final List<Account> accounts;
-  final List<Transaction> transactions;
-  final List<InflationRateDomain> inflationRates;
-  final String defaultCountry;
+  List<Account> _sortAccounts(
+    List<Account> accounts,
+    List<ExchangeRateDomain> rates,
+    bool ascending,
+  ) {
+    final Map<String, double> rateMap = {
+      for (var r in rates) r.toCurrencyCode: r.rate,
+    };
+    rateMap['EUR'] = 1.0;
 
-  _InflationParams({
-    required this.accounts,
-    required this.transactions,
-    required this.inflationRates,
-    required this.defaultCountry,
-  });
-}
+    accounts.sort((a, b) {
+      final aRate = rateMap[a.currencyCode];
+      final bRate = rateMap[b.currencyCode];
 
-class _InflationResults {
-  final Map<String, double> realBalances;
-  final Map<String, double> inflationLosses;
+      if (aRate == null || aRate == 0) return 1;
+      if (bRate == null || bRate == 0) return -1;
 
-  _InflationResults({
-    required this.realBalances,
-    required this.inflationLosses,
-  });
-}
+      final aValueInBase = a.balance / aRate;
+      final bValueInBase = b.balance / bRate;
 
-_InflationResults _calculateInflationForAccounts(_InflationParams params) {
-  final Map<String, double> realBalances = {};
-  final Map<String, double> inflationLosses = {};
-
-  // Group inflation rates by country for faster access
-  // Map<CountryCode, List<InflationRateDomain>>
-  final ratesByCountry = <String, List<InflationRateDomain>>{};
-  // Ensure rates are sorted by date
-  final sortedRates = List<InflationRateDomain>.from(params.inflationRates)
-    ..sort((a, b) => a.date.compareTo(b.date));
-
-  for (final rate in sortedRates) {
-    if (rate.country != null) {
-      ratesByCountry.putIfAbsent(rate.country!, () => []).add(rate);
-    }
+      final comparison = aValueInBase.compareTo(bValueInBase);
+      return ascending ? comparison : -comparison;
+    });
+    return accounts;
   }
-
-  PerformanceLogger().start('PutIfAbsent');
-  final transactionsByAccount = <String, List<Transaction>>{};
-  for (final tx in params.transactions) {
-    transactionsByAccount.putIfAbsent(tx.accountId, () => []).add(tx);
-  }
-  PerformanceLogger().stop('PutIfAbsent');
-
-  final now = DateTime.now();
-  final target = DateTime(now.year, now.month);
-
-  // Cache multipliers: Map<Country, Map<DateTime, double>>
-  final multiplierCache = <String, Map<DateTime, double>>{};
-
-  double getMultiplier(DateTime date, String country) {
-    final monthDate = DateTime(date.year, date.month);
-
-    // Check cache
-    if (multiplierCache.containsKey(country) &&
-        multiplierCache[country]!.containsKey(monthDate)) {
-      return multiplierCache[country]![monthDate]!;
-    }
-
-    final countryRates = ratesByCountry[country] ?? [];
-    if (countryRates.isEmpty) return 1.0;
-
-    double cumulativeMultiplier = 1.0;
-    DateTime current = monthDate;
-
-    // Limit loop to avoid infinite loops if something goes wrong, though dates should advance
-    int safeguard = 0;
-    while (current.isBefore(target) && safeguard < 1200) {
-      // 100 years max
-      safeguard++;
-      final rate = countryRates.firstWhere(
-        (r) => r.date.year == current.year,
-        orElse: () =>
-            InflationRateDomain(percent: 0.0, date: DateTime(0), preset: 1),
-      );
-
-      if (rate.percent != 0.0) {
-        // Assume annual rate is effectively for the year, convert to monthly component
-        // 1 + annual = (1 + monthly)^12  => monthly = (1+annual)^(1/12) - 1
-        final monthlyRate = pow(1 + rate.percent / 100, 1 / 12) - 1;
-        cumulativeMultiplier *= (1 + monthlyRate);
-      }
-      current = DateTime(current.year, current.month + 1);
-    }
-
-    multiplierCache.putIfAbsent(country, () => {});
-    multiplierCache[country]![monthDate] = cumulativeMultiplier;
-    return cumulativeMultiplier;
-  }
-
-  PerformanceLogger().start('for');
-  for (final account in params.accounts) {
-    if (account.id != null) {
-      final transactions = transactionsByAccount[account.id] ?? [];
-      double realBalance = 0;
-
-      // Determine effective country for this account
-      final effectiveCountry = account.country ?? params.defaultCountry;
-
-      for (final tx in transactions) {
-        realBalance += tx.amount / getMultiplier(tx.date, effectiveCountry);
-      }
-
-      realBalances[account.id!] = realBalance;
-      if (account.balance != 0) {
-        inflationLosses[account.id!] =
-            (account.balance - realBalance) / account.balance * 100;
-      } else {
-        inflationLosses[account.id!] = 0;
-      }
-    }
-  }
-  PerformanceLogger().stop('for');
-
-  return _InflationResults(
-    realBalances: realBalances,
-    inflationLosses: inflationLosses,
-  );
-}
-
-class _PeriodStats {
-  final Map<String, double> income;
-  final Map<String, double> expense;
-  final Map<String, double> realIncome;
-  final Map<String, double> realExpense;
-
-  _PeriodStats({
-    required this.income,
-    required this.expense,
-    required this.realIncome,
-    required this.realExpense,
-  });
-}
-
-_PeriodStats _calculatePeriodStats(_InflationParams params) {
-  final Map<String, double> income = {};
-  final Map<String, double> expense = {};
-  final Map<String, double> realIncome = {};
-  final Map<String, double> realExpense = {};
-
-  final ratesByCountry = <String, List<InflationRateDomain>>{};
-  final sortedRates = List<InflationRateDomain>.from(params.inflationRates)
-    ..sort((a, b) => a.date.compareTo(b.date));
-
-  for (final rate in sortedRates) {
-    if (rate.country != null) {
-      ratesByCountry.putIfAbsent(rate.country!, () => []).add(rate);
-    }
-  }
-
-  // Helper for multiplier
-  // Note: Optimally we should reuse the cache logic from _calculateInflationForAccounts
-  // But since this is a separate isolate function (potentially), we duplicate or refactor.
-  // For simplicity and correctness in this scope, I'll duplicate the helper logic or just inline simple lookups.
-  // Given we process period transactions (usually few), full caching might be overkill but robust.
-
-  final multiplierCache = <String, Map<DateTime, double>>{};
-  final now = DateTime.now();
-  final target = DateTime(now.year, now.month + 1); // Safety bounds
-
-  double getMultiplier(DateTime date, String country) {
-    final monthDate = DateTime(date.year, date.month);
-    if (multiplierCache.containsKey(country) &&
-        multiplierCache[country]!.containsKey(monthDate)) {
-      return multiplierCache[country]![monthDate]!;
-    }
-
-    final countryRates = ratesByCountry[country] ?? [];
-    if (countryRates.isEmpty) return 1.0;
-
-    double cumulativeMultiplier = 1.0;
-    DateTime current = monthDate;
-    int safeguard = 0;
-
-    // We only need multiplier FROM transaction date TO now (or target).
-    while (current.isBefore(target) && safeguard < 1200) {
-      safeguard++;
-      final rate = countryRates.firstWhere(
-        (r) => r.date.year == current.year,
-        orElse: () =>
-            InflationRateDomain(percent: 0.0, date: DateTime(0), preset: 1),
-      );
-
-      if (rate.percent != 0.0) {
-        final monthlyRate = pow(1 + rate.percent / 100, 1 / 12) - 1;
-        cumulativeMultiplier *= (1 + monthlyRate);
-      }
-      current = DateTime(current.year, current.month + 1);
-    }
-
-    multiplierCache.putIfAbsent(country, () => {});
-    multiplierCache[country]![monthDate] = cumulativeMultiplier;
-    return cumulativeMultiplier;
-  }
-
-  for (final account in params.accounts) {
-    if (account.id == null) continue;
-
-    // Filter transactions for this account
-    // Note: params.transactions passed here should ALREADY be filtered for the period
-    // But we need to filter by accountId
-    final accountTx = params.transactions.where(
-      (tx) => tx.accountId == account.id,
-    );
-
-    double accIncome = 0;
-    double accExpense = 0;
-    double accRealIncome = 0;
-    double accRealExpense = 0;
-
-    final effectiveCountry = account.country ?? params.defaultCountry;
-
-    for (final tx in accountTx) {
-      final multiplier = getMultiplier(tx.date, effectiveCountry);
-      final realAmount = tx.amount / multiplier;
-
-      if (tx.amount > 0) {
-        accIncome += tx.amount;
-        accRealIncome += realAmount;
-      } else {
-        accExpense += tx.amount;
-        accRealExpense += realAmount;
-      }
-    }
-
-    income[account.id!] = accIncome;
-    expense[account.id!] = accExpense;
-    realIncome[account.id!] = accRealIncome;
-    realExpense[account.id!] = accRealExpense;
-  }
-
-  return _PeriodStats(
-    income: income,
-    expense: expense,
-    realIncome: realIncome,
-    realExpense: realExpense,
-  );
 }

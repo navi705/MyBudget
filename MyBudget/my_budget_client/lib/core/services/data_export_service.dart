@@ -32,6 +32,7 @@ class DataExportService {
     final rates = await _db.exchangeRatesDao
         .getAllExchangeRates(); // This might be huge?
     // Filtering rates? User said "rates". Let's include them.
+    final assetEntries = await _db.assetEntriesDao.getAllAssetEntries();
 
     final data = {
       'version': 1,
@@ -44,6 +45,7 @@ class DataExportService {
       'currencies': currencies.map((e) => e.toJson()).toList(),
       'currency_designations': designations.map((e) => e.toJson()).toList(),
       'exchange_rates': rates.map((e) => e.toJson()).toList(),
+      'asset_entries': assetEntries.map((e) => e.toJson()).toList(),
     };
 
     final jsonString = const JsonEncoder.withIndent('  ').convert(data);

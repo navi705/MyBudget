@@ -79,8 +79,12 @@ class _AccountListItemState extends State<AccountListItem> {
     Color color,
     String symbol,
   ) {
-    if (value.abs() < 0.01 && (realValue ?? 0).abs() < 0.01)
+    // If bound to an asset, show even if 0 to indicate value state
+    if (value.abs() < 0.01 &&
+        (realValue ?? 0).abs() < 0.01 &&
+        widget.account.assetId == null) {
       return const SizedBox.shrink();
+    }
 
     final formatter = NumberFormat.decimalPattern();
     final diff = prevValue != null ? value - prevValue : 0.0;
