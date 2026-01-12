@@ -17,8 +17,10 @@ import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart'; // Added
+import 'package:my_budget_client/domain/repositories/category_repository.dart'; // Added
 import 'package:my_budget_client/domain/entities/asset_data.dart'; // Added
 import 'package:my_budget_client/domain/entities/transaction.dart';
+import 'package:my_budget_client/domain/entities/category.dart'; // Added
 
 import 'package:my_budget_client/domain/services/finance_calculator.dart'; // Added
 
@@ -47,6 +49,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   final InflationRepository _inflationRepository;
   final TransactionRepository _transactionRepository;
   final AssetRepository _assetRepository;
+  final CategoryRepository _categoryRepository; // Added
   final FinanceCalculator _financeCalculator; // Added
 
   StreamSubscription<List<Transaction>>? _transactionsSubscription;
@@ -58,6 +61,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     required InflationRepository inflationRepository,
     required TransactionRepository transactionRepository,
     required AssetRepository assetRepository,
+    required CategoryRepository categoryRepository, // Added
     required FinanceCalculator financeCalculator, // Added
   }) : _accountRepository = accountRepository,
        _settingsRepository = settingsRepository,
@@ -65,6 +69,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
        _inflationRepository = inflationRepository,
        _transactionRepository = transactionRepository,
        _assetRepository = assetRepository,
+       _categoryRepository = categoryRepository, // Added
        _financeCalculator = financeCalculator, // Added
        super(AccountsInitial()) {
     on<LoadAccounts>(_onLoadAccounts);
@@ -115,18 +120,29 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         newDate = currentState.activeDate.add(Duration(days: event.direction));
         break;
       case DateStep.month:
-        newDate = DateTime(
+        // Move to target month, then snap to end of that month
+        final targetMonth = DateTime(
           currentState.activeDate.year,
           currentState.activeDate.month + event.direction,
-          currentState.activeDate.day,
+          1,
+        );
+        newDate = DateTime(
+          targetMonth.year,
+          targetMonth.month + 1,
+          0,
+          23,
+          59,
+          59,
         );
         break;
       case DateStep.year:
-        newDate = DateTime(
+        // Move to target year, then snap to end of that year
+        final targetYear = DateTime(
           currentState.activeDate.year + event.direction,
-          currentState.activeDate.month,
-          currentState.activeDate.day,
+          1,
+          1,
         );
+        newDate = DateTime(targetYear.year, 12, 31, 23, 59, 59);
         break;
     }
     emit(currentState.copyWith(activeDate: newDate));
@@ -136,8 +152,20 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   void _onDateStepChanged(DateStepChanged event, Emitter<AccountsState> emit) {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
-      emit(currentState.copyWith(dateStep: event.dateStep));
-      add(LoadHistoricalBalances(currentState.activeDate));
+      DateTime newDate = currentState.activeDate;
+
+      // When switching to Month or Year, snap to the end of that period
+      // to show the "Result" of the period (e.g. End of Month Balance).
+      if (event.dateStep == DateStep.month) {
+        newDate = DateTime(newDate.year, newDate.month + 1, 0, 23, 59, 59);
+      } else if (event.dateStep == DateStep.year) {
+        newDate = DateTime(newDate.year, 12, 31, 23, 59, 59);
+      }
+
+      emit(
+        currentState.copyWith(dateStep: event.dateStep, activeDate: newDate),
+      );
+      add(LoadHistoricalBalances(newDate));
     }
   }
 
@@ -182,6 +210,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         _currencyRepository.getLatestExchangeRates(DateTime.now()),
         _inflationRepository.getInflationRates(),
         _assetRepository.getAssetData(), // Include assets in initial fetch
+        _categoryRepository.getCategories(), // Added
       ]);
       await PerformanceLogger().stop('Accounts: Future.wait');
 
@@ -191,6 +220,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final exchangeRates = results[3] as List<ExchangeRateDomain>;
       final inflationRates = results[4] as List<InflationRateDomain>;
       final assets = results[5] as List<AssetDataDomain>;
+      final categories = results[6] as List<Category>; // Added
 
       // Fetch ALL transactions for proper calculation (FinanceCalculator needs history)
       // Note: For large datasets we might need optimization, but FinanceCalculator is designed for full history.
@@ -227,6 +257,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         accounts: accounts,
         transactions: allTransactions,
         assetData: assets,
+        categories: categories, // Added
         exchangeRates: exchangeRates,
         inflationRates: inflationRates,
         date: currentState.activeDate,
@@ -484,6 +515,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           accounts: accounts,
           transactions: newTransactions,
           assetData: assets,
+          categories: currentState.categories, // Added
           exchangeRates: currentState.exchangeRates,
           inflationRates: inflationRates,
           date: currentState.activeDate,
@@ -800,12 +832,14 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         _currencyRepository.getLatestExchangeRates(DateTime.now()),
         _inflationRepository.getInflationRates(),
         _assetRepository.getAssetData(),
+        _categoryRepository.getCategories(), // Added
       ]);
 
       final accounts = results[0] as List<Account>;
       final exchangeRates = results[1] as List<ExchangeRateDomain>;
       final inflationRates = results[2] as List<InflationRateDomain>;
       final assets = results[3] as List<AssetDataDomain>;
+      final categories = results[4] as List<Category>; // Added
 
       // Fetch ALL transactions (FinanceCalculator needs history)
       final sortedAccountsTemp = _sortAccounts(
@@ -836,6 +870,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         accounts: accounts,
         transactions: allTransactions,
         assetData: assets,
+        categories: categories, // Added
         exchangeRates: exchangeRates,
         inflationRates: inflationRates,
         date: event.date, // Target Date
@@ -845,7 +880,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
 
       PerformanceLogger().start('FinanceCalculator: Calculations');
 
-      // 3. Nominal Balances
+      // 1. Nominal Balances
       final nominalBalances = _financeCalculator.calculateBalances(snapshot);
 
       // Update Accounts
@@ -862,13 +897,13 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         currentState.filters.sort == Sort.ascending,
       );
 
-      // 4. Real Balances
+      // 2. Real Balances
       final realBalances = _financeCalculator.calculateRealBalances(
         snapshot,
         defaultCountry: defaultCountry,
       );
 
-      // 5. Period Stats (Current)
+      // 3. Period Stats (Current)
       final period = snapshot.currentPeriod;
       final currentStats = _financeCalculator.calculatePeriodStats(
         snapshot,
@@ -876,7 +911,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         defaultCountry: defaultCountry,
       );
 
-      // 6. Period Stats (Previous)
+      // 4. Period Stats (Previous)
       DateTime prevStart;
       DateTime prevEnd;
 
@@ -903,12 +938,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         defaultCountry: defaultCountry,
       );
 
-      final prevBalances = _financeCalculator.calculateBalances(prevSnapshot);
-      final prevRealBalances = _financeCalculator.calculateRealBalances(
-        prevSnapshot,
-        defaultCountry: defaultCountry,
-      );
-
+      // 5. Inflation Losses
       final inflationLosses = <String, double>{};
       for (var id in realBalances.keys) {
         final nom = nominalBalances[id] ?? 0.0;
@@ -919,6 +949,13 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           inflationLosses[id] = 0.0;
         }
       }
+
+      // 6. Previous Period Balances
+      final prevBalances = _financeCalculator.calculateBalances(prevSnapshot);
+      final prevRealBalances = _financeCalculator.calculateRealBalances(
+        prevSnapshot,
+        defaultCountry: defaultCountry,
+      );
 
       await PerformanceLogger().stop('FinanceCalculator: Calculations');
 
@@ -943,6 +980,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           previousAccountRealExpenses: prevStats.realExpense,
           income: income,
           expense: expense,
+          categories: categories,
           isHistorical: true, // Set to true when historical data is loaded
           activeDate: event.date, // Set the active date to the historical date
         ),

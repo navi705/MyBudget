@@ -53,7 +53,8 @@ Future<void> init() async {
       inflationRepository: sl(),
       transactionRepository: sl(),
       assetRepository: sl(),
-      financeCalculator: sl(), // Added
+      categoryRepository: sl(), // Added
+      financeCalculator: sl(),
     ),
   );
   sl.registerFactory(

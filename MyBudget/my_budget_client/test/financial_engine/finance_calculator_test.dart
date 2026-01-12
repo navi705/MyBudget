@@ -2,14 +2,15 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_budget_client/domain/services/finance_calculator.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
-import 'package:my_budget_client/domain/entities/exchange_rate.dart';
-import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
-import 'package:my_budget_client/domain/services/finance_calculator.dart';
-import 'package:my_budget_client/core/enums/filter_enums.dart'; // For DateStep
-import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
+import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/domain/entities/category_type.dart';
+import 'package:my_budget_client/domain/entities/inflation_rate.dart';
+import 'package:my_budget_client/domain/entities/exchange_rate.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart';
 
 void main() {
   late FinanceCalculator calculator;
@@ -142,6 +143,8 @@ void main() {
       accounts: accounts,
       transactions: transactions,
       assetData: assetData,
+      categories: [], // Added
+
       exchangeRates: exchangeRates,
       inflationRates: inflationRates,
       date: DateTime.now().subtract(
@@ -177,7 +180,9 @@ void main() {
         accounts: snapshot.accounts,
         transactions: snapshot.transactions,
         assetData: snapshot.assetData,
+        categories: [], // Added
         exchangeRates: snapshot.exchangeRates,
+
         inflationRates: snapshot.inflationRates,
         date:
             DateTime.now(), // Calculate for NOW to compare with current balance
@@ -444,6 +449,7 @@ void main() {
         accounts: [mockAccount],
         transactions: [tx],
         assetData: [],
+        categories: [],
         exchangeRates: [],
         inflationRates: rates,
         date: now,
@@ -471,6 +477,64 @@ void main() {
 
       expect(real, greaterThan(nominal * 1.05)); // > 5%
       expect(real, lessThan(nominal * 1.07)); // < 7%
+    });
+
+    test('calculatePeriodStats excludes transfers', () {
+      final now = DateTime.now();
+      final period = DatePeriod(
+        now.subtract(const Duration(days: 1)),
+        now.add(const Duration(days: 1)),
+      );
+
+      final transferCategory = Category(
+        id: 'cat_transfer',
+        name: 'Transfer',
+        type: CategoryType.transfer,
+      );
+
+      final expenseCategory = Category(
+        id: 'cat_expense',
+        name: 'Expense',
+        type: CategoryType.expense,
+      );
+
+      final txTransfer = Transaction(
+        id: 'tx_transfer',
+        description: 'Transfer Tx',
+        amount: -500.0,
+        date: now,
+        accountId: 'acc1',
+        categoryId: 'cat_transfer',
+        currencyCode: 'EUR',
+      );
+
+      final txExpense = Transaction(
+        id: 'tx_expense',
+        description: 'Expense Tx',
+        amount: -100.0,
+        date: now,
+        accountId: 'acc1',
+        categoryId: 'cat_expense',
+        currencyCode: 'EUR',
+      );
+
+      final mockSnapshot = FinancialSnapshot(
+        accounts: [],
+        transactions: [txTransfer, txExpense],
+        assetData: [],
+        categories: [transferCategory, expenseCategory],
+        exchangeRates: [],
+        inflationRates: [],
+        date: now,
+        dateStep: DateStep.month,
+        baseCurrency: 'EUR',
+      );
+
+      final stats = calculator.calculatePeriodStats(mockSnapshot, period);
+
+      // Expect totalExpense to only include txExpense (-100), ignoring txTransfer (-500)
+      expect(stats.totalExpense, equals(-100.0));
+      expect(stats.expense['acc1'], equals(-100.0));
     });
   });
 }

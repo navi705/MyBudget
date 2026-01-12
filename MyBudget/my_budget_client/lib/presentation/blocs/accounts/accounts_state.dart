@@ -64,6 +64,7 @@ class AccountsLoadSuccess extends AccountsState {
   final Map<String, double> inflationLosses;
   final Map<String, double> previousPeriodRealBalances;
   final Map<String, double> previousPeriodBalances;
+  final List<Category> categories; // Added
 
   // Current Period Stats (Per Account)
   final Map<String, double> accountIncomes;
@@ -100,6 +101,7 @@ class AccountsLoadSuccess extends AccountsState {
     this.inflationLosses = const {},
     this.previousPeriodRealBalances = const {},
     this.previousPeriodBalances = const {},
+    this.categories = const [], // Added
     this.accountIncomes = const {},
     this.accountExpenses = const {},
     this.accountRealIncomes = const {},
@@ -132,6 +134,7 @@ class AccountsLoadSuccess extends AccountsState {
     Map<String, double>? inflationLosses,
     Map<String, double>? previousPeriodRealBalances,
     Map<String, double>? previousPeriodBalances,
+    List<Category>? categories, // Added
     Map<String, double>? accountIncomes,
     Map<String, double>? accountExpenses,
     Map<String, double>? accountRealIncomes,
@@ -167,6 +170,7 @@ class AccountsLoadSuccess extends AccountsState {
           previousPeriodRealBalances ?? this.previousPeriodRealBalances,
       previousPeriodBalances:
           previousPeriodBalances ?? this.previousPeriodBalances,
+      categories: categories ?? this.categories, // Added
       accountIncomes: accountIncomes ?? this.accountIncomes,
       accountExpenses: accountExpenses ?? this.accountExpenses,
       accountRealIncomes: accountRealIncomes ?? this.accountRealIncomes,
@@ -205,6 +209,7 @@ class AccountsLoadSuccess extends AccountsState {
     inflationLosses,
     previousPeriodRealBalances,
     previousPeriodBalances,
+    categories, // Added
     accountIncomes,
     accountExpenses,
     accountRealIncomes,

@@ -3,6 +3,8 @@ import 'package:my_budget_client/domain/entities/asset_data.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
+import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart'; // For DateStep
 
 /// Snapshot of all financial data required for calculations at a specific point in time.
@@ -10,6 +12,7 @@ class FinancialSnapshot {
   final List<Account> accounts;
   final List<Transaction> transactions;
   final List<AssetDataDomain> assetData;
+  final List<Category> categories; // Added
   final List<ExchangeRateDomain> exchangeRates;
   final List<InflationRateDomain> inflationRates;
   final DateTime date; // The reference date for calculation
@@ -20,6 +23,7 @@ class FinancialSnapshot {
     required this.accounts,
     required this.transactions,
     required this.assetData,
+    required this.categories,
     required this.exchangeRates,
     required this.inflationRates,
     required this.date,
@@ -31,6 +35,7 @@ class FinancialSnapshot {
     List<Account>? accounts,
     List<Transaction>? transactions,
     List<AssetDataDomain>? assetData,
+    List<Category>? categories,
     List<ExchangeRateDomain>? exchangeRates,
     List<InflationRateDomain>? inflationRates,
     DateTime? date,
@@ -41,6 +46,7 @@ class FinancialSnapshot {
       accounts: accounts ?? this.accounts,
       transactions: transactions ?? this.transactions,
       assetData: assetData ?? this.assetData,
+      categories: categories ?? this.categories,
       exchangeRates: exchangeRates ?? this.exchangeRates,
       inflationRates: inflationRates ?? this.inflationRates,
       date: date ?? this.date,
@@ -388,7 +394,21 @@ class FinanceCalculator {
       }
     }
 
+    // Map Category types for quick lookup
+    final categoryTypes = <String, CategoryType>{};
+    for (final cat in data.categories) {
+      if (cat.id != null) {
+        categoryTypes[cat.id!] = cat.type;
+      }
+    }
+
     for (final tx in periodTx) {
+      // Filter out Transfers
+      final type = categoryTypes[tx.categoryId];
+      if (type == CategoryType.transfer) {
+        continue;
+      }
+
       final amount = tx.amount;
       // Aggregating by AccountId
       final accountId = tx.accountId;
