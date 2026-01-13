@@ -295,8 +295,8 @@ class _AccountListItemState extends State<AccountListItem> {
                           "Expense",
                           widget.expense ?? 0,
                           widget.prevExpense,
-                          widget.realExpense,
-                          widget.prevRealExpense,
+                          null, // Hide Real Expense
+                          null,
                           Colors.red,
                           symbol,
                         ),

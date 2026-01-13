@@ -195,19 +195,9 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
       accountsState.accountExpenses,
       accounts,
     );
-    final realExpense = _calcTotal(
-      currency,
-      accountsState.accountRealExpenses,
-      accounts,
-    );
     final prevExpense = _calcTotal(
       currency,
       accountsState.previousAccountExpenses,
-      accounts,
-    );
-    final prevRealExpense = _calcTotal(
-      currency,
-      accountsState.previousAccountRealExpenses,
       accounts,
     );
 
@@ -245,7 +235,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                     "Income",
                     nominalIncome,
                     prevIncome,
-                    realIncome,
+                    realIncome, // Restore Real Income
                     prevRealIncome,
                     Colors.green,
                   ),
@@ -255,8 +245,8 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                     "Expense",
                     nominalExpense,
                     prevExpense,
-                    realExpense,
-                    prevRealExpense,
+                    null, // Hide Real Expense
+                    null,
                     Colors.red,
                   ),
                 ],
@@ -273,17 +263,19 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
     String label,
     double nominal,
     double prevNominal,
-    double real,
-    double prevReal,
+    double? real,
+    double? prevReal,
     Color color,
   ) {
-    if (nominal.abs() < 0.01 && real.abs() < 0.01 && prevNominal.abs() < 0.01) {
+    if (nominal.abs() < 0.01 &&
+        (real == null || real.abs() < 0.01) &&
+        prevNominal.abs() < 0.01) {
       if (label != "Balance") return const SizedBox.shrink();
     }
 
     final formatter = NumberFormat.decimalPattern();
     final nominalDiff = nominal - prevNominal;
-    final realDiff = real - prevReal;
+    final realDiff = (real != null && prevReal != null) ? real - prevReal : 0.0;
 
     // Percentages
     final nominalPct = prevNominal != 0
@@ -331,30 +323,32 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
           ),
         ),
         // Real
-        const SizedBox(height: 2),
-        SelectableText.rich(
-          TextSpan(
-            style: TextStyle(
-              color: Theme.of(context).textTheme.bodySmall?.color,
-              fontSize: 14,
-            ),
-            children: [
-              const TextSpan(text: 'Real: '),
-              TextSpan(text: formatter.format(real).replaceAll(',', ' ')),
-              if (realDiff.abs() >= 0.01) ...[
-                const TextSpan(text: ' '),
-                TextSpan(
-                  text:
-                      '${realDiff > 0 ? '+' : ''}${formatter.format(realDiff).replaceAll(',', ' ')}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: realDiff > 0 ? Colors.green : Colors.red,
+        if (real != null) ...[
+          const SizedBox(height: 2),
+          SelectableText.rich(
+            TextSpan(
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodySmall?.color,
+                fontSize: 14,
+              ),
+              children: [
+                const TextSpan(text: 'Real: '),
+                TextSpan(text: formatter.format(real).replaceAll(',', ' ')),
+                if (realDiff.abs() >= 0.01) ...[
+                  const TextSpan(text: ' '),
+                  TextSpan(
+                    text:
+                        '${realDiff > 0 ? '+' : ''}${formatter.format(realDiff).replaceAll(',', ' ')}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: realDiff > 0 ? Colors.green : Colors.red,
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
