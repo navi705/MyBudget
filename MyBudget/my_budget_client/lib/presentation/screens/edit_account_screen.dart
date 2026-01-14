@@ -21,6 +21,7 @@ import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.
 import 'package:my_budget_client/domain/repositories/asset_repository.dart'; // Added
 import 'package:my_budget_client/domain/entities/asset_data.dart'; // Added
 import 'package:my_budget_client/core/di/injection_container.dart'; // Added for sl
+import 'package:my_budget_client/presentation/widgets/fee_structure_editor.dart'; // Added
 
 class EditAccountScreen extends StatefulWidget {
   final Account account;
@@ -45,6 +46,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   late TextEditingController _assetQuantityController; // ADDED
   double? _currentAssetPrice; // To display price
   String? _assetCurrency; // To display currency
+  String? _feeStructureJson; // Added
 
   late Account _initialAccount;
 
@@ -71,6 +73,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     );
     // Trigger initial balance calculation/update if asset is selected?
     // For now, just load state.
+    _feeStructureJson = _initialAccount.feeStructure;
   }
 
   @override
@@ -109,6 +112,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
         assetQuantity: _selectedAssetId != null
             ? double.tryParse(_assetQuantityController.text) ?? 0.0
             : 0.0,
+        feeStructure: _feeStructureJson, // Added
       );
 
       // Only dispatch an update if the account has actually changed.
@@ -544,7 +548,19 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                   ],
 
                   const SizedBox(height: 16),
+
                   // --- END ASSET BINDING SECTION ---
+                  const Divider(),
+                  FeeStructureEditor(
+                    initialFeeStructureJson: _feeStructureJson,
+                    onChanged: (json) {
+                      setState(() {
+                        _feeStructureJson = json;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(),
 
                   // ASSET LIST Section
                   FutureBuilder<List<AssetDataDomain>>(

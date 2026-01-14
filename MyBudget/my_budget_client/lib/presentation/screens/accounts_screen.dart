@@ -421,6 +421,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
                           return AccountListItem(
                             account: account.copyWith(balance: balance),
+                            assetStats: state.assetStats[account.id],
                             isSelected: isSelected,
                             realBalance: state.realBalances[account.id],
                             inflationLoss: state.inflationLosses[account.id],

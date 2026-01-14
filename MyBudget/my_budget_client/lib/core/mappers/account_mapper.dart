@@ -18,6 +18,7 @@ extension AccountMapper on drift.DbAccount {
       country: country,
       assetId: assetId,
       assetQuantity: assetQuantity,
+      feeStructure: feeStructure, // Added
     );
   }
 }
@@ -45,6 +46,9 @@ extension AccountCompanionMapper on domain_account.Account {
           ? const Value.absent()
           : Value(assetId),
       assetQuantity: Value(assetQuantity),
+      feeStructure: feeStructure == null && nullToAbsent
+          ? const Value.absent()
+          : Value(feeStructure), // Added
     );
   }
 }

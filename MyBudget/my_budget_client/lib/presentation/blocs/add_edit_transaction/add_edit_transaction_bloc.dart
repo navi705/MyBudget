@@ -39,6 +39,7 @@ class AddEditTransactionBloc
     on<AddEditTransactionLoad>(_onLoad);
     on<AddEditTransactionDescriptionChanged>(_onDescriptionChanged);
     on<AddEditTransactionAmountChanged>(_onAmountChanged);
+    on<AddEditTransactionFeeChanged>(_onFeeChanged); // Added
     on<AddEditTransactionAccountChanged>(_onAccountChanged);
     on<AddEditTransactionCategoryChanged>(_onCategoryChanged);
     on<AddEditTransactionDateChanged>(_onDateChanged);
@@ -111,6 +112,7 @@ class AddEditTransactionBloc
           initialTransaction: initialTransaction,
           description: initialTransaction?.description ?? '',
           amount: initialTransaction?.amount.toString() ?? '',
+          fee: initialTransaction?.fee.toString() ?? '', // Added
           selectedAccount: selectedAccount,
           selectedCategory: selectedCategory,
           selectedCurrency: selectedCurrency, // Added
@@ -144,6 +146,13 @@ class AddEditTransactionBloc
     Emitter<AddEditTransactionState> emit,
   ) {
     emit(state.copyWith(amount: event.amount));
+  }
+
+  void _onFeeChanged(
+    AddEditTransactionFeeChanged event,
+    Emitter<AddEditTransactionState> emit,
+  ) {
+    emit(state.copyWith(fee: event.fee));
   }
 
   Future<void> _onAccountChanged(
@@ -191,6 +200,7 @@ class AddEditTransactionBloc
 
     try {
       var amount = double.tryParse(state.amount);
+      var fee = double.tryParse(state.fee) ?? 0.0; // Added
       final date = state.date;
       final accountId = state.selectedAccount?.id;
       final categoryId = state.selectedCategory?.id;
@@ -238,6 +248,7 @@ class AddEditTransactionBloc
               state.selectedAccount!.currencyCode,
           exchangeRate: finalExchangeRate,
           exchangeRatePreset: finalPreset,
+          fee: fee, // Added
         );
         await _transactionRepository.updateTransaction(updatedTransaction);
       } else {
@@ -252,6 +263,7 @@ class AddEditTransactionBloc
               state.selectedAccount!.currencyCode,
           exchangeRate: finalExchangeRate,
           exchangeRatePreset: finalPreset,
+          fee: fee, // Added
         );
         await _transactionRepository.addTransaction(newTransaction);
       }

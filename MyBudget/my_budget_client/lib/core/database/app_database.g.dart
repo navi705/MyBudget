@@ -2072,6 +2072,17 @@ class $AccountsTable extends Accounts
     requiredDuringInsert: false,
     defaultValue: const Constant(0.0),
   );
+  static const VerificationMeta _feeStructureMeta = const VerificationMeta(
+    'feeStructure',
+  );
+  @override
+  late final GeneratedColumn<String> feeStructure = GeneratedColumn<String>(
+    'fee_structure',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2086,6 +2097,7 @@ class $AccountsTable extends Accounts
     country,
     assetId,
     assetQuantity,
+    feeStructure,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2196,6 +2208,15 @@ class $AccountsTable extends Accounts
         ),
       );
     }
+    if (data.containsKey('fee_structure')) {
+      context.handle(
+        _feeStructureMeta,
+        feeStructure.isAcceptableOrUnknown(
+          data['fee_structure']!,
+          _feeStructureMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2253,6 +2274,10 @@ class $AccountsTable extends Accounts
         DriftSqlType.double,
         data['${effectivePrefix}asset_quantity'],
       )!,
+      feeStructure: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fee_structure'],
+      ),
     );
   }
 
@@ -2275,6 +2300,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
   final String? country;
   final String? assetId;
   final double assetQuantity;
+  final String? feeStructure;
   const DbAccount({
     required this.id,
     required this.name,
@@ -2288,6 +2314,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     this.country,
     this.assetId,
     required this.assetQuantity,
+    this.feeStructure,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2312,6 +2339,9 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
       map['asset_id'] = Variable<String>(assetId);
     }
     map['asset_quantity'] = Variable<double>(assetQuantity);
+    if (!nullToAbsent || feeStructure != null) {
+      map['fee_structure'] = Variable<String>(feeStructure);
+    }
     return map;
   }
 
@@ -2337,6 +2367,9 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
           ? const Value.absent()
           : Value(assetId),
       assetQuantity: Value(assetQuantity),
+      feeStructure: feeStructure == null && nullToAbsent
+          ? const Value.absent()
+          : Value(feeStructure),
     );
   }
 
@@ -2360,6 +2393,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
       country: serializer.fromJson<String?>(json['country']),
       assetId: serializer.fromJson<String?>(json['assetId']),
       assetQuantity: serializer.fromJson<double>(json['assetQuantity']),
+      feeStructure: serializer.fromJson<String?>(json['feeStructure']),
     );
   }
   @override
@@ -2378,6 +2412,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
       'country': serializer.toJson<String?>(country),
       'assetId': serializer.toJson<String?>(assetId),
       'assetQuantity': serializer.toJson<double>(assetQuantity),
+      'feeStructure': serializer.toJson<String?>(feeStructure),
     };
   }
 
@@ -2394,6 +2429,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     Value<String?> country = const Value.absent(),
     Value<String?> assetId = const Value.absent(),
     double? assetQuantity,
+    Value<String?> feeStructure = const Value.absent(),
   }) => DbAccount(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -2407,6 +2443,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     country: country.present ? country.value : this.country,
     assetId: assetId.present ? assetId.value : this.assetId,
     assetQuantity: assetQuantity ?? this.assetQuantity,
+    feeStructure: feeStructure.present ? feeStructure.value : this.feeStructure,
   );
   DbAccount copyWithCompanion(AccountsCompanion data) {
     return DbAccount(
@@ -2434,6 +2471,9 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
       assetQuantity: data.assetQuantity.present
           ? data.assetQuantity.value
           : this.assetQuantity,
+      feeStructure: data.feeStructure.present
+          ? data.feeStructure.value
+          : this.feeStructure,
     );
   }
 
@@ -2451,7 +2491,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
           ..write('creationDate: $creationDate, ')
           ..write('country: $country, ')
           ..write('assetId: $assetId, ')
-          ..write('assetQuantity: $assetQuantity')
+          ..write('assetQuantity: $assetQuantity, ')
+          ..write('feeStructure: $feeStructure')
           ..write(')'))
         .toString();
   }
@@ -2470,6 +2511,7 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     country,
     assetId,
     assetQuantity,
+    feeStructure,
   );
   @override
   bool operator ==(Object other) =>
@@ -2486,7 +2528,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
           other.creationDate == this.creationDate &&
           other.country == this.country &&
           other.assetId == this.assetId &&
-          other.assetQuantity == this.assetQuantity);
+          other.assetQuantity == this.assetQuantity &&
+          other.feeStructure == this.feeStructure);
 }
 
 class AccountsCompanion extends UpdateCompanion<DbAccount> {
@@ -2502,6 +2545,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
   final Value<String?> country;
   final Value<String?> assetId;
   final Value<double> assetQuantity;
+  final Value<String?> feeStructure;
   final Value<int> rowid;
   const AccountsCompanion({
     this.id = const Value.absent(),
@@ -2516,6 +2560,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     this.country = const Value.absent(),
     this.assetId = const Value.absent(),
     this.assetQuantity = const Value.absent(),
+    this.feeStructure = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AccountsCompanion.insert({
@@ -2531,6 +2576,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     this.country = const Value.absent(),
     this.assetId = const Value.absent(),
     this.assetQuantity = const Value.absent(),
+    this.feeStructure = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : name = Value(name),
        balance = Value(balance),
@@ -2550,6 +2596,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     Expression<String>? country,
     Expression<String>? assetId,
     Expression<double>? assetQuantity,
+    Expression<String>? feeStructure,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2566,6 +2613,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
       if (country != null) 'country': country,
       if (assetId != null) 'asset_id': assetId,
       if (assetQuantity != null) 'asset_quantity': assetQuantity,
+      if (feeStructure != null) 'fee_structure': feeStructure,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2583,6 +2631,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     Value<String?>? country,
     Value<String?>? assetId,
     Value<double>? assetQuantity,
+    Value<String?>? feeStructure,
     Value<int>? rowid,
   }) {
     return AccountsCompanion(
@@ -2599,6 +2648,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
       country: country ?? this.country,
       assetId: assetId ?? this.assetId,
       assetQuantity: assetQuantity ?? this.assetQuantity,
+      feeStructure: feeStructure ?? this.feeStructure,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2644,6 +2694,9 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     if (assetQuantity.present) {
       map['asset_quantity'] = Variable<double>(assetQuantity.value);
     }
+    if (feeStructure.present) {
+      map['fee_structure'] = Variable<String>(feeStructure.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2665,6 +2718,7 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
           ..write('country: $country, ')
           ..write('assetId: $assetId, ')
           ..write('assetQuantity: $assetQuantity, ')
+          ..write('feeStructure: $feeStructure, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2762,6 +2816,16 @@ class $TransactionsTable extends Transactions
       'REFERENCES currencies (code)',
     ),
   );
+  static const VerificationMeta _feeMeta = const VerificationMeta('fee');
+  @override
+  late final GeneratedColumn<double> fee = GeneratedColumn<double>(
+    'fee',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2771,6 +2835,7 @@ class $TransactionsTable extends Transactions
     accountId,
     categoryId,
     currencyCode,
+    fee,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2841,6 +2906,12 @@ class $TransactionsTable extends Transactions
     } else if (isInserting) {
       context.missing(_currencyCodeMeta);
     }
+    if (data.containsKey('fee')) {
+      context.handle(
+        _feeMeta,
+        fee.isAcceptableOrUnknown(data['fee']!, _feeMeta),
+      );
+    }
     return context;
   }
 
@@ -2878,6 +2949,10 @@ class $TransactionsTable extends Transactions
         DriftSqlType.string,
         data['${effectivePrefix}currency_code'],
       )!,
+      fee: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}fee'],
+      )!,
     );
   }
 
@@ -2895,6 +2970,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final String accountId;
   final String categoryId;
   final String currencyCode;
+  final double fee;
   const Transaction({
     required this.id,
     required this.description,
@@ -2903,6 +2979,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     required this.accountId,
     required this.categoryId,
     required this.currencyCode,
+    required this.fee,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2914,6 +2991,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     map['account_id'] = Variable<String>(accountId);
     map['category_id'] = Variable<String>(categoryId);
     map['currency_code'] = Variable<String>(currencyCode);
+    map['fee'] = Variable<double>(fee);
     return map;
   }
 
@@ -2926,6 +3004,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       accountId: Value(accountId),
       categoryId: Value(categoryId),
       currencyCode: Value(currencyCode),
+      fee: Value(fee),
     );
   }
 
@@ -2942,6 +3021,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       accountId: serializer.fromJson<String>(json['accountId']),
       categoryId: serializer.fromJson<String>(json['categoryId']),
       currencyCode: serializer.fromJson<String>(json['currencyCode']),
+      fee: serializer.fromJson<double>(json['fee']),
     );
   }
   @override
@@ -2955,6 +3035,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'accountId': serializer.toJson<String>(accountId),
       'categoryId': serializer.toJson<String>(categoryId),
       'currencyCode': serializer.toJson<String>(currencyCode),
+      'fee': serializer.toJson<double>(fee),
     };
   }
 
@@ -2966,6 +3047,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     String? accountId,
     String? categoryId,
     String? currencyCode,
+    double? fee,
   }) => Transaction(
     id: id ?? this.id,
     description: description ?? this.description,
@@ -2974,6 +3056,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     accountId: accountId ?? this.accountId,
     categoryId: categoryId ?? this.categoryId,
     currencyCode: currencyCode ?? this.currencyCode,
+    fee: fee ?? this.fee,
   );
   Transaction copyWithCompanion(TransactionsCompanion data) {
     return Transaction(
@@ -2990,6 +3073,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       currencyCode: data.currencyCode.present
           ? data.currencyCode.value
           : this.currencyCode,
+      fee: data.fee.present ? data.fee.value : this.fee,
     );
   }
 
@@ -3002,7 +3086,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('date: $date, ')
           ..write('accountId: $accountId, ')
           ..write('categoryId: $categoryId, ')
-          ..write('currencyCode: $currencyCode')
+          ..write('currencyCode: $currencyCode, ')
+          ..write('fee: $fee')
           ..write(')'))
         .toString();
   }
@@ -3016,6 +3101,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     accountId,
     categoryId,
     currencyCode,
+    fee,
   );
   @override
   bool operator ==(Object other) =>
@@ -3027,7 +3113,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.date == this.date &&
           other.accountId == this.accountId &&
           other.categoryId == this.categoryId &&
-          other.currencyCode == this.currencyCode);
+          other.currencyCode == this.currencyCode &&
+          other.fee == this.fee);
 }
 
 class TransactionsCompanion extends UpdateCompanion<Transaction> {
@@ -3038,6 +3125,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<String> accountId;
   final Value<String> categoryId;
   final Value<String> currencyCode;
+  final Value<double> fee;
   final Value<int> rowid;
   const TransactionsCompanion({
     this.id = const Value.absent(),
@@ -3047,6 +3135,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.accountId = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.currencyCode = const Value.absent(),
+    this.fee = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TransactionsCompanion.insert({
@@ -3057,6 +3146,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     required String accountId,
     required String categoryId,
     required String currencyCode,
+    this.fee = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : description = Value(description),
        amount = Value(amount),
@@ -3072,6 +3162,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<String>? accountId,
     Expression<String>? categoryId,
     Expression<String>? currencyCode,
+    Expression<double>? fee,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3082,6 +3173,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (accountId != null) 'account_id': accountId,
       if (categoryId != null) 'category_id': categoryId,
       if (currencyCode != null) 'currency_code': currencyCode,
+      if (fee != null) 'fee': fee,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3094,6 +3186,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Value<String>? accountId,
     Value<String>? categoryId,
     Value<String>? currencyCode,
+    Value<double>? fee,
     Value<int>? rowid,
   }) {
     return TransactionsCompanion(
@@ -3104,6 +3197,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       accountId: accountId ?? this.accountId,
       categoryId: categoryId ?? this.categoryId,
       currencyCode: currencyCode ?? this.currencyCode,
+      fee: fee ?? this.fee,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3132,6 +3226,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (currencyCode.present) {
       map['currency_code'] = Variable<String>(currencyCode.value);
     }
+    if (fee.present) {
+      map['fee'] = Variable<double>(fee.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3148,6 +3245,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('accountId: $accountId, ')
           ..write('categoryId: $categoryId, ')
           ..write('currencyCode: $currencyCode, ')
+          ..write('fee: $fee, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -9085,6 +9183,7 @@ typedef $$AccountsTableCreateCompanionBuilder =
       Value<String?> country,
       Value<String?> assetId,
       Value<double> assetQuantity,
+      Value<String?> feeStructure,
       Value<int> rowid,
     });
 typedef $$AccountsTableUpdateCompanionBuilder =
@@ -9101,6 +9200,7 @@ typedef $$AccountsTableUpdateCompanionBuilder =
       Value<String?> country,
       Value<String?> assetId,
       Value<double> assetQuantity,
+      Value<String?> feeStructure,
       Value<int> rowid,
     });
 
@@ -9272,6 +9372,11 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<double> get assetQuantity => $composableBuilder(
     column: $table.assetQuantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get feeStructure => $composableBuilder(
+    column: $table.feeStructure,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9467,6 +9572,11 @@ class $$AccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get feeStructure => $composableBuilder(
+    column: $table.feeStructure,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CurrenciesTableOrderingComposer get currencyCode {
     final $$CurrenciesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -9597,6 +9707,11 @@ class $$AccountsTableAnnotationComposer
 
   GeneratedColumn<double> get assetQuantity => $composableBuilder(
     column: $table.assetQuantity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get feeStructure => $composableBuilder(
+    column: $table.feeStructure,
     builder: (column) => column,
   );
 
@@ -9791,6 +9906,7 @@ class $$AccountsTableTableManager
                 Value<String?> country = const Value.absent(),
                 Value<String?> assetId = const Value.absent(),
                 Value<double> assetQuantity = const Value.absent(),
+                Value<String?> feeStructure = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AccountsCompanion(
                 id: id,
@@ -9805,6 +9921,7 @@ class $$AccountsTableTableManager
                 country: country,
                 assetId: assetId,
                 assetQuantity: assetQuantity,
+                feeStructure: feeStructure,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9821,6 +9938,7 @@ class $$AccountsTableTableManager
                 Value<String?> country = const Value.absent(),
                 Value<String?> assetId = const Value.absent(),
                 Value<double> assetQuantity = const Value.absent(),
+                Value<String?> feeStructure = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AccountsCompanion.insert(
                 id: id,
@@ -9835,6 +9953,7 @@ class $$AccountsTableTableManager
                 country: country,
                 assetId: assetId,
                 assetQuantity: assetQuantity,
+                feeStructure: feeStructure,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -10013,6 +10132,7 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       required String accountId,
       required String categoryId,
       required String currencyCode,
+      Value<double> fee,
       Value<int> rowid,
     });
 typedef $$TransactionsTableUpdateCompanionBuilder =
@@ -10024,6 +10144,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<String> accountId,
       Value<String> categoryId,
       Value<String> currencyCode,
+      Value<double> fee,
       Value<int> rowid,
     });
 
@@ -10115,6 +10236,11 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<DateTime> get date => $composableBuilder(
     column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get fee => $composableBuilder(
+    column: $table.fee,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10217,6 +10343,11 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get fee => $composableBuilder(
+    column: $table.fee,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$AccountsTableOrderingComposer get accountId {
     final $$AccountsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -10309,6 +10440,9 @@ class $$TransactionsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get date =>
       $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<double> get fee =>
+      $composableBuilder(column: $table.fee, builder: (column) => column);
 
   $$AccountsTableAnnotationComposer get accountId {
     final $$AccountsTableAnnotationComposer composer = $composerBuilder(
@@ -10419,6 +10553,7 @@ class $$TransactionsTableTableManager
                 Value<String> accountId = const Value.absent(),
                 Value<String> categoryId = const Value.absent(),
                 Value<String> currencyCode = const Value.absent(),
+                Value<double> fee = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TransactionsCompanion(
                 id: id,
@@ -10428,6 +10563,7 @@ class $$TransactionsTableTableManager
                 accountId: accountId,
                 categoryId: categoryId,
                 currencyCode: currencyCode,
+                fee: fee,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10439,6 +10575,7 @@ class $$TransactionsTableTableManager
                 required String accountId,
                 required String categoryId,
                 required String currencyCode,
+                Value<double> fee = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TransactionsCompanion.insert(
                 id: id,
@@ -10448,6 +10585,7 @@ class $$TransactionsTableTableManager
                 accountId: accountId,
                 categoryId: categoryId,
                 currencyCode: currencyCode,
+                fee: fee,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

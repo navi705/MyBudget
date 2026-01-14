@@ -8,6 +8,7 @@ class AddEditTransactionState extends Equatable {
     this.initialTransaction,
     this.description = '',
     this.amount = '',
+    this.fee = '',
     this.selectedAccount,
     this.selectedCategory,
     this.date,
@@ -28,6 +29,7 @@ class AddEditTransactionState extends Equatable {
   final Transaction? initialTransaction;
   final String description;
   final String amount;
+  final String fee;
   final Account? selectedAccount;
   final Category? selectedCategory;
   final DateTime? date;
@@ -60,6 +62,7 @@ class AddEditTransactionState extends Equatable {
     Transaction? initialTransaction,
     String? description,
     String? amount,
+    String? fee,
     Account? selectedAccount,
     Category? selectedCategory,
     DateTime? date,
@@ -80,6 +83,7 @@ class AddEditTransactionState extends Equatable {
       initialTransaction: initialTransaction ?? this.initialTransaction,
       description: description ?? this.description,
       amount: amount ?? this.amount,
+      fee: fee ?? this.fee,
       selectedAccount: selectedAccount ?? this.selectedAccount,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       date: date ?? this.date,
@@ -104,6 +108,7 @@ class AddEditTransactionState extends Equatable {
     initialTransaction,
     description,
     amount,
+    fee,
     selectedAccount,
     selectedCategory,
     date,

@@ -35,6 +35,15 @@ class AddEditTransactionAmountChanged extends AddEditTransactionEvent {
   List<Object> get props => [amount];
 }
 
+class AddEditTransactionFeeChanged extends AddEditTransactionEvent {
+  final String fee;
+
+  const AddEditTransactionFeeChanged(this.fee);
+
+  @override
+  List<Object> get props => [fee];
+}
+
 class AddEditTransactionAccountChanged extends AddEditTransactionEvent {
   final Account account;
 

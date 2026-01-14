@@ -29,20 +29,30 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
         .whereType<Currency>()
         .toList();
 
+    // Determine which currencies to show for Total Net Worth
+    // If none selected, fallback to Base Currency
+    List<Currency> currenciesToShow = converterState.selectedCurrencies;
+    if (currenciesToShow.isEmpty) {
+      final base = _getCurrencyByCode(converterState.baseCurrencyCode);
+      if (base != null) {
+        currenciesToShow = [base];
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Block 1: Total Net Worth (Selected Currencies)
-          if (converterState.selectedCurrencies.isNotEmpty) ...[
+          // Block 1: Total Net Worth (Selected Currencies or Base)
+          if (currenciesToShow.isNotEmpty) ...[
             Theme(
               data: Theme.of(
                 context,
               ).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
                 tilePadding: EdgeInsets.zero,
-                initiallyExpanded: false,
+                initiallyExpanded: false, // Auto-expand if showing Total
                 title: Text(
                   'Total Net Worth',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -56,7 +66,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                     spacing: 8.0,
                     runSpacing: 8.0,
                     alignment: WrapAlignment.start,
-                    children: converterState.selectedCurrencies.map((currency) {
+                    children: currenciesToShow.map((currency) {
                       return _buildCurrencySection(
                         context,
                         currency,
@@ -281,7 +291,9 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
     final nominalPct = prevNominal != 0
         ? (nominal - prevNominal) / prevNominal.abs() * 100
         : 0.0;
-    // final realPct = prevReal != 0 ? (real - prevReal) / prevReal.abs() * 100 : 0.0;
+    final realPct = (real != null && prevReal != null && prevReal != 0)
+        ? (real - prevReal) / prevReal.abs() * 100
+        : 0.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,7 +350,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                   const TextSpan(text: ' '),
                   TextSpan(
                     text:
-                        '${realDiff > 0 ? '+' : ''}${formatter.format(realDiff).replaceAll(',', ' ')}',
+                        '${realDiff > 0 ? '+' : ''}${formatter.format(realDiff).replaceAll(',', ' ')} (${realPct > 0 ? '+' : ''}${realPct.toStringAsFixed(1)}%)',
                     style: TextStyle(
                       fontSize: 12,
                       color: realDiff > 0 ? Colors.green : Colors.red,

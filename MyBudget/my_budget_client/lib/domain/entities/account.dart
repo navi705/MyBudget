@@ -13,6 +13,7 @@ class Account extends Equatable {
   final String? country;
   final String? assetId; // Added
   final double assetQuantity; // Added
+  final String? feeStructure; // Added: JSON string for Fee Constructor
 
   const Account({
     this.id,
@@ -27,6 +28,7 @@ class Account extends Equatable {
     this.country,
     this.assetId,
     this.assetQuantity = 0.0,
+    this.feeStructure,
   });
 
   @override
@@ -43,6 +45,7 @@ class Account extends Equatable {
     country,
     assetId,
     assetQuantity,
+    feeStructure,
   ];
 
   Account copyWith({
@@ -58,6 +61,7 @@ class Account extends Equatable {
     String? country,
     String? assetId,
     double? assetQuantity,
+    String? feeStructure,
   }) {
     return Account(
       id: id ?? this.id,
@@ -73,6 +77,7 @@ class Account extends Equatable {
       country: country ?? this.country,
       assetId: assetId ?? this.assetId,
       assetQuantity: assetQuantity ?? this.assetQuantity,
+      feeStructure: feeStructure ?? this.feeStructure,
     );
   }
 }

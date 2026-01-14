@@ -72,6 +72,7 @@ class AccountsLoadSuccess extends AccountsState {
   final Map<String, double> accountRealIncomes;
   final Map<String, double> accountRealExpenses;
   final Map<String, double> assetValues; // Added
+  final Map<String, AssetStats> assetStats; // Added: Detailed Asset Stats
 
   // Previous Period Stats (Per Account)
   final Map<String, double> previousAccountIncomes;
@@ -101,12 +102,13 @@ class AccountsLoadSuccess extends AccountsState {
     this.inflationLosses = const {},
     this.previousPeriodRealBalances = const {},
     this.previousPeriodBalances = const {},
-    this.categories = const [], // Added
+    this.categories = const [],
     this.accountIncomes = const {},
     this.accountExpenses = const {},
     this.accountRealIncomes = const {},
     this.accountRealExpenses = const {},
-    this.assetValues = const {}, // Added
+    this.assetValues = const {},
+    this.assetStats = const {}, // Added
     this.previousAccountIncomes = const {},
     this.previousAccountExpenses = const {},
     this.previousAccountRealIncomes = const {},
@@ -134,12 +136,13 @@ class AccountsLoadSuccess extends AccountsState {
     Map<String, double>? inflationLosses,
     Map<String, double>? previousPeriodRealBalances,
     Map<String, double>? previousPeriodBalances,
-    List<Category>? categories, // Added
+    List<Category>? categories,
     Map<String, double>? accountIncomes,
     Map<String, double>? accountExpenses,
     Map<String, double>? accountRealIncomes,
     Map<String, double>? accountRealExpenses,
-    Map<String, double>? assetValues, // Added
+    Map<String, double>? assetValues,
+    Map<String, AssetStats>? assetStats, // Added
     Map<String, double>? previousAccountIncomes,
     Map<String, double>? previousAccountExpenses,
     Map<String, double>? previousAccountRealIncomes,
@@ -170,12 +173,13 @@ class AccountsLoadSuccess extends AccountsState {
           previousPeriodRealBalances ?? this.previousPeriodRealBalances,
       previousPeriodBalances:
           previousPeriodBalances ?? this.previousPeriodBalances,
-      categories: categories ?? this.categories, // Added
+      categories: categories ?? this.categories,
       accountIncomes: accountIncomes ?? this.accountIncomes,
       accountExpenses: accountExpenses ?? this.accountExpenses,
       accountRealIncomes: accountRealIncomes ?? this.accountRealIncomes,
       accountRealExpenses: accountRealExpenses ?? this.accountRealExpenses,
-      assetValues: assetValues ?? this.assetValues, // Added
+      assetValues: assetValues ?? this.assetValues,
+      assetStats: assetStats ?? this.assetStats, // Added
       previousAccountIncomes:
           previousAccountIncomes ?? this.previousAccountIncomes,
       previousAccountExpenses:
@@ -209,12 +213,13 @@ class AccountsLoadSuccess extends AccountsState {
     inflationLosses,
     previousPeriodRealBalances,
     previousPeriodBalances,
-    categories, // Added
+    categories,
     accountIncomes,
     accountExpenses,
     accountRealIncomes,
     accountRealExpenses,
-    assetValues, // Added
+    assetValues,
+    assetStats, // Added
     previousAccountIncomes,
     previousAccountExpenses,
     previousAccountRealIncomes,

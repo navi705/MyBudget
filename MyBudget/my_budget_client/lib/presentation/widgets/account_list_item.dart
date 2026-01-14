@@ -6,9 +6,10 @@ import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
-import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart'; // Added
-import 'package:my_budget_client/domain/entities/currency_designation.dart'; // Added
+import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
+import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/domain/services/finance_calculator.dart'; // Added
 
 class AccountListItem extends StatefulWidget {
   final Account account;
@@ -28,6 +29,7 @@ class AccountListItem extends StatefulWidget {
   final double? prevRealBalance;
   final double? prevRealIncome;
   final double? prevRealExpense;
+  final AssetStats? assetStats; // Added
 
   const AccountListItem({
     super.key,
@@ -48,6 +50,7 @@ class AccountListItem extends StatefulWidget {
     this.prevRealBalance,
     this.prevRealIncome,
     this.prevRealExpense,
+    this.assetStats, // Added
   });
 
   @override
@@ -80,9 +83,12 @@ class _AccountListItemState extends State<AccountListItem> {
     String symbol,
   ) {
     // If bound to an asset, show even if 0 to indicate value state
+    // But for Invested/Realized we might want to hide if 0?
+    // Let's stick to showing if it's the main account item logic.
     if (value.abs() < 0.01 &&
         (realValue ?? 0).abs() < 0.01 &&
-        widget.account.assetId == null) {
+        widget.account.assetId == null &&
+        widget.assetStats == null) {
       return const SizedBox.shrink();
     }
 
@@ -97,11 +103,11 @@ class _AccountListItemState extends State<AccountListItem> {
     return Row(
       children: [
         SizedBox(
-          width: 70, // Increased width slightly for larger label
+          width: 80, // Increased width slightly for labels like "Commissions"
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 14, // Increased 12 -> 14
+              fontSize: 13, // Adjusted
               color: Theme.of(context).textTheme.bodySmall?.color,
             ),
           ),
@@ -114,7 +120,7 @@ class _AccountListItemState extends State<AccountListItem> {
                 TextSpan(
                   style: TextStyle(
                     color: Theme.of(context).textTheme.bodyMedium?.color,
-                    fontSize: 16, // Increased 13 -> 16
+                    fontSize: 15, // Adjusted
                   ),
                   children: [
                     TextSpan(
@@ -140,7 +146,7 @@ class _AccountListItemState extends State<AccountListItem> {
                         text:
                             '${diff > 0 ? '+' : ''}${formatter.format(diff).replaceAll(',', ' ')} (${pct > 0 ? '+' : ''}${pct.toStringAsFixed(1)}%)',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           color: diff > 0 ? Colors.green : Colors.red,
                         ),
                       ),
@@ -153,7 +159,7 @@ class _AccountListItemState extends State<AccountListItem> {
                   TextSpan(
                     style: TextStyle(
                       color: Theme.of(context).textTheme.bodySmall?.color,
-                      fontSize: 14, // Increased 11 -> 14
+                      fontSize: 13,
                     ),
                     children: [
                       const TextSpan(text: 'Real: '),
@@ -161,7 +167,6 @@ class _AccountListItemState extends State<AccountListItem> {
                         text:
                             '$symbol ${formatter.format(realValue).replaceAll(',', ' ')}',
                       ),
-                      // Comparison logic for real if needed
                     ],
                   ),
                 ),
@@ -279,27 +284,73 @@ class _AccountListItemState extends State<AccountListItem> {
                           symbol,
                         ),
                         const SizedBox(height: 4),
-                        _buildStatRow(
-                          context,
-                          "Income",
-                          widget.income ?? 0,
-                          widget.prevIncome,
-                          widget.realIncome,
-                          widget.prevRealIncome,
-                          Colors.green,
-                          symbol,
-                        ),
-                        const SizedBox(height: 4),
-                        _buildStatRow(
-                          context,
-                          "Expense",
-                          widget.expense ?? 0,
-                          widget.prevExpense,
-                          null, // Hide Real Expense
-                          null,
-                          Colors.red,
-                          symbol,
-                        ),
+                        if (widget.assetStats != null) ...[
+                          _buildStatRow(
+                            context,
+                            "Net Bal.",
+                            widget.assetStats!.netBalance,
+                            null, // Not tracking history for net balance yet
+                            null, // Real Net Balance? Maybe calculate: net / inflationMultiplier
+                            null,
+                            Colors.blue,
+                            symbol,
+                          ),
+                          const SizedBox(height: 4),
+                          _buildStatRow(
+                            context,
+                            "Invested",
+                            widget.assetStats!.invested,
+                            null,
+                            null,
+                            null,
+                            Colors.orange,
+                            symbol,
+                          ),
+                          const SizedBox(height: 4),
+                          _buildStatRow(
+                            context,
+                            "Realized",
+                            widget.assetStats!.realized,
+                            null,
+                            null,
+                            null,
+                            Colors.purple,
+                            symbol,
+                          ),
+                          const SizedBox(height: 4),
+                          _buildStatRow(
+                            context,
+                            "Fees",
+                            widget.assetStats!.commissions,
+                            null,
+                            null,
+                            null,
+                            Colors.redAccent,
+                            symbol,
+                          ),
+                        ] else ...[
+                          _buildStatRow(
+                            context,
+                            "Income",
+                            widget.income ?? 0,
+                            widget.prevIncome,
+                            widget.realIncome,
+                            widget.prevRealIncome,
+                            Colors.green,
+                            symbol,
+                          ),
+                          const SizedBox(height: 4),
+                          _buildStatRow(
+                            context,
+                            "Expense",
+                            widget.expense ?? 0,
+                            widget.prevExpense,
+                            null, // Hide Real Expense
+                            null,
+                            Colors.red,
+                            symbol,
+                          ),
+                        ],
                       ],
                     ),
                   ),

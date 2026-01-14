@@ -117,6 +117,8 @@ class Accounts extends Table {
   TextColumn get assetId => text().nullable()(); // Added
   RealColumn get assetQuantity =>
       real().withDefault(const Constant(0.0))(); // Added
+  TextColumn get feeStructure =>
+      text().nullable()(); // Added: JSON string for Fee Constructor
 
   @override
   @override
@@ -134,6 +136,8 @@ class Transactions extends Table {
   TextColumn get accountId => text().references(Accounts, #id)();
   TextColumn get categoryId => text().references(Categories, #id)();
   TextColumn get currencyCode => text().references(Currencies, #code)();
+  RealColumn get fee =>
+      real().withDefault(const Constant(0.0))(); // Added: Fee/Commission
 
   @override
   Set<Column> get primaryKey => {id};

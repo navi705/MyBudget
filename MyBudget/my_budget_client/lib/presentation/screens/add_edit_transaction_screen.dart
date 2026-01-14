@@ -60,6 +60,7 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _descriptionController;
   late final TextEditingController _amountController;
+  late final TextEditingController _feeController; // Added
 
   @override
   void initState() {
@@ -67,12 +68,14 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
     final state = context.read<AddEditTransactionBloc>().state;
     _descriptionController = TextEditingController(text: state.description);
     _amountController = TextEditingController(text: state.amount);
+    _feeController = TextEditingController(text: state.fee); // Added
   }
 
   @override
   void dispose() {
     _descriptionController.dispose();
     _amountController.dispose();
+    _feeController.dispose(); // Added
     super.dispose();
   }
 
@@ -93,6 +96,10 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
           }
           if (state.amount != _amountController.text) {
             _amountController.text = state.amount;
+          }
+          if (state.fee != _feeController.text) {
+            // Added
+            _feeController.text = state.fee;
           }
         },
         child: Scaffold(
@@ -125,6 +132,8 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                           _DescriptionField(controller: _descriptionController),
                           const SizedBox(height: 16),
                           _AmountField(controller: _amountController),
+                          const SizedBox(height: 16),
+                          _FeeField(controller: _feeController), // Added
                           const _ConvertedAmountDisplay(), // Added
                           const SizedBox(height: 16),
                           const _AccountField(),
@@ -727,6 +736,33 @@ class _ConvertedAmountDisplay extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _FeeField extends StatelessWidget {
+  final TextEditingController controller;
+
+  const _FeeField({required this.controller});
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      decoration: const InputDecoration(
+        labelText: 'Fee (Commission)',
+        border: OutlineInputBorder(),
+        hintText: '0.00',
+      ),
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+        TextInputFormatter.withFunction((oldValue, newValue) {
+          return newValue.copyWith(text: newValue.text.replaceAll(',', '.'));
+        }),
+      ],
+      onChanged: (value) => context.read<AddEditTransactionBloc>().add(
+        AddEditTransactionFeeChanged(value),
+      ),
     );
   }
 }

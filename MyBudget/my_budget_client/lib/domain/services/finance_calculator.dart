@@ -8,6 +8,7 @@ import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart'; // For DateStep
+import 'package:my_budget_client/domain/services/fee_calculator.dart'; // Added
 
 /// Snapshot of all financial data required for calculations at a specific point in time.
 class FinancialSnapshot {
@@ -482,4 +483,105 @@ class FinanceCalculator {
     if (previousValue == 0) return 0.0;
     return ((currentValue - previousValue) / previousValue.abs()) * 100;
   }
+
+  /// Returns map of AccountId -> AssetStats
+  /// Calculates Net Balance (Post-Exit), Invested, Realized, and Commissions.
+  Map<String, AssetStats> calculateAssetStats(FinancialSnapshot data) {
+    final stats = <String, AssetStats>{};
+    final balances = calculateBalances(data);
+
+    // Group transactions by account
+    final transactionsByAccount = <String, List<Transaction>>{};
+    for (final tx in data.transactions) {
+      transactionsByAccount.putIfAbsent(tx.accountId, () => []).add(tx);
+    }
+
+    for (final account in data.accounts) {
+      if (account.assetId == null) continue;
+
+      final nominalBalance = balances[account.id] ?? 0.0;
+      final feeStructure = account.feeStructure;
+
+      // 1. Net Balance (Exit Strategy)
+      // Apply the fee structure to the CURRENT Market Value
+      final netBalance = FeeCalculator.calculateNetValue(
+        nominalValue: nominalBalance,
+        feeStructureJson: feeStructure,
+      );
+
+      // 2. Historical Stats
+      double invested = 0.0;
+      double realized = 0.0;
+      double commissions = 0.0;
+
+      final accountTx = transactionsByAccount[account.id] ?? [];
+
+      for (final tx in accountTx) {
+        // Filter out transactions after the snapshot date (to show stats AT that point in time)
+        if (tx.date.isAfter(data.date)) {
+          continue;
+        }
+
+        // Filter out transfers if needed?
+        // User requirements say "Invested = Total Inflow + Fees".
+        // Assuming all positive TX in Asset Account are "Investments".
+
+        // Fee is always positive value stored in DB
+        commissions += tx.fee;
+
+        if (tx.amount > 0) {
+          // Buy / Inflow
+          invested += tx.amount + tx.fee;
+        } else {
+          // Sell / Outflow (tx.amount is negative)
+          // Realized = Gross Sell Amount - Fee
+          // Example: Sell for 100, Fee 5. Net Cash = 95.
+          // tx.amount = -100 (or +100 depending on convention, usually negative if it leaves account, but here we are talking about Asset Account... wait).
+          // If Asset Account tracks "Value of Asset":
+          //   Usually we don't track "Cash" in Asset Account. We track "Holdings".
+          //   But `Account` has `balance`.
+          //   The user binding logic overlays `assetQuantity * price` on `balance`.
+          //   So `tx.amount` in Asset Account might represent "Cash Flow" or "Correction"?
+          //   Or maybe the user tracks "Cash Balance" in a separate Broker Account, and "Asset Account" is just for the Asset?
+          //   If "Asset Account" is just the Asset, then transactions there might represent "Adjustments" or nothing?
+          //   User said: "in income how much I received transferred to another account by transaction".
+          //   This suggests Transactions EXISTING in the Asset Account.
+          //   Let's assume:
+          //     Positive Tx = Adding money/value (Investing).
+          //     Negative Tx = Removing money/value (Realizing).
+
+          realized += tx.amount.abs() - tx.fee;
+        }
+      }
+
+      stats[account.id!] = AssetStats(
+        accountId: account.id!,
+        nominalBalance: nominalBalance,
+        netBalance: netBalance,
+        invested: invested,
+        realized: realized,
+        commissions: commissions,
+      );
+    }
+
+    return stats;
+  }
+}
+
+class AssetStats {
+  final String accountId;
+  final double nominalBalance; // Market Value
+  final double netBalance; // Exit Value (After Fees)
+  final double invested; // Total Inflow + Fees
+  final double realized; // Total Outflow - Fees
+  final double commissions; // Total Fees Paid
+
+  AssetStats({
+    required this.accountId,
+    required this.nominalBalance,
+    required this.netBalance,
+    required this.invested,
+    required this.realized,
+    required this.commissions,
+  });
 }

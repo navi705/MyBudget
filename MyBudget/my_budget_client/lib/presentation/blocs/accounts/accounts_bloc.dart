@@ -291,6 +291,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         defaultCountry: defaultCountry,
       );
 
+      // 3. Asset Stats (Added)
+      final assetStats = _financeCalculator.calculateAssetStats(snapshot);
+
       // 3. Asset Values (Already computed in calculateBalances logic, but AccountsState expects a separate map)
       // We can reuse nominalBalances for this if account is asset-bound.
       // Or we can ask Calculator for specific asset breakdown?
@@ -430,8 +433,8 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           accountExpenses: currentStats.expense,
           accountRealIncomes: currentStats.realIncome,
           accountRealExpenses: currentStats.realExpense,
-          assetValues:
-              nominalBalances, // Using nominal balances as source for asset values (simplification)
+          assetValues: nominalBalances,
+          assetStats: assetStats, // Added
           previousAccountIncomes: prevStats.income,
           previousAccountExpenses: prevStats.expense,
           previousAccountRealIncomes: prevStats.realIncome,
@@ -531,6 +534,10 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           defaultCountry: defaultCountry,
         );
 
+        final newAssetStats = _financeCalculator.calculateAssetStats(
+          snapshotForNew,
+        );
+
         // Period Stats for New
         final period = snapshotForNew.currentPeriod;
         final newCurrentStats = _financeCalculator.calculatePeriodStats(
@@ -582,6 +589,10 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         final updatedNominalBalances = Map<String, double>.from(
           currentState.assetValues,
         )..addAll(newNominalBalances);
+
+        final updatedAssetStats = Map<String, AssetStats>.from(
+          currentState.assetStats,
+        )..addAll(newAssetStats); // Added
         // Note: state.assetValues is acting as nominalBalances map.
 
         final updatedRealBalances = Map<String, double>.from(
@@ -664,6 +675,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
             accountRealIncomes: updatedRealIncomes,
             accountRealExpenses: updatedRealExpenses,
             assetValues: updatedNominalBalances,
+            assetStats: updatedAssetStats, // Added
             previousPeriodBalances: updatedPrevBalances,
             previousPeriodRealBalances: updatedPrevRealBalances,
             previousAccountIncomes: updatedPrevIncomes,
@@ -903,6 +915,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         defaultCountry: defaultCountry,
       );
 
+      // 3. Asset Stats (Added)
+      final assetStats = _financeCalculator.calculateAssetStats(snapshot);
+
       // 3. Period Stats (Current)
       final period = snapshot.currentPeriod;
       final currentStats = _financeCalculator.calculatePeriodStats(
@@ -972,6 +987,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           accountRealIncomes: currentStats.realIncome,
           accountRealExpenses: currentStats.realExpense,
           assetValues: nominalBalances,
+          assetStats: assetStats, // Added
           previousPeriodBalances: prevBalances,
           previousPeriodRealBalances: prevRealBalances,
           previousAccountIncomes: prevStats.income,
