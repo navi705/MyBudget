@@ -2816,6 +2816,27 @@ class $TransactionsTable extends Transactions
       'REFERENCES currencies (code)',
     ),
   );
+  static const VerificationMeta _exchangeRateMeta = const VerificationMeta(
+    'exchangeRate',
+  );
+  @override
+  late final GeneratedColumn<double> exchangeRate = GeneratedColumn<double>(
+    'exchange_rate',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _exchangeRatePresetMeta =
+      const VerificationMeta('exchangeRatePreset');
+  @override
+  late final GeneratedColumn<int> exchangeRatePreset = GeneratedColumn<int>(
+    'exchange_rate_preset',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _feeMeta = const VerificationMeta('fee');
   @override
   late final GeneratedColumn<double> fee = GeneratedColumn<double>(
@@ -2826,6 +2847,17 @@ class $TransactionsTable extends Transactions
     requiredDuringInsert: false,
     defaultValue: const Constant(0.0),
   );
+  static const VerificationMeta _linkedTransactionIdMeta =
+      const VerificationMeta('linkedTransactionId');
+  @override
+  late final GeneratedColumn<String> linkedTransactionId =
+      GeneratedColumn<String>(
+        'linked_transaction_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2835,7 +2867,10 @@ class $TransactionsTable extends Transactions
     accountId,
     categoryId,
     currencyCode,
+    exchangeRate,
+    exchangeRatePreset,
     fee,
+    linkedTransactionId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2906,10 +2941,37 @@ class $TransactionsTable extends Transactions
     } else if (isInserting) {
       context.missing(_currencyCodeMeta);
     }
+    if (data.containsKey('exchange_rate')) {
+      context.handle(
+        _exchangeRateMeta,
+        exchangeRate.isAcceptableOrUnknown(
+          data['exchange_rate']!,
+          _exchangeRateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('exchange_rate_preset')) {
+      context.handle(
+        _exchangeRatePresetMeta,
+        exchangeRatePreset.isAcceptableOrUnknown(
+          data['exchange_rate_preset']!,
+          _exchangeRatePresetMeta,
+        ),
+      );
+    }
     if (data.containsKey('fee')) {
       context.handle(
         _feeMeta,
         fee.isAcceptableOrUnknown(data['fee']!, _feeMeta),
+      );
+    }
+    if (data.containsKey('linked_transaction_id')) {
+      context.handle(
+        _linkedTransactionIdMeta,
+        linkedTransactionId.isAcceptableOrUnknown(
+          data['linked_transaction_id']!,
+          _linkedTransactionIdMeta,
+        ),
       );
     }
     return context;
@@ -2949,10 +3011,22 @@ class $TransactionsTable extends Transactions
         DriftSqlType.string,
         data['${effectivePrefix}currency_code'],
       )!,
+      exchangeRate: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}exchange_rate'],
+      ),
+      exchangeRatePreset: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}exchange_rate_preset'],
+      ),
       fee: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}fee'],
       )!,
+      linkedTransactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}linked_transaction_id'],
+      ),
     );
   }
 
@@ -2970,7 +3044,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final String accountId;
   final String categoryId;
   final String currencyCode;
+  final double? exchangeRate;
+  final int? exchangeRatePreset;
   final double fee;
+  final String? linkedTransactionId;
   const Transaction({
     required this.id,
     required this.description,
@@ -2979,7 +3056,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     required this.accountId,
     required this.categoryId,
     required this.currencyCode,
+    this.exchangeRate,
+    this.exchangeRatePreset,
     required this.fee,
+    this.linkedTransactionId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2991,7 +3071,16 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     map['account_id'] = Variable<String>(accountId);
     map['category_id'] = Variable<String>(categoryId);
     map['currency_code'] = Variable<String>(currencyCode);
+    if (!nullToAbsent || exchangeRate != null) {
+      map['exchange_rate'] = Variable<double>(exchangeRate);
+    }
+    if (!nullToAbsent || exchangeRatePreset != null) {
+      map['exchange_rate_preset'] = Variable<int>(exchangeRatePreset);
+    }
     map['fee'] = Variable<double>(fee);
+    if (!nullToAbsent || linkedTransactionId != null) {
+      map['linked_transaction_id'] = Variable<String>(linkedTransactionId);
+    }
     return map;
   }
 
@@ -3004,7 +3093,16 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       accountId: Value(accountId),
       categoryId: Value(categoryId),
       currencyCode: Value(currencyCode),
+      exchangeRate: exchangeRate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(exchangeRate),
+      exchangeRatePreset: exchangeRatePreset == null && nullToAbsent
+          ? const Value.absent()
+          : Value(exchangeRatePreset),
       fee: Value(fee),
+      linkedTransactionId: linkedTransactionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(linkedTransactionId),
     );
   }
 
@@ -3021,7 +3119,12 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       accountId: serializer.fromJson<String>(json['accountId']),
       categoryId: serializer.fromJson<String>(json['categoryId']),
       currencyCode: serializer.fromJson<String>(json['currencyCode']),
+      exchangeRate: serializer.fromJson<double?>(json['exchangeRate']),
+      exchangeRatePreset: serializer.fromJson<int?>(json['exchangeRatePreset']),
       fee: serializer.fromJson<double>(json['fee']),
+      linkedTransactionId: serializer.fromJson<String?>(
+        json['linkedTransactionId'],
+      ),
     );
   }
   @override
@@ -3035,7 +3138,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'accountId': serializer.toJson<String>(accountId),
       'categoryId': serializer.toJson<String>(categoryId),
       'currencyCode': serializer.toJson<String>(currencyCode),
+      'exchangeRate': serializer.toJson<double?>(exchangeRate),
+      'exchangeRatePreset': serializer.toJson<int?>(exchangeRatePreset),
       'fee': serializer.toJson<double>(fee),
+      'linkedTransactionId': serializer.toJson<String?>(linkedTransactionId),
     };
   }
 
@@ -3047,7 +3153,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     String? accountId,
     String? categoryId,
     String? currencyCode,
+    Value<double?> exchangeRate = const Value.absent(),
+    Value<int?> exchangeRatePreset = const Value.absent(),
     double? fee,
+    Value<String?> linkedTransactionId = const Value.absent(),
   }) => Transaction(
     id: id ?? this.id,
     description: description ?? this.description,
@@ -3056,7 +3165,14 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     accountId: accountId ?? this.accountId,
     categoryId: categoryId ?? this.categoryId,
     currencyCode: currencyCode ?? this.currencyCode,
+    exchangeRate: exchangeRate.present ? exchangeRate.value : this.exchangeRate,
+    exchangeRatePreset: exchangeRatePreset.present
+        ? exchangeRatePreset.value
+        : this.exchangeRatePreset,
     fee: fee ?? this.fee,
+    linkedTransactionId: linkedTransactionId.present
+        ? linkedTransactionId.value
+        : this.linkedTransactionId,
   );
   Transaction copyWithCompanion(TransactionsCompanion data) {
     return Transaction(
@@ -3073,7 +3189,16 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       currencyCode: data.currencyCode.present
           ? data.currencyCode.value
           : this.currencyCode,
+      exchangeRate: data.exchangeRate.present
+          ? data.exchangeRate.value
+          : this.exchangeRate,
+      exchangeRatePreset: data.exchangeRatePreset.present
+          ? data.exchangeRatePreset.value
+          : this.exchangeRatePreset,
       fee: data.fee.present ? data.fee.value : this.fee,
+      linkedTransactionId: data.linkedTransactionId.present
+          ? data.linkedTransactionId.value
+          : this.linkedTransactionId,
     );
   }
 
@@ -3087,7 +3212,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('accountId: $accountId, ')
           ..write('categoryId: $categoryId, ')
           ..write('currencyCode: $currencyCode, ')
-          ..write('fee: $fee')
+          ..write('exchangeRate: $exchangeRate, ')
+          ..write('exchangeRatePreset: $exchangeRatePreset, ')
+          ..write('fee: $fee, ')
+          ..write('linkedTransactionId: $linkedTransactionId')
           ..write(')'))
         .toString();
   }
@@ -3101,7 +3229,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     accountId,
     categoryId,
     currencyCode,
+    exchangeRate,
+    exchangeRatePreset,
     fee,
+    linkedTransactionId,
   );
   @override
   bool operator ==(Object other) =>
@@ -3114,7 +3245,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.accountId == this.accountId &&
           other.categoryId == this.categoryId &&
           other.currencyCode == this.currencyCode &&
-          other.fee == this.fee);
+          other.exchangeRate == this.exchangeRate &&
+          other.exchangeRatePreset == this.exchangeRatePreset &&
+          other.fee == this.fee &&
+          other.linkedTransactionId == this.linkedTransactionId);
 }
 
 class TransactionsCompanion extends UpdateCompanion<Transaction> {
@@ -3125,7 +3259,10 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<String> accountId;
   final Value<String> categoryId;
   final Value<String> currencyCode;
+  final Value<double?> exchangeRate;
+  final Value<int?> exchangeRatePreset;
   final Value<double> fee;
+  final Value<String?> linkedTransactionId;
   final Value<int> rowid;
   const TransactionsCompanion({
     this.id = const Value.absent(),
@@ -3135,7 +3272,10 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.accountId = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.currencyCode = const Value.absent(),
+    this.exchangeRate = const Value.absent(),
+    this.exchangeRatePreset = const Value.absent(),
     this.fee = const Value.absent(),
+    this.linkedTransactionId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TransactionsCompanion.insert({
@@ -3146,7 +3286,10 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     required String accountId,
     required String categoryId,
     required String currencyCode,
+    this.exchangeRate = const Value.absent(),
+    this.exchangeRatePreset = const Value.absent(),
     this.fee = const Value.absent(),
+    this.linkedTransactionId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : description = Value(description),
        amount = Value(amount),
@@ -3162,7 +3305,10 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<String>? accountId,
     Expression<String>? categoryId,
     Expression<String>? currencyCode,
+    Expression<double>? exchangeRate,
+    Expression<int>? exchangeRatePreset,
     Expression<double>? fee,
+    Expression<String>? linkedTransactionId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3173,7 +3319,12 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (accountId != null) 'account_id': accountId,
       if (categoryId != null) 'category_id': categoryId,
       if (currencyCode != null) 'currency_code': currencyCode,
+      if (exchangeRate != null) 'exchange_rate': exchangeRate,
+      if (exchangeRatePreset != null)
+        'exchange_rate_preset': exchangeRatePreset,
       if (fee != null) 'fee': fee,
+      if (linkedTransactionId != null)
+        'linked_transaction_id': linkedTransactionId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3186,7 +3337,10 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Value<String>? accountId,
     Value<String>? categoryId,
     Value<String>? currencyCode,
+    Value<double?>? exchangeRate,
+    Value<int?>? exchangeRatePreset,
     Value<double>? fee,
+    Value<String?>? linkedTransactionId,
     Value<int>? rowid,
   }) {
     return TransactionsCompanion(
@@ -3197,7 +3351,10 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       accountId: accountId ?? this.accountId,
       categoryId: categoryId ?? this.categoryId,
       currencyCode: currencyCode ?? this.currencyCode,
+      exchangeRate: exchangeRate ?? this.exchangeRate,
+      exchangeRatePreset: exchangeRatePreset ?? this.exchangeRatePreset,
       fee: fee ?? this.fee,
+      linkedTransactionId: linkedTransactionId ?? this.linkedTransactionId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3226,8 +3383,19 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (currencyCode.present) {
       map['currency_code'] = Variable<String>(currencyCode.value);
     }
+    if (exchangeRate.present) {
+      map['exchange_rate'] = Variable<double>(exchangeRate.value);
+    }
+    if (exchangeRatePreset.present) {
+      map['exchange_rate_preset'] = Variable<int>(exchangeRatePreset.value);
+    }
     if (fee.present) {
       map['fee'] = Variable<double>(fee.value);
+    }
+    if (linkedTransactionId.present) {
+      map['linked_transaction_id'] = Variable<String>(
+        linkedTransactionId.value,
+      );
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -3245,7 +3413,10 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('accountId: $accountId, ')
           ..write('categoryId: $categoryId, ')
           ..write('currencyCode: $currencyCode, ')
+          ..write('exchangeRate: $exchangeRate, ')
+          ..write('exchangeRatePreset: $exchangeRatePreset, ')
           ..write('fee: $fee, ')
+          ..write('linkedTransactionId: $linkedTransactionId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -10132,7 +10303,10 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       required String accountId,
       required String categoryId,
       required String currencyCode,
+      Value<double?> exchangeRate,
+      Value<int?> exchangeRatePreset,
       Value<double> fee,
+      Value<String?> linkedTransactionId,
       Value<int> rowid,
     });
 typedef $$TransactionsTableUpdateCompanionBuilder =
@@ -10144,7 +10318,10 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<String> accountId,
       Value<String> categoryId,
       Value<String> currencyCode,
+      Value<double?> exchangeRate,
+      Value<int?> exchangeRatePreset,
       Value<double> fee,
+      Value<String?> linkedTransactionId,
       Value<int> rowid,
     });
 
@@ -10239,8 +10416,23 @@ class $$TransactionsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<double> get exchangeRate => $composableBuilder(
+    column: $table.exchangeRate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get exchangeRatePreset => $composableBuilder(
+    column: $table.exchangeRatePreset,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<double> get fee => $composableBuilder(
     column: $table.fee,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get linkedTransactionId => $composableBuilder(
+    column: $table.linkedTransactionId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10343,8 +10535,23 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get exchangeRate => $composableBuilder(
+    column: $table.exchangeRate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get exchangeRatePreset => $composableBuilder(
+    column: $table.exchangeRatePreset,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get fee => $composableBuilder(
     column: $table.fee,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get linkedTransactionId => $composableBuilder(
+    column: $table.linkedTransactionId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -10441,8 +10648,23 @@ class $$TransactionsTableAnnotationComposer
   GeneratedColumn<DateTime> get date =>
       $composableBuilder(column: $table.date, builder: (column) => column);
 
+  GeneratedColumn<double> get exchangeRate => $composableBuilder(
+    column: $table.exchangeRate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get exchangeRatePreset => $composableBuilder(
+    column: $table.exchangeRatePreset,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<double> get fee =>
       $composableBuilder(column: $table.fee, builder: (column) => column);
+
+  GeneratedColumn<String> get linkedTransactionId => $composableBuilder(
+    column: $table.linkedTransactionId,
+    builder: (column) => column,
+  );
 
   $$AccountsTableAnnotationComposer get accountId {
     final $$AccountsTableAnnotationComposer composer = $composerBuilder(
@@ -10553,7 +10775,10 @@ class $$TransactionsTableTableManager
                 Value<String> accountId = const Value.absent(),
                 Value<String> categoryId = const Value.absent(),
                 Value<String> currencyCode = const Value.absent(),
+                Value<double?> exchangeRate = const Value.absent(),
+                Value<int?> exchangeRatePreset = const Value.absent(),
                 Value<double> fee = const Value.absent(),
+                Value<String?> linkedTransactionId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TransactionsCompanion(
                 id: id,
@@ -10563,7 +10788,10 @@ class $$TransactionsTableTableManager
                 accountId: accountId,
                 categoryId: categoryId,
                 currencyCode: currencyCode,
+                exchangeRate: exchangeRate,
+                exchangeRatePreset: exchangeRatePreset,
                 fee: fee,
+                linkedTransactionId: linkedTransactionId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10575,7 +10803,10 @@ class $$TransactionsTableTableManager
                 required String accountId,
                 required String categoryId,
                 required String currencyCode,
+                Value<double?> exchangeRate = const Value.absent(),
+                Value<int?> exchangeRatePreset = const Value.absent(),
                 Value<double> fee = const Value.absent(),
+                Value<String?> linkedTransactionId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TransactionsCompanion.insert(
                 id: id,
@@ -10585,7 +10816,10 @@ class $$TransactionsTableTableManager
                 accountId: accountId,
                 categoryId: categoryId,
                 currencyCode: currencyCode,
+                exchangeRate: exchangeRate,
+                exchangeRatePreset: exchangeRatePreset,
                 fee: fee,
+                linkedTransactionId: linkedTransactionId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

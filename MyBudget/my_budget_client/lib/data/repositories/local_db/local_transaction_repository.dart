@@ -48,12 +48,23 @@ class LocalTransactionRepository implements TransactionRepository {
 
   @override
   Future<void> deleteTransaction(String id) async {
+    await database.transaction(() async {
+      await _deleteTransactionRecursive(id);
+    });
+  }
+
+  Future<void> _deleteTransactionRecursive(String id) async {
     final transaction = await getTransactionById(id);
     if (transaction != null) {
       await database.transactionsDao.deleteTransaction(
         db.TransactionsCompanion(id: Value(id)),
       );
       await _updateAccountBalance(transaction.accountId, -transaction.amount);
+
+      if (transaction.linkedTransactionId != null &&
+          transaction.linkedTransactionId!.isNotEmpty) {
+        await _deleteTransactionRecursive(transaction.linkedTransactionId!);
+      }
     }
   }
 

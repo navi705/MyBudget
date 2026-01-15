@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:my_budget_client/core/utils/import_utils.dart';
+import 'package:my_budget_client/core/constants/app_constants.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
@@ -468,21 +469,25 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
 
       // --- 4. PREPARE LOOKUPS (FIXED) ---
       final allAccounts = await _accountRepository.getAccounts();
-      var allCategories = await _categoryRepository.getCategories();
+      var allCategories = await _categoryRepository.getCategories(
+        includeSystem: true,
+      );
 
       // Handle Transfer Category
       var transferCategory = allCategories.firstWhereOrNull(
-        (c) => c.name == 'Transfer',
+        (c) => c.name == AppConstants.systemTransferCategoryName,
       );
       if (transferCategory == null) {
         final newCategory = Category(
-          name: 'Transfer',
+          name: AppConstants.systemTransferCategoryName,
           type: CategoryType.transfer,
         );
         await _categoryRepository.addCategory(newCategory);
-        allCategories = await _categoryRepository.getCategories();
+        allCategories = await _categoryRepository.getCategories(
+          includeSystem: true,
+        );
         transferCategory = allCategories.firstWhere(
-          (c) => c.name == 'Transfer',
+          (c) => c.name == AppConstants.systemTransferCategoryName,
         );
       }
 

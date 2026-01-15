@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:my_budget_client/core/constants/app_constants.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as drift;
 import 'package:my_budget_client/core/mappers/category_mapper.dart';
 import 'package:my_budget_client/core/mappers/category_with_total_mapper.dart';
@@ -14,9 +15,13 @@ class LocalCategoryRepository implements CategoryRepository {
   LocalCategoryRepository(this._appDatabase);
 
   @override
-  Stream<List<Category>> watchCategories() {
+  Stream<List<Category>> watchCategories({bool includeSystem = false}) {
     return _appDatabase.categoriesDao.watchAllCategories().map((categories) {
-      return categories.toDomainList();
+      final domainList = categories.toDomainList();
+      if (includeSystem) return domainList;
+      return domainList
+          .where((c) => c.name != AppConstants.systemTransferCategoryName)
+          .toList();
     });
   }
 
@@ -40,9 +45,13 @@ class LocalCategoryRepository implements CategoryRepository {
   }
 
   @override
-  Future<List<Category>> getCategories() async {
+  Future<List<Category>> getCategories({bool includeSystem = false}) async {
     final driftCategories = await _appDatabase.categoriesDao.getAllCategories();
-    return driftCategories.toDomainList();
+    final domainList = driftCategories.toDomainList();
+    if (includeSystem) return domainList;
+    return domainList
+        .where((c) => c.name != AppConstants.systemTransferCategoryName)
+        .toList();
   }
 
   @override

@@ -12,6 +12,10 @@ extension TransactionMapper on drift.Transaction {
       accountId: accountId,
       categoryId: categoryId,
       currencyCode: currencyCode,
+      exchangeRate: exchangeRate,
+      exchangeRatePreset: exchangeRatePreset,
+      fee: fee,
+      linkedTransactionId: linkedTransactionId,
     );
   }
 }
@@ -26,6 +30,10 @@ extension TransactionCompanionMapper on Transaction {
       accountId: Value(accountId),
       categoryId: Value(categoryId),
       currencyCode: Value(currencyCode),
+      exchangeRate: Value(exchangeRate),
+      exchangeRatePreset: Value(exchangeRatePreset),
+      fee: Value(fee),
+      linkedTransactionId: Value(linkedTransactionId),
     );
   }
 }

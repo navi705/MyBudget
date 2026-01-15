@@ -2,6 +2,8 @@ part of 'add_edit_transaction_bloc.dart';
 
 enum AddEditTransactionStatus { initial, loading, success, failure }
 
+enum AssetAction { buy, sell }
+
 class AddEditTransactionState extends Equatable {
   const AddEditTransactionState({
     this.status = AddEditTransactionStatus.initial,
@@ -23,6 +25,13 @@ class AddEditTransactionState extends Equatable {
     this.isSaving = false,
     this.isSaveSuccess = false,
     this.mainCurrencyCode = 'EUR',
+    this.linkedAccount,
+    this.assetPrice,
+    this.assetAction = AssetAction.buy,
+    this.totalValue = '',
+    this.marketRate,
+    this.projectedLoss = 0.0,
+    this.recordExchangeLoss = false,
   });
 
   final AddEditTransactionStatus status;
@@ -57,6 +66,16 @@ class AddEditTransactionState extends Equatable {
         selectedCurrency!.code != mainCurrencyCode;
   }
 
+  final Account? linkedAccount;
+  final double? assetPrice;
+  final AssetAction assetAction;
+  final String totalValue; // Value in Cash Currency
+  final double? marketRate; // Market Rate (Preset 1) for Loss Calculation
+  final double projectedLoss;
+  final bool recordExchangeLoss;
+
+  bool get isAssetTransaction => selectedAccount?.assetId != null;
+
   AddEditTransactionState copyWith({
     AddEditTransactionStatus? status,
     Transaction? initialTransaction,
@@ -77,6 +96,13 @@ class AddEditTransactionState extends Equatable {
     bool? isSaving,
     bool? isSaveSuccess,
     String? mainCurrencyCode,
+    Account? linkedAccount,
+    double? assetPrice,
+    AssetAction? assetAction,
+    String? totalValue,
+    double? marketRate,
+    double? projectedLoss,
+    bool? recordExchangeLoss,
   }) {
     return AddEditTransactionState(
       status: status ?? this.status,
@@ -99,6 +125,13 @@ class AddEditTransactionState extends Equatable {
       isSaving: isSaving ?? this.isSaving,
       isSaveSuccess: isSaveSuccess ?? this.isSaveSuccess,
       mainCurrencyCode: mainCurrencyCode ?? this.mainCurrencyCode,
+      linkedAccount: linkedAccount ?? this.linkedAccount,
+      assetPrice: assetPrice ?? this.assetPrice,
+      assetAction: assetAction ?? this.assetAction,
+      totalValue: totalValue ?? this.totalValue,
+      marketRate: marketRate ?? this.marketRate,
+      projectedLoss: projectedLoss ?? this.projectedLoss,
+      recordExchangeLoss: recordExchangeLoss ?? this.recordExchangeLoss,
     );
   }
 
@@ -123,5 +156,12 @@ class AddEditTransactionState extends Equatable {
     isSaving,
     isSaveSuccess,
     mainCurrencyCode,
+    linkedAccount,
+    assetPrice,
+    assetAction,
+    totalValue,
+    marketRate,
+    projectedLoss,
+    recordExchangeLoss,
   ];
 }

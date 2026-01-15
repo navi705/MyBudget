@@ -11,6 +11,8 @@ class Transaction extends Equatable {
   final double? exchangeRate;
   final int? exchangeRatePreset;
   final double fee; // Added: Commission/Fee paid
+  final String?
+  linkedTransactionId; // Added: ID of the linked transaction (e.g. Cash side of Asset Transfer)
 
   const Transaction({
     this.id,
@@ -23,6 +25,7 @@ class Transaction extends Equatable {
     this.exchangeRate,
     this.exchangeRatePreset,
     this.fee = 0.0,
+    this.linkedTransactionId,
   });
 
   Transaction copyWith({
@@ -36,6 +39,7 @@ class Transaction extends Equatable {
     double? exchangeRate,
     int? exchangeRatePreset,
     double? fee,
+    String? linkedTransactionId,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -48,6 +52,7 @@ class Transaction extends Equatable {
       exchangeRate: exchangeRate ?? this.exchangeRate,
       exchangeRatePreset: exchangeRatePreset ?? this.exchangeRatePreset,
       fee: fee ?? this.fee,
+      linkedTransactionId: linkedTransactionId ?? this.linkedTransactionId,
     );
   }
 
@@ -63,6 +68,7 @@ class Transaction extends Equatable {
       'exchangeRate': exchangeRate,
       'exchangeRatePreset': exchangeRatePreset,
       'fee': fee,
+      'linkedTransactionId': linkedTransactionId,
     };
   }
 
@@ -78,5 +84,6 @@ class Transaction extends Equatable {
     exchangeRate,
     exchangeRatePreset,
     fee,
+    linkedTransactionId,
   ];
 }

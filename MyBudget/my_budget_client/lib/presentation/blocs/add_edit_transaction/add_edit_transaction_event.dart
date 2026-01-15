@@ -106,3 +106,40 @@ class AddEditTransactionUpdatePreset extends AddEditTransactionEvent {
   @override
   List<Object> get props => [rate];
 }
+
+class AddEditTransactionLinkedAccountChanged extends AddEditTransactionEvent {
+  final Account account;
+
+  const AddEditTransactionLinkedAccountChanged(this.account);
+
+  @override
+  List<Object> get props => [account];
+}
+
+class AddEditTransactionAssetActionChanged extends AddEditTransactionEvent {
+  final AssetAction action;
+
+  const AddEditTransactionAssetActionChanged(this.action);
+
+  @override
+  List<Object> get props => [action];
+}
+
+class AddEditTransactionTotalValueChanged extends AddEditTransactionEvent {
+  final String value;
+
+  const AddEditTransactionTotalValueChanged(this.value);
+
+  @override
+  List<Object> get props => [value];
+}
+
+class AddEditTransactionRecordExchangeLossChanged
+    extends AddEditTransactionEvent {
+  final bool record;
+
+  const AddEditTransactionRecordExchangeLossChanged(this.record);
+
+  @override
+  List<Object> get props => [record];
+}

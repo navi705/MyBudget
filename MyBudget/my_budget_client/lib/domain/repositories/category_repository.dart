@@ -67,8 +67,8 @@ class CategoryFilters extends Equatable {
 }
 
 abstract class CategoryRepository {
-  Stream<List<Category>> watchCategories();
-  Future<List<Category>> getCategories();
+  Stream<List<Category>> watchCategories({bool includeSystem = false});
+  Future<List<Category>> getCategories({bool includeSystem = false});
   Future<List<Category>> getCategoriesPaginated({
     int limit = 10,
     int offset = 0,

@@ -136,8 +136,12 @@ class Transactions extends Table {
   TextColumn get accountId => text().references(Accounts, #id)();
   TextColumn get categoryId => text().references(Categories, #id)();
   TextColumn get currencyCode => text().references(Currencies, #code)();
+  RealColumn get exchangeRate => real().nullable()(); // Added
+  IntColumn get exchangeRatePreset => integer().nullable()(); // Added
   RealColumn get fee =>
       real().withDefault(const Constant(0.0))(); // Added: Fee/Commission
+  TextColumn get linkedTransactionId =>
+      text().nullable()(); // Added: ID of the linked transaction
 
   @override
   Set<Column> get primaryKey => {id};
