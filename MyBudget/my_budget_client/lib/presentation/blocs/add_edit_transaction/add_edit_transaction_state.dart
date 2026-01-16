@@ -32,6 +32,7 @@ class AddEditTransactionState extends Equatable {
     this.marketRate,
     this.projectedLoss = 0.0,
     this.recordExchangeLoss = false,
+    this.isTransferMode = false,
   });
 
   final AddEditTransactionStatus status;
@@ -73,6 +74,7 @@ class AddEditTransactionState extends Equatable {
   final double? marketRate; // Market Rate (Preset 1) for Loss Calculation
   final double projectedLoss;
   final bool recordExchangeLoss;
+  final bool isTransferMode;
 
   bool get isAssetTransaction => selectedAccount?.assetId != null;
 
@@ -103,6 +105,7 @@ class AddEditTransactionState extends Equatable {
     double? marketRate,
     double? projectedLoss,
     bool? recordExchangeLoss,
+    bool? isTransferMode,
   }) {
     return AddEditTransactionState(
       status: status ?? this.status,
@@ -132,6 +135,7 @@ class AddEditTransactionState extends Equatable {
       marketRate: marketRate ?? this.marketRate,
       projectedLoss: projectedLoss ?? this.projectedLoss,
       recordExchangeLoss: recordExchangeLoss ?? this.recordExchangeLoss,
+      isTransferMode: isTransferMode ?? this.isTransferMode,
     );
   }
 
@@ -163,5 +167,6 @@ class AddEditTransactionState extends Equatable {
     marketRate,
     projectedLoss,
     recordExchangeLoss,
+    isTransferMode,
   ];
 }

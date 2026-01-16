@@ -112,15 +112,18 @@ final GoRouter router = GoRouter(
       builder: (context, state) {
         Transaction? transaction;
         String? accountId;
+        bool isTransfer = false;
         if (state.extra is Map<String, dynamic>) {
           final extra = state.extra as Map<String, dynamic>;
           transaction = extra['transaction'] as Transaction?;
           accountId = extra['accountId'] as String?;
+          isTransfer = extra['isTransfer'] as bool? ?? false;
         }
 
         return AddEditTransactionScreen(
           transaction: transaction,
           accountId: accountId,
+          isTransfer: isTransfer,
         );
       },
     ),

@@ -10,11 +10,16 @@ abstract class AddEditTransactionEvent extends Equatable {
 class AddEditTransactionLoad extends AddEditTransactionEvent {
   final Transaction? transaction;
   final String? accountId;
+  final bool isTransfer;
 
-  const AddEditTransactionLoad({this.transaction, this.accountId});
+  const AddEditTransactionLoad({
+    this.transaction,
+    this.accountId,
+    this.isTransfer = false,
+  });
 
   @override
-  List<Object?> get props => [transaction, accountId];
+  List<Object?> get props => [transaction, accountId, isTransfer];
 }
 
 class AddEditTransactionDescriptionChanged extends AddEditTransactionEvent {

@@ -129,6 +129,7 @@ class AddEditTransactionBloc
           fee: initialTransaction?.fee.toString() ?? '', // Added
           selectedAccount: selectedAccount,
           selectedCategory: selectedCategory,
+          isTransferMode: event.isTransfer, // Set transfer mode
           selectedCurrency: selectedCurrency, // Added
           date: initialTransaction?.date ?? DateTime.now(),
           manualExchangeRate:
@@ -142,9 +143,76 @@ class AddEditTransactionBloc
         await _fetchRates(emit, selectedCurrency, selectedAccount, state.date);
       }
 
-      // Trigger fetch if asset account
+      // Check if existing transaction is a Transfer (for Edit Mode)
+      bool isTransferEdit = false;
+      Account? linkedAccount;
+
+      if (initialTransaction != null &&
+          initialTransaction.linkedTransactionId != null) {
+        final transferId = await _getOrCreateTransferCategory();
+        // Allow for legacy 'Transfer' type check or specific System Category ID
+        final isTransferCat =
+            initialTransaction.categoryId == transferId ||
+            selectedCategory?.type == CategoryType.transfer;
+
+        if (isTransferCat) {
+          isTransferEdit = true;
+          // Fetch Linked Transaction to get Account
+          try {
+            final linkedTx = await _transactionRepository.getTransactionById(
+              initialTransaction.linkedTransactionId!,
+            );
+            if (linkedTx != null) {
+              linkedAccount = accounts.firstWhereOrNull(
+                (a) => a.id == linkedTx.accountId,
+              );
+            }
+          } catch (_) {
+            // Ignore if linked tx not found
+          }
+        }
+      }
+
+      if (isTransferEdit) {
+        emit(
+          state.copyWith(isTransferMode: true, linkedAccount: linkedAccount),
+        );
+      }
+
+      // Trigger fetch if asset account (unless it's a transfer we just handled?)
+      // Asset transactions also have linkedTransactionId, but they set isAssetTransaction = true.
+      // If selectedAccount.assetId != null, it's an asset transaction.
+      // isTransferMode should ideally be false for Asset Transactions?
+      // User requested "Split Transfer Action", so Transfer Mode implies Cash Transfer.
+      // If it is Asset Transaction, we use Asset UI.
       if (selectedAccount?.assetId != null) {
         await _fetchAssetDetails(emit, selectedAccount!);
+      }
+
+      // Handle Transfer Mode initialization
+      if (event.isTransfer) {
+        final transferId = await _getOrCreateTransferCategory();
+        // Force selection of system transfer category
+        // Fetch it specifically since it might be hidden from standard list
+        Category? transferCat = categories.firstWhereOrNull(
+          (c) => c.id == transferId,
+        );
+        if (transferCat == null) {
+          final allCats = await _categoryRepository.getCategories(
+            includeSystem: true,
+          );
+          transferCat = allCats.firstWhereOrNull((c) => c.id == transferId);
+        }
+
+        emit(state.copyWith(selectedCategory: transferCat));
+
+        // Auto-select linked account if not set (first other account)
+        if (state.linkedAccount == null && accounts.isNotEmpty) {
+          final other = accounts.firstWhereOrNull(
+            (a) => a.id != selectedAccount?.id,
+          );
+          emit(state.copyWith(linkedAccount: other));
+        }
       }
     } catch (_) {
       emit(state.copyWith(status: AddEditTransactionStatus.failure));
@@ -403,9 +471,15 @@ class AddEditTransactionBloc
       }
 
       // Category Validation (Asset transactions auto-resolve, others need selection)
-      if (!state.isAssetTransaction && categoryId == null) {
+      if (!state.isAssetTransaction &&
+          !state.isTransferMode &&
+          categoryId == null) {
         emit(state.copyWith(isSaving: false));
         return;
+      }
+
+      if (state.isTransferMode) {
+        categoryId = await _getOrCreateTransferCategory();
       }
 
       // Asset Transaction Validation
@@ -537,6 +611,63 @@ class AddEditTransactionBloc
 
         await _transactionRepository.addTransaction(assetTx);
         await _transactionRepository.addTransaction(cashTx);
+      } else if (state.isTransferMode) {
+        // --- TRANSFER LOGIC ---
+        // 1. From Account (Expense)
+        // 2. To Account (Income)
+
+        if (state.linkedAccount == null) {
+          emit(state.copyWith(isSaving: false));
+          return;
+        }
+
+        final txId1 = const Uuid().v4();
+        final txId2 = const Uuid().v4();
+
+        // From: Expense
+        final tx1 = Transaction(
+          id: txId1,
+          description: state.description.isEmpty
+              ? 'Transfer to ${state.linkedAccount!.name}'
+              : state.description,
+          amount: -(amount.abs()),
+          date: date,
+          accountId: accountId!,
+          categoryId: categoryId!,
+          currencyCode:
+              state.selectedCurrency?.code ??
+              state.selectedAccount!.currencyCode,
+          linkedTransactionId: txId2,
+        );
+
+        // To: Income
+        // Check for currency conversion?
+        // Basic implementation: Just add positive amount (assuming same currency or raw value transfer)
+        // If currencies differ, users usually expect the "Value" to be converted.
+        // But for now, let's assume raw amount transfer or handle basic same-value Different-Currency?
+        // Ideally we should ask for "Receive Amount", currently we only have one Amount field.
+        // We will assume 1:1 value transfer for simplicity unless exchange rate is used.
+        // But Exchange Rate UI is shown if currencies differ.
+        // Adjusted Amount = Amount * Rate.
+
+        double receiveAmount = amount.abs();
+        if (state.isForeignCurrency && finalExchangeRate != null) {
+          receiveAmount = receiveAmount * finalExchangeRate;
+        }
+
+        final tx2 = Transaction(
+          id: txId2,
+          description: 'Transfer from ${state.selectedAccount!.name}',
+          amount: receiveAmount,
+          date: date,
+          accountId: state.linkedAccount!.id!,
+          categoryId: categoryId,
+          currencyCode: state.linkedAccount!.currencyCode,
+          linkedTransactionId: txId1,
+        );
+
+        await _transactionRepository.addTransaction(tx1);
+        await _transactionRepository.addTransaction(tx2);
       } else {
         // --- STANDARD LOGIC ---
         if (state.isEditing) {
@@ -662,37 +793,72 @@ class AddEditTransactionBloc
 
     emit(state.copyWith(isLoadingRates: true));
     try {
-      List<ExchangeRateDomain> rates = await _currencyRepository
+      // Fetch ALL rates for this currency pair, ignoring date first.
+      List<ExchangeRateDomain> allRates = await _currencyRepository
           .getExchangeRatesFiltered(
-            startDate: date,
-            endDate: date,
             fromCurrency: fromCurrency.code,
             toCurrency: toCurrencyCode,
+            sortAscending: false,
           );
 
-      // Fallback: If no rates for the specific date, try fetching the latest available ones
-      if (rates.isEmpty) {
-        final latestRates = await _currencyRepository.getLatestExchangeRates(
-          date,
-        );
-        rates = latestRates
-            .where(
-              (r) =>
-                  r.fromCurrencyCode == fromCurrency.code &&
-                  r.toCurrencyCode == toCurrencyCode,
-            )
-            .toList();
+      // Group by Preset and find the one CLOSEST to the selected [date]
+      final closestRatesByPreset = <int, ExchangeRateDomain>{};
+
+      // We assume date is never null due to early check, but use check just in case
+      final targetDate = date ?? DateTime.now();
+
+      for (final rate in allRates) {
+        final currentBest = closestRatesByPreset[rate.preset];
+        if (currentBest == null) {
+          closestRatesByPreset[rate.preset] = rate;
+        } else {
+          // Compare distance to targetDate
+          final distCurrent = (currentBest.date.difference(targetDate).abs());
+          final distNew = (rate.date.difference(targetDate).abs());
+
+          if (distNew < distCurrent) {
+            closestRatesByPreset[rate.preset] = rate;
+          } else if (distNew == distCurrent) {
+            // If distances equal, prefer the later one (arbitrary tie break)
+            if (rate.date.isAfter(currentBest.date)) {
+              closestRatesByPreset[rate.preset] = rate;
+            }
+          }
+        }
       }
 
-      ExchangeRateDomain? selectedRate;
-      // 1. Try to match initial transaction preset if editing
+      // Ensure Preset 1 ALWAYS exists in the UI (Virtual/Memory only - do NOT save to DB)
+      if (!closestRatesByPreset.containsKey(1)) {
+        final virtualRate = ExchangeRateDomain(
+          fromCurrencyCode: fromCurrency.code,
+          toCurrencyCode: toCurrencyCode,
+          rate: 1.0,
+          date: targetDate,
+          preset: 1,
+        );
+        closestRatesByPreset[1] = virtualRate;
+      }
+
+      List<ExchangeRateDomain> rates = closestRatesByPreset.values.toList();
+      // Sort by preset index
+      rates.sort((a, b) => a.preset.compareTo(b.preset));
+
+      ExchangeRateDomain? selectedRate = state.selectedExchangeRate;
+
+      // 1. Try to maintain selection
+      if (selectedRate != null) {
+        selectedRate = rates.firstWhereOrNull(
+          (r) => r.preset == selectedRate!.preset,
+        );
+      }
+
       if (state.initialTransaction?.exchangeRatePreset != null) {
         selectedRate = rates.firstWhereOrNull(
           (r) => r.preset == state.initialTransaction!.exchangeRatePreset,
         );
       }
 
-      // 2. Default to Preset 1 if found
+      // Default to Preset 1
       selectedRate ??= rates.firstWhereOrNull((r) => r.preset == 1);
 
       // 3. Fallback to first available if still null

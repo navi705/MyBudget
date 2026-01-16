@@ -225,6 +225,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
           value: 'add_transaction',
           child: Text('Add Transaction'),
         ),
+        const PopupMenuItem(value: 'transfer', child: Text('Transfer')),
         const PopupMenuDivider(),
         const PopupMenuItem(value: 'edit', child: Text('Edit')),
         const PopupMenuItem(value: 'delete', child: Text('Delete')),
@@ -249,6 +250,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
         context.push(
           AppRoutes.addEditTransaction,
           extra: {'accountId': account.id},
+        );
+      } else if (value == 'transfer') {
+        context.push(
+          AppRoutes.addEditTransaction,
+          extra: {'accountId': account.id, 'isTransfer': true},
         );
       } else if (value == 'edit') {
         context.push(AppRoutes.editAccount, extra: account);

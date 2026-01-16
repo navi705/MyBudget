@@ -26,8 +26,14 @@ import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart'
 class AddEditTransactionScreen extends StatelessWidget {
   final Transaction? transaction;
   final String? accountId;
+  final bool isTransfer;
 
-  const AddEditTransactionScreen({super.key, this.transaction, this.accountId});
+  const AddEditTransactionScreen({
+    super.key,
+    this.transaction,
+    this.accountId,
+    this.isTransfer = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +50,7 @@ class AddEditTransactionScreen extends StatelessWidget {
             AddEditTransactionLoad(
               transaction: transaction,
               accountId: accountId,
+              isTransfer: isTransfer,
             ),
           ),
       child: _AddEditTransactionView(),
@@ -123,7 +130,11 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
             title: BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
               builder: (context, state) {
                 return Text(
-                  state.isEditing ? 'Edit Transaction' : 'Add Transaction',
+                  state.isTransferMode
+                      ? (state.isEditing ? 'Edit Transfer' : 'New Transfer')
+                      : (state.isEditing
+                            ? 'Edit Transaction'
+                            : 'Add Transaction'),
                 );
               },
             ),
@@ -192,12 +203,20 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                                 const SizedBox(height: 16),
                                 _AmountField(controller: _amountController),
                                 const SizedBox(height: 16),
-                                _FeeField(controller: _feeController),
+                                const SizedBox(height: 16),
+                                // Fee field hidden for standard transactions
                                 const _ConvertedAmountDisplay(),
                                 const SizedBox(height: 16),
-                                const _AccountField(),
+                                _AccountField(
+                                  label: state.isTransferMode
+                                      ? 'From Account'
+                                      : 'Account',
+                                ),
                                 const SizedBox(height: 16),
-                                const _CategoryField(),
+                                if (state.isTransferMode)
+                                  const _LinkedAccountField(label: 'To Account')
+                                else
+                                  const _CategoryField(),
                                 const SizedBox(height: 16),
                                 const _CurrencyField(),
                                 const SizedBox(height: 16),
@@ -303,7 +322,8 @@ class _AmountField extends StatelessWidget {
 }
 
 class _AccountField extends StatelessWidget {
-  const _AccountField();
+  final String label;
+  const _AccountField({this.label = 'Account'});
 
   @override
   Widget build(BuildContext context) {
@@ -330,7 +350,7 @@ class _AccountField extends StatelessWidget {
               key: Key(state.selectedAccount?.id ?? 'no_account'),
               initialValue: state.selectedAccount?.name,
               decoration: InputDecoration(
-                labelText: 'Account',
+                labelText: label,
                 border: const OutlineInputBorder(),
                 prefixIcon: state.selectedAccount != null
                     ? BlocBuilder<StylesBloc, StylesState>(
@@ -498,22 +518,21 @@ class _CategoryField extends StatelessWidget {
                         },
                       )
                     : null,
-                suffixIcon: state.selectedCategory != null
-                    ? Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Icon(
-                          state.selectedCategory!.type == CategoryType.income
+                suffixIcon: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Icon(
+                    state.selectedCategory != null
+                        ? (state.selectedCategory!.type == CategoryType.income
                               ? Icons.arrow_upward
-                              : Icons.arrow_downward,
-                          color:
-                              state.selectedCategory!.type ==
-                                  CategoryType.income
+                              : Icons.arrow_downward)
+                        : Icons.arrow_drop_down,
+                    color: state.selectedCategory != null
+                        ? (state.selectedCategory!.type == CategoryType.income
                               ? Colors.green
-                              : Colors.red,
-                          size: 16,
-                        ),
-                      )
-                    : null,
+                              : Colors.red)
+                        : Colors.grey,
+                  ),
+                ),
               ),
               validator: (value) => state.selectedCategory == null
                   ? 'Please select a category'
@@ -648,8 +667,10 @@ class _ExchangeRateSection extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '1 ${state.selectedCurrency?.code} = X ${state.selectedCurrency?.code == state.selectedAccount?.currencyCode ? state.mainCurrencyCode : state.selectedAccount?.currencyCode}',
-                      style: Theme.of(context).textTheme.bodySmall,
+                      '1 ${state.selectedCurrency?.code} = ${state.selectedExchangeRate?.rate ?? state.manualExchangeRate} ${state.selectedCurrency?.code == state.selectedAccount?.currencyCode ? state.mainCurrencyCode : state.selectedAccount?.currencyCode}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -706,28 +727,6 @@ class _ExchangeRateSection extends StatelessWidget {
                               .read<AddEditTransactionBloc>()
                               .add(AddEditTransactionManualRateChanged(value)),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      if (state.selectedExchangeRate != null)
-                        IconButton.filledTonal(
-                          onPressed: () {
-                            context.read<AddEditTransactionBloc>().add(
-                              AddEditTransactionUpdatePreset(
-                                state.selectedExchangeRate!,
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.save),
-                          tooltip: 'Update Selected Preset',
-                        ),
-                      IconButton.filled(
-                        onPressed: () {
-                          context.read<AddEditTransactionBloc>().add(
-                            const AddEditTransactionAddNewRate(),
-                          );
-                        },
-                        icon: const Icon(Icons.add),
-                        tooltip: 'Add as New Preset',
                       ),
                     ],
                   ),
@@ -929,7 +928,8 @@ class _AssetPriceDisplay extends StatelessWidget {
 }
 
 class _LinkedAccountField extends StatelessWidget {
-  const _LinkedAccountField();
+  final String label;
+  const _LinkedAccountField({this.label = 'Linked Account'});
 
   @override
   Widget build(BuildContext context) {
@@ -975,7 +975,7 @@ class _LinkedAccountField extends StatelessWidget {
                   },
                   child: InputDecorator(
                     decoration: InputDecoration(
-                      labelText: 'Linked Cash Account',
+                      labelText: label,
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
