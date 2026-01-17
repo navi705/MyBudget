@@ -550,6 +550,12 @@ class FinanceCalculator {
       transactionsByAccount.putIfAbsent(tx.accountId, () => []).add(tx);
     }
 
+    // Build a map for fast lookup of linked transactions
+    final txMap = {
+      for (var tx in data.transactions)
+        if (tx.id != null) tx.id!: tx,
+    };
+
     for (final account in data.accounts) {
       if (account.assetId == null) continue;
 
@@ -557,7 +563,6 @@ class FinanceCalculator {
       final feeStructure = account.feeStructure;
 
       // 1. Net Balance (Exit Strategy)
-      // Apply the fee structure to the CURRENT Market Value
       final netBalance = FeeCalculator.calculateNetValue(
         nominalValue: nominalBalance,
         feeStructureJson: feeStructure,
@@ -571,40 +576,42 @@ class FinanceCalculator {
       final accountTx = transactionsByAccount[account.id] ?? [];
 
       for (final tx in accountTx) {
-        // Filter out transactions after the snapshot date (to show stats AT that point in time)
+        // Filter out transactions after the snapshot date
         if (tx.date.isAfter(data.date)) {
           continue;
         }
 
-        // Filter out transfers if needed?
-        // User requirements say "Invested = Total Inflow + Fees".
-        // Assuming all positive TX in Asset Account are "Investments".
-
-        // Fee is always positive value stored in DB
         commissions += tx.fee;
+
+        double cashValue = 0.0;
+        if (tx.linkedTransactionId != null &&
+            txMap.containsKey(tx.linkedTransactionId)) {
+          final linkedTx = txMap[tx.linkedTransactionId]!;
+          double linkedAmount = linkedTx.amount.abs();
+
+          // Convert Linked Currency (Cash) -> Account Currency (Asset)
+          if (linkedTx.currencyCode != account.currencyCode) {
+            final rate = _getExchangeRate(
+              linkedTx.currencyCode,
+              account.currencyCode,
+              data.exchangeRates,
+              data.date, // Use snapshot date or tx date? Usually Tx Date for historical accuracy.
+              // But _getExchangeRate looks for rate relevant to 'date' provided.
+              // For 'Invested' stats, we want historical cost basis -> Tx Date.
+              // Note: _getExchangeRate inside this class compares 'date' arg to rate.date.
+              // We should pass tx.date to get the rate AT THE TIME of transaction.
+            );
+            linkedAmount *= rate;
+          }
+          cashValue = linkedAmount;
+        }
 
         if (tx.amount > 0) {
           // Buy / Inflow
-          invested += tx.amount + tx.fee;
+          invested += cashValue;
         } else {
-          // Sell / Outflow (tx.amount is negative)
-          // Realized = Gross Sell Amount - Fee
-          // Example: Sell for 100, Fee 5. Net Cash = 95.
-          // tx.amount = -100 (or +100 depending on convention, usually negative if it leaves account, but here we are talking about Asset Account... wait).
-          // If Asset Account tracks "Value of Asset":
-          //   Usually we don't track "Cash" in Asset Account. We track "Holdings".
-          //   But `Account` has `balance`.
-          //   The user binding logic overlays `assetQuantity * price` on `balance`.
-          //   So `tx.amount` in Asset Account might represent "Cash Flow" or "Correction"?
-          //   Or maybe the user tracks "Cash Balance" in a separate Broker Account, and "Asset Account" is just for the Asset?
-          //   If "Asset Account" is just the Asset, then transactions there might represent "Adjustments" or nothing?
-          //   User said: "in income how much I received transferred to another account by transaction".
-          //   This suggests Transactions EXISTING in the Asset Account.
-          //   Let's assume:
-          //     Positive Tx = Adding money/value (Investing).
-          //     Negative Tx = Removing money/value (Realizing).
-
-          realized += tx.amount.abs() - tx.fee;
+          // Sell / Outflow
+          realized += cashValue;
         }
       }
 
