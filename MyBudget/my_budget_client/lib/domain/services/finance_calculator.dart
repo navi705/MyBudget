@@ -135,24 +135,55 @@ class FinanceCalculator {
           assetDataMap.containsKey(account.assetId)) {
         // Asset Bound Logic
         final entries = assetDataMap[account.assetId]!;
-        // Find entry for the exact date (or closest before? Req says strict match for now)
-        // Previous logic was stricter: year/month/day match.
         final targetDate = DateTime(
           data.date.year,
           data.date.month,
           data.date.day,
         );
 
-        final entry = entries.cast<AssetDataDomain?>().firstWhere((e) {
-          if (e == null) return false;
-          final eDate = DateTime(e.date.year, e.date.month, e.date.day);
-          return eDate.isAtSameMomentAs(targetDate);
-        }, orElse: () => null);
+        // Sort entries by date ascending
+        entries.sort((a, b) => a.date.compareTo(b.date));
 
-        if (entry != null) {
-          balance = entry.value * account.assetQuantity;
+        // Find the first entry date (earliestEntry)
+        final earliestEntry = entries.isNotEmpty ? entries.first : null;
+
+        // If target date is BEFORE the earliest entry, we don't have data yet
+        if (earliestEntry != null) {
+          final earliestDate = DateTime(
+            earliestEntry.date.year,
+            earliestEntry.date.month,
+            earliestEntry.date.day,
+          );
+
+          if (targetDate.isBefore(earliestDate)) {
+            // Asset didn't exist yet at this date
+            balance = 0.0;
+          } else {
+            // Find exact match or closest BEFORE/EQUAL the target date
+            AssetDataDomain? bestEntry;
+            for (final e in entries) {
+              final eDate = DateTime(e.date.year, e.date.month, e.date.day);
+              if (eDate.isAtSameMomentAs(targetDate)) {
+                // Exact match - use it
+                bestEntry = e;
+                break;
+              } else if (eDate.isBefore(targetDate)) {
+                // Closest before target - keep updating until we pass target
+                bestEntry = e;
+              } else {
+                // Passed target date, stop
+                break;
+              }
+            }
+
+            if (bestEntry != null) {
+              balance = bestEntry.value * account.assetQuantity;
+            } else {
+              balance = 0.0;
+            }
+          }
         } else {
-          balance = 0.0; // No entry for date = 0 value
+          balance = 0.0;
         }
       } else {
         // Standard Logic: Reverse Calculation from Anchor

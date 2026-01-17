@@ -34,6 +34,7 @@ class AddEditTransactionState extends Equatable {
     this.recordExchangeLoss = false,
     this.isTransferMode = false,
     this.isRateInputInverted = false,
+    this.validationError,
   });
 
   final AddEditTransactionStatus status;
@@ -65,6 +66,7 @@ class AddEditTransactionState extends Equatable {
   final bool recordExchangeLoss;
   final bool isTransferMode;
   final bool isRateInputInverted; // New field for UX Toggle
+  final String? validationError; // Error message for user feedback
 
   bool get isEditing =>
       initialTransaction != null &&
@@ -117,6 +119,8 @@ class AddEditTransactionState extends Equatable {
     bool? recordExchangeLoss,
     double? projectedLoss,
     bool? isRateInputInverted,
+    String? validationError,
+    bool clearValidationError = false,
   }) {
     return AddEditTransactionState(
       status: status ?? this.status,
@@ -150,6 +154,9 @@ class AddEditTransactionState extends Equatable {
       recordExchangeLoss: recordExchangeLoss ?? this.recordExchangeLoss,
       projectedLoss: projectedLoss ?? this.projectedLoss,
       isRateInputInverted: isRateInputInverted ?? this.isRateInputInverted,
+      validationError: clearValidationError
+          ? null
+          : (validationError ?? this.validationError),
     );
   }
 
@@ -183,5 +190,6 @@ class AddEditTransactionState extends Equatable {
     recordExchangeLoss,
     projectedLoss,
     isRateInputInverted,
+    validationError,
   ];
 }

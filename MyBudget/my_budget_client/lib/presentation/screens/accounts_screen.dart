@@ -225,7 +225,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
           value: 'add_transaction',
           child: Text('Add Transaction'),
         ),
-        const PopupMenuItem(value: 'transfer', child: Text('Transfer')),
+        // Hide Transfer for asset-linked accounts (use Add Transaction instead)
+        if (account.assetId == null)
+          const PopupMenuItem(value: 'transfer', child: Text('Transfer')),
         const PopupMenuDivider(),
         const PopupMenuItem(value: 'edit', child: Text('Edit')),
         const PopupMenuItem(value: 'delete', child: Text('Delete')),
@@ -780,10 +782,34 @@ class _AccountsDateAppBar extends StatelessWidget
             rangeOptionVisibility: PickerVisibility.hidden,
             onApply: (date, range, step, mode) {
               final bloc = context.read<AccountsBloc>();
-              if (state.dateStep != step) {
-                bloc.add(DateStepChanged(step));
+
+              print(
+                'DEBUG onApply: date=$date, step=$step, currentStep=${state.dateStep}',
+              );
+
+              // Adjust date to end of period if switching to Month or Year
+              DateTime adjustedDate = date;
+              if (step == DateStep.month) {
+                adjustedDate = DateTime(
+                  date.year,
+                  date.month + 1,
+                  0,
+                  23,
+                  59,
+                  59,
+                );
+              } else if (step == DateStep.year) {
+                adjustedDate = DateTime(date.year, 12, 31, 23, 59, 59);
               }
-              bloc.add(ActiveDateChanged(date));
+
+              print('DEBUG onApply: adjustedDate=$adjustedDate');
+
+              // Single atomic event - updates both date and step
+              if (state.dateStep != step) {
+                bloc.add(ActiveDateChanged(adjustedDate, dateStep: step));
+              } else {
+                bloc.add(ActiveDateChanged(adjustedDate));
+              }
             },
           ),
         );

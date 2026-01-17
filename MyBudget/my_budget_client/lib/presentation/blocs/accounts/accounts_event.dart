@@ -133,11 +133,12 @@ class DateStepChanged extends AccountsEvent {
 
 class ActiveDateChanged extends AccountsEvent {
   final DateTime date;
+  final DateStep? dateStep; // Optional - if provided, also update step
 
-  const ActiveDateChanged(this.date);
+  const ActiveDateChanged(this.date, {this.dateStep});
 
   @override
-  List<Object> get props => [date];
+  List<Object> get props => [date, if (dateStep != null) dateStep!];
 }
 
 // This is the old event, I'm removing it.

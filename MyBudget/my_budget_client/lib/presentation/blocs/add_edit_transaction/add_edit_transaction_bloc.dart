@@ -507,7 +507,7 @@ class AddEditTransactionBloc
     AddEditTransactionSubmitted event,
     Emitter<AddEditTransactionState> emit,
   ) async {
-    emit(state.copyWith(isSaving: true));
+    emit(state.copyWith(isSaving: true, clearValidationError: true));
 
     try {
       var amount = double.tryParse(state.amount);
@@ -518,23 +518,45 @@ class AddEditTransactionBloc
       var categoryId = state.selectedCategory?.id;
       final categoryType = state.selectedCategory?.type;
 
-      // Basic Validation
-      if (amount == null || accountId == null || date == null) {
-        // Note: Category validation moved lower for asset tx
-        emit(state.copyWith(isSaving: false));
+      // Basic Validation with error messages
+      if (amount == null || state.amount.isEmpty) {
+        emit(
+          state.copyWith(
+            isSaving: false,
+            validationError: 'Please enter an amount',
+          ),
+        );
         return;
       }
-
-      // Check description (Optional now)
-      // If empty, we can set a default or leave empty.
-      // User requested "just don't ask as mandatory or save as empty string".
-      // We already init with empty string. So it's fine.
+      if (accountId == null) {
+        emit(
+          state.copyWith(
+            isSaving: false,
+            validationError: 'Please select an account',
+          ),
+        );
+        return;
+      }
+      if (date == null) {
+        emit(
+          state.copyWith(
+            isSaving: false,
+            validationError: 'Please select a date',
+          ),
+        );
+        return;
+      }
 
       // Category Validation (Asset transactions auto-resolve, others need selection)
       if (!state.isAssetTransaction &&
           !state.isTransferMode &&
           categoryId == null) {
-        emit(state.copyWith(isSaving: false));
+        emit(
+          state.copyWith(
+            isSaving: false,
+            validationError: 'Please select a category',
+          ),
+        );
         return;
       }
 
@@ -588,6 +610,13 @@ class AddEditTransactionBloc
           finalPreset = state.selectedExchangeRate!.preset;
         }
       }
+
+      print(
+        'DEBUG SAVE: isAssetTransaction=${state.isAssetTransaction}, isTransferMode=${state.isTransferMode}, isEditing=${state.isEditing}',
+      );
+      print(
+        'DEBUG SAVE: amount=$amount, categoryId=$categoryId, finalExchangeRate=$finalExchangeRate',
+      );
 
       if (state.isAssetTransaction) {
         // --- ASSET TRANSACTION LOGIC ---
@@ -760,8 +789,13 @@ class AddEditTransactionBloc
           );
           await _transactionRepository.updateTransaction(updatedTransaction);
         } else {
+          // Use default description if empty (database requires at least 1 char)
+          final finalDescription = state.description.isEmpty
+              ? '-'
+              : state.description;
+
           final newTransaction = Transaction(
-            description: state.description,
+            description: finalDescription,
             amount: amount,
             date: date,
             accountId: accountId!,
@@ -773,7 +807,9 @@ class AddEditTransactionBloc
             exchangeRatePreset: finalPreset,
             fee: fee,
           );
+          print('DEBUG SAVE: Saving standard new transaction...');
           await _transactionRepository.addTransaction(newTransaction);
+          print('DEBUG SAVE: Standard transaction saved successfully!');
         }
       }
 
@@ -794,8 +830,12 @@ class AddEditTransactionBloc
       }
 
       emit(state.copyWith(isSaving: false, isSaveSuccess: true));
-    } catch (_) {
-      emit(state.copyWith(isSaving: false));
+    } catch (e, stackTrace) {
+      print('DEBUG SAVE ERROR: $e');
+      print('DEBUG SAVE STACKTRACE: $stackTrace');
+      emit(
+        state.copyWith(isSaving: false, validationError: 'Error saving: $e'),
+      );
     }
   }
 

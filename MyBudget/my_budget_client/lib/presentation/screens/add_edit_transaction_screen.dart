@@ -97,12 +97,23 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
       child: BlocListener<AddEditTransactionBloc, AddEditTransactionState>(
         listener: (context, state) {
           if (state.isSaveSuccess) {
+            // Pop first to avoid UI lag
+            Navigator.of(context).pop();
+            // Then refresh data (will run after pop)
             context.read<TransactionsBloc>().add(
               const InitialLoadTransactions(),
             );
-            // Refresh accounts to update balances
             context.read<AccountsBloc>().add(LoadAccounts());
-            Navigator.of(context).pop();
+          }
+
+          // Show validation error if present
+          if (state.validationError != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.validationError!),
+                backgroundColor: Colors.red,
+              ),
+            );
           }
 
           if (state.description != _descriptionController.text) {
@@ -353,11 +364,16 @@ class _AccountField extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
       builder: (context, state) {
+        // In Transfer mode, filter out asset-linked accounts
+        final availableAccounts = state.isTransferMode
+            ? state.accounts.where((a) => a.assetId == null).toList()
+            : state.accounts;
+
         return GestureDetector(
           onTap: () async {
             final selectedAccount = await showSingleSelectDialog<Account>(
               context: context,
-              items: state.accounts,
+              items: availableAccounts,
               title: 'Select Account',
               selectedItem: state.selectedAccount,
               itemBuilder: (account) => _AccountTile(account: account),
@@ -607,11 +623,13 @@ class _SaveButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return FilledButton.tonal(
       onPressed: () {
-        if (formKey.currentState?.validate() ?? false) {
-          context.read<AddEditTransactionBloc>().add(
-            const AddEditTransactionSubmitted(),
-          );
-        }
+        final isValid = formKey.currentState?.validate() ?? false;
+        print('DEBUG SAVE BUTTON: Form valid = $isValid');
+
+        // Always submit - bloc will validate and show errors
+        context.read<AddEditTransactionBloc>().add(
+          const AddEditTransactionSubmitted(),
+        );
       },
       style: FilledButton.styleFrom(
         minimumSize: const Size(double.infinity, 50),
@@ -1199,8 +1217,11 @@ class _LinkedAccountField extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
       builder: (context, state) {
+        // Filter out asset-linked accounts from transfer selection
         final cashAccounts = state.accounts
-            .where((a) => a.id != state.selectedAccount?.id)
+            .where(
+              (a) => a.id != state.selectedAccount?.id && a.assetId == null,
+            )
             .toList();
 
         return FormField<Account>(

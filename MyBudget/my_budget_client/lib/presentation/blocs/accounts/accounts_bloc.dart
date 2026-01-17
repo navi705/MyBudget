@@ -114,6 +114,10 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     final currentState = state;
     if (currentState is! AccountsLoadSuccess) return;
 
+    print(
+      'DEBUG DatePeriodNavigated: direction=${event.direction}, currentDate=${currentState.activeDate}, dateStep=${currentState.dateStep}',
+    );
+
     DateTime newDate;
     switch (currentState.dateStep) {
       case DateStep.day:
@@ -145,6 +149,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         newDate = DateTime(targetYear.year, 12, 31, 23, 59, 59);
         break;
     }
+    print('DEBUG DatePeriodNavigated: newDate=$newDate');
     emit(currentState.copyWith(activeDate: newDate));
     add(LoadHistoricalBalances(newDate));
   }
@@ -153,6 +158,10 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
       DateTime newDate = currentState.activeDate;
+      print(
+        'DEBUG DateStepChanged: from ${currentState.dateStep} to ${event.dateStep}',
+      );
+      print('DEBUG DateStepChanged: currentDate=$newDate');
 
       // When switching to Month or Year, snap to the end of that period
       // to show the "Result" of the period (e.g. End of Month Balance).
@@ -161,6 +170,8 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       } else if (event.dateStep == DateStep.year) {
         newDate = DateTime(newDate.year, 12, 31, 23, 59, 59);
       }
+
+      print('DEBUG DateStepChanged: newDate=$newDate');
 
       emit(
         currentState.copyWith(dateStep: event.dateStep, activeDate: newDate),
@@ -175,7 +186,21 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   ) {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
-      emit(currentState.copyWith(activeDate: event.date));
+      print(
+        'DEBUG ActiveDateChanged: oldDate=${currentState.activeDate} newDate=${event.date} newStep=${event.dateStep}',
+      );
+
+      // Update both date and step atomically if step is provided
+      if (event.dateStep != null) {
+        emit(
+          currentState.copyWith(
+            activeDate: event.date,
+            dateStep: event.dateStep,
+          ),
+        );
+      } else {
+        emit(currentState.copyWith(activeDate: event.date));
+      }
       add(LoadHistoricalBalances(event.date));
     }
   }
