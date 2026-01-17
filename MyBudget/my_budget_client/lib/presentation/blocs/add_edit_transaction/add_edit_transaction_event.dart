@@ -121,6 +121,22 @@ class AddEditTransactionLinkedAccountChanged extends AddEditTransactionEvent {
   List<Object> get props => [account];
 }
 
+class AddEditTransactionToggleRateDirection extends AddEditTransactionEvent {
+  const AddEditTransactionToggleRateDirection();
+}
+
+class AddEditTransactionSwapAccounts extends AddEditTransactionEvent {
+  const AddEditTransactionSwapAccounts();
+}
+
+class AddEditTransactionLinkTransaction extends AddEditTransactionEvent {
+  final Transaction linkedTransaction;
+  const AddEditTransactionLinkTransaction(this.linkedTransaction);
+
+  @override
+  List<Object?> get props => [linkedTransaction];
+}
+
 class AddEditTransactionAssetActionChanged extends AddEditTransactionEvent {
   final AssetAction action;
 
@@ -147,4 +163,13 @@ class AddEditTransactionRecordExchangeLossChanged
 
   @override
   List<Object> get props => [record];
+}
+
+class AddEditTransactionDeletePreset extends AddEditTransactionEvent {
+  final ExchangeRateDomain rate;
+
+  const AddEditTransactionDeletePreset(this.rate);
+
+  @override
+  List<Object> get props => [rate];
 }

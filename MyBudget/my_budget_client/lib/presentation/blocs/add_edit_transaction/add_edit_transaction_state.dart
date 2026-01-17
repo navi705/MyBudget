@@ -33,6 +33,7 @@ class AddEditTransactionState extends Equatable {
     this.projectedLoss = 0.0,
     this.recordExchangeLoss = false,
     this.isTransferMode = false,
+    this.isRateInputInverted = false,
   });
 
   final AddEditTransactionStatus status;
@@ -55,18 +56,6 @@ class AddEditTransactionState extends Equatable {
   final bool isSaveSuccess;
   final String mainCurrencyCode;
 
-  bool get isEditing =>
-      initialTransaction != null &&
-      (initialTransaction!.id?.isNotEmpty ?? false);
-
-  bool get isForeignCurrency {
-    if (selectedAccount == null || selectedCurrency == null) return false;
-    // Show rate section if transaction currency differs from account currency
-    // OR if transaction currency is not the main currency (so we can set the rate to main).
-    return selectedAccount!.currencyCode != selectedCurrency!.code ||
-        selectedCurrency!.code != mainCurrencyCode;
-  }
-
   final Account? linkedAccount;
   final double? assetPrice;
   final AssetAction assetAction;
@@ -75,98 +64,124 @@ class AddEditTransactionState extends Equatable {
   final double projectedLoss;
   final bool recordExchangeLoss;
   final bool isTransferMode;
+  final bool isRateInputInverted; // New field for UX Toggle
 
-  bool get isAssetTransaction => selectedAccount?.assetId != null;
+  bool get isEditing =>
+      initialTransaction != null &&
+      (initialTransaction!.id?.isNotEmpty ?? false);
+
+  bool get isForeignCurrency {
+    if (selectedAccount == null || selectedCurrency == null) return false;
+
+    // Transfer Mode: Check if From and To accounts have different currencies
+    if (isTransferMode && linkedAccount != null) {
+      return selectedAccount!.currencyCode != linkedAccount!.currencyCode;
+    }
+
+    // Standard Mode: Show rate section if transaction currency differs from account currency
+    // OR if transaction currency is not the main currency (so we can set the rate to main).
+    return selectedAccount!.currencyCode != selectedCurrency!.code ||
+        selectedCurrency!.code != mainCurrencyCode;
+  }
+
+  bool get isAssetTransaction =>
+      selectedAccount?.assetId != null && !isTransferMode;
 
   AddEditTransactionState copyWith({
     AddEditTransactionStatus? status,
+    bool? isSaving,
+    bool? isSaveSuccess,
+    bool? isLoadingRates,
+    List<Account>? accounts,
+    List<Category>? categories,
+    List<Currency>? currencies,
     Transaction? initialTransaction,
     String? description,
     String? amount,
     String? fee,
     Account? selectedAccount,
     Category? selectedCategory,
-    DateTime? date,
-    List<Account>? accounts,
-    List<Category>? categories,
-    List<Currency>? currencies,
     Currency? selectedCurrency,
     List<ExchangeRateDomain>? availableExchangeRates,
     ExchangeRateDomain? selectedExchangeRate,
     String? manualExchangeRate,
-    bool? isLoadingRates,
-    bool? isSaving,
-    bool? isSaveSuccess,
-    String? mainCurrencyCode,
+    DateTime? date,
+    bool? isTransferMode,
     Account? linkedAccount,
-    double? assetPrice,
+    bool clearLinkedAccount = false, // Added to allow clearing
+    String? mainCurrencyCode,
     AssetAction? assetAction,
     String? totalValue,
+    double? assetPrice,
     double? marketRate,
-    double? projectedLoss,
     bool? recordExchangeLoss,
-    bool? isTransferMode,
+    double? projectedLoss,
+    bool? isRateInputInverted,
   }) {
     return AddEditTransactionState(
       status: status ?? this.status,
+      isSaving: isSaving ?? this.isSaving,
+      isSaveSuccess: isSaveSuccess ?? this.isSaveSuccess,
+      isLoadingRates: isLoadingRates ?? this.isLoadingRates,
+      accounts: accounts ?? this.accounts,
+      categories: categories ?? this.categories,
+      currencies: currencies ?? this.currencies,
       initialTransaction: initialTransaction ?? this.initialTransaction,
       description: description ?? this.description,
       amount: amount ?? this.amount,
       fee: fee ?? this.fee,
       selectedAccount: selectedAccount ?? this.selectedAccount,
       selectedCategory: selectedCategory ?? this.selectedCategory,
-      date: date ?? this.date,
-      accounts: accounts ?? this.accounts,
-      categories: categories ?? this.categories,
-      currencies: currencies ?? this.currencies,
       selectedCurrency: selectedCurrency ?? this.selectedCurrency,
       availableExchangeRates:
           availableExchangeRates ?? this.availableExchangeRates,
       selectedExchangeRate: selectedExchangeRate ?? this.selectedExchangeRate,
       manualExchangeRate: manualExchangeRate ?? this.manualExchangeRate,
-      isLoadingRates: isLoadingRates ?? this.isLoadingRates,
-      isSaving: isSaving ?? this.isSaving,
-      isSaveSuccess: isSaveSuccess ?? this.isSaveSuccess,
+      date: date ?? this.date,
+      isTransferMode: isTransferMode ?? this.isTransferMode,
+      linkedAccount: clearLinkedAccount
+          ? null
+          : (linkedAccount ?? this.linkedAccount),
       mainCurrencyCode: mainCurrencyCode ?? this.mainCurrencyCode,
-      linkedAccount: linkedAccount ?? this.linkedAccount,
-      assetPrice: assetPrice ?? this.assetPrice,
       assetAction: assetAction ?? this.assetAction,
       totalValue: totalValue ?? this.totalValue,
+      assetPrice: assetPrice ?? this.assetPrice,
       marketRate: marketRate ?? this.marketRate,
-      projectedLoss: projectedLoss ?? this.projectedLoss,
       recordExchangeLoss: recordExchangeLoss ?? this.recordExchangeLoss,
-      isTransferMode: isTransferMode ?? this.isTransferMode,
+      projectedLoss: projectedLoss ?? this.projectedLoss,
+      isRateInputInverted: isRateInputInverted ?? this.isRateInputInverted,
     );
   }
 
   @override
   List<Object?> get props => [
     status,
+    isSaving,
+    isSaveSuccess,
+    isLoadingRates,
+    accounts,
+    categories,
+    currencies,
     initialTransaction,
     description,
     amount,
     fee,
     selectedAccount,
     selectedCategory,
-    date,
-    accounts,
-    categories,
-    currencies,
     selectedCurrency,
     availableExchangeRates,
     selectedExchangeRate,
     manualExchangeRate,
-    isLoadingRates,
-    isSaving,
-    isSaveSuccess,
-    mainCurrencyCode,
+    date,
+    isTransferMode,
     linkedAccount,
-    assetPrice,
+    mainCurrencyCode,
     assetAction,
     totalValue,
+    assetPrice,
     marketRate,
-    projectedLoss,
     recordExchangeLoss,
-    isTransferMode,
+    projectedLoss,
+    isRateInputInverted,
   ];
 }

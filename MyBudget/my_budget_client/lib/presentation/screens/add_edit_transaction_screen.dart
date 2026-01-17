@@ -18,6 +18,7 @@ import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/add_edit_transaction/add_edit_transaction_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
@@ -99,6 +100,8 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
             context.read<TransactionsBloc>().add(
               const InitialLoadTransactions(),
             );
+            // Refresh accounts to update balances
+            context.read<AccountsBloc>().add(LoadAccounts());
             Navigator.of(context).pop();
           }
 
@@ -147,96 +150,119 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                 return const Center(child: Text('Failed to load data'));
               }
 
-              return Stack(
-                children: [
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Form(
-                      key: _formKey,
-                      child: state.isAssetTransaction
-                          ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                const _AccountField(),
-                                const SizedBox(height: 16),
-                                const _AssetActionToggle(),
-                                const SizedBox(height: 16),
-                                Row(
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: Stack(
+                    children: [
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Form(
+                          key: _formKey,
+                          child: state.isAssetTransaction
+                              ? Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
-                                    Expanded(
-                                      child: _AmountField(
-                                        controller: _amountController,
-                                        label: 'Quantity',
-                                      ),
+                                    const _AccountField(),
+                                    const SizedBox(height: 16),
+                                    const _AssetActionToggle(),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: _AmountField(
+                                            controller: _amountController,
+                                            label: 'Quantity',
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: _TotalValueField(
+                                            controller: _totalValueController,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: _TotalValueField(
-                                        controller: _totalValueController,
-                                      ),
+                                    const _AssetPriceDisplay(),
+                                    const SizedBox(height: 16),
+                                    const _LinkedAccountField(),
+                                    const SizedBox(height: 16),
+                                    const _DateField(),
+                                    const SizedBox(height: 16),
+                                    _DescriptionField(
+                                      controller: _descriptionController,
                                     ),
+                                    const SizedBox(height: 16),
+                                    _FeeField(controller: _feeController),
+                                    const Divider(),
+                                    const _ExchangeLossSection(),
+                                    const SizedBox(height: 32),
+                                    _SaveButton(formKey: _formKey),
+                                  ],
+                                )
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _DescriptionField(
+                                      controller: _descriptionController,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _AmountField(controller: _amountController),
+                                    const SizedBox(height: 16),
+                                    if (state.isForeignCurrency) ...[
+                                      const _ExchangeRateSection(),
+                                      const SizedBox(height: 16),
+                                    ],
+                                    // Fee field hidden for standard transactions
+                                    const _ConvertedAmountDisplay(),
+                                    const SizedBox(height: 16),
+                                    if (state.isTransferMode) ...[
+                                      const _AccountField(
+                                        label: 'From Account',
+                                      ),
+                                      Align(
+                                        alignment: Alignment.center,
+                                        child: IconButton(
+                                          icon: const Icon(Icons.swap_vert),
+                                          onPressed: () {
+                                            context
+                                                .read<AddEditTransactionBloc>()
+                                                .add(
+                                                  const AddEditTransactionSwapAccounts(),
+                                                );
+                                          },
+                                          tooltip: 'Swap Accounts',
+                                        ),
+                                      ),
+                                      const _LinkedAccountField(
+                                        label: 'To Account',
+                                      ),
+                                    ] else ...[
+                                      const _AccountField(label: 'Account'),
+                                      const SizedBox(height: 16),
+                                      const _CategoryField(),
+                                    ],
+                                    const SizedBox(height: 16),
+                                    const _CurrencyField(),
+                                    const SizedBox(height: 16),
+                                    const _DateField(),
+                                    const SizedBox(height: 32),
+                                    _SaveButton(formKey: _formKey),
                                   ],
                                 ),
-                                const _AssetPriceDisplay(),
-                                const SizedBox(height: 16),
-                                const _LinkedAccountField(),
-                                const SizedBox(height: 16),
-                                const _DateField(),
-                                const SizedBox(height: 16),
-                                _DescriptionField(
-                                  controller: _descriptionController,
-                                ),
-                                const SizedBox(height: 16),
-                                _FeeField(controller: _feeController),
-                                const Divider(),
-                                const _ExchangeLossSection(),
-                                const SizedBox(height: 32),
-                                _SaveButton(formKey: _formKey),
-                              ],
-                            )
-                          : Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _DescriptionField(
-                                  controller: _descriptionController,
-                                ),
-                                const SizedBox(height: 16),
-                                _AmountField(controller: _amountController),
-                                const SizedBox(height: 16),
-                                const SizedBox(height: 16),
-                                // Fee field hidden for standard transactions
-                                const _ConvertedAmountDisplay(),
-                                const SizedBox(height: 16),
-                                _AccountField(
-                                  label: state.isTransferMode
-                                      ? 'From Account'
-                                      : 'Account',
-                                ),
-                                const SizedBox(height: 16),
-                                if (state.isTransferMode)
-                                  const _LinkedAccountField(label: 'To Account')
-                                else
-                                  const _CategoryField(),
-                                const SizedBox(height: 16),
-                                const _CurrencyField(),
-                                const SizedBox(height: 16),
-                                if (state.isForeignCurrency) ...[
-                                  const _ExchangeRateSection(),
-                                  const SizedBox(height: 16),
-                                ],
-                                const _DateField(),
-                                const SizedBox(height: 32),
-                                _SaveButton(formKey: _formKey),
-                              ],
-                            ),
-                    ),
+                        ),
+                      ),
+                      if (state.isSaving)
+                        Container(
+                          color: Colors.black.withAlpha(128),
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                    ],
                   ),
-                  if (state.isSaving)
-                    Container(
-                      color: Colors.black.withAlpha(128),
-                      child: const Center(child: CircularProgressIndicator()),
-                    ),
-                ],
+                ),
               );
             },
           ),
@@ -256,15 +282,13 @@ class _DescriptionField extends StatelessWidget {
     return TextFormField(
       controller: controller,
       decoration: const InputDecoration(
-        labelText: 'Description',
+        labelText: 'Description (Optional)',
         border: OutlineInputBorder(),
       ),
       onChanged: (value) => context.read<AddEditTransactionBloc>().add(
         AddEditTransactionDescriptionChanged(value),
       ),
-      validator: (value) => (value == null || value.isEmpty)
-          ? 'Please enter a description'
-          : null,
+      // Validator removed as per user request
     );
   }
 }
@@ -604,33 +628,47 @@ class _CurrencyField extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
       builder: (context, state) {
+        final isTransfer = state.isTransferMode;
+
         return GestureDetector(
-          onTap: () async {
-            final selectedCurrency = await showSingleSelectDialog<Currency>(
-              context: context,
-              items: state.currencies,
-              title: 'Select Currency',
-              selectedItem: state.selectedCurrency,
-              itemBuilder: (currency) => ListTile(
-                title: Text('${currency.code} - ${currency.name}'),
-                leading: Text(currency.code),
-              ),
-              stringGetter: (currency) => currency.code,
-            );
-            if (context.mounted && selectedCurrency != null) {
-              context.read<AddEditTransactionBloc>().add(
-                AddEditTransactionCurrencyChanged(selectedCurrency),
-              );
-            }
-          },
+          onTap: isTransfer
+              ? null
+              : () async {
+                  final selectedCurrency =
+                      await showSingleSelectDialog<Currency>(
+                        context: context,
+                        items: state.currencies,
+                        title: 'Select Currency',
+                        selectedItem: state.selectedCurrency,
+                        itemBuilder: (currency) => ListTile(
+                          title: Text('${currency.code} - ${currency.name}'),
+                          leading: Text(currency.code),
+                        ),
+                        stringGetter: (currency) => currency.code,
+                      );
+                  if (context.mounted && selectedCurrency != null) {
+                    context.read<AddEditTransactionBloc>().add(
+                      AddEditTransactionCurrencyChanged(selectedCurrency),
+                    );
+                  }
+                },
           child: AbsorbPointer(
+            absorbing: true, // Always absorb, onTap handles it if enabled
             child: TextFormField(
               key: Key(state.selectedCurrency?.code ?? 'no_currency'),
               initialValue: state.selectedCurrency?.code,
-              decoration: const InputDecoration(
+              readOnly: true,
+              enabled: !isTransfer, // Visually disabled if transfer
+              decoration: InputDecoration(
                 labelText: 'Currency',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.monetization_on),
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.monetization_on),
+                suffixIcon: isTransfer
+                    ? const Icon(Icons.lock, size: 16)
+                    : null,
+                helperText: isTransfer
+                    ? 'Locked to From Account currency'
+                    : null,
               ),
             ),
           ),
@@ -640,41 +678,197 @@ class _CurrencyField extends StatelessWidget {
   }
 }
 
-class _ExchangeRateSection extends StatelessWidget {
+class _ExchangeRateSection extends StatefulWidget {
   const _ExchangeRateSection();
+
+  @override
+  State<_ExchangeRateSection> createState() => _ExchangeRateSectionState();
+}
+
+class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
+  late TextEditingController _rateController;
+
+  String _getDisplayValue(AddEditTransactionState state) {
+    // SIMPLIFIED: Just return what user typed
+    // The label shows the direction, user types in that direction
+    return state.manualExchangeRate;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final state = context.read<AddEditTransactionBloc>().state;
+    _rateController = TextEditingController(text: _getDisplayValue(state));
+  }
+
+  @override
+  void didUpdateWidget(covariant _ExchangeRateSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final state = context.read<AddEditTransactionBloc>().state;
+
+    // Determine what the text SHOULD be based on state
+    final expectedText = _getDisplayValue(state);
+
+    // If the text in the controller doesn't match expected (allowing for active typing), update it.
+    // Issue: If I type "117.5" and Bloc converts to "0.0085106" and back to "117.500...",
+    // it might fight the user.
+    // Solution: If the current controller text parses to approx the same value as expected, don't touch it.
+    // Or simpler: Only update if the *Source of Change* wasn't the text field itself.
+    // (Bloc updates state on onChanged).
+
+    // For now, simple check:
+    if (_rateController.text != expectedText) {
+      // Check fuzzy equality to avoid cursor jumping on precision diffs
+      final currentVal = double.tryParse(_rateController.text);
+      final expectedVal = double.tryParse(expectedText);
+      bool isClose = false;
+
+      if (currentVal != null && expectedVal != null) {
+        if ((currentVal - expectedVal).abs() < 0.000001) isClose = true;
+      }
+
+      if (!isClose) {
+        _rateController.text = expectedText;
+        // Fix cursor
+        _rateController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _rateController.text.length),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _rateController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
       builder: (context, state) {
-        if (!state.isForeignCurrency) {
-          return const SizedBox.shrink();
+        // Determine currencies based on mode
+        String fromCurrency;
+        String toCurrency;
+
+        if (state.isTransferMode) {
+          // Transfer: From Account -> To Account (linkedAccount)
+          fromCurrency = state.selectedAccount?.currencyCode ?? '';
+          toCurrency =
+              state.linkedAccount?.currencyCode ?? state.mainCurrencyCode;
+        } else {
+          // Standard: Transaction Currency -> Main Currency (for reporting)
+          // If transaction currency != account currency, use account currency as target
+          // Otherwise use main currency as target
+          fromCurrency = state.selectedCurrency?.code ?? '';
+          if (fromCurrency != (state.selectedAccount?.currencyCode ?? '')) {
+            toCurrency =
+                state.selectedAccount?.currencyCode ?? state.mainCurrencyCode;
+          } else {
+            toCurrency = state.mainCurrencyCode;
+          }
         }
 
+        // Rate direction label
+        final leftCurrency = state.isRateInputInverted
+            ? toCurrency
+            : fromCurrency;
+        final rightCurrency = state.isRateInputInverted
+            ? fromCurrency
+            : toCurrency;
+
         return Card(
+          elevation: 2,
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Exchange Rate',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      '1 ${state.selectedCurrency?.code} = ${state.selectedExchangeRate?.rate ?? state.manualExchangeRate} ${state.selectedCurrency?.code == state.selectedAccount?.currencyCode ? state.mainCurrencyCode : state.selectedAccount?.currencyCode}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                // Header with title
+                Text(
+                  'Exchange Rate',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 12),
+
+                // Direction indicator with swap button - responsive design
+                Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Left currency
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '1 $leftCurrency',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+
+                      // Swap button
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: IconButton.filled(
+                          icon: const Icon(Icons.swap_horiz),
+                          tooltip: 'Swap Direction',
+                          onPressed: () {
+                            context.read<AddEditTransactionBloc>().add(
+                              const AddEditTransactionToggleRateDirection(),
+                            );
+                          },
+                        ),
+                      ),
+
+                      // Right currency
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          rightCurrency,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSecondaryContainer,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 if (state.isLoadingRates)
                   const Center(
                     child: Padding(
@@ -683,6 +877,7 @@ class _ExchangeRateSection extends StatelessWidget {
                     ),
                   )
                 else ...[
+                  // Presets Chips
                   if (state.availableExchangeRates.isNotEmpty) ...[
                     const Text(
                       'Available Presets:',
@@ -695,7 +890,9 @@ class _ExchangeRateSection extends StatelessWidget {
                       children: state.availableExchangeRates.map((rate) {
                         final isSelected = state.selectedExchangeRate == rate;
                         return ChoiceChip(
-                          label: Text('P${rate.preset}: ${rate.rate}'),
+                          label: Text(
+                            'P${rate.preset}: ${rate.rate.toStringAsFixed(4)}',
+                          ),
                           selected: isSelected,
                           onSelected: (selected) {
                             if (selected) {
@@ -709,24 +906,91 @@ class _ExchangeRateSection extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                   ],
+
+                  // Buttons: Add Preset (Implicit in logic? No, explicit button requested to manage)
+                  // User said: "I can add and delete presets".
+                  // So we need Add and Delete buttons.
                   Row(
                     children: [
+                      // Rate Input
                       Expanded(
                         child: TextFormField(
-                          key: ValueKey(state.selectedExchangeRate?.rate),
-                          initialValue: state.manualExchangeRate,
-                          decoration: const InputDecoration(
-                            labelText: 'Rate Value',
-                            border: OutlineInputBorder(),
+                          // Removed Key to allow controller to manage text persistence smoothly
+                          controller: _rateController,
+                          decoration: InputDecoration(
+                            labelText: 'Rate ($rightCurrency)',
+                            border: const OutlineInputBorder(),
                             isDense: true,
                           ),
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.,]'),
+                            ),
+                            TextInputFormatter.withFunction((
+                              oldValue,
+                              newValue,
+                            ) {
+                              return newValue.copyWith(
+                                text: newValue.text.replaceAll(',', '.'),
+                              );
+                            }),
+                          ],
                           onChanged: (value) => context
                               .read<AddEditTransactionBloc>()
                               .add(AddEditTransactionManualRateChanged(value)),
                         ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      // Delete Preset (not for Preset 1)
+                      if (state.selectedExchangeRate != null &&
+                          state.selectedExchangeRate!.preset != 1)
+                        TextButton.icon(
+                          icon: const Icon(Icons.delete, size: 16),
+                          label: const Text('Delete'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          onPressed: () {
+                            context.read<AddEditTransactionBloc>().add(
+                              AddEditTransactionDeletePreset(
+                                state.selectedExchangeRate!,
+                              ),
+                            );
+                          },
+                        ),
+
+                      // Update Preset (not for Preset 1)
+                      if (state.selectedExchangeRate != null &&
+                          state.selectedExchangeRate!.preset != 1)
+                        TextButton.icon(
+                          icon: const Icon(Icons.edit, size: 16),
+                          label: const Text('Update'),
+                          onPressed: () {
+                            context.read<AddEditTransactionBloc>().add(
+                              AddEditTransactionUpdatePreset(
+                                state.selectedExchangeRate!,
+                              ),
+                            );
+                          },
+                        ),
+
+                      const SizedBox(width: 8),
+                      TextButton.icon(
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('New Preset'),
+                        onPressed: () {
+                          context.read<AddEditTransactionBloc>().add(
+                            const AddEditTransactionAddNewRate(),
+                          );
+                        },
                       ),
                     ],
                   ),
