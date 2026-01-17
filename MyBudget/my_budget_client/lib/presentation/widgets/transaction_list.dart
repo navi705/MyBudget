@@ -382,9 +382,47 @@ class _TransactionListItemState extends State<TransactionListItem> {
               widget.transactionCategory.transaction.description,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
-            subtitle: Text(
-              '${widget.transactionCategory.transaction.amount.toStringAsFixed(2)} $currencySymbol',
-              style: TextStyle(color: balanceColor, fontSize: 14),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.transactionCategory.isAssetTransaction
+                      ? 'Qty: ${widget.transactionCategory.transaction.amount.toStringAsFixed(2)}'
+                      : '${widget.transactionCategory.transaction.amount.toStringAsFixed(2)} $currencySymbol',
+                  style: TextStyle(color: balanceColor, fontSize: 14),
+                ),
+                if (widget.transactionCategory.linkedTransaction != null) ...[
+                  const SizedBox(height: 2),
+                  Builder(
+                    builder: (context) {
+                      final linkedTx =
+                          widget.transactionCategory.linkedTransaction!;
+                      final linkedDesignation = widget.currencyDesignations
+                          .firstWhereOrNull(
+                            (d) => d.currencyCode == linkedTx.currencyCode,
+                          );
+                      final linkedSymbol =
+                          linkedDesignation?.value ?? linkedTx.currencyCode;
+
+                      final isLinkedAsset =
+                          !widget.transactionCategory.isAssetTransaction;
+                      // If current is NOT asset, then linked IS asset (usually).
+                      // If current IS asset, then linked is Cash.
+
+                      return Text(
+                        isLinkedAsset
+                            ? 'Qty: ${linkedTx.amount > 0 ? '+' : ''}${linkedTx.amount.toStringAsFixed(2)}'
+                            : '${linkedTx.amount > 0 ? '+' : ''}${linkedTx.amount.toStringAsFixed(2)} $linkedSymbol',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 13,
+                          height: 1.2,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ],
             ),
           ),
         ),

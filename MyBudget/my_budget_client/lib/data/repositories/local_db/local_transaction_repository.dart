@@ -71,11 +71,38 @@ class LocalTransactionRepository implements TransactionRepository {
   @override
   Future<void> deleteMultipleTransactions(List<String> ids) async {
     await database.transaction(() async {
-      final transactions = await database.transactionsDao.getTransactionsByIds(
-        ids,
-      );
+      // 1. Recursively collect all IDs to delete, including linked transactions
+      final allIdsToDelete = <String>{...ids};
+
+      // implementation with batch fetch for performance
+      var currentBatch = ids;
+      final processedIds = <String>{...ids};
+
+      while (true) {
+        final transactions = await database.transactionsDao
+            .getTransactionsByIds(currentBatch);
+        final newIds = <String>[];
+        for (final tx in transactions) {
+          if (tx.linkedTransactionId != null &&
+              tx.linkedTransactionId!.isNotEmpty &&
+              !processedIds.contains(tx.linkedTransactionId!)) {
+            newIds.add(tx.linkedTransactionId!);
+            processedIds.add(tx.linkedTransactionId!);
+          }
+        }
+
+        if (newIds.isEmpty) break;
+        currentBatch = newIds;
+        allIdsToDelete.addAll(newIds);
+      }
+
+      final finalIdsList = allIdsToDelete.toList();
+
+      // 2. Adjust Balances
+      final transactionsToDelete = await database.transactionsDao
+          .getTransactionsByIds(finalIdsList);
       final amountChanges = <String, double>{};
-      for (final transaction in transactions) {
+      for (final transaction in transactionsToDelete) {
         amountChanges.update(
           transaction.accountId,
           (value) => value - transaction.amount,
@@ -83,7 +110,9 @@ class LocalTransactionRepository implements TransactionRepository {
         );
       }
       await database.accountsDao.batchUpdateBalances(amountChanges);
-      await database.transactionsDao.deleteMultipleTransactions(ids);
+
+      // 3. Delete
+      await database.transactionsDao.deleteMultipleTransactions(finalIdsList);
     });
   }
 

@@ -77,6 +77,7 @@ Future<void> init() async {
       categoryRepository: sl(),
       settingsRepository: sl(),
       currencyRepository: sl(),
+      accountRepository: sl(), // Added
     ),
   );
   sl.registerFactory(

@@ -19,6 +19,8 @@ import 'package:my_budget_client/domain/entities/transaction_category.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/domain/repositories/account_repository.dart'; // Added
+import 'package:my_budget_client/domain/entities/account.dart'; // Added
 
 part 'transactions_event.dart';
 part 'transactions_state.dart';
@@ -29,6 +31,8 @@ class _ProcessDataParams {
   final List<Category> categories;
   final List<Style> styles;
   final String mainCurrencyCode;
+  final Map<String, Transaction> linkedTransactions;
+  final Map<String, Account> accounts; // Added
 
   _ProcessDataParams({
     required this.transactions,
@@ -36,6 +40,8 @@ class _ProcessDataParams {
     required this.categories,
     required this.styles,
     required this.mainCurrencyCode,
+    required this.linkedTransactions,
+    required this.accounts, // Added
   });
 }
 
@@ -149,6 +155,11 @@ Future<_ProcessDataResult> _processTransactionsData(
       TransactionCategory(
         transaction: transaction,
         style: foundStyle ?? defaultStyle,
+        isAssetTransaction:
+            params.accounts[transaction.accountId]?.assetId != null,
+        linkedTransaction: transaction.linkedTransactionId != null
+            ? params.linkedTransactions[transaction.linkedTransactionId]
+            : null,
       ),
     );
 
@@ -227,9 +238,11 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   final CategoryRepository _categoryRepository;
   final SettingsRepository _settingsRepository;
   final CurrencyRepository _currencyRepository;
+  final AccountRepository _accountRepository; // Added
 
   final Map<String, Category> _categoryCache = {};
   final Map<String, Style> _styleCache = {};
+  final Map<String, Account> _accountCache = {}; // Added
 
   TransactionsBloc({
     required TransactionRepository transactionRepository,
@@ -237,11 +250,13 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     required CategoryRepository categoryRepository,
     required SettingsRepository settingsRepository,
     required CurrencyRepository currencyRepository,
+    required AccountRepository accountRepository, // Added
   }) : _transactionRepository = transactionRepository,
        _styleRepository = styleRepository,
        _categoryRepository = categoryRepository,
        _settingsRepository = settingsRepository,
        _currencyRepository = currencyRepository,
+       _accountRepository = accountRepository, // Added
        super(TransactionsState()) {
     // ... (Event handlers same as before)
     on<NonDateFiltersChanged>(
@@ -308,6 +323,28 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     }
     await PerformanceLogger().stop('Transactions: fetch categories');
 
+    // 1.5. Fetch Missing Accounts
+    PerformanceLogger().start('Transactions: fetch accounts');
+    final accountIds = transactions
+        .map((t) => t.accountId)
+        .where((id) => !_accountCache.containsKey(id))
+        .toSet()
+        .toList();
+
+    if (accountIds.isNotEmpty) {
+      // Assuming AccountRepository has getAccountsByIds.
+      // If not, we might need to fetch all or loop.
+      // Checking LocalAccountRepository: usually watchAccounts() or getAccount(id).
+      // If no bulk fetch, we loop.
+      for (var id in accountIds) {
+        final account = await _accountRepository.getAccountById(id);
+        if (account != null) {
+          _accountCache[id] = account;
+        }
+      }
+    }
+    await PerformanceLogger().stop('Transactions: fetch accounts');
+
     final categories = transactions
         .map((t) => _categoryCache[t.categoryId])
         .whereType<Category>()
@@ -344,6 +381,32 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     );
     await PerformanceLogger().stop('Transactions: fetch exchange rates');
 
+    // 4. Fetch Linked Transactions
+    PerformanceLogger().start('Transactions: fetch linked transactions');
+    final linkedIds = transactions
+        .map((t) => t.linkedTransactionId)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+
+    final linkedTransactionsMap = <String, Transaction>{};
+    if (linkedIds.isNotEmpty) {
+      // Optimization: If repository supports multiple fetch, use it.
+      // Otherwise parallel singular fetch.
+      // We assume _transactionRepository is safe for parallel calls.
+      final futures = linkedIds
+          .map((id) => _transactionRepository.getTransactionById(id))
+          .toList();
+      final results = await Future.wait(futures);
+      for (var tx in results) {
+        if (tx != null) {
+          linkedTransactionsMap[tx.id!] = tx;
+        }
+      }
+    }
+    await PerformanceLogger().stop('Transactions: fetch linked transactions');
+
     PerformanceLogger().start('Transactions: compute processing');
     final result = await _processTransactionsData(
       _ProcessDataParams(
@@ -352,6 +415,8 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         categories: categories,
         styles: styles,
         mainCurrencyCode: mainCurrencyCode,
+        linkedTransactions: linkedTransactionsMap,
+        accounts: _accountCache, // Added
       ),
     );
     await PerformanceLogger().stop('Transactions: compute processing');
