@@ -391,7 +391,11 @@ class _TransactionListItemState extends State<TransactionListItem> {
                       : '${widget.transactionCategory.transaction.amount.toStringAsFixed(2)} $currencySymbol',
                   style: TextStyle(color: balanceColor, fontSize: 14),
                 ),
-                if (widget.transactionCategory.linkedTransaction != null) ...[
+                if (widget.transactionCategory.linkedTransaction != null &&
+                    (widget.transactionCategory.isAssetTransaction ||
+                        widget
+                            .transactionCategory
+                            .isLinkedAssetTransaction)) ...[
                   const SizedBox(height: 2),
                   Builder(
                     builder: (context) {

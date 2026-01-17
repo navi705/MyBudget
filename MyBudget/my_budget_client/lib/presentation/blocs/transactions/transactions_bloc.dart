@@ -156,7 +156,19 @@ Future<_ProcessDataResult> _processTransactionsData(
         transaction: transaction,
         style: foundStyle ?? defaultStyle,
         isAssetTransaction:
-            params.accounts[transaction.accountId]?.assetId != null,
+            params.accounts[transaction.accountId]?.assetId?.isNotEmpty == true,
+        isLinkedAssetTransaction:
+            transaction.linkedTransactionId != null &&
+                params.linkedTransactions[transaction.linkedTransactionId] !=
+                    null
+            ? params
+                      .accounts[params
+                          .linkedTransactions[transaction.linkedTransactionId]!
+                          .accountId]
+                      ?.assetId
+                      ?.isNotEmpty ==
+                  true
+            : false,
         linkedTransaction: transaction.linkedTransactionId != null
             ? params.linkedTransactions[transaction.linkedTransactionId]
             : null,
@@ -406,6 +418,24 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       }
     }
     await PerformanceLogger().stop('Transactions: fetch linked transactions');
+
+    // 4.5 Fetch Missing Accounts for Linked Transactions
+    if (linkedTransactionsMap.isNotEmpty) {
+      final linkedAccountIds = linkedTransactionsMap.values
+          .map((t) => t.accountId)
+          .where((id) => !_accountCache.containsKey(id))
+          .toSet()
+          .toList();
+
+      if (linkedAccountIds.isNotEmpty) {
+        for (var id in linkedAccountIds) {
+          final account = await _accountRepository.getAccountById(id);
+          if (account != null) {
+            _accountCache[id] = account;
+          }
+        }
+      }
+    }
 
     PerformanceLogger().start('Transactions: compute processing');
     final result = await _processTransactionsData(

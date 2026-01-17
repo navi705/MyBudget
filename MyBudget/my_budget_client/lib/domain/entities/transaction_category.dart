@@ -6,12 +6,14 @@ class TransactionCategory {
   final Style style;
   final Transaction? linkedTransaction;
   final bool isAssetTransaction; // Added
+  final bool isLinkedAssetTransaction; // Added
 
   TransactionCategory({
     required this.transaction,
     required this.style,
     this.linkedTransaction,
     this.isAssetTransaction = false, // Added default false
+    this.isLinkedAssetTransaction = false, // Added default false
   });
 
   Map<String, dynamic> toJson() {
@@ -20,6 +22,7 @@ class TransactionCategory {
       'style': style.toJson(),
       'linkedTransaction': linkedTransaction?.toJson(),
       'isAssetTransaction': isAssetTransaction,
+      'isLinkedAssetTransaction': isLinkedAssetTransaction,
     };
   }
 }
