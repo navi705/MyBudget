@@ -30,8 +30,6 @@ class AddEditTransactionState extends Equatable {
     this.assetAction = AssetAction.buy,
     this.totalValue = '',
     this.marketRate,
-    this.projectedLoss = 0.0,
-    this.recordExchangeLoss = false,
     this.isTransferMode = false,
     this.isRateInputInverted = false,
     this.validationError,
@@ -62,8 +60,6 @@ class AddEditTransactionState extends Equatable {
   final AssetAction assetAction;
   final String totalValue; // Value in Cash Currency
   final double? marketRate; // Market Rate (Preset 1) for Loss Calculation
-  final double projectedLoss;
-  final bool recordExchangeLoss;
   final bool isTransferMode;
   final bool isRateInputInverted; // New field for UX Toggle
   final String? validationError; // Error message for user feedback
@@ -74,6 +70,11 @@ class AddEditTransactionState extends Equatable {
 
   bool get isForeignCurrency {
     if (selectedAccount == null || selectedCurrency == null) return false;
+
+    // Asset Transaction: Check if Asset Currency (From) != Cash Currency (To)
+    if (isAssetTransaction && linkedAccount != null) {
+      return selectedAccount!.currencyCode != linkedAccount!.currencyCode;
+    }
 
     // Transfer Mode: Check if From and To accounts have different currencies
     if (isTransferMode && linkedAccount != null) {
@@ -116,8 +117,6 @@ class AddEditTransactionState extends Equatable {
     String? totalValue,
     double? assetPrice,
     double? marketRate,
-    bool? recordExchangeLoss,
-    double? projectedLoss,
     bool? isRateInputInverted,
     String? validationError,
     bool clearValidationError = false,
@@ -151,8 +150,6 @@ class AddEditTransactionState extends Equatable {
       totalValue: totalValue ?? this.totalValue,
       assetPrice: assetPrice ?? this.assetPrice,
       marketRate: marketRate ?? this.marketRate,
-      recordExchangeLoss: recordExchangeLoss ?? this.recordExchangeLoss,
-      projectedLoss: projectedLoss ?? this.projectedLoss,
       isRateInputInverted: isRateInputInverted ?? this.isRateInputInverted,
       validationError: clearValidationError
           ? null
@@ -187,8 +184,6 @@ class AddEditTransactionState extends Equatable {
     totalValue,
     assetPrice,
     marketRate,
-    recordExchangeLoss,
-    projectedLoss,
     isRateInputInverted,
     validationError,
   ];

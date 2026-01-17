@@ -207,7 +207,10 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                                     const SizedBox(height: 16),
                                     _FeeField(controller: _feeController),
                                     const Divider(),
-                                    const _ExchangeLossSection(),
+                                    if (state.isForeignCurrency) ...[
+                                      const _ExchangeRateSection(),
+                                      const SizedBox(height: 16),
+                                    ],
                                     const SizedBox(height: 32),
                                     _SaveButton(formKey: _formKey),
                                   ],
@@ -774,6 +777,11 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
           fromCurrency = state.selectedAccount?.currencyCode ?? '';
           toCurrency =
               state.linkedAccount?.currencyCode ?? state.mainCurrencyCode;
+        } else if (state.isAssetTransaction) {
+          // Asset: Asset Currency (From) -> Cash Currency (To)
+          fromCurrency = state.selectedAccount?.currencyCode ?? '';
+          toCurrency =
+              state.linkedAccount?.currencyCode ?? state.mainCurrencyCode;
         } else {
           // Standard: Transaction Currency -> Main Currency (for reporting)
           // If transaction currency != account currency, use account currency as target
@@ -1287,58 +1295,6 @@ class _LinkedAccountField extends StatelessWidget {
               ],
             );
           },
-        );
-      },
-    );
-  }
-}
-
-class _ExchangeLossSection extends StatelessWidget {
-  const _ExchangeLossSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
-      builder: (context, state) {
-        if (!state.isAssetTransaction) return const SizedBox.shrink();
-
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: SwitchListTile(
-                title: const Text('Record Exchange Loss?'),
-                subtitle: Text(
-                  state.recordExchangeLoss
-                      ? 'Loss: ${state.projectedLoss.toStringAsFixed(2)} ${state.linkedAccount?.currencyCode ?? ''}'
-                      : 'Track realized loss on currency/asset conversion',
-                ),
-                value: state.recordExchangeLoss,
-                onChanged: (value) {
-                  context.read<AddEditTransactionBloc>().add(
-                    AddEditTransactionRecordExchangeLossChanged(value),
-                  );
-                },
-              ),
-            ),
-            if (state.recordExchangeLoss)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8.0,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Market Rate Used: ${state.marketRate!.toStringAsFixed(4)}',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
         );
       },
     );

@@ -60,9 +60,7 @@ class AddEditTransactionBloc
     ); // Added
     on<AddEditTransactionAssetActionChanged>(_onAssetActionChanged); // Added
     on<AddEditTransactionTotalValueChanged>(_onTotalValueChanged); // Added
-    on<AddEditTransactionRecordExchangeLossChanged>(
-      _onRecordExchangeLossChanged,
-    ); // Added
+
     on<AddEditTransactionDeletePreset>(_onDeletePreset); // Added
     on<AddEditTransactionToggleRateDirection>(_onToggleRateDirection); // Added
     on<AddEditTransactionSwapAccounts>(_onSwapAccounts); // Added
@@ -299,62 +297,56 @@ class AddEditTransactionBloc
     required String cashCurrency,
     DateTime? date,
   }) async {
-    double newRate = 1.0;
-    if (assetCurrency != cashCurrency) {
-      final rates = await _currencyRepository.getExchangeRatesFiltered(
-        fromCurrency: assetCurrency,
-        toCurrency: cashCurrency,
-        endDate: date ?? DateTime.now(),
-        limit: 10,
-        sortAscending: false,
-      );
-      final market =
-          rates.firstWhereOrNull((r) => r.preset == 1) ?? rates.firstOrNull;
-      newRate = market?.rate ?? 1.0;
-    }
+    emit(state.copyWith(isLoadingRates: true));
+    try {
+      List<ExchangeRateDomain> rates = [];
+      ExchangeRateDomain? selectedRate;
+      String manualRate = '1.0';
 
-    var newState = state.copyWith(marketRate: newRate);
+      if (assetCurrency != cashCurrency) {
+        final rawRates = await _currencyRepository.getExchangeRatesFiltered(
+          fromCurrency: assetCurrency,
+          toCurrency: cashCurrency,
+          endDate: date ?? DateTime.now(),
+          limit:
+              100, // Fetch enough to cover recent history of multiple presets
+          sortAscending: false,
+        );
 
-    // Recalculate Total Value if Quantity exists
-    if (state.amount.isNotEmpty && state.assetPrice != null) {
-      final qty = double.tryParse(state.amount) ?? 0.0;
-      final total = qty * state.assetPrice! * newRate;
-      newState = newState.copyWith(totalValue: total.toStringAsFixed(2));
-    }
+        // Deduplicate: Keep latest per preset
+        final uniqueMap = <int, ExchangeRateDomain>{};
+        for (final rate in rawRates) {
+          if (!uniqueMap.containsKey(rate.preset)) {
+            uniqueMap[rate.preset] = rate;
+          }
+        }
+        rates = uniqueMap.values.toList()
+          ..sort((a, b) => a.preset.compareTo(b.preset));
 
-    emit(newState);
-
-    // Recalculate Logic after rate update
-    _updateAssetCalculations(emit, newState);
-  }
-
-  void _updateAssetCalculations(
-    Emitter<AddEditTransactionState> emit,
-    AddEditTransactionState newState,
-  ) {
-    if (!newState.isAssetTransaction) {
-      // emit(newState); // Loop danger if called from fetch? No.
-      return;
-    }
-
-    // Calculate Projected Loss
-    double loss = 0.0;
-    // Only calculate if we have price and rate
-    if (newState.assetPrice != null && newState.marketRate != null) {
-      double qty = double.tryParse(newState.amount) ?? 0.0;
-      double totalCash = double.tryParse(newState.totalValue) ?? 0.0;
-
-      // Market Value in Cash = Qty * Price(Asset) * Rate(Asset->Cash)
-      double marketValue = qty * newState.assetPrice! * newState.marketRate!;
-
-      if (newState.assetAction == AssetAction.buy) {
-        loss = totalCash - marketValue;
-      } else {
-        loss = marketValue - totalCash;
+        selectedRate =
+            rates.firstWhereOrNull((r) => r.preset == 1) ?? rates.firstOrNull;
+        manualRate = selectedRate?.rate.toString() ?? '1.0';
       }
-    }
 
-    emit(newState.copyWith(projectedLoss: loss));
+      var newState = state.copyWith(
+        availableExchangeRates: rates,
+        selectedExchangeRate: selectedRate,
+        manualExchangeRate: manualRate,
+        isLoadingRates: false,
+      );
+
+      // Recalculate Total Value if Quantity exists
+      if (state.amount.isNotEmpty && state.assetPrice != null) {
+        final qty = double.tryParse(state.amount) ?? 0.0;
+        final rate = double.tryParse(manualRate) ?? 1.0;
+        final total = qty * state.assetPrice! * rate;
+        newState = newState.copyWith(totalValue: total.toStringAsFixed(2));
+      }
+
+      emit(newState);
+    } catch (e) {
+      emit(state.copyWith(isLoadingRates: false));
+    }
   }
 
   void _onDescriptionChanged(
@@ -374,13 +366,12 @@ class AddEditTransactionBloc
     if (newState.isAssetTransaction && newState.assetPrice != null) {
       final qty = double.tryParse(event.amount) ?? 0.0;
       // Total = Qty * Price * Rate
-      final rate = newState.marketRate ?? 1.0;
+      final rate = double.tryParse(newState.manualExchangeRate) ?? 1.0;
       final total = qty * newState.assetPrice! * rate;
       newState = newState.copyWith(totalValue: total.toStringAsFixed(2));
     }
 
     emit(newState);
-    _updateAssetCalculations(emit, newState);
   }
 
   void _onFeeChanged(
@@ -479,7 +470,7 @@ class AddEditTransactionBloc
         newState.assetPrice != null &&
         newState.assetPrice! > 0) {
       final total = double.tryParse(event.value) ?? 0.0;
-      final rate = newState.marketRate ?? 1.0;
+      final rate = double.tryParse(newState.manualExchangeRate) ?? 1.0;
       // Qty = Total / (Price * Rate)
       if (rate > 0) {
         final qty = total / (newState.assetPrice! * rate);
@@ -488,14 +479,6 @@ class AddEditTransactionBloc
     }
 
     emit(newState);
-    _updateAssetCalculations(emit, newState);
-  }
-
-  void _onRecordExchangeLossChanged(
-    AddEditTransactionRecordExchangeLossChanged event,
-    Emitter<AddEditTransactionState> emit,
-  ) {
-    emit(state.copyWith(recordExchangeLoss: event.record));
   }
 
   Future<void> _onDateChanged(
@@ -650,22 +633,8 @@ class AddEditTransactionBloc
         }
 
         // 2. Cash Transaction (Value)
-
-        // If Recording Exchange Loss, we split the Total Value into:
-        // Market Value (Transfer) + Loss (Expense)
-
-        double adjustedTotalValue = totalValue;
-        if (state.recordExchangeLoss && state.projectedLoss > 0) {
-          if (state.assetAction == AssetAction.buy) {
-            // Buy: Loss = Total (Paid) - Market.
-            // So Market = Total - Loss.
-            adjustedTotalValue = totalValue - state.projectedLoss;
-          } else {
-            // Sell: Loss = Market - Total (Received).
-            // So Market = Total + Loss.
-            adjustedTotalValue = totalValue + state.projectedLoss;
-          }
-        }
+        // Direct assignment from totalValue (which user can edit)
+        final adjustedTotalValue = totalValue;
 
         final cashAmount = state.assetAction == AssetAction.buy
             ? -(adjustedTotalValue + fee)
@@ -821,22 +790,6 @@ class AddEditTransactionBloc
           await _transactionRepository.addTransaction(newTransaction);
           print('DEBUG SAVE: Standard transaction saved successfully!');
         }
-      }
-
-      // --- EXCHANGE LOSS LOGIC ---
-      if (state.recordExchangeLoss && state.projectedLoss > 0) {
-        // Create 3rd transaction
-        final lossTx = Transaction(
-          description: 'Exchange Loss: ${state.description}',
-          amount: -state.projectedLoss, // Expense
-          date: date,
-          accountId: state.isAssetTransaction
-              ? state.linkedAccount!.id!
-              : accountId!,
-          categoryId: categoryId!,
-          currencyCode: state.linkedAccount!.currencyCode,
-        );
-        await _transactionRepository.addTransaction(lossTx);
       }
 
       emit(state.copyWith(isSaving: false, isSaveSuccess: true));
@@ -1134,13 +1087,23 @@ class AddEditTransactionBloc
     AddEditTransactionRatePresetChanged event,
     Emitter<AddEditTransactionState> emit,
   ) {
-    emit(
-      state.copyWith(
-        selectedExchangeRate: event.rate,
-        manualExchangeRate:
-            event.rate?.rate.toString() ?? state.manualExchangeRate,
-      ),
+    var newState = state.copyWith(
+      selectedExchangeRate: event.rate,
+      manualExchangeRate:
+          event.rate?.rate.toString() ?? state.manualExchangeRate,
     );
+
+    // Asset Sync: Recalculate Total Value
+    if (newState.isAssetTransaction &&
+        newState.assetPrice != null &&
+        newState.amount.isNotEmpty) {
+      final qty = double.tryParse(newState.amount) ?? 0.0;
+      final rate = double.tryParse(newState.manualExchangeRate) ?? 1.0;
+      final total = qty * newState.assetPrice! * rate;
+      newState = newState.copyWith(totalValue: total.toStringAsFixed(2));
+    }
+
+    emit(newState);
   }
 
   void _onManualRateChanged(
@@ -1149,12 +1112,22 @@ class AddEditTransactionBloc
   ) {
     // SIMPLIFIED: Store exactly what user types
     // Inversion is applied only at SAVE time based on isRateInputInverted
-    emit(
-      state.copyWith(
-        manualExchangeRate: event.rate,
-        selectedExchangeRate: null,
-      ),
+    var newState = state.copyWith(
+      manualExchangeRate: event.rate,
+      selectedExchangeRate: null,
     );
+
+    // Asset Sync: Recalculate Total Value
+    if (newState.isAssetTransaction &&
+        newState.assetPrice != null &&
+        newState.amount.isNotEmpty) {
+      final qty = double.tryParse(newState.amount) ?? 0.0;
+      final rate = double.tryParse(newState.manualExchangeRate) ?? 1.0;
+      final total = qty * newState.assetPrice! * rate;
+      newState = newState.copyWith(totalValue: total.toStringAsFixed(2));
+    }
+
+    emit(newState);
   }
 
   void _onToggleRateDirection(
@@ -1199,12 +1172,28 @@ class AddEditTransactionBloc
         print('DEBUG NEW PRESET: Inverted rate to $rateValue');
       }
 
-      final newRate = ExchangeRateDomain(
-        fromCurrencyCode: state.selectedCurrency!.code,
-        toCurrencyCode:
+      String fromCode = state.selectedCurrency!.code;
+      String toCode;
+
+      if (state.isAssetTransaction) {
+        fromCode = state.selectedAccount?.currencyCode ?? fromCode;
+        toCode = state.linkedAccount?.currencyCode ?? state.mainCurrencyCode;
+      } else if (state.isTransferMode) {
+        // Transfer Mode: From Account -> To Account (Linked)
+        // Usually selectedCurrency matches From Account, but just in case.
+        fromCode = state.selectedAccount?.currencyCode ?? fromCode;
+        toCode = state.linkedAccount?.currencyCode ?? state.mainCurrencyCode;
+      } else {
+        // Standard Mode
+        toCode =
             state.selectedCurrency!.code == state.selectedAccount!.currencyCode
             ? state.mainCurrencyCode
-            : state.selectedAccount!.currencyCode,
+            : state.selectedAccount!.currencyCode;
+      }
+
+      final newRate = ExchangeRateDomain(
+        fromCurrencyCode: fromCode,
+        toCurrencyCode: toCode,
         rate: rateValue,
         date: state.date!,
         preset: nextPreset,
@@ -1213,12 +1202,21 @@ class AddEditTransactionBloc
       await _currencyRepository.addExchangeRate(newRate);
 
       // Refresh
-      await _fetchRates(
-        emit,
-        state.selectedCurrency,
-        state.selectedAccount,
-        state.date,
-      );
+      if (state.isAssetTransaction) {
+        await _fetchAssetToCashRate(
+          emit,
+          assetCurrency: fromCode,
+          cashCurrency: toCode,
+          date: state.date,
+        );
+      } else {
+        await _fetchRates(
+          emit,
+          state.selectedCurrency,
+          state.selectedAccount,
+          state.date,
+        );
+      }
 
       // Auto-select the new rate (find by preset)
       final createdRate = state.availableExchangeRates.firstWhereOrNull(
@@ -1226,6 +1224,9 @@ class AddEditTransactionBloc
       );
       // Keep direction preference, just select the new rate
       emit(state.copyWith(selectedExchangeRate: createdRate));
+
+      // If Asset, manually trigger calculation update too (normally _fetchAssetToCashRate does it but logic is conditional)
+      // Actually _fetchAssetToCashRate updates state.
     } catch (e) {
       emit(state.copyWith(isLoadingRates: false));
     }
