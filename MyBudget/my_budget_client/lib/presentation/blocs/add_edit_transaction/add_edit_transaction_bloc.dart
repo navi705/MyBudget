@@ -299,9 +299,8 @@ class AddEditTransactionBloc
     required String cashCurrency,
     DateTime? date,
   }) async {
-    if (assetCurrency == cashCurrency) {
-      emit(state.copyWith(marketRate: 1.0));
-    } else {
+    double newRate = 1.0;
+    if (assetCurrency != cashCurrency) {
       final rates = await _currencyRepository.getExchangeRatesFiltered(
         fromCurrency: assetCurrency,
         toCurrency: cashCurrency,
@@ -311,11 +310,22 @@ class AddEditTransactionBloc
       );
       final market =
           rates.firstWhereOrNull((r) => r.preset == 1) ?? rates.firstOrNull;
-      emit(state.copyWith(marketRate: market?.rate ?? 1.0));
+      newRate = market?.rate ?? 1.0;
     }
 
+    var newState = state.copyWith(marketRate: newRate);
+
+    // Recalculate Total Value if Quantity exists
+    if (state.amount.isNotEmpty && state.assetPrice != null) {
+      final qty = double.tryParse(state.amount) ?? 0.0;
+      final total = qty * state.assetPrice! * newRate;
+      newState = newState.copyWith(totalValue: total.toStringAsFixed(2));
+    }
+
+    emit(newState);
+
     // Recalculate Logic after rate update
-    _updateAssetCalculations(emit, state);
+    _updateAssetCalculations(emit, newState);
   }
 
   void _updateAssetCalculations(
