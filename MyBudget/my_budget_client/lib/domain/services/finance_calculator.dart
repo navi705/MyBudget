@@ -177,7 +177,26 @@ class FinanceCalculator {
             }
 
             if (bestEntry != null) {
-              balance = bestEntry.value * account.assetQuantity;
+              // Calculate dynamic quantity from transactions
+              double currentQuantity = account.assetQuantity;
+              final accountTx = transactionsByAccount[account.id] ?? [];
+              for (final tx in accountTx) {
+                if (!tx.date.isAfter(data.date)) {
+                  currentQuantity += tx.amount;
+                }
+              }
+
+              double assetValue = bestEntry.value;
+              if (bestEntry.currency != account.currencyCode) {
+                final rate = _getExchangeRate(
+                  bestEntry.currency,
+                  account.currencyCode,
+                  data.exchangeRates,
+                  data.date,
+                );
+                assetValue *= rate;
+              }
+              balance = assetValue * currentQuantity;
             } else {
               balance = 0.0;
             }
@@ -366,7 +385,11 @@ class FinanceCalculator {
 
     // Sort rates by date desc to find latest before 'date'
     final relevantRates = rates
-        .where((r) => r.date.isBefore(date) || r.date.isAtSameMomentAs(date))
+        .where(
+          (r) =>
+              r.preset == 1 &&
+              (r.date.isBefore(date) || r.date.isAtSameMomentAs(date)),
+        )
         .toList();
     relevantRates.sort((a, b) => b.date.compareTo(a.date));
 
