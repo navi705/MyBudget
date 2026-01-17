@@ -30,4 +30,9 @@ final List<StylesCompanion> defaultStyles = [
     colorHex: '#808080', // Grey
     iconType: const Value(IconType.custom),
   ),
+  StylesCompanion.insert(
+    name: 'Transfer',
+    iconName: 'compare_arrows',
+    colorHex: '#424242', // Dark Grey
+  ),
 ];

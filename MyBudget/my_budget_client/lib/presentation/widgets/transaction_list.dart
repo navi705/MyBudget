@@ -321,10 +321,18 @@ class _TransactionListItemState extends State<TransactionListItem> {
 
   @override
   Widget build(BuildContext context) {
-    final color = _getColorFromHex(widget.transactionCategory.style.colorHex);
-    final iconWidget = IconUtils.getIconWidget(
-      widget.transactionCategory.style,
-    );
+    final isRegularTransfer =
+        widget.transactionCategory.linkedTransaction != null &&
+        !widget.transactionCategory.isAssetTransaction &&
+        !widget.transactionCategory.isLinkedAssetTransaction;
+
+    final color = isRegularTransfer
+        ? const Color(0xFF424242)
+        : _getColorFromHex(widget.transactionCategory.style.colorHex);
+
+    final iconWidget = isRegularTransfer
+        ? const Icon(Icons.compare_arrows, color: Colors.white)
+        : IconUtils.getIconWidget(widget.transactionCategory.style);
 
     final amount = widget.transactionCategory.transaction.amount;
     Color balanceColor;
