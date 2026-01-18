@@ -50,6 +50,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   List<ExchangeRateDomain>? _cachedExchangeRates;
   Set<DateTime> _cachedDates = {};
   List<Currency>? _cachedCurrencies;
+  CurrencyConverter? _cachedConverter;
 
   DashboardBloc({
     required AccountRepository accountRepository,
@@ -103,26 +104,31 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
               params: params,
             );
           },
-        ).debounceTime(const Duration(milliseconds: 300)).asyncMap((
-          data,
-        ) async {
+          // OPTIMIZATION: Reduced debounce from 300ms to 50ms
+          // 300ms was adding noticeable delay, 50ms is enough to batch rapid changes
+        ).debounceTime(const Duration(milliseconds: 50)).asyncMap((data) async {
           final accounts = data.accounts;
           final transactions = data.transactions;
           final categories = data.categories;
           final styles = data.styles;
           final params = data.params;
 
+          // OPTIMIZATION: Run DB queries in parallel
           PerformanceLogger().start('Dashboard: balances, totals, settings');
-          final dayBalances = await _accountRepository.getBalancesAtDate(
-            params.selectedDay,
-          );
-          final categoryTotals = await _transactionRepository
-              .getTransactionTotalsGrouped(
-                dateFrom: params.dateRangeStart,
-                dateTo: params.dateRangeEnd,
-              );
 
-          final settingsMap = await _settingsRepository.getAllSettings();
+          final parallelDbResults = await Future.wait([
+            _accountRepository.getBalancesAtDate(params.selectedDay),
+            _transactionRepository.getTransactionTotalsGrouped(
+              dateFrom: params.dateRangeStart,
+              dateTo: params.dateRangeEnd,
+            ),
+            _settingsRepository.getAllSettings(),
+          ]);
+
+          final dayBalances = parallelDbResults[0] as Map<String, double>;
+          final categoryTotals =
+              parallelDbResults[1] as List<GroupedTransactionTotal>;
+          final settingsMap = parallelDbResults[2] as Map<String, String>;
           final mainCurrencyCode = settingsMap['main_currency_code'] ?? 'USD';
 
           final targetCurrency = params.selectedCurrency.isEmpty
@@ -211,6 +217,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
           PerformanceLogger().start('Dashboard: compute');
 
+          // OPTIMIZATION: Cache CurrencyConverter - only recreate when rates change
+          if (_cachedConverter == null || missingDates.isNotEmpty) {
+            _cachedConverter = CurrencyConverter(exchangeRates);
+            print('CONVERTER: Created new (rates changed)');
+          } else {
+            print('CONVERTER: Using cached');
+          }
+
           // Build Category Type Map for filtering (Isolate safe: String -> Enum)
           final categoryTypeMap = {
             for (final c in categories)
@@ -225,6 +239,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             dateRangeStart: params.dateRangeStart,
             selectedDay: params.selectedDay,
             categoryTypeMap: categoryTypeMap,
+            converter: _cachedConverter!, // Pass cached converter
           );
 
           // OPTIMIZATION: Run on main thread instead of compute() isolate
@@ -372,7 +387,8 @@ class _DashboardComputeParams {
   final String mainCurrencyCode;
   final DateTime dateRangeStart;
   final DateTime selectedDay;
-  final Map<String, CategoryType> categoryTypeMap; // Added
+  final Map<String, CategoryType> categoryTypeMap;
+  final CurrencyConverter converter; // OPTIMIZATION: Pre-built converter
 
   _DashboardComputeParams({
     required this.accounts,
@@ -381,7 +397,8 @@ class _DashboardComputeParams {
     required this.mainCurrencyCode,
     required this.dateRangeStart,
     required this.selectedDay,
-    required this.categoryTypeMap, // Added
+    required this.categoryTypeMap,
+    required this.converter,
   });
 }
 
@@ -408,12 +425,12 @@ _DashboardComputeResults _calculateDashboardData(
   final totalStopwatch = Stopwatch()..start();
   final sectionStopwatch = Stopwatch();
 
-  // Section 1: CurrencyConverter init
+  // OPTIMIZATION: Use pre-built converter from params (cached in Bloc)
   sectionStopwatch.start();
-  final converter = CurrencyConverter(params.rates);
+  final converter = params.converter;
   final conversionDate = DateTime.now();
   print(
-    'COMPUTE: CurrencyConverter init: ${sectionStopwatch.elapsedMilliseconds}ms',
+    'COMPUTE: CurrencyConverter (from cache): ${sectionStopwatch.elapsedMilliseconds}ms',
   );
   sectionStopwatch.reset();
 
