@@ -17,35 +17,35 @@ class ThemeSettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return EscapeBackHandler(
       child: Scaffold(
-      appBar: AppBar(title: const Text('Theme Customization')),
-      body: BlocBuilder<ThemeBloc, ThemeState>(
-        builder: (context, state) {
-          if (!state.isLoaded || state.activeTheme == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
+        appBar: AppBar(title: const Text('Theme Customization')),
+        body: BlocBuilder<ThemeBloc, ThemeState>(
+          builder: (context, state) {
+            if (!state.isLoaded || state.activeTheme == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          final theme = state.activeTheme!;
+            final theme = state.activeTheme!;
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _buildPresetsSection(context, state),
-              const SizedBox(height: 24),
-              _buildColorsSection(context, theme),
-              const SizedBox(height: 24),
-              _buildWindowEffectsSection(context, theme),
-              const SizedBox(height: 24),
-              _buildSurfaceSection(context, theme),
-              const SizedBox(height: 24),
-              _buildBackgroundImageSection(context, theme),
-              const SizedBox(height: 32),
-              _buildModeSection(context, theme),
-              const SizedBox(height: 48),
-            ],
-          );
-        },
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildPresetsSection(context, state),
+                const SizedBox(height: 24),
+                _buildColorsSection(context, theme),
+                const SizedBox(height: 24),
+                _buildWindowEffectsSection(context, theme),
+                const SizedBox(height: 24),
+                _buildSurfaceSection(context, theme),
+                const SizedBox(height: 24),
+                _buildBackgroundImageSection(context, theme),
+                const SizedBox(height: 32),
+                _buildModeSection(context, theme),
+                const SizedBox(height: 48),
+              ],
+            );
+          },
+        ),
       ),
-    ),
     );
   }
 
@@ -219,21 +219,63 @@ class ThemeSettingsScreen extends StatelessWidget {
             ],
             if (theme.windowEffectType != WindowEffectType.none) ...[
               const SizedBox(height: 16),
-              Text(
-                'Window Tint Opacity: ${(theme.effectOpacity * 100).round()}%',
-              ),
-              Slider(
-                value: theme.effectOpacity,
-                onChanged: (v) {
-                  _update(context, effectOpacity: v);
-                  if (Platform.isWindows) {
-                    _applyWindowEffect(
-                      context,
-                      theme.copyWith(effectOpacity: v),
-                    );
-                  }
-                },
-              ),
+              // WORKAROUND: For transparent mode, use buttons instead of slider
+              // because Windows has parabolic transparency behavior
+              if (theme.windowEffectType == WindowEffectType.transparent) ...[
+                const Text('Window Transparency:'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    // REMAPPED VALUES: Since Windows shows parabola where ~0.5 is most transparent
+                    // and edges (0.0, 1.0) are opaque, we reverse the logic here
+                    for (final preset in [
+                      (
+                        'Fully Transparent',
+                        0.5,
+                      ), // Middle value = most transparent!
+                      ('75%', 0.35), // Between middle and edge
+                      ('50%', 0.2), // Closer to edge = less transparent
+                      ('25%', 0.1), // Very close to edge
+                      ('Opaque', 0.0), // Edge = fully opaque
+                    ])
+                      ChoiceChip(
+                        label: Text(preset.$1),
+                        selected:
+                            (theme.effectOpacity - preset.$2).abs() < 0.01,
+                        onSelected: (selected) {
+                          if (selected) {
+                            _update(context, effectOpacity: preset.$2);
+                            if (Platform.isWindows) {
+                              _applyWindowEffect(
+                                context,
+                                theme.copyWith(effectOpacity: preset.$2),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                  ],
+                ),
+              ] else ...[
+                // For other modes, use slider as normal
+                Text(
+                  'Window Tint Opacity: ${(theme.effectOpacity * 100).round()}%',
+                ),
+                Slider(
+                  value: theme.effectOpacity,
+                  onChanged: (v) {
+                    _update(context, effectOpacity: v);
+                    if (Platform.isWindows) {
+                      _applyWindowEffect(
+                        context,
+                        theme.copyWith(effectOpacity: v),
+                      );
+                    }
+                  },
+                ),
+              ],
             ],
           ],
         ),
@@ -428,9 +470,23 @@ class ThemeSettingsScreen extends StatelessWidget {
         ? theme.surfaceColor
         : theme.backgroundColor;
 
-    // Fix for Transparent Glitch:
-    // If opacity is too low, the system might treat it as "Opaque".
-    // 0.05 failed. Trying 0.15 (15%).
+    // Fix for Transparent Mode:
+    // For WindowEffect.transparent, we need to use Window.setWindowAlphaValue()
+    // instead of relying on color alpha for proper transparency control
+    if (theme.windowEffectType == WindowEffectType.transparent) {
+      Window.setEffect(
+        effect: WindowEffect.transparent,
+        color: Colors.transparent, // TEST: Fixed transparent color
+        dark: brightness == Brightness.dark,
+      );
+      // Use setWindowAlphaValue for actual transparency control
+      Window.setWindowAlphaValue(
+        theme.effectOpacity,
+      ); // 0.0 = transparent, 1.0 = opaque
+      return;
+    }
+
+    // For other modes (acrylic, mica), use color alpha with clamping
     final effectiveOpacity = theme.effectOpacity < 0.15
         ? 0.15
         : theme.effectOpacity;
@@ -506,9 +562,23 @@ class _PresetsSectionState extends State<_PresetsSection> {
         ? theme.surfaceColor
         : theme.backgroundColor;
 
-    // Fix for Transparent Glitch:
-    // If opacity is too low, the system might treat it as "Opaque".
-    // Clamping to 0.15 (15%) to ensure transparency remains active.
+    // Fix for Transparent Mode:
+    // For WindowEffect.transparent, we need to use Window.setWindowAlphaValue()
+    // instead of relying on color alpha for proper transparency control
+    if (theme.windowEffectType == WindowEffectType.transparent) {
+      Window.setEffect(
+        effect: WindowEffect.transparent,
+        color: Colors.transparent, // TEST: Fixed transparent color
+        dark: brightness == Brightness.dark,
+      );
+      // Use setWindowAlphaValue for actual transparency control
+      Window.setWindowAlphaValue(
+        theme.effectOpacity,
+      ); // 0.0 = transparent, 1.0 = opaque
+      return;
+    }
+
+    // For other modes (acrylic, mica), use color alpha with clamping
     final effectiveOpacity = theme.effectOpacity < 0.15
         ? 0.15
         : theme.effectOpacity;
