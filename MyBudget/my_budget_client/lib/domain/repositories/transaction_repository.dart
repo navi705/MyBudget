@@ -37,6 +37,14 @@ abstract class TransactionRepository {
     DateTime? dateFrom,
     DateTime? dateTo,
   });
+
+  /// OPTIMIZATION: Get category totals already converted to main currency
+  /// Uses SQL aggregation with exchange rates to avoid expensive Dart computation
+  Future<Map<String, double>> getCategoryTotalsInMainCurrency({
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    required String mainCurrencyCode,
+  });
 }
 
 class GroupedTransactionTotal extends Equatable {

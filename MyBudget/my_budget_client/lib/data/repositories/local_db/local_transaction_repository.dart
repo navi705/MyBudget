@@ -267,4 +267,20 @@ class LocalTransactionRepository implements TransactionRepository {
         )
         .toList();
   }
+
+  @override
+  Future<Map<String, double>> getCategoryTotalsInMainCurrency({
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    required String mainCurrencyCode,
+  }) async {
+    // Delegate to DAO for SQL-level aggregation
+    final result = await database.transactionsDao
+        .getCategoryTotalsInMainCurrency(
+          dateFrom: dateFrom,
+          dateTo: dateTo,
+          mainCurrencyCode: mainCurrencyCode,
+        );
+    return result;
+  }
 }
