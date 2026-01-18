@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:my_budget_client/core/utils/icon_utils.dart'; // Import the new utility
+import 'package:my_budget_client/core/utils/icon_utils.dart';
+import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/widgets/add_style_dialog.dart';
@@ -9,6 +11,212 @@ import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.
 
 class ManageStylesScreen extends StatelessWidget {
   const ManageStylesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<StylesBloc, StylesState>(
+      builder: (context, state) {
+        final isSelectionMode =
+            state is StylesLoadSuccess && state.isSelectionModeActive;
+        final selectedCount = state is StylesLoadSuccess
+            ? state.selectedStyleIds.length
+            : 0;
+
+        return EscapeBackHandler(
+          onBack: () {
+            if (isSelectionMode) {
+              context.read<StylesBloc>().add(
+                const ToggleStyleSelectionMode(false),
+              );
+            } else {
+              context.pop();
+            }
+          },
+          child: Scaffold(
+            appBar: isSelectionMode
+                ? AppBar(
+                    leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        context.read<StylesBloc>().add(
+                          const ToggleStyleSelectionMode(false),
+                        );
+                      },
+                    ),
+                    title: Text('$selectedCount selected'),
+                    actions: [
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () {
+                          final selectedIds = state.selectedStyleIds.toList();
+                          // Filter out 'Transfer' style just in case UI selection allowed it
+                          // Ideally UI shouldn't allow selecting it for deletion, or we warn.
+                          // But per requirements, just prevent deletion.
+                          // We will prompt user.
+                          _showDeleteConfirmation(
+                            context,
+                            selectedIds,
+                            state.styles,
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  )
+                : AppBar(title: const Text('Manage Icons')),
+            body: Builder(
+              builder: (context) {
+                if (state is StylesLoadInProgress) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (state is StylesLoadSuccess) {
+                  if (state.styles.isEmpty) {
+                    return const Center(child: Text('No icons created yet.'));
+                  }
+                  return ListView.builder(
+                    itemCount: state.styles.length,
+                    itemBuilder: (context, index) {
+                      final style = state.styles[index];
+                      final isSelected = state.selectedStyleIds.contains(
+                        style.id,
+                      );
+
+                      return _StyleListItem(
+                        style: style,
+                        isSelected: isSelected,
+                        isSelectionMode: isSelectionMode,
+                        onTap: () {
+                          if (isSelectionMode) {
+                            if (style.id != null) {
+                              context.read<StylesBloc>().add(
+                                ToggleStyleSelection(style.id!),
+                              );
+                            }
+                          } else {
+                            // Edit mode navigation
+                            if (style.id != null) {
+                              context.push(
+                                AppRoutes.editAccountStyle.replaceFirst(
+                                  ':id',
+                                  style.id!.toString(),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        onLongPress: () {
+                          if (style.id != null) {
+                            if (!isSelectionMode) {
+                              context.read<StylesBloc>().add(
+                                const ToggleStyleSelectionMode(true),
+                              );
+                            }
+                            context.read<StylesBloc>().add(
+                              ToggleStyleSelection(style.id!),
+                            );
+                          }
+                        },
+                      );
+                    },
+                  );
+                }
+                return const Center(child: Text('Failed to load icons.'));
+              },
+            ),
+            floatingActionButton: isSelectionMode
+                ? null
+                : FloatingActionButton(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => BlocProvider.value(
+                          value: BlocProvider.of<StylesBloc>(context),
+                          child: const AddStyleDialog(),
+                        ),
+                      );
+                    },
+                    child: const Icon(Icons.add),
+                  ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmation(
+    BuildContext context,
+    List<String> ids,
+    List<Style> allStyles,
+  ) {
+    if (ids.isEmpty) return;
+
+    // Check if "Transfer" is in the selection
+    final stylesToDelete = allStyles.where((s) => ids.contains(s.id)).toList();
+    final hasTransfer = stylesToDelete.any((s) => s.name == 'Transfer');
+
+    final countToDelete = hasTransfer
+        ? stylesToDelete.length - 1
+        : stylesToDelete.length;
+
+    if (countToDelete <= 0) {
+      // Only Transfer was selected
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot delete the Transfer icon.')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Icons'),
+        content: Text(
+          hasTransfer
+              ? 'Are you sure you want to delete $countToDelete selected icons? (Transfer icon will be skipped)'
+              : 'Are you sure you want to delete ${ids.length} selected icons?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              context.read<StylesBloc>().add(DeleteMultipleStyles(ids));
+              Navigator.of(dialogContext).pop();
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StyleListItem extends StatefulWidget {
+  final Style style;
+  final bool isSelected;
+  final bool isSelectionMode;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const _StyleListItem({
+    required this.style,
+    required this.isSelected,
+    required this.isSelectionMode,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  State<_StyleListItem> createState() => _StyleListItemState();
+}
+
+class _StyleListItemState extends State<_StyleListItem> {
+  bool _isHovering = false;
 
   Color _getColorFromHex(String hexColor) {
     hexColor = hexColor.replaceAll("#", "");
@@ -18,105 +226,158 @@ class ManageStylesScreen extends StatelessWidget {
     return Color(int.parse("0x$hexColor"));
   }
 
+  void _showContextMenu(Offset position) {
+    final bloc = context.read<StylesBloc>();
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    showMenu(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+        Offset.zero & overlay.size,
+      ),
+      items: <PopupMenuEntry<dynamic>>[
+        PopupMenuItem(
+          value: 'select',
+          child: Text(widget.isSelected ? 'Deselect' : 'Select'),
+        ),
+        const PopupMenuItem(value: 'select_all', child: Text('Select All')),
+        if (widget.isSelectionMode)
+          const PopupMenuItem(
+            value: 'deselect_all',
+            child: Text('Deselect All'),
+          ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'edit', child: Text('Edit')),
+        if (widget.style.name != 'Transfer')
+          const PopupMenuItem(value: 'delete', child: Text('Delete')),
+      ],
+    ).then((value) {
+      if (!mounted) return;
+      if (value == 'select') {
+        if (!widget.isSelectionMode) {
+          bloc.add(const ToggleStyleSelectionMode(true));
+        }
+        if (widget.style.id != null) {
+          bloc.add(ToggleStyleSelection(widget.style.id!));
+        }
+      } else if (value == 'select_all') {
+        if (!widget.isSelectionMode) {
+          bloc.add(const ToggleStyleSelectionMode(true));
+        }
+        bloc.add(const SelectAllStyles());
+      } else if (value == 'deselect_all') {
+        bloc.add(const ClearStyleSelection());
+      } else if (value == 'edit') {
+        // If in selection mode, maybe exit it? or just navigate?
+        // Navigating is generic behavior
+        if (widget.style.id != null) {
+          context.push(
+            AppRoutes.editAccountStyle.replaceFirst(
+              ':id',
+              widget.style.id!.toString(),
+            ),
+          );
+        }
+      } else if (value == 'delete') {
+        // Single delete confirmation
+        _showSingleDeleteDialog(context, bloc);
+      }
+    });
+  }
+
+  void _showSingleDeleteDialog(BuildContext context, StylesBloc bloc) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Icon'),
+        content: Text(
+          'Are you sure you want to delete "${widget.style.name}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (widget.style.id != null) {
+                bloc.add(DeleteStyle(widget.style.id!));
+              }
+              Navigator.of(dialogContext).pop();
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return EscapeBackHandler(
-      child: Scaffold(
-        appBar: AppBar(title: const Text('Manage Icons')),
-        body: BlocBuilder<StylesBloc, StylesState>(
-          builder: (context, state) {
-            if (state is StylesLoadInProgress) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (state is StylesLoadSuccess) {
-              if (state.styles.isEmpty) {
-                return const Center(child: Text('No icons created yet.'));
-              }
-              return ListView.builder(
-                itemCount: state.styles.length,
-                itemBuilder: (context, index) {
-                  final style = state.styles[index];
-                  final color = _getColorFromHex(style.colorHex);
-                  final Widget iconWidget = IconUtils.getIconWidget(style);
+    final color = _getColorFromHex(widget.style.colorHex);
+    final iconWidget = IconUtils.getIconWidget(widget.style);
 
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: color,
-                      child: iconWidget,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: GestureDetector(
+        onSecondaryTapUp: (details) {
+          if (kIsWeb ||
+              defaultTargetPlatform == TargetPlatform.macOS ||
+              defaultTargetPlatform == TargetPlatform.linux ||
+              defaultTargetPlatform == TargetPlatform.windows) {
+            _showContextMenu(details.globalPosition);
+          }
+        },
+        child: ListTile(
+          onTap: widget.onTap,
+          onLongPress: widget.onLongPress,
+          selected: widget.isSelected,
+          leading: CircleAvatar(backgroundColor: color, child: iconWidget),
+          title: Text(widget.style.name),
+          tileColor: widget.isSelected
+              ? Theme.of(context).highlightColor
+              : _isHovering
+              ? Colors.grey.withValues(alpha: 0.1)
+              : null,
+          trailing: widget.isSelectionMode
+              ? (widget.isSelected
+                    ? Icon(
+                        Icons.check_circle,
+                        color: Theme.of(context).primaryColor,
+                      )
+                    : const Icon(Icons.circle_outlined))
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () {
+                        if (widget.style.id != null) {
+                          context.push(
+                            AppRoutes.editAccountStyle.replaceFirst(
+                              ':id',
+                              widget.style.id!.toString(),
+                            ),
+                          );
+                        }
+                      },
                     ),
-                    title: Text(style.name),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () {
-                            if (style.id != null) {
-                              context.push(
-                                AppRoutes.editAccountStyle.replaceFirst(
-                                  ':id',
-                                  style.id!.toString(),
-                                ),
-                              );
-                            }
-                          },
+                    if (widget.style.name != 'Transfer')
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.redAccent),
+                        onPressed: () => _showSingleDeleteDialog(
+                          context,
+                          context.read<StylesBloc>(),
                         ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete,
-                            color: Colors.redAccent,
-                          ),
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (dialogContext) => AlertDialog(
-                                title: const Text('Delete Icon'),
-                                content: Text(
-                                  'Are you sure you want to delete "${style.name}"?',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(dialogContext).pop(),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      context.read<StylesBloc>().add(
-                                        DeleteStyle(style.id!),
-                                      );
-                                      Navigator.of(dialogContext).pop();
-                                    },
-                                    child: const Text(
-                                      'Delete',
-                                      style: TextStyle(color: Colors.redAccent),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            }
-            return const Center(child: Text('Failed to load icons.'));
-          },
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            showDialog(
-              context: context,
-              builder: (_) => BlocProvider.value(
-                value: BlocProvider.of<StylesBloc>(context),
-                child: const AddStyleDialog(),
-              ),
-            );
-          },
-          child: const Icon(Icons.add),
+                      ),
+                  ],
+                ),
         ),
       ),
     );

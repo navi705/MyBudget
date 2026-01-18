@@ -77,6 +77,12 @@ final GoRouter router = GoRouter(
             path: AppRoutes.debug,
             builder: (context, state) => const DebugScreen(),
           ),
+        GoRoute(
+          path: AppRoutes.manageAccountStyles,
+          builder: (context, state) {
+            return const ManageStylesScreen();
+          },
+        ),
       ],
     ),
     GoRoute(
@@ -94,12 +100,7 @@ final GoRouter router = GoRouter(
         return EditAccountScreen(account: account);
       },
     ),
-    GoRoute(
-      path: AppRoutes.manageAccountStyles,
-      builder: (context, state) {
-        return const ManageStylesScreen();
-      },
-    ),
+
     GoRoute(
       path: AppRoutes.editAccountStyle,
       builder: (context, state) {

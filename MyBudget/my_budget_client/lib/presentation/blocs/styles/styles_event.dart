@@ -44,3 +44,38 @@ class _StylesUpdated extends StylesEvent {
   @override
   List<Object> get props => [styles];
 }
+
+class ToggleStyleSelectionMode extends StylesEvent {
+  final bool isActive;
+
+  const ToggleStyleSelectionMode(this.isActive);
+
+  @override
+  List<Object> get props => [isActive];
+}
+
+class ToggleStyleSelection extends StylesEvent {
+  final String styleId;
+
+  const ToggleStyleSelection(this.styleId);
+
+  @override
+  List<Object> get props => [styleId];
+}
+
+class SelectAllStyles extends StylesEvent {
+  const SelectAllStyles();
+}
+
+class ClearStyleSelection extends StylesEvent {
+  const ClearStyleSelection();
+}
+
+class DeleteMultipleStyles extends StylesEvent {
+  final List<String> ids;
+
+  const DeleteMultipleStyles(this.ids);
+
+  @override
+  List<Object> get props => [ids];
+}

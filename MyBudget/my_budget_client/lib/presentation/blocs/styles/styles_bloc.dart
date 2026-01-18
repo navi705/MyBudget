@@ -13,31 +13,30 @@ class StylesBloc extends Bloc<StylesEvent, StylesState> {
   StreamSubscription? _stylesSubscription;
 
   StylesBloc({required StyleRepository styleRepository})
-      : _styleRepository = styleRepository,
-        super(StylesInitial()) {
+    : _styleRepository = styleRepository,
+      super(StylesInitial()) {
     on<LoadStyles>(_onLoadStyles);
     on<AddStyle>(_onAddStyle);
     on<UpdateStyle>(_onUpdateStyle);
     on<DeleteStyle>(_onDeleteStyle);
     on<_StylesUpdated>(_onStylesUpdated);
+    on<ToggleStyleSelectionMode>(_onToggleStyleSelectionMode);
+    on<ToggleStyleSelection>(_onToggleStyleSelection);
+    on<SelectAllStyles>(_onSelectAllStyles);
+    on<ClearStyleSelection>(_onClearStyleSelection);
+    on<DeleteMultipleStyles>(_onDeleteMultipleStyles);
   }
 
-  void _onLoadStyles(
-    LoadStyles event,
-    Emitter<StylesState> emit,
-  ) {
+  void _onLoadStyles(LoadStyles event, Emitter<StylesState> emit) {
     emit(StylesLoadInProgress());
     _stylesSubscription?.cancel();
     _stylesSubscription = _styleRepository.watchAllStyles().listen(
-          (styles) => add(_StylesUpdated(styles)),
-          onError: (_) => emit(StylesLoadFailure()),
-        );
+      (styles) => add(_StylesUpdated(styles)),
+      onError: (_) => emit(StylesLoadFailure()),
+    );
   }
 
-  Future<void> _onAddStyle(
-    AddStyle event,
-    Emitter<StylesState> emit,
-  ) async {
+  Future<void> _onAddStyle(AddStyle event, Emitter<StylesState> emit) async {
     await _styleRepository.addStyle(event.style);
   }
 
@@ -55,11 +54,98 @@ class StylesBloc extends Bloc<StylesEvent, StylesState> {
     await _styleRepository.deleteStyle(event.id);
   }
 
-  void _onStylesUpdated(
-    _StylesUpdated event,
+  Future<void> _onDeleteMultipleStyles(
+    DeleteMultipleStyles event,
+    Emitter<StylesState> emit,
+  ) async {
+    // Only delete styles that are NOT "Transfer"
+    // Fetch current state to check names would be ideal, but for now we assume ID list is valid
+    // Ideally the checking logic is in UI or here.
+    // Assuming UI filters out Transfer ID before sending here, or we trust repository.
+    // However, to be safe, we could check. But we don't have style map here easily without state access.
+    // State access is available via `state`.
+
+    if (state is StylesLoadSuccess) {
+      final currentStyles = (state as StylesLoadSuccess).styles;
+      final stylesToDelete = currentStyles
+          .where((s) => event.ids.contains(s.id) && s.name != 'Transfer')
+          .toList();
+
+      for (final style in stylesToDelete) {
+        if (style.id != null) {
+          await _styleRepository.deleteStyle(style.id!);
+        }
+      }
+      add(const ClearStyleSelection());
+      add(const ToggleStyleSelectionMode(false));
+    }
+  }
+
+  void _onStylesUpdated(_StylesUpdated event, Emitter<StylesState> emit) {
+    // Preserve selection if possible, or just reset?
+    // Usually reset on new data load is safer to avoid stale IDs,
+    // but for updates (like edit) we might want to keep it.
+    // For now, let's keep current state params if it was Success.
+    if (state is StylesLoadSuccess) {
+      final currentState = state as StylesLoadSuccess;
+      emit(currentState.copyWith(styles: event.styles));
+    } else {
+      emit(StylesLoadSuccess(event.styles));
+    }
+  }
+
+  void _onToggleStyleSelectionMode(
+    ToggleStyleSelectionMode event,
     Emitter<StylesState> emit,
   ) {
-    emit(StylesLoadSuccess(event.styles));
+    if (state is StylesLoadSuccess) {
+      final currentState = state as StylesLoadSuccess;
+      emit(
+        currentState.copyWith(
+          isSelectionModeActive: event.isActive,
+          selectedStyleIds: event.isActive ? currentState.selectedStyleIds : {},
+        ),
+      );
+    }
+  }
+
+  void _onToggleStyleSelection(
+    ToggleStyleSelection event,
+    Emitter<StylesState> emit,
+  ) {
+    if (state is StylesLoadSuccess) {
+      final currentState = state as StylesLoadSuccess;
+      final newSelectedIds = Set<String>.from(currentState.selectedStyleIds);
+      if (newSelectedIds.contains(event.styleId)) {
+        newSelectedIds.remove(event.styleId);
+      } else {
+        newSelectedIds.add(event.styleId);
+      }
+      emit(currentState.copyWith(selectedStyleIds: newSelectedIds));
+    }
+  }
+
+  void _onSelectAllStyles(SelectAllStyles event, Emitter<StylesState> emit) {
+    if (state is StylesLoadSuccess) {
+      final currentState = state as StylesLoadSuccess;
+      // Exclude 'Transfer' from selection if we want to prevent its mass deletion?
+      // Or select it but prevent deletion later?
+      // Let's select all that have an ID.
+      final allIds = currentState.styles
+          .where((s) => s.id != null)
+          .map((s) => s.id!)
+          .toSet();
+      emit(currentState.copyWith(selectedStyleIds: allIds));
+    }
+  }
+
+  void _onClearStyleSelection(
+    ClearStyleSelection event,
+    Emitter<StylesState> emit,
+  ) {
+    if (state is StylesLoadSuccess) {
+      emit((state as StylesLoadSuccess).copyWith(selectedStyleIds: {}));
+    }
   }
 
   @override
