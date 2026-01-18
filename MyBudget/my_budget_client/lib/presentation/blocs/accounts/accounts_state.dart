@@ -28,7 +28,23 @@ abstract class AccountsState extends Equatable {
 
 class AccountsInitial extends AccountsState {}
 
-class AccountsLoadInProgress extends AccountsState {}
+class AccountsLoadInProgress extends AccountsState {
+  @override
+  final DateTime activeDate;
+  @override
+  final DateStep dateStep;
+  @override
+  final AccountFilters filters;
+
+  AccountsLoadInProgress({
+    DateTime? activeDate,
+    this.dateStep = DateStep.month,
+    this.filters = const AccountFilters(sort: Sort.descending),
+  }) : activeDate = activeDate ?? DateTime.now();
+
+  @override
+  List<Object?> get props => [activeDate, dateStep, filters];
+}
 
 class AccountsLoadSuccess extends AccountsState {
   @override
