@@ -45,6 +45,12 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     ),
   );
 
+  // OPTIMIZATION: Cache for exchange rates and currencies
+  // These don't change during a session, so we cache them
+  List<ExchangeRateDomain>? _cachedExchangeRates;
+  Set<DateTime> _cachedDates = {};
+  List<Currency>? _cachedCurrencies;
+
   DashboardBloc({
     required AccountRepository accountRepository,
     required TransactionRepository transactionRepository,
@@ -127,28 +133,79 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             'Dashboard: balances, totals, settings',
           );
 
-          // OPTIMIZATION: Run independent operations in PARALLEL
+          // OPTIMIZATION: Use cached data when available
           PerformanceLogger().start('Dashboard: Parallel Fetch');
 
           final uniqueDates = transactions
               .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
-              .toSet()
+              .toSet();
+          uniqueDates.add(
+            DateTime(
+              DateTime.now().year,
+              DateTime.now().month,
+              DateTime.now().day,
+            ),
+          );
+
+          // Check which dates need to be fetched (not in cache)
+          final missingDates = uniqueDates
+              .where((d) => !_cachedDates.contains(d))
               .toList();
-          uniqueDates.add(DateTime.now());
 
-          // Start all independent futures at once
-          final exchangeRatesFuture = _currencyRepository
-              .getLatestExchangeRatesByList(uniqueDates);
-          final availableCurrenciesFuture = _currencyRepository.getCurrencies();
+          List<ExchangeRateDomain> exchangeRates;
+          List<Currency> availableCurrencies;
 
-          // Wait for DB operations
-          final parallelResults = await Future.wait([
-            exchangeRatesFuture,
-            availableCurrenciesFuture,
-          ]);
+          if (missingDates.isEmpty &&
+              _cachedExchangeRates != null &&
+              _cachedCurrencies != null) {
+            // Use fully cached data - instant!
+            exchangeRates = _cachedExchangeRates!;
+            availableCurrencies = _cachedCurrencies!;
+            print('CACHE HIT: Using cached rates and currencies');
+          } else {
+            // Need to fetch missing data
+            final futures = <Future>[];
 
-          final exchangeRates = parallelResults[0] as List<ExchangeRateDomain>;
-          final availableCurrencies = parallelResults[1] as List<Currency>;
+            // Fetch currencies if not cached
+            if (_cachedCurrencies == null) {
+              futures.add(_currencyRepository.getCurrencies());
+            }
+
+            // Fetch exchange rates for missing dates (or all if first load)
+            if (_cachedExchangeRates == null) {
+              futures.add(
+                _currencyRepository.getLatestExchangeRatesByList(
+                  uniqueDates.toList(),
+                ),
+              );
+            } else if (missingDates.isNotEmpty) {
+              futures.add(
+                _currencyRepository.getLatestExchangeRatesByList(missingDates),
+              );
+            }
+
+            final results = await Future.wait(futures);
+            int idx = 0;
+
+            // Process currencies
+            if (_cachedCurrencies == null) {
+              _cachedCurrencies = results[idx++] as List<Currency>;
+            }
+            availableCurrencies = _cachedCurrencies!;
+
+            // Process exchange rates
+            if (_cachedExchangeRates == null) {
+              _cachedExchangeRates = results[idx++] as List<ExchangeRateDomain>;
+              _cachedDates = uniqueDates;
+            } else if (missingDates.isNotEmpty) {
+              final newRates = results[idx++] as List<ExchangeRateDomain>;
+              _cachedExchangeRates = [..._cachedExchangeRates!, ...newRates];
+              _cachedDates.addAll(missingDates);
+            }
+            exchangeRates = _cachedExchangeRates!;
+
+            print('CACHE MISS: Fetched ${missingDates.length} new dates');
+          }
 
           await PerformanceLogger().stop('Dashboard: Parallel Fetch');
 
