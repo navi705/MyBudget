@@ -525,10 +525,20 @@ _DashboardComputeResults _calculateDashboardData(
 
     final transactionCurrency = transaction.currencyCode;
 
-    // Exclude transfers (linked transactions) from Income/Expense indicators
-    // This matches the UI logic where transfers are not considered spending/earning
-    if (transaction.linkedTransactionId != null &&
-        transaction.linkedTransactionId!.isNotEmpty) {
+    // Exclude transfers from Income/Expense indicators
+    // Check both linkedTransactionId (for account transfers) AND category type
+    // This ensures ALL transfer transactions are excluded, regardless of how they were created
+    final categoryType = params.categoryTypeMap[transaction.categoryId];
+
+    // DEBUG: Log transfer detection
+    if (categoryType == CategoryType.transfer ||
+        (transaction.linkedTransactionId != null &&
+            transaction.linkedTransactionId!.isNotEmpty)) {
+      print(
+        'DEBUG TRANSFER EXCLUDED: ${transaction.description}, '
+        'categoryType=$categoryType, linkedTransactionId=${transaction.linkedTransactionId}, '
+        'amount=${transaction.amount}',
+      );
       continue;
     }
 
@@ -600,17 +610,9 @@ _DashboardComputeResults _calculateDashboardData(
         iterDate.day == params.selectedDay.day) {
       for (final account in params.accounts) {
         final rawBalance = currentBalances[account.id!] ?? 0.0;
-        dayBalances[account.id!] = converter.convert(
-          amount: rawBalance,
-          from: account.currencyCode,
-          to: params.mainCurrencyCode,
-          // Use conversionDate (today) for consistency with Net Worth graph
-          // OR use iterDate for historical value?
-          // Previous behavior (implied by "worse now") suggests walk-back was better.
-          // Let's stick to conversionDate (Today) for now to match Net Worth,
-          // but more importantly, this restores the correctly derived QUANTITY.
-          date: conversionDate,
-        );
+        // Store balance in account's ORIGINAL currency, not converted
+        // This allows the UI to display each account in its native currency
+        dayBalances[account.id!] = rawBalance;
       }
     }
 

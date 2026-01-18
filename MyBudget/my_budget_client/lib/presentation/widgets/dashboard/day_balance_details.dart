@@ -73,14 +73,18 @@ class DayBalanceDetails extends StatelessWidget {
     final color = _getColorFromHex(finalStyle.colorHex);
     final iconWidget = IconUtils.getIconWidget(finalStyle);
 
-    // Currency formatting: lookup designation or use default
+    // Currency formatting: lookup designation using ACCOUNT's currency, not target currency
+    // This ensures each account displays with its correct currency symbol
     final designation = currencyDesignations[account.currencyDesignationId];
     final symbol =
         designation?.value ??
-        NumberFormat.simpleCurrency(name: currencyCode).currencySymbol;
+        NumberFormat.simpleCurrency(name: account.currencyCode).currencySymbol;
 
-    // Format number without symbol first
-    final numberFormat = NumberFormat.currency(name: currencyCode, symbol: '');
+    // Format number without symbol first, using account's currency for proper decimal places
+    final numberFormat = NumberFormat.currency(
+      name: account.currencyCode,
+      symbol: '',
+    );
     final formattedBalance = '${numberFormat.format(balance).trim()} $symbol';
 
     return Card(

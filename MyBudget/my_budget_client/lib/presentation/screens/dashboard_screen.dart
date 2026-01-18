@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
-import 'package:my_budget_client/presentation/widgets/dashboard/accounts_overview_widget.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/category_pie_chart.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_calendar.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/day_balance_details.dart';
-
 import 'package:my_budget_client/presentation/widgets/dashboard/period_summary_widget.dart'; // Added
 import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_header.dart'; // Added
+import 'package:my_budget_client/presentation/widgets/dashboard/analytics_chart_selector.dart'; // Added
+import 'package:my_budget_client/presentation/screens/accounts_distribution_screen.dart'; // Added
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -42,6 +41,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             body: SafeArea(child: _buildBody(state)),
             bottomNavigationBar: BottomNavigationBar(
               currentIndex: state.activeTabIndex,
+              type: BottomNavigationBarType.fixed, // Added to show all 4 items
               onTap: (index) =>
                   context.read<DashboardBloc>().add(ChangeTab(index)),
               items: const [
@@ -54,8 +54,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   label: 'Categories',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.analytics_outlined),
-                  label: 'Analytics',
+                  icon: Icon(Icons.show_chart),
+                  label: 'Charts',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.donut_small),
+                  label: 'Distribution',
                 ),
               ],
             ),
@@ -77,6 +81,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return _buildCategoryView(state);
       case 2:
         return _buildAnalyticsView(state);
+      case 3:
+        return const AccountsDistributionScreen();
       default:
         return const Center(child: Text('Selection Error'));
     }
@@ -245,40 +251,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildAnalyticsView(DashboardLoadSuccess state) {
     return Column(
       children: [
-        const SizedBox(height: 16),
-        _buildDateRangeIndicator(state),
+        // Date Navigation Header (similar to calendar)
+        DashboardHeader(
+          selectedDay: state.selectedDay,
+          dateStep: state.dateStep,
+          currencyCode: state.selectedCurrency,
+          availableCurrencies: state.availableCurrencies
+              .map((e) => e.code)
+              .toList(),
+          onPrevious: () => context.read<DashboardBloc>().add(
+            SelectDay(
+              state.dateStep == DateStep.month
+                  ? DateTime(
+                      state.selectedDay.year,
+                      state.selectedDay.month - 1,
+                      1,
+                    )
+                  : DateTime(state.selectedDay.year - 1, 1, 1),
+            ),
+          ),
+          onNext: () => context.read<DashboardBloc>().add(
+            SelectDay(
+              state.dateStep == DateStep.month
+                  ? DateTime(
+                      state.selectedDay.year,
+                      state.selectedDay.month + 1,
+                      1,
+                    )
+                  : DateTime(state.selectedDay.year + 1, 1, 1),
+            ),
+          ),
+          onTitleTap: () => _showPeriodPicker(context, state),
+          onCurrencySelected: (currency) =>
+              context.read<DashboardBloc>().add(ChangeCurrency(currency)),
+          onDateStepChanged: (step) =>
+              context.read<DashboardBloc>().add(ChangeDateStep(step)),
+        ),
+        // Flexible Chart Selector
         Expanded(
-          child: AccountsOverviewWidget(
-            accounts: state.accounts,
-            dailyNetWorth: state.dailyNetWorth,
+          child: AnalyticsChartSelector(
             dateRangeStart: state.dateRangeStart,
             dateRangeEnd: state.dateRangeEnd,
+            dailyNetWorth: state.dailyNetWorth,
+            accounts: state.accounts,
+            categories: state.categories,
+            styles: state.styles,
+            categoryConvertedTotals: state.categoryConvertedTotals,
+            currencyCode: state.selectedCurrency,
+            isIncomeView: state.isIncomeView,
+            onToggleChartType: () => context.read<DashboardBloc>().add(
+              ToggleChartType(!state.isIncomeView),
+            ),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildDateRangeIndicator(DashboardLoadSuccess state) {
-    final df = DateFormat('yyyy-MM-dd');
-    return GestureDetector(
-      onTap: () => _showDateRangePicker(context, state),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.date_range, size: 16),
-              const SizedBox(width: 8),
-              Text(
-                '${df.format(state.dateRangeStart)} - ${df.format(state.dateRangeEnd)}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -299,29 +325,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // FIX: Also update DateStep if user selected different step in picker
           if (step != state.dateStep && step != DateStep.day) {
             bloc.add(ChangeDateStep(step));
-          }
-        },
-      ),
-    );
-  }
-
-  void _showDateRangePicker(BuildContext context, DashboardLoadSuccess state) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => CalendarStepPicker(
-        initialDate: state.dateRangeEnd,
-        initialRange: DateTimeRange(
-          start: state.dateRangeStart,
-          end: state.dateRangeEnd,
-        ),
-        initialStep: DateStep.day,
-        initialFilterMode: FilterMode.range,
-        onApply: (date, range, step, mode) {
-          if (range != null) {
-            context.read<DashboardBloc>().add(
-              ChangeDateRange(range.start, range.end),
-            );
           }
         },
       ),
