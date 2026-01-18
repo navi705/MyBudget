@@ -158,6 +158,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     date: state.selectedDay,
                     currencyCode: state.selectedCurrency,
                     styles: state.styles,
+                    currencyDesignations: state.currencyDesignations, // Added
                   ),
                 ],
               ),

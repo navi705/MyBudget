@@ -5,13 +5,15 @@ import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
+import 'package:my_budget_client/domain/entities/currency_designation.dart'; // Added
 
 class DayBalanceDetails extends StatelessWidget {
   final DateTime date;
   final List<Account> accounts;
   final Map<String, double> dayBalances;
   final String currencyCode;
-  final List<Style> styles;
+  final List<Style> styles; // Added
+  final Map<String, CurrencyDesignation> currencyDesignations; // Added
 
   const DayBalanceDetails({
     super.key,
@@ -20,6 +22,7 @@ class DayBalanceDetails extends StatelessWidget {
     required this.dayBalances,
     required this.currencyCode,
     required this.styles,
+    required this.currencyDesignations, // Added
   });
 
   Color _getColorFromHex(String? hexColor) {
@@ -70,15 +73,18 @@ class DayBalanceDetails extends StatelessWidget {
     final color = _getColorFromHex(finalStyle.colorHex);
     final iconWidget = IconUtils.getIconWidget(finalStyle);
 
-    // Currency formatting: Symbol at the end
+    // Currency formatting: lookup designation or use default
+    final designation = currencyDesignations[account.currencyDesignationId];
+    final symbol =
+        designation?.value ??
+        NumberFormat.simpleCurrency(name: currencyCode).currencySymbol;
+
+    // Format number without symbol first
     final numberFormat = NumberFormat.currency(name: currencyCode, symbol: '');
-    final symbol = NumberFormat.simpleCurrency(
-      name: currencyCode,
-    ).currencySymbol;
     final formattedBalance = '${numberFormat.format(balance).trim()} $symbol';
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12), // Increased spacing
       child: ListTile(
         leading: Container(
           padding: const EdgeInsets.all(8.0),

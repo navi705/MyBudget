@@ -124,12 +124,20 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
               dateTo: params.dateRangeEnd,
             ),
             _settingsRepository.getAllSettings(),
+            _currencyRepository.getAllCurrencyDesignations(), // Added
           ]);
 
           final rawDayBalances = parallelDbResults[0] as Map<String, double>;
           final categoryTotals =
               parallelDbResults[1] as List<GroupedTransactionTotal>;
           final settingsMap = parallelDbResults[2] as Map<String, String>;
+          final currencyDesignationsList =
+              parallelDbResults[3] as List<CurrencyDesignation>; // Added
+
+          final currencyDesignations = {
+            for (final d in currencyDesignationsList) d.id: d,
+          }; // Added
+
           final mainCurrencyCode = settingsMap['main_currency_code'] ?? 'USD';
 
           final targetCurrency = params.selectedCurrency.isEmpty
@@ -282,6 +290,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             dailyExpenses: computeResults.dailyExpenses,
             dailyNetWorth: computeResults.dailyNetWorth,
             availableCurrencies: availableCurrencies,
+            currencyDesignations: currencyDesignations, // Added
           );
         });
 
