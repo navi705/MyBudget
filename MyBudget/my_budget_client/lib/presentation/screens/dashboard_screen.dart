@@ -100,7 +100,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               vertical: 8.0,
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 SegmentedButton<DateStep>(
                   segments: const [
@@ -114,6 +114,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     );
                   },
                 ),
+                const SizedBox(width: 16),
                 DashboardCurrencySelector(
                   selectedCurrency: state.selectedCurrency,
                   availableCurrencies: const [
@@ -179,6 +180,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             accounts: state.accounts,
             dayBalances: state.dayBalances,
             date: state.selectedDay,
+            currencyCode: state.selectedCurrency,
+            styles: state.styles,
           ),
         ],
       ),

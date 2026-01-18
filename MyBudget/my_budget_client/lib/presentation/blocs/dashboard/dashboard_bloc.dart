@@ -145,6 +145,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             rateMap: rateMap,
             mainCurrencyCode: targetCurrency,
             dateRangeStart: params.dateRangeStart,
+            selectedDay: params.selectedDay,
           );
           final computeResults = _calculateDashboardData(computeParams);
           await PerformanceLogger().stop('Dashboard: compute');
@@ -296,6 +297,7 @@ class _DashboardComputeParams {
   final Map<String, Map<String, Map<int, double>>> rateMap;
   final String mainCurrencyCode;
   final DateTime dateRangeStart;
+  final DateTime selectedDay; // Added parameter definition
 
   _DashboardComputeParams({
     required this.accounts,
@@ -303,6 +305,7 @@ class _DashboardComputeParams {
     required this.rateMap,
     required this.mainCurrencyCode,
     required this.dateRangeStart,
+    required this.selectedDay, // Added
   });
 }
 
@@ -310,11 +313,16 @@ class _DashboardComputeResults {
   final Map<DateTime, double> dailyIncomes;
   final Map<DateTime, double> dailyExpenses;
   final Map<DateTime, double> dailyNetWorth;
+  final Map<String, double> dayBalances; // Added
+  final List<GroupedTransactionTotal>
+  categoryTotals; // Added - wait, I need to add/ensure this is handled
 
   _DashboardComputeResults({
     required this.dailyIncomes,
     required this.dailyExpenses,
     required this.dailyNetWorth,
+    required this.dayBalances,
+    this.categoryTotals = const [], // Default for now if not computed
   });
 }
 
@@ -352,6 +360,7 @@ _DashboardComputeResults _calculateDashboardData(
   final dailyIncomes = <DateTime, double>{};
   final dailyExpenses = <DateTime, double>{};
   final dailyNetWorth = <DateTime, double>{};
+  Map<String, double> dayBalances = {}; // Initialize
 
   for (final transaction in params.transactions) {
     final date = DateTime(
@@ -418,6 +427,27 @@ _DashboardComputeResults _calculateDashboardData(
 
     dailyNetWorth[iterDate] = totalNetWorth;
 
+    // Capture dayBalances if this is the selected day
+    if (iterDate.year == params.selectedDay.year &&
+        iterDate.month == params.selectedDay.month &&
+        iterDate.day == params.selectedDay.day) {
+      for (final account in params.accounts) {
+        final balance = currentBalances[account.id!] ?? 0.0;
+        double convertedHelper = balance;
+        if (account.currencyCode != params.mainCurrencyCode) {
+          convertedHelper =
+              balance *
+              _getRateFromMap(
+                params.rateMap,
+                account.currencyCode,
+                params.mainCurrencyCode,
+                dateKey,
+              );
+        }
+        dayBalances[account.id!] = convertedHelper;
+      }
+    }
+
     // Use pre-grouped transactions for better performance
     final dayTransactions = transactionsByDate[iterDate] ?? [];
     for (final transaction in dayTransactions) {
@@ -430,10 +460,15 @@ _DashboardComputeResults _calculateDashboardData(
     iterDate = iterDate.subtract(const Duration(days: 1));
   }
 
+  // If selectedDay was NOT found (e.g. today or future relative to loop context, or very old),
+  // we might need fallback. But loop starts at 'today'.
+  // If params.selectedDay is 'today', it should match first iteration.
+
   return _DashboardComputeResults(
     dailyIncomes: dailyIncomes,
     dailyExpenses: dailyExpenses,
     dailyNetWorth: dailyNetWorth,
+    dayBalances: dayBalances,
   );
 }
 

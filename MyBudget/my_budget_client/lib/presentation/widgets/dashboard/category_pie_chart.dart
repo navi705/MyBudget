@@ -1,8 +1,10 @@
+import 'package:collection/collection.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
-import 'package:my_budget_client/domain/entities/category_type.dart'; // Added
+import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 
@@ -79,7 +81,6 @@ class CategoryPieChart extends StatelessWidget {
     BuildContext context,
     List<MapEntry<String, double>> filteredTotals,
   ) {
-    /* Using FlChart PieChart */
     return PieChart(
       PieChartData(
         sectionsSpace: 2,
@@ -119,6 +120,11 @@ class CategoryPieChart extends StatelessWidget {
         final color =
             _parseColor(style?.colorHex) ??
             _getRandomColor(category.id.hashCode);
+
+        final iconWidget = style != null
+            ? IconUtils.getIconWidget(style)
+            : const Icon(Icons.category, color: Colors.white, size: 16);
+
         final percentage = totalSum > 0 ? (entry.value / totalSum) : 0.0;
 
         return _buildCategoryItem(
@@ -127,6 +133,7 @@ class CategoryPieChart extends StatelessWidget {
           entry.value,
           percentage,
           color,
+          iconWidget,
         );
       },
     );
@@ -138,6 +145,7 @@ class CategoryPieChart extends StatelessWidget {
     double amount,
     double percentage,
     Color color,
+    Widget iconWidget,
   ) {
     final theme = Theme.of(context);
     return Container(
@@ -152,9 +160,16 @@ class CategoryPieChart extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withAlpha((255 * 0.2).round()),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: FittedBox(child: iconWidget),
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -167,9 +182,7 @@ class CategoryPieChart extends StatelessWidget {
                 ),
               ),
               Text(
-                NumberFormat.currency(
-                  symbol: '',
-                ).format(amount), // Assuming base currency or raw amount
+                NumberFormat.currency(symbol: '').format(amount),
                 style: theme.textTheme.titleSmall,
               ),
             ],
@@ -200,11 +213,10 @@ class CategoryPieChart extends StatelessWidget {
     );
   }
 
-  // ... Helpers ... (Reuse existing logic)
+  // Helpers
 
   List<MapEntry<String, double>> _getFilteredTotals() {
     final totalsMap = <String, double>{};
-    // Filter categories by type (income/expense)
     final targetCategoryIds = categories
         .where(
           (c) => isIncome ? c.type.name == 'income' : c.type.name == 'expense',
@@ -254,7 +266,7 @@ class CategoryPieChart extends StatelessWidget {
         color: color,
         value: entry.value,
         title: percentage > 5 ? '${percentage.toStringAsFixed(0)}%' : '',
-        radius: 80, // Slightly larger
+        radius: 80,
         titleStyle: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
@@ -266,11 +278,7 @@ class CategoryPieChart extends StatelessWidget {
 
   Style? _getStyle(String? styleId) {
     if (styleId == null) return null;
-    try {
-      return styles.firstWhere((s) => s.id == styleId);
-    } catch (_) {
-      return null;
-    }
+    return styles.firstWhereOrNull((s) => s.id == styleId);
   }
 
   Color? _parseColor(String? hex) {
