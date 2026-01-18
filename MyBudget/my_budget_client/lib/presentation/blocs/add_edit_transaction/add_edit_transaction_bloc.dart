@@ -80,7 +80,36 @@ class AddEditTransactionBloc
         'main_currency_code',
       );
       final mainCurrencyCode = mainCurrencySetting?.value ?? 'EUR';
-      final initialTransaction = event.transaction;
+      var initialTransaction = event.transaction;
+
+      // NEW LOGIC: Check for "Cash Side" of Asset Transaction and SWAP context to Asset Side
+      // This ensures we always open the "Asset Edit" UI (Qty/Value) even if clicking the Cash Tx.
+      if (initialTransaction != null &&
+          initialTransaction.linkedTransactionId != null) {
+        try {
+          final linkedTx = await _transactionRepository.getTransactionById(
+            initialTransaction!.linkedTransactionId!,
+          );
+          if (linkedTx != null) {
+            final linkedAcc = accounts.firstWhereOrNull(
+              (a) => a.id == linkedTx.accountId,
+            );
+            // If the LINKED account is an ASSET account, and CURRENT is CASH
+            // We want to edit from the ASSET perspective.
+            if (linkedAcc?.assetId != null) {
+              final currentAcc = accounts.firstWhereOrNull(
+                (a) => a.id == initialTransaction!.accountId,
+              );
+              if (currentAcc?.assetId == null) {
+                // SWAP to Edit Asset Transaction
+                initialTransaction = linkedTx;
+              }
+            }
+          }
+        } catch (_) {
+          // ignore
+        }
+      }
 
       Account? selectedAccount;
       Account?
@@ -88,7 +117,7 @@ class AddEditTransactionBloc
 
       if (initialTransaction != null) {
         selectedAccount = accounts.firstWhereOrNull(
-          (a) => a.id == initialTransaction.accountId,
+          (a) => a.id == initialTransaction!.accountId,
         );
       } else if (event.accountId != null) {
         // NEW LOGIC: If in Transfer Mode, set this as "To Account" (destination)
@@ -113,14 +142,14 @@ class AddEditTransactionBloc
 
       final selectedCategory = initialTransaction != null
           ? categories.firstWhereOrNull(
-              (c) => c.id == initialTransaction.categoryId,
+              (c) => c.id == initialTransaction!.categoryId,
             )
           : (categories.isNotEmpty ? categories.first : null);
 
       Currency? selectedCurrency;
       if (initialTransaction != null) {
         selectedCurrency = currencies.firstWhereOrNull(
-          (c) => c.code == initialTransaction.currencyCode,
+          (c) => c.code == initialTransaction!.currencyCode,
         );
       }
       if (selectedCurrency == null && selectedAccount != null) {
@@ -144,7 +173,9 @@ class AddEditTransactionBloc
           fee: initialTransaction?.fee.toString() ?? '', // Added
           selectedAccount: selectedAccount,
           selectedCategory: selectedCategory,
-          isTransferMode: event.isTransfer, // Set transfer mode
+          isTransferMode:
+              event.isTransfer &&
+              selectedAccount?.assetId == null, // Set transfer mode
           selectedCurrency: selectedCurrency, // Added
           date: initialTransaction?.date ?? DateTime.now(),
           manualExchangeRate:
@@ -158,39 +189,62 @@ class AddEditTransactionBloc
         await _fetchRates(emit, selectedCurrency, selectedAccount, state.date);
       }
 
-      // Check if existing transaction is a Transfer (for Edit Mode)
-      bool isTransferEdit = false;
+      // Check if existing transaction is a Linked Transaction (Transfer or Asset)
+      // This handles restoring Linked Account, Total Value (for Assets), and Exchange Rate (for Transfers)
+      bool isLinkedEdit = false;
       Account? linkedAccount;
+      String? restoredTotalValue;
+      String? restoredExchangeRate;
 
       if (initialTransaction != null &&
           initialTransaction.linkedTransactionId != null) {
-        final transferId = await _getOrCreateTransferCategory();
-        // Allow for legacy 'Transfer' type check or specific System Category ID
-        final isTransferCat =
-            initialTransaction.categoryId == transferId ||
-            selectedCategory?.type == CategoryType.transfer;
+        try {
+          final linkedTx = await _transactionRepository.getTransactionById(
+            initialTransaction.linkedTransactionId!,
+          );
 
-        if (isTransferCat) {
-          isTransferEdit = true;
-          // Fetch Linked Transaction to get Account
-          try {
-            final linkedTx = await _transactionRepository.getTransactionById(
-              initialTransaction.linkedTransactionId!,
+          if (linkedTx != null) {
+            isLinkedEdit = true;
+            linkedAccount = accounts.firstWhereOrNull(
+              (a) => a.id == linkedTx.accountId,
             );
-            if (linkedTx != null) {
-              linkedAccount = accounts.firstWhereOrNull(
-                (a) => a.id == linkedTx.accountId,
-              );
+
+            // Determine if Asset or Standard Transfer
+            final isAsset = selectedAccount?.assetId != null;
+
+            if (isAsset) {
+              // Asset Transaction: Restore Total Value (Cash Amount)
+              // Linked Tx Amount is the cash value.
+              restoredTotalValue = linkedTx.amount.abs().toString();
+            } else {
+              // Standard Transfer: Restore Exchange Rate
+              // We infer the effective rate used: LinkedAmount / MainAmount
+              if (initialTransaction.amount != 0) {
+                final rate =
+                    linkedTx.amount.abs() / initialTransaction.amount.abs();
+                // We set manual rate if it deviates from 1:1 or implies conversion
+                // This ensures we preserve the historical "Effective Rate"
+                restoredExchangeRate = rate.toString();
+              }
             }
-          } catch (_) {
-            // Ignore if linked tx not found
           }
+        } catch (_) {
+          // Ignore if linked tx not found
         }
       }
 
-      if (isTransferEdit) {
+      if (isLinkedEdit) {
+        // If it was identified as a linked edit (Transfer category or Asset), set the mode
+        // For Assets, isAssetTransaction getter takes precedence, but we set linkedAccount here.
         emit(
-          state.copyWith(isTransferMode: true, linkedAccount: linkedAccount),
+          state.copyWith(
+            isTransferMode: selectedAccount?.assetId == null,
+            linkedAccount: linkedAccount,
+            totalValue: restoredTotalValue ?? state.totalValue,
+            // If we calculated a restored rate, use it. Otherwise keep existing (from initialTx or default)
+            manualExchangeRate:
+                restoredExchangeRate ?? state.manualExchangeRate,
+          ),
         );
       }
 
@@ -615,10 +669,16 @@ class AddEditTransactionBloc
         // --- ASSET TRANSACTION LOGIC ---
         final qty = amount; // amount is Quantity and non-null here
         final totalValue = double.tryParse(state.totalValue) ?? 0.0;
+        final isEdit = state.isEditing;
 
         // IDs
-        final assetTxId = const Uuid().v4();
-        final cashTxId = const Uuid().v4();
+        final assetTxId = isEdit
+            ? state.initialTransaction!.id!
+            : const Uuid().v4();
+        final cashTxId = isEdit
+            ? (state.initialTransaction!.linkedTransactionId ??
+                  const Uuid().v4())
+            : const Uuid().v4();
 
         // 1. Asset Transaction (Quantity)
         // Buy = Positive Quantity, Sell = Negative Quantity
@@ -691,8 +751,13 @@ class AddEditTransactionBloc
         // Rate = Total Value (Cash Curr) / (Quantity * Asset Price (Asset Curr))?
         // No, keep it simple. Just transfer values.
 
-        await _transactionRepository.addTransaction(assetTx);
-        await _transactionRepository.addTransaction(cashTx);
+        if (isEdit) {
+          await _transactionRepository.updateTransaction(assetTx);
+          await _transactionRepository.updateTransaction(cashTx);
+        } else {
+          await _transactionRepository.addTransaction(assetTx);
+          await _transactionRepository.addTransaction(cashTx);
+        }
       } else if (state.isTransferMode) {
         // --- TRANSFER LOGIC ---
         // 1. From Account (Expense)
@@ -703,8 +768,14 @@ class AddEditTransactionBloc
           return;
         }
 
-        final txId1 = const Uuid().v4();
-        final txId2 = const Uuid().v4();
+        final isEdit = state.isEditing;
+        final txId1 = isEdit
+            ? state.initialTransaction!.id!
+            : const Uuid().v4();
+        final txId2 = isEdit
+            ? (state.initialTransaction!.linkedTransactionId ??
+                  const Uuid().v4())
+            : const Uuid().v4();
 
         // From: Expense
         final tx1 = Transaction(
@@ -748,8 +819,13 @@ class AddEditTransactionBloc
           linkedTransactionId: txId1,
         );
 
-        await _transactionRepository.addTransaction(tx1);
-        await _transactionRepository.addTransaction(tx2);
+        if (isEdit) {
+          await _transactionRepository.updateTransaction(tx1);
+          await _transactionRepository.updateTransaction(tx2);
+        } else {
+          await _transactionRepository.addTransaction(tx1);
+          await _transactionRepository.addTransaction(tx2);
+        }
       } else {
         // --- STANDARD LOGIC ---
         // Determine Final Amount and Currency
