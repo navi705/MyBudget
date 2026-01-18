@@ -47,7 +47,8 @@ class CategoryPieChart extends StatelessWidget {
 
         if (isWide) {
           return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.center, // Vertically center with list
             children: [
               Expanded(
                 flex: 2,
@@ -85,6 +86,7 @@ class CategoryPieChart extends StatelessWidget {
   ) {
     return PieChart(
       PieChartData(
+        startDegreeOffset: -90, // Start from 12 o'clock
         sectionsSpace: 2,
         centerSpaceRadius: 40,
         sections: _buildSections(context, filteredTotals),
