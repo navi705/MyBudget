@@ -161,8 +161,8 @@ class DashboardCalendar extends StatelessWidget {
           color: isSelected
               ? colorScheme.primaryContainer
               : (isToday
-                    ? colorScheme.surfaceContainerHighest
-                    : colorScheme.surfaceContainerLow),
+                    ? colorScheme.primaryContainer.withValues(alpha: 0.8)
+                    : theme.cardColor),
           borderRadius: BorderRadius.circular(8),
           border: isSelected
               ? Border.all(color: colorScheme.primary, width: 2)

@@ -246,9 +246,7 @@ class _AccountListItemState extends State<AccountListItem> {
                   ),
                   color: widget.isSelected
                       ? Theme.of(context).highlightColor
-                      : _isHovering
-                      ? Colors.grey.withValues(alpha: 0.1)
-                      : null,
+                      : Theme.of(context).cardColor,
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 20.0,

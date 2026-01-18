@@ -44,13 +44,12 @@ class PeriodSummaryWidget extends StatelessWidget {
 
     final net = totalIncome - totalExpense;
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     // CHANGE: Use compact format without currency prefix for cleaner display
     final formatter = NumberFormat.compact();
 
     return Card(
       elevation: 0,
-      color: colorScheme.surfaceContainer,
+      color: theme.cardColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
