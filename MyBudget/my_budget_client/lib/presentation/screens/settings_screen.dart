@@ -9,6 +9,12 @@ import 'package:my_budget_client/core/services/data_export_service.dart';
 import 'package:my_budget_client/core/services/data_import_service.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/widgets/currency_picker_dialog.dart';
+import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -176,6 +182,18 @@ class SettingsScreen extends StatelessWidget {
                       context.push(AppRoutes.apiSettings);
                     },
                   ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.restore_page, color: Colors.red),
+                    title: const Text(
+                      'Reset Data to Defaults',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    subtitle: const Text(
+                      'This will delete all data and restore default settings.',
+                    ),
+                    onTap: () => _confirmResetData(context),
+                  ),
                 ],
               );
             },
@@ -221,5 +239,64 @@ class SettingsScreen extends StatelessWidget {
         ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
       }
     }
+  }
+
+  void _confirmResetData(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Data?'),
+        content: const Text(
+          'Warning! This will delete ALL your transactions, accounts, and settings.\n\n'
+          'The app will be restored to its initial state with default data.\n'
+          'This action CANNOT be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.of(context).pop(); // Close dialog
+              await _performReset(context);
+            },
+            child: const Text('Reset Everything'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performReset(BuildContext context) async {
+    try {
+      final db = GetIt.I<AppDatabase>();
+      await db.clearAllData();
+
+      if (context.mounted) {
+        _reloadAllBlocs(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Data reset and defaults restored.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Reset failed: $e')));
+      }
+    }
+  }
+
+  void _reloadAllBlocs(BuildContext context) {
+    context.read<AccountsBloc>().add(LoadAccounts());
+    context.read<CategoriesBloc>().add(LoadCategories());
+    context.read<CurrencyBloc>().add(LoadCurrencies());
+    context.read<CurrencyConverterBloc>().add(LoadCurrencyConverter());
+    context.read<DashboardBloc>().add(LoadDashboard());
+    context.read<SettingsBloc>().add(LoadSettings());
+    context.read<StylesBloc>().add(LoadStyles());
+    context.read<TransactionsBloc>().add(const InitialLoadTransactions());
   }
 }
