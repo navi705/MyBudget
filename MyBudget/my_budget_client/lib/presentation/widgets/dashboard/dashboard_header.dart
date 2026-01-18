@@ -41,6 +41,7 @@ class DashboardHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Left Arrow
           IconButton(
@@ -53,21 +54,21 @@ class DashboardHeader extends StatelessWidget {
             availableCurrencies: availableCurrencies,
             onCurrencyChanged: onCurrencySelected,
           ),
-          // Expandable Center: Title
-          Expanded(
-            child: InkWell(
-              onTap: onTitleTap,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                alignment: Alignment.center,
-                child: Text(
-                  title,
-                  style: TextStyle(color: onSurface, fontSize: 18),
-                ),
+          const SizedBox(width: 16),
+          // Center: Title
+          InkWell(
+            onTap: onTitleTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              alignment: Alignment.center,
+              child: Text(
+                title,
+                style: TextStyle(color: onSurface, fontSize: 18),
               ),
             ),
           ),
+          const SizedBox(width: 16),
           // DateStep Selector (Month/Year)
           SegmentedButton<DateStep>(
             segments: const [

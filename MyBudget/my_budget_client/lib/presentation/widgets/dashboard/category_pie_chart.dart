@@ -278,18 +278,54 @@ class CategoryPieChart extends StatelessWidget {
       ).currencySymbol;
       final formattedValue = '${compactFormat.format(entry.value)}$symbol';
 
+      // SMART FORMULA: Adjust color to harmonize with background
+      final isThemeDark = Theme.of(context).brightness == Brightness.dark;
+      Color adjustedColor = color;
+
+      try {
+        final hsl = HSLColor.fromColor(color);
+        if (isThemeDark) {
+          // In dark mode: ensure colors aren't too dark (visibilty) or too pastel (contrast)
+          // Boost lightness slightly if very dark, boost saturation if very dull
+          adjustedColor = hsl
+              .withLightness(hsl.lightness.clamp(0.4, 0.8))
+              .withSaturation(hsl.saturation.clamp(0.6, 1.0))
+              .toColor();
+        } else {
+          // In light mode: ensure colors aren't too bright (washed out against white/light card)
+          // standard colors usually look okay, but maybe clamp lightness
+          adjustedColor = hsl
+              .withLightness(hsl.lightness.clamp(0.3, 0.7))
+              .toColor();
+        }
+      } catch (_) {
+        // Fallback if conversion fails (rare)
+      }
+
+      // Determine text color based on ADJUSTED background luminance
+      final isDarkBg = adjustedColor.computeLuminance() < 0.5;
+      final textColor = isDarkBg ? Colors.white : Colors.black;
+
+      // Smart label logic
+      String title = '';
+      if (percentage > 15) {
+        // Large slice: Show everything
+        title = '${percentage.toStringAsFixed(0)}%\n$formattedValue';
+      } else if (percentage > 5) {
+        // Medium slice: Show only percentage
+        title = '${percentage.toStringAsFixed(0)}%';
+      }
+      // Small slice (< 5%): Show nothing to prevent clutter
+
       return PieChartSectionData(
-        color: color,
+        color: adjustedColor,
         value: entry.value,
-        // Show BOTH percentage and value if space permits (e.g. > 5%)
-        title: percentage > 5
-            ? '${percentage.toStringAsFixed(0)}%\n$formattedValue'
-            : '',
+        title: title,
         radius: 80,
-        titleStyle: const TextStyle(
+        titleStyle: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.bold,
-          color: Colors.white,
+          color: textColor,
         ),
       );
     }).toList();
