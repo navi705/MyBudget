@@ -254,7 +254,9 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
 
   final Map<String, Category> _categoryCache = {};
   final Map<String, Style> _styleCache = {};
-  final Map<String, Account> _accountCache = {}; // Added
+  final Map<String, Account> _accountCache = {};
+  // OPTIMIZATION: Cache exchange rates to avoid repeated DB queries
+  final Map<DateTime, List<ExchangeRateDomain>> _exchangeRateCache = {};
 
   TransactionsBloc({
     required TransactionRepository transactionRepository,
@@ -378,16 +380,37 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
 
     final styles = _styleCache.values.toList();
 
-    // 3. Fetch Rates
+    // 3. Fetch Rates (OPTIMIZED: with caching)
     PerformanceLogger().start('Transactions: fetch exchange rates');
     final uniqueDates = transactions
         .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
         .toSet()
         .toList();
 
-    final rates = await _currencyRepository.getLatestExchangeRatesByList(
-      uniqueDates,
-    );
+    // Check cache for missing dates
+    final missingDates = uniqueDates
+        .where((d) => !_exchangeRateCache.containsKey(d))
+        .toList();
+
+    List<ExchangeRateDomain> rates = [];
+    if (missingDates.isNotEmpty) {
+      final newRates = await _currencyRepository.getLatestExchangeRatesByList(
+        missingDates,
+      );
+      // Cache new rates by date
+      for (final rate in newRates) {
+        final dateKey = DateTime(
+          rate.date.year,
+          rate.date.month,
+          rate.date.day,
+        );
+        _exchangeRateCache.putIfAbsent(dateKey, () => []).add(rate);
+      }
+    }
+    // Collect all rates from cache
+    for (final date in uniqueDates) {
+      rates.addAll(_exchangeRateCache[date] ?? []);
+    }
     await PerformanceLogger().stop('Transactions: fetch exchange rates');
 
     // 4. Fetch Linked Transactions

@@ -474,6 +474,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           expense: expense,
         ),
       );
+      await PerformanceLogger().stop('Accounts Screen Load');
     } catch (e) {
       PerformanceLogger().stop('Accounts Screen Load');
       emit(AccountsLoadFailure());

@@ -112,27 +112,33 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
         }
       }
 
-      final rates = await _currencyRepository.getExchangeRatesFiltered(
-        limit: limit,
-        offset: offset,
-        startDate: startDate,
-        endDate: endDate,
-        fromCurrency: state.fromCurrencyFilter,
-        toCurrency: state.toCurrencyFilter,
-        presets: state.presetFilters,
-        sortAscending: state.sort == Sort.ascending,
-      );
+      // OPTIMIZATION: Run queries in parallel using Future.wait
+      final needsCurrencies = state.currencies.isEmpty;
+      final results = await Future.wait([
+        _currencyRepository.getExchangeRatesFiltered(
+          limit: limit,
+          offset: offset,
+          startDate: startDate,
+          endDate: endDate,
+          fromCurrency: state.fromCurrencyFilter,
+          toCurrency: state.toCurrencyFilter,
+          presets: state.presetFilters,
+          sortAscending: state.sort == Sort.ascending,
+        ),
+        _currencyRepository.getExchangeRatesCount(
+          startDate: startDate,
+          endDate: endDate,
+          fromCurrency: state.fromCurrencyFilter,
+          toCurrency: state.toCurrencyFilter,
+          presets: state.presetFilters,
+        ),
+        if (needsCurrencies) _currencyRepository.getCurrencies(),
+      ]);
 
-      final totalCount = await _currencyRepository.getExchangeRatesCount(
-        startDate: startDate,
-        endDate: endDate,
-        fromCurrency: state.fromCurrencyFilter,
-        toCurrency: state.toCurrencyFilter,
-        presets: state.presetFilters,
-      );
-
-      final currencies = state.currencies.isEmpty
-          ? await _currencyRepository.getCurrencies()
+      final rates = results[0] as List<ExchangeRateDomain>;
+      final totalCount = results[1] as int;
+      final currencies = needsCurrencies
+          ? results[2] as List<Currency>
           : state.currencies;
 
       emit(
