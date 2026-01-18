@@ -23,6 +23,7 @@ class DashboardLoadSuccess extends DashboardState {
   final DateTime dateRangeStart;
   final DateTime dateRangeEnd;
   final DateStep dateStep;
+  final String selectedCurrency;
   final bool isIncomeView;
 
   // Aggregated data
@@ -42,6 +43,7 @@ class DashboardLoadSuccess extends DashboardState {
     DateTime? dateRangeStart,
     DateTime? dateRangeEnd,
     this.dateStep = DateStep.month,
+    this.selectedCurrency = 'USD',
     this.isIncomeView = false,
     this.dayBalances = const {},
     this.categoryTotals = const [],
@@ -63,6 +65,7 @@ class DashboardLoadSuccess extends DashboardState {
     DateTime? dateRangeStart,
     DateTime? dateRangeEnd,
     DateStep? dateStep,
+    String? selectedCurrency,
     bool? isIncomeView,
     Map<String, double>? dayBalances,
     List<GroupedTransactionTotal>? categoryTotals,
@@ -80,6 +83,7 @@ class DashboardLoadSuccess extends DashboardState {
       dateRangeStart: dateRangeStart ?? this.dateRangeStart,
       dateRangeEnd: dateRangeEnd ?? this.dateRangeEnd,
       dateStep: dateStep ?? this.dateStep,
+      selectedCurrency: selectedCurrency ?? this.selectedCurrency,
       isIncomeView: isIncomeView ?? this.isIncomeView,
       dayBalances: dayBalances ?? this.dayBalances,
       categoryTotals: categoryTotals ?? this.categoryTotals,
@@ -100,6 +104,7 @@ class DashboardLoadSuccess extends DashboardState {
     dateRangeStart,
     dateRangeEnd,
     dateStep,
+    selectedCurrency,
     isIncomeView,
     dayBalances,
     categoryTotals,

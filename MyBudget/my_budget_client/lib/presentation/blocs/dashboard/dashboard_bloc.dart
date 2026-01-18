@@ -36,7 +36,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       selectedDay: DateTime.now(),
       dateRangeStart: DateTime.now().subtract(const Duration(days: 30)),
       dateRangeEnd: DateTime.now(),
-      dateStep: DateStep.month, // Added default
+      dateStep: DateStep.month,
+      selectedCurrency: '', // Seed with empty, will resolve to main
       isIncomeView: false,
     ),
   );
@@ -60,7 +61,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     on<ChangeDateRange>(_onChangeDateRange);
     on<SelectDay>(_onSelectDay);
     on<ToggleChartType>(_onToggleChartType);
-    on<ChangeDateStep>(_onChangeDateStep); // Added
+    on<ChangeDateStep>(_onChangeDateStep);
+    on<ChangeCurrency>(_onChangeCurrency);
   }
 
   Future<void> _onLoadDashboard(
@@ -113,6 +115,11 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
           final settingsMap = await _settingsRepository.getAllSettings();
           final mainCurrencyCode = settingsMap['main_currency_code'] ?? 'USD';
+
+          final targetCurrency = params.selectedCurrency.isEmpty
+              ? mainCurrencyCode
+              : params.selectedCurrency;
+
           await PerformanceLogger().stop(
             'Dashboard: balances, totals, settings',
           );
@@ -136,7 +143,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             accounts: accounts,
             transactions: transactions,
             rateMap: rateMap,
-            mainCurrencyCode: mainCurrencyCode,
+            mainCurrencyCode: targetCurrency,
             dateRangeStart: params.dateRangeStart,
           );
           final computeResults = _calculateDashboardData(computeParams);
@@ -153,7 +160,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             selectedDay: params.selectedDay,
             dateRangeStart: params.dateRangeStart,
             dateRangeEnd: params.dateRangeEnd,
-            dateStep: params.dateStep, // Added
+            dateStep: params.dateStep,
+            selectedCurrency: targetCurrency,
             isIncomeView: params.isIncomeView,
             dayBalances: dayBalances,
             categoryTotals: categoryTotals,
@@ -213,6 +221,12 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     _paramsSubject.add(_paramsSubject.value.copyWith(dateStep: event.step));
   }
 
+  void _onChangeCurrency(ChangeCurrency event, Emitter<DashboardState> emit) {
+    _paramsSubject.add(
+      _paramsSubject.value.copyWith(selectedCurrency: event.currencyCode),
+    );
+  }
+
   @override
   Future<void> close() {
     _paramsSubject.close();
@@ -225,7 +239,8 @@ class _DashboardParams {
   final DateTime selectedDay;
   final DateTime dateRangeStart;
   final DateTime dateRangeEnd;
-  final DateStep dateStep; // Added
+  final DateStep dateStep;
+  final String selectedCurrency; // Added
   final bool isIncomeView;
 
   _DashboardParams({
@@ -233,7 +248,8 @@ class _DashboardParams {
     required this.selectedDay,
     required this.dateRangeStart,
     required this.dateRangeEnd,
-    required this.dateStep, // Added
+    required this.dateStep,
+    required this.selectedCurrency, // Added
     required this.isIncomeView,
   });
 
@@ -242,7 +258,8 @@ class _DashboardParams {
     DateTime? selectedDay,
     DateTime? dateRangeStart,
     DateTime? dateRangeEnd,
-    DateStep? dateStep, // Added
+    DateStep? dateStep,
+    String? selectedCurrency, // Added
     bool? isIncomeView,
   }) {
     return _DashboardParams(
@@ -250,7 +267,8 @@ class _DashboardParams {
       selectedDay: selectedDay ?? this.selectedDay,
       dateRangeStart: dateRangeStart ?? this.dateRangeStart,
       dateRangeEnd: dateRangeEnd ?? this.dateRangeEnd,
-      dateStep: dateStep ?? this.dateStep, // Added
+      dateStep: dateStep ?? this.dateStep,
+      selectedCurrency: selectedCurrency ?? this.selectedCurrency, // Added
       isIncomeView: isIncomeView ?? this.isIncomeView,
     );
   }

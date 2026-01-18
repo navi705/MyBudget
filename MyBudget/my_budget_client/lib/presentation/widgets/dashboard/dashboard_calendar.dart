@@ -12,6 +12,7 @@ class DashboardCalendar extends StatelessWidget {
   final VoidCallback onNext;
   final VoidCallback onPrevious;
   final VoidCallback onTitleTap;
+  final String currencyCode; // Added
 
   const DashboardCalendar({
     super.key,
@@ -24,6 +25,7 @@ class DashboardCalendar extends StatelessWidget {
     required this.onNext,
     required this.onPrevious,
     required this.onTitleTap,
+    required this.currencyCode,
   });
 
   @override
@@ -193,13 +195,13 @@ class DashboardCalendar extends StatelessWidget {
               if (income > 0)
                 _buildMiniStat(
                   context,
-                  '+${NumberFormat.compact().format(income)}',
+                  '+${NumberFormat.compactSimpleCurrency(name: currencyCode).format(income)}',
                   Colors.green,
                 ),
               if (expense > 0)
                 _buildMiniStat(
                   context,
-                  '-${NumberFormat.compact().format(expense)}',
+                  '-${NumberFormat.compactSimpleCurrency(name: currencyCode).format(expense)}',
                   Colors.red,
                 ),
             ],
@@ -292,7 +294,7 @@ class DashboardCalendar extends StatelessWidget {
             const SizedBox(height: 8),
             if (totalIncome > 0)
               Text(
-                '+${NumberFormat.compact().format(totalIncome)}',
+                '+${NumberFormat.compactSimpleCurrency(name: currencyCode).format(totalIncome)}',
                 style: const TextStyle(
                   color: Colors.green,
                   fontSize: 12,
@@ -301,7 +303,7 @@ class DashboardCalendar extends StatelessWidget {
               ),
             if (totalExpense > 0)
               Text(
-                '-${NumberFormat.compact().format(totalExpense)}',
+                '-${NumberFormat.compactSimpleCurrency(name: currencyCode).format(totalExpense)}',
                 style: const TextStyle(
                   color: Colors.red,
                   fontSize: 12,

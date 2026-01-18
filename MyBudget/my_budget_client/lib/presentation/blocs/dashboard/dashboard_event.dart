@@ -42,10 +42,19 @@ class ToggleChartType extends DashboardEvent {
   List<Object?> get props => [isIncome];
 }
 
+// ... (existing events)
 class ChangeDateStep extends DashboardEvent {
   final DateStep step;
   const ChangeDateStep(this.step);
 
   @override
   List<Object?> get props => [step];
+}
+
+class ChangeCurrency extends DashboardEvent {
+  final String currencyCode;
+  const ChangeCurrency(this.currencyCode);
+
+  @override
+  List<Object?> get props => [currencyCode];
 }
