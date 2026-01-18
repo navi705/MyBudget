@@ -13,7 +13,7 @@ import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
-import 'package:my_budget_client/domain/entities/exchange_rate.dart';
+
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 
 part 'categories_event.dart';
@@ -24,9 +24,6 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   final SettingsRepository _settingsRepository;
   final TransactionRepository _transactionRepository;
   final CurrencyRepository _currencyRepository;
-
-  // OPTIMIZATION: Cache exchange rates to avoid repeated DB queries
-  final Map<DateTime, List<ExchangeRateDomain>> _exchangeRateCache = {};
 
   CategoriesBloc({
     required CategoryRepository categoryRepository,
@@ -329,50 +326,14 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       PerformanceLogger().start('Categories: Future.wait');
       final results = await Future.wait([
         _categoryRepository.getCategories(),
-        _transactionRepository.getTransactionTotalsGrouped(
-          dateFrom: dateFrom,
-          dateTo: dateTo,
-        ),
         _currencyRepository.getAllCurrencyDesignations(),
       ]);
       await PerformanceLogger().stop('Categories: Future.wait');
 
       final categories = results[0] as List<Category>;
-      final groupedTotals = results[1] as List<GroupedTransactionTotal>;
-      final currencyDesignations = results[2] as List<CurrencyDesignation>;
+      final currencyDesignations = results[1] as List<CurrencyDesignation>;
 
-      PerformanceLogger().start('Categories: fetch exchange rates');
-      final uniqueDates = groupedTotals
-          .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
-          .toSet()
-          .toList();
-
-      // Check cache for missing dates
-      final missingDates = uniqueDates
-          .where((d) => !_exchangeRateCache.containsKey(d))
-          .toList();
-
-      if (missingDates.isNotEmpty) {
-        final newRates = await _currencyRepository.getLatestExchangeRatesByList(
-          missingDates,
-        );
-        // Cache new rates by date
-        for (final rate in newRates) {
-          final dateKey = DateTime(
-            rate.date.year,
-            rate.date.month,
-            rate.date.day,
-          );
-          _exchangeRateCache.putIfAbsent(dateKey, () => []).add(rate);
-        }
-      }
-
-      // Collect all rates from cache
-      final List<ExchangeRateDomain> allRates = [];
-      for (final date in uniqueDates) {
-        allRates.addAll(_exchangeRateCache[date] ?? []);
-      }
-      await PerformanceLogger().stop('Categories: fetch exchange rates');
+      // Legacy exchange rate logic removed - handled entirely by SQL aggregation now
 
       PerformanceLogger().start('Categories: compute totals');
       // OPTIMIZATION: Use SQL aggregation instead of Dart compute
