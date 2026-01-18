@@ -72,6 +72,7 @@ class ChangeExchangeRatesActiveDate extends ExchangeRatesEvent {
 class ChangeExchangeRatesActiveDateRange extends ExchangeRatesEvent {
   final DateTimeRange dateRange;
   const ChangeExchangeRatesActiveDateRange(this.dateRange);
+  @override
   List<Object?> get props => [dateRange];
 }
 

@@ -149,13 +149,14 @@ class ThemeSettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<WindowEffectType>(
-              value:
+              initialValue:
                   WindowEffectType.values
                       .where((e) {
                         if (Platform.isMacOS) return true;
                         if (e == WindowEffectType.vibrancy ||
-                            e == WindowEffectType.aero)
+                            e == WindowEffectType.aero) {
                           return false;
+                        }
                         return true;
                       })
                       .contains(theme.windowEffectType)
@@ -170,8 +171,9 @@ class ThemeSettingsScreen extends StatelessWidget {
                     if (Platform.isMacOS) return true;
                     // Filter Check
                     if (e == WindowEffectType.vibrancy ||
-                        e == WindowEffectType.aero)
+                        e == WindowEffectType.aero) {
                       return false;
+                    }
                     return true;
                   })
                   .map(

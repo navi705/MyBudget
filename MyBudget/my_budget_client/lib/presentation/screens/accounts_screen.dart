@@ -725,7 +725,7 @@ class TotalBalanceCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${formatter.format(accountsState.income).replaceAll(',', ' ')}',
+                      formatter.format(accountsState.income).replaceAll(',', ' '),
                       style: TextStyle(fontSize: 14, color: Colors.green),
                     ),
                   ],
@@ -741,7 +741,7 @@ class TotalBalanceCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${formatter.format(accountsState.expense).replaceAll(',', ' ')}',
+                      formatter.format(accountsState.expense).replaceAll(',', ' '),
                       style: TextStyle(fontSize: 14, color: Colors.red),
                     ),
                   ],

@@ -101,7 +101,7 @@ class ExternalData {
             'contextid': '2',
           };
           if (startAssetId != null) {
-            queryParams['start_assetid'] = startAssetId!;
+            queryParams['start_assetid'] = startAssetId;
           }
 
           final uriGetItems = Uri.https(

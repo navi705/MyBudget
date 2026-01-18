@@ -796,7 +796,7 @@ class AddEditTransactionBloc
               : state.description,
           amount: -(amount.abs()),
           date: date,
-          accountId: accountId!,
+          accountId: accountId,
           categoryId: categoryId!,
           currencyCode:
               state.selectedCurrency?.code ??
@@ -876,7 +876,7 @@ class AddEditTransactionBloc
             description: finalDescription,
             amount: finalAmount,
             date: date,
-            accountId: accountId!,
+            accountId: accountId,
             categoryId: categoryId!,
             currencyCode: finalCurrency,
             exchangeRate: finalExchangeRate,

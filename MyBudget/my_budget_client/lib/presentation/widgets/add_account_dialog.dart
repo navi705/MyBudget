@@ -193,7 +193,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
               BlocBuilder<SettingsBloc, SettingsState>(
                 builder: (context, state) {
                   return DropdownButtonFormField<String>(
-                    value: _selectedCountry,
+                    initialValue: _selectedCountry,
                     hint: const Text('Select Country'),
                     items: state.countries
                         .map(

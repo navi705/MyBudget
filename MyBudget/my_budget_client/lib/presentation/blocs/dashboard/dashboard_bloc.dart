@@ -177,7 +177,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             // Use fully cached data - instant!
             exchangeRates = _cachedExchangeRates!;
             availableCurrencies = _cachedCurrencies!;
-            print('CACHE HIT: Using cached rates and currencies');
           } else {
             // Need to fetch missing data
             final futures = <Future>[];
@@ -204,9 +203,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             int idx = 0;
 
             // Process currencies
-            if (_cachedCurrencies == null) {
-              _cachedCurrencies = results[idx++] as List<Currency>;
-            }
+            _cachedCurrencies ??= results[idx++] as List<Currency>;
             availableCurrencies = _cachedCurrencies!;
 
             // Process exchange rates
@@ -219,8 +216,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
               _cachedDates.addAll(missingDates);
             }
             exchangeRates = _cachedExchangeRates!;
-
-            print('CACHE MISS: Fetched ${missingDates.length} new dates');
           }
 
           await PerformanceLogger().stop('Dashboard: Parallel Fetch');
@@ -230,10 +225,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           // OPTIMIZATION: Cache CurrencyConverter - only recreate when rates change
           if (_cachedConverter == null || missingDates.isNotEmpty) {
             _cachedConverter = CurrencyConverter(exchangeRates);
-            print('CONVERTER: Created new (rates changed)');
-          } else {
-            print('CONVERTER: Using cached');
-          }
+          } else {}
 
           // Build Category Type Map for filtering (Isolate safe: String -> Enum)
           final categoryTypeMap = {
@@ -489,8 +481,8 @@ class _DashboardComputeResults {
     required this.dailyIncomes,
     required this.dailyExpenses,
     required this.dailyNetWorth,
-    required this.dayBalances,
-    this.categoryTotals = const [], // Default for now if not computed
+    required this.dayBalances, // Default for now if not computed
+    required this.categoryTotals,
   });
 }
 
@@ -504,9 +496,7 @@ _DashboardComputeResults _calculateDashboardData(
   sectionStopwatch.start();
   final converter = params.converter;
   final conversionDate = DateTime.now();
-  print(
-    'COMPUTE: CurrencyConverter (from cache): ${sectionStopwatch.elapsedMilliseconds}ms',
-  );
+
   sectionStopwatch.reset();
 
   final dailyIncomes = <DateTime, double>{};
@@ -563,9 +553,7 @@ _DashboardComputeResults _calculateDashboardData(
       );
     }
   }
-  print(
-    'COMPUTE: Income/Expense loop (${params.transactions.length} txs): ${sectionStopwatch.elapsedMilliseconds}ms',
-  );
+
   sectionStopwatch.reset();
 
   // Section 3: Pre-group transactions
@@ -579,9 +567,6 @@ _DashboardComputeResults _calculateDashboardData(
     );
     transactionsByDate.putIfAbsent(date, () => []).add(transaction);
   }
-  print(
-    'COMPUTE: Pre-group transactions: ${sectionStopwatch.elapsedMilliseconds}ms',
-  );
   sectionStopwatch.reset();
 
   // Section 4: Net Worth walk-back (THE BOTTLENECK)
@@ -652,5 +637,6 @@ _DashboardComputeResults _calculateDashboardData(
     dailyExpenses: dailyExpenses,
     dailyNetWorth: dailyNetWorth,
     dayBalances: dayBalances,
+    categoryTotals: [],
   );
 }

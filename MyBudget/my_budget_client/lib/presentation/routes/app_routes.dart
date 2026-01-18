@@ -3,6 +3,7 @@ class AppRoutes {
   static const String debug = '/debug';
   static const String accounts = '/accounts';
   static const String settings = '/settings';
+  static const String hotKeys = '/settings/hot-keys'; // Added hotKeys route
   static const String categories = '/categories';
   static const String transactions = '/transactions';
   static const String editAccount = '/account/edit';

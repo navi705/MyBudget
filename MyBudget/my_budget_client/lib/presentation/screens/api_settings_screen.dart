@@ -171,7 +171,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                         vertical: 8.0,
                       ),
                       child: DropdownButtonFormField<GameApiSteam>(
-                        value: _selectedGame,
+                        initialValue: _selectedGame,
                         hint: const Text('Select Game'),
                         items: GameApiSteam.values
                             .map(

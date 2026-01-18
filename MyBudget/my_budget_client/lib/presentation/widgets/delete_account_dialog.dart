@@ -69,7 +69,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: DropdownButtonFormField<String>(
-                    value: _newAccountId,
+                    initialValue: _newAccountId,
                     items: availableAccounts
                         .map(
                           (a) => DropdownMenuItem(

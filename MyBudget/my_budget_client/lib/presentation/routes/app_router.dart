@@ -13,6 +13,7 @@ import 'package:my_budget_client/presentation/screens/import_screen.dart';
 import 'package:my_budget_client/presentation/screens/main_screen.dart';
 import 'package:my_budget_client/presentation/screens/manage_styles_screen.dart';
 import 'package:my_budget_client/presentation/screens/settings_screen.dart';
+import '../screens/hot_keys_screen.dart';
 import 'package:my_budget_client/presentation/screens/theme_settings_screen.dart';
 import 'package:my_budget_client/presentation/screens/transactions_screen.dart';
 import 'package:my_budget_client/presentation/screens/categories_screen.dart';
@@ -71,6 +72,10 @@ final GoRouter router = GoRouter(
           builder: (context, state) {
             return const SettingsScreen();
           },
+        ),
+        GoRoute(
+          path: AppRoutes.hotKeys,
+          builder: (context, state) => const HotKeysScreen(),
         ),
         if (kDebugMode)
           GoRoute(

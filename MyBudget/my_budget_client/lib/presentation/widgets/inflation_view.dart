@@ -166,12 +166,13 @@ class InflationView extends StatelessWidget {
             // I will show confirmation dialog here.
 
             Future.delayed(Duration.zero, () {
-              if (context.mounted)
+              if (context.mounted) {
                 _showDeleteConfirmation(
                   context,
                   bloc,
                   isSelected ? state.selectedRates.length : 1,
                 );
+              }
             });
           },
           child: const Row(

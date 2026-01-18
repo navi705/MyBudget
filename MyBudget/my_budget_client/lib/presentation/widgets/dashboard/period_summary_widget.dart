@@ -109,8 +109,9 @@ class PeriodSummaryWidget extends StatelessWidget {
       name: currencyCode,
     ).currencySymbol;
     String text = '${formatter.format(amount)}$currencySymbol';
-    if (showSign && amount > 0)
+    if (showSign && amount > 0) {
       text = '+${formatter.format(amount)}$currencySymbol';
+    }
 
     return Column(
       children: [

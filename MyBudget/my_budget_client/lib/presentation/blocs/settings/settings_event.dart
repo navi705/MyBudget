@@ -25,6 +25,16 @@ class UpdateThemeMode extends SettingsEvent {
   List<Object> get props => [themeMode];
 }
 
+class UpdateHotkey extends SettingsEvent {
+  final String actionId;
+  final String keySetString;
+
+  const UpdateHotkey(this.actionId, this.keySetString);
+
+  @override
+  List<Object> get props => [actionId, keySetString];
+}
+
 class _SettingsChanged extends SettingsEvent {
   final List<Settings> settings;
 
