@@ -45,7 +45,8 @@ class PeriodSummaryWidget extends StatelessWidget {
     final net = totalIncome - totalExpense;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final formatter = NumberFormat.compactSimpleCurrency(name: currencyCode);
+    // CHANGE: Use compact format without currency prefix for cleaner display
+    final formatter = NumberFormat.compact();
 
     return Card(
       elevation: 0,
@@ -104,8 +105,12 @@ class PeriodSummaryWidget extends StatelessWidget {
     NumberFormat formatter, {
     bool showSign = false,
   }) {
-    String text = formatter.format(amount);
-    if (showSign && amount > 0) text = "+$text";
+    final currencySymbol = NumberFormat.simpleCurrency(
+      name: currencyCode,
+    ).currencySymbol;
+    String text = '${formatter.format(amount)}$currencySymbol';
+    if (showSign && amount > 0)
+      text = '+${formatter.format(amount)}$currencySymbol';
 
     return Column(
       children: [

@@ -37,23 +37,34 @@ class DashboardCalendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900), // Constraint for PC
-        child: Column(
-          children: [
-            _buildHeader(context),
-            const SizedBox(height: 16),
-            if (dateStep == DateStep.month) ...[
-              _buildWeekdayLabels(context),
-              const SizedBox(height: 8),
-              _buildMonthView(context),
-            ] else if (dateStep == DateStep.year) ...[
-              _buildYearView(context),
-            ],
-          ],
-        ),
-      ),
+    // RESPONSIVE: Use LayoutBuilder to adapt to screen size
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calculate appropriate maxWidth based on screen width
+        final screenWidth = constraints.maxWidth;
+        final isWideScreen = screenWidth > 600;
+        // RESPONSIVE: 700px on desktop for better readability
+        final maxCalendarWidth = isWideScreen ? 700.0 : screenWidth;
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxCalendarWidth),
+            child: Column(
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 16),
+                if (dateStep == DateStep.month) ...[
+                  _buildWeekdayLabels(context),
+                  const SizedBox(height: 8),
+                  _buildMonthView(context, isWideScreen),
+                ] else if (dateStep == DateStep.year) ...[
+                  _buildYearView(context),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -151,20 +162,23 @@ class DashboardCalendar extends StatelessWidget {
     );
   }
 
-  Widget _buildMonthView(BuildContext context) {
+  Widget _buildMonthView(BuildContext context, bool isWideScreen) {
     final firstDayOfMonth = DateTime(selectedDay.year, selectedDay.month, 1);
     final lastDayOfMonth = DateTime(selectedDay.year, selectedDay.month + 1, 0);
     final daysInMonth = lastDayOfMonth.day;
     final startingWeekday = firstDayOfMonth.weekday; // 1=Mon
 
+    // RESPONSIVE: Use different aspect ratio for phone vs desktop
+    final aspectRatio = isWideScreen ? 0.9 : 0.75;
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 7,
         mainAxisSpacing: 8,
         crossAxisSpacing: 8,
-        childAspectRatio: 0.75, // Taller cells for stats
+        childAspectRatio: aspectRatio,
       ),
       itemCount: daysInMonth + (startingWeekday - 1),
       itemBuilder: (context, index) {
@@ -229,18 +243,18 @@ class DashboardCalendar extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            // Stats
+            // Stats - show compact numbers with currency SYMBOL at END
             if (income > 0 || expense > 0) ...[
               if (income > 0)
                 _buildMiniStat(
                   context,
-                  '+${NumberFormat.compactSimpleCurrency(name: currencyCode).format(income)}',
+                  '+${NumberFormat.compact().format(income)}${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
                   Colors.green,
                 ),
               if (expense > 0)
                 _buildMiniStat(
                   context,
-                  '-${NumberFormat.compactSimpleCurrency(name: currencyCode).format(expense)}',
+                  '-${NumberFormat.compact().format(expense)}${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
                   Colors.red,
                 ),
             ],
@@ -337,8 +351,11 @@ class DashboardCalendar extends StatelessWidget {
                 final net = totalIncome - totalExpense;
                 // Use green for gain (or 0), red for loss
                 final color = net >= 0 ? Colors.green : Colors.red;
+                final currencySymbol = NumberFormat.simpleCurrency(
+                  name: currencyCode,
+                ).currencySymbol;
                 return Text(
-                  '${net >= 0 ? '+' : ''}${NumberFormat.compactSimpleCurrency(name: currencyCode).format(net)}',
+                  '${net >= 0 ? '+' : ''}${NumberFormat.compact().format(net)}$currencySymbol',
                   style: TextStyle(
                     color: color,
                     fontSize: 12,
