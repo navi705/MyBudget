@@ -461,10 +461,20 @@ class FinanceCalculator {
       }
     }
 
+    // Map Accounts for O(1) lookup
+    final accountMap = {for (var a in data.accounts) a.id: a};
+
     for (final tx in periodTx) {
       // Filter out Transfers
       final type = categoryTypes[tx.categoryId];
       if (type == CategoryType.transfer) {
+        continue;
+      }
+
+      final account = accountMap[tx.accountId];
+      // Exclude Asset Quantity Transactions from Income/Expense Stats
+      // (Assets are tracked via Net Worth / Asset Value, not Income flows)
+      if (account?.assetId != null) {
         continue;
       }
 
@@ -492,11 +502,6 @@ class FinanceCalculator {
 
       // Real Stats (Adjusted to Now)
       // We need to resolve Account -> Country for inflation.
-      final account = data.accounts.cast<Account?>().firstWhere(
-        (a) => a!.id == tx.accountId,
-        orElse: () => null,
-      );
-
       double multiplier = 1.0;
       final country = account?.country ?? defaultCountry;
 
