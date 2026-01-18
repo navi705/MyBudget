@@ -160,6 +160,7 @@ class FinanceCalculator {
             balance = 0.0;
           } else {
             // Find exact match or closest BEFORE/EQUAL the target date
+            // For future dates (after last entry), use the last available entry
             AssetDataDomain? bestEntry;
             for (final e in entries) {
               final eDate = DateTime(e.date.year, e.date.month, e.date.day);
@@ -174,6 +175,12 @@ class FinanceCalculator {
                 // Passed target date, stop
                 break;
               }
+            }
+
+            // If no entry found (shouldn't happen since earliestDate check passed)
+            // OR if target date is in the future (after all entries), use the last entry
+            if (bestEntry == null && entries.isNotEmpty) {
+              bestEntry = entries.last; // Use last known price for future dates
             }
 
             if (bestEntry != null) {

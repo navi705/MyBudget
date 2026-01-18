@@ -14,12 +14,15 @@ import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart'; // Added
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
+import 'package:my_budget_client/domain/entities/asset_data.dart'; // Added
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
+import 'package:my_budget_client/domain/repositories/asset_repository.dart'; // Added
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/style_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+import 'package:my_budget_client/domain/services/finance_calculator.dart'; // Added for asset balance calculation
 import 'package:rxdart/rxdart.dart';
 
 part 'dashboard_event.dart';
@@ -32,6 +35,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final StyleRepository _styleRepository;
   final CurrencyRepository _currencyRepository;
   final SettingsRepository _settingsRepository;
+  final AssetRepository _assetRepository; // Added
 
   // Parameters stream
   final _paramsSubject = BehaviorSubject<_DashboardParams>.seeded(
@@ -60,12 +64,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     required StyleRepository styleRepository,
     required CurrencyRepository currencyRepository,
     required SettingsRepository settingsRepository,
+    required AssetRepository assetRepository, // Added
   }) : _accountRepository = accountRepository,
        _transactionRepository = transactionRepository,
        _categoryRepository = categoryRepository,
        _styleRepository = styleRepository,
        _currencyRepository = currencyRepository,
        _settingsRepository = settingsRepository,
+       _assetRepository = assetRepository, // Added
        super(DashboardInitial()) {
     on<LoadDashboard>(_onLoadDashboard);
     on<ChangeTab>(_onChangeTab);
@@ -125,6 +131,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             ),
             _settingsRepository.getAllSettings(),
             _currencyRepository.getAllCurrencyDesignations(), // Added
+            _assetRepository.getAssetData(), // Added for asset-linked accounts
           ]);
 
           // final rawDayBalances = parallelDbResults[0] as Map<String, double>; // Removed unused
@@ -133,12 +140,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           final settingsMap = parallelDbResults[2] as Map<String, String>;
           final currencyDesignationsList =
               parallelDbResults[3] as List<CurrencyDesignation>; // Added
+          final assetData =
+              parallelDbResults[4] as List<AssetDataDomain>; // Added
 
           final currencyDesignations = {
             for (final d in currencyDesignationsList) d.id: d,
           }; // Added
 
-          final mainCurrencyCode = settingsMap['main_currency_code'] ?? 'USD';
+          final mainCurrencyCode = settingsMap['main_currency_code'] ?? 'EUR';
 
           final targetCurrency = params.selectedCurrency.isEmpty
               ? mainCurrencyCode
@@ -242,6 +251,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             selectedDay: params.selectedDay,
             categoryTypeMap: categoryTypeMap,
             converter: _cachedConverter!, // Pass cached converter
+            assetData: assetData, // Added for asset-linked accounts
           );
 
           // Converted balances are now computed in _calculateDashboardData to match historical state exactly
@@ -456,6 +466,7 @@ class _DashboardComputeParams {
   final DateTime selectedDay;
   final Map<String, CategoryType> categoryTypeMap;
   final CurrencyConverter converter; // OPTIMIZATION: Pre-built converter
+  final List<AssetDataDomain> assetData; // Added for asset-linked accounts
 
   _DashboardComputeParams({
     required this.accounts,
@@ -466,6 +477,7 @@ class _DashboardComputeParams {
     required this.selectedDay,
     required this.categoryTypeMap,
     required this.converter,
+    required this.assetData, // Added for asset-linked accounts
   });
 }
 
@@ -586,6 +598,34 @@ _DashboardComputeResults _calculateDashboardData(
 
   var iterDate = DateTime(today.year, today.month, today.day);
   final historyLimit = DateTime(start.year, start.month, start.day);
+  final selectedDayNormalized = DateTime(
+    params.selectedDay.year,
+    params.selectedDay.month,
+    params.selectedDay.day,
+  );
+
+  // SPECIAL CASE: If selected day is in the future (after today),
+  // use FinanceCalculator directly since walk-back won't reach it
+  if (selectedDayNormalized.isAfter(iterDate)) {
+    final financeCalc = FinanceCalculator();
+    final snapshot = FinancialSnapshot(
+      accounts: params.accounts,
+      transactions: params.transactions,
+      assetData: params.assetData,
+      categories: [], // Not needed for balance calc
+      exchangeRates: params.rates,
+      inflationRates: [], // Not needed for balance calc
+      date: params.selectedDay,
+      dateStep: DateStep.day,
+      baseCurrency: params.mainCurrencyCode,
+    );
+
+    // For future dates, calculate balances using FinanceCalculator
+    // This handles both standard accounts (with future transactions if any)
+    // and asset-linked accounts (with last known price)
+    dayBalances = financeCalc.calculateBalances(snapshot);
+  }
+
   int daysIterated = 0;
 
   while (iterDate.isAfter(historyLimit) ||
@@ -604,16 +644,28 @@ _DashboardComputeResults _calculateDashboardData(
 
     dailyNetWorth[iterDate] = totalNetWorth;
 
-    // Capture day balances for the specific selected day
+    // Capture day balances for the specific selected day using FinanceCalculator
+    // This ensures asset-linked accounts are calculated correctly (quantity * price)
     if (iterDate.year == params.selectedDay.year &&
         iterDate.month == params.selectedDay.month &&
         iterDate.day == params.selectedDay.day) {
-      for (final account in params.accounts) {
-        final rawBalance = currentBalances[account.id!] ?? 0.0;
-        // Store balance in account's ORIGINAL currency, not converted
-        // This allows the UI to display each account in its native currency
-        dayBalances[account.id!] = rawBalance;
-      }
+      // Use FinanceCalculator for precise balance calculation including assets
+      final financeCalc = FinanceCalculator();
+      final snapshot = FinancialSnapshot(
+        accounts: params.accounts,
+        transactions: params.transactions,
+        assetData: params.assetData,
+        categories: [], // Not needed for balance calc
+        exchangeRates: params.rates,
+        inflationRates: [], // Not needed for balance calc
+        date: params.selectedDay,
+        dateStep: DateStep.day,
+        baseCurrency: params.mainCurrencyCode,
+      );
+
+      // Calculate balances using FinanceCalculator
+      // This properly handles both standard and asset-linked accounts
+      dayBalances = financeCalc.calculateBalances(snapshot);
     }
 
     final dayTransactions = transactionsByDate[iterDate] ?? [];

@@ -95,6 +95,7 @@ Future<void> init() async {
       styleRepository: sl(),
       currencyRepository: sl(),
       settingsRepository: sl(),
+      assetRepository: sl(), // Added
     ),
   );
   sl.registerFactory(
