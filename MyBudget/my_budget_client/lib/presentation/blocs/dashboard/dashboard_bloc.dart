@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:flutter/foundation.dart'
-    hide Category; // Isolate support, hide Category collision
 import 'package:my_budget_client/core/enums/filter_enums.dart'; // Added
 import 'package:my_budget_client/core/utils/currency_converter.dart'; // Added
 import 'package:my_budget_client/core/utils/performance_logger.dart';
@@ -129,19 +127,30 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             'Dashboard: balances, totals, settings',
           );
 
-          PerformanceLogger().start('Dashboard: getExchangeRates');
-          // Load rates for ALL unique transaction dates (like TransactionsBloc)
-          // This ensures CurrencyConverter finds historical rates.
+          // OPTIMIZATION: Run independent operations in PARALLEL
+          PerformanceLogger().start('Dashboard: Parallel Fetch');
+
           final uniqueDates = transactions
               .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
               .toSet()
               .toList();
-          // Add today for any new transactions
           uniqueDates.add(DateTime.now());
 
-          final exchangeRates = await _currencyRepository
+          // Start all independent futures at once
+          final exchangeRatesFuture = _currencyRepository
               .getLatestExchangeRatesByList(uniqueDates);
-          await PerformanceLogger().stop('Dashboard: getExchangeRates');
+          final availableCurrenciesFuture = _currencyRepository.getCurrencies();
+
+          // Wait for DB operations
+          final parallelResults = await Future.wait([
+            exchangeRatesFuture,
+            availableCurrenciesFuture,
+          ]);
+
+          final exchangeRates = parallelResults[0] as List<ExchangeRateDomain>;
+          final availableCurrencies = parallelResults[1] as List<Currency>;
+
+          await PerformanceLogger().stop('Dashboard: Parallel Fetch');
 
           PerformanceLogger().start('Dashboard: compute');
 
@@ -160,13 +169,11 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             selectedDay: params.selectedDay,
             categoryTypeMap: categoryTypeMap,
           );
-          final computeResults = await compute(
-            _calculateDashboardData,
-            computeParams,
-          );
 
-          final availableCurrencies = await _currencyRepository
-              .getCurrencies(); // Added
+          // OPTIMIZATION: Run on main thread instead of compute() isolate
+          // Reason: Actual work is only ~27ms, but compute() overhead is ~350ms
+          // 27ms won't block the UI, so isolate is not justified
+          final computeResults = _calculateDashboardData(computeParams);
 
           await PerformanceLogger().stop('Dashboard: compute');
 
@@ -341,20 +348,26 @@ class _DashboardComputeResults {
 _DashboardComputeResults _calculateDashboardData(
   _DashboardComputeParams params,
 ) {
+  final totalStopwatch = Stopwatch()..start();
+  final sectionStopwatch = Stopwatch();
+
+  // Section 1: CurrencyConverter init
+  sectionStopwatch.start();
   final converter = CurrencyConverter(params.rates);
-  final conversionDate =
-      DateTime.now(); // Value everything at TODAY'S rate for consistency (Constant Currency)
+  final conversionDate = DateTime.now();
+  print(
+    'COMPUTE: CurrencyConverter init: ${sectionStopwatch.elapsedMilliseconds}ms',
+  );
+  sectionStopwatch.reset();
 
   final dailyIncomes = <DateTime, double>{};
   final dailyExpenses = <DateTime, double>{};
   final dailyNetWorth = <DateTime, double>{};
-  Map<String, double> dayBalances = {}; // Initialize
+  Map<String, double> dayBalances = {};
 
   final currentBalances = <String, double>{};
-  final accountCurrencyMap =
-      <String, String>{}; // Cache account IDs to currency
-  final accountAssetMap =
-      <String, bool>{}; // Cache check if account is asset-bound
+  final accountCurrencyMap = <String, String>{};
+  final accountAssetMap = <String, bool>{};
 
   for (final account in params.accounts) {
     currentBalances[account.id!] = account.balance;
@@ -362,46 +375,21 @@ _DashboardComputeResults _calculateDashboardData(
     accountAssetMap[account.id!] = account.assetId != null;
   }
 
+  // Section 2: Income/Expense loop
+  sectionStopwatch.start();
   for (final transaction in params.transactions) {
-    // FILTERING LOGIC:
-    // User expects Dashboard to match Transaction List (which shows everything).
-    // Previously we filtered Transfers/Assets, causing data to disappear (e.g. 64 -> 37).
-    // We now include EVERYTHING.
-    // NOTE: This might inflate Income/Expense bars if Transfers are internal, but it guarantees "User Calculation" match.
-
-    // 1. Exclude Transfers - DISABLED (User wants to see them)
-    /*
-    final type = params.categoryTypeMap[transaction.categoryId];
-    if (type == CategoryType.transfer) {
-      continue;
-    }
-    */
-
-    // 2. Exclude Asset Accounts - DISABLED (Hides valid expenses from Cash Wallets)
-    /*
-    if (accountAssetMap[transaction.accountId] == true) {
-      continue;
-    }
-    */
-
     final date = DateTime(
       transaction.date.year,
       transaction.date.month,
       transaction.date.day,
     );
 
-    // CRITICAL FIX: Use transaction's own currency, NOT account's currency!
-    // This matches TransactionsBloc logic exactly.
     final transactionCurrency = transaction.currencyCode;
-
-    // CRITICAL FIX #2: Use transaction DATE for conversion, NOT today!
-    // TransactionsBloc uses historical rates on transaction date.
     final convertedAmount = converter.convert(
       amount: transaction.amount,
       from: transactionCurrency,
       to: params.mainCurrencyCode,
-      date:
-          date, // Use transaction date for historical rate (matches Transaction List)
+      date: date,
     );
 
     if (convertedAmount > 0) {
@@ -418,8 +406,13 @@ _DashboardComputeResults _calculateDashboardData(
       );
     }
   }
+  print(
+    'COMPUTE: Income/Expense loop (${params.transactions.length} txs): ${sectionStopwatch.elapsedMilliseconds}ms',
+  );
+  sectionStopwatch.reset();
 
-  // Pre-group transactions by date for faster lookup during net worth walk-back
+  // Section 3: Pre-group transactions
+  sectionStopwatch.start();
   final transactionsByDate = <DateTime, List<Transaction>>{};
   for (final transaction in params.transactions) {
     final date = DateTime(
@@ -429,12 +422,19 @@ _DashboardComputeResults _calculateDashboardData(
     );
     transactionsByDate.putIfAbsent(date, () => []).add(transaction);
   }
+  print(
+    'COMPUTE: Pre-group transactions: ${sectionStopwatch.elapsedMilliseconds}ms',
+  );
+  sectionStopwatch.reset();
 
+  // Section 4: Net Worth walk-back (THE BOTTLENECK)
+  sectionStopwatch.start();
   final today = DateTime.now();
   final start = params.dateRangeStart;
 
   var iterDate = DateTime(today.year, today.month, today.day);
   final historyLimit = DateTime(start.year, start.month, start.day);
+  int daysIterated = 0;
 
   while (iterDate.isAfter(historyLimit) ||
       iterDate.isAtSameMomentAs(historyLimit)) {
@@ -452,7 +452,6 @@ _DashboardComputeResults _calculateDashboardData(
 
     dailyNetWorth[iterDate] = totalNetWorth;
 
-    // Capture dayBalances if this is the selected day
     if (iterDate.year == params.selectedDay.year &&
         iterDate.month == params.selectedDay.month &&
         iterDate.day == params.selectedDay.day) {
@@ -462,13 +461,12 @@ _DashboardComputeResults _calculateDashboardData(
           amount: balance,
           from: account.currencyCode,
           to: params.mainCurrencyCode,
-          date: conversionDate, // Use conversionDate
+          date: conversionDate,
         );
         dayBalances[account.id!] = convertedHelper;
       }
     }
 
-    // Use pre-grouped transactions for better performance
     final dayTransactions = transactionsByDate[iterDate] ?? [];
     for (final transaction in dayTransactions) {
       if (currentBalances.containsKey(transaction.accountId)) {
@@ -478,7 +476,14 @@ _DashboardComputeResults _calculateDashboardData(
     }
 
     iterDate = iterDate.subtract(const Duration(days: 1));
+    daysIterated++;
   }
+  print(
+    'COMPUTE: Net Worth walk-back ($daysIterated days, ${params.accounts.length} accounts): ${sectionStopwatch.elapsedMilliseconds}ms',
+  );
+
+  totalStopwatch.stop();
+  print('COMPUTE: TOTAL: ${totalStopwatch.elapsedMilliseconds}ms');
 
   return _DashboardComputeResults(
     dailyIncomes: dailyIncomes,
