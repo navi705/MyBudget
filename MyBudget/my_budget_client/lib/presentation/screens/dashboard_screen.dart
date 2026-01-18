@@ -10,6 +10,7 @@ import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_calend
 import 'package:my_budget_client/presentation/widgets/dashboard/day_balance_details.dart';
 
 import 'package:my_budget_client/presentation/widgets/dashboard/period_summary_widget.dart'; // Added
+import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_header.dart'; // Added
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -174,7 +175,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
-          _buildDateRangeIndicator(state),
+          DashboardHeader(
+            selectedDay: state.selectedDay,
+            dateStep: state.dateStep,
+            currencyCode: state.selectedCurrency,
+            availableCurrencies: state.availableCurrencies
+                .map((e) => e.code)
+                .toList(),
+            onPrevious: () => context.read<DashboardBloc>().add(
+              SelectDay(
+                state.dateStep == DateStep.month
+                    ? DateTime(
+                        state.selectedDay.year,
+                        state.selectedDay.month - 1,
+                        1,
+                      )
+                    : DateTime(state.selectedDay.year - 1, 1, 1),
+              ),
+            ),
+            onNext: () => context.read<DashboardBloc>().add(
+              SelectDay(
+                state.dateStep == DateStep.month
+                    ? DateTime(
+                        state.selectedDay.year,
+                        state.selectedDay.month + 1,
+                        1,
+                      )
+                    : DateTime(state.selectedDay.year + 1, 1, 1),
+              ),
+            ),
+            onTitleTap: () => _buildDateRangeIndicator(
+              state,
+            ), // Fallback or use standard picker
+            onCurrencySelected: (currency) =>
+                context.read<DashboardBloc>().add(ChangeCurrency(currency)),
+            onDateStepChanged: (step) =>
+                context.read<DashboardBloc>().add(ChangeDateStep(step)),
+          ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -196,10 +233,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 24),
           CategoryPieChart(
-            categoryTotals: state.categoryTotals,
+            categoryConvertedTotals: state.categoryConvertedTotals,
             categories: state.categories,
             styles: state.styles,
             isIncome: state.isIncomeView,
+            currencyCode: state.selectedCurrency, // Added
           ),
         ],
       ),

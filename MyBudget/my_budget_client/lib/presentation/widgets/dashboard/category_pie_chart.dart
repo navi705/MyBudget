@@ -6,25 +6,27 @@ import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
-import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 
 class CategoryPieChart extends StatelessWidget {
-  final List<GroupedTransactionTotal> categoryTotals;
+  final Map<String, double>
+  categoryConvertedTotals; // Changed from List<GroupedTransactionTotal>
   final List<Category> categories;
   final List<Style> styles;
   final bool isIncome;
+  final String currencyCode; // Added
 
   const CategoryPieChart({
     super.key,
-    required this.categoryTotals,
+    required this.categoryConvertedTotals,
     required this.categories,
     required this.styles,
     required this.isIncome,
+    required this.currencyCode, // Added
   });
 
   @override
   Widget build(BuildContext context) {
-    if (categoryTotals.isEmpty) {
+    if (categoryConvertedTotals.isEmpty) {
       return const SizedBox(
         height: 200,
         child: Center(child: Text('No data for this period')),
@@ -148,6 +150,13 @@ class CategoryPieChart extends StatelessWidget {
     Widget iconWidget,
   ) {
     final theme = Theme.of(context);
+    // Currency formatting with symbol at end
+    final numberFormat = NumberFormat.currency(name: currencyCode, symbol: '');
+    final symbol = NumberFormat.simpleCurrency(
+      name: currencyCode,
+    ).currencySymbol;
+    final formattedAmount = '${numberFormat.format(amount).trim()} $symbol';
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -182,7 +191,7 @@ class CategoryPieChart extends StatelessWidget {
                 ),
               ),
               Text(
-                NumberFormat.currency(symbol: '').format(amount),
+                formattedAmount, // Updated
                 style: theme.textTheme.titleSmall,
               ),
             ],
@@ -224,13 +233,11 @@ class CategoryPieChart extends StatelessWidget {
         .map((c) => c.id)
         .toSet();
 
-    for (final total in categoryTotals) {
-      if (targetCategoryIds.contains(total.categoryId)) {
-        totalsMap.update(
-          total.categoryId,
-          (v) => v + total.total.abs(),
-          ifAbsent: () => total.total.abs(),
-        );
+    // Iterate over the converted totals map
+    for (final entry in categoryConvertedTotals.entries) {
+      if (targetCategoryIds.contains(entry.key)) {
+        // Here we can just take the value directly as it's already aggravated and converted
+        totalsMap[entry.key] = entry.value;
       }
     }
 
@@ -262,13 +269,23 @@ class CategoryPieChart extends StatelessWidget {
       final color =
           _parseColor(style?.colorHex) ?? _getRandomColor(category.id.hashCode);
 
+      // Compact format for chart slice
+      final compactFormat = NumberFormat.compact();
+      final symbol = NumberFormat.simpleCurrency(
+        name: currencyCode,
+      ).currencySymbol;
+      final formattedValue = '${compactFormat.format(entry.value)}$symbol';
+
       return PieChartSectionData(
         color: color,
         value: entry.value,
-        title: percentage > 5 ? '${percentage.toStringAsFixed(0)}%' : '',
+        // Show BOTH percentage and value if space permits (e.g. > 5%)
+        title: percentage > 5
+            ? '${percentage.toStringAsFixed(0)}%\n$formattedValue'
+            : '',
         radius: 80,
         titleStyle: const TextStyle(
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.bold,
           color: Colors.white,
         ),

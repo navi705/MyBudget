@@ -263,6 +263,22 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             );
           }
 
+          // Convert category totals
+          final categoryConvertedTotals = <String, double>{}; // Added
+          for (final total in categoryTotals) {
+            final convertedAmount = _cachedConverter!.convert(
+              amount: total.total,
+              from: total.currencyCode,
+              to: targetCurrency,
+              date: total.date,
+            );
+            categoryConvertedTotals.update(
+              total.categoryId,
+              (value) => value + convertedAmount,
+              ifAbsent: () => convertedAmount,
+            );
+          }
+
           // OPTIMIZATION: Run on main thread instead of compute() isolate
           // Reason: Actual work is only ~27ms, but compute() overhead is ~350ms
           // 27ms won't block the UI, so isolate is not justified
@@ -286,6 +302,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             isIncomeView: params.isIncomeView,
             dayBalances: convertedDayBalances,
             categoryTotals: categoryTotals,
+            categoryConvertedTotals: categoryConvertedTotals, // Added
             dailyIncomes: computeResults.dailyIncomes,
             dailyExpenses: computeResults.dailyExpenses,
             dailyNetWorth: computeResults.dailyNetWorth,

@@ -30,6 +30,7 @@ class DashboardLoadSuccess extends DashboardState {
   // Aggregated data
   final Map<String, double> dayBalances; // accountId -> balance for selectedDay
   final List<GroupedTransactionTotal> categoryTotals;
+  final Map<String, double> categoryConvertedTotals; // Added
   final Map<DateTime, double> dailyIncomes;
   final Map<DateTime, double> dailyExpenses;
   final Map<DateTime, double> dailyNetWorth;
@@ -50,6 +51,7 @@ class DashboardLoadSuccess extends DashboardState {
     this.isIncomeView = false,
     this.dayBalances = const {},
     this.categoryTotals = const [],
+    this.categoryConvertedTotals = const {}, // Added
     this.dailyIncomes = const {},
     this.dailyExpenses = const {},
     this.dailyNetWorth = const {},
@@ -74,6 +76,7 @@ class DashboardLoadSuccess extends DashboardState {
     bool? isIncomeView,
     Map<String, double>? dayBalances,
     List<GroupedTransactionTotal>? categoryTotals,
+    Map<String, double>? categoryConvertedTotals, // Added
     Map<DateTime, double>? dailyIncomes,
     Map<DateTime, double>? dailyExpenses,
     Map<DateTime, double>? dailyNetWorth,
@@ -94,6 +97,8 @@ class DashboardLoadSuccess extends DashboardState {
       isIncomeView: isIncomeView ?? this.isIncomeView,
       dayBalances: dayBalances ?? this.dayBalances,
       categoryTotals: categoryTotals ?? this.categoryTotals,
+      categoryConvertedTotals:
+          categoryConvertedTotals ?? this.categoryConvertedTotals, // Added
       dailyIncomes: dailyIncomes ?? this.dailyIncomes,
       dailyExpenses: dailyExpenses ?? this.dailyExpenses,
       dailyNetWorth: dailyNetWorth ?? this.dailyNetWorth,
@@ -118,6 +123,7 @@ class DashboardLoadSuccess extends DashboardState {
     isIncomeView,
     dayBalances,
     categoryTotals,
+    categoryConvertedTotals, // Added
     dailyIncomes,
     dailyExpenses,
     dailyNetWorth,
