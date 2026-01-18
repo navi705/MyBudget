@@ -297,11 +297,12 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             categoryTotals: categoryTotals,
             categoryConvertedTotals: categoryConvertedTotals, // Added
             dailyIncomes: computeResults.dailyIncomes,
-            dailyExpenses: computeResults.dailyExpenses,
             dailyNetWorth: computeResults.dailyNetWorth,
-            dailyAccountBalances: computeResults.dailyAccountBalances, // Added
+            dailyAccountBalances: computeResults.dailyAccountBalances,
+            currencyBreakdown: computeResults.currencyBreakdown, // Added
+            accountBreakdown: computeResults.accountBreakdown, // Added
             availableCurrencies: availableCurrencies,
-            currencyDesignations: currencyDesignations, // Added
+            currencyDesignations: currencyDesignations,
           );
         });
 
@@ -487,7 +488,9 @@ class _DashboardComputeResults {
   final Map<DateTime, double> dailyExpenses;
   final Map<DateTime, double> dailyNetWorth;
   final Map<String, double> dayBalances;
-  final Map<DateTime, Map<String, double>> dailyAccountBalances; // Added
+  final Map<DateTime, Map<String, double>> dailyAccountBalances;
+  final Map<String, double> currencyBreakdown; // Added
+  final Map<String, double> accountBreakdown; // Added
   final List<GroupedTransactionTotal> categoryTotals;
 
   _DashboardComputeResults({
@@ -495,7 +498,9 @@ class _DashboardComputeResults {
     required this.dailyExpenses,
     required this.dailyNetWorth,
     required this.dayBalances,
-    required this.dailyAccountBalances, // Added
+    required this.dailyAccountBalances,
+    required this.currencyBreakdown, // Added
+    required this.accountBreakdown, // Added
     required this.categoryTotals,
   });
 }
@@ -516,8 +521,10 @@ _DashboardComputeResults _calculateDashboardData(
   final dailyIncomes = <DateTime, double>{};
   final dailyExpenses = <DateTime, double>{};
   final dailyNetWorth = <DateTime, double>{};
-  final dailyAccountBalances = <DateTime, Map<String, double>>{}; // Added
+  final dailyAccountBalances = <DateTime, Map<String, double>>{};
   Map<String, double> dayBalances = {};
+  Map<String, double> currencyBreakdown = {}; // Added
+  Map<String, double> accountBreakdown = {}; // Added
 
   final currentBalances = <String, double>{};
   final accountCurrencyMap = <String, String>{};
@@ -672,6 +679,33 @@ _DashboardComputeResults _calculateDashboardData(
       // Calculate balances using FinanceCalculator
       // This properly handles both standard and asset-linked accounts
       dayBalances = financeCalc.calculateBalances(snapshot);
+
+      // Compute breakdowns with CONVERTED values
+      for (final entry in dayBalances.entries) {
+        final accountId = entry.key;
+        final nativeBalance = entry.value;
+        final currency =
+            accountCurrencyMap[accountId] ?? params.mainCurrencyCode;
+
+        if (nativeBalance > 0) {
+          final convertedValue = converter.convert(
+            amount: nativeBalance,
+            from: currency,
+            to: params.mainCurrencyCode,
+            date: params.selectedDay,
+          );
+
+          // Currency Breakdown
+          currencyBreakdown.update(
+            currency,
+            (v) => v + convertedValue,
+            ifAbsent: () => convertedValue,
+          );
+
+          // Account Breakdown
+          accountBreakdown[accountId] = convertedValue;
+        }
+      }
     }
 
     final dayTransactions = transactionsByDate[iterDate] ?? [];
@@ -697,7 +731,9 @@ _DashboardComputeResults _calculateDashboardData(
     dailyExpenses: dailyExpenses,
     dailyNetWorth: dailyNetWorth,
     dayBalances: dayBalances,
-    dailyAccountBalances: dailyAccountBalances, // Added
+    dailyAccountBalances: dailyAccountBalances,
+    currencyBreakdown: currencyBreakdown, // Added
+    accountBreakdown: accountBreakdown, // Added
     categoryTotals: [],
   );
 }

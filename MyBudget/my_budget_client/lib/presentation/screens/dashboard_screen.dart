@@ -290,6 +290,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             dailyNetWorth: state.dailyNetWorth,
             dayBalances:
                 state.dailyAccountBalances, // Pass historical account data
+            currencyBreakdown: state.currencyBreakdown, // Added
+            accountBreakdown: state.accountBreakdown, // Added
             accounts: state.accounts,
             currencyCode: state.selectedCurrency,
           ),

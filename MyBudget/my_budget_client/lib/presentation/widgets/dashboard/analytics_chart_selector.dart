@@ -2,16 +2,15 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
-import 'package:my_budget_client/domain/entities/category.dart';
-import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/balance_line_chart.dart';
 
 class BalanceReportWidget extends StatefulWidget {
   final DateTime dateRangeStart;
   final DateTime dateRangeEnd;
   final Map<DateTime, double> dailyNetWorth;
-  final Map<DateTime, Map<String, double>>
-  dayBalances; // Added for single account history
+  final Map<DateTime, Map<String, double>> dayBalances;
+  final Map<String, double> currencyBreakdown; // Added
+  final Map<String, double> accountBreakdown; // Added
   final List<Account> accounts;
   final String currencyCode;
 
@@ -24,6 +23,8 @@ class BalanceReportWidget extends StatefulWidget {
     required this.dateRangeEnd,
     required this.dailyNetWorth,
     required this.dayBalances,
+    required this.currencyBreakdown, // Added
+    required this.accountBreakdown, // Added
     required this.accounts,
     required this.currencyCode,
   });
@@ -316,25 +317,19 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
   List<MapEntry<String, double>> _getAccountDistribution() {
     final map = <String, double>{};
     for (final acc in widget.accounts) {
-      if (acc.balance > 0) {
-        map[acc.name] = acc.balance;
+      // Use pre-calculated converted balance from Bloc
+      final convertedBalance = widget.accountBreakdown[acc.id] ?? 0.0;
+      if (convertedBalance > 0) {
+        map[acc.name] = convertedBalance;
       }
     }
     return map.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
   }
 
   List<MapEntry<String, double>> _getCurrencyDistribution() {
-    final map = <String, double>{};
-    for (final acc in widget.accounts) {
-      if (acc.balance > 0) {
-        map.update(
-          acc.currencyCode,
-          (v) => v + acc.balance,
-          ifAbsent: () => acc.balance,
-        );
-      }
-    }
-    return map.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    // Use pre-calculated currency breakdown from Bloc (already converted)
+    return widget.currencyBreakdown.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
   }
 
   Color _getRandomColor(int seed) {
