@@ -204,9 +204,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     : DateTime(state.selectedDay.year + 1, 1, 1),
               ),
             ),
-            onTitleTap: () => _buildDateRangeIndicator(
-              state,
-            ), // Fallback or use standard picker
+            onTitleTap: () => _showPeriodPicker(context, state), // Fixed
             onCurrencySelected: (currency) =>
                 context.read<DashboardBloc>().add(ChangeCurrency(currency)),
             onDateStepChanged: (step) =>

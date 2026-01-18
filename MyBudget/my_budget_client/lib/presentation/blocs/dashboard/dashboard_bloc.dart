@@ -127,7 +127,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             _currencyRepository.getAllCurrencyDesignations(), // Added
           ]);
 
-          final rawDayBalances = parallelDbResults[0] as Map<String, double>;
+          // final rawDayBalances = parallelDbResults[0] as Map<String, double>; // Removed unused
           final categoryTotals =
               parallelDbResults[1] as List<GroupedTransactionTotal>;
           final settingsMap = parallelDbResults[2] as Map<String, String>;
@@ -154,11 +154,12 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           final uniqueDates = transactions
               .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
               .toSet();
+          uniqueDates.add(DateTime(DateTime.now().year, DateTime.now().month));
           uniqueDates.add(
             DateTime(
-              DateTime.now().year,
-              DateTime.now().month,
-              DateTime.now().day,
+              params.selectedDay.year,
+              params.selectedDay.month,
+              params.selectedDay.day,
             ),
           );
 
@@ -251,17 +252,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             converter: _cachedConverter!, // Pass cached converter
           );
 
-          // Convert balances ensuring all accounts are covered (even if outside net worth graph range)
-          final convertedDayBalances = <String, double>{};
-          for (final account in accounts) {
-            final rawBalance = rawDayBalances[account.id] ?? 0.0;
-            convertedDayBalances[account.id!] = _cachedConverter!.convert(
-              amount: rawBalance,
-              from: account.currencyCode,
-              to: targetCurrency,
-              date: DateTime.now(), // Current exchange rate
-            );
-          }
+          // Converted balances are now computed in _calculateDashboardData to match historical state exactly
 
           // Convert category totals
           final categoryConvertedTotals = <String, double>{}; // Added
@@ -300,7 +291,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             dateStep: params.dateStep,
             selectedCurrency: targetCurrency,
             isIncomeView: params.isIncomeView,
-            dayBalances: convertedDayBalances,
+            dayBalances: computeResults.dayBalances,
             categoryTotals: categoryTotals,
             categoryConvertedTotals: categoryConvertedTotals, // Added
             dailyIncomes: computeResults.dailyIncomes,
@@ -337,7 +328,30 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   }
 
   void _onSelectDay(SelectDay event, Emitter<DashboardState> emit) {
-    _paramsSubject.add(_paramsSubject.value.copyWith(selectedDay: event.day));
+    final currentStep = _paramsSubject.value.dateStep;
+    DateTime start;
+    DateTime end;
+
+    if (currentStep == DateStep.month) {
+      start = DateTime(event.day.year, event.day.month, 1);
+      end = DateTime(event.day.year, event.day.month + 1, 0);
+    } else if (currentStep == DateStep.year) {
+      start = DateTime(event.day.year, 1, 1);
+      end = DateTime(event.day.year, 12, 31);
+    } else {
+      // Keep existing range relative to selection? Or just center?
+      // For now, let's keep the existing range if possible, or default to day
+      start = event.day;
+      end = event.day;
+    }
+
+    _paramsSubject.add(
+      _paramsSubject.value.copyWith(
+        selectedDay: event.day,
+        dateRangeStart: start,
+        dateRangeEnd: end,
+      ),
+    );
   }
 
   void _onToggleChartType(ToggleChartType event, Emitter<DashboardState> emit) {
@@ -347,7 +361,29 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   }
 
   void _onChangeDateStep(ChangeDateStep event, Emitter<DashboardState> emit) {
-    _paramsSubject.add(_paramsSubject.value.copyWith(dateStep: event.step));
+    // When changing step, we need to adjust the range to match the CURRENT selected day
+    final selectedDay = _paramsSubject.value.selectedDay;
+    DateTime start;
+    DateTime end;
+
+    if (event.step == DateStep.month) {
+      start = DateTime(selectedDay.year, selectedDay.month, 1);
+      end = DateTime(selectedDay.year, selectedDay.month + 1, 0);
+    } else if (event.step == DateStep.year) {
+      start = DateTime(selectedDay.year, 1, 1);
+      end = DateTime(selectedDay.year, 12, 31);
+    } else {
+      start = selectedDay;
+      end = selectedDay;
+    }
+
+    _paramsSubject.add(
+      _paramsSubject.value.copyWith(
+        dateStep: event.step,
+        dateRangeStart: start,
+        dateRangeEnd: end,
+      ),
+    );
   }
 
   void _onChangeCurrency(ChangeCurrency event, Emitter<DashboardState> emit) {
@@ -498,6 +534,14 @@ _DashboardComputeResults _calculateDashboardData(
     );
 
     final transactionCurrency = transaction.currencyCode;
+
+    // Exclude transfers (linked transactions) from Income/Expense indicators
+    // This matches the UI logic where transfers are not considered spending/earning
+    if (transaction.linkedTransactionId != null &&
+        transaction.linkedTransactionId!.isNotEmpty) {
+      continue;
+    }
+
     final convertedAmount = converter.convert(
       amount: transaction.amount,
       from: transactionCurrency,
@@ -565,10 +609,24 @@ _DashboardComputeResults _calculateDashboardData(
 
     dailyNetWorth[iterDate] = totalNetWorth;
 
+    // Capture day balances for the specific selected day
     if (iterDate.year == params.selectedDay.year &&
         iterDate.month == params.selectedDay.month &&
         iterDate.day == params.selectedDay.day) {
-      // Logic for dayBalances moved to main isolate to ensure coverage for all dates
+      for (final account in params.accounts) {
+        final rawBalance = currentBalances[account.id!] ?? 0.0;
+        dayBalances[account.id!] = converter.convert(
+          amount: rawBalance,
+          from: account.currencyCode,
+          to: params.mainCurrencyCode,
+          // Use conversionDate (today) for consistency with Net Worth graph
+          // OR use iterDate for historical value?
+          // Previous behavior (implied by "worse now") suggests walk-back was better.
+          // Let's stick to conversionDate (Today) for now to match Net Worth,
+          // but more importantly, this restores the correctly derived QUANTITY.
+          date: conversionDate,
+        );
+      }
     }
 
     final dayTransactions = transactionsByDate[iterDate] ?? [];

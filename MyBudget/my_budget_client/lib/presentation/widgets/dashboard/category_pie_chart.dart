@@ -236,8 +236,8 @@ class CategoryPieChart extends StatelessWidget {
     // Iterate over the converted totals map
     for (final entry in categoryConvertedTotals.entries) {
       if (targetCategoryIds.contains(entry.key)) {
-        // Here we can just take the value directly as it's already aggravated and converted
-        totalsMap[entry.key] = entry.value;
+        // Use .abs() to ensure positive magnitude for chart and percentages
+        totalsMap[entry.key] = entry.value.abs();
       }
     }
 
