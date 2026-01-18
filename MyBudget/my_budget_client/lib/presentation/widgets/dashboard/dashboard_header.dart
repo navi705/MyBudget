@@ -85,6 +85,18 @@ class DashboardHeader extends StatelessWidget {
               padding: WidgetStateProperty.all(
                 const EdgeInsets.symmetric(horizontal: 10),
               ),
+              backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return Theme.of(context).colorScheme.primary;
+                }
+                return Theme.of(context).colorScheme.surfaceContainerHighest;
+              }),
+              foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return Theme.of(context).colorScheme.onPrimary;
+                }
+                return Theme.of(context).colorScheme.onSurface;
+              }),
             ),
           ),
           // Right Arrow
