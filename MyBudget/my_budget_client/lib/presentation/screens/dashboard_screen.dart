@@ -6,10 +6,9 @@ import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart'
 import 'package:my_budget_client/presentation/widgets/dashboard/category_pie_chart.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_calendar.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/day_balance_details.dart';
-import 'package:my_budget_client/presentation/widgets/dashboard/period_summary_widget.dart'; // Added
-import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_header.dart'; // Added
-import 'package:my_budget_client/presentation/widgets/dashboard/analytics_chart_selector.dart'; // Added
-import 'package:my_budget_client/presentation/screens/accounts_distribution_screen.dart'; // Added
+import 'package:my_budget_client/presentation/widgets/dashboard/period_summary_widget.dart';
+import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_header.dart';
+import 'package:my_budget_client/presentation/widgets/dashboard/analytics_chart_selector.dart'; // Contains BalanceReportWidget
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -55,11 +54,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.show_chart),
-                  label: 'Charts',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.donut_small),
-                  label: 'Distribution',
+                  label: 'Balance',
                 ),
               ],
             ),
@@ -80,11 +75,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 1:
         return _buildCategoryView(state);
       case 2:
-        return _buildAnalyticsView(state);
-      case 3:
-        return const AccountsDistributionScreen();
+        return _buildBalanceView(state);
       default:
-        return const Center(child: Text('Selection Error'));
+        // Fallback for any deprecated index
+        return _buildCalendarView(state);
     }
   }
 
@@ -248,10 +242,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildAnalyticsView(DashboardLoadSuccess state) {
+  Widget _buildBalanceView(DashboardLoadSuccess state) {
     return Column(
       children: [
-        // Date Navigation Header (similar to calendar)
+        // Date Navigation Header
         DashboardHeader(
           selectedDay: state.selectedDay,
           dateStep: state.dateStep,
@@ -287,21 +281,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onDateStepChanged: (step) =>
               context.read<DashboardBloc>().add(ChangeDateStep(step)),
         ),
-        // Flexible Chart Selector
+
+        // Flexible Balance Report
         Expanded(
-          child: AnalyticsChartSelector(
+          child: BalanceReportWidget(
             dateRangeStart: state.dateRangeStart,
             dateRangeEnd: state.dateRangeEnd,
             dailyNetWorth: state.dailyNetWorth,
+            dayBalances:
+                state.dailyAccountBalances, // Pass historical account data
             accounts: state.accounts,
-            categories: state.categories,
-            styles: state.styles,
-            categoryConvertedTotals: state.categoryConvertedTotals,
             currencyCode: state.selectedCurrency,
-            isIncomeView: state.isIncomeView,
-            onToggleChartType: () => context.read<DashboardBloc>().add(
-              ToggleChartType(!state.isIncomeView),
-            ),
           ),
         ),
       ],

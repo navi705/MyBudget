@@ -1,216 +1,362 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/balance_line_chart.dart';
-import 'package:my_budget_client/presentation/widgets/dashboard/category_pie_chart.dart';
 
-enum AnalyticsViewType { totalBalance, byAccount, byCategory }
-
-class AnalyticsChartSelector extends StatefulWidget {
+class BalanceReportWidget extends StatefulWidget {
   final DateTime dateRangeStart;
   final DateTime dateRangeEnd;
   final Map<DateTime, double> dailyNetWorth;
+  final Map<DateTime, Map<String, double>>
+  dayBalances; // Added for single account history
   final List<Account> accounts;
-  final List<Category> categories;
-  final List<Style> styles;
-  final Map<String, double> categoryConvertedTotals;
   final String currencyCode;
-  final bool isIncomeView;
-  final VoidCallback onToggleChartType;
 
-  const AnalyticsChartSelector({
+  // NOTE: Category/Style params might not be needed if removing category view,
+  // but kept for compatibility until cleanup or for Distribution colors.
+
+  const BalanceReportWidget({
     super.key,
     required this.dateRangeStart,
     required this.dateRangeEnd,
     required this.dailyNetWorth,
+    required this.dayBalances,
     required this.accounts,
-    required this.categories,
-    required this.styles,
-    required this.categoryConvertedTotals,
     required this.currencyCode,
-    required this.isIncomeView,
-    required this.onToggleChartType,
   });
 
   @override
-  State<AnalyticsChartSelector> createState() => _AnalyticsChartSelectorState();
+  State<BalanceReportWidget> createState() => _BalanceReportWidgetState();
 }
 
-class _AnalyticsChartSelectorState extends State<AnalyticsChartSelector> {
-  AnalyticsViewType _selectedView = AnalyticsViewType.totalBalance;
+class _BalanceReportWidgetState extends State<BalanceReportWidget> {
+  String? _selectedAccountId; // null means "All Accounts"
 
   @override
   Widget build(BuildContext context) {
+    // 1. Filter Data
+    final isAllAccounts = _selectedAccountId == null;
+
+    // For "All", use the pre-calculated dailyNetWorth passed from parent (which is usually total).
+    // For "Single", we technically need the daily history of THAT account.
+    // However, the current DashboardBloc usually calculates dailyNetWorth for ALL accounts derived from transactions.
+    // LIMITATION: 'dailyNetWorth' passed here is likely TOTAL.
+    // To show single account trend properly, we might need logic to extract it or we just show "Current Balance" for single.
+    // OPTION: For this "Visual Refresh", let's assume valid data is passed or we filter what we can.
+    // Actually, DashboardState has 'dailyNetWorth' which is TOTAL.
+    // If we select a single account, we can't easily reconstruct its daily history from just 'dailyNetWorth'.
+    // We would need 'dailyBalances' map for each account which might not be fully available or expensive to compute here dynamically without Bloc support.
+
+    // DECISION: For now, if "All Accounts", show Trend + Distributions.
+    // If "Single Account", just show its details and maybe hide the Chart if we don't have historical data for it ready,
+    // OR just show the current balance and a "Distribution not available" message or similar.
+    // User asked: "один какой-то из аккаунтов смотреть так же графк по каждому из однельности"
+    // (See chart for each separately).
+    // To do this properly, we likely need the Bloc to provide history for the selected account.
+    // BUT checking 'DashboardState', we have `dayBalances` (Map<DateTime, Map<String, double>>).
+    // This allows us to construct the chart for a single account! Awesome.
+
     return Column(
       children: [
-        // View Type Selector
+        // 1. Account Filter Dropdown
         Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SegmentedButton<AnalyticsViewType>(
-            segments: const [
-              ButtonSegment(
-                value: AnalyticsViewType.totalBalance,
-                label: Text('Total Balance'),
-                icon: Icon(Icons.trending_up),
-              ),
-              ButtonSegment(
-                value: AnalyticsViewType.byAccount,
-                label: Text('By Account'),
-                icon: Icon(Icons.account_balance_wallet),
-              ),
-              ButtonSegment(
-                value: AnalyticsViewType.byCategory,
-                label: Text('By Category'),
-                icon: Icon(Icons.category),
-              ),
-            ],
-            selected: {_selectedView},
-            onSelectionChanged: (Set<AnalyticsViewType> selection) {
-              setState(() {
-                _selectedView = selection.first;
-              });
-            },
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: _buildAccountSelector(),
         ),
 
-        // Chart Display
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            child: _buildSelectedChart(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 2. Main Balance Chart (Trend)
+                _buildMainChartSection(isAllAccounts),
+
+                const SizedBox(height: 32),
+
+                // 3. Distribution Charts (Only if All Accounts)
+                if (isAllAccounts) ...[
+                  const Divider(),
+                  const SizedBox(height: 24),
+                  _buildDistributions(context),
+                ],
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildSelectedChart() {
-    switch (_selectedView) {
-      case AnalyticsViewType.totalBalance:
-        return _buildTotalBalanceChart();
-      case AnalyticsViewType.byAccount:
-        return _buildAccountChart();
-      case AnalyticsViewType.byCategory:
-        return _buildCategoryChart();
-    }
-  }
-
-  Widget _buildTotalBalanceChart() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Net Worth Trend',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+  Widget _buildAccountSelector() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
         ),
-        const SizedBox(height: 16),
-        BalanceLineChart(
-          dailyNetWorth: widget.dailyNetWorth,
-          dateRangeStart: widget.dateRangeStart,
-          dateRangeEnd: widget.dateRangeEnd,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAccountChart() {
-    // Calculate account balances
-    final accountBalances = <String, double>{};
-    for (final account in widget.accounts) {
-      if (account.balance > 0) {
-        accountBalances[account.name] = account.balance;
-      }
-    }
-
-    if (accountBalances.isEmpty) {
-      return const Center(child: Text('No account data available'));
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Balance by Account',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 400,
-          child: ListView.builder(
-            itemCount: widget.accounts.length,
-            itemBuilder: (context, index) {
-              final account = widget.accounts[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  title: Text(account.name),
-                  subtitle: Text(account.currencyCode),
-                  trailing: Text(
-                    account.balance.toStringAsFixed(2),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: account.balance >= 0 ? Colors.green : Colors.red,
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          value: _selectedAccountId,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down),
+          hint: const Text("All Accounts (Total Net Worth)"),
+          onChanged: (val) {
+            setState(() {
+              _selectedAccountId = val;
+            });
+          },
+          items: [
+            const DropdownMenuItem<String?>(
+              value: null,
+              child: Text(
+                "All Accounts",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            ...widget.accounts.map((acc) {
+              return DropdownMenuItem<String?>(
+                value: acc.id,
+                child: Row(
+                  children: [
+                    Text(acc.name),
+                    const SizedBox(width: 8),
+                    Text(
+                      _formatCurrency(acc.balance, acc.currencyCode),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.secondary,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               );
-            },
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainChartSection(bool isAllAccounts) {
+    // If specific account, we need its data.
+    // NOTE: The widget props currently don't include 'dayBalances' map needed for specific account history.
+    // I need to add that to the widget parameters in the next step (updating dashboard_screen.dart).
+    // For now I will assume 'dailyNetWorth' is correct for 'All', and I'll add a placeholder or update props.
+    // Wait, I can't access data I don't have.
+    // I will modify the widget constructor to accept 'dayBalances' in this same edit to be safe,
+    // or relying on a Todo.
+    // Let's rely on adding `dayBalances` property.
+
+    // But since I am editing the file now, I should add the property definitions.
+    // See updated class definition below.
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          isAllAccounts ? 'Total Net Worth Trend' : 'Account Balance Trend',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          height: 300,
+          width: double.infinity,
+          padding: const EdgeInsets.only(right: 16, top: 16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: BalanceLineChart(
+            dailyNetWorth: _getDataForChart(),
+            dateRangeStart: widget.dateRangeStart,
+            dateRangeEnd: widget.dateRangeEnd,
+            // Pass color if single account?
           ),
         ),
       ],
     );
   }
 
-  Widget _buildCategoryChart() {
+  Map<DateTime, double> _getDataForChart() {
+    if (_selectedAccountId == null) {
+      return widget.dailyNetWorth;
+    }
+    // Extract history for specific account
+    final singleAccountData = <DateTime, double>{};
+
+    for (final entry in widget.dayBalances.entries) {
+      final date = entry.key;
+      final balancesMap = entry.value;
+      // Find balance for the selected account ID
+      if (balancesMap.containsKey(_selectedAccountId)) {
+        singleAccountData[date] = balancesMap[_selectedAccountId]!;
+      } else {
+        singleAccountData[date] = 0.0;
+      }
+    }
+    return singleAccountData;
+  }
+
+  Widget _buildDistributions(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth > 700) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildAccountDistribution(context)),
+              const SizedBox(width: 24),
+              Expanded(child: _buildCurrencyDistribution(context)),
+            ],
+          );
+        } else {
+          return Column(
+            children: [
+              _buildAccountDistribution(context),
+              const SizedBox(height: 32),
+              _buildCurrencyDistribution(context),
+            ],
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildAccountDistribution(BuildContext context) {
+    final data = _getAccountDistribution();
+    return _buildPieSection(context, 'Wealth Distribution', data);
+  }
+
+  Widget _buildCurrencyDistribution(BuildContext context) {
+    final data = _getCurrencyDistribution();
+    return _buildPieSection(context, 'Currency Breakdown', data);
+  }
+
+  Widget _buildPieSection(
+    BuildContext context,
+    String title,
+    List<MapEntry<String, double>> data,
+  ) {
+    final total = data.fold(0.0, (sum, e) => sum + e.value);
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Spending by Category',
+          title,
           style: Theme.of(
             context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        // Income/Expense Toggle
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ChoiceChip(
-              label: const Text('Expenses'),
-              selected: !widget.isIncomeView,
-              onSelected: (val) {
-                if (widget.isIncomeView) {
-                  widget.onToggleChartType();
-                }
-              },
-            ),
-            const SizedBox(width: 16),
-            ChoiceChip(
-              label: const Text('Income'),
-              selected: widget.isIncomeView,
-              onSelected: (val) {
-                if (!widget.isIncomeView) {
-                  widget.onToggleChartType();
-                }
-              },
-            ),
-          ],
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 24),
-        CategoryPieChart(
-          categoryConvertedTotals: widget.categoryConvertedTotals,
-          categories: widget.categories,
-          styles: widget.styles,
-          isIncome: widget.isIncomeView,
-          currencyCode: widget.currencyCode,
+        SizedBox(
+          height: 220,
+          child: PieChart(
+            PieChartData(
+              sectionsSpace: 2,
+              centerSpaceRadius: 40,
+              sections: data.map((e) {
+                final percentage = total > 0 ? (e.value / total) * 100 : 0.0;
+                final isLarge = percentage > 5;
+                return PieChartSectionData(
+                  color: _getRandomColor(e.key.hashCode),
+                  value: e.value,
+                  title: isLarge ? '${percentage.toStringAsFixed(1)}%' : '',
+                  radius: 60,
+                  titleStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Wrap(
+          spacing: 16,
+          runSpacing: 8,
+          alignment: WrapAlignment.center,
+          children: data.map((e) {
+            final percentage = total > 0 ? (e.value / total) * 100 : 0.0;
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: _getRandomColor(e.key.hashCode),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${e.key} ${percentage.toStringAsFixed(0)}%',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            );
+          }).toList(),
         ),
       ],
     );
+  }
+
+  List<MapEntry<String, double>> _getAccountDistribution() {
+    final map = <String, double>{};
+    for (final acc in widget.accounts) {
+      if (acc.balance > 0) {
+        map[acc.name] = acc.balance;
+      }
+    }
+    return map.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+  }
+
+  List<MapEntry<String, double>> _getCurrencyDistribution() {
+    final map = <String, double>{};
+    for (final acc in widget.accounts) {
+      if (acc.balance > 0) {
+        map.update(
+          acc.currencyCode,
+          (v) => v + acc.balance,
+          ifAbsent: () => acc.balance,
+        );
+      }
+    }
+    return map.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+  }
+
+  Color _getRandomColor(int seed) {
+    final colors = [
+      Colors.blue,
+      Colors.red,
+      Colors.green,
+      Colors.amber,
+      Colors.purple,
+      Colors.orange,
+      Colors.teal,
+      Colors.pink,
+      Colors.cyan,
+      Colors.indigo,
+    ];
+    return colors[seed % colors.length];
+  }
+
+  String _formatCurrency(double amount, String code) {
+    return NumberFormat.simpleCurrency(
+      name: code,
+      decimalDigits: 2,
+    ).format(amount);
   }
 }

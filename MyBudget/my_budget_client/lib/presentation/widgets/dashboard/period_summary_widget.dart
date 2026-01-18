@@ -45,7 +45,11 @@ class PeriodSummaryWidget extends StatelessWidget {
     final net = totalIncome - totalExpense;
     final theme = Theme.of(context);
     // CHANGE: Use compact format without currency prefix for cleaner display
-    final formatter = NumberFormat.compact();
+    // CHANGE: Use fixed 2 decimal places
+    final formatter = NumberFormat.simpleCurrency(
+      name: currencyCode,
+      decimalDigits: 2,
+    );
 
     return Card(
       elevation: 0,
@@ -104,12 +108,9 @@ class PeriodSummaryWidget extends StatelessWidget {
     NumberFormat formatter, {
     bool showSign = false,
   }) {
-    final currencySymbol = NumberFormat.simpleCurrency(
-      name: currencyCode,
-    ).currencySymbol;
-    String text = '${formatter.format(amount)}$currencySymbol';
+    String text = formatter.format(amount);
     if (showSign && amount > 0) {
-      text = '+${formatter.format(amount)}$currencySymbol';
+      text = '+$text';
     }
 
     return Column(

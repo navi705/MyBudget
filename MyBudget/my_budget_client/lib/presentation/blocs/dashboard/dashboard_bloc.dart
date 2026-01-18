@@ -299,6 +299,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             dailyIncomes: computeResults.dailyIncomes,
             dailyExpenses: computeResults.dailyExpenses,
             dailyNetWorth: computeResults.dailyNetWorth,
+            dailyAccountBalances: computeResults.dailyAccountBalances, // Added
             availableCurrencies: availableCurrencies,
             currencyDesignations: currencyDesignations, // Added
           );
@@ -485,15 +486,16 @@ class _DashboardComputeResults {
   final Map<DateTime, double> dailyIncomes;
   final Map<DateTime, double> dailyExpenses;
   final Map<DateTime, double> dailyNetWorth;
-  final Map<String, double> dayBalances; // Added
-  final List<GroupedTransactionTotal>
-  categoryTotals; // Added - wait, I need to add/ensure this is handled
+  final Map<String, double> dayBalances;
+  final Map<DateTime, Map<String, double>> dailyAccountBalances; // Added
+  final List<GroupedTransactionTotal> categoryTotals;
 
   _DashboardComputeResults({
     required this.dailyIncomes,
     required this.dailyExpenses,
     required this.dailyNetWorth,
-    required this.dayBalances, // Default for now if not computed
+    required this.dayBalances,
+    required this.dailyAccountBalances, // Added
     required this.categoryTotals,
   });
 }
@@ -514,6 +516,7 @@ _DashboardComputeResults _calculateDashboardData(
   final dailyIncomes = <DateTime, double>{};
   final dailyExpenses = <DateTime, double>{};
   final dailyNetWorth = <DateTime, double>{};
+  final dailyAccountBalances = <DateTime, Map<String, double>>{}; // Added
   Map<String, double> dayBalances = {};
 
   final currentBalances = <String, double>{};
@@ -643,6 +646,9 @@ _DashboardComputeResults _calculateDashboardData(
     }
 
     dailyNetWorth[iterDate] = totalNetWorth;
+    dailyAccountBalances[iterDate] = Map.of(
+      currentBalances,
+    ); // Capture account balances for this day
 
     // Capture day balances for the specific selected day using FinanceCalculator
     // This ensures asset-linked accounts are calculated correctly (quantity * price)
@@ -691,6 +697,7 @@ _DashboardComputeResults _calculateDashboardData(
     dailyExpenses: dailyExpenses,
     dailyNetWorth: dailyNetWorth,
     dayBalances: dayBalances,
+    dailyAccountBalances: dailyAccountBalances, // Added
     categoryTotals: [],
   );
 }
