@@ -88,7 +88,7 @@ class AddEditTransactionBloc
           initialTransaction.linkedTransactionId != null) {
         try {
           final linkedTx = await _transactionRepository.getTransactionById(
-            initialTransaction!.linkedTransactionId!,
+            initialTransaction.linkedTransactionId!,
           );
           if (linkedTx != null) {
             final linkedAcc = accounts.firstWhereOrNull(
