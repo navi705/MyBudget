@@ -36,23 +36,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
 
         if (state is DashboardLoadSuccess) {
-          // For Calendar tab, use a cleaner look without AppBar title
-          final showAppBar = state.activeTabIndex != 0;
           return Scaffold(
-            appBar: showAppBar
-                ? AppBar(
-                    title: Text(
-                      state.activeTabIndex == 1 ? 'Categories' : 'Analytics',
-                    ),
-                    actions: [
-                      IconButton(
-                        icon: const Icon(Icons.date_range),
-                        onPressed: () => _showDateRangePicker(context, state),
-                      ),
-                    ],
-                  )
-                : null,
-            body: _buildBody(state),
+            // AppBar removed to maximize space
+            body: SafeArea(child: _buildBody(state)),
             bottomNavigationBar: BottomNavigationBar(
               currentIndex: state.activeTabIndex,
               onTap: (index) =>
@@ -211,29 +197,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildAnalyticsView(DashboardLoadSuccess state) {
-    return AccountsOverviewWidget(
-      accounts: state.accounts,
-      dailyNetWorth: state.dailyNetWorth,
-      dateRangeStart: state.dateRangeStart,
-      dateRangeEnd: state.dateRangeEnd,
+    return Column(
+      children: [
+        const SizedBox(height: 16),
+        _buildDateRangeIndicator(state),
+        Expanded(
+          child: AccountsOverviewWidget(
+            accounts: state.accounts,
+            dailyNetWorth: state.dailyNetWorth,
+            dateRangeStart: state.dateRangeStart,
+            dateRangeEnd: state.dateRangeEnd,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildDateRangeIndicator(DashboardLoadSuccess state) {
     final df = DateFormat('yyyy-MM-dd');
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.date_range, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              '${df.format(state.dateRangeStart)} - ${df.format(state.dateRangeEnd)}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
+    return GestureDetector(
+      onTap: () => _showDateRangePicker(context, state),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.date_range, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                '${df.format(state.dateRangeStart)} - ${df.format(state.dateRangeEnd)}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
         ),
       ),
     );
