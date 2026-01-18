@@ -139,20 +139,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onTitleTap: () => _showPeriodPicker(context, state),
           ),
           const SizedBox(height: 16),
-          PeriodSummaryWidget(
-            dateRangeStart: state.dateRangeStart,
-            dateRangeEnd: state.dateRangeEnd,
-            dailyIncomes: state.dailyIncomes,
-            dailyExpenses: state.dailyExpenses,
-            currencyCode: state.selectedCurrency,
-          ),
-          const Divider(),
-          DayBalanceDetails(
-            accounts: state.accounts,
-            dayBalances: state.dayBalances,
-            date: state.selectedDay,
-            currencyCode: state.selectedCurrency,
-            styles: state.styles,
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 700),
+              child: Column(
+                children: [
+                  PeriodSummaryWidget(
+                    dateRangeStart: state.dateRangeStart,
+                    dateRangeEnd: state.dateRangeEnd,
+                    dailyIncomes: state.dailyIncomes,
+                    dailyExpenses: state.dailyExpenses,
+                    currencyCode: state.selectedCurrency,
+                  ),
+                  const Divider(),
+                  DayBalanceDetails(
+                    accounts: state.accounts,
+                    dayBalances: state.dayBalances,
+                    date: state.selectedDay,
+                    currencyCode: state.selectedCurrency,
+                    styles: state.styles,
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

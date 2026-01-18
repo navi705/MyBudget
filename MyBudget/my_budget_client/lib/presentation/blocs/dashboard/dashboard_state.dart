@@ -34,6 +34,8 @@ class DashboardLoadSuccess extends DashboardState {
   final Map<DateTime, double> dailyExpenses;
   final Map<DateTime, double> dailyNetWorth;
 
+  final Map<String, CurrencyDesignation> currencyDesignations; // Added
+
   DashboardLoadSuccess({
     this.accounts = const [],
     this.transactions = const [],
@@ -52,6 +54,7 @@ class DashboardLoadSuccess extends DashboardState {
     this.dailyExpenses = const {},
     this.dailyNetWorth = const {},
     this.availableCurrencies = const [],
+    this.currencyDesignations = const {}, // Added
   }) : selectedDay = selectedDay ?? DateTime.now(),
        dateRangeStart =
            dateRangeStart ?? DateTime.now().subtract(const Duration(days: 30)),
@@ -75,6 +78,7 @@ class DashboardLoadSuccess extends DashboardState {
     Map<DateTime, double>? dailyExpenses,
     Map<DateTime, double>? dailyNetWorth,
     List<Currency>? availableCurrencies,
+    Map<String, CurrencyDesignation>? currencyDesignations, // Added
   }) {
     return DashboardLoadSuccess(
       accounts: accounts ?? this.accounts,
@@ -94,6 +98,8 @@ class DashboardLoadSuccess extends DashboardState {
       dailyExpenses: dailyExpenses ?? this.dailyExpenses,
       dailyNetWorth: dailyNetWorth ?? this.dailyNetWorth,
       availableCurrencies: availableCurrencies ?? this.availableCurrencies,
+      currencyDesignations:
+          currencyDesignations ?? this.currencyDesignations, // Added
     );
   }
 
@@ -116,6 +122,7 @@ class DashboardLoadSuccess extends DashboardState {
     dailyExpenses,
     dailyNetWorth,
     availableCurrencies,
+    currencyDesignations, // Added
   ];
 }
 

@@ -9,6 +9,7 @@ import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/currency.dart'; // Added
+import 'package:my_budget_client/domain/entities/currency_designation.dart'; // Added
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart'; // Added
 import 'package:my_budget_client/domain/entities/style.dart';
@@ -125,7 +126,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             _settingsRepository.getAllSettings(),
           ]);
 
-          final dayBalances = parallelDbResults[0] as Map<String, double>;
+          final rawDayBalances = parallelDbResults[0] as Map<String, double>;
           final categoryTotals =
               parallelDbResults[1] as List<GroupedTransactionTotal>;
           final settingsMap = parallelDbResults[2] as Map<String, String>;
@@ -242,6 +243,18 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             converter: _cachedConverter!, // Pass cached converter
           );
 
+          // Convert balances ensuring all accounts are covered (even if outside net worth graph range)
+          final convertedDayBalances = <String, double>{};
+          for (final account in accounts) {
+            final rawBalance = rawDayBalances[account.id] ?? 0.0;
+            convertedDayBalances[account.id!] = _cachedConverter!.convert(
+              amount: rawBalance,
+              from: account.currencyCode,
+              to: targetCurrency,
+              date: DateTime.now(), // Current exchange rate
+            );
+          }
+
           // OPTIMIZATION: Run on main thread instead of compute() isolate
           // Reason: Actual work is only ~27ms, but compute() overhead is ~350ms
           // 27ms won't block the UI, so isolate is not justified
@@ -263,7 +276,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             dateStep: params.dateStep,
             selectedCurrency: targetCurrency,
             isIncomeView: params.isIncomeView,
-            dayBalances: dayBalances,
+            dayBalances: convertedDayBalances,
             categoryTotals: categoryTotals,
             dailyIncomes: computeResults.dailyIncomes,
             dailyExpenses: computeResults.dailyExpenses,
@@ -529,16 +542,7 @@ _DashboardComputeResults _calculateDashboardData(
     if (iterDate.year == params.selectedDay.year &&
         iterDate.month == params.selectedDay.month &&
         iterDate.day == params.selectedDay.day) {
-      for (final account in params.accounts) {
-        final balance = currentBalances[account.id!] ?? 0.0;
-        final convertedHelper = converter.convert(
-          amount: balance,
-          from: account.currencyCode,
-          to: params.mainCurrencyCode,
-          date: conversionDate,
-        );
-        dayBalances[account.id!] = convertedHelper;
-      }
+      // Logic for dayBalances moved to main isolate to ensure coverage for all dates
     }
 
     final dayTransactions = transactionsByDate[iterDate] ?? [];
