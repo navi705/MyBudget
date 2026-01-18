@@ -230,7 +230,6 @@ class _AccountListItemState extends State<AccountListItem> {
                 onLongPress: widget.onLongPress,
                 onSecondaryTapUp: widget.onSecondaryTapUp,
                 child: Card(
-                  elevation: 2.0,
                   margin: const EdgeInsets.symmetric(
                     horizontal: 16.0,
                     vertical: 8.0,

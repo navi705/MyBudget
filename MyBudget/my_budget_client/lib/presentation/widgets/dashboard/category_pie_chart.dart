@@ -162,7 +162,7 @@ class CategoryPieChart extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainer,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -173,7 +173,7 @@ class CategoryPieChart extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: color.withAlpha((255 * 0.2).round()),
+                  color: theme.cardColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: SizedBox(
