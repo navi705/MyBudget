@@ -295,6 +295,17 @@ class AddEditTransactionBloc
           emit(state.copyWith(linkedAccount: linkedToEmit));
         }
       }
+
+      // Final check: If we are now in a foreign currency state (e.g. Transfer determined), fetch rates
+      // This is needed because _fetchRates earlier might have been skipped if linkedAccount was null
+      if (state.isForeignCurrency) {
+        await _fetchRates(
+          emit,
+          state.selectedCurrency,
+          state.selectedAccount,
+          state.date,
+        );
+      }
     } catch (_) {
       emit(state.copyWith(status: AddEditTransactionStatus.failure));
     }
