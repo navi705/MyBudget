@@ -752,16 +752,28 @@ class AddEditTransactionBloc
         await _transactionRepository.addTransaction(tx2);
       } else {
         // --- STANDARD LOGIC ---
+        // Determine Final Amount and Currency
+        // If foreign currency, we MUST convert to Account Currency for valid Balance calculation
+        // (Assuming Account Ledger is single-currency based)
+        double finalAmount = amount;
+        String finalCurrency =
+            state.selectedCurrency?.code ?? state.selectedAccount!.currencyCode;
+
+        if (state.isForeignCurrency &&
+            finalExchangeRate != null &&
+            finalCurrency != state.selectedAccount!.currencyCode) {
+          finalAmount = amount * finalExchangeRate;
+          finalCurrency = state.selectedAccount!.currencyCode;
+        }
+
         if (state.isEditing) {
           final updatedTransaction = state.initialTransaction!.copyWith(
             description: state.description,
-            amount: amount,
+            amount: finalAmount,
             date: date,
             accountId: accountId,
             categoryId: categoryId,
-            currencyCode:
-                state.selectedCurrency?.code ??
-                state.selectedAccount!.currencyCode,
+            currencyCode: finalCurrency,
             exchangeRate: finalExchangeRate,
             exchangeRatePreset: finalPreset,
             fee: fee,
@@ -775,13 +787,11 @@ class AddEditTransactionBloc
 
           final newTransaction = Transaction(
             description: finalDescription,
-            amount: amount,
+            amount: finalAmount,
             date: date,
             accountId: accountId!,
             categoryId: categoryId!,
-            currencyCode:
-                state.selectedCurrency?.code ??
-                state.selectedAccount!.currencyCode,
+            currencyCode: finalCurrency,
             exchangeRate: finalExchangeRate,
             exchangeRatePreset: finalPreset,
             fee: fee,

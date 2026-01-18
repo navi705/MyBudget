@@ -81,10 +81,8 @@ class AddEditTransactionState extends Equatable {
       return selectedAccount!.currencyCode != linkedAccount!.currencyCode;
     }
 
-    // Standard Mode: Show rate section if transaction currency differs from account currency
-    // OR if transaction currency is not the main currency (so we can set the rate to main).
-    return selectedAccount!.currencyCode != selectedCurrency!.code ||
-        selectedCurrency!.code != mainCurrencyCode;
+    // Standard Mode: Show rate section ONLY if transaction currency differs from account currency
+    return selectedAccount!.currencyCode != selectedCurrency!.code;
   }
 
   bool get isAssetTransaction =>
