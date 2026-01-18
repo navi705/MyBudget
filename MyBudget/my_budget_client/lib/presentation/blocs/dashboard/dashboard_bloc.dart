@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:my_budget_client/core/enums/filter_enums.dart'; // Added
 import 'package:my_budget_client/core/utils/performance_logger.dart';
 
 import 'package:my_budget_client/domain/entities/account.dart';
@@ -35,6 +36,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       selectedDay: DateTime.now(),
       dateRangeStart: DateTime.now().subtract(const Duration(days: 30)),
       dateRangeEnd: DateTime.now(),
+      dateStep: DateStep.month, // Added default
       isIncomeView: false,
     ),
   );
@@ -58,7 +60,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     on<ChangeDateRange>(_onChangeDateRange);
     on<SelectDay>(_onSelectDay);
     on<ToggleChartType>(_onToggleChartType);
+    on<ChangeDateStep>(_onChangeDateStep); // Added
   }
+
   Future<void> _onLoadDashboard(
     LoadDashboard event,
     Emitter<DashboardState> emit,
@@ -66,74 +70,98 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     PerformanceLogger().start('Dashboard Screen Load');
     emit(DashboardLoadInProgress());
 
-    final stream = Rx.combineLatest5(
-      _accountRepository.watchAccounts(),
-      _transactionRepository.watchTransactions(),
-      _categoryRepository.watchCategories(),
-      _styleRepository.watchAllStyles(),
-      _paramsSubject.stream,
-      (
-        List<Account> accounts,
-        List<Transaction> transactions,
-        List<Category> categories,
-        List<Style> styles,
-        _DashboardParams params,
-      ) async {
-        PerformanceLogger().start('Dashboard: balances, totals, settings');
-        final dayBalances = await _accountRepository.getBalancesAtDate(
-          params.selectedDay,
-        );
-        final categoryTotals = await _transactionRepository
-            .getTransactionTotalsGrouped(
-              dateFrom: params.dateRangeStart,
-              dateTo: params.dateRangeEnd,
+    final stream =
+        Rx.combineLatest5(
+          _accountRepository.watchAccounts(),
+          _transactionRepository.watchTransactions(),
+          _categoryRepository.watchCategories(),
+          _styleRepository.watchAllStyles(),
+          _paramsSubject.stream,
+          (
+            List<Account> accounts,
+            List<Transaction> transactions,
+            List<Category> categories,
+            List<Style> styles,
+            _DashboardParams params,
+          ) {
+            return _DashboardStreamData(
+              accounts: accounts,
+              transactions: transactions,
+              categories: categories,
+              styles: styles,
+              params: params,
             );
+          },
+        ).debounceTime(const Duration(milliseconds: 300)).asyncMap((
+          data,
+        ) async {
+          final accounts = data.accounts;
+          final transactions = data.transactions;
+          final categories = data.categories;
+          final styles = data.styles;
+          final params = data.params;
 
-        final settingsMap = await _settingsRepository.getAllSettings();
-        final mainCurrencyCode = settingsMap['main_currency_code'] ?? 'USD';
-        await PerformanceLogger().stop('Dashboard: balances, totals, settings');
+          PerformanceLogger().start('Dashboard: balances, totals, settings');
+          final dayBalances = await _accountRepository.getBalancesAtDate(
+            params.selectedDay,
+          );
+          final categoryTotals = await _transactionRepository
+              .getTransactionTotalsGrouped(
+                dateFrom: params.dateRangeStart,
+                dateTo: params.dateRangeEnd,
+              );
 
-        PerformanceLogger().start('Dashboard: getLatestExchangeRatesByList');
-        final now = DateTime.now();
-        final exchangeRates = await _currencyRepository
-            .getLatestExchangeRatesByList(
-              _getDateRangeList(params.dateRangeStart, now),
-            );
-        await PerformanceLogger().stop(
-          'Dashboard: getLatestExchangeRatesByList',
-        );
+          final settingsMap = await _settingsRepository.getAllSettings();
+          final mainCurrencyCode = settingsMap['main_currency_code'] ?? 'USD';
+          await PerformanceLogger().stop(
+            'Dashboard: balances, totals, settings',
+          );
 
-        PerformanceLogger().start('Dashboard: compute');
-        final computeParams = _DashboardComputeParams(
-          accounts: accounts,
-          transactions: transactions,
-          exchangeRates: exchangeRates,
-          mainCurrencyCode: mainCurrencyCode,
-          dateRangeStart: params.dateRangeStart,
-        );
-        final computeResults = _calculateDashboardData(computeParams);
-        await PerformanceLogger().stop('Dashboard: compute');
+          PerformanceLogger().start('Dashboard: getLatestExchangeRatesByList');
+          final now = DateTime.now();
+          final exchangeRates = await _currencyRepository
+              .getLatestExchangeRatesByList(
+                _getDateRangeList(params.dateRangeStart, now),
+              );
+          await PerformanceLogger().stop(
+            'Dashboard: getLatestExchangeRatesByList',
+          );
 
-        await PerformanceLogger().stop('Dashboard Screen Load');
+          PerformanceLogger().start('Dashboard: compute');
 
-        return DashboardLoadSuccess(
-          accounts: accounts,
-          transactions: transactions,
-          categories: categories,
-          styles: styles,
-          activeTabIndex: params.activeTabIndex,
-          selectedDay: params.selectedDay,
-          dateRangeStart: params.dateRangeStart,
-          dateRangeEnd: params.dateRangeEnd,
-          isIncomeView: params.isIncomeView,
-          dayBalances: dayBalances,
-          categoryTotals: categoryTotals,
-          dailyIncomes: computeResults.dailyIncomes,
-          dailyExpenses: computeResults.dailyExpenses,
-          dailyNetWorth: computeResults.dailyNetWorth,
-        );
-      },
-    ).flatMap((future) => Stream.fromFuture(future));
+          // Optimize: Pre-build Rate Map
+          final rateMap = _buildRateMap(exchangeRates);
+
+          final computeParams = _DashboardComputeParams(
+            accounts: accounts,
+            transactions: transactions,
+            rateMap: rateMap,
+            mainCurrencyCode: mainCurrencyCode,
+            dateRangeStart: params.dateRangeStart,
+          );
+          final computeResults = _calculateDashboardData(computeParams);
+          await PerformanceLogger().stop('Dashboard: compute');
+
+          await PerformanceLogger().stop('Dashboard Screen Load');
+
+          return DashboardLoadSuccess(
+            accounts: accounts,
+            transactions: transactions,
+            categories: categories,
+            styles: styles,
+            activeTabIndex: params.activeTabIndex,
+            selectedDay: params.selectedDay,
+            dateRangeStart: params.dateRangeStart,
+            dateRangeEnd: params.dateRangeEnd,
+            dateStep: params.dateStep, // Added
+            isIncomeView: params.isIncomeView,
+            dayBalances: dayBalances,
+            categoryTotals: categoryTotals,
+            dailyIncomes: computeResults.dailyIncomes,
+            dailyExpenses: computeResults.dailyExpenses,
+            dailyNetWorth: computeResults.dailyNetWorth,
+          );
+        });
 
     await emit.forEach<DashboardState>(
       stream,
@@ -181,6 +209,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     );
   }
 
+  void _onChangeDateStep(ChangeDateStep event, Emitter<DashboardState> emit) {
+    _paramsSubject.add(_paramsSubject.value.copyWith(dateStep: event.step));
+  }
+
   @override
   Future<void> close() {
     _paramsSubject.close();
@@ -193,6 +225,7 @@ class _DashboardParams {
   final DateTime selectedDay;
   final DateTime dateRangeStart;
   final DateTime dateRangeEnd;
+  final DateStep dateStep; // Added
   final bool isIncomeView;
 
   _DashboardParams({
@@ -200,6 +233,7 @@ class _DashboardParams {
     required this.selectedDay,
     required this.dateRangeStart,
     required this.dateRangeEnd,
+    required this.dateStep, // Added
     required this.isIncomeView,
   });
 
@@ -208,6 +242,7 @@ class _DashboardParams {
     DateTime? selectedDay,
     DateTime? dateRangeStart,
     DateTime? dateRangeEnd,
+    DateStep? dateStep, // Added
     bool? isIncomeView,
   }) {
     return _DashboardParams(
@@ -215,22 +250,39 @@ class _DashboardParams {
       selectedDay: selectedDay ?? this.selectedDay,
       dateRangeStart: dateRangeStart ?? this.dateRangeStart,
       dateRangeEnd: dateRangeEnd ?? this.dateRangeEnd,
+      dateStep: dateStep ?? this.dateStep, // Added
       isIncomeView: isIncomeView ?? this.isIncomeView,
     );
   }
 }
 
+class _DashboardStreamData {
+  final List<Account> accounts;
+  final List<Transaction> transactions;
+  final List<Category> categories;
+  final List<Style> styles;
+  final _DashboardParams params;
+
+  _DashboardStreamData({
+    required this.accounts,
+    required this.transactions,
+    required this.categories,
+    required this.styles,
+    required this.params,
+  });
+}
+
 class _DashboardComputeParams {
   final List<Account> accounts;
   final List<Transaction> transactions;
-  final List<ExchangeRateDomain> exchangeRates;
+  final Map<String, Map<String, Map<int, double>>> rateMap;
   final String mainCurrencyCode;
   final DateTime dateRangeStart;
 
   _DashboardComputeParams({
     required this.accounts,
     required this.transactions,
-    required this.exchangeRates,
+    required this.rateMap,
     required this.mainCurrencyCode,
     required this.dateRangeStart,
   });
@@ -246,6 +298,34 @@ class _DashboardComputeResults {
     required this.dailyExpenses,
     required this.dailyNetWorth,
   });
+}
+
+Map<String, Map<String, Map<int, double>>> _buildRateMap(
+  List<ExchangeRateDomain> rates,
+) {
+  final map = <String, Map<String, Map<int, double>>>{};
+  for (final r in rates) {
+    final dateKey = DateTime(
+      r.date.year,
+      r.date.month,
+      r.date.day,
+    ).millisecondsSinceEpoch;
+
+    // Forward
+    map
+            .putIfAbsent(r.fromCurrencyCode, () => {})
+            .putIfAbsent(r.toCurrencyCode, () => {})[dateKey] =
+        r.rate;
+
+    // Reverse (1/rate)
+    if (r.rate != 0) {
+      map
+              .putIfAbsent(r.toCurrencyCode, () => {})
+              .putIfAbsent(r.fromCurrencyCode, () => {})[dateKey] =
+          1.0 / r.rate;
+    }
+  }
+  return map;
 }
 
 _DashboardComputeResults _calculateDashboardData(
@@ -301,17 +381,18 @@ _DashboardComputeResults _calculateDashboardData(
   while (iterDate.isAfter(historyLimit) ||
       iterDate.isAtSameMomentAs(historyLimit)) {
     double totalNetWorth = 0.0;
+    final dateKey = iterDate.millisecondsSinceEpoch;
 
     for (final account in params.accounts) {
       final balance = currentBalances[account.id!] ?? 0.0;
       if (account.currencyCode == params.mainCurrencyCode) {
         totalNetWorth += balance;
       } else {
-        final rate = _getRateForDateIsolate(
-          params.exchangeRates,
+        final rate = _getRateFromMap(
+          params.rateMap,
           account.currencyCode,
           params.mainCurrencyCode,
-          iterDate,
+          dateKey,
         );
         totalNetWorth += balance * rate;
       }
@@ -338,28 +419,20 @@ _DashboardComputeResults _calculateDashboardData(
   );
 }
 
-double _getRateForDateIsolate(
-  List<ExchangeRateDomain> rates,
+double _getRateFromMap(
+  Map<String, Map<String, Map<int, double>>> map,
   String from,
   String to,
-  DateTime date,
+  int dateKey,
 ) {
   if (from == to) return 1.0;
-  final d = DateTime(date.year, date.month, date.day);
-
-  // Note: Using a simple find here, but could be optimized if rates list is large
-  for (final r in rates) {
-    if (r.fromCurrencyCode == from &&
-        r.toCurrencyCode == to &&
-        DateTime(r.date.year, r.date.month, r.date.day).isAtSameMomentAs(d)) {
-      return r.rate;
-    }
-    if (r.fromCurrencyCode == to &&
-        r.toCurrencyCode == from &&
-        DateTime(r.date.year, r.date.month, r.date.day).isAtSameMomentAs(d)) {
-      return 1.0 / r.rate;
+  final ratesFrom = map[from];
+  if (ratesFrom != null) {
+    final ratesTo = ratesFrom[to];
+    if (ratesTo != null) {
+      final rate = ratesTo[dateKey];
+      if (rate != null) return rate;
     }
   }
-
   return 1.0;
 }

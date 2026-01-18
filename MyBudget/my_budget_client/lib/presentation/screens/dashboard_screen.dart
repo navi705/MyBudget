@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
-import 'package:my_budget_client/presentation/widgets/dashboard/balance_line_chart.dart';
+import 'package:my_budget_client/presentation/widgets/dashboard/accounts_overview_widget.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/category_pie_chart.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_calendar.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/day_balance_details.dart';
@@ -60,8 +60,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   label: 'Categories',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.show_chart),
-                  label: 'Trends',
+                  icon: Icon(Icons.analytics_outlined),
+                  label: 'Analytics',
                 ),
               ],
             ),
@@ -82,7 +82,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 1:
         return _buildCategoryView(state);
       case 2:
-        return _buildTrendsView(state);
+        return _buildAnalyticsView(state);
       default:
         return const Center(child: Text('Selection Error'));
     }
@@ -92,12 +92,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return SingleChildScrollView(
       child: Column(
         children: [
+          // View Selector
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
+            child: SegmentedButton<DateStep>(
+              segments: const [
+                ButtonSegment(value: DateStep.month, label: Text('Month')),
+                ButtonSegment(value: DateStep.year, label: Text('Year')),
+              ],
+              selected: {state.dateStep},
+              onSelectionChanged: (Set<DateStep> newSelection) {
+                context.read<DashboardBloc>().add(
+                  ChangeDateStep(newSelection.first),
+                );
+              },
+            ),
+          ),
           DashboardCalendar(
+            dateStep: state.dateStep,
             dailyIncomes: state.dailyIncomes,
             dailyExpenses: state.dailyExpenses,
+            dailyNetWorth: state.dailyNetWorth, // Pass Net Worth
             selectedDay: state.selectedDay,
-            onDaySelected: (day) =>
-                context.read<DashboardBloc>().add(SelectDay(day)),
+            onDaySelected: (day) {
+              context.read<DashboardBloc>().add(SelectDay(day));
+              // If in Year view, switch to Month view explicitly on selection
+              if (state.dateStep == DateStep.year) {
+                context.read<DashboardBloc>().add(
+                  const ChangeDateStep(DateStep.month),
+                );
+              }
+            },
+            onPrevious: () {
+              final current = state.selectedDay;
+              DateTime newDate;
+              if (state.dateStep == DateStep.month) {
+                newDate = DateTime(
+                  current.year,
+                  current.month - 1,
+                  1,
+                ); // Go to 1st
+              } else {
+                newDate = DateTime(current.year - 1, current.month, 1);
+              }
+              context.read<DashboardBloc>().add(SelectDay(newDate));
+            },
+            onNext: () {
+              final current = state.selectedDay;
+              DateTime newDate;
+              if (state.dateStep == DateStep.month) {
+                newDate = DateTime(current.year, current.month + 1, 1);
+              } else {
+                newDate = DateTime(current.year + 1, current.month, 1);
+              }
+              context.read<DashboardBloc>().add(SelectDay(newDate));
+            },
+            onTitleTap: () => _showPeriodPicker(context, state),
           ),
           const Divider(),
           DayBalanceDetails(
@@ -147,25 +200,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildTrendsView(DashboardLoadSuccess state) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          _buildDateRangeIndicator(state),
-          const SizedBox(height: 24),
-          Text(
-            'Net Worth Trend',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 16),
-          BalanceLineChart(
-            dailyNetWorth: state.dailyNetWorth,
-            dateRangeStart: state.dateRangeStart,
-            dateRangeEnd: state.dateRangeEnd,
-          ),
-        ],
-      ),
+  Widget _buildAnalyticsView(DashboardLoadSuccess state) {
+    return AccountsOverviewWidget(
+      accounts: state.accounts,
+      dailyNetWorth: state.dailyNetWorth,
+      dateRangeStart: state.dateRangeStart,
+      dateRangeEnd: state.dateRangeEnd,
     );
   }
 
@@ -185,6 +225,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showPeriodPicker(BuildContext context, DashboardLoadSuccess state) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => CalendarStepPicker(
+        initialDate: state.selectedDay,
+        initialStep: state.dateStep == DateStep.year
+            ? DateStep.year
+            : DateStep.month,
+        initialFilterMode: FilterMode.date,
+        rangeOptionVisibility: PickerVisibility.hidden,
+        onApply: (date, range, step, mode) {
+          context.read<DashboardBloc>().add(SelectDay(date));
+        },
       ),
     );
   }
