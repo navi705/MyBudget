@@ -1818,14 +1818,17 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  Future<void> _seedData(AppDatabase db) async {
-    await _seedLanguages(db);
-    await _seedCurrencies(db);
-    await _seedCurrencyDesignations(db);
+  Future<void> _seedData(AppDatabase db, {bool skipStaticData = false}) async {
+    if (!skipStaticData) {
+      await _seedLanguages(db);
+      await _seedCurrencies(db);
+      await _seedCurrencyDesignations(db);
+      await _seedStyles(db);
+      await _seedAccountTypes(db);
+      await _seedExchangeRates(db);
+    }
+    // Settings are always re-seeded to defaults
     await _seedSettings(db);
-    await _seedStyles(db);
-    await _seedAccountTypes(db);
-    await _seedExchangeRates(db);
   }
 
   // --- Seeding Methods ---
@@ -1866,26 +1869,36 @@ class AppDatabase extends _$AppDatabase {
     await db.exchangeRatesDao.insertAllExchangeRates(rates.toCompanionList());
   }
 
-  Future<void> clearAllData() async {
+  Future<void> clearAllData({bool preserveStaticData = true}) async {
     // Disable FK checks during clear and reseed
     await customStatement('PRAGMA foreign_keys = OFF');
 
-    // Delete all data from tables in reverse dependency order
+    // Delete all data from tables
     await batch((batch) {
+      // Always delete user data
       batch.deleteAll(transactions);
       batch.deleteAll(accounts);
       batch.deleteAll(categories);
-      batch.deleteAll(exchangeRates);
-      batch.deleteAll(currencyDesignations);
-      batch.deleteAll(accountTypes);
-      batch.deleteAll(styles);
-      batch.deleteAll(currencies);
-      batch.deleteAll(languages);
+      batch.deleteAll(apiFetchStatuses);
+      batch.deleteAll(assetEntries);
       batch.deleteAll(settings);
+
+      // Clear inflation rates as they are fetched data
+      batch.deleteAll(inflationRates);
+
+      if (!preserveStaticData) {
+        // Only delete static data if strictly requested (Factory Reset)
+        batch.deleteAll(exchangeRates);
+        batch.deleteAll(currencyDesignations);
+        batch.deleteAll(accountTypes);
+        batch.deleteAll(styles);
+        batch.deleteAll(currencies);
+        batch.deleteAll(languages);
+      }
     });
 
     // Re-seed the data after clearing
-    await _seedData(this);
+    await _seedData(this, skipStaticData: preserveStaticData);
 
     // Re-enable FK checks
     await customStatement('PRAGMA foreign_keys = ON');
