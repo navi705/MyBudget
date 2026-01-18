@@ -3,6 +3,7 @@ import 'package:bloc/bloc.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' hide Category; // Added for compute
 import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
@@ -24,6 +25,9 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   final SettingsRepository _settingsRepository;
   final TransactionRepository _transactionRepository;
   final CurrencyRepository _currencyRepository;
+
+  // OPTIMIZATION: Cache exchange rates to avoid repeated DB queries
+  final Map<DateTime, List<ExchangeRateDomain>> _exchangeRateCache = {};
 
   CategoriesBloc({
     required CategoryRepository categoryRepository,
@@ -338,18 +342,38 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       final groupedTotals = results[1] as List<GroupedTransactionTotal>;
       final currencyDesignations = results[2] as List<CurrencyDesignation>;
 
+      PerformanceLogger().start('Categories: fetch exchange rates');
       final uniqueDates = groupedTotals
           .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
           .toSet()
           .toList();
 
-      PerformanceLogger().start('Categories: getLatestExchangeRatesByList');
-      final allRates = await _currencyRepository.getLatestExchangeRatesByList(
-        uniqueDates,
-      );
-      await PerformanceLogger().stop(
-        'Categories: getLatestExchangeRatesByList',
-      );
+      // Check cache for missing dates
+      final missingDates = uniqueDates
+          .where((d) => !_exchangeRateCache.containsKey(d))
+          .toList();
+
+      if (missingDates.isNotEmpty) {
+        final newRates = await _currencyRepository.getLatestExchangeRatesByList(
+          missingDates,
+        );
+        // Cache new rates by date
+        for (final rate in newRates) {
+          final dateKey = DateTime(
+            rate.date.year,
+            rate.date.month,
+            rate.date.day,
+          );
+          _exchangeRateCache.putIfAbsent(dateKey, () => []).add(rate);
+        }
+      }
+
+      // Collect all rates from cache
+      final List<ExchangeRateDomain> allRates = [];
+      for (final date in uniqueDates) {
+        allRates.addAll(_exchangeRateCache[date] ?? []);
+      }
+      await PerformanceLogger().stop('Categories: fetch exchange rates');
 
       PerformanceLogger().start('Categories: compute totals');
       final computeParams = _CategoryTotalsParams(
@@ -358,7 +382,11 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         mainCurrencyCode: mainCurrencyCode,
         allRates: allRates,
       );
-      final categoriesWithTotals = _calculateCategoryTotals(computeParams);
+      // OPTIMIZATION: Run heavy calculation (400ms+) in isolate
+      final categoriesWithTotals = await compute(
+        _calculateCategoryTotals,
+        computeParams,
+      );
       await PerformanceLogger().stop('Categories: compute totals');
 
       await PerformanceLogger().stop('Categories Screen Load');
