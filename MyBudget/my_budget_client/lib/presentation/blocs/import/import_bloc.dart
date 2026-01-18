@@ -532,18 +532,25 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
         }
 
         if (record.type.toLowerCase() == 'transfer') {
-          // (Transfer Logic - No changes needed)
+          // Transfer Logic - Add linkedTransactionId to link the two transactions
           final fromAccountId = accountIdMap[record.from.trim().toLowerCase()];
           final toAccountId = accountIdMap[record.to.trim().toLowerCase()];
           if (fromAccountId != null && toAccountId != null) {
+            // Generate IDs for both transactions to link them
+            final debitTransactionId = uuid.v4();
+            final creditTransactionId = uuid.v4();
+
             transactionsToInsert.add(
               Transaction(
+                id: debitTransactionId,
                 date: record.date,
                 description: 'Transfer to ${record.to}',
                 amount: -record.amount,
                 accountId: fromAccountId,
                 categoryId: transferCategory.id!,
                 currencyCode: record.currency.toUpperCase(),
+                linkedTransactionId:
+                    creditTransactionId, // Link to credit transaction
               ),
             );
             final creditAmount = record.amount2 ?? record.amount;
@@ -552,12 +559,15 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
                 : record.currency;
             transactionsToInsert.add(
               Transaction(
+                id: creditTransactionId,
                 date: record.date,
                 description: 'Transfer from ${record.from}',
                 amount: creditAmount,
                 accountId: toAccountId,
                 categoryId: transferCategory.id!,
                 currencyCode: creditCurrency.toUpperCase(),
+                linkedTransactionId:
+                    debitTransactionId, // Link to debit transaction
               ),
             );
           }
