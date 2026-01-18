@@ -16,6 +16,7 @@ class DashboardLoadSuccess extends DashboardState {
   final List<Transaction> transactions;
   final List<Category> categories;
   final List<Style> styles;
+  final List<Currency> availableCurrencies;
 
   // Dashboard parameters
   final int activeTabIndex;
@@ -50,6 +51,7 @@ class DashboardLoadSuccess extends DashboardState {
     this.dailyIncomes = const {},
     this.dailyExpenses = const {},
     this.dailyNetWorth = const {},
+    this.availableCurrencies = const [],
   }) : selectedDay = selectedDay ?? DateTime.now(),
        dateRangeStart =
            dateRangeStart ?? DateTime.now().subtract(const Duration(days: 30)),
@@ -72,6 +74,7 @@ class DashboardLoadSuccess extends DashboardState {
     Map<DateTime, double>? dailyIncomes,
     Map<DateTime, double>? dailyExpenses,
     Map<DateTime, double>? dailyNetWorth,
+    List<Currency>? availableCurrencies,
   }) {
     return DashboardLoadSuccess(
       accounts: accounts ?? this.accounts,
@@ -90,6 +93,7 @@ class DashboardLoadSuccess extends DashboardState {
       dailyIncomes: dailyIncomes ?? this.dailyIncomes,
       dailyExpenses: dailyExpenses ?? this.dailyExpenses,
       dailyNetWorth: dailyNetWorth ?? this.dailyNetWorth,
+      availableCurrencies: availableCurrencies ?? this.availableCurrencies,
     );
   }
 
@@ -111,6 +115,7 @@ class DashboardLoadSuccess extends DashboardState {
     dailyIncomes,
     dailyExpenses,
     dailyNetWorth,
+    availableCurrencies,
   ];
 }
 

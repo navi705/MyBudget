@@ -8,7 +8,8 @@ import 'package:my_budget_client/presentation/widgets/dashboard/accounts_overvie
 import 'package:my_budget_client/presentation/widgets/dashboard/category_pie_chart.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_calendar.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/day_balance_details.dart';
-import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_currency_selector.dart';
+
+import 'package:my_budget_client/presentation/widgets/dashboard/period_summary_widget.dart'; // Added
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -35,17 +36,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
 
         if (state is DashboardLoadSuccess) {
+          // For Calendar tab, use a cleaner look without AppBar title
+          final showAppBar = state.activeTabIndex != 0;
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('Dashboard'),
-              actions: [
-                if (state.activeTabIndex > 0)
-                  IconButton(
-                    icon: const Icon(Icons.date_range),
-                    onPressed: () => _showDateRangePicker(context, state),
-                  ),
-              ],
-            ),
+            appBar: showAppBar
+                ? AppBar(
+                    title: Text(
+                      state.activeTabIndex == 1 ? 'Categories' : 'Analytics',
+                    ),
+                    actions: [
+                      IconButton(
+                        icon: const Icon(Icons.date_range),
+                        onPressed: () => _showDateRangePicker(context, state),
+                      ),
+                    ],
+                  )
+                : null,
             body: _buildBody(state),
             bottomNavigationBar: BottomNavigationBar(
               currentIndex: state.activeTabIndex,
@@ -94,52 +100,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         children: [
           // View Selector & Currency
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                SegmentedButton<DateStep>(
-                  segments: const [
-                    ButtonSegment(value: DateStep.month, label: Text('Month')),
-                    ButtonSegment(value: DateStep.year, label: Text('Year')),
-                  ],
-                  selected: {state.dateStep},
-                  onSelectionChanged: (Set<DateStep> newSelection) {
-                    context.read<DashboardBloc>().add(
-                      ChangeDateStep(newSelection.first),
-                    );
-                  },
-                ),
-                const SizedBox(width: 16),
-                DashboardCurrencySelector(
-                  selectedCurrency: state.selectedCurrency,
-                  availableCurrencies: const [
-                    'USD',
-                    'EUR',
-                    'RSD',
-                    'RUB',
-                    'TRY',
-                    'GBP',
-                    'CHF',
-                  ],
-                  onCurrencyChanged: (currency) {
-                    context.read<DashboardBloc>().add(ChangeCurrency(currency));
-                  },
-                ),
-              ],
-            ),
-          ),
+          // Calendar with integrated header
           DashboardCalendar(
+            selectedDay: state.selectedDay,
             dateStep: state.dateStep,
             dailyIncomes: state.dailyIncomes,
             dailyExpenses: state.dailyExpenses,
             dailyNetWorth: state.dailyNetWorth,
-            selectedDay: state.selectedDay,
             currencyCode: state.selectedCurrency,
+            availableCurrencies: state.availableCurrencies
+                .map((e) => e.code)
+                .toList(),
+            onCurrencySelected: (code) {
+              context.read<DashboardBloc>().add(ChangeCurrency(code));
+            },
+            onDateStepChanged: (step) {
+              context.read<DashboardBloc>().add(ChangeDateStep(step));
+            },
             onDaySelected: (day) {
               context.read<DashboardBloc>().add(SelectDay(day));
               // If in Year view, switch to Month view explicitly on selection
@@ -174,6 +151,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               context.read<DashboardBloc>().add(SelectDay(newDate));
             },
             onTitleTap: () => _showPeriodPicker(context, state),
+          ),
+          const SizedBox(height: 16),
+          PeriodSummaryWidget(
+            dateRangeStart: state.dateRangeStart,
+            dateRangeEnd: state.dateRangeEnd,
+            dailyIncomes: state.dailyIncomes,
+            dailyExpenses: state.dailyExpenses,
+            currencyCode: state.selectedCurrency,
           ),
           const Divider(),
           DayBalanceDetails(
@@ -258,7 +243,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => CalendarStepPicker(
+      builder: (modalContext) => CalendarStepPicker(
         initialDate: state.selectedDay,
         initialStep: state.dateStep == DateStep.year
             ? DateStep.year
@@ -266,7 +251,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         initialFilterMode: FilterMode.date,
         rangeOptionVisibility: PickerVisibility.hidden,
         onApply: (date, range, step, mode) {
-          context.read<DashboardBloc>().add(SelectDay(date));
+          final bloc = context.read<DashboardBloc>();
+          bloc.add(SelectDay(date));
+          // FIX: Also update DateStep if user selected different step in picker
+          if (step != state.dateStep && step != DateStep.day) {
+            bloc.add(ChangeDateStep(step));
+          }
         },
       ),
     );

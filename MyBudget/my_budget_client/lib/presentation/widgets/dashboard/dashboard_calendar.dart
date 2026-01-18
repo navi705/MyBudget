@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
+import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_currency_selector.dart'; // Added
 
 class DashboardCalendar extends StatelessWidget {
   final DateTime selectedDay;
@@ -12,7 +13,10 @@ class DashboardCalendar extends StatelessWidget {
   final VoidCallback onNext;
   final VoidCallback onPrevious;
   final VoidCallback onTitleTap;
-  final String currencyCode; // Added
+  final String currencyCode;
+  final List<String> availableCurrencies;
+  final Function(String) onCurrencySelected;
+  final Function(DateStep) onDateStepChanged;
 
   const DashboardCalendar({
     super.key,
@@ -26,6 +30,9 @@ class DashboardCalendar extends StatelessWidget {
     required this.onPrevious,
     required this.onTitleTap,
     required this.currencyCode,
+    required this.availableCurrencies,
+    required this.onCurrencySelected,
+    required this.onDateStepChanged,
   });
 
   @override
@@ -52,39 +59,71 @@ class DashboardCalendar extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context) {
     String title;
-
     if (dateStep == DateStep.month) {
       title = DateFormat.yMMMM().format(selectedDay);
     } else {
       title = selectedDay.year.toString();
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        IconButton(onPressed: onPrevious, icon: const Icon(Icons.chevron_left)),
-        InkWell(
-          onTap: onTitleTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
+    // Accounts-style Header: [<] [Currency] [Title (expandable)] [M/Y] [>]
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        children: [
+          // Left Arrow
+          IconButton(
+            icon: Icon(Icons.chevron_left, color: onSurface),
+            onPressed: onPrevious,
+          ),
+          // Currency Selector
+          DashboardCurrencySelector(
+            selectedCurrency: currencyCode,
+            availableCurrencies: availableCurrencies,
+            onCurrencyChanged: onCurrencySelected,
+          ),
+          // Expandable Center: Title
+          Expanded(
+            child: InkWell(
+              onTap: onTitleTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                alignment: Alignment.center,
+                child: Text(
                   title,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: onSurface, fontSize: 18),
                 ),
-                const SizedBox(width: 4),
-                const Icon(Icons.arrow_drop_down),
-              ],
+              ),
             ),
           ),
-        ),
-        IconButton(onPressed: onNext, icon: const Icon(Icons.chevron_right)),
-      ],
+          // DateStep Selector (Month/Year)
+          SegmentedButton<DateStep>(
+            segments: const [
+              ButtonSegment(value: DateStep.month, label: Text('M')),
+              ButtonSegment(value: DateStep.year, label: Text('Y')),
+            ],
+            selected: {dateStep},
+            onSelectionChanged: (Set<DateStep> newSelection) {
+              onDateStepChanged(newSelection.first);
+            },
+            showSelectedIcon: false,
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: WidgetStateProperty.all(
+                const EdgeInsets.symmetric(horizontal: 10),
+              ),
+            ),
+          ),
+          // Right Arrow
+          IconButton(
+            icon: Icon(Icons.chevron_right, color: onSurface),
+            onPressed: onNext,
+          ),
+        ],
+      ),
     );
   }
 
@@ -292,24 +331,22 @@ class DashboardCalendar extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            if (totalIncome > 0)
-              Text(
-                '+${NumberFormat.compactSimpleCurrency(name: currencyCode).format(totalIncome)}',
-                style: const TextStyle(
-                  color: Colors.green,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            if (totalExpense > 0)
-              Text(
-                '-${NumberFormat.compactSimpleCurrency(name: currencyCode).format(totalExpense)}',
-                style: const TextStyle(
-                  color: Colors.red,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            // Show Net Delta
+            Builder(
+              builder: (context) {
+                final net = totalIncome - totalExpense;
+                // Use green for gain (or 0), red for loss
+                final color = net >= 0 ? Colors.green : Colors.red;
+                return Text(
+                  '${net >= 0 ? '+' : ''}${NumberFormat.compactSimpleCurrency(name: currencyCode).format(net)}',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),

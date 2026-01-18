@@ -2,12 +2,17 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart'
+    hide Category; // Isolate support, hide Category collision
 import 'package:my_budget_client/core/enums/filter_enums.dart'; // Added
+import 'package:my_budget_client/core/utils/currency_converter.dart'; // Added
 import 'package:my_budget_client/core/utils/performance_logger.dart';
 
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/domain/entities/currency.dart'; // Added
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
+import 'package:my_budget_client/domain/entities/category_type.dart'; // Added
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
@@ -124,30 +129,45 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             'Dashboard: balances, totals, settings',
           );
 
-          PerformanceLogger().start('Dashboard: getLatestExchangeRatesByList');
-          final now = DateTime.now();
+          PerformanceLogger().start('Dashboard: getExchangeRates');
+          // Load rates for ALL unique transaction dates (like TransactionsBloc)
+          // This ensures CurrencyConverter finds historical rates.
+          final uniqueDates = transactions
+              .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
+              .toSet()
+              .toList();
+          // Add today for any new transactions
+          uniqueDates.add(DateTime.now());
+
           final exchangeRates = await _currencyRepository
-              .getLatestExchangeRatesByList(
-                _getDateRangeList(params.dateRangeStart, now),
-              );
-          await PerformanceLogger().stop(
-            'Dashboard: getLatestExchangeRatesByList',
-          );
+              .getLatestExchangeRatesByList(uniqueDates);
+          await PerformanceLogger().stop('Dashboard: getExchangeRates');
 
           PerformanceLogger().start('Dashboard: compute');
 
-          // Optimize: Pre-build Rate Map
-          final rateMap = _buildRateMap(exchangeRates);
+          // Build Category Type Map for filtering (Isolate safe: String -> Enum)
+          final categoryTypeMap = {
+            for (final c in categories)
+              if (c.id != null) c.id!: c.type,
+          };
 
           final computeParams = _DashboardComputeParams(
             accounts: accounts,
             transactions: transactions,
-            rateMap: rateMap,
+            rates: exchangeRates,
             mainCurrencyCode: targetCurrency,
             dateRangeStart: params.dateRangeStart,
             selectedDay: params.selectedDay,
+            categoryTypeMap: categoryTypeMap,
           );
-          final computeResults = _calculateDashboardData(computeParams);
+          final computeResults = await compute(
+            _calculateDashboardData,
+            computeParams,
+          );
+
+          final availableCurrencies = await _currencyRepository
+              .getCurrencies(); // Added
+
           await PerformanceLogger().stop('Dashboard: compute');
 
           await PerformanceLogger().stop('Dashboard Screen Load');
@@ -169,6 +189,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             dailyIncomes: computeResults.dailyIncomes,
             dailyExpenses: computeResults.dailyExpenses,
             dailyNetWorth: computeResults.dailyNetWorth,
+            availableCurrencies: availableCurrencies,
           );
         });
 
@@ -180,17 +201,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         return DashboardLoadFailure();
       },
     );
-  }
-
-  List<DateTime> _getDateRangeList(DateTime start, DateTime end) {
-    final list = <DateTime>[];
-    var current = DateTime(start.year, start.month, start.day);
-    final last = DateTime(end.year, end.month, end.day);
-    while (current.isBefore(last) || current.isAtSameMomentAs(last)) {
-      list.add(current);
-      current = current.add(const Duration(days: 1));
-    }
-    return list;
   }
 
   void _onChangeTab(ChangeTab event, Emitter<DashboardState> emit) {
@@ -294,18 +304,20 @@ class _DashboardStreamData {
 class _DashboardComputeParams {
   final List<Account> accounts;
   final List<Transaction> transactions;
-  final Map<String, Map<String, Map<int, double>>> rateMap;
+  final List<ExchangeRateDomain> rates;
   final String mainCurrencyCode;
   final DateTime dateRangeStart;
-  final DateTime selectedDay; // Added parameter definition
+  final DateTime selectedDay;
+  final Map<String, CategoryType> categoryTypeMap; // Added
 
   _DashboardComputeParams({
     required this.accounts,
     required this.transactions,
-    required this.rateMap,
+    required this.rates,
     required this.mainCurrencyCode,
     required this.dateRangeStart,
-    required this.selectedDay, // Added
+    required this.selectedDay,
+    required this.categoryTypeMap, // Added
   });
 }
 
@@ -326,66 +338,85 @@ class _DashboardComputeResults {
   });
 }
 
-Map<String, Map<String, Map<int, double>>> _buildRateMap(
-  List<ExchangeRateDomain> rates,
-) {
-  final map = <String, Map<String, Map<int, double>>>{};
-  for (final r in rates) {
-    final dateKey = DateTime(
-      r.date.year,
-      r.date.month,
-      r.date.day,
-    ).millisecondsSinceEpoch;
-
-    // Forward
-    map
-            .putIfAbsent(r.fromCurrencyCode, () => {})
-            .putIfAbsent(r.toCurrencyCode, () => {})[dateKey] =
-        r.rate;
-
-    // Reverse (1/rate)
-    if (r.rate != 0) {
-      map
-              .putIfAbsent(r.toCurrencyCode, () => {})
-              .putIfAbsent(r.fromCurrencyCode, () => {})[dateKey] =
-          1.0 / r.rate;
-    }
-  }
-  return map;
-}
-
 _DashboardComputeResults _calculateDashboardData(
   _DashboardComputeParams params,
 ) {
+  final converter = CurrencyConverter(params.rates);
+  final conversionDate =
+      DateTime.now(); // Value everything at TODAY'S rate for consistency (Constant Currency)
+
   final dailyIncomes = <DateTime, double>{};
   final dailyExpenses = <DateTime, double>{};
   final dailyNetWorth = <DateTime, double>{};
   Map<String, double> dayBalances = {}; // Initialize
 
+  final currentBalances = <String, double>{};
+  final accountCurrencyMap =
+      <String, String>{}; // Cache account IDs to currency
+  final accountAssetMap =
+      <String, bool>{}; // Cache check if account is asset-bound
+
+  for (final account in params.accounts) {
+    currentBalances[account.id!] = account.balance;
+    accountCurrencyMap[account.id!] = account.currencyCode;
+    accountAssetMap[account.id!] = account.assetId != null;
+  }
+
   for (final transaction in params.transactions) {
+    // FILTERING LOGIC:
+    // User expects Dashboard to match Transaction List (which shows everything).
+    // Previously we filtered Transfers/Assets, causing data to disappear (e.g. 64 -> 37).
+    // We now include EVERYTHING.
+    // NOTE: This might inflate Income/Expense bars if Transfers are internal, but it guarantees "User Calculation" match.
+
+    // 1. Exclude Transfers - DISABLED (User wants to see them)
+    /*
+    final type = params.categoryTypeMap[transaction.categoryId];
+    if (type == CategoryType.transfer) {
+      continue;
+    }
+    */
+
+    // 2. Exclude Asset Accounts - DISABLED (Hides valid expenses from Cash Wallets)
+    /*
+    if (accountAssetMap[transaction.accountId] == true) {
+      continue;
+    }
+    */
+
     final date = DateTime(
       transaction.date.year,
       transaction.date.month,
       transaction.date.day,
     );
-    if (transaction.amount > 0) {
+
+    // CRITICAL FIX: Use transaction's own currency, NOT account's currency!
+    // This matches TransactionsBloc logic exactly.
+    final transactionCurrency = transaction.currencyCode;
+
+    // CRITICAL FIX #2: Use transaction DATE for conversion, NOT today!
+    // TransactionsBloc uses historical rates on transaction date.
+    final convertedAmount = converter.convert(
+      amount: transaction.amount,
+      from: transactionCurrency,
+      to: params.mainCurrencyCode,
+      date:
+          date, // Use transaction date for historical rate (matches Transaction List)
+    );
+
+    if (convertedAmount > 0) {
       dailyIncomes.update(
         date,
-        (v) => v + transaction.amount,
-        ifAbsent: () => transaction.amount,
+        (v) => v + convertedAmount,
+        ifAbsent: () => convertedAmount,
       );
-    } else if (transaction.amount < 0) {
+    } else if (convertedAmount < 0) {
       dailyExpenses.update(
         date,
-        (v) => v + transaction.amount.abs(),
-        ifAbsent: () => transaction.amount.abs(),
+        (v) => v + convertedAmount.abs(),
+        ifAbsent: () => convertedAmount.abs(),
       );
     }
-  }
-
-  final currentBalances = <String, double>{};
-  for (final account in params.accounts) {
-    currentBalances[account.id!] = account.balance;
   }
 
   // Pre-group transactions by date for faster lookup during net worth walk-back
@@ -408,21 +439,15 @@ _DashboardComputeResults _calculateDashboardData(
   while (iterDate.isAfter(historyLimit) ||
       iterDate.isAtSameMomentAs(historyLimit)) {
     double totalNetWorth = 0.0;
-    final dateKey = iterDate.millisecondsSinceEpoch;
 
     for (final account in params.accounts) {
       final balance = currentBalances[account.id!] ?? 0.0;
-      if (account.currencyCode == params.mainCurrencyCode) {
-        totalNetWorth += balance;
-      } else {
-        final rate = _getRateFromMap(
-          params.rateMap,
-          account.currencyCode,
-          params.mainCurrencyCode,
-          dateKey,
-        );
-        totalNetWorth += balance * rate;
-      }
+      totalNetWorth += converter.convert(
+        amount: balance,
+        from: account.currencyCode,
+        to: params.mainCurrencyCode,
+        date: conversionDate,
+      );
     }
 
     dailyNetWorth[iterDate] = totalNetWorth;
@@ -433,17 +458,12 @@ _DashboardComputeResults _calculateDashboardData(
         iterDate.day == params.selectedDay.day) {
       for (final account in params.accounts) {
         final balance = currentBalances[account.id!] ?? 0.0;
-        double convertedHelper = balance;
-        if (account.currencyCode != params.mainCurrencyCode) {
-          convertedHelper =
-              balance *
-              _getRateFromMap(
-                params.rateMap,
-                account.currencyCode,
-                params.mainCurrencyCode,
-                dateKey,
-              );
-        }
+        final convertedHelper = converter.convert(
+          amount: balance,
+          from: account.currencyCode,
+          to: params.mainCurrencyCode,
+          date: conversionDate, // Use conversionDate
+        );
         dayBalances[account.id!] = convertedHelper;
       }
     }
@@ -460,32 +480,10 @@ _DashboardComputeResults _calculateDashboardData(
     iterDate = iterDate.subtract(const Duration(days: 1));
   }
 
-  // If selectedDay was NOT found (e.g. today or future relative to loop context, or very old),
-  // we might need fallback. But loop starts at 'today'.
-  // If params.selectedDay is 'today', it should match first iteration.
-
   return _DashboardComputeResults(
     dailyIncomes: dailyIncomes,
     dailyExpenses: dailyExpenses,
     dailyNetWorth: dailyNetWorth,
     dayBalances: dayBalances,
   );
-}
-
-double _getRateFromMap(
-  Map<String, Map<String, Map<int, double>>> map,
-  String from,
-  String to,
-  int dateKey,
-) {
-  if (from == to) return 1.0;
-  final ratesFrom = map[from];
-  if (ratesFrom != null) {
-    final ratesTo = ratesFrom[to];
-    if (ratesTo != null) {
-      final rate = ratesTo[dateKey];
-      if (rate != null) return rate;
-    }
-  }
-  return 1.0;
 }
