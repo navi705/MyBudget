@@ -42,6 +42,14 @@ class LocalAccountRepository implements AccountRepository {
     return dbAccount?.toDomain();
   }
 
+  // OPTIMIZATION: Bulk fetch accounts by IDs
+  @override
+  Future<List<Account>> getAccountsByIds(List<String> ids) async {
+    if (ids.isEmpty) return [];
+    final dbAccounts = await database.accountsDao.getAccountsByIds(ids);
+    return dbAccounts.toDomainList();
+  }
+
   @override
   Future<List<Account>> getAccounts() async {
     final accounts = await database.accountsDao.getAllAccounts();

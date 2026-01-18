@@ -15,6 +15,9 @@ abstract class AccountRepository {
   });
   Stream<List<Account>> watchAccounts();
   Future<Account?> getAccountById(String id);
+  Future<List<Account>> getAccountsByIds(
+    List<String> ids,
+  ); // OPTIMIZATION: Bulk fetch
   Future<void> addAccount(Account account);
   Future<void> addAccounts(List<Account> accounts);
   Future<void> updateAccount(Account account);

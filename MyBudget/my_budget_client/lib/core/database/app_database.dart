@@ -577,6 +577,11 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       (select(accounts)..limit(limit, offset: offset)).get();
   Future<DbAccount?> getAccountById(String id) =>
       (select(accounts)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+
+  // OPTIMIZATION: Bulk fetch accounts by IDs (O(1) vs O(n) sequential calls)
+  Future<List<DbAccount>> getAccountsByIds(List<String> ids) =>
+      (select(accounts)..where((tbl) => tbl.id.isIn(ids))).get();
+
   Stream<List<DbAccount>> watchAllAccounts() => select(accounts).watch();
   Future<void> insertAccount(AccountsCompanion account) =>
       into(accounts).insert(account);

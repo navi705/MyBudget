@@ -335,7 +335,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     }
     await PerformanceLogger().stop('Transactions: fetch categories');
 
-    // 1.5. Fetch Missing Accounts
+    // 1.5. Fetch Missing Accounts (OPTIMIZED: bulk query instead of loop)
     PerformanceLogger().start('Transactions: fetch accounts');
     final accountIds = transactions
         .map((t) => t.accountId)
@@ -344,14 +344,11 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         .toList();
 
     if (accountIds.isNotEmpty) {
-      // Assuming AccountRepository has getAccountsByIds.
-      // If not, we might need to fetch all or loop.
-      // Checking LocalAccountRepository: usually watchAccounts() or getAccount(id).
-      // If no bulk fetch, we loop.
-      for (var id in accountIds) {
-        final account = await _accountRepository.getAccountById(id);
-        if (account != null) {
-          _accountCache[id] = account;
+      // OPTIMIZATION: Use bulk fetch instead of O(n) sequential calls
+      final newAccounts = await _accountRepository.getAccountsByIds(accountIds);
+      for (var account in newAccounts) {
+        if (account.id != null) {
+          _accountCache[account.id!] = account;
         }
       }
     }
@@ -428,10 +425,13 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           .toList();
 
       if (linkedAccountIds.isNotEmpty) {
-        for (var id in linkedAccountIds) {
-          final account = await _accountRepository.getAccountById(id);
-          if (account != null) {
-            _accountCache[id] = account;
+        // OPTIMIZATION: Use bulk fetch instead of O(n) sequential calls
+        final newAccounts = await _accountRepository.getAccountsByIds(
+          linkedAccountIds,
+        );
+        for (var account in newAccounts) {
+          if (account.id != null) {
+            _accountCache[account.id!] = account;
           }
         }
       }
