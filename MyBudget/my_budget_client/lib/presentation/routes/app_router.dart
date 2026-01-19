@@ -39,83 +39,81 @@ final GoRouter router = GoRouter(
       routes: <RouteBase>[
         GoRoute(
           path: AppRoutes.dashboard,
-          builder: (context, state) {
-            return const DashboardScreen();
+          pageBuilder: (context, state) {
+            return _buildPage(const DashboardScreen());
           },
         ),
         GoRoute(
           path: AppRoutes.accounts,
-          builder: (context, state) {
-            return const AccountsScreen();
+          pageBuilder: (context, state) {
+            return _buildPage(const AccountsScreen());
           },
         ),
         GoRoute(
           path: AppRoutes.transactions,
-          builder: (context, state) {
-            return const TransactionsScreen();
+          pageBuilder: (context, state) {
+            return _buildPage(const TransactionsScreen());
           },
         ),
         GoRoute(
           path: AppRoutes.categories,
-          builder: (context, state) {
-            return const CategoriesScreen(isStandalone: true);
+          pageBuilder: (context, state) {
+            return _buildPage(const CategoriesScreen(isStandalone: true));
           },
         ),
         GoRoute(
           path: AppRoutes.exchangeRates,
-          builder: (context, state) {
-            return const DataScreen(initialTabIndex: 0);
+          pageBuilder: (context, state) {
+            return _buildPage(const DataScreen(initialTabIndex: 0));
           },
         ),
         GoRoute(
           path: AppRoutes.settings,
-          builder: (context, state) {
-            return const SettingsScreen();
+          pageBuilder: (context, state) {
+            return _buildPage(const SettingsScreen());
           },
         ),
         GoRoute(
           path: AppRoutes.hotKeys,
-          builder: (context, state) => const HotKeysScreen(),
+          pageBuilder: (context, state) {
+            return _buildPage(const HotKeysScreen());
+          },
         ),
         if (kDebugMode)
           GoRoute(
             path: AppRoutes.debug,
-            builder: (context, state) => const DebugScreen(),
+            pageBuilder: (context, state) => _buildPage(const DebugScreen()),
           ),
         GoRoute(
           path: AppRoutes.manageAccountStyles,
-          builder: (context, state) {
-            return const ManageStylesScreen();
+          pageBuilder: (context, state) {
+            return _buildPage(const ManageStylesScreen());
           },
         ),
       ],
     ),
     GoRoute(
       path: AppRoutes.editAccount,
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final account = state.extra as Account?;
         if (account == null) {
-          // Handle the case where the account is not provided,
-          // maybe by navigating back or showing an error.
-          // For now, let's just return an empty container or an error screen.
-          return const Scaffold(
-            body: Center(child: Text('Account not found!')),
+          return _buildPage(
+            const Scaffold(body: Center(child: Text('Account not found!'))),
           );
         }
-        return EditAccountScreen(account: account);
+        return _buildPage(EditAccountScreen(account: account));
       },
     ),
-
     GoRoute(
       path: AppRoutes.editAccountStyle,
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final styleId = state.pathParameters['id']!;
-        return EditStyleScreen(styleId: styleId);
+        return _buildPage(EditStyleScreen(styleId: styleId));
       },
     ),
     GoRoute(
       path: AppRoutes.addEditTransaction,
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         Transaction? transaction;
         String? accountId;
         bool isTransfer = false;
@@ -126,30 +124,42 @@ final GoRouter router = GoRouter(
           isTransfer = extra['isTransfer'] as bool? ?? false;
         }
 
-        return AddEditTransactionScreen(
-          transaction: transaction,
-          accountId: accountId,
-          isTransfer: isTransfer,
+        return _buildPage(
+          AddEditTransactionScreen(
+            transaction: transaction,
+            accountId: accountId,
+            isTransfer: isTransfer,
+          ),
         );
       },
     ),
     GoRoute(
       path: AppRoutes.importScreen,
-      builder: (context, state) {
-        return const ImportScreen();
+      pageBuilder: (context, state) {
+        return _buildPage(const ImportScreen());
       },
     ),
     GoRoute(
       path: AppRoutes.themeSettings,
-      builder: (context, state) {
-        return const ThemeSettingsScreen();
+      pageBuilder: (context, state) {
+        return _buildPage(const ThemeSettingsScreen());
       },
     ),
     GoRoute(
       path: AppRoutes.apiSettings,
-      builder: (context, state) {
-        return const ApiSettingsScreen();
+      pageBuilder: (context, state) {
+        return _buildPage(const ApiSettingsScreen());
       },
     ),
   ],
 );
+
+CustomTransitionPage _buildPage(Widget child) {
+  return CustomTransitionPage(
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return child;
+    },
+    opaque: true, // Forces previous route to be hidden
+  );
+}
