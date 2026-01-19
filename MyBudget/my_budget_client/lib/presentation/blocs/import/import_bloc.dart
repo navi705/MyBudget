@@ -627,15 +627,46 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
         await _transactionRepository.addTransactions(transactionsToInsert);
       }
 
-      // --- 6. UPDATE BALANCES (No Changes) ---
+      // --- 6. UPDATE BALANCES AND CREATION DATE ---
       final allDbAccounts = await _accountRepository.getAccounts();
       for (final account in allDbAccounts) {
-        final parsedBalance =
-            parsedBalancesMap[account.name.trim().toLowerCase()];
+        final accountNameNormalized = account.name.trim().toLowerCase();
+
+        // Find relevant records for this account
+        final accountRecords = state.parsedRecords
+            .where((r) => r.from.trim().toLowerCase() == accountNameNormalized)
+            .toList();
+
+        DateTime? newCreationDate;
+        if (accountRecords.isNotEmpty) {
+          accountRecords.sort((a, b) => a.date.compareTo(b.date));
+          final earliestDate = accountRecords.first.date;
+          if (earliestDate.isBefore(account.creationDate)) {
+            newCreationDate = earliestDate;
+          }
+        }
+
+        final parsedBalance = parsedBalancesMap[accountNameNormalized];
+
+        bool needsUpdate = false;
+        Account updatedAccount = account;
+
         if (parsedBalance != null && account.balance != parsedBalance.balance) {
-          await _accountRepository.updateAccount(
-            account.copyWith(balance: parsedBalance.balance),
+          updatedAccount = updatedAccount.copyWith(
+            balance: parsedBalance.balance,
           );
+          needsUpdate = true;
+        }
+
+        if (newCreationDate != null) {
+          updatedAccount = updatedAccount.copyWith(
+            creationDate: newCreationDate,
+          );
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          await _accountRepository.updateAccount(updatedAccount);
         }
       }
 

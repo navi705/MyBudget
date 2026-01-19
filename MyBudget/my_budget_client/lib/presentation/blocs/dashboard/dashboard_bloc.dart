@@ -665,6 +665,19 @@ _DashboardComputeResults _calculateDashboardData(
     // This handles both standard accounts (with future transactions if any)
     // and asset-linked accounts (with last known price)
     dayBalances = financeCalc.calculateBalances(snapshot);
+
+    // FIX: Force 0 balance for accounts not yet created (Consistency for future dates)
+    for (final account in params.accounts) {
+      final creationDate = DateTime(
+        account.creationDate.year,
+        account.creationDate.month,
+        account.creationDate.day,
+      );
+      // Use selectedDayNormalized which is the date projected
+      if (selectedDayNormalized.isBefore(creationDate)) {
+        dayBalances[account.id!] = 0.0;
+      }
+    }
   }
 
   int daysIterated = 0;
@@ -702,6 +715,20 @@ _DashboardComputeResults _calculateDashboardData(
     } else {
       // Use walk-back logic for standard accounts (faster)
       balancesForDay = Map.of(currentBalances);
+    }
+
+    // FIX: Force 0 balance for accounts not yet created
+    // This handles the "Initial Balance" issue where walk-back preserves
+    // the initial amount into the past before the account existed.
+    for (final account in params.accounts) {
+      final creationDate = DateTime(
+        account.creationDate.year,
+        account.creationDate.month,
+        account.creationDate.day,
+      );
+      if (iterDate.isBefore(creationDate)) {
+        balancesForDay[account.id!] = 0.0;
+      }
     }
 
     // Calculate total net worth with converted values
