@@ -323,7 +323,7 @@ class DashboardCalendar extends StatelessWidget {
         text,
         style: TextStyle(
           color: color,
-          fontSize: 10,
+          fontSize: 12, // Increased from 10
           fontWeight: FontWeight.w600,
         ),
       ),
