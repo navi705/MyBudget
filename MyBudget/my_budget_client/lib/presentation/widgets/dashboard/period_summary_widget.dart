@@ -59,18 +59,17 @@ class PeriodSummaryWidget extends StatelessWidget {
       color: theme.cardColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.all(20.0), // Increased padding
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center, // Centered
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Period Summary',
-              style: theme.textTheme.titleLarge?.copyWith(
-                // Increased from titleMedium
+              style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 16), // Increased spacing
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -124,15 +123,11 @@ class PeriodSummaryWidget extends StatelessWidget {
 
     return Column(
       children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ), // Increased from bodySmall
-        const SizedBox(height: 6), // Increased spacing
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 4),
         Text(
           text,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            // Increased from titleLarge
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
             color: color,
             fontWeight: FontWeight.bold,
           ),

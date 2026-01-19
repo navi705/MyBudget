@@ -304,7 +304,7 @@ class DashboardCalendar extends StatelessWidget {
                   '${net >= 0 ? '+' : ''}${NumberFormat.compact().format(net)}$currencySymbol',
                   style: TextStyle(
                     color: color,
-                    fontSize: 12,
+                    fontSize: 15,
                     fontWeight: FontWeight.bold,
                   ),
                 );
