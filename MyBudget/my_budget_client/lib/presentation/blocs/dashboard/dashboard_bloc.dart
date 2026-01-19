@@ -42,8 +42,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     _DashboardParams(
       activeTabIndex: 0,
       selectedDay: DateTime.now(),
-      dateRangeStart: DateTime.now().subtract(const Duration(days: 30)),
-      dateRangeEnd: DateTime.now(),
+      // FIX: Use month boundaries for initial range (matching dateStep: month)
+      dateRangeStart: DateTime(DateTime.now().year, DateTime.now().month, 1),
+      dateRangeEnd: DateTime(DateTime.now().year, DateTime.now().month + 1, 0),
       dateStep: DateStep.month,
       selectedCurrency: '', // Seed with empty, will resolve to main
       isIncomeView: false,
@@ -119,6 +120,13 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           final categories = data.categories;
           final styles = data.styles;
           final params = data.params;
+
+          // GUARD: Skip computation if categories haven't loaded yet
+          // This prevents transfers from being counted as income/expense
+          if (categories.isEmpty) {
+            print('DEBUG: Skipping compute - categories empty');
+            return DashboardLoadInProgress();
+          }
 
           // OPTIMIZATION: Run DB queries in parallel
           PerformanceLogger().start('Dashboard: balances, totals, settings');
@@ -248,6 +256,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             rates: exchangeRates,
             mainCurrencyCode: targetCurrency,
             dateRangeStart: params.dateRangeStart,
+            dateRangeEnd: params.dateRangeEnd, // Added
             selectedDay: params.selectedDay,
             categoryTypeMap: categoryTypeMap,
             converter: _cachedConverter!, // Pass cached converter
@@ -297,6 +306,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             categoryTotals: categoryTotals,
             categoryConvertedTotals: categoryConvertedTotals, // Added
             dailyIncomes: computeResults.dailyIncomes,
+            dailyExpenses: computeResults.dailyExpenses, // Restored
             dailyNetWorth: computeResults.dailyNetWorth,
             dailyAccountBalances: computeResults.dailyAccountBalances,
             currencyBreakdown: computeResults.currencyBreakdown, // Added
@@ -465,6 +475,7 @@ class _DashboardComputeParams {
   final List<ExchangeRateDomain> rates;
   final String mainCurrencyCode;
   final DateTime dateRangeStart;
+  final DateTime dateRangeEnd; // Added
   final DateTime selectedDay;
   final Map<String, CategoryType> categoryTypeMap;
   final CurrencyConverter converter; // OPTIMIZATION: Pre-built converter
@@ -476,6 +487,7 @@ class _DashboardComputeParams {
     required this.rates,
     required this.mainCurrencyCode,
     required this.dateRangeStart,
+    required this.dateRangeEnd, // Added
     required this.selectedDay,
     required this.categoryTypeMap,
     required this.converter,
@@ -536,8 +548,13 @@ _DashboardComputeResults _calculateDashboardData(
     accountAssetMap[account.id!] = account.assetId != null;
   }
 
-  // Section 2: Income/Expense loop
+  // Section 2: Calculate daily data and net worth history
   sectionStopwatch.start();
+  print(
+    'DEBUG: Calc Data. Range: ${params.dateRangeStart} - ${params.dateRangeEnd}',
+  );
+  print('DEBUG: Transactions: ${params.transactions.length}');
+
   for (final transaction in params.transactions) {
     final date = DateTime(
       transaction.date.year,
@@ -571,18 +588,28 @@ _DashboardComputeResults _calculateDashboardData(
       date: date,
     );
 
-    if (convertedAmount > 0) {
-      dailyIncomes.update(
-        date,
-        (v) => v + convertedAmount,
-        ifAbsent: () => convertedAmount,
-      );
-    } else if (convertedAmount < 0) {
-      dailyExpenses.update(
-        date,
-        (v) => v + convertedAmount.abs(),
-        ifAbsent: () => convertedAmount.abs(),
-      );
+    // Pre-calculate Daily Incomes/Expenses for the WHOLE period
+    // (Independent of the net-worth walk-back which handles balances)
+    final isInRange =
+        date.isAfter(params.dateRangeStart.subtract(const Duration(days: 1))) &&
+        date.isBefore(params.dateRangeEnd.add(const Duration(days: 1)));
+
+    // if (isInRange) print('DEBUG: Incl Tx ${transaction.date} $convertedAmount');
+
+    if (isInRange) {
+      if (convertedAmount > 0) {
+        dailyIncomes.update(
+          date,
+          (v) => v + convertedAmount,
+          ifAbsent: () => convertedAmount,
+        );
+      } else if (convertedAmount < 0) {
+        dailyExpenses.update(
+          date,
+          (v) => v + convertedAmount.abs(),
+          ifAbsent: () => convertedAmount.abs(),
+        );
+      }
     }
   }
 
@@ -591,6 +618,10 @@ _DashboardComputeResults _calculateDashboardData(
   // Section 3: Pre-group transactions
   sectionStopwatch.start();
   final transactionsByDate = <DateTime, List<Transaction>>{};
+  // We already iterated transactions above for category totals and income/expense.
+  // We can reuse the loop? Or just iterate again for 'transactionsByDate' needed for balance walk-back.
+  // Actually, 'params.transactions' iteration above (lines 538-588) was doing Category Totals AND Income/Expense.
+  // To keep it clean, let's just group them by date here.
   for (final transaction in params.transactions) {
     final date = DateTime(
       transaction.date.year,
