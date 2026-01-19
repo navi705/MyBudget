@@ -402,7 +402,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
   }
 }
 
-class _ExchangeRateListItem extends StatefulWidget {
+class _ExchangeRateListItem extends StatelessWidget {
   final ExchangeRateDomain rate;
   final bool isSelected;
   final bool isSelectionMode;
@@ -417,104 +417,80 @@ class _ExchangeRateListItem extends StatefulWidget {
     this.onTap,
   });
 
-  @override
-  State<_ExchangeRateListItem> createState() => _ExchangeRateListItemState();
-}
-
-class _ExchangeRateListItemState extends State<_ExchangeRateListItem> {
-  bool _isHovering = false;
-
-  void _handleTap() {
-    if (widget.isSelectionMode) {
-      context.read<ExchangeRatesBloc>().add(
-        ToggleExchangeRateSelection(widget.rate),
-      );
+  void _handleTap(BuildContext context) {
+    if (isSelectionMode) {
+      context.read<ExchangeRatesBloc>().add(ToggleExchangeRateSelection(rate));
     } else {
-      widget.onTap?.call();
+      onTap?.call();
     }
   }
 
-  void _handleLongPress() {
-    if (!widget.isSelectionMode) {
+  void _handleLongPress(BuildContext context) {
+    if (!isSelectionMode) {
       context.read<ExchangeRatesBloc>().add(const ToggleSelectionMode(true));
-      context.read<ExchangeRatesBloc>().add(
-        ToggleExchangeRateSelection(widget.rate),
-      );
+      context.read<ExchangeRatesBloc>().add(ToggleExchangeRateSelection(rate));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final selectedColor = colorScheme.primaryContainer.withValues(alpha: 0.3);
+    final selectedColor = theme.highlightColor;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
-      child: Card(
-        elevation: widget.isSelected || _isHovering || widget.isSelectionMode
-            ? 4.0
-            : 2.0,
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.0),
-          side: widget.isSelected || _isHovering
-              ? BorderSide(color: theme.primaryColor, width: 2.0)
-              : BorderSide.none,
-        ),
-        color: widget.isSelected ? selectedColor : null,
-        child: InkWell(
-          onTap: _handleTap,
-          onLongPress: _handleLongPress,
-          onSecondaryTapUp: widget.onSecondaryTapUp,
-          borderRadius: BorderRadius.circular(12.0),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20.0,
-              vertical: 10.0,
-            ),
-            leading: widget.isSelectionMode
-                ? Checkbox(
-                    value: widget.isSelected,
-                    onChanged: (value) => _handleTap(),
-                  )
-                : CircleAvatar(
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    foregroundColor: theme.colorScheme.onPrimaryContainer,
-                    child: Text(
-                      widget.rate.toCurrencyCode,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
+    return Card(
+      elevation: 2.0,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      color: isSelected ? selectedColor : null,
+      child: GestureDetector(
+        onSecondaryTapUp: onSecondaryTapUp,
+        child: ListTile(
+          onTap: () => _handleTap(context),
+          onLongPress: () => _handleLongPress(context),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20.0,
+            vertical: 10.0,
+          ),
+          leading: isSelectionMode
+              ? Checkbox(
+                  value: isSelected,
+                  onChanged: (value) => _handleTap(context),
+                )
+              : CircleAvatar(
+                  backgroundColor: theme.colorScheme.primaryContainer,
+                  foregroundColor: theme.colorScheme.onPrimaryContainer,
+                  child: Text(
+                    rate.toCurrencyCode,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
                     ),
                   ),
-            title: Text(
-              '${widget.rate.fromCurrencyCode} ➔ ${widget.rate.toCurrencyCode}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            subtitle: Text(
-              DateFormat('dd.MM.yyyy').format(widget.rate.date),
-              style: const TextStyle(fontSize: 14),
-            ),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  widget.rate.rate.toStringAsFixed(4),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                  ),
                 ),
-                Text(
-                  'Preset: ${widget.rate.preset}',
-                  style: Theme.of(context).textTheme.bodySmall,
+          title: Text(
+            '${rate.fromCurrencyCode} ➔ ${rate.toCurrencyCode}',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          subtitle: Text(
+            DateFormat('dd.MM.yyyy').format(rate.date),
+            style: const TextStyle(fontSize: 14),
+          ),
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                rate.rate.toStringAsFixed(4),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
                 ),
-              ],
-            ),
+              ),
+              Text(
+                'Preset: ${rate.preset}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
           ),
         ),
       ),

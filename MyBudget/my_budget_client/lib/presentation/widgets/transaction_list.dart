@@ -284,7 +284,7 @@ class _DateHeader extends StatelessWidget {
   }
 }
 
-class TransactionListItem extends StatefulWidget {
+class TransactionListItem extends StatelessWidget {
   const TransactionListItem({
     required this.transactionCategory,
     required this.isSelected,
@@ -304,13 +304,6 @@ class TransactionListItem extends StatefulWidget {
   final String mainCurrencyCode;
   final List<CurrencyDesignation> currencyDesignations;
 
-  @override
-  State<TransactionListItem> createState() => _TransactionListItemState();
-}
-
-class _TransactionListItemState extends State<TransactionListItem> {
-  bool _isHovering = false;
-
   Color _getColorFromHex(String hexColor) {
     hexColor = hexColor.replaceAll("#", "");
     if (hexColor.length == 6) {
@@ -322,19 +315,19 @@ class _TransactionListItemState extends State<TransactionListItem> {
   @override
   Widget build(BuildContext context) {
     final isRegularTransfer =
-        widget.transactionCategory.linkedTransaction != null &&
-        !widget.transactionCategory.isAssetTransaction &&
-        !widget.transactionCategory.isLinkedAssetTransaction;
+        transactionCategory.linkedTransaction != null &&
+        !transactionCategory.isAssetTransaction &&
+        !transactionCategory.isLinkedAssetTransaction;
 
     final color = isRegularTransfer
         ? const Color(0xFF424242)
-        : _getColorFromHex(widget.transactionCategory.style.colorHex);
+        : _getColorFromHex(transactionCategory.style.colorHex);
 
     final iconWidget = isRegularTransfer
         ? const Icon(Icons.compare_arrows, color: Colors.white)
-        : IconUtils.getIconWidget(widget.transactionCategory.style);
+        : IconUtils.getIconWidget(transactionCategory.style);
 
-    final amount = widget.transactionCategory.transaction.amount;
+    final amount = transactionCategory.transaction.amount;
     Color balanceColor;
     if (amount > 0) {
       balanceColor = Colors.green;
@@ -344,98 +337,80 @@ class _TransactionListItemState extends State<TransactionListItem> {
       balanceColor = Colors.grey[600]!; // Default or specific for zero
     }
 
-    final designation = widget.currencyDesignations.firstWhereOrNull(
-      (d) =>
-          d.currencyCode == widget.transactionCategory.transaction.currencyCode,
+    final designation = currencyDesignations.firstWhereOrNull(
+      (d) => d.currencyCode == transactionCategory.transaction.currencyCode,
     );
     final currencySymbol =
-        designation?.value ??
-        widget.transactionCategory.transaction.currencyCode;
+        designation?.value ?? transactionCategory.transaction.currencyCode;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
+    return Card(
+      elevation: 2.0,
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      color: isSelected ? Theme.of(context).highlightColor : null,
       child: GestureDetector(
-        onLongPress: widget.onLongPress,
-        onTap: widget.onTap,
-        onSecondaryTapUp: widget.onSecondaryTapUp,
-        child: Card(
-          elevation: 2.0,
-          margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.0),
-            side: _isHovering
-                ? BorderSide(color: Theme.of(context).primaryColor, width: 2.0)
-                : BorderSide.none,
+        onSecondaryTapUp: onSecondaryTapUp,
+        child: ListTile(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20.0,
+            vertical: 10.0,
           ),
-          color: widget.isSelected
-              ? Theme.of(context).highlightColor
-              : _isHovering
-              ? Colors.grey.withValues(alpha: 0.1)
-              : null,
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20.0,
-              vertical: 10.0,
+          leading: Container(
+            padding: const EdgeInsets.all(10.0),
+            decoration: BoxDecoration(
+              color: color.withAlpha((255 * 0.15).round()),
+              borderRadius: BorderRadius.circular(12.0),
             ),
-            leading: Container(
-              padding: const EdgeInsets.all(10.0),
-              decoration: BoxDecoration(
-                color: color.withAlpha((255 * 0.15).round()),
-                borderRadius: BorderRadius.circular(12.0),
+            child: iconWidget,
+          ),
+          title: Text(
+            transactionCategory.transaction.description,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                transactionCategory.isAssetTransaction
+                    ? 'Qty: ${transactionCategory.transaction.amount.toStringAsFixed(2)}'
+                    : '${transactionCategory.transaction.amount.toStringAsFixed(2)} $currencySymbol',
+                style: TextStyle(color: balanceColor, fontSize: 14),
               ),
-              child: iconWidget,
-            ),
-            title: Text(
-              widget.transactionCategory.transaction.description,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.transactionCategory.isAssetTransaction
-                      ? 'Qty: ${widget.transactionCategory.transaction.amount.toStringAsFixed(2)}'
-                      : '${widget.transactionCategory.transaction.amount.toStringAsFixed(2)} $currencySymbol',
-                  style: TextStyle(color: balanceColor, fontSize: 14),
+              if (transactionCategory.linkedTransaction != null &&
+                  (transactionCategory.isAssetTransaction ||
+                      transactionCategory.isLinkedAssetTransaction)) ...[
+                const SizedBox(height: 2),
+                Builder(
+                  builder: (context) {
+                    final linkedTx = transactionCategory.linkedTransaction!;
+                    final linkedDesignation = currencyDesignations
+                        .firstWhereOrNull(
+                          (d) => d.currencyCode == linkedTx.currencyCode,
+                        );
+                    final linkedSymbol =
+                        linkedDesignation?.value ?? linkedTx.currencyCode;
+
+                    final isLinkedAsset =
+                        !transactionCategory.isAssetTransaction;
+                    // If current is NOT asset, then linked IS asset (usually).
+                    // If current IS asset, then linked is Cash.
+
+                    return Text(
+                      isLinkedAsset
+                          ? 'Qty: ${linkedTx.amount > 0 ? '+' : ''}${linkedTx.amount.toStringAsFixed(2)}'
+                          : '${linkedTx.amount > 0 ? '+' : ''}${linkedTx.amount.toStringAsFixed(2)} $linkedSymbol',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 13,
+                        height: 1.2,
+                      ),
+                    );
+                  },
                 ),
-                if (widget.transactionCategory.linkedTransaction != null &&
-                    (widget.transactionCategory.isAssetTransaction ||
-                        widget
-                            .transactionCategory
-                            .isLinkedAssetTransaction)) ...[
-                  const SizedBox(height: 2),
-                  Builder(
-                    builder: (context) {
-                      final linkedTx =
-                          widget.transactionCategory.linkedTransaction!;
-                      final linkedDesignation = widget.currencyDesignations
-                          .firstWhereOrNull(
-                            (d) => d.currencyCode == linkedTx.currencyCode,
-                          );
-                      final linkedSymbol =
-                          linkedDesignation?.value ?? linkedTx.currencyCode;
-
-                      final isLinkedAsset =
-                          !widget.transactionCategory.isAssetTransaction;
-                      // If current is NOT asset, then linked IS asset (usually).
-                      // If current IS asset, then linked is Cash.
-
-                      return Text(
-                        isLinkedAsset
-                            ? 'Qty: ${linkedTx.amount > 0 ? '+' : ''}${linkedTx.amount.toStringAsFixed(2)}'
-                            : '${linkedTx.amount > 0 ? '+' : ''}${linkedTx.amount.toStringAsFixed(2)} $linkedSymbol',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 13,
-                          height: 1.2,
-                        ),
-                      );
-                    },
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
         ),
       ),

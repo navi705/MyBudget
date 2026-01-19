@@ -11,7 +11,7 @@ import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/services/finance_calculator.dart'; // Added
 
-class AccountListItem extends StatefulWidget {
+class AccountListItem extends StatelessWidget {
   final Account account;
   final bool isSelected;
   final VoidCallback? onTap;
@@ -29,7 +29,7 @@ class AccountListItem extends StatefulWidget {
   final double? prevRealBalance;
   final double? prevRealIncome;
   final double? prevRealExpense;
-  final AssetStats? assetStats; // Added
+  final AssetStats? assetStats;
 
   const AccountListItem({
     super.key,
@@ -50,15 +50,8 @@ class AccountListItem extends StatefulWidget {
     this.prevRealBalance,
     this.prevRealIncome,
     this.prevRealExpense,
-    this.assetStats, // Added
+    this.assetStats,
   });
-
-  @override
-  State<AccountListItem> createState() => _AccountListItemState();
-}
-
-class _AccountListItemState extends State<AccountListItem> {
-  bool _isHovering = false;
 
   // Helper function to parse hex color strings
   Color _getColorFromHex(String? hexColor) {
@@ -87,8 +80,8 @@ class _AccountListItemState extends State<AccountListItem> {
     // Let's stick to showing if it's the main account item logic.
     if (value.abs() < 0.01 &&
         (realValue ?? 0).abs() < 0.01 &&
-        widget.account.assetId == null &&
-        widget.assetStats == null) {
+        account.assetId == null &&
+        assetStats == null) {
       return const SizedBox.shrink();
     }
 
@@ -185,7 +178,7 @@ class _AccountListItemState extends State<AccountListItem> {
         CurrencyDesignation? designation;
         if (currencyState is CurrencyLoadSuccess) {
           designation = currencyState.designations.firstWhereOrNull(
-            (d) => d.id == widget.account.currencyDesignationId,
+            (d) => d.id == account.currencyDesignationId,
           );
         }
         final symbol = designation?.value ?? '';
@@ -195,7 +188,7 @@ class _AccountListItemState extends State<AccountListItem> {
             Style? style;
             if (styleState is StylesLoadSuccess) {
               style = styleState.styles.firstWhereOrNull(
-                (s) => s.id == widget.account.styleId,
+                (s) => s.id == account.styleId,
               );
             }
 
@@ -214,142 +207,163 @@ class _AccountListItemState extends State<AccountListItem> {
 
             // Determine balance color
             Color balanceColor;
-            if (widget.account.balance > 0) {
+            if (account.balance > 0) {
               balanceColor = Colors.green;
-            } else if (widget.account.balance < 0) {
+            } else if (account.balance < 0) {
               balanceColor = Colors.red;
             } else {
               balanceColor = Colors.grey[600]!; // Default or specific for zero
             }
 
-            return MouseRegion(
-              onEnter: (_) => setState(() => _isHovering = true),
-              onExit: (_) => setState(() => _isHovering = false),
+            // Using GestureDetector inside ListTile for secondary tap if needed,
+            // or rely on visual density.
+            // Note: ListTile has onTap and onLongPress. For onSecondaryTapUp (Right Click),
+            // we typically need a Gesture detector wrapper OR InkWell.
+            // But standard ListTile doesn't support right click natively in arguments.
+            // However, wrapping the ListTile in GestureDetector might block InkWell if not careful.
+            // The best way for list item right click IS usually GestureDetector or Listener.
+            // BUT, strictly following "Categories" visual style:
+            // Categories uses: Card > ExpansionTile > ListTile (implied) OR Card > ListTile.
+            // CategoryListItem uses: Card > GestureDetector(onSecondaryTapUp...) > ListTile.
+            // The GestureDetector wraps the ListTile content but NOT the Card.
+            // Wait, CategoryListItem creates the Card around the GestureDetector?
+            // Let's re-read CategoryListItem structure from viewing context (approx line 124).
+            // It builds `listTile` = `GestureDetector(...)` which wraps `ListTile`.
+            // Then `card` = `Card(child: listTile)`.
+            // So GestureDetector IS inside Card.
+            // Correct approach: Card > GestureDetector > ListTile.
+            // To get InkWell effect (ripple), ListTile has it built-in IF onTap is not null.
+            // But if GestureDetector intercepts taps, ListTile onTap might not fire?
+            // Actually, GestureDetector executes callback and lets event propagate if behavior is translucent?
+            // No, standard GestureDetector usually competes.
+            // CategoryListItem passes `onTap` to `ListTile`.
+            // And puts `onSecondaryTapUp` in `GestureDetector` parent of `ListTile`.
+            // Let's replicate EXACTLY that.
+
+            return Card(
+              margin: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              color: isSelected
+                  ? Theme.of(context).highlightColor
+                  : Theme.of(context).cardColor,
               child: GestureDetector(
-                onTap: widget.onTap,
-                onLongPress: widget.onLongPress,
-                onSecondaryTapUp: widget.onSecondaryTapUp,
-                child: Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 8.0,
+                onSecondaryTapUp: onSecondaryTapUp,
+                // Note: We do NOT pass onLongPress/onTap to GestureDetector here
+                // because we want ListTile to handle primary interactions for Ripple/Cursor.
+                // However, onLongPress might be tricky. CategoryListItem has explicit `onLongPressStart` passed to GestureDetector,
+                // and `onTap` passed to ListTile.
+                // Let's verify AccountListItem needs.
+                // It needs onLongPress. ListTile supports onLongPress.
+                child: ListTile(
+                  onTap: onTap,
+                  onLongPress: onLongPress,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20.0,
+                    vertical: 10.0,
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.0),
-                    side: _isHovering
-                        ? BorderSide(
-                            color: Theme.of(context).primaryColor,
-                            width: 3.0,
-                          )
-                        : BorderSide.none,
+                  leading: Container(
+                    padding: const EdgeInsets.all(10.0),
+                    decoration: BoxDecoration(
+                      color: color.withAlpha((255 * 0.15).round()),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    child: iconWidget,
                   ),
-                  color: widget.isSelected
-                      ? Theme.of(context).highlightColor
-                      : Theme.of(context).cardColor,
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20.0,
-                      vertical: 10.0,
+                  title: Text(
+                    account.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
                     ),
-                    leading: Container(
-                      padding: const EdgeInsets.all(10.0),
-                      decoration: BoxDecoration(
-                        color: color.withAlpha((255 * 0.15).round()),
-                        borderRadius: BorderRadius.circular(12.0),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 8),
+                      _buildStatRow(
+                        context,
+                        "Balance",
+                        account.balance,
+                        prevBalance,
+                        realBalance,
+                        prevRealBalance,
+                        balanceColor,
+                        symbol,
                       ),
-                      child: iconWidget,
-                    ),
-                    title: Text(
-                      widget.account.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 8),
+                      const SizedBox(height: 4),
+                      if (assetStats != null) ...[
                         _buildStatRow(
                           context,
-                          "Balance",
-                          widget.account.balance,
-                          widget.prevBalance,
-                          widget.realBalance,
-                          widget.prevRealBalance,
-                          balanceColor,
+                          "Net Bal.",
+                          assetStats!.netBalance,
+                          null, // Not tracking history for net balance yet
+                          null, // Real Net Balance? Maybe calculate: net / inflationMultiplier
+                          null,
+                          Colors.blue,
                           symbol,
                         ),
                         const SizedBox(height: 4),
-                        if (widget.assetStats != null) ...[
-                          _buildStatRow(
-                            context,
-                            "Net Bal.",
-                            widget.assetStats!.netBalance,
-                            null, // Not tracking history for net balance yet
-                            null, // Real Net Balance? Maybe calculate: net / inflationMultiplier
-                            null,
-                            Colors.blue,
-                            symbol,
-                          ),
-                          const SizedBox(height: 4),
-                          _buildStatRow(
-                            context,
-                            "Invested",
-                            widget.assetStats!.invested,
-                            null,
-                            null,
-                            null,
-                            Colors.orange,
-                            symbol,
-                          ),
-                          const SizedBox(height: 4),
-                          _buildStatRow(
-                            context,
-                            "Realized",
-                            widget.assetStats!.realized,
-                            null,
-                            null,
-                            null,
-                            Colors.purple,
-                            symbol,
-                          ),
-                          const SizedBox(height: 4),
-                          _buildStatRow(
-                            context,
-                            "Fees",
-                            widget.assetStats!.commissions,
-                            null,
-                            null,
-                            null,
-                            Colors.redAccent,
-                            symbol,
-                          ),
-                        ] else ...[
-                          _buildStatRow(
-                            context,
-                            "Income",
-                            widget.income ?? 0,
-                            widget.prevIncome,
-                            widget.realIncome,
-                            widget.prevRealIncome,
-                            Colors.green,
-                            symbol,
-                          ),
-                          const SizedBox(height: 4),
-                          _buildStatRow(
-                            context,
-                            "Expense",
-                            widget.expense ?? 0,
-                            widget.prevExpense,
-                            null, // Hide Real Expense
-                            null,
-                            Colors.red,
-                            symbol,
-                          ),
-                        ],
+                        _buildStatRow(
+                          context,
+                          "Invested",
+                          assetStats!.invested,
+                          null,
+                          null,
+                          null,
+                          Colors.orange,
+                          symbol,
+                        ),
+                        const SizedBox(height: 4),
+                        _buildStatRow(
+                          context,
+                          "Realized",
+                          assetStats!.realized,
+                          null,
+                          null,
+                          null,
+                          Colors.purple,
+                          symbol,
+                        ),
+                        const SizedBox(height: 4),
+                        _buildStatRow(
+                          context,
+                          "Fees",
+                          assetStats!.commissions,
+                          null,
+                          null,
+                          null,
+                          Colors.redAccent,
+                          symbol,
+                        ),
+                      ] else ...[
+                        _buildStatRow(
+                          context,
+                          "Income",
+                          income ?? 0,
+                          prevIncome,
+                          realIncome,
+                          prevRealIncome,
+                          Colors.green,
+                          symbol,
+                        ),
+                        const SizedBox(height: 4),
+                        _buildStatRow(
+                          context,
+                          "Expense",
+                          expense ?? 0,
+                          prevExpense,
+                          null, // Hide Real Expense
+                          null,
+                          Colors.red,
+                          symbol,
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),

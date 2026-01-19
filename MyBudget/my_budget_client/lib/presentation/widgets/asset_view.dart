@@ -250,15 +250,20 @@ class _AssetListItem extends StatelessWidget {
       leadingIcon = Icon(_getIconForType(item.assetType));
     }
 
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      onSecondaryTapUp: onSecondaryTapUp,
-      child: Container(
-        color: isSelected
-            ? theme.colorScheme.primaryContainer.withOpacity(0.3)
-            : null,
+    return Card(
+      elevation: 2.0,
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      color: isSelected ? theme.highlightColor : null,
+      child: GestureDetector(
+        onSecondaryTapUp: onSecondaryTapUp,
         child: ListTile(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
           leading: CircleAvatar(
             backgroundColor: theme.colorScheme.primaryContainer,
             foregroundColor: theme.colorScheme.onPrimaryContainer,
