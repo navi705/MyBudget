@@ -669,12 +669,44 @@ _DashboardComputeResults _calculateDashboardData(
 
   int daysIterated = 0;
 
+  // Pre-create FinanceCalculator and reusable snapshot base
+  final financeCalc = FinanceCalculator();
+  final hasAssetAccounts = params.accounts.any((a) => a.assetId != null);
+
+  // Normalize dateRangeEnd for breakdown calculation
+  final dateRangeEndNormalized = DateTime(
+    params.dateRangeEnd.year,
+    params.dateRangeEnd.month,
+    params.dateRangeEnd.day,
+  );
+
   while (iterDate.isAfter(historyLimit) ||
       iterDate.isAtSameMomentAs(historyLimit)) {
     double totalNetWorth = 0.0;
+    Map<String, double> balancesForDay;
 
+    if (hasAssetAccounts) {
+      // Use FinanceCalculator for accurate asset-linked account values
+      final snapshot = FinancialSnapshot(
+        accounts: params.accounts,
+        transactions: params.transactions,
+        assetData: params.assetData,
+        categories: [],
+        exchangeRates: params.rates,
+        inflationRates: [],
+        date: iterDate,
+        dateStep: DateStep.day,
+        baseCurrency: params.mainCurrencyCode,
+      );
+      balancesForDay = financeCalc.calculateBalances(snapshot);
+    } else {
+      // Use walk-back logic for standard accounts (faster)
+      balancesForDay = Map.of(currentBalances);
+    }
+
+    // Calculate total net worth with converted values
     for (final account in params.accounts) {
-      final balance = currentBalances[account.id!] ?? 0.0;
+      final balance = balancesForDay[account.id!] ?? 0.0;
       totalNetWorth += converter.convert(
         amount: balance,
         from: account.currencyCode,
@@ -684,46 +716,31 @@ _DashboardComputeResults _calculateDashboardData(
     }
 
     dailyNetWorth[iterDate] = totalNetWorth;
-    dailyAccountBalances[iterDate] = Map.of(
-      currentBalances,
-    ); // Capture account balances for this day
+    dailyAccountBalances[iterDate] = balancesForDay;
 
-    // Capture day balances for the specific selected day using FinanceCalculator
-    // This ensures asset-linked accounts are calculated correctly (quantity * price)
+    // Capture balances and breakdowns for the selectedDay (for DayBalanceDetails)
     if (iterDate.year == params.selectedDay.year &&
         iterDate.month == params.selectedDay.month &&
         iterDate.day == params.selectedDay.day) {
-      // Use FinanceCalculator for precise balance calculation including assets
-      final financeCalc = FinanceCalculator();
-      final snapshot = FinancialSnapshot(
-        accounts: params.accounts,
-        transactions: params.transactions,
-        assetData: params.assetData,
-        categories: [], // Not needed for balance calc
-        exchangeRates: params.rates,
-        inflationRates: [], // Not needed for balance calc
-        date: params.selectedDay,
-        dateStep: DateStep.day,
-        baseCurrency: params.mainCurrencyCode,
-      );
+      dayBalances = Map.of(balancesForDay);
+    }
 
-      // Calculate balances using FinanceCalculator
-      // This properly handles both standard and asset-linked accounts
-      dayBalances = financeCalc.calculateBalances(snapshot);
-
+    // Capture breakdowns at dateRangeEnd (for pie charts showing period-end state)
+    if (iterDate.isAtSameMomentAs(dateRangeEndNormalized) ||
+        (iterDate.isBefore(dateRangeEndNormalized) &&
+            currencyBreakdown.isEmpty)) {
       // Compute breakdowns with CONVERTED values
-      for (final entry in dayBalances.entries) {
-        final accountId = entry.key;
-        final nativeBalance = entry.value;
-        final currency =
-            accountCurrencyMap[accountId] ?? params.mainCurrencyCode;
+      for (final account in params.accounts) {
+        final accountId = account.id!;
+        final nativeBalance = balancesForDay[accountId] ?? 0.0;
+        final currency = account.currencyCode;
 
         if (nativeBalance > 0) {
           final convertedValue = converter.convert(
             amount: nativeBalance,
             from: currency,
             to: params.mainCurrencyCode,
-            date: params.selectedDay,
+            date: iterDate,
           );
 
           // Currency Breakdown
@@ -739,11 +756,14 @@ _DashboardComputeResults _calculateDashboardData(
       }
     }
 
-    final dayTransactions = transactionsByDate[iterDate] ?? [];
-    for (final transaction in dayTransactions) {
-      if (currentBalances.containsKey(transaction.accountId)) {
-        currentBalances[transaction.accountId] =
-            (currentBalances[transaction.accountId]!) - transaction.amount;
+    // Walk-back for non-asset accounts (update currentBalances for next iteration)
+    if (!hasAssetAccounts) {
+      final dayTransactions = transactionsByDate[iterDate] ?? [];
+      for (final transaction in dayTransactions) {
+        if (currentBalances.containsKey(transaction.accountId)) {
+          currentBalances[transaction.accountId] =
+              (currentBalances[transaction.accountId]!) - transaction.amount;
+        }
       }
     }
 

@@ -62,10 +62,22 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
 
     return Column(
       children: [
-        // 1. Account Filter Dropdown
+        // 1. Account Filter Dropdown (constrained width on desktop)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: _buildAccountSelector(),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final maxWidth = constraints.maxWidth > 600
+                  ? 400.0
+                  : constraints.maxWidth;
+              return Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxWidth),
+                  child: _buildAccountSelector(),
+                ),
+              );
+            },
+          ),
         ),
 
         Expanded(
@@ -189,23 +201,35 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
   }
 
   Map<DateTime, double> _getDataForChart() {
-    if (_selectedAccountId == null) {
-      return widget.dailyNetWorth;
-    }
-    // Extract history for specific account
-    final singleAccountData = <DateTime, double>{};
+    Map<DateTime, double> sourceData;
 
-    for (final entry in widget.dayBalances.entries) {
+    if (_selectedAccountId == null) {
+      sourceData = widget.dailyNetWorth;
+    } else {
+      // Extract history for specific account
+      final singleAccountData = <DateTime, double>{};
+      for (final entry in widget.dayBalances.entries) {
+        final date = entry.key;
+        final balancesMap = entry.value;
+        if (balancesMap.containsKey(_selectedAccountId)) {
+          singleAccountData[date] = balancesMap[_selectedAccountId]!;
+        } else {
+          singleAccountData[date] = 0.0;
+        }
+      }
+      sourceData = singleAccountData;
+    }
+
+    // Filter to only include dates within the selected period
+    final filteredData = <DateTime, double>{};
+    for (final entry in sourceData.entries) {
       final date = entry.key;
-      final balancesMap = entry.value;
-      // Find balance for the selected account ID
-      if (balancesMap.containsKey(_selectedAccountId)) {
-        singleAccountData[date] = balancesMap[_selectedAccountId]!;
-      } else {
-        singleAccountData[date] = 0.0;
+      if (!date.isBefore(widget.dateRangeStart) &&
+          !date.isAfter(widget.dateRangeEnd)) {
+        filteredData[date] = entry.value;
       }
     }
-    return singleAccountData;
+    return filteredData;
   }
 
   Widget _buildDistributions(BuildContext context) {
@@ -249,6 +273,32 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
     List<MapEntry<String, double>> data,
   ) {
     final total = data.fold(0.0, (sum, e) => sum + e.value);
+
+    // Show empty state if no data for this period
+    if (data.isEmpty || total <= 0) {
+      return Column(
+        children: [
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 220,
+            child: Center(
+              child: Text(
+                'No data for this period',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
     return Column(
       children: [

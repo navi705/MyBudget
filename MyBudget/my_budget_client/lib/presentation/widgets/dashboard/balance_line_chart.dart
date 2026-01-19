@@ -95,7 +95,9 @@ class BalanceLineChart extends StatelessWidget {
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                interval: rangeY > 0 ? rangeY / 5 : 1,
+                interval: rangeY > 0
+                    ? rangeY / 4
+                    : 1, // Reduced from 5 to 4 intervals
                 getTitlesWidget: (value, meta) {
                   return Text(
                     _formatCurrency(value),
@@ -104,7 +106,7 @@ class BalanceLineChart extends StatelessWidget {
                     ).textTheme.bodySmall?.copyWith(fontSize: 10),
                   );
                 },
-                reservedSize: 42,
+                reservedSize: 65, // Increased from 42 to prevent overlap
               ),
             ),
           ),
