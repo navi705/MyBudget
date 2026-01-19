@@ -32,7 +32,7 @@ class _AppWrapperState extends State<AppWrapper> {
       _updateProgress(0.9, 'Ready!');
 
       // Small delay to show "Ready!" message
-      await Future.delayed(const Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 1000));
 
       if (mounted) {
         setState(() {

@@ -4,22 +4,6 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 
 /// Handles Binary + Gzip IO for currency history.
-///
-/// Format Structure:
-/// [Header "CURR" (4 bytes)]
-/// [Version (1 byte) = 1]
-/// [GZIP Compressed Data]
-///
-/// Inside GZIP:
-/// [Date Count (4 bytes)]
-/// For each date:
-///   [Date String Length (1 byte)]
-///   [Date String (utf8)]
-///   [Currency Count (2 bytes)]
-///   For each currency:
-///     [Code (3 bytes usually, but we store length 1 byte + string)]
-///     [Rate (8 bytes double)]
-///
 class CurrencyHistoryBinaryIO {
   static const _header = 'CURR';
   static const _version = 1;
@@ -76,9 +60,14 @@ class CurrencyHistoryBinaryIO {
     await file.writeAsBytes(buffer.toBytes());
   }
 
-  /// Reads and decompresses the currency history map.
+  /// Reads and decompresses the currency history map from a File.
   static Future<Map<String, Map<String, double>>> read(File file) async {
     final bytes = await file.readAsBytes();
+    return readFromBytes(bytes);
+  }
+
+  /// Reads and decompresses the currency history map from raw bytes.
+  static Map<String, Map<String, double>> readFromBytes(Uint8List bytes) {
     final iterator = bytes.iterator;
 
     // Helper to read N bytes

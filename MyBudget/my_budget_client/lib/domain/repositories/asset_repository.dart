@@ -18,6 +18,23 @@ abstract class AssetRepository {
     double? maxValue,
     bool sortAscending = false,
   });
+  Stream<List<AssetDataDomain>> watchAssetData({
+    int limit = 50,
+    int offset = 0,
+    String? assetId,
+    String? accountId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? name,
+    List<String>? assetTypes,
+    String? description,
+    List<String>? currencyCodes,
+    List<String>? sources,
+    List<int>? presets,
+    double? minValue,
+    double? maxValue,
+    bool sortAscending = false,
+  });
   Future<void> addAssetData(AssetDataDomain data);
   Future<void> updateAssetData(AssetDataDomain data);
   Future<void> deleteAssetData(String id);

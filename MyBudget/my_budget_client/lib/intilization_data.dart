@@ -18,7 +18,6 @@ Future<void> _loadLocalDataInIsolate(bool shouldInit) async {
   }
 
   // Load Currency History (Binary/JSON seeder)
-  final currenciesRep = sl<SettingsRepository>();
   // This loads from the binary file or JSON debug file into the database
   await ImportDataUtils.getCurrenciesInitial();
 

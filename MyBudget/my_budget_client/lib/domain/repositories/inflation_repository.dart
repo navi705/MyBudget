@@ -11,6 +11,15 @@ abstract class InflationRepository {
     List<int>? presets,
     bool sortAscending = false,
   });
+  Stream<List<InflationRateDomain>> watchInflationRatesFiltered({
+    required int limit,
+    required int offset,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    List<String>? countries,
+    List<int>? presets,
+    bool sortAscending = false,
+  });
   Future<void> addInflationRate(InflationRateDomain rate);
   Future<void> updateInflationRate(InflationRateDomain rate);
   Future<void> deleteInflationRate(DateTime date, String? country, int preset);

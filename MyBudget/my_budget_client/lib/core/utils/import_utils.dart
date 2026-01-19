@@ -7,6 +7,9 @@ import 'package:my_budget_client/data/api/external_data.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_currency_repository.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/core/di/injection_container.dart' as di;
+import 'package:my_budget_client/core/utils/currency_history_binary_io.dart';
+import 'package:flutter/services.dart';
+import 'dart:typed_data';
 
 class OneMoneyRecord {
   final DateTime date;
@@ -236,65 +239,86 @@ class ImportDataUtils {
 
   static String filePathCurrenciesRatePath = r'assets/currency_history.json';
 
+  // Binary file path (Production asset or local debug file)
+  static String filePathCurrenciesBinary =
+      r'C:\Users\vrclu\Documents\NewFilePC\Programing\Projects\MyBudget\MyBudget\my_budget_client\lib\data\currency_history.bin';
+  static String filePathCurrenciesBinaryAsset =
+      r'lib/data/currency_history.bin';
+
   static Future<void> getCurrenciesInitial() async {
-    final File file = File(filePathCurrenciesRatePath);
     final DateFormat keyFormatter = DateFormat('yyyy-MM-dd');
-
-    // 1. Get existing data from DB FIRST
     final currenciesRep = di.sl<LocalCurrencyRepository>();
-    final dbRatesList = await currenciesRep.getLatestExchangeRatesAll();
 
-    // 2. Optimization: Create a Set of Dates that exist in DB with preset == 1
-    // This allows O(1) checking. "We already have these dates."
+    // 1. Get existing data from DB (Optimization)
+    // We already have these dates in DB with preset=1 (seeded data)
+    final dbRatesList = await currenciesRep.getLatestExchangeRatesAll();
     final Set<String> existingDbDates = dbRatesList
-        .where((e) => e.preset == 1) // Only check for preset 1
+        .where((e) => e.preset == 1)
         .map((e) => keyFormatter.format(e.date))
         .toSet();
 
-    // 3. Load the JSON File (Read Only)
-    Map<String, dynamic> jsonMap = {};
-    if (await file.exists()) {
+    // 2. Load History Map from File (Binary in Prod/Debug, or JSON in Debug)
+    Map<String, Map<String, double>> fileHistoryMap = {};
+
+    // Logic: Debug -> JSON File, Release -> Binary Asset
+    if (kDebugMode) {
+      // DEBUG: Read from local JSON file directly
+      File jsonFile = File(filePathCurrenciesRate);
+      if (await jsonFile.exists()) {
+        try {
+          final content = await jsonFile.readAsString();
+          final jsonMap = jsonDecode(content);
+          if (jsonMap is Map) {
+            jsonMap.forEach((k, v) {
+              if (v is Map) {
+                Map<String, double> rates = {};
+                v.forEach((curr, rate) {
+                  if (rate is num) rates[curr.toString()] = rate.toDouble();
+                });
+                fileHistoryMap[k.toString()] = rates;
+              }
+            });
+          }
+        } catch (e) {
+          debugPrint("Error reading Debug JSON file: $e");
+        }
+      }
+    } else {
+      // RELEASE: Read from Binary Asset (via rootBundle)
       try {
-        final String existingContent = await file.readAsString();
-        jsonMap = jsonDecode(existingContent);
+        final ByteData blob = await rootBundle.load(
+          filePathCurrenciesBinaryAsset,
+        );
+        final Uint8List bytes = blob.buffer.asUint8List();
+        fileHistoryMap = CurrencyHistoryBinaryIO.readFromBytes(bytes);
       } catch (e) {
-        debugPrint("Error reading JSON file: $e");
+        debugPrint("Error reading Release Binary Asset: $e");
       }
     }
 
-    // 4. Prepare loop variables
+    // 4. Loop through required dates range
     DateTime startDate = DateTime(2024, 4, 1);
     DateTime endDate = DateTime.now();
     DateTime currentDate = startDate;
 
-    // We will collect NEW data here to insert later
     Map<String, Map<String, double>> dataToInsertMap = {};
+    bool dataWasUpdated = false;
 
-    // 5. Loop through dates
     while (!currentDate.isAfter(endDate)) {
       String dateKey = keyFormatter.format(currentDate);
 
-      // CHECK 1: Do we already have this date in DB with preset 1?
+      // Condition 1: Exists in DB? -> Skip
       if (existingDbDates.contains(dateKey)) {
-        // Yes, we have it. Skip completely.
         currentDate = currentDate.add(const Duration(days: 1));
         continue;
       }
 
-      // CHECK 2: Do we have it in the local JSON file?
-      if (jsonMap.containsKey(dateKey)) {
-        // Yes, grab from JSON
-        final rawData = jsonMap[dateKey];
-        if (rawData is Map) {
-          Map<String, double> rates = {};
-          rawData.forEach((k, v) {
-            if (v is num) rates[k.toString()] = v.toDouble();
-          });
-          dataToInsertMap[dateKey] = rates;
-        }
+      // Condition 2: Exists in File Map? -> Use it
+      if (fileHistoryMap.containsKey(dateKey)) {
+        dataToInsertMap[dateKey] = fileHistoryMap[dateKey]!;
       }
-      // CHECK 3: Not in DB, Not in JSON -> Call API
-      else {
+      // Condition 3: Missing everywhere -> Fetch from API (Debug only usually)
+      else if (kDebugMode) {
         try {
           await Future.delayed(const Duration(milliseconds: 100)); // Throttle
           final apiRates =
@@ -304,6 +328,9 @@ class ImportDataUtils {
 
           if (apiRates.isNotEmpty) {
             dataToInsertMap[dateKey] = apiRates;
+            // Also update our file map so we can save it later
+            fileHistoryMap[dateKey] = apiRates;
+            dataWasUpdated = true;
           }
         } catch (e) {
           debugPrint("API Error for $dateKey: $e");
@@ -313,37 +340,77 @@ class ImportDataUtils {
       currentDate = currentDate.add(const Duration(days: 1));
     }
 
-    // 6. Convert the accumulated Map to List<DomainObject>
-    // (Using the converter logic we discussed before)
+    // 6. Convert & Insert into DB
     final List<ExchangeRateDomain> listToInsert = convertCurreniesRateFromJson(
-      dataToInsertMap,
+      dataToInsertMap, // This helper works with the inner map structure
     );
 
-    // 7. Save to DB
     if (listToInsert.isNotEmpty) {
       debugPrint("Adding ${listToInsert.length} new records to DB...");
       await currenciesRep.addExchangeRates(listToInsert);
     } else {
       debugPrint("Database is already up to date.");
     }
+
+    // 7. (DEBUG ONLY) Save updated data back to binary/json if changed
+    if (kDebugMode && dataWasUpdated) {
+      // Save to JSON
+      try {
+        final File localJsonFile = File(filePathCurrenciesRate);
+        if (!await localJsonFile.parent.exists())
+          await localJsonFile.parent.create(recursive: true);
+
+        final String jsonContent = const JsonEncoder.withIndent(
+          '  ',
+        ).convert(fileHistoryMap);
+        await localJsonFile.writeAsString(jsonContent);
+        debugPrint("Updated local JSON history file.");
+      } catch (e) {
+        debugPrint("Failed to save JSON: $e");
+      }
+
+      // Save to Binary
+      try {
+        final File localBinaryFile = File(filePathCurrenciesBinary);
+        await CurrencyHistoryBinaryIO.write(localBinaryFile, fileHistoryMap);
+        debugPrint("Updated local BINARY history file.");
+      } catch (e) {
+        debugPrint("Failed to save Binary: $e");
+      }
+    }
   }
 
   static Future<List<ExchangeRateDomain>> getCurrenciesRateToSeeder() async {
-    File file;
     if (kDebugMode) {
-      file = File(filePathCurrenciesRate);
+      // DEBUG: Load from JSON File
+      final file = File(filePathCurrenciesRate);
+      if (!await file.exists()) return [];
+      try {
+        final content = await file.readAsString();
+        return compute(_parseCurrencyHistoryJson, content);
+      } catch (e) {
+        debugPrint(
+          'Error reading/parsing currency history for seeder (JSON): $e',
+        );
+        return [];
+      }
     } else {
-      file = File(filePathCurrenciesRatePath);
-    }
+      // RELEASE: Load from Binary Asset
+      try {
+        final ByteData blob = await rootBundle.load(
+          filePathCurrenciesBinaryAsset,
+        );
+        final Uint8List bytes = blob.buffer.asUint8List();
+        final historyMap = CurrencyHistoryBinaryIO.readFromBytes(bytes);
 
-    if (!await file.exists()) return [];
-
-    try {
-      final String content = await file.readAsString();
-      return compute(_parseCurrencyHistoryJson, content);
-    } catch (e) {
-      debugPrint('Error reading/parsing currency history for seeder: $e');
-      return [];
+        // Convert Map to List<ExchangeRateDomain>
+        return convertCurreniesRateFromJson(historyMap);
+      } catch (e) {
+        debugPrint(
+          'Error reading/parsing currency history for seeder (Binary): $e',
+        );
+        return [];
+      }
     }
   }
 

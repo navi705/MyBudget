@@ -1395,6 +1395,36 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
     return query.get();
   }
 
+  Stream<List<InflationRate>> watchInflationRatesFiltered({
+    required int limit,
+    required int offset,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    List<String>? countries,
+    List<int>? presets,
+    OrderingMode sort = OrderingMode.desc,
+  }) {
+    final query = select(inflationRates)
+      ..limit(limit, offset: offset)
+      ..orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
+
+    if (dateFrom != null) {
+      query.where((t) => t.date.isBiggerOrEqualValue(dateFrom));
+    }
+    if (dateTo != null) {
+      query.where((t) => t.date.isSmallerOrEqualValue(dateTo));
+    }
+
+    if (countries != null && countries.isNotEmpty) {
+      query.where((t) => t.country.isIn(countries));
+    }
+    if (presets != null && presets.isNotEmpty) {
+      query.where((t) => t.preset.isIn(presets));
+    }
+
+    return query.watch();
+  }
+
   Future<void> insertInflationRate(InflationRatesCompanion rate) =>
       into(inflationRates).insert(rate, mode: InsertMode.insertOrReplace);
 
@@ -1488,6 +1518,8 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
   AssetEntriesDao(super.db);
 
   Future<List<AssetEntry>> getAllAssetEntries() => select(assetEntries).get();
+  Stream<List<AssetEntry>> watchAllAssetEntries() =>
+      select(assetEntries).watch();
 
   Future<List<AssetEntry>> getAssetData({
     int limit = 50,
@@ -1549,6 +1581,68 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     query.limit(limit, offset: offset);
 
     return query.get();
+  }
+
+  Stream<List<AssetEntry>> watchAssetData({
+    int limit = 50,
+    int offset = 0,
+    String? assetId,
+    String? accountId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? name,
+    List<String>? assetTypes,
+    String? description,
+    List<String>? currencyCodes,
+    List<String>? sources,
+    List<int>? presets,
+    double? minValue,
+    double? maxValue,
+    OrderingMode sort = OrderingMode.desc,
+  }) {
+    final query = select(assetEntries);
+    if (assetId != null) {
+      query.where((t) => t.assetId.equals(assetId));
+    }
+    if (accountId != null) {
+      query.where((t) => t.accountId.equals(accountId));
+    }
+    if (startDate != null) {
+      query.where((t) => t.date.isBiggerOrEqualValue(startDate));
+    }
+    if (endDate != null) {
+      query.where((t) => t.date.isSmallerOrEqualValue(endDate));
+    }
+
+    if (name != null && name.isNotEmpty) {
+      query.where((t) => t.name.like('%$name%'));
+    }
+    if (assetTypes != null && assetTypes.isNotEmpty) {
+      query.where((t) => t.assetType.isIn(assetTypes));
+    }
+    if (description != null && description.isNotEmpty) {
+      query.where((t) => t.description.like('%$description%'));
+    }
+    if (currencyCodes != null && currencyCodes.isNotEmpty) {
+      query.where((t) => t.currencyCode.isIn(currencyCodes));
+    }
+    if (sources != null && sources.isNotEmpty) {
+      query.where((t) => t.source.isIn(sources));
+    }
+    if (presets != null && presets.isNotEmpty) {
+      query.where((t) => t.preset.isIn(presets));
+    }
+    if (minValue != null) {
+      query.where((t) => t.value.isBiggerOrEqualValue(minValue));
+    }
+    if (maxValue != null) {
+      query.where((t) => t.value.isSmallerOrEqualValue(maxValue));
+    }
+
+    query.orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
+    query.limit(limit, offset: offset);
+
+    return query.watch();
   }
 
   Future<int> getAssetDataCount({

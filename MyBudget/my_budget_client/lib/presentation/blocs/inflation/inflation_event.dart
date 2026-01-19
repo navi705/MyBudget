@@ -95,3 +95,13 @@ class SelectAllInflationRates extends InflationEvent {}
 class DeselectAllInflationRates extends InflationEvent {}
 
 class DeleteSelectedInflationRates extends InflationEvent {}
+
+class InflationRatesUpdated extends InflationEvent {
+  final List<InflationRateDomain> rates;
+  final int totalCount;
+
+  const InflationRatesUpdated(this.rates, this.totalCount);
+
+  @override
+  List<Object?> get props => [rates, totalCount];
+}

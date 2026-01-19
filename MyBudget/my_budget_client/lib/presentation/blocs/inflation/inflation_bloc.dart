@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ part 'inflation_state.dart';
 class InflationBloc extends Bloc<InflationEvent, InflationState> {
   final InflationRepository _inflationRepository;
   final SettingsRepository _settingsRepository;
+  StreamSubscription? _ratesSubscription;
 
   InflationBloc({
     required InflationRepository inflationRepository,
@@ -46,6 +48,28 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     on<SelectAllInflationRates>(_onSelectAll);
     on<DeselectAllInflationRates>(_onDeselectAll);
     on<DeleteSelectedInflationRates>(_onDeleteSelected);
+    on<InflationRatesUpdated>(_onInflationRatesUpdated);
+  }
+
+  @override
+  Future<void> close() {
+    _ratesSubscription?.cancel();
+    return super.close();
+  }
+
+  void _onInflationRatesUpdated(
+    InflationRatesUpdated event,
+    Emitter<InflationState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        status: InflationStatus.success,
+        rates: event.rates,
+        offset: event.rates.length,
+        hasMore: false,
+        totalCount: event.totalCount,
+      ),
+    );
   }
 
   Future<void> _onLoadInflationRates(
@@ -100,32 +124,22 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
 
       final (dateFrom, dateTo) = _getDateRange(currentState);
 
-      final count = await _inflationRepository.getInflationRatesCount(
-        dateFrom: dateFrom,
-        dateTo: dateTo,
-        countries: state.countryFilters,
-        presets: state.presetFilters,
-      );
-
-      final rates = await _inflationRepository.getInflationRatesFiltered(
-        limit: state.limit,
-        offset: 0,
-        dateFrom: dateFrom,
-        dateTo: dateTo,
-        countries: state.countryFilters,
-        presets: state.presetFilters,
-        sortAscending: state.sort == Sort.ascending,
-      );
-
-      emit(
-        state.copyWith(
-          status: InflationStatus.success,
-          rates: rates,
-          offset: rates.length,
-          hasMore: rates.length == state.limit,
-          totalCount: count,
-        ),
-      );
+      // Switch to real-time subscription
+      await _ratesSubscription?.cancel();
+      _ratesSubscription = _inflationRepository
+          .watchInflationRatesFiltered(
+            limit: 10000, // Load all for real-time updates
+            offset: 0,
+            dateFrom: dateFrom,
+            dateTo: dateTo,
+            countries: state.countryFilters,
+            presets: state.presetFilters,
+            sortAscending: state.sort == Sort.ascending,
+          )
+          .listen((rates) {
+            add(InflationRatesUpdated(rates, rates.length));
+          });
+      // We don't emit success here, the event will do it.
     } catch (e) {
       emit(
         state.copyWith(

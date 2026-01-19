@@ -48,6 +48,45 @@ class LocalAssetRepository implements AssetRepository {
   }
 
   @override
+  Stream<List<AssetDataDomain>> watchAssetData({
+    int limit = 50,
+    int offset = 0,
+    String? assetId,
+    String? accountId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? name,
+    List<String>? assetTypes,
+    String? description,
+    List<String>? currencyCodes,
+    List<String>? sources,
+    List<int>? presets,
+    double? minValue,
+    double? maxValue,
+    bool sortAscending = false,
+  }) {
+    return _dao
+        .watchAssetData(
+          limit: limit,
+          offset: offset,
+          assetId: assetId,
+          accountId: accountId,
+          startDate: startDate,
+          endDate: endDate,
+          name: name,
+          assetTypes: assetTypes,
+          description: description,
+          currencyCodes: currencyCodes,
+          sources: sources,
+          presets: presets,
+          minValue: minValue,
+          maxValue: maxValue,
+          sort: sortAscending ? OrderingMode.asc : OrderingMode.desc,
+        )
+        .map((entries) => entries.map((e) => e.toDomain()).toList());
+  }
+
+  @override
   Future<void> addAssetData(AssetDataDomain data) async {
     await _dao.addAssetData(data.toCompanion());
   }

@@ -38,6 +38,29 @@ class LocalInflationRepository implements InflationRepository {
   }
 
   @override
+  Stream<List<InflationRateDomain>> watchInflationRatesFiltered({
+    required int limit,
+    required int offset,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    List<String>? countries,
+    List<int>? presets,
+    bool sortAscending = false,
+  }) {
+    return _dao
+        .watchInflationRatesFiltered(
+          limit: limit,
+          offset: offset,
+          dateFrom: dateFrom,
+          dateTo: dateTo,
+          countries: countries,
+          presets: presets,
+          sort: sortAscending ? OrderingMode.asc : OrderingMode.desc,
+        )
+        .map((list) => list.toDomainList());
+  }
+
+  @override
   Future<void> addInflationRate(InflationRateDomain rate) async {
     await _dao.insertInflationRate(rate.toCompanion());
   }

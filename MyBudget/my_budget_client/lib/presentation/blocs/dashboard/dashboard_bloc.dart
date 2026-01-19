@@ -91,17 +91,19 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     emit(DashboardLoadInProgress());
 
     final stream =
-        Rx.combineLatest5(
+        Rx.combineLatest6(
           _accountRepository.watchAccounts(),
           _transactionRepository.watchTransactions(),
           _categoryRepository.watchCategories(),
           _styleRepository.watchAllStyles(),
+          _assetRepository.watchAssetData(limit: 10000), // Added
           _paramsSubject.stream,
           (
             List<Account> accounts,
             List<Transaction> transactions,
             List<Category> categories,
             List<Style> styles,
+            List<AssetDataDomain> assetData, // Added
             _DashboardParams params,
           ) {
             return _DashboardStreamData(
@@ -109,6 +111,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
               transactions: transactions,
               categories: categories,
               styles: styles,
+              assetData: assetData, // Added
               params: params,
             );
           },
@@ -123,10 +126,12 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
           // GUARD: Skip computation if categories haven't loaded yet
           // This prevents transfers from being counted as income/expense
-          if (categories.isEmpty) {
-            print('DEBUG: Skipping compute - categories empty');
-            return DashboardLoadInProgress();
-          }
+          // GUARD: Skip computation if categories haven't loaded yet
+          // This prevents transfers from being counted as income/expense
+          // if (categories.isEmpty) {
+          //   print('DEBUG: Skipping compute - categories empty');
+          //   return DashboardLoadInProgress();
+          // }
 
           // OPTIMIZATION: Run DB queries in parallel
           PerformanceLogger().start('Dashboard: balances, totals, settings');
@@ -138,8 +143,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
               dateTo: params.dateRangeEnd,
             ),
             _settingsRepository.getAllSettings(),
-            _currencyRepository.getAllCurrencyDesignations(), // Added
-            _assetRepository.getAssetData(), // Added for asset-linked accounts
+            _currencyRepository.getAllCurrencyDesignations(),
           ]);
 
           // final rawDayBalances = parallelDbResults[0] as Map<String, double>; // Removed unused
@@ -147,9 +151,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
               parallelDbResults[1] as List<GroupedTransactionTotal>;
           final settingsMap = parallelDbResults[2] as Map<String, String>;
           final currencyDesignationsList =
-              parallelDbResults[3] as List<CurrencyDesignation>; // Added
-          final assetData =
-              parallelDbResults[4] as List<AssetDataDomain>; // Added
+              parallelDbResults[3] as List<CurrencyDesignation>;
+          final assetData = data.assetData; // From stream
 
           final currencyDesignations = {
             for (final d in currencyDesignationsList) d.id: d,
@@ -458,6 +461,7 @@ class _DashboardStreamData {
   final List<Transaction> transactions;
   final List<Category> categories;
   final List<Style> styles;
+  final List<AssetDataDomain> assetData; // Added
   final _DashboardParams params;
 
   _DashboardStreamData({
@@ -465,6 +469,7 @@ class _DashboardStreamData {
     required this.transactions,
     required this.categories,
     required this.styles,
+    required this.assetData, // Added
     required this.params,
   });
 }
