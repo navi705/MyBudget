@@ -7,6 +7,7 @@ import 'package:my_budget_client/data/api/external_data.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
+import 'package:my_budget_client/core/utils/import_utils.dart'; // Added import
 import 'dart:convert';
 import 'dart:io';
 
@@ -15,6 +16,9 @@ Future<void> _initInIsolate(bool shouldInit) async {
   if (shouldInit) {
     await init();
   }
+
+  // Ensure currency data is hydrated (and binary file migrated if needed)
+  await ImportDataUtils.getCurrenciesInitial();
 
   final exchangeRateService = sl<ExchangeRateApiService>();
   await exchangeRateService.fetchRatesForDate(DateTime.now());
