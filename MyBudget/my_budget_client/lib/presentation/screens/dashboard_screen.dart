@@ -295,6 +295,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             accountBreakdown: state.accountBreakdown, // Added
             accounts: state.accounts,
             currencyCode: state.selectedCurrency,
+            currencyDesignations: state.currencyDesignations, // Added
           ),
         ),
       ],

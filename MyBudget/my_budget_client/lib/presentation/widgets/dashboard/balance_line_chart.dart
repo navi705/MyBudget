@@ -6,12 +6,14 @@ class BalanceLineChart extends StatelessWidget {
   final Map<DateTime, double> dailyNetWorth;
   final DateTime dateRangeStart;
   final DateTime dateRangeEnd;
+  final String currencySymbol; // Added for tooltip
 
   const BalanceLineChart({
     super.key,
     required this.dailyNetWorth,
     required this.dateRangeStart,
     required this.dateRangeEnd,
+    this.currencySymbol = '', // Optional, defaults to empty
   });
 
   @override
@@ -96,9 +98,13 @@ class BalanceLineChart extends StatelessWidget {
               sideTitles: SideTitles(
                 showTitles: true,
                 interval: rangeY > 0
-                    ? rangeY / 4
-                    : 1, // Reduced from 5 to 4 intervals
+                    ? rangeY / 3
+                    : 1, // Reduced from 4 to 3 intervals
                 getTitlesWidget: (value, meta) {
+                  // Skip edge labels that might overlap
+                  if (value == meta.min || value == meta.max) {
+                    return const SizedBox.shrink();
+                  }
                   return Text(
                     _formatCurrency(value),
                     style: Theme.of(
@@ -106,7 +112,7 @@ class BalanceLineChart extends StatelessWidget {
                     ).textTheme.bodySmall?.copyWith(fontSize: 10),
                   );
                 },
-                reservedSize: 65, // Increased from 42 to prevent overlap
+                reservedSize: 55,
               ),
             ),
           ),
@@ -120,6 +126,25 @@ class BalanceLineChart extends StatelessWidget {
           maxX: (sortedDates.length - 1).toDouble(),
           minY: minY,
           maxY: maxY,
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipItems: (touchedSpots) {
+                return touchedSpots.map((spot) {
+                  final formattedValue = spot.y.toStringAsFixed(2);
+                  final displayText = currencySymbol.isNotEmpty
+                      ? '$formattedValue $currencySymbol'
+                      : formattedValue;
+                  return LineTooltipItem(
+                    displayText,
+                    TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  );
+                }).toList();
+              },
+            ),
+          ),
           lineBarsData: [
             LineChartBarData(
               spots: spots,

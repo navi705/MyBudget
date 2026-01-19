@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
+import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/balance_line_chart.dart';
 
 class BalanceReportWidget extends StatefulWidget {
@@ -13,9 +14,7 @@ class BalanceReportWidget extends StatefulWidget {
   final Map<String, double> accountBreakdown; // Added
   final List<Account> accounts;
   final String currencyCode;
-
-  // NOTE: Category/Style params might not be needed if removing category view,
-  // but kept for compatibility until cleanup or for Distribution colors.
+  final Map<String, CurrencyDesignation> currencyDesignations; // Added
 
   const BalanceReportWidget({
     super.key,
@@ -27,6 +26,7 @@ class BalanceReportWidget extends StatefulWidget {
     required this.accountBreakdown, // Added
     required this.accounts,
     required this.currencyCode,
+    required this.currencyDesignations, // Added
   });
 
   @override
@@ -172,7 +172,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
     // See updated class definition below.
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           isAllAccounts ? 'Total Net Worth Trend' : 'Account Balance Trend',
@@ -193,11 +193,33 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
             dailyNetWorth: _getDataForChart(),
             dateRangeStart: widget.dateRangeStart,
             dateRangeEnd: widget.dateRangeEnd,
-            // Pass color if single account?
+            currencySymbol: _getCurrencySymbolForChart(),
           ),
         ),
       ],
     );
+  }
+
+  String _getCurrencySymbolForChart() {
+    String currencyCode;
+
+    if (_selectedAccountId == null) {
+      // All Accounts: use the selected main currency
+      currencyCode = widget.currencyCode;
+    } else {
+      // Specific account: use that account's currency
+      final account = widget.accounts.cast<Account?>().firstWhere(
+        (a) => a?.id == _selectedAccountId,
+        orElse: () => null,
+      );
+      currencyCode = account?.currencyCode ?? widget.currencyCode;
+    }
+
+    // Look up custom designation symbol
+    final designation = widget.currencyDesignations.values
+        .cast<CurrencyDesignation?>()
+        .firstWhere((d) => d?.currencyCode == currencyCode, orElse: () => null);
+    return designation?.value ?? currencyCode;
   }
 
   Map<DateTime, double> _getDataForChart() {
