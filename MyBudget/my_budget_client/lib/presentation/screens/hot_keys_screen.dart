@@ -19,7 +19,143 @@ class HotKeysScreen extends StatelessWidget {
 
             // Define available actions here
             final actions = [
-              {'id': 'back', 'label': 'Go Back / Exit'},
+              {'id': 'back', 'label': 'Global: Go Back / Exit'},
+              {'id': 'dashboard', 'label': 'Navigation: Go to Dashboard'},
+              {'id': 'accounts', 'label': 'Navigation: Go to Accounts'},
+              {'id': 'transactions', 'label': 'Navigation: Go to Transactions'},
+              {'id': 'categories', 'label': 'Navigation: Go to Categories'},
+              {
+                'id': 'data',
+                'label': 'Navigation: Go to Data / Exchange Rates',
+              },
+              {'id': 'settings', 'label': 'Navigation: Go to Settings'},
+
+              {'id': 'dashboard_tab_1', 'label': 'Dashboard: Calendar Tab'},
+              {'id': 'dashboard_tab_2', 'label': 'Dashboard: Categories Tab'},
+              {'id': 'dashboard_tab_3', 'label': 'Dashboard: Balance Tab'},
+
+              {
+                'id': 'add_transaction',
+                'label': 'Transactions: Add Transaction',
+              },
+              {'id': 'prev_period', 'label': 'Period: Previous Period'},
+              {'id': 'next_period', 'label': 'Period: Next Period'},
+
+              {'id': 'add_account', 'label': 'Accounts: Add Account'},
+              {'id': 'filter_accounts', 'label': 'Accounts: Toggle Filter'},
+              {'id': 'accounts_pick_date', 'label': 'Accounts: Select Date'},
+              {'id': 'accounts_sort', 'label': 'Accounts: Toggle Sort'},
+              {
+                'id': 'accounts_curr_select',
+                'label': 'Accounts: Select Currencies',
+              },
+              {
+                'id': 'accounts_selection_close',
+                'label': 'Accounts: Close Selection',
+              },
+              {'id': 'accounts_selection_all', 'label': 'Accounts: Select All'},
+              {
+                'id': 'accounts_selection_delete',
+                'label': 'Accounts: Delete Selected',
+              },
+              {
+                'id': 'accounts_selection_change_type',
+                'label': 'Accounts: Change Selected Type',
+              },
+
+              {'id': 'add_category', 'label': 'Categories: Add Category'},
+              {'id': 'filter_categories', 'label': 'Categories: Toggle Filter'},
+              {
+                'id': 'categories_pick_date',
+                'label': 'Categories: Select Date',
+              },
+              {'id': 'categories_sort', 'label': 'Categories: Toggle Sort'},
+              {
+                'id': 'categories_selection_close',
+                'label': 'Categories: Close Selection',
+              },
+              {
+                'id': 'categories_selection_all',
+                'label': 'Categories: Select All',
+              },
+              {
+                'id': 'categories_selection_delete',
+                'label': 'Categories: Delete Selected',
+              },
+              {
+                'id': 'categories_selection_change_type',
+                'label': 'Categories: Change Selected Type',
+              },
+
+              {'id': 'add_exchange_rate', 'label': 'Data: Add Exchange Rate'},
+              {'id': 'filter_exchange_rates', 'label': 'Data: Toggle Filter'},
+              {'id': 'exchange_rates_pick_date', 'label': 'Data: Select Date'},
+              {'id': 'exchange_rates_sort', 'label': 'Data: Toggle Sort'},
+              {
+                'id': 'exchange_rates_selection_close',
+                'label': 'Data: Close Selection',
+              },
+              {
+                'id': 'exchange_rates_selection_all',
+                'label': 'Data: Select All',
+              },
+              {
+                'id': 'exchange_rates_selection_delete',
+                'label': 'Data: Delete Selected',
+              },
+              {
+                'id': 'exchange_rates_selection_change_preset',
+                'label': 'Data: Change Selected Preset',
+              },
+
+              {'id': 'add_inflation_rate', 'label': 'Inflation: Add Rate'},
+              {'id': 'inflation_pick_date', 'label': 'Inflation: Select Date'},
+              {'id': 'inflation_sort', 'label': 'Inflation: Toggle Sort'},
+              {
+                'id': 'inflation_selection_all',
+                'label': 'Inflation: Select All',
+              },
+              {
+                'id': 'inflation_selection_delete',
+                'label': 'Inflation: Delete Selected',
+              },
+
+              {'id': 'add_asset', 'label': 'Assets: Add Asset'},
+              {'id': 'asset_pick_date', 'label': 'Assets: Select Date'},
+              {'id': 'asset_sort', 'label': 'Assets: Toggle Sort'},
+              {'id': 'asset_selection_all', 'label': 'Assets: Select All'},
+              {
+                'id': 'asset_selection_delete',
+                'label': 'Assets: Delete Selected',
+              },
+
+              {'id': 'api_fetch_rates', 'label': 'API: Fetch Exchange Rates'},
+              {'id': 'api_fetch_steam', 'label': 'API: Fetch Steam Inventory'},
+              {
+                'id': 'api_fetch_inflation',
+                'label': 'API: Fetch Inflation Data',
+              },
+
+              {'id': 'settings_icons', 'label': 'Settings: Manage Icons'},
+              {'id': 'settings_theme', 'label': 'Settings: Manage Theme'},
+              {'id': 'settings_currency', 'label': 'Settings: Main Currency'},
+              {
+                'id': 'settings_country',
+                'label': 'Settings: Inflation Country',
+              },
+              {'id': 'settings_hotkeys', 'label': 'Settings: Hot Keys'},
+              {
+                'id': 'settings_persist_filters',
+                'label': 'Settings: Persist Filters',
+              },
+              {'id': 'settings_import', 'label': 'Settings: Import Data'},
+              {
+                'id': 'settings_import_rates',
+                'label': 'Settings: Import Rates',
+              },
+              {'id': 'settings_export', 'label': 'Settings: Export Data'},
+              {'id': 'settings_api', 'label': 'Settings: API Management'},
+              {'id': 'settings_reset', 'label': 'Settings: Reset Data'},
             ];
 
             return ListView.separated(

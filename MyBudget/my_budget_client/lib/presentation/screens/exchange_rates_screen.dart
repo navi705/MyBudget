@@ -10,6 +10,8 @@ import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart'
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
+import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
 
 class ExchangeRatesScreen extends StatelessWidget {
   final bool isStandalone;
@@ -66,12 +68,45 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
     return BlocBuilder<ExchangeRatesBloc, ExchangeRatesState>(
       builder: (context, state) {
         final body = _buildBody(context, state);
-        return Scaffold(
-          appBar: _buildAppBar(context, state),
-          body: body,
-          floatingActionButton: FloatingActionButton(
-            onPressed: () => _showAddEditExchangeRateDialog(context),
-            child: const Icon(Icons.add),
+        final bloc = context.read<ExchangeRatesBloc>();
+
+        return ScreenShortcuts(
+          actions: {
+            'add_exchange_rate': () => _showAddEditExchangeRateDialog(context),
+            'exchange_rates_selection_close': () =>
+                bloc.add(const ToggleSelectionMode(false)),
+            'exchange_rates_selection_all': () =>
+                bloc.add(const SelectAllExchangeRates()),
+            'exchange_rates_selection_delete': () {
+              if (state.isSelectionModeActive &&
+                  state.selectedExchangeRates.isNotEmpty) {
+                _showDeleteConfirmation(
+                  context,
+                  bloc,
+                  state.selectedExchangeRates.length,
+                );
+              }
+            },
+            'exchange_rates_selection_change_preset': () {
+              if (state.isSelectionModeActive &&
+                  state.selectedExchangeRates.isNotEmpty) {
+                _showBulkPresetUpdate(context, bloc);
+              }
+            },
+          },
+          child: Scaffold(
+            appBar: _buildAppBar(context, state),
+            body: body,
+            floatingActionButton: MultiLevelTooltip(
+              message: 'Add Exchange Rate',
+              actionId: 'add_exchange_rate',
+              description:
+                  'Manually enter a conversion rate between two currencies',
+              child: FloatingActionButton(
+                onPressed: () => _showAddEditExchangeRateDialog(context),
+                child: const Icon(Icons.add),
+              ),
+            ),
           ),
         );
       },
@@ -592,42 +627,67 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
-          icon: Icon(Icons.tune, color: onSurface),
-          tooltip: 'Filter',
-          onPressed: () => _showFilterDialog(context),
+        MultiLevelTooltip(
+          message: 'Filter',
+          actionId: 'filter_exchange_rates',
+          description: 'Filter rates by from/to currency and preset ID',
+          child: IconButton(
+            icon: Icon(Icons.tune, color: onSurface),
+            onPressed: () => _showFilterDialog(context),
+          ),
         ),
-        IconButton(
-          icon: Icon(Icons.chevron_left, color: onSurface),
-          onPressed: () => _navigate(bloc, -1),
+        MultiLevelTooltip(
+          message: 'Previous Period',
+          actionId: 'prev_period',
+          description: 'Go to the previous day, month, or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_left, color: onSurface),
+            onPressed: () => _navigate(bloc, -1),
+          ),
         ),
-        InkWell(
-          onTap: () => _showCustomCalendar(context),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12.0),
-            alignment: Alignment.center,
-            child: Text(
-              _formatDate(context),
-              style: TextStyle(color: onSurface, fontSize: 18),
+        MultiLevelTooltip(
+          message: 'Select Date',
+          actionId: 'exchange_rates_pick_date',
+          description:
+              'Choose a specific date or range to view historical rates',
+          child: InkWell(
+            onTap: () => _showCustomCalendar(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              alignment: Alignment.center,
+              child: Text(
+                _formatDate(context),
+                style: TextStyle(color: onSurface, fontSize: 18),
+              ),
             ),
           ),
         ),
-        IconButton(
-          icon: Icon(Icons.chevron_right, color: onSurface),
-          onPressed: () => _navigate(bloc, 1),
+        MultiLevelTooltip(
+          message: 'Next Period',
+          actionId: 'next_period',
+          description: 'Go to the next day, month, or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_right, color: onSurface),
+            onPressed: () => _navigate(bloc, 1),
+          ),
         ),
         const SizedBox(width: 24),
-        RotatedBox(
-          quarterTurns: state.sort == Sort.ascending ? 2 : 0,
-          child: IconButton(
-            icon: Icon(Icons.sort, color: onSurface),
-            tooltip: 'Sort',
-            onPressed: () {
-              final newSort = state.sort == Sort.ascending
-                  ? Sort.descending
-                  : Sort.ascending;
-              bloc.add(ChangeExchangeRatesSort(newSort));
-            },
+        MultiLevelTooltip(
+          message: 'Sort Order',
+          actionId: 'exchange_rates_sort',
+          description:
+              'Switch between ascending and descending date/rate order',
+          child: RotatedBox(
+            quarterTurns: state.sort == Sort.ascending ? 2 : 0,
+            child: IconButton(
+              icon: Icon(Icons.sort, color: onSurface),
+              onPressed: () {
+                final newSort = state.sort == Sort.ascending
+                    ? Sort.descending
+                    : Sort.ascending;
+                bloc.add(ChangeExchangeRatesSort(newSort));
+              },
+            ),
           ),
         ),
       ],
@@ -842,29 +902,50 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
     final isAllSelected = selectionCount == totalCount && totalCount > 0;
 
     return AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.close),
-        onPressed: onClearSelection,
+      leading: MultiLevelTooltip(
+        message: 'Close Selection',
+        actionId: 'exchange_rates_selection_close',
+        description: 'Exit exchange rate selection mode',
+        child: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: onClearSelection,
+        ),
       ),
       title: Text('$selectionCount selected'),
       actions: [
-        IconButton(
-          icon: Icon(
-            isAllSelected ? Icons.deselect_outlined : Icons.select_all_outlined,
+        MultiLevelTooltip(
+          message: isAllSelected ? 'Deselect All' : 'Select All',
+          actionId: 'exchange_rates_selection_all',
+          description: isAllSelected
+              ? 'Unselect all rates'
+              : 'Select all listed exchange rates',
+          child: IconButton(
+            icon: Icon(
+              isAllSelected
+                  ? Icons.deselect_outlined
+                  : Icons.select_all_outlined,
+            ),
+            onPressed: onSelectAll,
           ),
-          onPressed: onSelectAll,
-          tooltip: isAllSelected ? 'Deselect All' : 'Select All',
         ),
         if (selectionCount > 0) ...[
-          IconButton(
-            icon: const Icon(Icons.drive_file_rename_outline),
-            onPressed: onChangePreset,
-            tooltip: 'Change Preset',
+          MultiLevelTooltip(
+            message: 'Change Preset',
+            actionId: 'exchange_rates_selection_change_preset',
+            description: 'Update the preset ID for all selected exchange rates',
+            child: IconButton(
+              icon: const Icon(Icons.drive_file_rename_outline),
+              onPressed: onChangePreset,
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: onDelete,
-            tooltip: 'Delete',
+          MultiLevelTooltip(
+            message: 'Delete Selected',
+            actionId: 'exchange_rates_selection_delete',
+            description: 'Permanently delete all selected exchange rates',
+            child: IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: onDelete,
+            ),
           ),
         ],
       ],

@@ -2,12 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/theme/theme_bloc.dart';
 import 'package:my_budget_client/core/theme/app_theme.dart';
+import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 
 class NavigationTabBarItem {
   final IconData icon;
   final String label;
+  final String tooltip;
+  final String? tooltipDescription;
+  final String? hotkeyId;
 
-  const NavigationTabBarItem({required this.icon, required this.label});
+  const NavigationTabBarItem({
+    required this.icon,
+    required this.label,
+    this.tooltip = '',
+    this.tooltipDescription,
+    this.hotkeyId,
+  });
 }
 
 class NavigationTabBar extends StatelessWidget {
@@ -78,8 +88,19 @@ class NavigationTabBar extends StatelessWidget {
                   unselectedItemColor: unselectedColor,
                   type: BottomNavigationBarType.fixed,
                   items: items.map((item) {
+                    Widget iconWidget = Icon(item.icon);
+                    if (item.tooltip.isNotEmpty || item.hotkeyId != null) {
+                      iconWidget = MultiLevelTooltip(
+                        message: item.tooltip.isNotEmpty
+                            ? item.tooltip
+                            : item.label,
+                        actionId: item.hotkeyId ?? '',
+                        description: item.tooltipDescription,
+                        child: iconWidget,
+                      );
+                    }
                     return BottomNavigationBarItem(
-                      icon: Icon(item.icon),
+                      icon: iconWidget,
                       label: item.label,
                     );
                   }).toList(),

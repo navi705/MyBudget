@@ -7,6 +7,7 @@ import 'package:my_budget_client/presentation/widgets/advanced_filter_dialog.dar
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
+import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 
 class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   const FilterDate({super.key});
@@ -34,80 +35,6 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
     }
   }
 
-  // void _showDateStepPicker(BuildContext context) {
-  //   showDialog(
-  //     context: context,
-  //     builder: (BuildContext dialogContext) {
-  //       return SimpleDialog(
-  //         title: const Text('Выберите шаг'),
-  //         children: <Widget>[
-  //           SimpleDialogOption(
-  //             onPressed: () {
-  //               Navigator.pop(dialogContext);
-  //               context.read<TransactionsBloc>().add(
-  //                 const DateStepChanged(DateStep.day),
-  //               );
-  //             },
-  //             child: const Row(
-  //               children: [
-  //                 Icon(Icons.calendar_view_day),
-  //                 SizedBox(width: 10),
-  //                 Text('День'),
-  //               ],
-  //             ),
-  //           ),
-  //           SimpleDialogOption(
-  //             onPressed: () {
-  //               Navigator.pop(dialogContext);
-  //               context.read<TransactionsBloc>().add(
-  //                 const DateStepChanged(DateStep.month),
-  //               );
-  //             },
-  //             child: const Row(
-  //               children: [
-  //                 Icon(Icons.calendar_view_month),
-  //                 SizedBox(width: 10),
-  //                 Text('Месяц'),
-  //               ],
-  //             ),
-  //           ),
-  //           SimpleDialogOption(
-  //             onPressed: () {
-  //               Navigator.pop(dialogContext);
-  //               context.read<TransactionsBloc>().add(
-  //                 const DateStepChanged(DateStep.year),
-  //               );
-  //             },
-  //             child: const Row(
-  //               children: [
-  //                 Icon(Icons.calendar_view_week),
-  //                 SizedBox(width: 10),
-  //                 Text('Год'),
-  //               ],
-  //             ),
-  //           ),
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
-
-  // Future<void> _selectDateRange(
-  //   BuildContext context,
-  //   DateTimeRange? initialRange,
-  // ) async {
-  //   final DateTimeRange? picked = await showDateRangePicker(
-  //     context: context,
-  //     initialDateRange: initialRange,
-  //     firstDate: DateTime(2000),
-  //     lastDate: DateTime(2101),
-  //     locale: const Locale('ru', 'RU'),
-  //   );
-  //   if (picked != null && context.mounted) {
-  //     context.read<TransactionsBloc>().add(ActiveDateRangeChanged(picked));
-  //   }
-  // }
-
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<TransactionsBloc, TransactionsState>(
@@ -117,42 +44,66 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              icon: const Icon(Icons.tune, color: Colors.white),
-              tooltip: 'Фильтр',
-              onPressed: () =>
-                  showAdvancedFilterDialog(context, state.nonDateFilters),
+            MultiLevelTooltip(
+              message: 'Advanced Filter',
+              actionId: 'filter_advanced',
+              description:
+                  'Filter transactions by account, category, or amount',
+              child: IconButton(
+                icon: const Icon(Icons.tune, color: Colors.white),
+                onPressed: () =>
+                    showAdvancedFilterDialog(context, state.nonDateFilters),
+              ),
             ),
-            IconButton(
-              icon: const Icon(Icons.chevron_left, color: Colors.white),
-              onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
+            MultiLevelTooltip(
+              message: 'Previous Period',
+              actionId: 'prev_period',
+              description: 'Go to the previous day, month, or year',
+              child: IconButton(
+                icon: const Icon(Icons.chevron_left, color: Colors.white),
+                onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
+              ),
             ),
-            InkWell(
-              onTap: () => _showCustomCalendar(context, state),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12.0),
-                alignment: Alignment.center,
-                child: Text(
-                  _formatDate(state),
-                  style: const TextStyle(color: Colors.white, fontSize: 18),
+            MultiLevelTooltip(
+              message: 'Select Date',
+              actionId: 'filter_pick_date',
+              description: 'Choose a specific date or date range',
+              child: InkWell(
+                onTap: () => _showCustomCalendar(context, state),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12.0),
+                  alignment: Alignment.center,
+                  child: Text(
+                    _formatDate(state),
+                    style: const TextStyle(color: Colors.white, fontSize: 18),
+                  ),
                 ),
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right, color: Colors.white),
-              onPressed: () => bloc.add(const DatePeriodNavigated(1)),
-            ),
-            RotatedBox(
-              quarterTurns: state.sort == Sort.ascending ? 0 : 2,
+            MultiLevelTooltip(
+              message: 'Next Period',
+              actionId: 'next_period',
+              description: 'Go to the next day, month, or year',
               child: IconButton(
-                icon: const Icon(Icons.sort, color: Colors.white),
-                tooltip: 'Сортировка',
-                onPressed: () {
-                  final newSort = state.sort == Sort.ascending
-                      ? Sort.descending
-                      : Sort.ascending;
-                  context.read<TransactionsBloc>().add(SortChanged(newSort));
-                },
+                icon: const Icon(Icons.chevron_right, color: Colors.white),
+                onPressed: () => bloc.add(const DatePeriodNavigated(1)),
+              ),
+            ),
+            MultiLevelTooltip(
+              message: 'Sort Order',
+              actionId: 'filter_sort',
+              description: 'Toggle between ascending and descending order',
+              child: RotatedBox(
+                quarterTurns: state.sort == Sort.ascending ? 0 : 2,
+                child: IconButton(
+                  icon: const Icon(Icons.sort, color: Colors.white),
+                  onPressed: () {
+                    final newSort = state.sort == Sort.ascending
+                        ? Sort.descending
+                        : Sort.ascending;
+                    context.read<TransactionsBloc>().add(SortChanged(newSort));
+                  },
+                ),
               ),
             ),
           ],
@@ -169,7 +120,7 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   void _showCustomCalendar(BuildContext context, TransactionsState state) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Allows the modal to be taller
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -179,22 +130,18 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
           initialRange: state.activeDateRange,
           initialStep: state.dateStep,
           initialFilterMode: state.filterMode,
-          // Hide range option if current Step is NOT Day (optional logic)
           rangeOptionVisibility: PickerVisibility.visible,
           onApply: (date, range, step, mode) {
             final bloc = context.read<TransactionsBloc>();
 
-            // 1. Update Step if changed
             if (step != state.dateStep) {
               bloc.add(DateStepChanged(step));
             }
 
-            // 2. Update Mode if changed
             if (mode != state.filterMode) {
               bloc.add(FilterModeChanged(mode));
             }
 
-            // 3. Update Date/Range
             if (mode == FilterMode.range && range != null) {
               bloc.add(ActiveDateRangeChanged(range));
             } else {

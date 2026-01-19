@@ -3,7 +3,10 @@ import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_currency_selector.dart';
 
+import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
+
 class DashboardHeader extends StatelessWidget {
+  // ... (keep fields)
   final DateTime selectedDay;
   final DateStep dateStep;
   final String currencyCode;
@@ -44,66 +47,98 @@ class DashboardHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Left Arrow
-          IconButton(
-            icon: Icon(Icons.chevron_left, color: onSurface),
-            onPressed: onPrevious,
+          MultiLevelTooltip(
+            message: 'Previous Period',
+            actionId: 'prev_period',
+            description: 'Go to the previous month or year',
+            child: IconButton(
+              icon: Icon(Icons.chevron_left, color: onSurface),
+              onPressed: onPrevious,
+            ),
           ),
           // Currency Selector
-          DashboardCurrencySelector(
-            selectedCurrency: currencyCode,
-            availableCurrencies: availableCurrencies,
-            onCurrencyChanged: onCurrencySelected,
+          MultiLevelTooltip(
+            message: 'Currency',
+            actionId: 'dashboard_currency',
+            description: 'Select the primary currency for display',
+            child: DashboardCurrencySelector(
+              selectedCurrency: currencyCode,
+              availableCurrencies: availableCurrencies,
+              onCurrencyChanged: onCurrencySelected,
+            ),
           ),
           const SizedBox(width: 16),
           // Center: Title
-          InkWell(
-            onTap: onTitleTap,
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              alignment: Alignment.center,
-              child: Text(
-                title,
-                style: TextStyle(color: onSurface, fontSize: 18),
+          MultiLevelTooltip(
+            message: 'Select Date',
+            actionId: 'dashboard_pick_date',
+            description: 'Open calendar to pick a specific date or range',
+            child: InkWell(
+              onTap: onTitleTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  title,
+                  style: TextStyle(color: onSurface, fontSize: 18),
+                ),
               ),
             ),
           ),
           const SizedBox(width: 16),
           // DateStep Selector (Month/Year)
-          SegmentedButton<DateStep>(
-            segments: const [
-              ButtonSegment(value: DateStep.month, label: Text('M')),
-              ButtonSegment(value: DateStep.year, label: Text('Y')),
-            ],
-            selected: {dateStep},
-            onSelectionChanged: (Set<DateStep> newSelection) {
-              onDateStepChanged(newSelection.first);
-            },
-            showSelectedIcon: false,
-            style: ButtonStyle(
-              visualDensity: VisualDensity.compact,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              padding: WidgetStateProperty.all(
-                const EdgeInsets.symmetric(horizontal: 10),
+          MultiLevelTooltip(
+            message: 'Change View',
+            actionId: 'dashboard_switch_view',
+            description: 'Switch between Monthly and Yearly views',
+            child: SegmentedButton<DateStep>(
+              segments: const [
+                ButtonSegment(value: DateStep.month, label: Text('M')),
+                ButtonSegment(value: DateStep.year, label: Text('Y')),
+              ],
+              selected: {dateStep},
+              onSelectionChanged: (Set<DateStep> newSelection) {
+                onDateStepChanged(newSelection.first);
+              },
+              showSelectedIcon: false,
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: WidgetStateProperty.all(
+                  const EdgeInsets.symmetric(horizontal: 10),
+                ),
+                backgroundColor: WidgetStateProperty.resolveWith<Color>((
+                  states,
+                ) {
+                  if (states.contains(WidgetState.selected)) {
+                    return Theme.of(context).colorScheme.primary;
+                  }
+                  return Theme.of(context).colorScheme.surfaceContainerHighest;
+                }),
+                foregroundColor: WidgetStateProperty.resolveWith<Color>((
+                  states,
+                ) {
+                  if (states.contains(WidgetState.selected)) {
+                    return Theme.of(context).colorScheme.onPrimary;
+                  }
+                  return Theme.of(context).colorScheme.onSurface;
+                }),
               ),
-              backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
-                if (states.contains(WidgetState.selected)) {
-                  return Theme.of(context).colorScheme.primary;
-                }
-                return Theme.of(context).colorScheme.surfaceContainerHighest;
-              }),
-              foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
-                if (states.contains(WidgetState.selected)) {
-                  return Theme.of(context).colorScheme.onPrimary;
-                }
-                return Theme.of(context).colorScheme.onSurface;
-              }),
             ),
           ),
           // Right Arrow
-          IconButton(
-            icon: Icon(Icons.chevron_right, color: onSurface),
-            onPressed: onNext,
+          MultiLevelTooltip(
+            message: 'Next Period',
+            actionId: 'next_period',
+            description: 'Go to the next month or year',
+            child: IconButton(
+              icon: Icon(Icons.chevron_right, color: onSurface),
+              onPressed: onNext,
+            ),
           ),
         ],
       ),

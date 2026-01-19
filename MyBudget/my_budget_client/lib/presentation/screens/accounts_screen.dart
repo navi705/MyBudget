@@ -20,6 +20,8 @@ import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/presentation/widgets/total_balance_summary_widget.dart';
 import 'package:my_budget_client/presentation/widgets/currency_selection_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
+import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
@@ -285,213 +287,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
     final bloc = context.read<AccountsBloc>();
 
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: BlocBuilder<AccountsBloc, AccountsState>(
-          builder: (context, state) {
-            if (state is! AccountsLoadSuccess) {
-              return AppBar(title: Text(l10n.accountsAppBarTitle));
-            }
-
-            if (state.isSelectionModeActive) {
-              return _SelectionAppBar(
-                state: state,
-                onDelete: () => _showDeleteConfirmationDialog(
-                  context,
-                  bloc,
-                  state.selectedAccountIds.toList(),
-                ),
-                onChangeType: () => _showChangeAccountTypeDialog(
-                  context,
-                  bloc,
-                  state.selectedAccountIds.toList(),
-                  state.accountTypes,
-                ),
-              );
-            }
-
-            return _AccountsDateAppBar(state: state);
-          },
-        ),
-      ),
-
-      body: BlocListener<AccountsBloc, AccountsState>(
-        listener: (context, state) {
-          if (state is AccountsLoadSuccess &&
-              state.recentlyDeletedAccount != null) {
-            ScaffoldMessenger.of(context)
-              ..hideCurrentSnackBar()
-              ..showSnackBar(
-                SnackBar(
-                  content: Text(
-                    '${state.recentlyDeletedAccount!.name} deleted', // TODO: Proper localization with variable
-                  ),
-
-                  action: SnackBarAction(
-                    label: 'Undo', // TODO: Localize
-
-                    onPressed: () {
-                      context.read<AccountsBloc>().add(UndoDeleteAccount());
-                    },
-                  ),
-                ),
-              );
-          }
-        },
-
-        listenWhen: (previous, current) {
-          return previous is AccountsLoadSuccess &&
-              current is AccountsLoadSuccess &&
-              previous.recentlyDeletedAccount !=
-                  current.recentlyDeletedAccount &&
-              current.recentlyDeletedAccount != null;
-        },
-
-        child: BlocListener<AccountsBloc, AccountsState>(
-          listenWhen: (previous, current) {
-            return previous is AccountsLoadSuccess &&
-                current is AccountsLoadSuccess &&
-                previous.activeDate != current.activeDate;
-          },
-          listener: (context, state) {
-            if (state is AccountsLoadSuccess) {
-              context.read<CurrencyConverterBloc>().add(
-                DateChanged(state.activeDate),
-              );
-            }
-          },
-          child: CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              SliverToBoxAdapter(
-                child: BlocBuilder<AccountsBloc, AccountsState>(
-                  builder: (context, accountsState) {
-                    return BlocBuilder<
-                      CurrencyConverterBloc,
-                      CurrencyConverterState
-                    >(
-                      builder: (context, converterState) {
-                        if (accountsState is AccountsLoadSuccess &&
-                            converterState is CurrencyConverterLoadSuccess) {
-                          return TotalBalanceSummaryWidget(
-                            accountsState: accountsState,
-                            converterState: converterState,
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    );
-                  },
-                ),
-              ),
-              BlocBuilder<AccountsBloc, AccountsState>(
-                builder: (context, state) {
-                  if (state is AccountsLoadInProgress) {
-                    return const SliverFillRemaining(
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-
-                  if (state is AccountsLoadSuccess) {
-                    final filteredAccounts = state.accounts;
-
-                    if (filteredAccounts.isEmpty) {
-                      return SliverFillRemaining(
-                        child: Center(child: Text(l10n.accountsEmptyState)),
-                      );
-                    }
-
-                    return SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          if (index >= filteredAccounts.length) {
-                            return const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(16.0),
-                                child: CircularProgressIndicator(),
-                              ),
-                            );
-                          }
-
-                          final account = filteredAccounts[index];
-
-                          final balance = state.isHistorical
-                              ? (state.historicalBalances[account.id] ??
-                                    account.balance)
-                              : account.balance;
-
-                          final isSelected = state.selectedAccountIds.contains(
-                            account.id,
-                          );
-
-                          final bloc = context.read<AccountsBloc>();
-
-                          return AccountListItem(
-                            account: account.copyWith(balance: balance),
-                            assetStats: state.assetStats[account.id],
-                            isSelected: isSelected,
-                            realBalance: state.realBalances[account.id],
-                            inflationLoss: state.inflationLosses[account.id],
-                            income: state.accountIncomes[account.id],
-                            expense: state.accountExpenses[account.id],
-                            realIncome: state.accountRealIncomes[account.id],
-                            realExpense: state.accountRealExpenses[account.id],
-                            prevBalance:
-                                state.previousPeriodBalances[account.id],
-                            prevIncome:
-                                state.previousAccountIncomes[account.id],
-                            prevExpense:
-                                state.previousAccountExpenses[account.id],
-                            prevRealBalance:
-                                state.previousPeriodRealBalances[account.id],
-                            prevRealIncome:
-                                state.previousAccountRealIncomes[account.id],
-                            prevRealExpense:
-                                state.previousAccountRealExpenses[account.id],
-                            onTap: () {
-                              if (state.isSelectionModeActive) {
-                                bloc.add(ToggleAccountSelection(account.id!));
-                              } else {
-                                context.push(
-                                  AppRoutes.editAccount,
-                                  extra: account,
-                                );
-                              }
-                            },
-                            onLongPress: () {
-                              if (!state.isSelectionModeActive) {
-                                bloc.add(const ToggleSelectionMode(true));
-                              }
-                              bloc.add(ToggleAccountSelection(account.id!));
-                            },
-                            onSecondaryTapUp: (details) {
-                              _showContextMenu(
-                                context,
-                                details.globalPosition,
-                                account,
-                                state,
-                              );
-                            },
-                          );
-                        },
-                        childCount: state.hasReachedMax
-                            ? filteredAccounts.length
-                            : filteredAccounts.length + 1,
-                      ),
-                    );
-                  }
-
-                  return const SliverToBoxAdapter(child: SizedBox.shrink());
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
+    return ScreenShortcuts(
+      actions: {
+        'add_account': () {
           showDialog(
             context: context,
             builder: (dialogContext) => MultiBlocProvider(
@@ -504,8 +302,233 @@ class _AccountsScreenState extends State<AccountsScreen> {
             ),
           );
         },
-        tooltip: l10n.accountsAddTooltip,
-        child: const Icon(Icons.add),
+      },
+      child: Scaffold(
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: BlocBuilder<AccountsBloc, AccountsState>(
+            builder: (context, state) {
+              if (state is! AccountsLoadSuccess) {
+                return AppBar(title: Text(l10n.accountsAppBarTitle));
+              }
+
+              if (state.isSelectionModeActive) {
+                return _SelectionAppBar(
+                  state: state,
+                  onDelete: () => _showDeleteConfirmationDialog(
+                    context,
+                    bloc,
+                    state.selectedAccountIds.toList(),
+                  ),
+                  onChangeType: () => _showChangeAccountTypeDialog(
+                    context,
+                    bloc,
+                    state.selectedAccountIds.toList(),
+                    state.accountTypes,
+                  ),
+                );
+              }
+
+              return _AccountsDateAppBar(state: state);
+            },
+          ),
+        ),
+
+        body: BlocListener<AccountsBloc, AccountsState>(
+          listener: (context, state) {
+            if (state is AccountsLoadSuccess &&
+                state.recentlyDeletedAccount != null) {
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '${state.recentlyDeletedAccount!.name} deleted', // TODO: Proper localization with variable
+                    ),
+
+                    action: SnackBarAction(
+                      label: 'Undo', // TODO: Localize
+
+                      onPressed: () {
+                        context.read<AccountsBloc>().add(UndoDeleteAccount());
+                      },
+                    ),
+                  ),
+                );
+            }
+          },
+
+          listenWhen: (previous, current) {
+            return previous is AccountsLoadSuccess &&
+                current is AccountsLoadSuccess &&
+                previous.recentlyDeletedAccount !=
+                    current.recentlyDeletedAccount &&
+                current.recentlyDeletedAccount != null;
+          },
+
+          child: BlocListener<AccountsBloc, AccountsState>(
+            listenWhen: (previous, current) {
+              return previous is AccountsLoadSuccess &&
+                  current is AccountsLoadSuccess &&
+                  previous.activeDate != current.activeDate;
+            },
+            listener: (context, state) {
+              if (state is AccountsLoadSuccess) {
+                context.read<CurrencyConverterBloc>().add(
+                  DateChanged(state.activeDate),
+                );
+              }
+            },
+            child: CustomScrollView(
+              controller: _scrollController,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: BlocBuilder<AccountsBloc, AccountsState>(
+                    builder: (context, accountsState) {
+                      return BlocBuilder<
+                        CurrencyConverterBloc,
+                        CurrencyConverterState
+                      >(
+                        builder: (context, converterState) {
+                          if (accountsState is AccountsLoadSuccess &&
+                              converterState is CurrencyConverterLoadSuccess) {
+                            return TotalBalanceSummaryWidget(
+                              accountsState: accountsState,
+                              converterState: converterState,
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      );
+                    },
+                  ),
+                ),
+                BlocBuilder<AccountsBloc, AccountsState>(
+                  builder: (context, state) {
+                    if (state is AccountsLoadInProgress) {
+                      return const SliverFillRemaining(
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+
+                    if (state is AccountsLoadSuccess) {
+                      final filteredAccounts = state.accounts;
+
+                      if (filteredAccounts.isEmpty) {
+                        return SliverFillRemaining(
+                          child: Center(child: Text(l10n.accountsEmptyState)),
+                        );
+                      }
+
+                      return SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            if (index >= filteredAccounts.length) {
+                              return const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            }
+
+                            final account = filteredAccounts[index];
+
+                            final balance = state.isHistorical
+                                ? (state.historicalBalances[account.id] ??
+                                      account.balance)
+                                : account.balance;
+
+                            final isSelected = state.selectedAccountIds
+                                .contains(account.id);
+
+                            final bloc = context.read<AccountsBloc>();
+
+                            return AccountListItem(
+                              account: account.copyWith(balance: balance),
+                              assetStats: state.assetStats[account.id],
+                              isSelected: isSelected,
+                              realBalance: state.realBalances[account.id],
+                              inflationLoss: state.inflationLosses[account.id],
+                              income: state.accountIncomes[account.id],
+                              expense: state.accountExpenses[account.id],
+                              realIncome: state.accountRealIncomes[account.id],
+                              realExpense:
+                                  state.accountRealExpenses[account.id],
+                              prevBalance:
+                                  state.previousPeriodBalances[account.id],
+                              prevIncome:
+                                  state.previousAccountIncomes[account.id],
+                              prevExpense:
+                                  state.previousAccountExpenses[account.id],
+                              prevRealBalance:
+                                  state.previousPeriodRealBalances[account.id],
+                              prevRealIncome:
+                                  state.previousAccountRealIncomes[account.id],
+                              prevRealExpense:
+                                  state.previousAccountRealExpenses[account.id],
+                              onTap: () {
+                                if (state.isSelectionModeActive) {
+                                  bloc.add(ToggleAccountSelection(account.id!));
+                                } else {
+                                  context.push(
+                                    AppRoutes.editAccount,
+                                    extra: account,
+                                  );
+                                }
+                              },
+                              onLongPress: () {
+                                if (!state.isSelectionModeActive) {
+                                  bloc.add(const ToggleSelectionMode(true));
+                                }
+                                bloc.add(ToggleAccountSelection(account.id!));
+                              },
+                              onSecondaryTapUp: (details) {
+                                _showContextMenu(
+                                  context,
+                                  details.globalPosition,
+                                  account,
+                                  state,
+                                );
+                              },
+                            );
+                          },
+                          childCount: state.hasReachedMax
+                              ? filteredAccounts.length
+                              : filteredAccounts.length + 1,
+                        ),
+                      );
+                    }
+
+                    return const SliverToBoxAdapter(child: SizedBox.shrink());
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        floatingActionButton: MultiLevelTooltip(
+          message: 'Add Account',
+          actionId: 'add_account',
+          description: 'Create a new bank account, wallet, or asset',
+          child: FloatingActionButton(
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (dialogContext) => MultiBlocProvider(
+                  providers: [
+                    BlocProvider.value(value: context.read<AccountsBloc>()),
+                    BlocProvider.value(value: context.read<CurrencyBloc>()),
+                    BlocProvider.value(value: context.read<StylesBloc>()),
+                  ],
+                  child: const AddAccountDialog(),
+                ),
+              );
+            },
+            child: const Icon(Icons.add),
+          ),
+        ),
       ),
     );
   }
@@ -537,36 +560,56 @@ class _SelectionAppBar extends StatelessWidget {
     final isAllSelected = selectedCount == allCount && allCount > 0;
 
     return AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.close),
-
-        onPressed: () => bloc.add(const ToggleSelectionMode(false)),
-      ),
-
-      title: Text('$selectedCount selected'),
-
-      actions: [
-        IconButton(
-          icon: Icon(
-            isAllSelected ? Icons.deselect_outlined : Icons.select_all_outlined,
-          ),
-
-          onPressed: () {
-            if (isAllSelected) {
-              bloc.add(ClearSelection());
-            } else {
-              bloc.add(SelectAllAccounts());
-            }
-          },
+      leading: MultiLevelTooltip(
+        message: 'Close Selection',
+        actionId: 'accounts_selection_close',
+        description: 'Exit account selection mode',
+        child: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => bloc.add(const ToggleSelectionMode(false)),
         ),
-
+      ),
+      title: Text('$selectedCount selected'),
+      actions: [
+        MultiLevelTooltip(
+          message: isAllSelected ? 'Deselect All' : 'Select All',
+          actionId: 'accounts_selection_all',
+          description: isAllSelected
+              ? 'Unselect all accounts'
+              : 'Select all listed accounts',
+          child: IconButton(
+            icon: Icon(
+              isAllSelected
+                  ? Icons.deselect_outlined
+                  : Icons.select_all_outlined,
+            ),
+            onPressed: () {
+              if (isAllSelected) {
+                bloc.add(ClearSelection());
+              } else {
+                bloc.add(SelectAllAccounts());
+              }
+            },
+          ),
+        ),
         if (selectedCount > 0) ...[
-          IconButton(icon: const Icon(Icons.delete), onPressed: onDelete),
-
-          IconButton(
-            icon: const Icon(Icons.drive_file_rename_outline),
-
-            onPressed: onChangeType,
+          MultiLevelTooltip(
+            message: 'Delete Selected',
+            actionId: 'accounts_selection_delete',
+            description: 'Delete all selected accounts and their transactions',
+            child: IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: onDelete,
+            ),
+          ),
+          MultiLevelTooltip(
+            message: 'Change Type',
+            actionId: 'accounts_selection_change_type',
+            description: 'Update the category/type for selected accounts',
+            child: IconButton(
+              icon: const Icon(Icons.drive_file_rename_outline),
+              onPressed: onChangeType,
+            ),
           ),
         ],
       ],
@@ -725,7 +768,9 @@ class TotalBalanceCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      formatter.format(accountsState.income).replaceAll(',', ' '),
+                      formatter
+                          .format(accountsState.income)
+                          .replaceAll(',', ' '),
                       style: TextStyle(fontSize: 14, color: Colors.green),
                     ),
                   ],
@@ -741,7 +786,9 @@ class TotalBalanceCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      formatter.format(accountsState.expense).replaceAll(',', ' '),
+                      formatter
+                          .format(accountsState.expense)
+                          .replaceAll(',', ' '),
                       style: TextStyle(fontSize: 14, color: Colors.red),
                     ),
                   ],
@@ -840,53 +887,80 @@ class _AccountsDateAppBar extends StatelessWidget
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
-          icon: Icon(Icons.tune, color: onSurface),
-          tooltip: 'Filter',
-          onPressed: () {
-            showAccountFilterDialog(context, state.filters);
-          },
-        ),
-        IconButton(
-          icon: Icon(Icons.chevron_left, color: onSurface),
-          onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
-        ),
-        InkWell(
-          onTap: () => _showCustomCalendar(context, state),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12.0),
-            alignment: Alignment.center,
-            child: Text(
-              _formatDate(context, state),
-              style: TextStyle(color: onSurface, fontSize: 18),
-            ),
-          ),
-        ),
-        IconButton(
-          icon: Icon(Icons.chevron_right, color: onSurface),
-          onPressed: () => bloc.add(const DatePeriodNavigated(1)),
-        ),
-        const SizedBox(width: 24),
-        RotatedBox(
-          quarterTurns: state.sortAscending ? 2 : 0,
+        MultiLevelTooltip(
+          message: 'Filter',
+          actionId: 'filter_accounts',
+          description: 'Filter accounts by type or hidden status',
           child: IconButton(
-            icon: Icon(Icons.sort, color: onSurface),
-            tooltip: 'Sort by Balance',
+            icon: Icon(Icons.tune, color: onSurface),
             onPressed: () {
-              context.read<AccountsBloc>().add(
-                SortAccounts(!state.sortAscending),
-              );
+              showAccountFilterDialog(context, state.filters);
             },
           ),
         ),
-        IconButton(
-          icon: Icon(Icons.calculate, color: onSurface),
-          tooltip: 'Select Currencies for Total Balance',
-          onPressed: () {
-            (context as Element)
-                .findAncestorStateOfType<_AccountsScreenState>()!
-                ._showCurrencySelectionDialog(context);
-          },
+        MultiLevelTooltip(
+          message: 'Previous Period',
+          actionId: 'prev_period',
+          description: 'Go to the previous month or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_left, color: onSurface),
+            onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
+          ),
+        ),
+        MultiLevelTooltip(
+          message: 'Select Date',
+          actionId: 'accounts_pick_date',
+          description: 'Choose a specific date to view historical balances',
+          child: InkWell(
+            onTap: () => _showCustomCalendar(context, state),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              alignment: Alignment.center,
+              child: Text(
+                _formatDate(context, state),
+                style: TextStyle(color: onSurface, fontSize: 18),
+              ),
+            ),
+          ),
+        ),
+        MultiLevelTooltip(
+          message: 'Next Period',
+          actionId: 'next_period',
+          description: 'Go to the next month or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_right, color: onSurface),
+            onPressed: () => bloc.add(const DatePeriodNavigated(1)),
+          ),
+        ),
+        const SizedBox(width: 24),
+        MultiLevelTooltip(
+          message: 'Sort Order',
+          actionId: 'accounts_sort',
+          description: 'Switch between ascending and descending balance order',
+          child: RotatedBox(
+            quarterTurns: state.sortAscending ? 2 : 0,
+            child: IconButton(
+              icon: Icon(Icons.sort, color: onSurface),
+              onPressed: () {
+                context.read<AccountsBloc>().add(
+                  SortAccounts(!state.sortAscending),
+                );
+              },
+            ),
+          ),
+        ),
+        MultiLevelTooltip(
+          message: 'Select Currencies',
+          actionId: 'accounts_curr_select',
+          description: 'Choose which currencies to show in total balance',
+          child: IconButton(
+            icon: Icon(Icons.calculate, color: onSurface),
+            onPressed: () {
+              (context as Element)
+                  .findAncestorStateOfType<_AccountsScreenState>()!
+                  ._showCurrencySelectionDialog(context);
+            },
+          ),
         ),
       ],
     );

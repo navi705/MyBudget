@@ -11,6 +11,7 @@ import 'package:my_budget_client/presentation/blocs/asset/asset_state.dart';
 import 'package:my_budget_client/presentation/widgets/asset_tab_app_bar.dart';
 import 'package:my_budget_client/presentation/widgets/asset_view.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 import 'package:uuid/uuid.dart';
 
 class AssetTab extends StatelessWidget {
@@ -210,9 +211,14 @@ class _AssetTabContent extends StatelessWidget {
           ),
           floatingActionButton: state.isSelectionModeActive
               ? null
-              : FloatingActionButton(
-                  onPressed: () => _showAddEditAssetDialog(context),
-                  child: const Icon(Icons.add),
+              : MultiLevelTooltip(
+                  message: 'Add Asset Data',
+                  actionId: 'add_asset',
+                  description: 'Record value or quantity of a specific asset',
+                  child: FloatingActionButton(
+                    onPressed: () => _showAddEditAssetDialog(context),
+                    child: const Icon(Icons.add),
+                  ),
                 ),
         );
       },

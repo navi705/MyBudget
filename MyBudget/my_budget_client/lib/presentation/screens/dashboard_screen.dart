@@ -11,6 +11,7 @@ import 'package:my_budget_client/presentation/widgets/dashboard/day_balance_deta
 import 'package:my_budget_client/presentation/widgets/dashboard/period_summary_widget.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_header.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/analytics_chart_selector.dart'; // Contains BalanceReportWidget
+import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -37,21 +38,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
 
         if (state is DashboardLoadSuccess) {
-          return Scaffold(
-            // AppBar removed to maximize space
-            body: SafeArea(
-              child: Column(
-                children: [
-                  if (!(Platform.isWindows ||
-                      Platform.isLinux ||
-                      Platform.isMacOS))
-                    _buildTabBar(context, state),
-                  Expanded(child: _buildBody(state)),
-                  if (Platform.isWindows ||
-                      Platform.isLinux ||
-                      Platform.isMacOS)
-                    _buildTabBar(context, state),
-                ],
+          return ScreenShortcuts(
+            actions: {
+              'dashboard_tab_1': () =>
+                  context.read<DashboardBloc>().add(const ChangeTab(0)),
+              'dashboard_tab_2': () =>
+                  context.read<DashboardBloc>().add(const ChangeTab(1)),
+              'dashboard_tab_3': () =>
+                  context.read<DashboardBloc>().add(const ChangeTab(2)),
+              'prev_period': () => _navigatePeriod(context, state, -1),
+              'next_period': () => _navigatePeriod(context, state, 1),
+            },
+            child: Scaffold(
+              // AppBar removed to maximize space
+              body: SafeArea(
+                child: Column(
+                  children: [
+                    if (!(Platform.isWindows ||
+                        Platform.isLinux ||
+                        Platform.isMacOS))
+                      _buildTabBar(context, state),
+                    Expanded(child: _buildBody(state)),
+                    if (Platform.isWindows ||
+                        Platform.isLinux ||
+                        Platform.isMacOS)
+                      _buildTabBar(context, state),
+                  ],
+                ),
               ),
             ),
           );
@@ -62,6 +75,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       },
     );
+  }
+
+  void _navigatePeriod(
+    BuildContext context,
+    DashboardLoadSuccess state,
+    int direction,
+  ) {
+    final current = state.selectedDay;
+    DateTime newDate;
+    // Default to month step if unknown, but usually dateStep is valid
+    if (state.dateStep == DateStep.month) {
+      newDate = DateTime(current.year, current.month + direction, 1);
+    } else if (state.dateStep == DateStep.year) {
+      newDate = DateTime(current.year + direction, current.month, 1);
+    } else {
+      // Day
+      newDate = current.add(Duration(days: direction));
+    }
+    context.read<DashboardBloc>().add(SelectDay(newDate));
   }
 
   Widget _buildBody(DashboardLoadSuccess state) {
@@ -303,9 +335,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
       selectedIndex: state.activeTabIndex,
       onTap: (index) => context.read<DashboardBloc>().add(ChangeTab(index)),
       items: const [
-        NavigationTabBarItem(icon: Icons.calendar_month, label: 'Calendar'),
-        NavigationTabBarItem(icon: Icons.pie_chart, label: 'Categories'),
-        NavigationTabBarItem(icon: Icons.show_chart, label: 'Balance'),
+        NavigationTabBarItem(
+          icon: Icons.calendar_month,
+          label: 'Calendar',
+          tooltip: 'Calendar View',
+          hotkeyId: 'dashboard_tab_1',
+          tooltipDescription: "View transactions in a calendar format",
+        ),
+        NavigationTabBarItem(
+          icon: Icons.pie_chart,
+          label: 'Categories',
+          tooltip: 'Category Analysis',
+          hotkeyId: 'dashboard_tab_2',
+          tooltipDescription: "Breakdown of expenses by category",
+        ),
+        NavigationTabBarItem(
+          icon: Icons.show_chart,
+          label: 'Balance',
+          tooltip: 'Balance History',
+          hotkeyId: 'dashboard_tab_3',
+          tooltipDescription: "Track net worth over time",
+        ),
       ],
     );
   }

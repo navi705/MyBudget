@@ -15,6 +15,7 @@ import 'package:my_budget_client/presentation/blocs/currency_converter/currency_
 import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -37,162 +38,228 @@ class SettingsScreen extends StatelessWidget {
 
               return ListView(
                 children: [
-                  ListTile(
-                    leading: const Icon(Icons.palette),
-                    title: const Text('Manage Icons'),
-                    onTap: () {
-                      context.push(AppRoutes.manageAccountStyles);
-                    },
+                  MultiLevelTooltip(
+                    message: 'Manage Icons',
+                    actionId: 'settings_icons',
+                    description:
+                        'Customise icons and names for categories and accounts',
+                    child: ListTile(
+                      leading: const Icon(Icons.palette),
+                      title: const Text('Manage Icons'),
+                      onTap: () {
+                        context.push(AppRoutes.manageAccountStyles);
+                      },
+                    ),
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.brightness_6),
-                    title: const Text('Manage Theme'),
-                    onTap: () {
-                      context.push(AppRoutes.themeSettings);
-                    },
+                  MultiLevelTooltip(
+                    message: 'Manage Theme',
+                    actionId: 'settings_theme',
+                    description: 'Change the look and feel of the application',
+                    child: ListTile(
+                      leading: const Icon(Icons.brightness_6),
+                      title: const Text('Manage Theme'),
+                      onTap: () {
+                        context.push(AppRoutes.themeSettings);
+                      },
+                    ),
                   ),
                   BlocBuilder<CurrencyBloc, CurrencyState>(
                     builder: (context, currencyState) {
                       if (currencyState is CurrencyLoadSuccess) {
-                        return ListTile(
-                          leading: const Icon(Icons.money),
-                          title: const Text('Main Currency'),
-                          subtitle: Text(mainCurrencyCode),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () async {
-                            final selectedCode = await showDialog<String>(
-                              context: context,
-                              builder: (context) => CurrencyPickerDialog(
-                                allCurrencies: currencyState.currencies,
-                                selectedCurrencyCode: mainCurrencyCode,
-                              ),
-                            );
-
-                            if (selectedCode != null && context.mounted) {
-                              context.read<SettingsBloc>().add(
-                                UpdateSetting(
-                                  'main_currency_code',
-                                  selectedCode,
+                        return MultiLevelTooltip(
+                          message: 'Main Currency',
+                          actionId: 'settings_currency',
+                          description:
+                              'Set the primary currency for totals and conversions',
+                          child: ListTile(
+                            leading: const Icon(Icons.money),
+                            title: const Text('Main Currency'),
+                            subtitle: Text(mainCurrencyCode),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () async {
+                              final selectedCode = await showDialog<String>(
+                                context: context,
+                                builder: (context) => CurrencyPickerDialog(
+                                  allCurrencies: currencyState.currencies,
+                                  selectedCurrencyCode: mainCurrencyCode,
                                 ),
                               );
-                            }
-                          },
+
+                              if (selectedCode != null && context.mounted) {
+                                context.read<SettingsBloc>().add(
+                                  UpdateSetting(
+                                    'main_currency_code',
+                                    selectedCode,
+                                  ),
+                                );
+                              }
+                            },
+                          ),
                         );
                       }
                       return const SizedBox.shrink();
                     },
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.public),
-                    title: const Text('Default Inflation Country'),
-                    trailing: DropdownButton<String>(
-                      value: defaultInflationCountry,
-                      items: settingsState.countries
-                          .map(
-                            (country) => DropdownMenuItem(
-                              value: country,
-                              child: Text(country),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          context.read<SettingsBloc>().add(
-                            UpdateSetting(
-                              'default_inflation_country',
-                              newValue,
-                            ),
-                          );
-                        }
-                      },
+                  MultiLevelTooltip(
+                    message: 'Default Inflation Country',
+                    actionId: 'settings_country',
+                    description:
+                        'Select the country for inflation-adjusted projections',
+                    child: ListTile(
+                      leading: const Icon(Icons.public),
+                      title: const Text('Default Inflation Country'),
+                      trailing: DropdownButton<String>(
+                        value: defaultInflationCountry,
+                        items: settingsState.countries
+                            .map(
+                              (country) => DropdownMenuItem(
+                                value: country,
+                                child: Text(country),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            context.read<SettingsBloc>().add(
+                              UpdateSetting(
+                                'default_inflation_country',
+                                newValue,
+                              ),
+                            );
+                          }
+                        },
+                      ),
                     ),
                   ),
                   const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.keyboard),
-                    title: const Text('Hot Keys'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      context.push(AppRoutes.hotKeys);
-                    },
+                  MultiLevelTooltip(
+                    message: 'Hot Keys',
+                    actionId: 'settings_hotkeys',
+                    description:
+                        'Customise keyboard shortcuts for quick actions',
+                    child: ListTile(
+                      leading: const Icon(Icons.keyboard),
+                      title: const Text('Hot Keys'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        context.push(AppRoutes.hotKeys);
+                      },
+                    ),
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.save),
-                    title: const Text('Persist Advanced Filters'),
-                    trailing: Switch(
-                      value: persistFilters,
-                      onChanged: (bool value) {
-                        context.read<SettingsBloc>().add(
-                          UpdateSetting(
-                            'persist_advanced_filters',
-                            value.toString(),
+                  MultiLevelTooltip(
+                    message: 'Persist Advanced Filters',
+                    actionId: 'settings_persist_filters',
+                    description:
+                        'Keep your filter settings across app restarts',
+                    child: ListTile(
+                      leading: const Icon(Icons.save),
+                      title: const Text('Persist Advanced Filters'),
+                      trailing: Switch(
+                        value: persistFilters,
+                        onChanged: (bool value) {
+                          context.read<SettingsBloc>().add(
+                            UpdateSetting(
+                              'persist_advanced_filters',
+                              value.toString(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+
+                  MultiLevelTooltip(
+                    message: 'Import Data',
+                    actionId: 'settings_import',
+                    description:
+                        'Import transactions and accounts from external sources',
+                    child: ListTile(
+                      leading: const Icon(Icons.import_export),
+                      title: const Text('Import Data'),
+                      onTap: () {
+                        context.push(AppRoutes.importScreen);
+                      },
+                    ),
+                  ),
+                  MultiLevelTooltip(
+                    message: 'Import Exchange Rates',
+                    actionId: 'settings_import_rates',
+                    description:
+                        'Batch update currency conversion rates via file',
+                    child: ListTile(
+                      leading: const Icon(Icons.currency_exchange),
+                      title: const Text('Import Exchange Rates (CSV/JSON)'),
+                      onTap: () => _importExchangeRates(context),
+                    ),
+                  ),
+                  MultiLevelTooltip(
+                    message: 'Export Data',
+                    actionId: 'settings_export',
+                    description:
+                        'Download your data backup in JSON or CSV format',
+                    child: ListTile(
+                      leading: const Icon(Icons.file_download),
+                      title: const Text('Export Data'),
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Export Data'),
+                            content: const Text(
+                              'Choose format:\n\nJSON: Full backup of all data.\nCSV: Readable report of transactions.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  _exportData(context, isCsv: false);
+                                },
+                                child: const Text('JSON'),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  _exportData(context, isCsv: true);
+                                },
+                                child: const Text('CSV'),
+                              ),
+                            ],
                           ),
                         );
                       },
                     ),
                   ),
-
-                  ListTile(
-                    leading: const Icon(Icons.import_export),
-                    title: const Text('Import Data'),
-                    onTap: () {
-                      context.push(AppRoutes.importScreen);
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.currency_exchange),
-                    title: const Text('Import Exchange Rates (CSV/JSON)'),
-                    onTap: () => _importExchangeRates(context),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.file_download),
-                    title: const Text('Export Data'),
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Export Data'),
-                          content: const Text(
-                            'Choose format:\n\nJSON: Full backup of all data.\nCSV: Readable report of transactions.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                _exportData(context, isCsv: false);
-                              },
-                              child: const Text('JSON'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                _exportData(context, isCsv: true);
-                              },
-                              child: const Text('CSV'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.api),
-                    title: const Text('API Management'),
-                    onTap: () {
-                      context.push(AppRoutes.apiSettings);
-                    },
+                  MultiLevelTooltip(
+                    message: 'API Management',
+                    actionId: 'settings_api',
+                    description: 'Configure external API keys and services',
+                    child: ListTile(
+                      leading: const Icon(Icons.api),
+                      title: const Text('API Management'),
+                      onTap: () {
+                        context.push(AppRoutes.apiSettings);
+                      },
+                    ),
                   ),
                   const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.restore_page, color: Colors.red),
-                    title: const Text(
-                      'Reset Data to Defaults',
-                      style: TextStyle(color: Colors.red),
+                  MultiLevelTooltip(
+                    message: 'Reset Data',
+                    actionId: 'settings_reset',
+                    description: 'Wipe all data and revert to factory settings',
+                    child: ListTile(
+                      leading: const Icon(
+                        Icons.restore_page,
+                        color: Colors.red,
+                      ),
+                      title: const Text(
+                        'Reset Data to Defaults',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                      subtitle: const Text(
+                        'This will delete all data and restore default settings.',
+                      ),
+                      onTap: () => _confirmResetData(context),
                     ),
-                    subtitle: const Text(
-                      'This will delete all data and restore default settings.',
-                    ),
-                    onTap: () => _confirmResetData(context),
                   ),
                 ],
               );

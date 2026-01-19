@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/presentation/widgets/navigation_item.dart';
+import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 
 class AdaptiveScaffold extends StatefulWidget {
   const AdaptiveScaffold({
@@ -59,8 +60,17 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
               currentIndex: selectedIndex,
               onTap: (index) => _onItemTapped(index, context),
               items: widget.destinations.map((item) {
+                Widget iconWidget = Icon(item.icon);
+                if (item.tooltip != null || item.hotkeyId != null) {
+                  iconWidget = MultiLevelTooltip(
+                    message: item.tooltip ?? item.label,
+                    actionId: item.hotkeyId ?? '',
+                    description: item.tooltipDescription,
+                    child: iconWidget,
+                  );
+                }
                 return BottomNavigationBarItem(
-                  icon: Icon(item.icon),
+                  icon: iconWidget,
                   label: item.label,
                 );
               }).toList(),
@@ -97,6 +107,7 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
                   leading: Column(
                     children: [
                       const SizedBox(height: 8),
+                      // Collapsed button doesn't need hotkey/multi-level tooltip for now as it's purely UI state
                       IconButton(
                         onPressed: () {
                           setState(() {
@@ -117,8 +128,20 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
                     ],
                   ),
                   destinations: widget.destinations.map((item) {
+                    Widget iconWidget = Icon(item.icon);
+                    // For NavigationRail, we can wrap the icon.
+                    // Note: If extended, we might want to attach tooltip to the whole item, but Rail Destination takes icon.
+                    if (item.tooltip != null || item.hotkeyId != null) {
+                      iconWidget = MultiLevelTooltip(
+                        message: item.tooltip ?? item.label,
+                        actionId: item.hotkeyId ?? '',
+                        description: item.tooltipDescription,
+                        // Side position for rail? Default is bottom, which is fine.
+                        child: iconWidget,
+                      );
+                    }
                     return NavigationRailDestination(
-                      icon: Icon(item.icon),
+                      icon: iconWidget,
                       label: Text(item.label),
                     );
                   }).toList(),

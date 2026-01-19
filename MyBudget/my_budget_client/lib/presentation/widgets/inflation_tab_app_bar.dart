@@ -5,6 +5,7 @@ import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dar
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
 import 'package:my_budget_client/presentation/widgets/inflation_filter_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 
 class InflationTabAppBar extends StatelessWidget
     implements PreferredSizeWidget {
@@ -122,40 +123,58 @@ class InflationTabAppBar extends StatelessWidget
       children: [
         IconButton(
           icon: Icon(Icons.tune, color: onSurface),
-          tooltip: 'Filter',
           onPressed: () => showInflationFilterDialog(context),
         ),
-        IconButton(
-          icon: Icon(Icons.chevron_left, color: onSurface),
-          onPressed: () => _navigate(bloc, -1),
+        MultiLevelTooltip(
+          message: 'Previous Period',
+          actionId: 'prev_period',
+          description: 'Move back by one day, month, or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_left, color: onSurface),
+            onPressed: () => _navigate(bloc, -1),
+          ),
         ),
-        InkWell(
-          onTap: () => _showCustomCalendar(context),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12.0),
-            alignment: Alignment.center,
-            child: Text(
-              _formatDate(context),
-              style: TextStyle(color: onSurface, fontSize: 18),
+        MultiLevelTooltip(
+          message: 'Select Date',
+          actionId: 'inflation_pick_date',
+          description: 'Change the active period or date range',
+          child: InkWell(
+            onTap: () => _showCustomCalendar(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              alignment: Alignment.center,
+              child: Text(
+                _formatDate(context),
+                style: TextStyle(color: onSurface, fontSize: 18),
+              ),
             ),
           ),
         ),
-        IconButton(
-          icon: Icon(Icons.chevron_right, color: onSurface),
-          onPressed: () => _navigate(bloc, 1),
+        MultiLevelTooltip(
+          message: 'Next Period',
+          actionId: 'next_period',
+          description: 'Move forward by one day, month, or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_right, color: onSurface),
+            onPressed: () => _navigate(bloc, 1),
+          ),
         ),
         const SizedBox(width: 24),
         RotatedBox(
           quarterTurns: state.sort == Sort.ascending ? 2 : 0,
-          child: IconButton(
-            icon: Icon(Icons.sort, color: onSurface),
-            tooltip: 'Sort',
-            onPressed: () {
-              final newSort = state.sort == Sort.ascending
-                  ? Sort.descending
-                  : Sort.ascending;
-              bloc.add(ChangeInflationSort(newSort));
-            },
+          child: MultiLevelTooltip(
+            message: 'Sort Order',
+            actionId: 'inflation_sort',
+            description: 'Toggle between ascending and descending order',
+            child: IconButton(
+              icon: Icon(Icons.sort, color: onSurface),
+              onPressed: () {
+                final newSort = state.sort == Sort.ascending
+                    ? Sort.descending
+                    : Sort.ascending;
+                bloc.add(ChangeInflationSort(newSort));
+              },
+            ),
           ),
         ),
       ],
@@ -219,18 +238,31 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       title: Text('$selectionCount selected'),
       actions: [
-        IconButton(
-          icon: Icon(
-            isAllSelected ? Icons.deselect_outlined : Icons.select_all_outlined,
+        MultiLevelTooltip(
+          message: isAllSelected ? 'Deselect All' : 'Select All',
+          actionId: 'inflation_selection_all',
+          description: isAllSelected
+              ? 'Clear all selections'
+              : 'Select all visible inflation rates',
+          child: IconButton(
+            icon: Icon(
+              isAllSelected
+                  ? Icons.deselect_outlined
+                  : Icons.select_all_outlined,
+            ),
+            onPressed: onSelectAll,
           ),
-          onPressed: onSelectAll,
-          tooltip: isAllSelected ? 'Deselect All' : 'Select All',
         ),
         if (selectionCount > 0)
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: onDelete,
-            tooltip: 'Delete',
+          MultiLevelTooltip(
+            message: 'Delete Selected',
+            actionId: 'inflation_selection_delete',
+            description:
+                'Remove the selected inflation rates from the database',
+            child: IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: onDelete,
+            ),
           ),
       ],
     );

@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
+import 'package:my_budget_client/core/utils/hotkey_utils.dart';
 import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
@@ -87,10 +88,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     });
 
     // Default hotkeys if not present
-    if (!hotkeys.containsKey('back')) {
-      hotkeys['back'] = LogicalKeyboardKey.escape.keyId
-          .toString(); // Default back key
-    }
+    _addDefaultHotkeys(hotkeys);
 
     emit(
       state.copyWith(
@@ -100,6 +98,65 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
         hotkeys: hotkeys,
       ),
     );
+  }
+
+  void _addDefaultHotkeys(Map<String, String> hotkeys) {
+    void addIfMissing(String id, Set<LogicalKeyboardKey> keys) {
+      if (!hotkeys.containsKey(id)) {
+        hotkeys[id] = HotKeyUtils.serializeKeys(keys);
+      }
+    }
+
+    // Navigation (Sidebar)
+    addIfMissing('dashboard', {
+      LogicalKeyboardKey.alt,
+      LogicalKeyboardKey.digit1,
+    });
+    addIfMissing('accounts', {
+      LogicalKeyboardKey.alt,
+      LogicalKeyboardKey.digit2,
+    });
+    addIfMissing('transactions', {
+      LogicalKeyboardKey.alt,
+      LogicalKeyboardKey.digit3,
+    });
+    addIfMissing('categories', {
+      LogicalKeyboardKey.alt,
+      LogicalKeyboardKey.digit4,
+    });
+    addIfMissing('data', {LogicalKeyboardKey.alt, LogicalKeyboardKey.digit5});
+    addIfMissing('settings', {LogicalKeyboardKey.alt, LogicalKeyboardKey.keyS});
+
+    // Dashboard Tabs
+    addIfMissing('dashboard_tab_1', {
+      LogicalKeyboardKey.control,
+      LogicalKeyboardKey.digit1,
+    });
+    addIfMissing('dashboard_tab_2', {
+      LogicalKeyboardKey.control,
+      LogicalKeyboardKey.digit2,
+    });
+    addIfMissing('dashboard_tab_3', {
+      LogicalKeyboardKey.control,
+      LogicalKeyboardKey.digit3,
+    });
+
+    // Period Navigation
+    addIfMissing('prev_period', {LogicalKeyboardKey.arrowLeft});
+    addIfMissing('next_period', {LogicalKeyboardKey.arrowRight});
+
+    // Actions
+    addIfMissing('add_transaction', {
+      LogicalKeyboardKey.control,
+      LogicalKeyboardKey.keyA,
+    });
+    addIfMissing('add_account', {
+      LogicalKeyboardKey.control,
+      LogicalKeyboardKey.keyA,
+    });
+
+    // Defaults from before
+    addIfMissing('back', {LogicalKeyboardKey.escape});
   }
 
   ThemeMode _stringToThemeMode(String value) {

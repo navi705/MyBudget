@@ -9,7 +9,6 @@ import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/category_list_item.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
-// Style import removed
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/delete_category_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
@@ -19,6 +18,8 @@ import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart'
 import 'package:my_budget_client/presentation/widgets/category_filter_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/icon_selection_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
+import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
 
 class CategoriesScreen extends StatefulWidget {
   final bool isStandalone;
@@ -148,7 +149,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       currencyCode = state.mainCurrencyCode;
     }
 
-    // Pass a "new" transaction with pre-filled category
     final transaction = Transaction(
       id: '',
       description: '',
@@ -260,145 +260,164 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           );
         }
       },
-      child: Scaffold(
-        appBar: widget.isStandalone
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(kToolbarHeight),
-                child: BlocBuilder<CategoriesBloc, CategoriesState>(
-                  builder: (context, state) {
-                    if (state is CategoriesLoadSuccess) {
-                      if (state.isSelectionModeActive) {
-                        return _SelectionAppBar(
-                          state: state,
-                          onDelete: () => _showDeleteConfirmationDialog(
-                            context,
-                            bloc,
-                            state.selectedCategoryIds.toList(),
-                          ),
-                          onChangeType: () => _showChangeCategoryTypeDialog(
-                            context,
-                            bloc,
-                            state.selectedCategoryIds.toList(),
-                          ),
-                        );
-                      }
-                      return _CategoriesDateAppBar(state: state);
-                    }
-                    return AppBar(title: const Text('Categories'));
-                  },
-                ),
-              )
-            : null,
-        body: BlocListener<CategoriesBloc, CategoriesState>(
-          listener: (context, state) {
-            if (state is CategoryDeletionConfirmationNeeded) {
-              showDialog(
-                context: context,
-                builder: (dialogContext) => DeleteCategoryDialog(
-                  categoryToDelete: state.categoryToDelete,
-                  allCategories: state.allCategories,
-                ),
+      child: ScreenShortcuts(
+        actions: {
+          'add_category': () {
+            final state = context.read<CategoriesBloc>().state;
+            if (state is CategoriesLoadSuccess) {
+              _showAddEditCategoryDialog(
+                context,
+                allCategories: state.allCategories,
               );
             }
           },
-          child: BlocBuilder<CategoriesBloc, CategoriesState>(
-            builder: (context, state) {
-              if (state is CategoriesLoadInProgress) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (state is CategoriesLoadSuccess) {
-                if (state.categoriesWithTotals.isEmpty) {
-                  return const Center(
-                    child: Text('No categories created yet.'),
-                  );
-                }
-
-                final filteredCategories = state.filters.type == null
-                    ? state.categoriesWithTotals
-                    : state.categoriesWithTotals
-                          .where((c) => c.category.type == state.filters.type)
-                          .toList();
-
-                final topLevelCategories = filteredCategories
-                    .where((c) => c.category.parentId == null)
-                    .toList();
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  itemCount: state.hasReachedMax
-                      ? topLevelCategories.length
-                      : topLevelCategories.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index >= topLevelCategories.length) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final categoryWithTotal = topLevelCategories[index];
-                    final category = categoryWithTotal.category;
-                    final isSelected = state.selectedCategoryIds.contains(
-                      category.id,
-                    );
-
-                    return CategoryListItem(
-                      categoryWithTotal: categoryWithTotal,
-                      allCategoriesWithTotals: filteredCategories,
-                      isSelected: isSelected,
-                      onTap: (tappedCategory) {
+        },
+        child: Scaffold(
+          appBar: widget.isStandalone
+              ? PreferredSize(
+                  preferredSize: const Size.fromHeight(kToolbarHeight),
+                  child: BlocBuilder<CategoriesBloc, CategoriesState>(
+                    builder: (context, state) {
+                      if (state is CategoriesLoadSuccess) {
                         if (state.isSelectionModeActive) {
-                          bloc.add(ToggleCategorySelection(tappedCategory.id!));
-                        } else {
-                          _navigateToAddTransaction(context, tappedCategory);
+                          return _SelectionAppBar(
+                            state: state,
+                            onDelete: () => _showDeleteConfirmationDialog(
+                              context,
+                              bloc,
+                              state.selectedCategoryIds.toList(),
+                            ),
+                            onChangeType: () => _showChangeCategoryTypeDialog(
+                              context,
+                              bloc,
+                              state.selectedCategoryIds.toList(),
+                            ),
+                          );
                         }
-                      },
-                      onLongPressStart: (details) {
-                        if (state.isSelectionModeActive) {
-                          // In selection mode: toggle selection
-                          bloc.add(ToggleCategorySelection(category.id!));
-                        } else {
-                          // Not in selection mode: show context menu
+                        return _CategoriesDateAppBar(state: state);
+                      }
+                      return AppBar(title: const Text('Categories'));
+                    },
+                  ),
+                )
+              : null,
+          body: BlocListener<CategoriesBloc, CategoriesState>(
+            listener: (context, state) {
+              if (state is CategoryDeletionConfirmationNeeded) {
+                showDialog(
+                  context: context,
+                  builder: (dialogContext) => DeleteCategoryDialog(
+                    categoryToDelete: state.categoryToDelete,
+                    allCategories: state.allCategories,
+                  ),
+                );
+              }
+            },
+            child: BlocBuilder<CategoriesBloc, CategoriesState>(
+              builder: (context, state) {
+                if (state is CategoriesLoadInProgress) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (state is CategoriesLoadSuccess) {
+                  if (state.categoriesWithTotals.isEmpty) {
+                    return const Center(
+                      child: Text('No categories created yet.'),
+                    );
+                  }
+
+                  final filteredCategories = state.filters.type == null
+                      ? state.categoriesWithTotals
+                      : state.categoriesWithTotals
+                            .where((c) => c.category.type == state.filters.type)
+                            .toList();
+
+                  final topLevelCategories = filteredCategories
+                      .where((c) => c.category.parentId == null)
+                      .toList();
+
+                  return ListView.builder(
+                    controller: _scrollController,
+                    itemCount: state.hasReachedMax
+                        ? topLevelCategories.length
+                        : topLevelCategories.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index >= topLevelCategories.length) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final categoryWithTotal = topLevelCategories[index];
+                      final category = categoryWithTotal.category;
+                      final isSelected = state.selectedCategoryIds.contains(
+                        category.id,
+                      );
+
+                      return CategoryListItem(
+                        categoryWithTotal: categoryWithTotal,
+                        allCategoriesWithTotals: filteredCategories,
+                        isSelected: isSelected,
+                        onTap: (tappedCategory) {
+                          if (state.isSelectionModeActive) {
+                            bloc.add(
+                              ToggleCategorySelection(tappedCategory.id!),
+                            );
+                          } else {
+                            _navigateToAddTransaction(context, tappedCategory);
+                          }
+                        },
+                        onLongPressStart: (details) {
+                          if (state.isSelectionModeActive) {
+                            bloc.add(ToggleCategorySelection(category.id!));
+                          } else {
+                            _showContextMenu(
+                              context,
+                              details.globalPosition,
+                              category,
+                              state,
+                            );
+                          }
+                        },
+                        onSecondaryTapUp: (details) {
                           _showContextMenu(
                             context,
                             details.globalPosition,
                             category,
                             state,
                           );
-                        }
-                      },
-                      onSecondaryTapUp: (details) {
-                        _showContextMenu(
-                          context,
-                          details.globalPosition,
-                          category,
-                          state,
-                        );
-                      },
-                      mainCurrencyCode: state.mainCurrencyCode,
-                      currencyDesignations: state.currencyDesignations,
-                    );
-                  },
-                );
-              }
-              return const Center(child: Text('Failed to load categories.'));
-            },
-          ),
-        ),
-        floatingActionButton: BlocBuilder<CategoriesBloc, CategoriesState>(
-          builder: (context, state) {
-            if (state is CategoriesLoadSuccess && state.isSelectionModeActive) {
-              return const SizedBox.shrink();
-            }
-            return FloatingActionButton(
-              onPressed: () {
-                final state = context.read<CategoriesBloc>().state;
-                if (state is CategoriesLoadSuccess) {
-                  _showAddEditCategoryDialog(
-                    context,
-                    allCategories: state.allCategories,
+                        },
+                        mainCurrencyCode: state.mainCurrencyCode,
+                        currencyDesignations: state.currencyDesignations,
+                      );
+                    },
                   );
                 }
+                return const Center(child: Text('Failed to load categories.'));
               },
-              child: const Icon(Icons.add),
-            );
-          },
+            ),
+          ),
+          floatingActionButton: BlocBuilder<CategoriesBloc, CategoriesState>(
+            builder: (context, state) {
+              if (state is CategoriesLoadSuccess &&
+                  state.isSelectionModeActive) {
+                return const SizedBox.shrink();
+              }
+              return MultiLevelTooltip(
+                message: 'Add Category',
+                actionId: 'add_category',
+                description: 'Create a new expense or income category',
+                child: FloatingActionButton(
+                  onPressed: () {
+                    final state = context.read<CategoriesBloc>().state;
+                    if (state is CategoriesLoadSuccess) {
+                      _showAddEditCategoryDialog(
+                        context,
+                        allCategories: state.allCategories,
+                      );
+                    }
+                  },
+                  child: const Icon(Icons.add),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -435,7 +454,7 @@ class _CategoriesDateAppBar extends StatelessWidget {
   void _showCustomCalendar(BuildContext context, CategoriesLoadSuccess state) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Allows the modal to be taller
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -495,42 +514,65 @@ class _CategoriesDateAppBar extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
-          icon: Icon(Icons.tune, color: onSurface),
-          tooltip: 'Filter',
-          onPressed: () => showCategoryFilterDialog(context, state.filters),
+        MultiLevelTooltip(
+          message: 'Filter',
+          actionId: 'filter_categories',
+          description: 'Filter categories by type (Income/Expense)',
+          child: IconButton(
+            icon: Icon(Icons.tune, color: onSurface),
+            onPressed: () => showCategoryFilterDialog(context, state.filters),
+          ),
         ),
-        IconButton(
-          icon: Icon(Icons.chevron_left, color: onSurface),
-          onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
+        MultiLevelTooltip(
+          message: 'Previous Period',
+          actionId: 'prev_period',
+          description: 'Go to the previous month or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_left, color: onSurface),
+            onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
+          ),
         ),
-        InkWell(
-          onTap: () => _showCustomCalendar(context, state),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12.0),
-            alignment: Alignment.center,
-            child: Text(
-              _formatDate(context, state),
-              style: TextStyle(color: onSurface, fontSize: 18),
+        MultiLevelTooltip(
+          message: 'Select Date',
+          actionId: 'categories_pick_date',
+          description: 'Choose a specific date range to view totals',
+          child: InkWell(
+            onTap: () => _showCustomCalendar(context, state),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              alignment: Alignment.center,
+              child: Text(
+                _formatDate(context, state),
+                style: TextStyle(color: onSurface, fontSize: 18),
+              ),
             ),
           ),
         ),
-        IconButton(
-          icon: Icon(Icons.chevron_right, color: onSurface),
-          onPressed: () => bloc.add(const DatePeriodNavigated(1)),
+        MultiLevelTooltip(
+          message: 'Next Period',
+          actionId: 'next_period',
+          description: 'Go to the next month or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_right, color: onSurface),
+            onPressed: () => bloc.add(const DatePeriodNavigated(1)),
+          ),
         ),
         const SizedBox(width: 24),
-        RotatedBox(
-          quarterTurns: state.filters.sort == Sort.ascending ? 2 : 0,
-          child: IconButton(
-            icon: Icon(Icons.sort, color: onSurface),
-            tooltip: 'Sort by amount',
-            onPressed: () {
-              final newSort = state.filters.sort == Sort.ascending
-                  ? Sort.descending
-                  : Sort.ascending;
-              context.read<CategoriesBloc>().add(SortChanged(newSort));
-            },
+        MultiLevelTooltip(
+          message: 'Sort Order',
+          actionId: 'categories_sort',
+          description: 'Switch between ascending and descending amount order',
+          child: RotatedBox(
+            quarterTurns: state.filters.sort == Sort.ascending ? 2 : 0,
+            child: IconButton(
+              icon: Icon(Icons.sort, color: onSurface),
+              onPressed: () {
+                final newSort = state.filters.sort == Sort.ascending
+                    ? Sort.descending
+                    : Sort.ascending;
+                context.read<CategoriesBloc>().add(SortChanged(newSort));
+              },
+            ),
           ),
         ),
       ],
@@ -562,29 +604,56 @@ class _SelectionAppBar extends StatelessWidget {
     final isAllSelected = selectedCount == allCount && allCount > 0;
 
     return AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.close),
-        onPressed: () => bloc.add(const ToggleSelectionMode(false)),
+      leading: MultiLevelTooltip(
+        message: 'Close Selection',
+        actionId: 'categories_selection_close',
+        description: 'Exit category selection mode',
+        child: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => bloc.add(const ToggleSelectionMode(false)),
+        ),
       ),
       title: Text('$selectedCount selected'),
       actions: [
-        IconButton(
-          icon: Icon(
-            isAllSelected ? Icons.deselect_outlined : Icons.select_all_outlined,
+        MultiLevelTooltip(
+          message: isAllSelected ? 'Deselect All' : 'Select All',
+          actionId: 'categories_selection_all',
+          description: isAllSelected
+              ? 'Unselect all categories'
+              : 'Select all listed categories',
+          child: IconButton(
+            icon: Icon(
+              isAllSelected
+                  ? Icons.deselect_outlined
+                  : Icons.select_all_outlined,
+            ),
+            onPressed: () {
+              if (isAllSelected) {
+                bloc.add(ClearSelection());
+              } else {
+                bloc.add(SelectAllCategories());
+              }
+            },
           ),
-          onPressed: () {
-            if (isAllSelected) {
-              bloc.add(ClearSelection());
-            } else {
-              bloc.add(SelectAllCategories());
-            }
-          },
         ),
         if (selectedCount > 0) ...[
-          IconButton(icon: const Icon(Icons.delete), onPressed: onDelete),
-          IconButton(
-            icon: const Icon(Icons.drive_file_rename_outline),
-            onPressed: onChangeType,
+          MultiLevelTooltip(
+            message: 'Delete Selected',
+            actionId: 'categories_selection_delete',
+            description: 'Permanently delete all selected categories',
+            child: IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: onDelete,
+            ),
+          ),
+          MultiLevelTooltip(
+            message: 'Change Type',
+            actionId: 'categories_selection_change_type',
+            description: 'Change the type for selected categories',
+            child: IconButton(
+              icon: const Icon(Icons.drive_file_rename_outline),
+              onPressed: onChangeType,
+            ),
           ),
         ],
       ],

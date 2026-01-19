@@ -6,6 +6,7 @@ import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/inflation_tab_app_bar.dart';
 import 'package:my_budget_client/presentation/widgets/inflation_view.dart';
+import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 
 class InflationTab extends StatelessWidget {
   const InflationTab({super.key});
@@ -137,9 +138,15 @@ class _InflationTabContent extends StatelessWidget {
           body: InflationView(
             onEdit: (rate) => _showAddEditInflationDialog(context, rate: rate),
           ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () => _showAddEditInflationDialog(context),
-            child: const Icon(Icons.add),
+          floatingActionButton: MultiLevelTooltip(
+            message: 'Add Inflation Rate',
+            actionId: 'add_inflation_rate',
+            description:
+                'Enter a new inflation percentage for a specific date and country',
+            child: FloatingActionButton(
+              onPressed: () => _showAddEditInflationDialog(context),
+              child: const Icon(Icons.add),
+            ),
           ),
         );
       },
