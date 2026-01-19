@@ -271,6 +271,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               );
             }
           },
+          'prev_period': () =>
+              context.read<CategoriesBloc>().add(const DatePeriodNavigated(-1)),
+          'next_period': () =>
+              context.read<CategoriesBloc>().add(const DatePeriodNavigated(1)),
         },
         child: Scaffold(
           appBar: widget.isStandalone

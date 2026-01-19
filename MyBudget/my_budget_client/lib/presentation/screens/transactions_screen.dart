@@ -147,6 +147,12 @@ class TransactionsScreen extends StatelessWidget {
                 context.push(AppRoutes.addEditTransaction);
               }
             },
+            'prev_period': () => context.read<TransactionsBloc>().add(
+              const DatePeriodNavigated(-1),
+            ),
+            'next_period': () => context.read<TransactionsBloc>().add(
+              const DatePeriodNavigated(1),
+            ),
           },
           child: scaffold,
         );

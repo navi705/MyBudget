@@ -59,6 +59,31 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     UpdateHotkey event,
     Emitter<SettingsState> emit,
   ) async {
+    // Duplicate Protection: Check if this hotkey is already assigned to another action
+    if (event.keySetString.isNotEmpty) {
+      final existingActionId = state.hotkeys.entries
+          .where(
+            (e) => e.value == event.keySetString && e.key != event.actionId,
+          )
+          .map((e) => e.key)
+          .firstOrNull;
+
+      if (existingActionId != null) {
+        // We could emit an error state here, but for now we'll just prevent the update
+        // or clear the other one. User asked for "protection", so let's prevent and maybe we could notify (though notify_user is for me).
+        // Let's clear the old one to ensure uniqueness.
+        final deviceName = await getDeviceName();
+        // Clear the existing one
+        await _settingsRepository.setSetting(
+          Settings(
+            key: 'hotkey_$existingActionId',
+            value: '',
+            device: deviceName,
+          ),
+        );
+      }
+    }
+
     final deviceName = await getDeviceName();
     await _settingsRepository.setSetting(
       Settings(
@@ -145,7 +170,6 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     addIfMissing('prev_period', {LogicalKeyboardKey.arrowLeft});
     addIfMissing('next_period', {LogicalKeyboardKey.arrowRight});
 
-    // Actions
     addIfMissing('add_transaction', {
       LogicalKeyboardKey.control,
       LogicalKeyboardKey.keyA,
@@ -154,9 +178,22 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       LogicalKeyboardKey.control,
       LogicalKeyboardKey.keyA,
     });
-
-    // Defaults from before
-    addIfMissing('back', {LogicalKeyboardKey.escape});
+    addIfMissing('add_category', {
+      LogicalKeyboardKey.control,
+      LogicalKeyboardKey.keyA,
+    });
+    addIfMissing('add_exchange_rate', {
+      LogicalKeyboardKey.control,
+      LogicalKeyboardKey.keyA,
+    });
+    addIfMissing('add_inflation_rate', {
+      LogicalKeyboardKey.control,
+      LogicalKeyboardKey.keyA,
+    });
+    addIfMissing('add_asset', {
+      LogicalKeyboardKey.control,
+      LogicalKeyboardKey.keyA,
+    });
   }
 
   ThemeMode _stringToThemeMode(String value) {

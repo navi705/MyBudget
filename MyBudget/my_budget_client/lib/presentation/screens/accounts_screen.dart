@@ -302,6 +302,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
             ),
           );
         },
+        'prev_period': () =>
+            context.read<AccountsBloc>().add(const DatePeriodNavigated(-1)),
+        'next_period': () =>
+            context.read<AccountsBloc>().add(const DatePeriodNavigated(1)),
       },
       child: Scaffold(
         appBar: PreferredSize(

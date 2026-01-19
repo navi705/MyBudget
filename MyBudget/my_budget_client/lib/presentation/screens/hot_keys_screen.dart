@@ -5,188 +5,226 @@ import 'package:my_budget_client/core/utils/hotkey_utils.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
-class HotKeysScreen extends StatelessWidget {
+class HotKeysScreen extends StatefulWidget {
   const HotKeysScreen({super.key});
+
+  @override
+  State<HotKeysScreen> createState() => _HotKeysScreenState();
+}
+
+class _HotKeysScreenState extends State<HotKeysScreen> {
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return EscapeBackHandler(
       child: Scaffold(
-        appBar: AppBar(title: const Text('Hot Keys')),
+        appBar: AppBar(
+          title: const Text('Hot Keys'),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(60),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search hotkeys...',
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  filled: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                onChanged: (value) => setState(() => _searchQuery = value),
+              ),
+            ),
+          ),
+        ),
         body: BlocBuilder<SettingsBloc, SettingsState>(
           builder: (context, state) {
             final hotkeys = state.hotkeys;
 
-            // Define available actions here
-            final actions = [
-              {'id': 'back', 'label': 'Global: Go Back / Exit'},
-              {'id': 'dashboard', 'label': 'Navigation: Go to Dashboard'},
-              {'id': 'accounts', 'label': 'Navigation: Go to Accounts'},
-              {'id': 'transactions', 'label': 'Navigation: Go to Transactions'},
-              {'id': 'categories', 'label': 'Navigation: Go to Categories'},
-              {
-                'id': 'data',
-                'label': 'Navigation: Go to Data / Exchange Rates',
-              },
-              {'id': 'settings', 'label': 'Navigation: Go to Settings'},
+            // Define available actions categorized
+            final categories = {
+              'Navigation': [
+                {'id': 'back', 'label': 'Global: Go Back / Exit'},
+                {'id': 'dashboard', 'label': 'Go to Dashboard'},
+                {'id': 'accounts', 'label': 'Go to Accounts'},
+                {'id': 'transactions', 'label': 'Go to Transactions'},
+                {'id': 'categories', 'label': 'Go to Categories'},
+                {'id': 'data', 'label': 'Go to Data / Exchange Rates'},
+                {'id': 'settings', 'label': 'Go to Settings'},
+              ],
+              'Dashboard Tabs': [
+                {'id': 'dashboard_tab_1', 'label': 'Calendar Tab'},
+                {'id': 'dashboard_tab_2', 'label': 'Categories Tab'},
+                {'id': 'dashboard_tab_3', 'label': 'Balance Tab'},
+              ],
+              'Period Control': [
+                {'id': 'prev_period', 'label': 'Previous Period'},
+                {'id': 'next_period', 'label': 'Next Period'},
+              ],
+              'Add Actions': [
+                {'id': 'add_transaction', 'label': 'Add Transaction'},
+                {'id': 'add_account', 'label': 'Add Account'},
+                {'id': 'add_category', 'label': 'Add Category'},
+                {'id': 'add_exchange_rate', 'label': 'Add Exchange Rate'},
+                {'id': 'add_inflation_rate', 'label': 'Add Inflation Rate'},
+                {'id': 'add_asset', 'label': 'Add Asset'},
+              ],
+              'Selection Mode': [
+                {'id': 'accounts_selection_close', 'label': 'Accounts: Close'},
+                {
+                  'id': 'accounts_selection_all',
+                  'label': 'Accounts: Select All',
+                },
+                {
+                  'id': 'accounts_selection_delete',
+                  'label': 'Accounts: Delete',
+                },
+                {
+                  'id': 'accounts_selection_change_type',
+                  'label': 'Accounts: Change Type',
+                },
+                {
+                  'id': 'categories_selection_close',
+                  'label': 'Categories: Close',
+                },
+                {
+                  'id': 'categories_selection_all',
+                  'label': 'Categories: Select All',
+                },
+                {
+                  'id': 'categories_selection_delete',
+                  'label': 'Categories: Delete',
+                },
+                {
+                  'id': 'categories_selection_change_type',
+                  'label': 'Categories: Change Type',
+                },
+                {
+                  'id': 'exchange_rates_selection_close',
+                  'label': 'Data: Close',
+                },
+                {
+                  'id': 'exchange_rates_selection_all',
+                  'label': 'Data: Select All',
+                },
+                {
+                  'id': 'exchange_rates_selection_delete',
+                  'label': 'Data: Delete',
+                },
+                {
+                  'id': 'exchange_rates_selection_change_preset',
+                  'label': 'Data: Change Preset',
+                },
+              ],
+              'Automation & API': [
+                {'id': 'api_fetch_rates', 'label': 'Fetch Exchange Rates'},
+                {'id': 'api_fetch_steam', 'label': 'Fetch Steam Inventory'},
+                {'id': 'api_fetch_inflation', 'label': 'Fetch Inflation Data'},
+              ],
+              'Settings Management': [
+                {'id': 'settings_icons', 'label': 'Manage Icons'},
+                {'id': 'settings_theme', 'label': 'Manage Theme'},
+                {'id': 'settings_currency', 'label': 'Main Currency'},
+                {'id': 'settings_country', 'label': 'Inflation Country'},
+                {'id': 'settings_hotkeys', 'label': 'Hot Keys'},
+                {'id': 'settings_import', 'label': 'Import Data'},
+                {'id': 'settings_export', 'label': 'Export Data'},
+                {'id': 'settings_api', 'label': 'API Management'},
+                {'id': 'settings_reset', 'label': 'Reset Data'},
+              ],
+            };
 
-              {'id': 'dashboard_tab_1', 'label': 'Dashboard: Calendar Tab'},
-              {'id': 'dashboard_tab_2', 'label': 'Dashboard: Categories Tab'},
-              {'id': 'dashboard_tab_3', 'label': 'Dashboard: Balance Tab'},
+            final listItems = <Widget>[];
 
-              {
-                'id': 'add_transaction',
-                'label': 'Transactions: Add Transaction',
-              },
-              {'id': 'prev_period', 'label': 'Period: Previous Period'},
-              {'id': 'next_period', 'label': 'Period: Next Period'},
+            categories.forEach((categoryName, actions) {
+              final filteredActions = actions.where((a) {
+                final label = a['label']!.toLowerCase();
+                final query = _searchQuery.toLowerCase();
+                return label.contains(query) ||
+                    categoryName.toLowerCase().contains(query);
+              }).toList();
 
-              {'id': 'add_account', 'label': 'Accounts: Add Account'},
-              {'id': 'filter_accounts', 'label': 'Accounts: Toggle Filter'},
-              {'id': 'accounts_pick_date', 'label': 'Accounts: Select Date'},
-              {'id': 'accounts_sort', 'label': 'Accounts: Toggle Sort'},
-              {
-                'id': 'accounts_curr_select',
-                'label': 'Accounts: Select Currencies',
-              },
-              {
-                'id': 'accounts_selection_close',
-                'label': 'Accounts: Close Selection',
-              },
-              {'id': 'accounts_selection_all', 'label': 'Accounts: Select All'},
-              {
-                'id': 'accounts_selection_delete',
-                'label': 'Accounts: Delete Selected',
-              },
-              {
-                'id': 'accounts_selection_change_type',
-                'label': 'Accounts: Change Selected Type',
-              },
-
-              {'id': 'add_category', 'label': 'Categories: Add Category'},
-              {'id': 'filter_categories', 'label': 'Categories: Toggle Filter'},
-              {
-                'id': 'categories_pick_date',
-                'label': 'Categories: Select Date',
-              },
-              {'id': 'categories_sort', 'label': 'Categories: Toggle Sort'},
-              {
-                'id': 'categories_selection_close',
-                'label': 'Categories: Close Selection',
-              },
-              {
-                'id': 'categories_selection_all',
-                'label': 'Categories: Select All',
-              },
-              {
-                'id': 'categories_selection_delete',
-                'label': 'Categories: Delete Selected',
-              },
-              {
-                'id': 'categories_selection_change_type',
-                'label': 'Categories: Change Selected Type',
-              },
-
-              {'id': 'add_exchange_rate', 'label': 'Data: Add Exchange Rate'},
-              {'id': 'filter_exchange_rates', 'label': 'Data: Toggle Filter'},
-              {'id': 'exchange_rates_pick_date', 'label': 'Data: Select Date'},
-              {'id': 'exchange_rates_sort', 'label': 'Data: Toggle Sort'},
-              {
-                'id': 'exchange_rates_selection_close',
-                'label': 'Data: Close Selection',
-              },
-              {
-                'id': 'exchange_rates_selection_all',
-                'label': 'Data: Select All',
-              },
-              {
-                'id': 'exchange_rates_selection_delete',
-                'label': 'Data: Delete Selected',
-              },
-              {
-                'id': 'exchange_rates_selection_change_preset',
-                'label': 'Data: Change Selected Preset',
-              },
-
-              {'id': 'add_inflation_rate', 'label': 'Inflation: Add Rate'},
-              {'id': 'inflation_pick_date', 'label': 'Inflation: Select Date'},
-              {'id': 'inflation_sort', 'label': 'Inflation: Toggle Sort'},
-              {
-                'id': 'inflation_selection_all',
-                'label': 'Inflation: Select All',
-              },
-              {
-                'id': 'inflation_selection_delete',
-                'label': 'Inflation: Delete Selected',
-              },
-
-              {'id': 'add_asset', 'label': 'Assets: Add Asset'},
-              {'id': 'asset_pick_date', 'label': 'Assets: Select Date'},
-              {'id': 'asset_sort', 'label': 'Assets: Toggle Sort'},
-              {'id': 'asset_selection_all', 'label': 'Assets: Select All'},
-              {
-                'id': 'asset_selection_delete',
-                'label': 'Assets: Delete Selected',
-              },
-
-              {'id': 'api_fetch_rates', 'label': 'API: Fetch Exchange Rates'},
-              {'id': 'api_fetch_steam', 'label': 'API: Fetch Steam Inventory'},
-              {
-                'id': 'api_fetch_inflation',
-                'label': 'API: Fetch Inflation Data',
-              },
-
-              {'id': 'settings_icons', 'label': 'Settings: Manage Icons'},
-              {'id': 'settings_theme', 'label': 'Settings: Manage Theme'},
-              {'id': 'settings_currency', 'label': 'Settings: Main Currency'},
-              {
-                'id': 'settings_country',
-                'label': 'Settings: Inflation Country',
-              },
-              {'id': 'settings_hotkeys', 'label': 'Settings: Hot Keys'},
-              {
-                'id': 'settings_persist_filters',
-                'label': 'Settings: Persist Filters',
-              },
-              {'id': 'settings_import', 'label': 'Settings: Import Data'},
-              {
-                'id': 'settings_import_rates',
-                'label': 'Settings: Import Rates',
-              },
-              {'id': 'settings_export', 'label': 'Settings: Export Data'},
-              {'id': 'settings_api', 'label': 'Settings: API Management'},
-              {'id': 'settings_reset', 'label': 'Settings: Reset Data'},
-            ];
-
-            return ListView.separated(
-              itemCount: actions.length,
-              separatorBuilder: (context, index) => const Divider(),
-              itemBuilder: (context, index) {
-                final action = actions[index];
-                final id = action['id']!;
-                final label = action['label']!;
-                final currentKeyString = hotkeys[id] ?? '';
-                final displayString = currentKeyString.isEmpty
-                    ? 'None'
-                    : HotKeyUtils.getDisplayString(currentKeyString);
-
-                return ListTile(
-                  title: Text(label),
-                  subtitle: Text(displayString),
-                  trailing: const Icon(Icons.keyboard),
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => HotKeyRecorderDialog(
-                        actionId: id,
-                        actionLabel: label,
-                        currentKey: currentKeyString,
+              if (filteredActions.isNotEmpty) {
+                listItems.add(
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text(
+                      categoryName.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                        letterSpacing: 1.2,
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 );
-              },
-            );
+
+                for (var action in filteredActions) {
+                  final id = action['id']!;
+                  final label = action['label']!;
+                  final currentKeyString = hotkeys[id] ?? '';
+                  final displayString = currentKeyString.isEmpty
+                      ? 'None'
+                      : HotKeyUtils.getDisplayString(currentKeyString);
+
+                  // Check for duplicates (informational)
+                  final isDuplicate = hotkeys.entries.any(
+                    (e) =>
+                        e.value == currentKeyString &&
+                        e.key != id &&
+                        currentKeyString.isNotEmpty,
+                  );
+
+                  listItems.add(
+                    ListTile(
+                      title: Text(label),
+                      subtitle: Text(
+                        displayString,
+                        style: TextStyle(
+                          color: isDuplicate ? Colors.red : null,
+                        ),
+                      ),
+                      trailing: isDuplicate
+                          ? const Tooltip(
+                              message: 'Duplicate Hotkey',
+                              child: Icon(Icons.warning, color: Colors.orange),
+                            )
+                          : const Icon(Icons.keyboard),
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => HotKeyRecorderDialog(
+                            actionId: id,
+                            actionLabel: label,
+                            currentKey: currentKeyString,
+                            allHotkeys: hotkeys,
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                }
+                listItems.add(const Divider());
+              }
+            });
+
+            if (listItems.isEmpty) {
+              return const Center(child: Text('No matching hotkeys found.'));
+            }
+
+            return ListView(children: listItems);
           },
         ),
       ),
@@ -198,11 +236,13 @@ class HotKeyRecorderDialog extends StatefulWidget {
   final String actionId;
   final String actionLabel;
   final String currentKey;
+  final Map<String, String> allHotkeys;
 
   const HotKeyRecorderDialog({
     required this.actionId,
     required this.actionLabel,
     required this.currentKey,
+    required this.allHotkeys,
     super.key,
   });
 
@@ -278,13 +318,22 @@ class _HotKeyRecorderDialogState extends State<HotKeyRecorderDialog> {
 
   void _updateDisplay() {
     if (_pressedKeys.isEmpty) {
-      // _tempKeyString = 'Press keys...';
-      // Keep showing press keys prompt or show nothing?
-      // When keys are released, we might still be in dialog if it was just modifiers released without trigger.
       _tempKeyString = 'Press keys...';
     } else {
       final serialized = HotKeyUtils.serializeKeys(_pressedKeys);
-      _tempKeyString = HotKeyUtils.getDisplayString(serialized);
+      final display = HotKeyUtils.getDisplayString(serialized);
+
+      // Check if this new sequence is used elsewhere
+      final duplicateId = widget.allHotkeys.entries
+          .where((e) => e.value == serialized && e.key != widget.actionId)
+          .map((e) => e.key)
+          .firstOrNull;
+
+      if (duplicateId != null) {
+        _tempKeyString = '$display\n(Used by $duplicateId)';
+      } else {
+        _tempKeyString = display;
+      }
     }
   }
 

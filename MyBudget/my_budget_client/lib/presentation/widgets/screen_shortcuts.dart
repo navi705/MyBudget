@@ -37,8 +37,10 @@ class ScreenShortcuts extends StatelessWidget {
         return CallbackShortcuts(
           bindings: bindings,
           child: Focus(
+            autofocus: true,
             debugLabel: 'ScreenShortcutsFocus',
-            // Allow focus to move to children but handle keys at this level
+            // Allow focus to move to children
+            canRequestFocus: true,
             child: child,
           ),
         );

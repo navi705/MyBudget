@@ -63,6 +63,20 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
     return currentScroll >= (maxScroll * 0.9);
   }
 
+  void _navigate(ExchangeRatesBloc bloc, ExchangeRatesState state, int i) {
+    if (state.filterMode == FilterMode.range) return;
+
+    DateTime newDate = state.activeDate;
+    if (state.dateStep == DateStep.day) {
+      newDate = newDate.add(Duration(days: i));
+    } else if (state.dateStep == DateStep.month) {
+      newDate = DateTime(newDate.year, newDate.month + i, newDate.day);
+    } else if (state.dateStep == DateStep.year) {
+      newDate = DateTime(newDate.year + i, newDate.month, newDate.day);
+    }
+    bloc.add(ChangeExchangeRatesActiveDate(newDate));
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ExchangeRatesBloc, ExchangeRatesState>(
@@ -73,6 +87,8 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
         return ScreenShortcuts(
           actions: {
             'add_exchange_rate': () => _showAddEditExchangeRateDialog(context),
+            'prev_period': () => _navigate(bloc, state, -1),
+            'next_period': () => _navigate(bloc, state, 1),
             'exchange_rates_selection_close': () =>
                 bloc.add(const ToggleSelectionMode(false)),
             'exchange_rates_selection_all': () =>
@@ -604,7 +620,7 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
     }
   }
 
-  void _navigate(ExchangeRatesBloc bloc, int i) {
+  void _navigateInAppBar(BuildContext context, ExchangeRatesBloc bloc, int i) {
     if (state.filterMode == FilterMode.range) return;
 
     DateTime newDate = state.activeDate;
@@ -642,7 +658,7 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
           description: 'Go to the previous day, month, or year',
           child: IconButton(
             icon: Icon(Icons.chevron_left, color: onSurface),
-            onPressed: () => _navigate(bloc, -1),
+            onPressed: () => _navigateInAppBar(context, bloc, -1),
           ),
         ),
         MultiLevelTooltip(
@@ -668,7 +684,7 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
           description: 'Go to the next day, month, or year',
           child: IconButton(
             icon: Icon(Icons.chevron_right, color: onSurface),
-            onPressed: () => _navigate(bloc, 1),
+            onPressed: () => _navigateInAppBar(context, bloc, 1),
           ),
         ),
         const SizedBox(width: 24),
