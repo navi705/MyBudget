@@ -223,7 +223,7 @@ class DashboardCalendar extends StatelessWidget {
             crossAxisCount: isWide ? 4 : 3,
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: isWide ? 1.5 : 1.0,
+            childAspectRatio: isWide ? 1.2 : 1.0, // Was 1.5, now more square
           ),
           itemCount: 12,
           itemBuilder: (context, index) {
