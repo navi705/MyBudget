@@ -47,21 +47,7 @@ class AssetView extends StatelessWidget {
                   return b.compareTo(a);
                 },
                 groupHeaderBuilder: (context, date) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    child: Text(
-                      DateFormat.yMMMM().format(date),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  );
+                  return const SizedBox.shrink();
                 },
                 itemBuilder: (context, item) {
                   final isSelected = state.selectedAssets.contains(item);
