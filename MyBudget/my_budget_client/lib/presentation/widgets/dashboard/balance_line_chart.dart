@@ -134,12 +134,40 @@ class BalanceLineChart extends StatelessWidget {
                   final displayText = currencySymbol.isNotEmpty
                       ? '$formattedValue $currencySymbol'
                       : formattedValue;
+
+                  // Calculate percentage change from start of period
+                  final startValue = spots.isNotEmpty ? spots.first.y : 0.0;
+                  final currentValue = spot.y;
+                  String? percentageText;
+                  Color percentageColor = Colors.green;
+
+                  // Only calculate if start value is significant to avoid division by zero
+                  if (startValue.abs() > 0.001) {
+                    final diff = currentValue - startValue;
+                    final percent = (diff / startValue) * 100;
+                    percentageText =
+                        '${diff >= 0 ? '+' : ''}${percent.toStringAsFixed(2)}%';
+                    percentageColor = diff >= 0 ? Colors.green : Colors.red;
+                  }
+
                   return LineTooltipItem(
                     displayText,
                     TextStyle(
                       color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.bold,
                     ),
+                    children: percentageText != null
+                        ? [
+                            TextSpan(
+                              text: '\n$percentageText',
+                              style: TextStyle(
+                                color: percentageColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ]
+                        : null,
                   );
                 }).toList();
               },
