@@ -301,6 +301,13 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       // 1. Calculate Nominal Balances (handles Asset Binding)
       final nominalBalances = _financeCalculator.calculateBalances(snapshot);
 
+      // FIX: Force 0 balance for accounts not created yet
+      for (final account in accounts) {
+        if (snapshot.date.isBefore(account.creationDate)) {
+          nominalBalances[account.id!] = 0.0;
+        }
+      }
+
       // Update Account Objects with Calculated Balances (for Grid)
       final accountsWithBalances = accounts.map((a) {
         if (nominalBalances.containsKey(a.id)) {
@@ -321,6 +328,13 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         snapshot,
         defaultCountry: defaultCountry,
       );
+
+      // FIX: Force 0 real balance for accounts not created yet
+      for (final account in accounts) {
+        if (snapshot.date.isBefore(account.creationDate)) {
+          realBalances[account.id!] = 0.0;
+        }
+      }
 
       // 3. Asset Stats (Added)
       final assetStats = _financeCalculator.calculateAssetStats(snapshot);
@@ -439,6 +453,14 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         prevSnapshot,
         defaultCountry: defaultCountry,
       );
+
+      // FIX: Force 0 previous balances for accounts not created yet
+      for (final account in accounts) {
+        if (prevSnapshot.date.isBefore(account.creationDate)) {
+          prevBalances[account.id!] = 0.0;
+          prevRealBalances[account.id!] = 0.0;
+        }
+      }
 
       double income = currentStats.totalIncome;
       double expense = currentStats.totalExpense;
@@ -566,6 +588,14 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           defaultCountry: defaultCountry,
         );
 
+        // FIX: Force 0 for new accounts if not created yet
+        for (final account in accounts) {
+          if (snapshotForNew.date.isBefore(account.creationDate)) {
+            newNominalBalances[account.id!] = 0.0;
+            newRealBalances[account.id!] = 0.0;
+          }
+        }
+
         final newAssetStats = _financeCalculator.calculateAssetStats(
           snapshotForNew,
         );
@@ -616,6 +646,14 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           snapshotPrev,
           defaultCountry: defaultCountry,
         );
+
+        // FIX: Force 0 for prev period if not created yet
+        for (final account in accounts) {
+          if (snapshotPrev.date.isBefore(account.creationDate)) {
+            prevNominalBalances[account.id!] = 0.0;
+            prevRealBalances[account.id!] = 0.0;
+          }
+        }
 
         // Merge Results
         final updatedNominalBalances = Map<String, double>.from(
@@ -927,6 +965,13 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       // 1. Nominal Balances
       final nominalBalances = _financeCalculator.calculateBalances(snapshot);
 
+      // FIX: Force 0 balance for accounts not created yet
+      for (final account in accounts) {
+        if (snapshot.date.isBefore(account.creationDate)) {
+          nominalBalances[account.id!] = 0.0;
+        }
+      }
+
       // Update Accounts
       final accountsWithBalances = accounts.map((a) {
         if (nominalBalances.containsKey(a.id)) {
@@ -946,6 +991,13 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         snapshot,
         defaultCountry: defaultCountry,
       );
+
+      // FIX: Force 0 real balance for accounts not created yet
+      for (final account in accounts) {
+        if (snapshot.date.isBefore(account.creationDate)) {
+          realBalances[account.id!] = 0.0;
+        }
+      }
 
       // 3. Asset Stats (Added)
       final assetStats = _financeCalculator.calculateAssetStats(snapshot);
@@ -1003,6 +1055,14 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         prevSnapshot,
         defaultCountry: defaultCountry,
       );
+
+      // FIX: Force 0 previous balances for accounts not created yet
+      for (final account in accounts) {
+        if (prevSnapshot.date.isBefore(account.creationDate)) {
+          prevBalances[account.id!] = 0.0;
+          prevRealBalances[account.id!] = 0.0;
+        }
+      }
 
       await PerformanceLogger().stop('FinanceCalculator: Calculations');
 
