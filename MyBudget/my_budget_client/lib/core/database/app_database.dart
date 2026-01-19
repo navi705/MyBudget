@@ -1,7 +1,9 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
+
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
+import 'package:drift_flutter/drift_flutter.dart';
 import 'package:my_budget_client/core/mappers/exchange_rate_mapper.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/core/utils/import_utils.dart';
@@ -1999,12 +2001,26 @@ class AppDatabase extends _$AppDatabase {
   }
 }
 
-LazyDatabase _openConnection() {
-  return LazyDatabase(() async {
-    final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'db.sqlite'));
-    return NativeDatabase(file);
-  });
+QueryExecutor _openConnection() {
+  // driftDatabase from drift_flutter automatically handles:
+  // - Native (Android/iOS/Desktop): SQLite via sqlite3_flutter_libs
+  // - Web: sqlite3.wasm (WASM) with IndexedDB persistence
+  return driftDatabase(
+    name: 'my_budget_db',
+    // In debug mode: store in documents for easy access (native only)
+    // In release mode: use default application support directory
+    native: DriftNativeOptions(
+      databasePath: () async {
+        final Directory dbFolder;
+        if (kDebugMode) {
+          dbFolder = await getApplicationDocumentsDirectory();
+        } else {
+          dbFolder = await getApplicationSupportDirectory();
+        }
+        return p.join(dbFolder.path, 'db.sqlite');
+      },
+    ),
+  );
 }
 
 @DataClassName('ApiFetchStatus')

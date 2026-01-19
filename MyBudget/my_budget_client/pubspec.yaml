@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   drift: ^2.29.0
+  drift_flutter: ^0.2.7
   flutter_localizations:
     sdk: flutter
   sqlite3_flutter_libs: ^0.5.20

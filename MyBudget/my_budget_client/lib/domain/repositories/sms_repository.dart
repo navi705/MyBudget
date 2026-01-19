@@ -45,7 +45,7 @@ class SmsMessage {
   final String sender;
   final String body;
   final DateTime date;
-  final int? id;
+  final String? id;
 
   const SmsMessage({
     required this.sender,

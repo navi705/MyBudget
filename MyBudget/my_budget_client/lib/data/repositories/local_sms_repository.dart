@@ -2,15 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_sms_reader/flutter_sms_reader.dart' as sms_reader;
 import 'package:my_budget_client/data/seed_data/sms_preset_defaults.dart';
 import 'package:my_budget_client/domain/entities/sms_preset.dart';
 import 'package:my_budget_client/domain/repositories/sms_repository.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Local SMS repository implementation.
-/// Note: Actual SMS reading requires native implementation or a compatible package.
-/// This implementation provides preset management and stub SMS methods.
+/// Local SMS repository implementation using flutter_sms_reader.
 class LocalSmsRepository implements SmsRepository {
   final StreamController<SmsMessage> _smsController =
       StreamController<SmsMessage>.broadcast();
@@ -134,19 +133,38 @@ class LocalSmsRepository implements SmsRepository {
     DateTime? since,
     List<String>? senderFilters,
   }) async {
-    // Stub: Returns empty list on non-Android or when SMS package not available
-    // Real implementation requires native platform code or compatible SMS package
     if (!Platform.isAndroid) return [];
 
-    // TODO: Implement native SMS reading when compatible package is available
-    // For now, return empty list - users should update Dart SDK to 3.9.2+
-    // and use flutter_sms_reader package
-    return [];
+    try {
+      final messages = await sms_reader.FlutterSmsReader.getAllSms();
+
+      var filtered = messages.map(
+        (m) =>
+            SmsMessage(sender: m.address, body: m.body, date: m.date, id: m.id),
+      );
+
+      if (since != null) {
+        filtered = filtered.where((m) => m.date.isAfter(since));
+      }
+
+      if (senderFilters != null && senderFilters.isNotEmpty) {
+        filtered = filtered.where((m) {
+          return senderFilters.any(
+            (filter) => m.sender.toLowerCase().contains(filter.toLowerCase()),
+          );
+        });
+      }
+
+      return filtered.toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   @override
   Stream<SmsMessage> listenForSms() {
-    // Stub: Real-time SMS listening requires platform-specific implementation
+    // flutter_sms_reader doesn't support real-time listening
+    // Would need platform channel implementation for this
     return _smsController.stream;
   }
 

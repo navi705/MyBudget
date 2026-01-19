@@ -184,7 +184,7 @@ class AppTheme {
 
   /// Convert Color to hex string
   static String toHex(Color color) {
-    return '#${color.value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
+    return '#${color.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
   }
 }
 
