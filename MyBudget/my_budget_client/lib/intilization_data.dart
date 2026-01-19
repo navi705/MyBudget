@@ -7,40 +7,62 @@ import 'package:my_budget_client/data/api/external_data.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
-import 'package:my_budget_client/core/utils/import_utils.dart'; // Added import
+import 'package:my_budget_client/core/utils/import_utils.dart';
 import 'dart:convert';
 import 'dart:io';
 
-Future<void> _initInIsolate(bool shouldInit) async {
-  // Re-initialize the service locator in the new isolate.
-  if (shouldInit) {
-    await init();
-  }
-
-  // Ensure currency data is hydrated (and binary file migrated if needed)
+/// Loads local data only (files, no API calls).
+/// This is fast and blocks the splash screen.
+Future<void> _loadLocalData() async {
+  // Ensure currency data is hydrated from local files (JSON/Binary)
   await ImportDataUtils.getCurrenciesInitial();
 
-  final exchangeRateService = sl<ExchangeRateApiService>();
-  await exchangeRateService.fetchRatesForDate(DateTime.now());
-
-  final steamService = sl<SteamInventoryApiService>();
-  final settingsRepository = sl<SettingsRepository>();
-  final steamIdSetting = await settingsRepository.getSetting('steam_id');
-
-  if (steamIdSetting != null && steamIdSetting.value.isNotEmpty) {
-    final accountId = int.tryParse(steamIdSetting.value);
-    if (accountId != null) {
-      await steamService.fetchSteamInventoryValue(accountId, GameApiSteam.cs2);
-    }
-  }
-
-  // Load Debug Steam Data
+  // Load Debug Steam Data from local file
   if (kDebugMode) {
     await _loadDebugSteamData();
   }
+}
 
-  final inflationService = sl<InflationApiService>();
-  await inflationService.fetchInflationForCountry('SRB', '2000:2024');
+/// Fetches fresh data from APIs.
+/// This runs in the background and doesn't block UI.
+Future<void> _fetchApiData() async {
+  try {
+    // Fetch today's exchange rates from API
+    final exchangeRateService = sl<ExchangeRateApiService>();
+    await exchangeRateService.fetchRatesForDate(DateTime.now());
+    debugPrint('API: Exchange rates fetched');
+  } catch (e) {
+    debugPrint('API: Failed to fetch exchange rates: $e');
+  }
+
+  try {
+    // Fetch Steam inventory if configured
+    final steamService = sl<SteamInventoryApiService>();
+    final settingsRepository = sl<SettingsRepository>();
+    final steamIdSetting = await settingsRepository.getSetting('steam_id');
+
+    if (steamIdSetting != null && steamIdSetting.value.isNotEmpty) {
+      final accountId = int.tryParse(steamIdSetting.value);
+      if (accountId != null) {
+        await steamService.fetchSteamInventoryValue(
+          accountId,
+          GameApiSteam.cs2,
+        );
+        debugPrint('API: Steam inventory fetched');
+      }
+    }
+  } catch (e) {
+    debugPrint('API: Failed to fetch Steam inventory: $e');
+  }
+
+  try {
+    // Fetch inflation data
+    final inflationService = sl<InflationApiService>();
+    await inflationService.fetchInflationForCountry('SRB', '2000:2024');
+    debugPrint('API: Inflation data fetched');
+  } catch (e) {
+    debugPrint('API: Failed to fetch inflation data: $e');
+  }
 }
 
 Future<void> _loadDebugSteamData() async {
@@ -108,12 +130,23 @@ Future<void> _loadDebugSteamData() async {
 }
 
 class IntilizationData {
+  /// Loads local data synchronously (blocks splash screen).
+  /// Returns quickly after loading from files.
+  static Future<void> loadLocalData() async {
+    await _loadLocalData();
+  }
+
+  /// Fetches fresh data from APIs in the background.
+  /// Does NOT block UI - fire and forget.
+  static void fetchApiDataInBackground() {
+    // Fire and forget - don't await
+    _fetchApiData();
+  }
+
+  /// Legacy method for backwards compatibility.
+  /// Runs everything (local + API) together.
   static Future<void> initilizate() async {
-    // Running in a separate isolate
-    if (kDebugMode) {
-      // In debug mode, run directly to allow for easier debugging.
-      return _initInIsolate(false);
-    }
-    return compute(_initInIsolate, true);
+    await _loadLocalData();
+    await _fetchApiData();
   }
 }
