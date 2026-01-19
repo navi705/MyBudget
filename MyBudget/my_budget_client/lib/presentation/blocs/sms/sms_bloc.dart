@@ -2,18 +2,29 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/core/utils/sms_parser.dart';
 import 'package:my_budget_client/domain/entities/sms_preset.dart';
+import 'package:my_budget_client/domain/entities/transaction.dart';
+import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/sms_repository.dart';
+import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+import 'package:uuid/uuid.dart';
 
 part 'sms_event.dart';
 part 'sms_state.dart';
 
 class SmsBloc extends Bloc<SmsEvent, SmsState> {
   final SmsRepository _smsRepository;
+  final TransactionRepository _transactionRepository;
+  final CurrencyRepository _currencyRepository;
   final SmsParser _parser = SmsParser();
 
-  SmsBloc({required SmsRepository smsRepository})
-    : _smsRepository = smsRepository,
-      super(const SmsState()) {
+  SmsBloc({
+    required SmsRepository smsRepository,
+    required TransactionRepository transactionRepository,
+    required CurrencyRepository currencyRepository,
+  }) : _smsRepository = smsRepository,
+       _transactionRepository = transactionRepository,
+       _currencyRepository = currencyRepository,
+       super(const SmsState()) {
     on<LoadSmsPresets>(_onLoadPresets);
     on<ToggleSmsPreset>(_onTogglePreset);
     on<SaveSmsPreset>(_onSavePreset);
@@ -21,6 +32,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     on<TestSmsRule>(_onTestRule);
     on<ImportSmsMessages>(_onImportMessages);
     on<RequestSmsPermission>(_onRequestPermission);
+    on<CreateTransactionsFromSms>(_onCreateTransactions);
   }
 
   Future<void> _onLoadPresets(
@@ -91,6 +103,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     );
 
     final parsed = <SmsParseResult>[];
+
     for (var i = 0; i < messages.length; i++) {
       final msg = messages[i];
       for (final preset in enabledPresets) {
@@ -116,6 +129,50 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
         lastSyncTimestamp: DateTime.now(),
       ),
     );
+  }
+
+  Future<void> _onCreateTransactions(
+    CreateTransactionsFromSms event,
+    Emitter<SmsState> emit,
+  ) async {
+    emit(state.copyWith(isImporting: true));
+
+    int created = 0;
+    final currencies = await _currencyRepository.getCurrencies();
+
+    for (final result in event.results) {
+      if (!result.isMatch || result.amount == null) continue;
+
+      // Find currency by code
+      String? currencyCode = result.currencyCode;
+      if (currencyCode != null) {
+        final found = currencies.any(
+          (c) => c.code.toUpperCase() == currencyCode!.toUpperCase(),
+        );
+        if (!found) {
+          currencyCode = null; // Use default if not found
+        }
+      }
+
+      // Amount is positive for income, negative for expense
+      final isIncome = result.type == TransactionType.income;
+      final amount = isIncome ? result.amount!.abs() : -result.amount!.abs();
+
+      final transaction = Transaction(
+        id: const Uuid().v4(),
+        amount: amount,
+        currencyCode: currencyCode ?? 'RSD',
+        date: result.date ?? DateTime.now(),
+        description: 'Imported from SMS',
+        categoryId: event.defaultCategoryId ?? 'other',
+        accountId: event.defaultAccountId ?? 'default',
+      );
+
+      await _transactionRepository.addTransaction(transaction);
+      created++;
+    }
+
+    emit(state.copyWith(isImporting: false, createdTransactionsCount: created));
   }
 
   Future<void> _onRequestPermission(

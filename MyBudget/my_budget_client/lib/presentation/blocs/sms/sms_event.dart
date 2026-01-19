@@ -57,3 +57,18 @@ class ImportSmsMessages extends SmsEvent {
 }
 
 class RequestSmsPermission extends SmsEvent {}
+
+class CreateTransactionsFromSms extends SmsEvent {
+  final List<SmsParseResult> results;
+  final String? defaultAccountId;
+  final String? defaultCategoryId;
+
+  const CreateTransactionsFromSms({
+    required this.results,
+    this.defaultAccountId,
+    this.defaultCategoryId,
+  });
+
+  @override
+  List<Object?> get props => [results, defaultAccountId, defaultCategoryId];
+}

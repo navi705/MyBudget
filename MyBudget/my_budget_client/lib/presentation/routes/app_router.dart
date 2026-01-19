@@ -152,7 +152,7 @@ final GoRouter router = GoRouter(
         return _buildPage(const ApiSettingsScreen());
       },
     ),
-    GoRoute(
+    GoRoute( 
       path: AppRoutes.smsSettings,
       pageBuilder: (context, state) {
         return _buildPage(const SmsSettingsScreen());

@@ -10,6 +10,7 @@ class SmsState extends Equatable {
   final String? importError;
   final List<SmsParseResult> importedResults;
   final DateTime? lastSyncTimestamp;
+  final int createdTransactionsCount;
 
   const SmsState({
     this.isLoading = false,
@@ -21,6 +22,7 @@ class SmsState extends Equatable {
     this.importError,
     this.importedResults = const [],
     this.lastSyncTimestamp,
+    this.createdTransactionsCount = 0,
   });
 
   SmsState copyWith({
@@ -33,6 +35,7 @@ class SmsState extends Equatable {
     String? importError,
     List<SmsParseResult>? importedResults,
     DateTime? lastSyncTimestamp,
+    int? createdTransactionsCount,
   }) {
     return SmsState(
       isLoading: isLoading ?? this.isLoading,
@@ -44,6 +47,8 @@ class SmsState extends Equatable {
       importError: importError,
       importedResults: importedResults ?? this.importedResults,
       lastSyncTimestamp: lastSyncTimestamp ?? this.lastSyncTimestamp,
+      createdTransactionsCount:
+          createdTransactionsCount ?? this.createdTransactionsCount,
     );
   }
 
@@ -58,5 +63,6 @@ class SmsState extends Equatable {
     importError,
     importedResults,
     lastSyncTimestamp,
+    createdTransactionsCount,
   ];
 }

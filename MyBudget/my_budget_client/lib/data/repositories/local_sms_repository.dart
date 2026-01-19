@@ -7,10 +7,11 @@ import 'package:my_budget_client/domain/entities/sms_preset.dart';
 import 'package:my_budget_client/domain/repositories/sms_repository.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:telephony/telephony.dart' hide SmsMessage;
 
+/// Local SMS repository implementation.
+/// Note: Actual SMS reading requires native implementation or a compatible package.
+/// This implementation provides preset management and stub SMS methods.
 class LocalSmsRepository implements SmsRepository {
-  final Telephony _telephony = Telephony.instance;
   final StreamController<SmsMessage> _smsController =
       StreamController<SmsMessage>.broadcast();
 
@@ -39,7 +40,6 @@ class LocalSmsRepository implements SmsRepository {
           .map((e) => _presetFromJson(e as Map<String, dynamic>))
           .toList();
 
-      // Merge: built-in presets (with stored enabled state) + custom presets
       final result = <SmsPreset>[];
 
       for (final builtIn in builtInPresets) {
@@ -56,7 +56,6 @@ class LocalSmsRepository implements SmsRepository {
         );
       }
 
-      // Add custom presets (not built-in)
       for (final custom in customPresets) {
         if (!custom.isBuiltIn && !result.any((p) => p.id == custom.id)) {
           result.add(custom);
@@ -135,60 +134,19 @@ class LocalSmsRepository implements SmsRepository {
     DateTime? since,
     List<String>? senderFilters,
   }) async {
+    // Stub: Returns empty list on non-Android or when SMS package not available
+    // Real implementation requires native platform code or compatible SMS package
     if (!Platform.isAndroid) return [];
 
-    final messages = await _telephony.getInboxSms(
-      columns: [
-        SmsColumn.ADDRESS,
-        SmsColumn.BODY,
-        SmsColumn.DATE,
-        SmsColumn.ID,
-      ],
-      sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
-    );
-
-    var filtered = messages.map(
-      (m) => SmsMessage(
-        sender: m.address ?? '',
-        body: m.body ?? '',
-        date: DateTime.fromMillisecondsSinceEpoch(m.date ?? 0),
-        id: m.id,
-      ),
-    );
-
-    if (since != null) {
-      filtered = filtered.where((m) => m.date.isAfter(since));
-    }
-
-    if (senderFilters != null && senderFilters.isNotEmpty) {
-      filtered = filtered.where((m) {
-        return senderFilters.any(
-          (filter) => m.sender.toLowerCase().contains(filter.toLowerCase()),
-        );
-      });
-    }
-
-    return filtered.toList();
+    // TODO: Implement native SMS reading when compatible package is available
+    // For now, return empty list - users should update Dart SDK to 3.9.2+
+    // and use flutter_sms_reader package
+    return [];
   }
 
   @override
   Stream<SmsMessage> listenForSms() {
-    if (!Platform.isAndroid) return const Stream.empty();
-
-    _telephony.listenIncomingSms(
-      onNewMessage: (message) {
-        _smsController.add(
-          SmsMessage(
-            sender: message.address ?? '',
-            body: message.body ?? '',
-            date: DateTime.now(),
-            id: message.id,
-          ),
-        );
-      },
-      listenInBackground: false,
-    );
-
+    // Stub: Real-time SMS listening requires platform-specific implementation
     return _smsController.stream;
   }
 

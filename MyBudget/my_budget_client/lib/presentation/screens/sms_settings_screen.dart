@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/entities/sms_preset.dart';
 import 'package:my_budget_client/presentation/blocs/sms/sms_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/sms_rule_builder_dialog.dart';
 
 class SmsSettingsScreen extends StatelessWidget {
   const SmsSettingsScreen({super.key});
@@ -408,11 +409,14 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
     );
   }
 
-  void _addRule() {
-    // TODO: Open rule builder dialog
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Rule builder coming soon')));
+  void _addRule() async {
+    final rule = await showDialog<SmsParsingRule>(
+      context: context,
+      builder: (context) => const SmsRuleBuilderDialog(),
+    );
+    if (rule != null) {
+      setState(() => _rules.add(rule));
+    }
   }
 
   void _testParsing() {

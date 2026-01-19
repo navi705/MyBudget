@@ -110,7 +110,13 @@ Future<void> init() async {
   );
   sl.registerFactory(() => AssetBloc(sl(), sl()));
   sl.registerFactory(() => ApiSettingsBloc(sl(), sl(), sl(), sl()));
-  sl.registerFactory(() => SmsBloc(smsRepository: sl()));
+  sl.registerFactory(
+    () => SmsBloc(
+      smsRepository: sl(),
+      transactionRepository: sl(),
+      currencyRepository: sl(),
+    ),
+  );
 
   // Services
   sl.registerLazySingleton(() => FinanceCalculator());
