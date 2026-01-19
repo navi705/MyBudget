@@ -11,32 +11,39 @@ import 'package:my_budget_client/core/utils/import_utils.dart';
 import 'dart:convert';
 import 'dart:io';
 
-/// Loads local data only (files, no API calls).
-/// This is fast and blocks the splash screen.
-Future<void> _loadLocalData() async {
-  // Ensure currency data is hydrated from local files (JSON/Binary)
+/// Loads local data that is critical for app startup (blocking initialization).
+Future<void> _loadLocalDataInIsolate(bool shouldInit) async {
+  if (shouldInit) {
+    await init();
+  }
+
+  // Load Currency History (Binary/JSON seeder)
+  final currenciesRep = sl<SettingsRepository>();
+  // This loads from the binary file or JSON debug file into the database
   await ImportDataUtils.getCurrenciesInitial();
 
-  // Load Debug Steam Data from local file
+  // Load Debug Steam Data (Local JSON)
   if (kDebugMode) {
     await _loadDebugSteamData();
   }
 }
 
-/// Fetches fresh data from APIs.
-/// This runs in the background and doesn't block UI.
-Future<void> _fetchApiData() async {
-  try {
-    // Fetch today's exchange rates from API
-    final exchangeRateService = sl<ExchangeRateApiService>();
-    await exchangeRateService.fetchRatesForDate(DateTime.now());
-    debugPrint('API: Exchange rates fetched');
-  } catch (e) {
-    debugPrint('API: Failed to fetch exchange rates: $e');
+/// Fetches external API data (non-blocking).
+Future<void> _fetchApiDataInIsolate(bool shouldInit) async {
+  if (shouldInit) {
+    await init();
   }
 
   try {
-    // Fetch Steam inventory if configured
+    // 1. Fetch Exchange Rates (Today)
+    final exchangeRateService = sl<ExchangeRateApiService>();
+    await exchangeRateService.fetchRatesForDate(DateTime.now());
+  } catch (e) {
+    debugPrint('Background Init Error (Exchange Rates): $e');
+  }
+
+  try {
+    // 2. Fetch Steam Inventory
     final steamService = sl<SteamInventoryApiService>();
     final settingsRepository = sl<SettingsRepository>();
     final steamIdSetting = await settingsRepository.getSetting('steam_id');
@@ -48,21 +55,26 @@ Future<void> _fetchApiData() async {
           accountId,
           GameApiSteam.cs2,
         );
-        debugPrint('API: Steam inventory fetched');
       }
     }
   } catch (e) {
-    debugPrint('API: Failed to fetch Steam inventory: $e');
+    debugPrint('Background Init Error (Steam): $e');
   }
 
   try {
-    // Fetch inflation data
+    // 3. Fetch Inflation Data
     final inflationService = sl<InflationApiService>();
     await inflationService.fetchInflationForCountry('SRB', '2000:2024');
-    debugPrint('API: Inflation data fetched');
   } catch (e) {
-    debugPrint('API: Failed to fetch inflation data: $e');
+    debugPrint('Background Init Error (Inflation): $e');
   }
+}
+
+// Deprecated: kept for reference or legacy paths.
+// The new flow uses loadLocalData() and fetchApiDataInBackground() separately.
+Future<void> _initInIsolate(bool shouldInit) async {
+  await _loadLocalDataInIsolate(shouldInit);
+  await _fetchApiDataInIsolate(false); // init already done
 }
 
 Future<void> _loadDebugSteamData() async {
@@ -83,7 +95,7 @@ Future<void> _loadDebugSteamData() async {
           final data = json[dateStr] as Map<String, dynamic>;
 
           for (final game in data.keys) {
-            final value = data[game] as double;
+            final value = (data[game] as num).toDouble();
             final assetId = 'steam_$game';
 
             // Check if entry exists
@@ -130,23 +142,30 @@ Future<void> _loadDebugSteamData() async {
 }
 
 class IntilizationData {
-  /// Loads local data synchronously (blocks splash screen).
-  /// Returns quickly after loading from files.
+  /// Loads critical local data (Currency History, Debug Data).
+  /// This should be awaited during the splash screen.
   static Future<void> loadLocalData() async {
-    await _loadLocalData();
+    if (kDebugMode) {
+      return _loadLocalDataInIsolate(false);
+    }
+    return compute(_loadLocalDataInIsolate, true);
   }
 
-  /// Fetches fresh data from APIs in the background.
-  /// Does NOT block UI - fire and forget.
+  /// Fetches API data in the background (Exchange Rates, Steam, Inflation).
+  /// This should be called WITHOUT await after the app is interactive.
   static void fetchApiDataInBackground() {
-    // Fire and forget - don't await
-    _fetchApiData();
+    if (kDebugMode) {
+      _fetchApiDataInIsolate(false);
+    } else {
+      compute(_fetchApiDataInIsolate, true);
+    }
   }
 
-  /// Legacy method for backwards compatibility.
-  /// Runs everything (local + API) together.
+  // Legacy method for backward compatibility
   static Future<void> initilizate() async {
-    await _loadLocalData();
-    await _fetchApiData();
+    if (kDebugMode) {
+      return _initInIsolate(false);
+    }
+    return compute(_initInIsolate, true);
   }
 }

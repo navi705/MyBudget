@@ -1,12 +1,10 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:my_budget_client/core/mappers/exchange_rate_mapper.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/core/utils/import_utils.dart';
-import 'package:my_budget_client/data/seed_data/categories_data.dart';
 import 'package:my_budget_client/data/seed_data/styles_data.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
@@ -1825,13 +1823,10 @@ class AppDatabase extends _$AppDatabase {
       await _seedLanguages(db);
       await _seedCurrencies(db);
       await _seedCurrencyDesignations(db);
+      await _seedStyles(db);
       await _seedAccountTypes(db);
+      await _seedExchangeRates(db);
     }
-    // Styles and categories are always re-seeded since they are always cleared
-    await _seedStyles(db);
-    await _seedCategories(db);
-    // Exchange rates are always re-seeded since they are always cleared
-    await _seedExchangeRates(db);
     // Settings are always re-seeded to defaults
     await _seedSettings(db);
   }
@@ -1868,33 +1863,13 @@ class AppDatabase extends _$AppDatabase {
     await db.accountTypesDao.insertAllAccountTypes(defaultAccountTypes);
   }
 
-  Future<void> _seedCategories(AppDatabase db) async {
-    await db.categoriesDao.insertAllCategories(defaultCategories);
-  }
-
   Future<void> _seedExchangeRates(AppDatabase db) async {
-    // getCurrenciesRateToSeeder already handles JSON (Debug) vs Binary (Prod)
     final List<ExchangeRateDomain> rates =
         await ImportDataUtils.getCurrenciesRateToSeeder();
-    debugPrint('Seeding ${rates.length} exchange rates...');
     await db.exchangeRatesDao.insertAllExchangeRates(rates.toCompanionList());
   }
 
-  /// Clears all data and re-seeds.
-  /// [onProgress] callback reports (step, totalSteps, message) for loading UI.
-  Future<void> clearAllData({
-    bool preserveStaticData = true,
-    void Function(int step, int total, String message)? onProgress,
-  }) async {
-    const totalSteps = 3;
-
-    onProgress?.call(0, totalSteps, 'Preparing...');
-
-    // Small delay to allow UI to render the dialog before blocking operations
-    await Future.delayed(const Duration(milliseconds: 50));
-
-    onProgress?.call(1, totalSteps, 'Clearing data...');
-
+  Future<void> clearAllData({bool preserveStaticData = true}) async {
     // Disable FK checks during clear and reseed
     await customStatement('PRAGMA foreign_keys = OFF');
 
@@ -1911,35 +1886,22 @@ class AppDatabase extends _$AppDatabase {
       // Clear inflation rates as they are fetched data
       batch.deleteAll(inflationRates);
 
-      // Always clear exchange rates so user modifications are reset
-      batch.deleteAll(exchangeRates);
-
-      // Always clear styles so user modifications are reset
-      batch.deleteAll(styles);
-
       if (!preserveStaticData) {
         // Only delete static data if strictly requested (Factory Reset)
+        batch.deleteAll(exchangeRates);
         batch.deleteAll(currencyDesignations);
         batch.deleteAll(accountTypes);
+        batch.deleteAll(styles);
         batch.deleteAll(currencies);
         batch.deleteAll(languages);
       }
     });
 
-    onProgress?.call(2, totalSteps, 'Loading exchange rates...');
-
-    // Small delay to update UI before heavy seeding
-    await Future.delayed(const Duration(milliseconds: 20));
-
     // Re-seed the data after clearing
     await _seedData(this, skipStaticData: preserveStaticData);
 
-    onProgress?.call(3, totalSteps, 'Finalizing...');
-
     // Re-enable FK checks
     await customStatement('PRAGMA foreign_keys = ON');
-
-    // No "Done!" step - dialog will close immediately after this returns
   }
 }
 

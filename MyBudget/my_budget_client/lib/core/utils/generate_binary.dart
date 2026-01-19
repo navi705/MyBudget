@@ -130,23 +130,17 @@ class CurrencyHistoryBinaryIO {
       }
     }
 
-    // Compress with GZip
-    final rawBytes = builder.toBytes();
-    final compressed = gzip.encode(rawBytes);
-    return Uint8List.fromList(compressed);
+    return builder.toBytes();
   }
 
   static Map<String, Map<String, double>> decode(Uint8List bytes) {
     final result = <String, Map<String, double>>{};
-    if (bytes.isEmpty) return {};
-
-    // Decompress GZip
-    final decompressed = Uint8List.fromList(gzip.decode(bytes));
 
     var offset = 0;
-    final view = ByteData.view(decompressed.buffer);
+    final view = ByteData.view(bytes.buffer);
 
     // 1. Check Version
+    if (bytes.length == 0) return {};
     final version = view.getUint8(offset);
     offset += 1;
 
@@ -163,7 +157,7 @@ class CurrencyHistoryBinaryIO {
       final len = view.getUint8(offset);
       offset += 1;
 
-      final stringBytes = decompressed.sublist(offset, offset + len);
+      final stringBytes = bytes.sublist(offset, offset + len);
       currencyIndexMap[i] = utf8.decode(stringBytes);
       offset += len;
     }

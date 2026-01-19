@@ -1,171 +1,154 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:archive/archive.dart';
 
+/// Handles Binary + Gzip IO for currency history.
+///
+/// Format Structure:
+/// [Header "CURR" (4 bytes)]
+/// [Version (1 byte) = 1]
+/// [GZIP Compressed Data]
+///
+/// Inside GZIP:
+/// [Date Count (4 bytes)]
+/// For each date:
+///   [Date String Length (1 byte)]
+///   [Date String (utf8)]
+///   [Currency Count (2 bytes)]
+///   For each currency:
+///     [Code (3 bytes usually, but we store length 1 byte + string)]
+///     [Rate (8 bytes double)]
+///
 class CurrencyHistoryBinaryIO {
-  static const int _version = 1;
+  static const _header = 'CURR';
+  static const _version = 1;
 
-  /// Encodes the [historyMap] (formatted as Map<DateString, Map<CurrencyCode, Rate>>)
-  /// into a specialized binary format.
-  ///
-  /// Format Structure:
-  /// - Version (1 byte)
-  /// - Currency Dictionary:
-  ///   - Count (2 bytes)
-  ///   - [Length (1 byte) + StringBytes] for each unique currency
-  /// - Data:
-  ///   - Date Count (4 bytes)
-  ///   - For each date:
-  ///     - Date (4 bytes, integer YYYYMMDD)
-  ///     - Rate Count (2 bytes)
-  ///     - [CurrencyIndex (2 bytes) + RateValue (8 bytes Double)] for each rate
-  static Uint8List encode(Map<String, dynamic> historyMap) {
-    final builder = BytesBuilder();
+  /// Writes the currency history map to a GZIP-compressed binary file.
+  static Future<void> write(
+    File file,
+    Map<String, Map<String, double>> history,
+  ) async {
+    final buffer = BytesBuilder();
 
-    // 1. Header / Version
-    builder.addByte(_version);
+    // 1. Header & Version (Uncompressed)
+    buffer.add(utf8.encode(_header));
+    buffer.addByte(_version);
 
-    // 2. Build Dictionary
-    final Set<String> allCurrencies = {};
-    historyMap.forEach((date, rates) {
-      if (rates is Map) {
-        rates.forEach((currency, rate) {
-          allCurrencies.add(
-            currency.toString().toUpperCase(),
-          ); // Normalize to upper case
-        });
-      }
-    });
+    // 2. Prepare Data for Compression
+    final dataBuffer = BytesBuilder();
 
-    final List<String> sortedCurrencies = allCurrencies.toList()..sort();
-    final Map<String, int> currencyToIndex = {
-      for (int i = 0; i < sortedCurrencies.length; i++) sortedCurrencies[i]: i,
-    };
+    // Date Count
+    final sortedDates = history.keys.toList()..sort();
+    dataBuffer.add(_int32ToBytes(sortedDates.length));
 
-    // Write Dictionary Size
-    _writeUint16(builder, sortedCurrencies.length);
+    for (final date in sortedDates) {
+      // Date String
+      final dateBytes = utf8.encode(date);
+      dataBuffer.addByte(dateBytes.length);
+      dataBuffer.add(dateBytes);
 
-    // Write Dictionary Items
-    for (final currency in sortedCurrencies) {
-      final bytes = utf8.encode(currency);
-      builder.addByte(bytes.length);
-      builder.add(bytes);
-    }
+      final rates = history[date]!;
+      // Currency Count
+      dataBuffer.add(_int16ToBytes(rates.length));
 
-    // 3. Write Records
-    // Sort dates ensures deterministic output
-    final sortedDates = historyMap.keys.toList()..sort();
-
-    // Write Date Count
-    _writeUint32(builder, sortedDates.length);
-
-    for (final dateStr in sortedDates) {
-      // Parse Date "YYYY-MM-DD" -> YYYYMMDD int
-      // Expecting standard ISO8601 "YYYY-MM-DD"
-      final parts = dateStr.split('-');
-      if (parts.length != 3) continue; // Skip malformed dates
-
-      final dateInt =
-          int.parse(parts[0]) * 10000 +
-          int.parse(parts[1]) * 100 +
-          int.parse(parts[2]);
-      _writeUint32(builder, dateInt);
-
-      final rates = historyMap[dateStr];
-      if (rates is Map) {
-        // Filter valid rates
-        final validRates = <MapEntry<int, double>>[];
-        rates.forEach((key, value) {
-          if (value is num) {
-            final index = currencyToIndex[key.toString().toUpperCase()];
-            if (index != null) {
-              validRates.add(MapEntry(index, value.toDouble()));
-            }
-          }
-        });
-
-        // Write Rate Count
-        _writeUint16(builder, validRates.length);
-
-        // Write Rates
-        for (final entry in validRates) {
-          _writeUint16(builder, entry.key); // Currency Index
-          _writeFloat64(builder, entry.value); // Rate Value
-        }
-      } else {
-        _writeUint16(builder, 0);
+      for (final entry in rates.entries) {
+        final codeBytes = utf8.encode(entry.key);
+        // Code Length
+        dataBuffer.addByte(codeBytes.length);
+        // Code
+        dataBuffer.add(codeBytes);
+        // Rate (Double)
+        dataBuffer.add(_doubleToBytes(entry.value));
       }
     }
 
-    // Compress with GZip
-    final rawBytes = builder.toBytes();
-    final compressed = gzip.encode(rawBytes);
-    return Uint8List.fromList(compressed);
+    // 3. Compress Data
+    final encoder = GZipEncoder();
+    final compressed = encoder.encode(dataBuffer.toBytes());
+
+    if (compressed == null) {
+      throw Exception('Failed to compress data');
+    }
+
+    buffer.add(compressed);
+
+    await file.writeAsBytes(buffer.toBytes());
   }
 
-  /// Decodes binary data back into the standard Map format.
-  static Map<String, Map<String, double>> decode(Uint8List bytes) {
-    final result = <String, Map<String, double>>{};
-    if (bytes.isEmpty) return {};
+  /// Reads and decompresses the currency history map.
+  static Future<Map<String, Map<String, double>>> read(File file) async {
+    final bytes = await file.readAsBytes();
+    final iterator = bytes.iterator;
 
-    // Decompress GZip
-    final decompressed = Uint8List.fromList(gzip.decode(bytes));
+    // Helper to read N bytes
+    Uint8List readBytes(int count) {
+      final list = Uint8List(count);
+      for (int i = 0; i < count; i++) {
+        if (!iterator.moveNext()) throw Exception('Unexpected end of file');
+        list[i] = iterator.current;
+      }
+      return list;
+    }
 
-    var offset = 0;
-    final view = ByteData.view(decompressed.buffer);
+    // 1. Check Header
+    final headerBytes = readBytes(4);
+    final header = utf8.decode(headerBytes);
+    if (header != _header) {
+      throw Exception('Invalid file header: $header');
+    }
 
-    // 1. Check Version
-    final version = view.getUint8(offset);
-    offset += 1;
-
+    // 2. Check Version
+    final version = readBytes(1)[0];
     if (version != _version) {
-      throw FormatException('Unsupported binary version: $version');
+      throw Exception('Unsupported version: $version');
     }
 
-    // 2. Read Dictionary
-    final currencyCount = view.getUint16(offset);
-    offset += 2;
-
-    final currencyIndexMap = <int, String>{};
-    for (int i = 0; i < currencyCount; i++) {
-      final len = view.getUint8(offset);
-      offset += 1;
-
-      final stringBytes = bytes.sublist(offset, offset + len);
-      currencyIndexMap[i] = utf8.decode(stringBytes);
-      offset += len;
+    // 3. Read Remaining (Compressed) Data
+    final compressedData = BytesBuilder();
+    while (iterator.moveNext()) {
+      compressedData.addByte(iterator.current);
     }
 
-    // 3. Read Records
-    final dateCount = view.getUint32(offset);
-    offset += 4;
+    // 4. Decompress
+    final decoder = GZipDecoder();
+    final decompressed = decoder.decodeBytes(compressedData.toBytes());
+    final dataIterator = decompressed.iterator;
+
+    // Helper for Decompressed Stream
+    Uint8List readData(int count) {
+      final list = Uint8List(count);
+      for (int i = 0; i < count; i++) {
+        if (!dataIterator.moveNext()) throw Exception('Unexpected end of data');
+        list[i] = dataIterator.current;
+      }
+      return list;
+    }
+
+    // 5. Parse Data
+    final result = <String, Map<String, double>>{};
+
+    // Date Count
+    final dateCount = _bytesToInt32(readData(4));
 
     for (int i = 0; i < dateCount; i++) {
-      final dateInt = view.getUint32(offset);
-      offset += 4;
-
-      // Convert YYYYMMDD -> "YYYY-MM-DD"
-      final year = dateInt ~/ 10000;
-      final month = (dateInt % 10000) ~/ 100;
-      final day = dateInt % 100;
-      final dateStr =
-          '$year-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
-
-      final rateCount = view.getUint16(offset);
-      offset += 2;
+      // Date String
+      final dateLen = readData(1)[0];
+      final dateStr = utf8.decode(readData(dateLen));
 
       final rates = <String, double>{};
-      for (int r = 0; r < rateCount; r++) {
-        final currencyIndex = view.getUint16(offset);
-        offset += 2;
 
-        final rateValue = view.getFloat64(offset);
-        offset += 8;
+      // Currency Count
+      final currCount = _bytesToInt16(readData(2));
 
-        final currencyCode = currencyIndexMap[currencyIndex];
-        if (currencyCode != null) {
-          rates[currencyCode] = rateValue;
-        }
+      for (int j = 0; j < currCount; j++) {
+        // Code
+        final codeLen = readData(1)[0];
+        final code = utf8.decode(readData(codeLen));
+        // Rate
+        final rate = _bytesToDouble(readData(8));
+
+        rates[code] = rate;
       }
       result[dateStr] = rates;
     }
@@ -173,21 +156,28 @@ class CurrencyHistoryBinaryIO {
     return result;
   }
 
-  static void _writeUint16(BytesBuilder builder, int value) {
-    final b = Uint8List(2);
-    ByteData.view(b.buffer).setUint16(0, value);
-    builder.add(b);
+  static Uint8List _int32ToBytes(int value) {
+    return Uint8List(4)..buffer.asByteData().setInt32(0, value, Endian.little);
   }
 
-  static void _writeUint32(BytesBuilder builder, int value) {
-    final b = Uint8List(4);
-    ByteData.view(b.buffer).setUint32(0, value);
-    builder.add(b);
+  static int _bytesToInt32(Uint8List bytes) {
+    return bytes.buffer.asByteData().getInt32(0, Endian.little);
   }
 
-  static void _writeFloat64(BytesBuilder builder, double value) {
-    final b = Uint8List(8);
-    ByteData.view(b.buffer).setFloat64(0, value);
-    builder.add(b);
+  static Uint8List _int16ToBytes(int value) {
+    return Uint8List(2)..buffer.asByteData().setInt16(0, value, Endian.little);
+  }
+
+  static int _bytesToInt16(Uint8List bytes) {
+    return bytes.buffer.asByteData().getInt16(0, Endian.little);
+  }
+
+  static Uint8List _doubleToBytes(double value) {
+    return Uint8List(8)
+      ..buffer.asByteData().setFloat64(0, value, Endian.little);
+  }
+
+  static double _bytesToDouble(Uint8List bytes) {
+    return bytes.buffer.asByteData().getFloat64(0, Endian.little);
   }
 }

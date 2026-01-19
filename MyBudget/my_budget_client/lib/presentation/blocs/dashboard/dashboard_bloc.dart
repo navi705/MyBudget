@@ -121,9 +121,12 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           final styles = data.styles;
           final params = data.params;
 
-          // NOTE: Removed categories.isEmpty guard - it caused infinite loading
-          // on fresh DB. Transfers will still work correctly as they check
-          // categoryType which returns null for missing categories.
+          // GUARD: Skip computation if categories haven't loaded yet
+          // This prevents transfers from being counted as income/expense
+          if (categories.isEmpty) {
+            print('DEBUG: Skipping compute - categories empty');
+            return DashboardLoadInProgress();
+          }
 
           // OPTIMIZATION: Run DB queries in parallel
           PerformanceLogger().start('Dashboard: balances, totals, settings');

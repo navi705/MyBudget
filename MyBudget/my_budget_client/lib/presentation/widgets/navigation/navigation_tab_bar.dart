@@ -38,7 +38,7 @@ class NavigationTabBar extends StatelessWidget {
             backgroundColor = activeTheme.backgroundColor;
           }
         } else {
-          backgroundColor = Theme.of(context).colorScheme.background;
+          backgroundColor = Theme.of(context).colorScheme.surface;
         }
 
         final primaryColor =

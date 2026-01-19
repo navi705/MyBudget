@@ -10,7 +10,7 @@ void main() async {
   if (Platform.isWindows) {
     await Window.initialize();
   }
-  await dotenv.load(fileName: ".env");
+  //await dotenv.load(fileName: ".env");
   await sl.init();
   // Note: IntilizationData.initilizate() is now called inside AppWrapper
   // This allows us to show a loading screen during initialization
