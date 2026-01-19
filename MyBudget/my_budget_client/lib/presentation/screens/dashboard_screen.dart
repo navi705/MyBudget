@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/presentation/widgets/navigation/navigation_tab_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
@@ -37,26 +39,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (state is DashboardLoadSuccess) {
           return Scaffold(
             // AppBar removed to maximize space
-            body: SafeArea(child: _buildBody(state)),
-            bottomNavigationBar: BottomNavigationBar(
-              currentIndex: state.activeTabIndex,
-              type: BottomNavigationBarType.fixed, // Added to show all 4 items
-              onTap: (index) =>
-                  context.read<DashboardBloc>().add(ChangeTab(index)),
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.calendar_month),
-                  label: 'Calendar',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.pie_chart),
-                  label: 'Categories',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.show_chart),
-                  label: 'Balance',
-                ),
-              ],
+            body: SafeArea(
+              child: Column(
+                children: [
+                  if (!(Platform.isWindows ||
+                      Platform.isLinux ||
+                      Platform.isMacOS))
+                    _buildTabBar(context, state),
+                  Expanded(child: _buildBody(state)),
+                  if (Platform.isWindows ||
+                      Platform.isLinux ||
+                      Platform.isMacOS)
+                    _buildTabBar(context, state),
+                ],
+              ),
             ),
           );
         }
@@ -298,6 +294,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             currencyDesignations: state.currencyDesignations, // Added
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildTabBar(BuildContext context, DashboardLoadSuccess state) {
+    return NavigationTabBar(
+      selectedIndex: state.activeTabIndex,
+      onTap: (index) => context.read<DashboardBloc>().add(ChangeTab(index)),
+      items: const [
+        NavigationTabBarItem(icon: Icons.calendar_month, label: 'Calendar'),
+        NavigationTabBarItem(icon: Icons.pie_chart, label: 'Categories'),
+        NavigationTabBarItem(icon: Icons.show_chart, label: 'Balance'),
       ],
     );
   }
