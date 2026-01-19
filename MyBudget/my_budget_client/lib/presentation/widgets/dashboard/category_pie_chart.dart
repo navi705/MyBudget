@@ -44,32 +44,74 @@ class CategoryPieChart extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 600;
+        final double maxDiameter;
+        if (isWide) {
+          // In Row: (Total - Gap) * (0.35)
+          // Cap at 280 to keep it smaller in windowed mode
+          double calculated = (constraints.maxWidth - 24) * 0.35;
+          maxDiameter = calculated > 280.0 ? 280.0 : calculated;
+        } else {
+          // In Column: min(width, fixed height)
+          // Cap at 240 for mobile/narrow
+          maxDiameter = constraints.maxWidth < 240
+              ? constraints.maxWidth
+              : 240.0;
+        }
+
+        // Calculate responsive dimensions
+        // Safe margin to prevent clipping
+        final double safeDiameter = maxDiameter > 32
+            ? maxDiameter - 32
+            : maxDiameter;
+        final double totalRadius = safeDiameter / 2;
+
+        // Maintain roughly 1:2 ratio between center hole and section ring
+        // But clamp minimums so it doesn't vanish on very small screens
+        final double centerRadius = (totalRadius * 0.4).clamp(20.0, 60.0);
+        final double sectionRadius = (totalRadius * 0.6).clamp(30.0, 90.0);
+
+        // Recalculate diameter based on clamped radii to be exact
+        // This ensures the chart fits perfectly in the sized box we return
+        final double actualDiameter =
+            (centerRadius + sectionRadius) * 2 + 40; // +40 margin
 
         if (isWide) {
           return Row(
             crossAxisAlignment:
                 CrossAxisAlignment.center, // Vertically center with list
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Expanded(
-                flex: 2,
+              // Constrain the chart side
+              Container(
+                constraints: BoxConstraints(
+                  maxWidth: actualDiameter,
+                  maxHeight: actualDiameter,
+                ),
                 child: AspectRatio(
                   aspectRatio: 1,
-                  child: _buildPieChart(context, filteredTotals),
+                  child: _buildPieChart(
+                    context,
+                    filteredTotals,
+                    centerRadius,
+                    sectionRadius,
+                  ),
                 ),
               ),
-              const SizedBox(width: 24),
-              Expanded(
-                flex: 3,
-                child: _buildCategoryList(context, filteredTotals),
-              ),
+              const SizedBox(width: 48), // Increased gap
+              Expanded(child: _buildCategoryList(context, filteredTotals)),
             ],
           );
         } else {
           return Column(
             children: [
               SizedBox(
-                height: 300,
-                child: _buildPieChart(context, filteredTotals),
+                height: isWide ? maxDiameter : 300,
+                child: _buildPieChart(
+                  context,
+                  filteredTotals,
+                  centerRadius,
+                  sectionRadius,
+                ),
               ),
               const SizedBox(height: 24),
               _buildCategoryList(context, filteredTotals),
@@ -83,13 +125,15 @@ class CategoryPieChart extends StatelessWidget {
   Widget _buildPieChart(
     BuildContext context,
     List<MapEntry<String, double>> filteredTotals,
+    double centerRadius,
+    double sectionRadius,
   ) {
     return PieChart(
       PieChartData(
         startDegreeOffset: -90, // Start from 12 o'clock
         sectionsSpace: 2,
-        centerSpaceRadius: 40,
-        sections: _buildSections(context, filteredTotals),
+        centerSpaceRadius: centerRadius,
+        sections: _buildSections(context, filteredTotals, sectionRadius),
         borderData: FlBorderData(show: false),
       ),
     );
@@ -250,6 +294,7 @@ class CategoryPieChart extends StatelessWidget {
   List<PieChartSectionData> _buildSections(
     BuildContext context,
     List<MapEntry<String, double>> filteredTotals,
+    double sectionRadius,
   ) {
     final totalSum = filteredTotals.fold(
       0.0,
@@ -308,22 +353,31 @@ class CategoryPieChart extends StatelessWidget {
 
       // Smart label logic
       String title = '';
-      if (percentage > 15) {
+      // Adjust label visibility threshold based on radius
+      // Smaller radius = less space for text
+      final labelThreshold = sectionRadius < 50
+          ? 20
+          : (sectionRadius < 80 ? 10 : 5);
+
+      if (percentage > labelThreshold + 10) {
         // Large slice: Show everything
         title = '${percentage.toStringAsFixed(0)}%\n$formattedValue';
-      } else if (percentage > 5) {
+      } else if (percentage > labelThreshold) {
         // Medium slice: Show only percentage
         title = '${percentage.toStringAsFixed(0)}%';
       }
-      // Small slice (< 5%): Show nothing to prevent clutter
+      // Small slice: Show nothing to prevent clutter
 
       return PieChartSectionData(
         color: adjustedColor,
         value: entry.value,
         title: title,
-        radius: 80,
+        radius: sectionRadius,
         titleStyle: TextStyle(
-          fontSize: 11,
+          fontSize: (sectionRadius / 7.5).clamp(
+            9.0,
+            14.0,
+          ), // Responsive font size
           fontWeight: FontWeight.bold,
           color: textColor,
         ),
@@ -354,7 +408,7 @@ class CategoryPieChart extends StatelessWidget {
       Colors.blue,
       Colors.red,
       Colors.green,
-      Colors.yellow,
+      Colors.amber, // Was Colors.yellow, changed to Amber for better visibility
       Colors.purple,
       Colors.orange,
       Colors.teal,
