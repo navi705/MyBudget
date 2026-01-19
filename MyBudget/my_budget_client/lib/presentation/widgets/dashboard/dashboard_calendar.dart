@@ -192,13 +192,13 @@ class DashboardCalendar extends StatelessWidget {
               if (income > 0)
                 _buildMiniStat(
                   context,
-                  '+${NumberFormat.compact().format(income)}${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
+                  '+${NumberFormat.compact().format(income)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
                   Colors.green,
                 ),
               if (expense > 0)
                 _buildMiniStat(
                   context,
-                  '-${NumberFormat.compact().format(expense)}${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
+                  '-${NumberFormat.compact().format(expense)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
                   Colors.red,
                 ),
             ],

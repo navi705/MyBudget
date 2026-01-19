@@ -151,6 +151,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     dailyIncomes: state.dailyIncomes,
                     dailyExpenses: state.dailyExpenses,
                     currencyCode: state.selectedCurrency,
+                    currencyDesignations: state.currencyDesignations, // Added
                   ),
                   const Divider(),
                   DayBalanceDetails(

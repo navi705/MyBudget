@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/domain/entities/currency_designation.dart';
 
 class PeriodSummaryWidget extends StatelessWidget {
   final DateTime dateRangeStart;
@@ -7,6 +8,7 @@ class PeriodSummaryWidget extends StatelessWidget {
   final Map<DateTime, double> dailyIncomes;
   final Map<DateTime, double> dailyExpenses;
   final String currencyCode;
+  final Map<String, CurrencyDesignation> currencyDesignations; // Added
 
   const PeriodSummaryWidget({
     super.key,
@@ -15,6 +17,7 @@ class PeriodSummaryWidget extends StatelessWidget {
     required this.dailyIncomes,
     required this.dailyExpenses,
     required this.currencyCode,
+    required this.currencyDesignations, // Added
   });
 
   @override
@@ -44,12 +47,12 @@ class PeriodSummaryWidget extends StatelessWidget {
 
     final net = totalIncome - totalExpense;
     final theme = Theme.of(context);
-    // CHANGE: Use compact format without currency prefix for cleaner display
-    // CHANGE: Use fixed 2 decimal places
-    final formatter = NumberFormat.simpleCurrency(
-      name: currencyCode,
-      decimalDigits: 2,
-    );
+    // Use custom currency symbol from database, fallback to code if not found
+    final designation = currencyDesignations.values
+        .cast<CurrencyDesignation?>()
+        .firstWhere((d) => d?.currencyCode == currencyCode, orElse: () => null);
+    final currencySymbol = designation?.value ?? currencyCode;
+    final numberFormatter = NumberFormat.decimalPatternDigits(decimalDigits: 2);
 
     return Card(
       elevation: 0,
@@ -75,21 +78,24 @@ class PeriodSummaryWidget extends StatelessWidget {
                   'Income',
                   totalIncome,
                   Colors.green,
-                  formatter,
+                  numberFormatter,
+                  currencySymbol,
                 ),
                 _buildStat(
                   context,
                   'Expense',
                   totalExpense,
                   Colors.red,
-                  formatter,
+                  numberFormatter,
+                  currencySymbol,
                 ),
                 _buildStat(
                   context,
                   'Net',
                   net,
                   net >= 0 ? Colors.green : Colors.red,
-                  formatter,
+                  numberFormatter,
+                  currencySymbol,
                   showSign: true,
                 ),
               ],
@@ -105,10 +111,12 @@ class PeriodSummaryWidget extends StatelessWidget {
     String label,
     double amount,
     Color color,
-    NumberFormat formatter, {
+    NumberFormat numberFormatter,
+    String currencySymbol, {
     bool showSign = false,
   }) {
-    String text = formatter.format(amount);
+    // Format: "123.45 €" (number, space, symbol)
+    String text = '${numberFormatter.format(amount)} $currencySymbol';
     if (showSign && amount > 0) {
       text = '+$text';
     }
