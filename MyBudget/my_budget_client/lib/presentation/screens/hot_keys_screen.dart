@@ -63,22 +63,22 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
                 {'id': 'data', 'label': 'Go to Data / Exchange Rates'},
                 {'id': 'settings', 'label': 'Go to Settings'},
               ],
-              'Dashboard Tabs': [
+              'Dashboard Tabs (Ctrl + 1/2/3)': [
                 {'id': 'dashboard_tab_1', 'label': 'Calendar Tab'},
                 {'id': 'dashboard_tab_2', 'label': 'Categories Tab'},
                 {'id': 'dashboard_tab_3', 'label': 'Balance Tab'},
+              ],
+              'Data Tabs (Ctrl + 1/2/3)': [
+                {'id': 'data_tab_1', 'label': 'Exchange Rates'},
+                {'id': 'data_tab_2', 'label': 'Inflation'},
+                {'id': 'data_tab_3', 'label': 'Assets'},
               ],
               'Period Control': [
                 {'id': 'prev_period', 'label': 'Previous Period'},
                 {'id': 'next_period', 'label': 'Next Period'},
               ],
-              'Add Actions': [
-                {'id': 'add_transaction', 'label': 'Add Transaction'},
-                {'id': 'add_account', 'label': 'Add Account'},
-                {'id': 'add_category', 'label': 'Add Category'},
-                {'id': 'add_exchange_rate', 'label': 'Add Exchange Rate'},
-                {'id': 'add_inflation_rate', 'label': 'Add Inflation Rate'},
-                {'id': 'add_asset', 'label': 'Add Asset'},
+              'Actions': [
+                {'id': 'add_action', 'label': 'Generic Add Action'},
               ],
               'Selection Mode': [
                 {'id': 'accounts_selection_close', 'label': 'Accounts: Close'},
@@ -126,22 +126,6 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
                   'id': 'exchange_rates_selection_change_preset',
                   'label': 'Data: Change Preset',
                 },
-              ],
-              'Automation & API': [
-                {'id': 'api_fetch_rates', 'label': 'Fetch Exchange Rates'},
-                {'id': 'api_fetch_steam', 'label': 'Fetch Steam Inventory'},
-                {'id': 'api_fetch_inflation', 'label': 'Fetch Inflation Data'},
-              ],
-              'Settings Management': [
-                {'id': 'settings_icons', 'label': 'Manage Icons'},
-                {'id': 'settings_theme', 'label': 'Manage Theme'},
-                {'id': 'settings_currency', 'label': 'Main Currency'},
-                {'id': 'settings_country', 'label': 'Inflation Country'},
-                {'id': 'settings_hotkeys', 'label': 'Hot Keys'},
-                {'id': 'settings_import', 'label': 'Import Data'},
-                {'id': 'settings_export', 'label': 'Export Data'},
-                {'id': 'settings_api', 'label': 'API Management'},
-                {'id': 'settings_reset', 'label': 'Reset Data'},
               ],
             };
 

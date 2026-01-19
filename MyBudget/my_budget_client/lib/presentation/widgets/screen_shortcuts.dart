@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/utils/hotkey_utils.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
@@ -18,8 +19,7 @@ class ScreenShortcuts extends StatelessWidget {
     return BlocBuilder<SettingsBloc, SettingsState>(
       buildWhen: (previous, current) => previous.hotkeys != current.hotkeys,
       builder: (context, state) {
-        final bindings = <ShortcutActivator, VoidCallback>{};
-
+        final Map<SingleActivator, VoidCallback> bindings = {};
         actions.forEach((id, callback) {
           final keyString = state.hotkeys[id];
           if (keyString != null && keyString.isNotEmpty) {
@@ -30,19 +30,22 @@ class ScreenShortcuts extends StatelessWidget {
           }
         });
 
-        // Use Focus to ensure the Shortcuts are in the focus tree
-        // Note: The child usually contains focusable elements (buttons, text fields).
-        // If the child has no focusable elements, we might need autfocus here.
-        // But usually Scaffold implies some focus structure.
-        return CallbackShortcuts(
-          bindings: bindings,
-          child: Focus(
-            autofocus: true,
-            debugLabel: 'ScreenShortcutsFocus',
-            // Allow focus to move to children
-            canRequestFocus: true,
-            child: child,
-          ),
+        return Focus(
+          autofocus: true,
+          debugLabel: 'ScreenShortcutsFocus ($actions)',
+          canRequestFocus: true,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent) {
+              for (final entry in bindings.entries) {
+                if (entry.key.accepts(event, HardwareKeyboard.instance)) {
+                  entry.value();
+                  return KeyEventResult.handled;
+                }
+              }
+            }
+            return KeyEventResult.ignored;
+          },
+          child: child,
         );
       },
     );

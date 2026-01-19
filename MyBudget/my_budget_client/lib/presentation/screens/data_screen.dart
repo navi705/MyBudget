@@ -4,6 +4,7 @@ import 'package:my_budget_client/presentation/widgets/navigation/navigation_tab_
 import 'package:my_budget_client/presentation/screens/exchange_rates_screen.dart';
 import 'package:my_budget_client/presentation/widgets/asset_tab.dart';
 import 'package:my_budget_client/presentation/widgets/inflation_tab.dart';
+import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
 
 class DataScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -24,20 +25,32 @@ class _DataScreenState extends State<DataScreen> {
       initialIndex: widget.initialTabIndex,
       child: Builder(
         builder: (context) {
-          return Column(
-            children: [
-              if (!isDesktop) _buildTabBar(context),
-              const Expanded(
-                child: TabBarView(
-                  children: [
-                    ExchangeRatesScreen(isStandalone: false),
-                    InflationTab(),
-                    AssetTab(),
-                  ],
+          final tabController = DefaultTabController.of(context);
+          return ScreenShortcuts(
+            actions: {
+              'data_tab_1': () => tabController.index = 0,
+              'data_tab_2': () => tabController.index = 1,
+              'data_tab_3': () => tabController.index = 2,
+              'add_action': () {
+                // This is a placeholder; actual add is handled by child screens
+              },
+            },
+            child: Column(
+              children: [
+                if (!isDesktop) _buildTabBar(context),
+                const Expanded(
+                  child: TabBarView(
+                    physics: NeverScrollableScrollPhysics(),
+                    children: [
+                      ExchangeRatesScreen(isStandalone: false),
+                      InflationTab(),
+                      AssetTab(),
+                    ],
+                  ),
                 ),
-              ),
-              if (isDesktop) _buildTabBar(context),
-            ],
+                if (isDesktop) _buildTabBar(context),
+              ],
+            ),
           );
         },
       ),
@@ -59,7 +72,7 @@ class _DataScreenState extends State<DataScreen> {
             NavigationTabBarItem(icon: Icons.inventory_2, label: 'Assets'),
           ],
           selectedIndex: tabController.index,
-          onTap: (index) => tabController.animateTo(index),
+          onTap: (index) => tabController.index = index,
         );
       },
     );

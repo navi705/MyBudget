@@ -19,6 +19,7 @@ import 'package:my_budget_client/presentation/screens/transactions_screen.dart';
 import 'package:my_budget_client/presentation/screens/categories_screen.dart';
 import 'package:my_budget_client/presentation/screens/data_screen.dart';
 import 'package:my_budget_client/presentation/screens/api_settings_screen.dart';
+import 'package:my_budget_client/presentation/screens/sms_settings_screen.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 
 // Private navigator keys
@@ -149,6 +150,12 @@ final GoRouter router = GoRouter(
       path: AppRoutes.apiSettings,
       pageBuilder: (context, state) {
         return _buildPage(const ApiSettingsScreen());
+      },
+    ),
+    GoRoute(
+      path: AppRoutes.smsSettings,
+      pageBuilder: (context, state) {
+        return _buildPage(const SmsSettingsScreen());
       },
     ),
   ],

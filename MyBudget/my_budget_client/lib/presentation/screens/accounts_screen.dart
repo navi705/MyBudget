@@ -289,7 +289,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
     return ScreenShortcuts(
       actions: {
-        'add_account': () {
+        'add_action': () {
           showDialog(
             context: context,
             builder: (dialogContext) => MultiBlocProvider(
@@ -514,7 +514,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
         floatingActionButton: MultiLevelTooltip(
           message: 'Add Account',
-          actionId: 'add_account',
+          actionId: 'add_action',
           description: 'Create a new bank account, wallet, or asset',
           child: FloatingActionButton(
             onPressed: () {

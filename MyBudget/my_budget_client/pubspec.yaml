@@ -45,6 +45,9 @@ dependencies:
   flutter_date_pickers: ^0.4.3
   share_plus: ^10.0.0
   json_annotation: ^4.9.0
+  telephony: ^0.2.0
+  permission_handler: ^11.3.1
+  shared_preferences: ^2.3.5
 dev_dependencies:
   flutter_test:
     sdk: flutter

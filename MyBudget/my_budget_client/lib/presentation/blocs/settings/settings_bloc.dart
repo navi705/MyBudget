@@ -166,31 +166,25 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       LogicalKeyboardKey.digit3,
     });
 
+    // Data Tabs
+    addIfMissing('data_tab_1', {
+      LogicalKeyboardKey.control,
+      LogicalKeyboardKey.digit1,
+    });
+    addIfMissing('data_tab_2', {
+      LogicalKeyboardKey.control,
+      LogicalKeyboardKey.digit2,
+    });
+    addIfMissing('data_tab_3', {
+      LogicalKeyboardKey.control,
+      LogicalKeyboardKey.digit3,
+    });
+
     // Period Navigation
     addIfMissing('prev_period', {LogicalKeyboardKey.arrowLeft});
     addIfMissing('next_period', {LogicalKeyboardKey.arrowRight});
 
-    addIfMissing('add_transaction', {
-      LogicalKeyboardKey.control,
-      LogicalKeyboardKey.keyA,
-    });
-    addIfMissing('add_account', {
-      LogicalKeyboardKey.control,
-      LogicalKeyboardKey.keyA,
-    });
-    addIfMissing('add_category', {
-      LogicalKeyboardKey.control,
-      LogicalKeyboardKey.keyA,
-    });
-    addIfMissing('add_exchange_rate', {
-      LogicalKeyboardKey.control,
-      LogicalKeyboardKey.keyA,
-    });
-    addIfMissing('add_inflation_rate', {
-      LogicalKeyboardKey.control,
-      LogicalKeyboardKey.keyA,
-    });
-    addIfMissing('add_asset', {
+    addIfMissing('add_action', {
       LogicalKeyboardKey.control,
       LogicalKeyboardKey.keyA,
     });

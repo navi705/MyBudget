@@ -12,6 +12,7 @@ import 'package:my_budget_client/presentation/widgets/asset_tab_app_bar.dart';
 import 'package:my_budget_client/presentation/widgets/asset_view.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
+import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
 import 'package:uuid/uuid.dart';
 
 class AssetTab extends StatelessWidget {
@@ -204,22 +205,25 @@ class _AssetTabContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AssetBloc, AssetState>(
       builder: (context, state) {
-        return Scaffold(
-          appBar: AssetTabAppBar(state: state),
-          body: AssetView(
-            onEdit: (asset) => _showAddEditAssetDialog(context, asset: asset),
-          ),
-          floatingActionButton: state.isSelectionModeActive
-              ? null
-              : MultiLevelTooltip(
-                  message: 'Add Asset Data',
-                  actionId: 'add_asset',
-                  description: 'Record value or quantity of a specific asset',
-                  child: FloatingActionButton(
-                    onPressed: () => _showAddEditAssetDialog(context),
-                    child: const Icon(Icons.add),
+        return ScreenShortcuts(
+          actions: {'add_action': () => _showAddEditAssetDialog(context)},
+          child: Scaffold(
+            appBar: AssetTabAppBar(state: state),
+            body: AssetView(
+              onEdit: (asset) => _showAddEditAssetDialog(context, asset: asset),
+            ),
+            floatingActionButton: state.isSelectionModeActive
+                ? null
+                : MultiLevelTooltip(
+                    message: 'Add Asset Data',
+                    actionId: 'add_action',
+                    description: 'Record value or quantity of a specific asset',
+                    child: FloatingActionButton(
+                      onPressed: () => _showAddEditAssetDialog(context),
+                      child: const Icon(Icons.add),
+                    ),
                   ),
-                ),
+          ),
         );
       },
     );

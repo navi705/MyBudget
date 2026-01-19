@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
 import 'package:my_budget_client/presentation/widgets/inflation_tab_app_bar.dart';
 import 'package:my_budget_client/presentation/widgets/inflation_view.dart';
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
@@ -133,19 +134,23 @@ class _InflationTabContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<InflationBloc, InflationState>(
       builder: (context, state) {
-        return Scaffold(
-          appBar: InflationTabAppBar(state: state),
-          body: InflationView(
-            onEdit: (rate) => _showAddEditInflationDialog(context, rate: rate),
-          ),
-          floatingActionButton: MultiLevelTooltip(
-            message: 'Add Inflation Rate',
-            actionId: 'add_inflation_rate',
-            description:
-                'Enter a new inflation percentage for a specific date and country',
-            child: FloatingActionButton(
-              onPressed: () => _showAddEditInflationDialog(context),
-              child: const Icon(Icons.add),
+        return ScreenShortcuts(
+          actions: {'add_action': () => _showAddEditInflationDialog(context)},
+          child: Scaffold(
+            appBar: InflationTabAppBar(state: state),
+            body: InflationView(
+              onEdit: (rate) =>
+                  _showAddEditInflationDialog(context, rate: rate),
+            ),
+            floatingActionButton: MultiLevelTooltip(
+              message: 'Add Inflation Rate',
+              actionId: 'add_action',
+              description:
+                  'Enter a new inflation percentage for a specific date and country',
+              child: FloatingActionButton(
+                onPressed: () => _showAddEditInflationDialog(context),
+                child: const Icon(Icons.add),
+              ),
             ),
           ),
         );

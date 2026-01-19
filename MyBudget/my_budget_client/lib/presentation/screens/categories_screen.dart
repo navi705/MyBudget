@@ -262,7 +262,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       },
       child: ScreenShortcuts(
         actions: {
-          'add_category': () {
+          'add_action': () {
             final state = context.read<CategoriesBloc>().state;
             if (state is CategoriesLoadSuccess) {
               _showAddEditCategoryDialog(
@@ -405,7 +405,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               }
               return MultiLevelTooltip(
                 message: 'Add Category',
-                actionId: 'add_category',
+                actionId: 'add_action',
                 description: 'Create a new expense or income category',
                 child: FloatingActionButton(
                   onPressed: () {

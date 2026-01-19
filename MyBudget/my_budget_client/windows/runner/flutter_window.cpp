@@ -65,6 +65,13 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;
+    case WM_SYSCOMMAND:
+      // Suppress the system beep sound when Alt+<key> is pressed.
+      // SC_KEYMENU is sent when Alt key combinations are used.
+      if ((wparam & 0xFFF0) == SC_KEYMENU) {
+        return 0;
+      }
+      break;
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);

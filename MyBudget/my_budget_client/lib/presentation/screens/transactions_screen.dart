@@ -129,7 +129,7 @@ class TransactionsScreen extends StatelessWidget {
               ? null
               : MultiLevelTooltip(
                   message: 'Add Transaction',
-                  actionId: 'add_transaction',
+                  actionId: 'add_action',
                   description: 'Create a new income or expense entry',
                   child: FloatingActionButton(
                     onPressed: () {
@@ -142,7 +142,7 @@ class TransactionsScreen extends StatelessWidget {
 
         return ScreenShortcuts(
           actions: {
-            'add_transaction': () {
+            'add_action': () {
               if (!isSelectionMode) {
                 context.push(AppRoutes.addEditTransaction);
               }

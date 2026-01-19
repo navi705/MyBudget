@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -131,6 +132,16 @@ class SettingsScreen extends StatelessWidget {
                       },
                     ),
                   ),
+                  if (Platform.isAndroid || Platform.isIOS)
+                    ListTile(
+                      leading: const Icon(Icons.sms),
+                      title: const Text('SMS Import'),
+                      subtitle: const Text('Import transactions from bank SMS'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        context.push(AppRoutes.smsSettings);
+                      },
+                    ),
 
                   ListTile(
                     leading: const Icon(Icons.import_export),

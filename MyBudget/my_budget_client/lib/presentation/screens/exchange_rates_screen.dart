@@ -86,7 +86,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
 
         return ScreenShortcuts(
           actions: {
-            'add_exchange_rate': () => _showAddEditExchangeRateDialog(context),
+            'add_action': () => _showAddEditExchangeRateDialog(context),
             'prev_period': () => _navigate(bloc, state, -1),
             'next_period': () => _navigate(bloc, state, 1),
             'exchange_rates_selection_close': () =>
@@ -115,7 +115,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
             body: body,
             floatingActionButton: MultiLevelTooltip(
               message: 'Add Exchange Rate',
-              actionId: 'add_exchange_rate',
+              actionId: 'add_action',
               description:
                   'Manually enter a conversion rate between two currencies',
               child: FloatingActionButton(

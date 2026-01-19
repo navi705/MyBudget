@@ -148,10 +148,10 @@ class _MultiLevelTooltipState extends State<MultiLevelTooltip> {
   }
 
   void _onEnter(PointerEvent event, String hotkeyDisplay) {
+    _showOverlay(context, hotkeyDisplay);
     _hoverTimer?.cancel();
-    _hoverTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        _showOverlay(context, hotkeyDisplay);
+    _hoverTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted && _overlayEntry != null) {
         setState(() {
           _isLevel2 = true;
         });
