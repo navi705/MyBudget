@@ -41,37 +41,25 @@ class DashboardHeader extends StatelessWidget {
 
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Left Arrow
-            MultiLevelTooltip(
-              message: 'Previous Period',
-              actionId: 'prev_period',
-              description: 'Go to the previous month or year',
-              child: IconButton(
-                icon: Icon(Icons.chevron_left, color: onSurface),
-                onPressed: onPrevious,
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+
+        final navigationItems = [
+          // Left Arrow
+          MultiLevelTooltip(
+            message: 'Previous Period',
+            actionId: 'prev_period',
+            description: 'Go to the previous month or year',
+            child: IconButton(
+              icon: Icon(Icons.chevron_left, color: onSurface),
+              onPressed: onPrevious,
             ),
-            // Currency Selector
-            MultiLevelTooltip(
-              message: 'Currency',
-              actionId: 'dashboard_currency',
-              description: 'Select the primary currency for display',
-              child: DashboardCurrencySelector(
-                selectedCurrency: currencyCode,
-                availableCurrencies: availableCurrencies,
-                onCurrencyChanged: onCurrencySelected,
-              ),
-            ),
-            const SizedBox(width: 16),
-            // Center: Title
-            MultiLevelTooltip(
+          ),
+          // Center: Title
+          Expanded(
+            flex: isMobile ? 1 : 0,
+            child: MultiLevelTooltip(
               message: 'Select Date',
               actionId: 'dashboard_pick_date',
               description: 'Open calendar to pick a specific date or range',
@@ -91,62 +79,106 @@ class DashboardHeader extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 16),
-            // DateStep Selector (Month/Year)
-            MultiLevelTooltip(
-              message: 'Change View',
-              actionId: 'dashboard_switch_view',
-              description: 'Switch between Monthly and Yearly views',
-              child: SegmentedButton<DateStep>(
-                segments: const [
-                  ButtonSegment(value: DateStep.month, label: Text('M')),
-                  ButtonSegment(value: DateStep.year, label: Text('Y')),
-                ],
-                selected: {dateStep},
-                onSelectionChanged: (Set<DateStep> newSelection) {
-                  onDateStepChanged(newSelection.first);
-                },
-                showSelectedIcon: false,
-                style: ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: WidgetStateProperty.all(
-                    const EdgeInsets.symmetric(horizontal: 10),
-                  ),
-                  backgroundColor: WidgetStateProperty.resolveWith<Color>((
-                    states,
-                  ) {
-                    if (states.contains(WidgetState.selected)) {
-                      return Theme.of(context).colorScheme.primary;
-                    }
-                    return Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest;
-                  }),
-                  foregroundColor: WidgetStateProperty.resolveWith<Color>((
-                    states,
-                  ) {
-                    if (states.contains(WidgetState.selected)) {
-                      return Theme.of(context).colorScheme.onPrimary;
-                    }
-                    return Theme.of(context).colorScheme.onSurface;
-                  }),
+          ),
+          // Right Arrow
+          MultiLevelTooltip(
+            message: 'Next Period',
+            actionId: 'next_period',
+            description: 'Go to the next month or year',
+            child: IconButton(
+              icon: Icon(Icons.chevron_right, color: onSurface),
+              onPressed: onNext,
+            ),
+          ),
+        ];
+
+        final selectorItems = [
+          // Currency Selector
+          MultiLevelTooltip(
+            message: 'Currency',
+            actionId: 'dashboard_currency',
+            description: 'Select the primary currency for display',
+            child: DashboardCurrencySelector(
+              selectedCurrency: currencyCode,
+              availableCurrencies: availableCurrencies,
+              onCurrencyChanged: onCurrencySelected,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // DateStep Selector (Month/Year)
+          MultiLevelTooltip(
+            message: 'Change View',
+            actionId: 'dashboard_switch_view',
+            description: 'Switch between Monthly and Yearly views',
+            child: SegmentedButton<DateStep>(
+              segments: const [
+                ButtonSegment(value: DateStep.month, label: Text('M')),
+                ButtonSegment(value: DateStep.year, label: Text('Y')),
+              ],
+              selected: {dateStep},
+              onSelectionChanged: (Set<DateStep> newSelection) {
+                onDateStepChanged(newSelection.first);
+              },
+              showSelectedIcon: false,
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: WidgetStateProperty.all(
+                  const EdgeInsets.symmetric(horizontal: 10),
                 ),
+                backgroundColor: WidgetStateProperty.resolveWith<Color>((
+                  states,
+                ) {
+                  if (states.contains(WidgetState.selected)) {
+                    return Theme.of(context).colorScheme.primary;
+                  }
+                  return Theme.of(context).colorScheme.surfaceContainerHighest;
+                }),
+                foregroundColor: WidgetStateProperty.resolveWith<Color>((
+                  states,
+                ) {
+                  if (states.contains(WidgetState.selected)) {
+                    return Theme.of(context).colorScheme.onPrimary;
+                  }
+                  return Theme.of(context).colorScheme.onSurface;
+                }),
               ),
             ),
-            // Right Arrow
-            MultiLevelTooltip(
-              message: 'Next Period',
-              actionId: 'next_period',
-              description: 'Go to the next month or year',
-              child: IconButton(
-                icon: Icon(Icons.chevron_right, color: onSurface),
-                onPressed: onNext,
+          ),
+        ];
+
+        if (isMobile) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: navigationItems,
               ),
-            ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: selectorItems,
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            navigationItems[0], // Left Arrow
+            const SizedBox(width: 8),
+            selectorItems[0], // Currency
+            const SizedBox(width: 16),
+            navigationItems[1], // Title
+            const SizedBox(width: 16),
+            selectorItems[1], // Segments
+            const SizedBox(width: 8),
+            navigationItems[2], // Right Arrow
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 }
