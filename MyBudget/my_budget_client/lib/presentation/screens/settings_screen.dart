@@ -38,6 +38,7 @@ class SettingsScreen extends StatelessWidget {
 
               return ListView(
                 children: [
+                  // Appearance
                   ListTile(
                     leading: const Icon(Icons.palette),
                     title: const Text('Manage Icons'),
@@ -52,6 +53,9 @@ class SettingsScreen extends StatelessWidget {
                       context.push(AppRoutes.themeSettings);
                     },
                   ),
+                  const Divider(),
+
+                  // Regional & General Preferences
                   BlocBuilder<CurrencyBloc, CurrencyState>(
                     builder: (context, currencyState) {
                       if (currencyState is CurrencyLoadSuccess) {
@@ -59,7 +63,6 @@ class SettingsScreen extends StatelessWidget {
                           leading: const Icon(Icons.money),
                           title: const Text('Main Currency'),
                           subtitle: Text(mainCurrencyCode),
-                          trailing: const Icon(Icons.chevron_right),
                           onTap: () async {
                             final selectedCode = await showDialog<String>(
                               context: context,
@@ -108,16 +111,6 @@ class SettingsScreen extends StatelessWidget {
                       },
                     ),
                   ),
-                  const Divider(),
-                  if (!Platform.isAndroid && !Platform.isIOS)
-                    ListTile(
-                      leading: const Icon(Icons.keyboard),
-                      title: const Text('Hot Keys'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        context.push(AppRoutes.hotKeys);
-                      },
-                    ),
                   ListTile(
                     leading: const Icon(Icons.save),
                     title: const Text('Persist Advanced Filters'),
@@ -133,37 +126,61 @@ class SettingsScreen extends StatelessWidget {
                       },
                     ),
                   ),
+                  if (!Platform.isAndroid && !Platform.isIOS)
+                    ListTile(
+                      leading: const Icon(Icons.keyboard),
+                      title: const Text('Hot Keys'),
+                      onTap: () {
+                        context.push(AppRoutes.hotKeys);
+                      },
+                    ),
+                  const Divider(),
+
+                  // Feature-specific & External Data
+                  if (Platform.isAndroid || Platform.isIOS)
+                    ListTile(
+                      leading: const Icon(Icons.bar_chart),
+                      title: const Text('Data'),
+                      onTap: () {
+                        context.push(AppRoutes.exchangeRates);
+                      },
+                    ),
                   if (Platform.isAndroid || Platform.isIOS)
                     ListTile(
                       leading: const Icon(Icons.sms),
                       title: const Text('SMS Import'),
                       subtitle: const Text('Import transactions from bank SMS'),
-                      trailing: const Icon(Icons.chevron_right),
                       onTap: () {
                         context.push(AppRoutes.smsSettings);
                       },
                     ),
+                  ListTile(
+                    leading: const Icon(Icons.api),
+                    title: const Text('API Management'),
+                    onTap: () {
+                      context.push(AppRoutes.apiSettings);
+                    },
+                  ),
+                  const Divider(),
 
+                  // Synchronization
                   ListTile(
                     leading: const Icon(Icons.sync),
                     title: const Text('Sync Settings'),
                     subtitle: const Text('P2P sync via Syncthing'),
-                    trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       context.push(AppRoutes.syncSettings);
                     },
                   ),
+                  const Divider(),
+
+                  // Data Operations (Import/Export)
                   ListTile(
                     leading: const Icon(Icons.import_export),
                     title: const Text('Import Data'),
                     onTap: () {
                       context.push(AppRoutes.importScreen);
                     },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.currency_exchange),
-                    title: const Text('Import Exchange Rates (CSV/JSON)'),
-                    onTap: () => _importExchangeRates(context),
                   ),
                   ListTile(
                     leading: const Icon(Icons.file_download),
@@ -197,13 +214,13 @@ class SettingsScreen extends StatelessWidget {
                     },
                   ),
                   ListTile(
-                    leading: const Icon(Icons.api),
-                    title: const Text('API Management'),
-                    onTap: () {
-                      context.push(AppRoutes.apiSettings);
-                    },
+                    leading: const Icon(Icons.currency_exchange),
+                    title: const Text('Import Exchange Rates (CSV/JSON)'),
+                    onTap: () => _importExchangeRates(context),
                   ),
                   const Divider(),
+
+                  // System / Danger Zone
                   ListTile(
                     leading: const Icon(Icons.restore_page, color: Colors.red),
                     title: const Text(

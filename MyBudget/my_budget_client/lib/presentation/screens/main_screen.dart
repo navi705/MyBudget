@@ -13,7 +13,7 @@ class MainScreen extends StatelessWidget {
   final Widget child;
 
   List<NavigationItem> get _destinations {
-    const baseDestinations = [
+    final baseDestinations = [
       NavigationItem(
         label: 'Dashboard',
         icon: Icons.dashboard,
@@ -46,14 +46,15 @@ class MainScreen extends StatelessWidget {
         hotkeyId: 'categories',
         tooltipDescription: 'Organize your spending habits',
       ),
-      NavigationItem(
-        label: 'Data',
-        icon: Icons.bar_chart,
-        route: AppRoutes.exchangeRates,
-        tooltip: 'Exchange Rates',
-        hotkeyId: 'data',
-        tooltipDescription: 'View currency exchange rates',
-      ),
+      if (!Platform.isAndroid && !Platform.isIOS)
+        const NavigationItem(
+          label: 'Data',
+          icon: Icons.bar_chart,
+          route: AppRoutes.exchangeRates,
+          tooltip: 'Exchange Rates',
+          hotkeyId: 'data',
+          tooltipDescription: 'View currency exchange rates',
+        ),
       NavigationItem(
         label: 'Settings',
         icon: Icons.settings,
