@@ -83,6 +83,7 @@ mixin _$AssetEntriesDaoMixin on DatabaseAccessor<AppDatabase> {
   $AccountTypesTable get accountTypes => attachedDatabase.accountTypes;
   $AccountsTable get accounts => attachedDatabase.accounts;
   $AssetEntriesTable get assetEntries => attachedDatabase.assetEntries;
+  $SyncLogTable get syncLog => attachedDatabase.syncLog;
 }
 
 class $LanguagesTable extends Languages

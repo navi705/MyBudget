@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:my_budget_client/core/utils/device_utils.dart' as dev_utils;
 
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 
@@ -1449,12 +1450,7 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
         .get();
   }
 
-  Future<String> getDeviceName() async {
-    final firstSetting = await (select(
-      db.settings,
-    )..limit(1)).getSingleOrNull();
-    return firstSetting?.device ?? 'default';
-  }
+  Future<String> getDeviceName() => dev_utils.getDeviceName();
 }
 
 @DriftAccessor(tables: [ExchangeRates])
@@ -2175,7 +2171,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 1;
 
   @override
   MigrationStrategy get migration {
@@ -2183,150 +2179,6 @@ class AppDatabase extends _$AppDatabase {
       onCreate: (Migrator m) async {
         await m.createAll();
         await _seedData(this);
-      },
-      onUpgrade: (Migrator m, int from, int to) async {
-        if (from < 7) {
-          await m.addColumn(accounts, accounts.creationDate);
-        }
-        if (from < 8) {
-          // idx_transactions_date is now handled by @TableIndex,
-          // but for existing migrations we still run it if needed.
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions (date)',
-          );
-        }
-        if (from < 10) {
-          if (from < 9) {
-            await customStatement(
-              'CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions (account_id)',
-            );
-            await customStatement(
-              'CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions (category_id)',
-            );
-            await customStatement(
-              'CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates (date)',
-            );
-          }
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
-          );
-        }
-        if (from < 11) {
-          await m.createTable(customThemes);
-        }
-        if (from < 12) {
-          // Recreate ExchangeRates table to update Primary Key
-          await m.deleteTable('exchange_rates');
-          await m.createTable(exchangeRates);
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates (date)',
-          );
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
-          );
-        }
-        if (from < 13) {
-          // Explicitly drop the problematic index if it exists
-          await customStatement(
-            'DROP INDEX IF EXISTS idx_exchange_rates_composite',
-          );
-          // Re-recreate the table to be absolutely certain the PK is correct
-          await m.deleteTable('exchange_rates');
-          await m.createTable(exchangeRates);
-
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates (date)',
-          );
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
-          );
-        }
-        if (from < 15) {
-          await m.createTable(assetEntries);
-        }
-        if (from < 16) {
-          await m.createTable(apiFetchStatuses);
-        }
-        if (from < 17) {
-          // Ensure all new/existing indices are created for existing users using custom statements
-          // as they are more robust during migration when generated objects might differ.
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions (date)',
-          );
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions (account_id)',
-          );
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions (category_id)',
-          );
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates (date)',
-          );
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
-          );
-        }
-        if (from < 18) {
-          await customStatement(
-            "ALTER TABLE asset_entries ADD COLUMN currency_code TEXT NOT NULL DEFAULT 'EUR' REFERENCES currencies(code)",
-          );
-          await customStatement(
-            "ALTER TABLE asset_entries ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'",
-          );
-        }
-        if (from < 19) {
-          // Add new sync tables
-          await m.createTable(syncLog);
-          await m.createTable(conflictHistory);
-          await m.createTable(customDataSources);
-          await m.createTable(apiSettingsTable);
-          await m.createTable(smsPresets);
-
-          // Add sync columns to Transactions
-          await m.addColumn(transactions, transactions.modifiedAt);
-          await m.addColumn(transactions, transactions.deviceId);
-          await m.addColumn(transactions, transactions.isDeleted);
-
-          // Add sync columns to Accounts
-          await m.addColumn(accounts, accounts.modifiedAt);
-          await m.addColumn(accounts, accounts.deviceId);
-          await m.addColumn(accounts, accounts.isDeleted);
-
-          // Add sync columns to Categories
-          await m.addColumn(categories, categories.modifiedAt);
-          await m.addColumn(categories, categories.deviceId);
-          await m.addColumn(categories, categories.isDeleted);
-
-          // Add sync columns to Styles
-          await m.addColumn(styles, styles.modifiedAt);
-          await m.addColumn(styles, styles.deviceId);
-          await m.addColumn(styles, styles.isDeleted);
-
-          // Add sync columns to ExchangeRates
-          await m.addColumn(exchangeRates, exchangeRates.modifiedAt);
-          await m.addColumn(exchangeRates, exchangeRates.deviceId);
-          await m.addColumn(exchangeRates, exchangeRates.sourceId);
-
-          // Add sync columns to InflationRates
-          await m.addColumn(inflationRates, inflationRates.modifiedAt);
-          await m.addColumn(inflationRates, inflationRates.deviceId);
-          await m.addColumn(inflationRates, inflationRates.sourceId);
-
-          // Add sync columns to AssetEntries
-          await m.addColumn(assetEntries, assetEntries.modifiedAt);
-          await m.addColumn(assetEntries, assetEntries.deviceId);
-          await m.addColumn(assetEntries, assetEntries.sourceId);
-          await m.addColumn(assetEntries, assetEntries.isDeleted);
-
-          // Add sync columns to Settings
-          await m.addColumn(settings, settings.modifiedAt);
-          await m.addColumn(settings, settings.deviceId);
-
-          // Add sync columns to CustomThemes
-          await m.addColumn(customThemes, customThemes.modifiedAt);
-          await m.addColumn(customThemes, customThemes.deviceId);
-          await m.addColumn(customThemes, customThemes.isDeleted);
-        }
       },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON');

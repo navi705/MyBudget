@@ -46,7 +46,10 @@ class SyncService {
   Future<void> init() async {
     debugPrint('[SYNC_DEBUG] SyncService.init() called');
     try {
+      debugPrint('[SYNC_DEBUG] Loading sync_enabled setting...');
       final enabledSetting = await _db.settingsDao.getSetting('sync_enabled');
+
+      debugPrint('[SYNC_DEBUG] Loading sync_folder_path setting...');
       final folderSetting = await _db.settingsDao.getSetting(
         'sync_folder_path',
       );
