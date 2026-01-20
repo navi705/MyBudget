@@ -639,19 +639,14 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
     final bloc = context.read<ExchangeRatesBloc>();
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     final centerWidget = Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: isMobile
+          ? MainAxisAlignment.spaceBetween
+          : MainAxisAlignment.center,
+      mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
       children: [
-        MultiLevelTooltip(
-          message: 'Filter',
-          actionId: 'filter_exchange_rates',
-          description: 'Filter rates by from/to currency and preset ID',
-          child: IconButton(
-            icon: Icon(Icons.tune, color: onSurface),
-            onPressed: () => _showFilterDialog(context),
-          ),
-        ),
         MultiLevelTooltip(
           message: 'Previous Period',
           actionId: 'prev_period',
@@ -661,23 +656,74 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
             onPressed: () => _navigateInAppBar(context, bloc, -1),
           ),
         ),
-        MultiLevelTooltip(
-          message: 'Select Date',
-          actionId: 'exchange_rates_pick_date',
-          description:
-              'Choose a specific date or range to view historical rates',
-          child: InkWell(
-            onTap: () => _showCustomCalendar(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12.0),
-              alignment: Alignment.center,
-              child: Text(
-                _formatDate(context),
-                style: TextStyle(color: onSurface, fontSize: 18),
+        if (isMobile)
+          MultiLevelTooltip(
+            message: 'Filter',
+            actionId: 'filter_exchange_rates',
+            description: 'Filter rates by from/to currency and preset ID',
+            child: IconButton(
+              icon: Icon(Icons.tune, color: onSurface),
+              onPressed: () => _showFilterDialog(context),
+            ),
+          )
+        else if (!isMobile) ...[
+          MultiLevelTooltip(
+            message: 'Filter',
+            actionId: 'filter_exchange_rates',
+            description: 'Filter rates by from/to currency and preset ID',
+            child: IconButton(
+              icon: Icon(Icons.tune, color: onSurface),
+              onPressed: () => _showFilterDialog(context),
+            ),
+          ),
+        ],
+        if (!isMobile) const SizedBox(width: 8),
+        Expanded(
+          flex: isMobile ? 1 : 0,
+          child: MultiLevelTooltip(
+            message: 'Select Date',
+            actionId: 'exchange_rates_pick_date',
+            description:
+                'Choose a specific date or range to view historical rates',
+            child: InkWell(
+              onTap: () => _showCustomCalendar(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12.0),
+                alignment: Alignment.center,
+                child: Text(
+                  _formatDate(context),
+                  style: TextStyle(
+                    color: onSurface,
+                    fontSize: isMobile ? 16 : 18,
+                    fontWeight: isMobile ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
               ),
             ),
           ),
         ),
+        if (isMobile)
+          MultiLevelTooltip(
+            message: 'Sort Order',
+            actionId: 'exchange_rates_sort',
+            description:
+                'Switch between ascending and descending date/rate order',
+            child: RotatedBox(
+              quarterTurns: state.sort == Sort.ascending ? 2 : 0,
+              child: IconButton(
+                icon: Icon(Icons.sort, color: onSurface),
+                onPressed: () {
+                  final newSort = state.sort == Sort.ascending
+                      ? Sort.descending
+                      : Sort.ascending;
+                  bloc.add(ChangeExchangeRatesSort(newSort));
+                },
+              ),
+            ),
+          )
+        else if (!isMobile) ...[
+          const SizedBox(width: 8),
+        ],
         MultiLevelTooltip(
           message: 'Next Period',
           actionId: 'next_period',
@@ -687,25 +733,27 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
             onPressed: () => _navigateInAppBar(context, bloc, 1),
           ),
         ),
-        const SizedBox(width: 24),
-        MultiLevelTooltip(
-          message: 'Sort Order',
-          actionId: 'exchange_rates_sort',
-          description:
-              'Switch between ascending and descending date/rate order',
-          child: RotatedBox(
-            quarterTurns: state.sort == Sort.ascending ? 2 : 0,
-            child: IconButton(
-              icon: Icon(Icons.sort, color: onSurface),
-              onPressed: () {
-                final newSort = state.sort == Sort.ascending
-                    ? Sort.descending
-                    : Sort.ascending;
-                bloc.add(ChangeExchangeRatesSort(newSort));
-              },
+        if (!isMobile) ...[
+          const SizedBox(width: 24),
+          MultiLevelTooltip(
+            message: 'Sort Order',
+            actionId: 'exchange_rates_sort',
+            description:
+                'Switch between ascending and descending date/rate order',
+            child: RotatedBox(
+              quarterTurns: state.sort == Sort.ascending ? 2 : 0,
+              child: IconButton(
+                icon: Icon(Icons.sort, color: onSurface),
+                onPressed: () {
+                  final newSort = state.sort == Sort.ascending
+                      ? Sort.descending
+                      : Sort.ascending;
+                  bloc.add(ChangeExchangeRatesSort(newSort));
+                },
+              ),
             ),
           ),
-        ),
+        ],
       ],
     );
 

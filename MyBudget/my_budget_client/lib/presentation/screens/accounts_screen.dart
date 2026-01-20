@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
-import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
@@ -19,7 +18,6 @@ import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart'
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/presentation/widgets/total_balance_summary_widget.dart';
-import 'package:my_budget_client/presentation/widgets/currency_selection_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
 
@@ -60,35 +58,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final currentScroll = _scrollController.offset;
     // Load more when we are at 90% of the screen
     return currentScroll >= (maxScroll * 0.9);
-  }
-
-  Future<void> _showCurrencySelectionDialog(BuildContext context) async {
-    final converterBloc = context.read<CurrencyConverterBloc>();
-    final currentState = converterBloc.state;
-    if (currentState is! CurrencyConverterLoadSuccess) return;
-
-    final result = await showDialog<List<Currency>>(
-      context: context,
-      builder: (dialogContext) {
-        return CurrencySelectionDialog(
-          allCurrencies: currentState.allCurrencies,
-          selectedCurrencies: currentState.selectedCurrencies,
-        );
-      },
-    );
-
-    if (result != null) {
-      // Clear current selections
-      for (final currency in List<Currency>.from(
-        currentState.selectedCurrencies,
-      )) {
-        converterBloc.add(RemoveSelectedCurrency(currency));
-      }
-      // Add new selections
-      for (final currency in result) {
-        converterBloc.add(AddSelectedCurrency(currency));
-      }
-    }
   }
 
   void _showDeleteConfirmationDialog(
@@ -891,21 +860,14 @@ class _AccountsDateAppBar extends StatelessWidget
   Widget build(BuildContext context) {
     final bloc = context.read<AccountsBloc>();
     final onSurface = Theme.of(context).colorScheme.onSurface;
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     final centerWidget = Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: isMobile
+          ? MainAxisAlignment.spaceBetween
+          : MainAxisAlignment.center,
+      mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
       children: [
-        MultiLevelTooltip(
-          message: 'Filter',
-          actionId: 'filter_accounts',
-          description: 'Filter accounts by type or hidden status',
-          child: IconButton(
-            icon: Icon(Icons.tune, color: onSurface),
-            onPressed: () {
-              showAccountFilterDialog(context, state.filters);
-            },
-          ),
-        ),
         MultiLevelTooltip(
           message: 'Previous Period',
           actionId: 'prev_period',
@@ -915,8 +877,34 @@ class _AccountsDateAppBar extends StatelessWidget
             onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
           ),
         ),
+        if (isMobile)
+          MultiLevelTooltip(
+            message: 'Filter',
+            actionId: 'filter_accounts',
+            description: 'Filter accounts by type or hidden status',
+            child: IconButton(
+              icon: Icon(Icons.tune, color: onSurface),
+              onPressed: () {
+                showAccountFilterDialog(context, state.filters);
+              },
+            ),
+          )
+        else if (!isMobile) ...[
+          MultiLevelTooltip(
+            message: 'Filter',
+            actionId: 'filter_accounts',
+            description: 'Filter accounts by type or hidden status',
+            child: IconButton(
+              icon: Icon(Icons.tune, color: onSurface),
+              onPressed: () {
+                showAccountFilterDialog(context, state.filters);
+              },
+            ),
+          ),
+        ],
+        if (!isMobile) const SizedBox(width: 8),
         Expanded(
-          flex: MediaQuery.of(context).size.width < 600 ? 1 : 0,
+          flex: isMobile ? 1 : 0,
           child: MultiLevelTooltip(
             message: 'Select Date',
             actionId: 'accounts_pick_date',
@@ -928,12 +916,37 @@ class _AccountsDateAppBar extends StatelessWidget
                 alignment: Alignment.center,
                 child: Text(
                   _formatDate(context, state),
-                  style: TextStyle(color: onSurface, fontSize: 18),
+                  style: TextStyle(
+                    color: onSurface,
+                    fontSize: isMobile ? 16 : 18,
+                    fontWeight: isMobile ? FontWeight.bold : FontWeight.normal,
+                  ),
                 ),
               ),
             ),
           ),
         ),
+        if (isMobile)
+          MultiLevelTooltip(
+            message: 'Sort Order',
+            actionId: 'accounts_sort',
+            description:
+                'Switch between ascending and descending balance order',
+            child: RotatedBox(
+              quarterTurns: state.sortAscending ? 2 : 0,
+              child: IconButton(
+                icon: Icon(Icons.sort, color: onSurface),
+                onPressed: () {
+                  context.read<AccountsBloc>().add(
+                    SortAccounts(!state.sortAscending),
+                  );
+                },
+              ),
+            ),
+          )
+        else if (!isMobile) ...[
+          const SizedBox(width: 8),
+        ],
         MultiLevelTooltip(
           message: 'Next Period',
           actionId: 'next_period',
@@ -943,43 +956,32 @@ class _AccountsDateAppBar extends StatelessWidget
             onPressed: () => bloc.add(const DatePeriodNavigated(1)),
           ),
         ),
-        SizedBox(width: MediaQuery.of(context).size.width < 600 ? 8 : 24),
-        MultiLevelTooltip(
-          message: 'Sort Order',
-          actionId: 'accounts_sort',
-          description: 'Switch between ascending and descending balance order',
-          child: RotatedBox(
-            quarterTurns: state.sortAscending ? 2 : 0,
-            child: IconButton(
-              icon: Icon(Icons.sort, color: onSurface),
-              onPressed: () {
-                context.read<AccountsBloc>().add(
-                  SortAccounts(!state.sortAscending),
-                );
-              },
+        if (!isMobile) ...[
+          const SizedBox(width: 24),
+          MultiLevelTooltip(
+            message: 'Sort Order',
+            actionId: 'accounts_sort',
+            description:
+                'Switch between ascending and descending balance order',
+            child: RotatedBox(
+              quarterTurns: state.sortAscending ? 2 : 0,
+              child: IconButton(
+                icon: Icon(Icons.sort, color: onSurface),
+                onPressed: () {
+                  context.read<AccountsBloc>().add(
+                    SortAccounts(!state.sortAscending),
+                  );
+                },
+              ),
             ),
           ),
-        ),
-        MultiLevelTooltip(
-          message: 'Select Currencies',
-          actionId: 'accounts_curr_select',
-          description: 'Choose which currencies to show in total balance',
-          child: IconButton(
-            icon: Icon(Icons.calculate, color: onSurface),
-            onPressed: () {
-              (context as Element)
-                  .findAncestorStateOfType<_AccountsScreenState>()!
-                  ._showCurrencySelectionDialog(context);
-            },
-          ),
-        ),
+        ],
       ],
     );
 
     return GenericFilterAppBar(
       centerWidget: centerWidget,
       totalCountText: 'Total: ${state.totalCount}',
-      actions: [],
     );
   }
 }

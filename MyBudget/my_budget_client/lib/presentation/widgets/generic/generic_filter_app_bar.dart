@@ -29,7 +29,7 @@ class GenericFilterAppBar extends StatelessWidget
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 600;
-        final actualHeight = isMobile ? kToolbarHeight * 1.8 : kToolbarHeight;
+        final actualHeight = kToolbarHeight;
 
         return Container(
           height: actualHeight + MediaQuery.of(context).padding.top,
@@ -38,100 +38,53 @@ class GenericFilterAppBar extends StatelessWidget
             bottom: false,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: isMobile
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // Left side: Total count or back navigation
-                            if (!hasNavigation)
-                              Text(
-                                totalCountText,
-                                style: TextStyle(
-                                  color: onSurface,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                            else
-                              IconButton(
-                                icon: Icon(
-                                  Icons.arrow_back_ios,
-                                  color: onSurface,
-                                  size: 20,
-                                ),
-                                onPressed: onNavigatePrevious,
-                              ),
-
-                            // Right side: Actions or forward navigation
-                            if (actions != null && actions!.isNotEmpty)
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: actions!,
-                              )
-                            else if (hasNavigation)
-                              IconButton(
-                                icon: Icon(
-                                  Icons.arrow_forward_ios,
-                                  color: onSurface,
-                                  size: 20,
-                                ),
-                                onPressed: onNavigateNext,
-                              )
-                            else
-                              const SizedBox(width: 40),
-                          ],
-                        ),
-                        Expanded(child: centerWidget),
-                      ],
+              child: Row(
+                children: [
+                  // Left side
+                  if (!hasNavigation)
+                    Text(
+                      isMobile ? '' : totalCountText,
+                      style: TextStyle(
+                        color: onSurface,
+                        fontSize: isMobile ? 14 : 16,
+                      ),
                     )
-                  : Row(
-                      children: [
-                        // Left side
-                        if (!hasNavigation)
-                          Text(
-                            totalCountText,
-                            style: TextStyle(color: onSurface, fontSize: 16),
-                          )
-                        else
-                          IconButton(
-                            icon: Icon(
-                              Icons.arrow_back_ios,
-                              color: onSurface,
-                              size: 20,
-                            ),
-                            onPressed: onNavigatePrevious,
-                          ),
-
-                        // Center: Dropdown
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.center,
-                            child: centerWidget,
-                          ),
-                        ),
-
-                        // Right side
-                        if (actions != null && actions!.isNotEmpty)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: actions!,
-                          )
-                        else if (hasNavigation)
-                          IconButton(
-                            icon: Icon(
-                              Icons.arrow_forward_ios,
-                              color: onSurface,
-                              size: 20,
-                            ),
-                            onPressed: onNavigateNext,
-                          )
-                        else
-                          const SizedBox(width: 48),
-                      ],
+                  else
+                    IconButton(
+                      icon: Icon(
+                        Icons.arrow_back_ios,
+                        color: onSurface,
+                        size: 20,
+                      ),
+                      onPressed: onNavigatePrevious,
                     ),
+
+                  // Center: Dropdown
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: centerWidget,
+                    ),
+                  ),
+
+                  // Right side
+                  if (actions != null && actions!.isNotEmpty && !isMobile)
+                    Row(mainAxisSize: MainAxisSize.min, children: actions!)
+                  else if (hasNavigation)
+                    IconButton(
+                      icon: Icon(
+                        Icons.arrow_forward_ios,
+                        color: onSurface,
+                        size: 20,
+                      ),
+                      onPressed: onNavigateNext,
+                    )
+                  else if (!isMobile)
+                    const SizedBox(width: 48)
+                  else
+                    const SizedBox(width: 0),
+                ],
+              ),
             ),
           ),
         );

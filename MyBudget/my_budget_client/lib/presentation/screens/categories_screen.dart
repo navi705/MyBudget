@@ -518,19 +518,14 @@ class _CategoriesDateAppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final bloc = context.read<CategoriesBloc>();
     final onSurface = Theme.of(context).colorScheme.onSurface;
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     final centerWidget = Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: isMobile
+          ? MainAxisAlignment.spaceBetween
+          : MainAxisAlignment.center,
+      mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
       children: [
-        MultiLevelTooltip(
-          message: 'Filter',
-          actionId: 'filter_categories',
-          description: 'Filter categories by type (Income/Expense)',
-          child: IconButton(
-            icon: Icon(Icons.tune, color: onSurface),
-            onPressed: () => showCategoryFilterDialog(context, state.filters),
-          ),
-        ),
         MultiLevelTooltip(
           message: 'Previous Period',
           actionId: 'prev_period',
@@ -540,8 +535,30 @@ class _CategoriesDateAppBar extends StatelessWidget {
             onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
           ),
         ),
+        if (isMobile)
+          MultiLevelTooltip(
+            message: 'Filter',
+            actionId: 'filter_categories',
+            description: 'Filter categories by type (Income/Expense)',
+            child: IconButton(
+              icon: Icon(Icons.tune, color: onSurface),
+              onPressed: () => showCategoryFilterDialog(context, state.filters),
+            ),
+          )
+        else if (!isMobile) ...[
+          MultiLevelTooltip(
+            message: 'Filter',
+            actionId: 'filter_categories',
+            description: 'Filter categories by type (Income/Expense)',
+            child: IconButton(
+              icon: Icon(Icons.tune, color: onSurface),
+              onPressed: () => showCategoryFilterDialog(context, state.filters),
+            ),
+          ),
+        ],
+        if (!isMobile) const SizedBox(width: 8),
         Expanded(
-          flex: MediaQuery.of(context).size.width < 600 ? 1 : 0,
+          flex: isMobile ? 1 : 0,
           child: MultiLevelTooltip(
             message: 'Select Date',
             actionId: 'categories_pick_date',
@@ -553,12 +570,37 @@ class _CategoriesDateAppBar extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   _formatDate(context, state),
-                  style: TextStyle(color: onSurface, fontSize: 18),
+                  style: TextStyle(
+                    color: onSurface,
+                    fontSize: isMobile ? 16 : 18,
+                    fontWeight: isMobile ? FontWeight.bold : FontWeight.normal,
+                  ),
                 ),
               ),
             ),
           ),
         ),
+        if (isMobile)
+          MultiLevelTooltip(
+            message: 'Sort Order',
+            actionId: 'categories_sort',
+            description: 'Switch between ascending and descending amount order',
+            child: RotatedBox(
+              quarterTurns: state.filters.sort == Sort.ascending ? 2 : 0,
+              child: IconButton(
+                icon: Icon(Icons.sort, color: onSurface),
+                onPressed: () {
+                  final newSort = state.filters.sort == Sort.ascending
+                      ? Sort.descending
+                      : Sort.ascending;
+                  context.read<CategoriesBloc>().add(SortChanged(newSort));
+                },
+              ),
+            ),
+          )
+        else if (!isMobile) ...[
+          const SizedBox(width: 8),
+        ],
         MultiLevelTooltip(
           message: 'Next Period',
           actionId: 'next_period',
@@ -568,24 +610,26 @@ class _CategoriesDateAppBar extends StatelessWidget {
             onPressed: () => bloc.add(const DatePeriodNavigated(1)),
           ),
         ),
-        SizedBox(width: MediaQuery.of(context).size.width < 600 ? 8 : 24),
-        MultiLevelTooltip(
-          message: 'Sort Order',
-          actionId: 'categories_sort',
-          description: 'Switch between ascending and descending amount order',
-          child: RotatedBox(
-            quarterTurns: state.filters.sort == Sort.ascending ? 2 : 0,
-            child: IconButton(
-              icon: Icon(Icons.sort, color: onSurface),
-              onPressed: () {
-                final newSort = state.filters.sort == Sort.ascending
-                    ? Sort.descending
-                    : Sort.ascending;
-                context.read<CategoriesBloc>().add(SortChanged(newSort));
-              },
+        if (!isMobile) ...[
+          const SizedBox(width: 24),
+          MultiLevelTooltip(
+            message: 'Sort Order',
+            actionId: 'categories_sort',
+            description: 'Switch between ascending and descending amount order',
+            child: RotatedBox(
+              quarterTurns: state.filters.sort == Sort.ascending ? 2 : 0,
+              child: IconButton(
+                icon: Icon(Icons.sort, color: onSurface),
+                onPressed: () {
+                  final newSort = state.filters.sort == Sort.ascending
+                      ? Sort.descending
+                      : Sort.ascending;
+                  context.read<CategoriesBloc>().add(SortChanged(newSort));
+                },
+              ),
             ),
           ),
-        ),
+        ],
       ],
     );
 

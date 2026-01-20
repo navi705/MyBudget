@@ -11,12 +11,15 @@ import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.d
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/currency_selection_dialog.dart';
+import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 
 void showAccountFilterDialog(
   BuildContext context,
   AccountFilters currentFilters,
 ) {
+  final isMobile = MediaQuery.of(context).size.width < 600;
   showDialog(
     context: context,
     builder: (dialogContext) {
@@ -26,8 +29,15 @@ void showAccountFilterDialog(
           BlocProvider.value(value: BlocProvider.of<SettingsBloc>(context)),
           BlocProvider.value(value: BlocProvider.of<CategoriesBloc>(context)),
           BlocProvider.value(value: BlocProvider.of<CurrencyBloc>(context)),
+          if (isMobile)
+            BlocProvider.value(
+              value: BlocProvider.of<CurrencyConverterBloc>(context),
+            ),
         ],
-        child: AccountFilterDialog(currentFilters: currentFilters),
+        child: AccountFilterDialog(
+          currentFilters: currentFilters,
+          isMobile: isMobile,
+        ),
       );
     },
   );
@@ -35,8 +45,13 @@ void showAccountFilterDialog(
 
 class AccountFilterDialog extends StatefulWidget {
   final AccountFilters currentFilters;
+  final bool isMobile;
 
-  const AccountFilterDialog({super.key, required this.currentFilters});
+  const AccountFilterDialog({
+    super.key,
+    required this.currentFilters,
+    this.isMobile = false,
+  });
 
   @override
   State<AccountFilterDialog> createState() => _AccountFilterDialogState();
@@ -326,7 +341,7 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
               builder: (context, state) {
                 if (state is CurrencyLoadSuccess) {
                   return ListTile(
-                    title: const Text('Currencies'),
+                    title: const Text('Filter Currencies'),
                     subtitle: Text('${_selectedCurrencyIds.length} selected'),
                     onTap: () async {
                       final List<String>? result = await showDialog(
@@ -351,6 +366,56 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
                 return const CircularProgressIndicator();
               },
             ),
+            if (widget.isMobile) ...[
+              const Divider(height: 32),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8.0),
+                child: Text(
+                  'Balance Display',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              BlocBuilder<CurrencyConverterBloc, CurrencyConverterState>(
+                builder: (context, state) {
+                  if (state is CurrencyConverterLoadSuccess) {
+                    return ListTile(
+                      title: const Text('Select Currencies'),
+                      subtitle: Text(
+                        '${state.selectedCurrencies.length} currencies active',
+                      ),
+                      trailing: const Icon(Icons.currency_exchange, size: 20),
+                      onTap: () async {
+                        final converterBloc = context
+                            .read<CurrencyConverterBloc>();
+                        final result = await showDialog<List<Currency>>(
+                          context: context,
+                          builder: (dialogContext) {
+                            return CurrencySelectionDialog(
+                              allCurrencies: state.allCurrencies,
+                              selectedCurrencies: state.selectedCurrencies,
+                            );
+                          },
+                        );
+
+                        if (result != null) {
+                          // Clear current selections
+                          for (final currency in List<Currency>.from(
+                            state.selectedCurrencies,
+                          )) {
+                            converterBloc.add(RemoveSelectedCurrency(currency));
+                          }
+                          // Add new selections
+                          for (final currency in result) {
+                            converterBloc.add(AddSelectedCurrency(currency));
+                          }
+                        }
+                      },
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+            ],
           ],
         ),
       ),

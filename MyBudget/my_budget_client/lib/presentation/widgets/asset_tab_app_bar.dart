@@ -114,14 +114,14 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
       );
     }
 
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     final centerWidget = Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: isMobile
+          ? MainAxisAlignment.spaceBetween
+          : MainAxisAlignment.center,
+      mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
       children: [
-        IconButton(
-          icon: Icon(Icons.tune, color: onSurface),
-          onPressed: () => showAssetFilterDialog(context),
-        ),
         MultiLevelTooltip(
           message: 'Previous Period',
           actionId: 'prev_period',
@@ -131,22 +131,62 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
             onPressed: () => _navigate(bloc, -1),
           ),
         ),
-        MultiLevelTooltip(
-          message: 'Select Date',
-          actionId: 'asset_pick_date',
-          description: 'Change the active period or date range',
-          child: InkWell(
-            onTap: () => _showCustomCalendar(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12.0),
-              alignment: Alignment.center,
-              child: Text(
-                _formatDate(context),
-                style: TextStyle(color: onSurface, fontSize: 18),
+        if (isMobile)
+          IconButton(
+            icon: Icon(Icons.tune, color: onSurface),
+            onPressed: () => showAssetFilterDialog(context),
+          )
+        else if (!isMobile) ...[
+          IconButton(
+            icon: Icon(Icons.tune, color: onSurface),
+            onPressed: () => showAssetFilterDialog(context),
+          ),
+        ],
+        if (!isMobile) const SizedBox(width: 8),
+        Expanded(
+          flex: isMobile ? 1 : 0,
+          child: MultiLevelTooltip(
+            message: 'Select Date',
+            actionId: 'asset_pick_date',
+            description: 'Change the active period or date range',
+            child: InkWell(
+              onTap: () => _showCustomCalendar(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12.0),
+                alignment: Alignment.center,
+                child: Text(
+                  _formatDate(context),
+                  style: TextStyle(
+                    color: onSurface,
+                    fontSize: isMobile ? 16 : 18,
+                    fontWeight: isMobile ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
               ),
             ),
           ),
         ),
+        if (isMobile)
+          RotatedBox(
+            quarterTurns: state.sort == Sort.ascending ? 2 : 0,
+            child: MultiLevelTooltip(
+              message: 'Sort Order',
+              actionId: 'asset_sort',
+              description: 'Toggle between ascending and descending order',
+              child: IconButton(
+                icon: Icon(Icons.sort, color: onSurface),
+                onPressed: () {
+                  final newSort = state.sort == Sort.ascending
+                      ? Sort.descending
+                      : Sort.ascending;
+                  bloc.add(ChangeAssetSort(newSort));
+                },
+              ),
+            ),
+          )
+        else if (!isMobile) ...[
+          const SizedBox(width: 8),
+        ],
         MultiLevelTooltip(
           message: 'Next Period',
           actionId: 'next_period',
@@ -156,24 +196,26 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
             onPressed: () => _navigate(bloc, 1),
           ),
         ),
-        const SizedBox(width: 24),
-        RotatedBox(
-          quarterTurns: state.sort == Sort.ascending ? 2 : 0,
-          child: MultiLevelTooltip(
-            message: 'Sort Order',
-            actionId: 'asset_sort',
-            description: 'Toggle between ascending and descending order',
-            child: IconButton(
-              icon: Icon(Icons.sort, color: onSurface),
-              onPressed: () {
-                final newSort = state.sort == Sort.ascending
-                    ? Sort.descending
-                    : Sort.ascending;
-                bloc.add(ChangeAssetSort(newSort));
-              },
+        if (!isMobile) ...[
+          const SizedBox(width: 24),
+          RotatedBox(
+            quarterTurns: state.sort == Sort.ascending ? 2 : 0,
+            child: MultiLevelTooltip(
+              message: 'Sort Order',
+              actionId: 'asset_sort',
+              description: 'Toggle between ascending and descending order',
+              child: IconButton(
+                icon: Icon(Icons.sort, color: onSurface),
+                onPressed: () {
+                  final newSort = state.sort == Sort.ascending
+                      ? Sort.descending
+                      : Sort.ascending;
+                  bloc.add(ChangeAssetSort(newSort));
+                },
+              ),
             ),
           ),
-        ),
+        ],
       ],
     );
 

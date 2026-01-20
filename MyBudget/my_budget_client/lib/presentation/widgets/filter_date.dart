@@ -45,34 +45,52 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<TransactionsBloc, TransactionsState>(
       builder: (context, state) {
-        final bloc = context.read<TransactionsBloc>();
         final onSurface = Theme.of(context).colorScheme.onSurface;
         final isMobile = MediaQuery.of(context).size.width < 600;
 
         final centerWidget = Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: isMobile
+              ? MainAxisAlignment.spaceBetween
+              : MainAxisAlignment.center,
+          mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
           children: [
-            MultiLevelTooltip(
-              message: 'Advanced Filter',
-              actionId: 'filter_advanced',
-              description:
-                  'Filter transactions by account, category, or amount',
-              child: IconButton(
-                icon: Icon(Icons.tune, color: onSurface),
-                onPressed: () =>
-                    showAdvancedFilterDialog(context, state.nonDateFilters),
-              ),
-            ),
             MultiLevelTooltip(
               message: 'Previous Period',
               actionId: 'prev_period',
               description: 'Go to the previous day, month, or year',
               child: IconButton(
                 icon: Icon(Icons.chevron_left, color: onSurface),
-                onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
+                onPressed: () => context.read<TransactionsBloc>().add(
+                  const DatePeriodNavigated(-1),
+                ),
               ),
             ),
+            if (isMobile)
+              MultiLevelTooltip(
+                message: 'Advanced Filter',
+                actionId: 'filter_advanced',
+                description:
+                    'Filter transactions by account, category, or amount',
+                child: IconButton(
+                  icon: Icon(Icons.tune, color: onSurface),
+                  onPressed: () =>
+                      showAdvancedFilterDialog(context, state.nonDateFilters),
+                ),
+              )
+            else if (!isMobile) ...[
+              MultiLevelTooltip(
+                message: 'Advanced Filter',
+                actionId: 'filter_advanced',
+                description:
+                    'Filter transactions by account, category, or amount',
+                child: IconButton(
+                  icon: Icon(Icons.tune, color: onSurface),
+                  onPressed: () =>
+                      showAdvancedFilterDialog(context, state.nonDateFilters),
+                ),
+              ),
+            ],
+            if (!isMobile) const SizedBox(width: 8),
             Expanded(
               flex: isMobile ? 1 : 0,
               child: MultiLevelTooltip(
@@ -86,38 +104,74 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
                     alignment: Alignment.center,
                     child: Text(
                       _formatDate(state),
-                      style: TextStyle(color: onSurface, fontSize: 18),
+                      style: TextStyle(
+                        color: onSurface,
+                        fontSize: isMobile ? 16 : 18,
+                        fontWeight: isMobile
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
+            if (isMobile)
+              MultiLevelTooltip(
+                message: 'Sort Order',
+                actionId: 'filter_sort',
+                description: 'Toggle between ascending and descending order',
+                child: RotatedBox(
+                  quarterTurns: state.sort == Sort.ascending ? 0 : 2,
+                  child: IconButton(
+                    icon: Icon(Icons.sort, color: onSurface),
+                    onPressed: () {
+                      final newSort = state.sort == Sort.ascending
+                          ? Sort.descending
+                          : Sort.ascending;
+                      context.read<TransactionsBloc>().add(
+                        SortChanged(newSort),
+                      );
+                    },
+                  ),
+                ),
+              )
+            else if (!isMobile) ...[
+              const SizedBox(width: 8),
+            ],
             MultiLevelTooltip(
               message: 'Next Period',
               actionId: 'next_period',
               description: 'Go to the next day, month, or year',
               child: IconButton(
                 icon: Icon(Icons.chevron_right, color: onSurface),
-                onPressed: () => bloc.add(const DatePeriodNavigated(1)),
-              ),
-            ),
-            MultiLevelTooltip(
-              message: 'Sort Order',
-              actionId: 'filter_sort',
-              description: 'Toggle between ascending and descending order',
-              child: RotatedBox(
-                quarterTurns: state.sort == Sort.ascending ? 0 : 2,
-                child: IconButton(
-                  icon: Icon(Icons.sort, color: onSurface),
-                  onPressed: () {
-                    final newSort = state.sort == Sort.ascending
-                        ? Sort.descending
-                        : Sort.ascending;
-                    context.read<TransactionsBloc>().add(SortChanged(newSort));
-                  },
+                onPressed: () => context.read<TransactionsBloc>().add(
+                  const DatePeriodNavigated(1),
                 ),
               ),
             ),
+            if (!isMobile) ...[
+              const SizedBox(width: 24),
+              MultiLevelTooltip(
+                message: 'Sort Order',
+                actionId: 'filter_sort',
+                description: 'Toggle between ascending and descending order',
+                child: RotatedBox(
+                  quarterTurns: state.sort == Sort.ascending ? 0 : 2,
+                  child: IconButton(
+                    icon: Icon(Icons.sort, color: onSurface),
+                    onPressed: () {
+                      final newSort = state.sort == Sort.ascending
+                          ? Sort.descending
+                          : Sort.ascending;
+                      context.read<TransactionsBloc>().add(
+                        SortChanged(newSort),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
           ],
         );
 
