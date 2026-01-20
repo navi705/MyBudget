@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:my_budget_client/app.dart';
 import 'package:my_budget_client/core/sync/sync_service.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
+import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/intilization_data.dart';
 import 'package:my_budget_client/presentation/screens/splash_screen.dart';
 
@@ -46,7 +47,11 @@ class _AppWrapperState extends State<AppWrapper> {
   Future<void> _initialize() async {
     debugPrint('[SYNC_DEBUG] AppWrapper._initialize() started');
     try {
-      // Step 0: Initialize Sync Service
+      // Step 0: Ensure local DB defaults are seeded (fixes crash on old DBs)
+      _updateProgress(0.1, 'Verifying settings...');
+      await sl<SettingsRepository>().initializeDefaults();
+
+      // Step 0.5: Initialize Sync Service
       await sl<SyncService>().init();
       // Step 1: Load local data (fast, from files)
       _updateProgress(0.3, 'Loading exchange rates...');

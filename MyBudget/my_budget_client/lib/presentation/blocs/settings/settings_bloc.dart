@@ -3,7 +3,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:my_budget_client/core/utils/device_utils.dart';
+// import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/core/utils/hotkey_utils.dart';
 import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
@@ -41,18 +41,14 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     UpdateSetting event,
     Emitter<SettingsState> emit,
   ) async {
-    final deviceName = await getDeviceName();
-    await _settingsRepository.setSetting(
-      Settings(key: event.key, value: event.value, device: deviceName),
-    );
+    await _settingsRepository.saveSetting(event.key, event.value);
   }
 
   Future<void> _onUpdateThemeMode(
     UpdateThemeMode event,
     Emitter<SettingsState> emit,
   ) async {
-    final deviceName = await getDeviceName();
-    await _settingsRepository.setThemeMode(event.themeMode, deviceName);
+    await _settingsRepository.saveThemeMode(event.themeMode);
   }
 
   Future<void> _onUpdateHotkey(
@@ -72,25 +68,14 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
         // We could emit an error state here, but for now we'll just prevent the update
         // or clear the other one. User asked for "protection", so let's prevent and maybe we could notify (though notify_user is for me).
         // Let's clear the old one to ensure uniqueness.
-        final deviceName = await getDeviceName();
         // Clear the existing one
-        await _settingsRepository.setSetting(
-          Settings(
-            key: 'hotkey_$existingActionId',
-            value: '',
-            device: deviceName,
-          ),
-        );
+        await _settingsRepository.saveSetting('hotkey_$existingActionId', '');
       }
     }
 
-    final deviceName = await getDeviceName();
-    await _settingsRepository.setSetting(
-      Settings(
-        key: 'hotkey_${event.actionId}',
-        value: event.keySetString,
-        device: deviceName,
-      ),
+    await _settingsRepository.saveSetting(
+      'hotkey_${event.actionId}',
+      event.keySetString,
     );
   }
 

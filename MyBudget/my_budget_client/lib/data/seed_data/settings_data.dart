@@ -140,5 +140,10 @@ List<SettingsCompanion> getDefaultSettings(String deviceName) {
       value: '0.8',
       device: deviceName,
     ),
+    SettingsCompanion.insert(
+      key: 'sync_enabled',
+      value: 'false',
+      device: deviceName,
+    ),
   ];
 }

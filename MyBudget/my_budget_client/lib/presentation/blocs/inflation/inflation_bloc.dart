@@ -7,8 +7,8 @@ import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
-import 'package:my_budget_client/domain/entities/settings.dart';
-import 'package:my_budget_client/core/utils/device_utils.dart'; // Added import
+// import 'package:my_budget_client/domain/entities/settings.dart';
+// import 'package:my_budget_client/core/utils/device_utils.dart'; // Added import
 
 part 'inflation_event.dart';
 part 'inflation_state.dart';
@@ -219,14 +219,9 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     ChangeInflationDateStep event,
     Emitter<InflationState> emit,
   ) async {
-    final deviceName = await getDeviceName();
-    emit(state.copyWith(dateStep: event.dateStep));
-    await _settingsRepository.setSetting(
-      Settings(
-        key: 'inflation_date_step',
-        value: event.dateStep.toString(),
-        device: deviceName,
-      ),
+    await _settingsRepository.saveSetting(
+      'inflation_date_step',
+      event.dateStep.toString(),
     );
     add(LoadInflationRates());
   }
@@ -235,14 +230,9 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     ChangeInflationFilterMode event,
     Emitter<InflationState> emit,
   ) async {
-    final deviceName = await getDeviceName();
-    emit(state.copyWith(filterMode: event.filterMode));
-    await _settingsRepository.setSetting(
-      Settings(
-        key: 'inflation_filter_mode',
-        value: event.filterMode.toString(),
-        device: deviceName,
-      ),
+    await _settingsRepository.saveSetting(
+      'inflation_filter_mode',
+      event.filterMode.toString(),
     );
     add(LoadInflationRates());
   }

@@ -3,11 +3,11 @@ import 'package:bloc/bloc.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
-import 'package:my_budget_client/core/utils/device_utils.dart';
+// import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
-import 'package:my_budget_client/domain/entities/settings.dart';
+// import 'package:my_budget_client/domain/entities/settings.dart'; // unnecessary for basic save now, unless used elsewhere. Let's keep it if needed for reading but we are just saving text.
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
@@ -253,14 +253,9 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   ) async {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
-      final deviceName = await getDeviceName();
-
-      await _settingsRepository.setSetting(
-        Settings(
-          key: 'category_filters',
-          value: event.filters.toJsonString(),
-          device: deviceName,
-        ),
+      await _settingsRepository.saveSetting(
+        'category_filters',
+        event.filters.toJsonString(),
       );
       emit(currentState.copyWith(filters: event.filters));
       add(LoadCategories());

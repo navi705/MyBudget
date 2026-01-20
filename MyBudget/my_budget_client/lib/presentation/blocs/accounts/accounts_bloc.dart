@@ -5,11 +5,11 @@ import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 
 import 'package:equatable/equatable.dart';
-import 'package:my_budget_client/core/utils/device_utils.dart';
+// import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
-import 'package:my_budget_client/domain/entities/settings.dart';
+// import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
@@ -879,13 +879,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   ) async {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
-      final deviceName = await getDeviceName();
-      await _settingsRepository.setSetting(
-        Settings(
-          key: 'account_filters',
-          value: event.filters.toJsonString(),
-          device: deviceName,
-        ),
+      await _settingsRepository.saveSetting(
+        'account_filters',
+        event.filters.toJsonString(),
       );
       emit(currentState.copyWith(filters: event.filters));
       add(LoadAccounts());

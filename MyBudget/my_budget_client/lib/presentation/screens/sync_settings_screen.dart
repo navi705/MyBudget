@@ -1,10 +1,11 @@
 import 'dart:io';
 
-import 'package:drift/drift.dart' show Value;
+// import 'package:drift/drift.dart' show Value;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
+import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/core/sync/sync_service.dart';
 
 /// Settings screen for P2P synchronization via Syncthing
@@ -18,6 +19,7 @@ class SyncSettingsScreen extends StatefulWidget {
 class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   late final SyncService _syncService;
   late final AppDatabase _db;
+  late final SettingsRepository _settingsRepository;
 
   String? _syncFolderPath;
   bool _isEnabled = false;
@@ -29,12 +31,15 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     super.initState();
     _db = sl<AppDatabase>();
     _syncService = sl<SyncService>();
+    _settingsRepository = sl<SettingsRepository>();
     _loadSettings();
   }
 
   Future<void> _loadSettings() async {
-    final folderSetting = await _db.settingsDao.getSetting('sync_folder_path');
-    final enabledSetting = await _db.settingsDao.getSetting('sync_enabled');
+    final folderSetting = await _settingsRepository.getSetting(
+      'sync_folder_path',
+    );
+    final enabledSetting = await _settingsRepository.getSetting('sync_enabled');
     final pending = await _db.syncLogDao.getPendingChanges();
 
     setState(() {
@@ -68,15 +73,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
       setState(() => _syncFolderPath = result);
 
       // Save setting
-      final deviceName = await _db.settingsDao.getSetting('device_name');
-      await _db.settingsDao.setSetting(
-        SettingsCompanion(
-          key: const Value('sync_folder_path'),
-          value: Value(result),
-          device: Value(deviceName?.value ?? 'default'),
-          modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
-        ),
-      );
+      await _settingsRepository.saveSetting('sync_folder_path', result);
     }
   }
 
@@ -147,15 +144,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   Future<void> _toggleSync(bool enabled) async {
     setState(() => _isEnabled = enabled);
 
-    final deviceName = await _db.settingsDao.getSetting('device_name');
-    await _db.settingsDao.setSetting(
-      SettingsCompanion(
-        key: const Value('sync_enabled'),
-        value: Value(enabled.toString()),
-        device: Value(deviceName?.value ?? 'default'),
-        modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
-      ),
-    );
+    await _settingsRepository.saveSetting('sync_enabled', enabled.toString());
 
     if (enabled && _syncFolderPath != null) {
       final success = await _syncService.startSync(_syncFolderPath!);

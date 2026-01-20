@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as db;
+import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/mappers/setting_mapper.dart';
 import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
+import 'package:my_budget_client/data/seed_data/settings_data.dart';
+import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:rxdart/rxdart.dart';
 
 const String themeModeKey = 'themeMode';
@@ -69,6 +72,7 @@ class LocalSettingsRepository implements SettingsRepository {
       key: key,
       value: value,
       device: device,
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
     return _database.settingsDao.setSetting(companion);
   }
@@ -94,5 +98,31 @@ class LocalSettingsRepository implements SettingsRepository {
       case ThemeMode.system:
         return 'system';
     }
+  }
+
+  @override
+  Future<void> saveThemeMode(ThemeMode themeMode) async {
+    final device = await _database.settingsDao.getDeviceName();
+    return setThemeMode(themeMode, device);
+  }
+
+  @override
+  Future<void> initializeDefaults() async {
+    final deviceName = await getDeviceName();
+    final defaults = getDefaultSettings(deviceName);
+
+    // Upsert all defaults. This repairs any missing fields (like NULL device)
+    // for existing settings, and adds missing ones (like sync_enabled).
+    // We use a transaction for efficiency.
+    await _database.batch((batch) {
+      for (final setting in defaults) {
+        // We use insertOnConflictUpdate which corresponds to INSERT OR REPLACE
+        batch.insert(
+          _database.settings,
+          setting,
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+    });
   }
 }

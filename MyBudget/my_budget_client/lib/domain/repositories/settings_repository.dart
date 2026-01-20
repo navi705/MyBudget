@@ -4,6 +4,7 @@ import 'package:my_budget_client/domain/entities/settings.dart';
 abstract class SettingsRepository {
   Stream<ThemeMode> get themeMode;
   Future<void> setThemeMode(ThemeMode themeMode, String device);
+  Future<void> saveThemeMode(ThemeMode themeMode);
 
   Stream<List<Settings>> watchAllSettings();
   Stream<Settings?> watchSetting(String key);
@@ -11,4 +12,5 @@ abstract class SettingsRepository {
   Future<void> setSetting(Settings setting);
   Future<Map<String, String>> getAllSettings();
   Future<void> saveSetting(String key, String value);
+  Future<void> initializeDefaults();
 }
