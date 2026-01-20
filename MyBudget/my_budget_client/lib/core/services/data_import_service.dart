@@ -22,7 +22,7 @@ class DataImportService {
 
     if (Platform.isAndroid) {
       pickedPaths = await _androidFilePicker.pickFile(
-        mimeType: isCsv ? 'text/comma-separated-values' : 'application/json',
+        mimeType: '*/*',
         title: title ?? (isCsv ? 'Select CSV' : 'Select JSON'),
       );
     } else {

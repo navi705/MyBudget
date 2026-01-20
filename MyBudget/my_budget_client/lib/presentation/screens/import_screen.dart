@@ -54,7 +54,7 @@ class _ImportViewState extends State<_ImportView> {
 
     if (Platform.isAndroid) {
       pickedPaths = await sl<AndroidFilePickerService>().pickFile(
-        mimeType: 'text/comma-separated-values',
+        mimeType: '*/*',
         title:
             AppLocalizations.of(context)?.filePickerChooserTitle ??
             'Select CSV',
