@@ -24,5 +24,7 @@
     "transactionsAppBarTitle": "Транзакции",
     "transactionsScreenBody": "Экран транзакций",
     "settingsAppBarTitle": "Настройки",
-    "settingsScreenBody": "Экран настроек"
+    "settingsScreenBody": "Экран настроек",
+    "filePickerChooserTitle": "Выберите файл",
+    "imagePickerChooserTitle": "Выберите изображение"
 }

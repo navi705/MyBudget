@@ -7,30 +7,38 @@ import 'package:file_picker/file_picker.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:uuid/uuid.dart';
+import 'package:my_budget_client/core/services/android_file_picker_service.dart';
 
 class DataImportService {
   final AppDatabase _db;
+  final AndroidFilePickerService _androidFilePicker;
 
-  DataImportService(this._db);
+  DataImportService(this._db, this._androidFilePicker);
 
-  Future<void> importData(bool isCsv) async {
+  Future<void> importData(bool isCsv, {String? title}) async {
     final expectedExt = isCsv ? 'csv' : 'json';
+    List<String>? pickedPaths;
     FilePickerResult? result;
 
     if (Platform.isAndroid) {
-      result = await FilePicker.platform.pickFiles(type: FileType.any);
+      pickedPaths = await _androidFilePicker.pickFile(
+        mimeType: isCsv ? 'text/comma-separated-values' : 'application/json',
+        title: title ?? (isCsv ? 'Select CSV' : 'Select JSON'),
+      );
     } else {
       result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: [expectedExt],
       );
+      if (result != null && result.files.isNotEmpty) {
+        pickedPaths = [result.files.single.path!];
+      }
     }
 
-    if (result != null && result.files.isNotEmpty) {
-      final file = File(result.files.single.path!);
-      final extension =
-          result.files.single.extension?.toLowerCase() ??
-          file.path.split('.').last.toLowerCase();
+    if (pickedPaths != null && pickedPaths.isNotEmpty) {
+      final pickedPath = pickedPaths.first;
+      final file = File(pickedPath);
+      final extension = file.path.split('.').last.toLowerCase();
 
       if (extension != expectedExt) {
         throw Exception(
@@ -52,22 +60,29 @@ class DataImportService {
     }
   }
 
-  Future<void> importExchangeRates() async {
+  Future<void> importExchangeRates({String? title}) async {
     FilePickerResult? result;
+    List<String>? pickedPaths;
+
     if (Platform.isAndroid) {
-      result = await FilePicker.platform.pickFiles(type: FileType.any);
+      pickedPaths = await _androidFilePicker.pickFile(
+        mimeType: '*/*',
+        title: title ?? 'Select CSV or JSON',
+      );
     } else {
       result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv', 'json'],
       );
+      if (result != null && result.files.isNotEmpty) {
+        pickedPaths = [result.files.single.path!];
+      }
     }
 
-    if (result != null && result.files.isNotEmpty) {
-      final file = File(result.files.single.path!);
-      final extension =
-          result.files.single.extension?.toLowerCase() ??
-          file.path.split('.').last.toLowerCase();
+    if (pickedPaths != null && pickedPaths.isNotEmpty) {
+      final pickedPath = pickedPaths.first;
+      final file = File(pickedPath);
+      final extension = file.path.split('.').last.toLowerCase();
 
       if (extension != 'csv' && extension != 'json') {
         throw Exception(

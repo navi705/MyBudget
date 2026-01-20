@@ -33,6 +33,7 @@ import 'package:my_budget_client/domain/services/finance_calculator.dart';
 import 'package:my_budget_client/presentation/blocs/sms/sms_bloc.dart';
 import 'package:my_budget_client/domain/repositories/sms_repository.dart';
 import 'package:my_budget_client/data/repositories/local_sms_repository.dart';
+import 'package:my_budget_client/core/services/android_file_picker_service.dart';
 
 import '../../data/repositories/local_db/local_account_repository.dart';
 import '../../data/repositories/local_db/local_currency_designation_repository.dart';
@@ -136,6 +137,7 @@ Future<void> init() async {
   sl.registerLazySingleton(
     () => InflationApiService(sl<AppDatabase>().inflationRatesDao),
   );
+  sl.registerLazySingleton(() => AndroidFilePickerService());
 
   // Repositories
   sl.registerLazySingleton<AccountRepository>(

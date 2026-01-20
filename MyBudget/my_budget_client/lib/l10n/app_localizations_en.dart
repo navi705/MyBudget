@@ -85,4 +85,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsScreenBody => 'Settings Screen';
+
+  @override
+  String get filePickerChooserTitle => 'Select File';
+
+  @override
+  String get imagePickerChooserTitle => 'Select Image';
 }

@@ -16,7 +16,7 @@ enum ImportStep {
 
 class ImportState extends Equatable {
   final ImportStep step;
-  final List<PlatformFile> files;
+  final List<File> files;
   final List<OneMoneyRecord> parsedRecords;
   final List<AccountBalanceRecord> parsedBalances;
   final Set<String> unmappedAccounts;
@@ -27,7 +27,8 @@ class ImportState extends Equatable {
   final Map<String, String> categoryMappings; // csvName -> 'new' or existingId
   final Map<String, String> currencyMappings; // csvName -> 'new' or existingId
   final List<OneMoneyRecord> potentialDuplicates;
-  final Map<OneMoneyRecord, String> duplicateResolutions; // record -> 'skip' or 'import'
+  final Map<OneMoneyRecord, String>
+  duplicateResolutions; // record -> 'skip' or 'import'
   final String? errorMessage;
   final double progress;
   final int createdAccountsCount;
@@ -59,7 +60,7 @@ class ImportState extends Equatable {
 
   ImportState copyWith({
     ImportStep? step,
-    List<PlatformFile>? files,
+    List<File>? files,
     List<OneMoneyRecord>? parsedRecords,
     List<AccountBalanceRecord>? parsedBalances,
     Set<String>? unmappedAccounts,
@@ -85,7 +86,8 @@ class ImportState extends Equatable {
       parsedBalances: parsedBalances ?? this.parsedBalances,
       unmappedAccounts: unmappedAccounts ?? this.unmappedAccounts,
       unmappedCategories: unmappedCategories ?? this.unmappedCategories,
-      parsedCategoryDetails: parsedCategoryDetails ?? this.parsedCategoryDetails,
+      parsedCategoryDetails:
+          parsedCategoryDetails ?? this.parsedCategoryDetails,
       unmappedCurrencies: unmappedCurrencies ?? this.unmappedCurrencies,
       accountMappings: accountMappings ?? this.accountMappings,
       categoryMappings: categoryMappings ?? this.categoryMappings,
@@ -95,32 +97,35 @@ class ImportState extends Equatable {
       errorMessage: errorMessage ?? this.errorMessage,
       progress: progress ?? this.progress,
       createdAccountsCount: createdAccountsCount ?? this.createdAccountsCount,
-      createdCategoriesCount: createdCategoriesCount ?? this.createdCategoriesCount,
-      importedTransactionsCount: importedTransactionsCount ?? this.importedTransactionsCount,
-      skippedDuplicatesCount: skippedDuplicatesCount ?? this.skippedDuplicatesCount,
+      createdCategoriesCount:
+          createdCategoriesCount ?? this.createdCategoriesCount,
+      importedTransactionsCount:
+          importedTransactionsCount ?? this.importedTransactionsCount,
+      skippedDuplicatesCount:
+          skippedDuplicatesCount ?? this.skippedDuplicatesCount,
     );
   }
 
   @override
   List<Object?> get props => [
-        step,
-        files,
-        parsedRecords,
-        parsedBalances,
-        unmappedAccounts,
-        unmappedCategories,
-        parsedCategoryDetails,
-        unmappedCurrencies,
-        accountMappings,
-        categoryMappings,
-        currencyMappings,
-        potentialDuplicates,
-        duplicateResolutions,
-        errorMessage,
-        progress,
-        createdAccountsCount,
-        createdCategoriesCount,
-        importedTransactionsCount,
-        skippedDuplicatesCount,
-      ];
+    step,
+    files,
+    parsedRecords,
+    parsedBalances,
+    unmappedAccounts,
+    unmappedCategories,
+    parsedCategoryDetails,
+    unmappedCurrencies,
+    accountMappings,
+    categoryMappings,
+    currencyMappings,
+    potentialDuplicates,
+    duplicateResolutions,
+    errorMessage,
+    progress,
+    createdAccountsCount,
+    createdCategoriesCount,
+    importedTransactionsCount,
+    skippedDuplicatesCount,
+  ];
 }

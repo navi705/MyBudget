@@ -263,6 +263,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings Screen'**
   String get settingsScreenBody;
+
+  /// No description provided for @filePickerChooserTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select File'**
+  String get filePickerChooserTitle;
+
+  /// No description provided for @imagePickerChooserTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Image'**
+  String get imagePickerChooserTitle;
 }
 
 class _AppLocalizationsDelegate

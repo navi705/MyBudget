@@ -86,4 +86,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get settingsScreenBody => 'Экран настроек';
+
+  @override
+  String get filePickerChooserTitle => 'Выберите файл';
+
+  @override
+  String get imagePickerChooserTitle => 'Выберите изображение';
 }

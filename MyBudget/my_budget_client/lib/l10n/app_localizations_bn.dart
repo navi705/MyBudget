@@ -84,4 +84,10 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get settingsScreenBody => 'সেটিংস স্ক্রিন';
+
+  @override
+  String get filePickerChooserTitle => 'Select File';
+
+  @override
+  String get imagePickerChooserTitle => 'Select Image';
 }

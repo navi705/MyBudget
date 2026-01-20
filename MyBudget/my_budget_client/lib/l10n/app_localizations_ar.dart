@@ -84,4 +84,10 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get settingsScreenBody => 'شاشة الإعدادات';
+
+  @override
+  String get filePickerChooserTitle => 'Select File';
+
+  @override
+  String get imagePickerChooserTitle => 'Select Image';
 }

@@ -5,8 +5,11 @@ import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
+import 'package:my_budget_client/core/services/android_file_picker_service.dart';
 import 'package:my_budget_client/core/theme/app_theme.dart';
 import 'package:my_budget_client/domain/entities/custom_theme.dart';
+import 'package:my_budget_client/l10n/app_localizations.dart';
 import 'package:my_budget_client/presentation/blocs/theme/theme_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
@@ -324,19 +327,31 @@ class ThemeSettingsScreen extends StatelessWidget {
                 Expanded(
                   child: FilledButton.tonalIcon(
                     onPressed: () async {
+                      List<String>? pickedPaths;
                       FilePickerResult? result;
+
                       if (Platform.isAndroid) {
-                        result = await FilePicker.platform.pickFiles(
-                          type: FileType.any,
-                        );
+                        pickedPaths = await GetIt.I<AndroidFilePickerService>()
+                            .pickFile(
+                              mimeType: 'image/*',
+                              title:
+                                  AppLocalizations.of(
+                                    context,
+                                  )?.imagePickerChooserTitle ??
+                                  'Select Image',
+                            );
                       } else {
                         result = await FilePicker.platform.pickFiles(
                           type: FileType.image,
                         );
+                        if (result != null &&
+                            result.files.single.path != null) {
+                          pickedPaths = [result.files.single.path!];
+                        }
                       }
 
-                      if (result != null && result.files.single.path != null) {
-                        final path = result.files.single.path!;
+                      if (pickedPaths != null && pickedPaths.isNotEmpty) {
+                        final path = pickedPaths.first;
                         final ext = path.split('.').last.toLowerCase();
                         final isImage = [
                           'jpg',

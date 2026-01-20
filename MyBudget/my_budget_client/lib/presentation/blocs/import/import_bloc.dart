@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
-import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:my_budget_client/core/utils/import_utils.dart';
 import 'package:my_budget_client/core/constants/app_constants.dart';
@@ -66,7 +66,7 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
       List<OneMoneyRecord> allRecords = [];
       List<AccountBalanceRecord> allBalances = [];
       for (final file in event.files) {
-        final parsedData = await ImportDataUtils.parseOneMoneyCsv(file.path!);
+        final parsedData = await ImportDataUtils.parseOneMoneyCsv(file.path);
         allRecords.addAll(parsedData.records);
         allBalances.addAll(parsedData.accountBalances);
       }

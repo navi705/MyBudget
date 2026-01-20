@@ -86,4 +86,10 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get settingsScreenBody => 'ترتیبات کی سکرین';
+
+  @override
+  String get filePickerChooserTitle => 'Select File';
+
+  @override
+  String get imagePickerChooserTitle => 'Select Image';
 }

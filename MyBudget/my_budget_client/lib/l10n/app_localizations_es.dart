@@ -87,4 +87,10 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get settingsScreenBody => 'Pantalla de Configuración';
+
+  @override
+  String get filePickerChooserTitle => 'Select File';
+
+  @override
+  String get imagePickerChooserTitle => 'Select Image';
 }

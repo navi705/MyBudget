@@ -8,7 +8,7 @@ abstract class ImportEvent extends Equatable {
 }
 
 class StartImportProcess extends ImportEvent {
-  final List<PlatformFile> files;
+  final List<File> files;
 
   const StartImportProcess(this.files);
 
@@ -19,7 +19,7 @@ class StartImportProcess extends ImportEvent {
 class MapAccount extends ImportEvent {
   final String csvAccountName;
   final String decision; // 'new' or existing account ID
-  
+
   const MapAccount(this.csvAccountName, this.decision);
 
   @override
@@ -29,7 +29,7 @@ class MapAccount extends ImportEvent {
 class MapCategory extends ImportEvent {
   final String csvCategoryName;
   final String decision; // 'new' or existing category ID
-  
+
   const MapCategory(this.csvCategoryName, this.decision);
 
   @override

@@ -84,4 +84,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsScreenBody => '设置屏幕';
+
+  @override
+  String get filePickerChooserTitle => 'Select File';
+
+  @override
+  String get imagePickerChooserTitle => 'Select Image';
 }

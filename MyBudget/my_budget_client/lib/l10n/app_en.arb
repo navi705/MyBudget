@@ -24,5 +24,7 @@
     "transactionsAppBarTitle": "Transactions",
     "transactionsScreenBody": "Transactions Screen",
     "settingsAppBarTitle": "Settings",
-    "settingsScreenBody": "Settings Screen"
+    "settingsScreenBody": "Settings Screen",
+    "filePickerChooserTitle": "Select File",
+    "imagePickerChooserTitle": "Select Image"
 }

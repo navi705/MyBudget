@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -20,6 +20,8 @@ import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:collection/collection.dart';
+import 'package:my_budget_client/l10n/app_localizations.dart';
+import 'package:my_budget_client/core/services/android_file_picker_service.dart';
 
 class ImportScreen extends StatelessWidget {
   const ImportScreen({super.key});
@@ -48,10 +50,14 @@ class _ImportView extends StatefulWidget {
 class _ImportViewState extends State<_ImportView> {
   Future<void> _startOneMoneyImport() async {
     FilePickerResult? result;
+    List<String>? pickedPaths;
 
     if (Platform.isAndroid) {
-      result = await FilePicker.platform.pickFiles(
-        type: FileType.any,
+      pickedPaths = await sl<AndroidFilePickerService>().pickFile(
+        mimeType: 'text/comma-separated-values',
+        title:
+            AppLocalizations.of(context)?.filePickerChooserTitle ??
+            'Select CSV',
         allowMultiple: true,
       );
     } else {
@@ -60,21 +66,31 @@ class _ImportViewState extends State<_ImportView> {
         allowedExtensions: ['csv'],
         allowMultiple: true,
       );
+      if (result != null) {
+        pickedPaths = result.paths.whereType<String>().toList();
+      }
     }
 
-    if (result != null && result.files.isNotEmpty && mounted) {
-      final csvFiles = result.files.where((file) {
-        final ext =
-            file.extension?.toLowerCase() ??
-            file.path?.split('.').last.toLowerCase();
-        return ext == 'csv';
-      }).toList();
+    if (pickedPaths != null && pickedPaths.isNotEmpty) {
+      final csvFiles = pickedPaths.map((path) => File(path)).toList();
 
-      if (csvFiles.isEmpty) {
+      // Basic validation: Check if file names look like OneMoney exports
+      // Typically: "OneMoney-2023-10-27.csv"
+      bool allValid = true;
+      for (final file in csvFiles) {
+        final fileName = file.path.split(Platform.pathSeparator).last;
+        // Simple check: ends with .csv
+        if (!fileName.toLowerCase().endsWith('.csv')) {
+          allValid = false;
+          break;
+        }
+      }
+
+      if (!allValid) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Please select CSV files for OneMoney import.'),
+              content: Text('Please select valid CSV files from OneMoney.'),
             ),
           );
         }
@@ -253,8 +269,10 @@ class _ImportViewState extends State<_ImportView> {
     try {
       // Use Service Locator to get DB
       final db = sl<AppDatabase>();
-      final service = DataImportService(db);
-      await service.importData(isCsv);
+      final androidPicker = sl<AndroidFilePickerService>();
+      final service = DataImportService(db, androidPicker);
+      final title = AppLocalizations.of(context)?.filePickerChooserTitle;
+      await service.importData(isCsv, title: title);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
