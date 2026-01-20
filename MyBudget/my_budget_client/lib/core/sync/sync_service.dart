@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/core/sync/sync_binary_format.dart';
@@ -41,6 +42,32 @@ class SyncService {
   /// Stream of permission errors (for UI to display)
   Stream<String> get permissionErrors => _permissionErrorController.stream;
 
+  /// Initialize sync settings from database and start sync if enabled
+  Future<void> init() async {
+    debugPrint('[SYNC_DEBUG] SyncService.init() called');
+    try {
+      final enabledSetting = await _db.settingsDao.getSetting('sync_enabled');
+      final folderSetting = await _db.settingsDao.getSetting(
+        'sync_folder_path',
+      );
+
+      debugPrint(
+        '[SYNC_DEBUG] Settings loaded - Enabled: ${enabledSetting?.value}, Folder: ${folderSetting?.value}',
+      );
+
+      if (enabledSetting?.value == 'true' &&
+          folderSetting != null &&
+          folderSetting.value.isNotEmpty) {
+        debugPrint('[SYNC_DEBUG] Auto-starting sync from settings...');
+        await startSync(folderSetting.value);
+      } else {
+        debugPrint('[SYNC_DEBUG] Sync is disabled or folder not set.');
+      }
+    } catch (e) {
+      debugPrint('[SYNC_DEBUG] Initialization error: $e');
+    }
+  }
+
   /// Get the local device ID
   Future<String> getLocalDeviceId() async {
     if (_localDeviceId != null) return _localDeviceId!;
@@ -53,13 +80,23 @@ class SyncService {
   /// Start synchronization
   /// Returns true if sync started successfully, false if there was a permission error.
   Future<bool> startSync(String syncFolderPath) async {
-    if (_isRunning) return true;
+    debugPrint('[SYNC_DEBUG] startSync called with path: $syncFolderPath');
+    if (Platform.isAndroid && syncFolderPath.contains(':\\')) {
+      debugPrint(
+        '[SYNC_DEBUG] WARNING: You are using a Windows-style path (C:\\...) on Android. This will likely fail or create files in an unexpected location.',
+      );
+    }
+    if (_isRunning) {
+      debugPrint('[SYNC_DEBUG] Sync already running, skipping.');
+      return true;
+    }
 
     _syncFolderPath = syncFolderPath;
     _localDeviceId = await getLocalDeviceId();
 
     // Ensure sync folder exists - with error handling for Android Scoped Storage
     try {
+      debugPrint('[SYNC_DEBUG] Checking sync directory...');
       final syncDir = Directory(syncFolderPath);
       if (!await syncDir.exists()) {
         await syncDir.create(recursive: true);
@@ -88,6 +125,7 @@ class SyncService {
     }
 
     // Start export timer
+    debugPrint('[SYNC_DEBUG] Starting export timer (interval: $batchInterval)');
     _exportTimer = Timer.periodic(
       batchInterval,
       (_) => _exportPendingChanges(),
@@ -127,52 +165,122 @@ class SyncService {
 
   /// Export pending changes to a .sync file
   Future<void> _exportPendingChanges() async {
-    if (_syncFolderPath == null || _localDeviceId == null) return;
-
-    final pendingChanges = await _db.syncLogDao.getPendingChanges();
-    if (pendingChanges.isEmpty) return;
-
-    // Convert to SyncChange objects
-    final changes = <SyncChange>[];
-    for (final log in pendingChanges) {
-      final tableId = _tableNameToId(log.changedTableName);
-      if (tableId == null) continue;
-
-      // Get current data for upsert actions
-      Map<String, dynamic>? data;
-      if (log.action == 'upsert') {
-        data = await _getRecordData(tableId, log.recordId);
+    try {
+      if (_syncFolderPath == null || _localDeviceId == null) {
+        debugPrint('[SYNC_DEBUG] Export skipped: Folder or Device ID missing.');
+        return;
       }
 
-      changes.add(
-        SyncChange(
-          tableId: tableId,
-          recordId: log.recordId,
-          action: log.action == 'delete'
-              ? SyncAction.delete
-              : SyncAction.upsert,
-          data: data,
-        ),
+      final pendingChanges = await _db.syncLogDao.getPendingChanges();
+      debugPrint(
+        '[SYNC_DEBUG] Found ${pendingChanges.length} pending changes.',
       );
-    }
+      if (pendingChanges.isEmpty) {
+        debugPrint('[SYNC_DEBUG] No pending changes, skipping export.');
+        return;
+      }
 
-    if (changes.isEmpty) return;
+      debugPrint(
+        '[SYNC_DEBUG] Exporting ${pendingChanges.length} pending changes...',
+      );
 
-    // Encode to binary
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final bytes = SyncBinaryFormat.encode(
-      deviceId: _localDeviceId!,
-      timestamp: timestamp,
-      changes: changes,
-    );
+      // Group record IDs by table for bulk fetching
+      debugPrint('[SYNC_DEBUG] Grouping record IDs by table...');
+      final tableRecordIds = <SyncTableId, Set<String>>{};
+      for (final log in pendingChanges) {
+        if (log.action != 'upsert') continue;
+        final tableId = _tableNameToId(log.changedTableName);
+        if (tableId == null) {
+          debugPrint('[SYNC_DEBUG] Unknown table: ${log.changedTableName}');
+          continue;
+        }
+        tableRecordIds.putIfAbsent(tableId, () => {}).add(log.recordId);
+      }
 
-    // Write file - with error handling for Android Scoped Storage permissions
-    final fileName =
-        'device_${_localDeviceId!.substring(0, 8)}_$timestamp.sync';
-    final file = File(p.join(_syncFolderPath!, fileName));
+      // Bulk fetch data for each table
+      debugPrint(
+        '[SYNC_DEBUG] Fetching bulk data for ${tableRecordIds.length} tables...',
+      );
+      final tableDataMaps = <SyncTableId, Map<String, Map<String, dynamic>>>{};
+      for (final entry in tableRecordIds.entries) {
+        final tableId = entry.key;
+        final ids = entry.value.toList();
+        debugPrint(
+          '[SYNC_DEBUG] Fetching ${ids.length} records from ${tableId.name}...',
+        );
+        final dataMap = await _getBulkRecordData(tableId, ids);
+        debugPrint(
+          '[SYNC_DEBUG] Received ${dataMap.length} records for ${tableId.name}.',
+        );
+        tableDataMaps[tableId] = dataMap;
+      }
 
-    try {
+      // Convert to SyncChange objects
+      debugPrint('[SYNC_DEBUG] Converting logs to SyncChange objects...');
+      final changes = <SyncChange>[];
+      for (final log in pendingChanges) {
+        final tableId = _tableNameToId(log.changedTableName);
+        if (tableId == null) continue;
+
+        Map<String, dynamic>? data;
+        if (log.action == 'upsert') {
+          data = tableDataMaps[tableId]?[log.recordId];
+          // If data is null for an upsert, the record might have been deleted later
+          if (data == null) {
+            debugPrint(
+              '[SYNC_DEBUG] Data null for ${tableId.name}:${log.recordId} (skipping)',
+            );
+            continue;
+          }
+        }
+
+        changes.add(
+          SyncChange(
+            tableId: tableId,
+            recordId: log.recordId,
+            action: log.action == 'delete'
+                ? SyncAction.delete
+                : SyncAction.upsert,
+            data: data,
+          ),
+        );
+      }
+
+      if (changes.isEmpty) {
+        debugPrint(
+          '[SYNC_DEBUG] All changes were skipped (deleted or invalid). Clearing log.',
+        );
+        // Mark as exported anyway to clear the log
+        await _db.syncLogDao.markExported(
+          pendingChanges.map((e) => e.id).toList(),
+        );
+        return;
+      }
+
+      // Encode to binary
+      debugPrint(
+        '[SYNC_DEBUG] Encoding ${changes.length} changes to binary (GZIP)...',
+      );
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final bytes = SyncBinaryFormat.encode(
+        deviceId: _localDeviceId!,
+        timestamp: timestamp,
+        changes: changes,
+      );
+      debugPrint(
+        '[SYNC_DEBUG] Binary encoding complete. Data size: ${bytes.length} bytes.',
+      );
+
+      // Write file
+      final fileName = '${_localDeviceId}_$timestamp.sync';
+      final file = File(p.join(_syncFolderPath!, fileName));
+
+      debugPrint(
+        '[SYNC_DEBUG] Writing ${bytes.length} bytes to ${file.absolute.path}',
+      );
       await file.writeAsBytes(bytes);
+      debugPrint('[SYNC_DEBUG] Export successful: $fileName');
+
       // Mark as exported only if write succeeded
       await _db.syncLogDao.markExported(
         pendingChanges.map((e) => e.id).toList(),
@@ -182,20 +290,21 @@ class SyncService {
       // Only log once to avoid spamming the console
       if (!_hasLoggedPermissionError) {
         _hasLoggedPermissionError = true;
-        print(
-          'SyncService: Cannot write to sync folder. Permission denied: ${e.path}',
-        );
-        print(
-          'SyncService: On Android 11+, please select a folder within Documents or Downloads.',
+        debugPrint(
+          '[SYNC_DEBUG] SyncService: Cannot write to sync folder. Permission denied: ${e.path}',
         );
       }
       // Broadcast to UI so it can show a snackbar
       _permissionErrorController.add(
         'Cannot write to sync folder. Please select a folder within Documents or Downloads.',
       );
-      // Don't mark as exported, so we'll retry when path is fixed
     } on FileSystemException catch (e) {
-      print('SyncService: File system error during sync export: ${e.message}');
+      debugPrint(
+        '[SYNC_DEBUG] File system error during sync export: ${e.message}',
+      );
+    } catch (e, stack) {
+      debugPrint('[SYNC_DEBUG] CRITICAL ERROR in _exportPendingChanges: $e');
+      debugPrint('[SYNC_DEBUG] Stack trace: $stack');
     }
   }
 
@@ -329,10 +438,59 @@ class SyncService {
   // --- Helper methods for data access ---
 
   SyncTableId? _tableNameToId(String name) {
+    if (name == 'asset_entries') return SyncTableId.assetEntries;
+    if (name == 'exchange_rates') return SyncTableId.exchangeRates;
+    if (name == 'inflation_rates') return SyncTableId.inflationRates;
+    if (name == 'custom_themes') return SyncTableId.customThemes;
+    if (name == 'api_settings') return SyncTableId.apiSettings;
+    if (name == 'sms_presets') return SyncTableId.smsPresets;
+
     return SyncTableId.values.cast<SyncTableId?>().firstWhere(
       (e) => e?.name == name,
       orElse: () => null,
     );
+  }
+
+  Future<Map<String, Map<String, dynamic>>> _getBulkRecordData(
+    SyncTableId tableId,
+    List<String> ids,
+  ) async {
+    final Map<String, Map<String, dynamic>> result = {};
+    switch (tableId) {
+      case SyncTableId.transactions:
+        final records = await _db.transactionsDao.getTransactionsByIds(ids);
+        for (final r in records) {
+          result[r.id] = _transactionToJson(r);
+        }
+        break;
+      case SyncTableId.accounts:
+        final records = await _db.accountsDao.getAccountsByIds(ids);
+        for (final r in records) {
+          result[r.id] = _accountToJson(r);
+        }
+        break;
+      case SyncTableId.categories:
+        final records = await _db.categoriesDao.getCategoriesByIds(ids);
+        for (final r in records) {
+          result[r.id] = _categoryToJson(r);
+        }
+        break;
+      case SyncTableId.styles:
+        final records = await _db.stylesDao.getStylesByIds(ids);
+        for (final r in records) {
+          result[r.id] = _styleToJson(r);
+        }
+        break;
+      case SyncTableId.assetEntries:
+        final records = await _db.assetEntriesDao.getAssetEntriesByIds(ids);
+        for (final r in records) {
+          result[r.id] = _assetEntryToJson(r);
+        }
+        break;
+      default:
+        break;
+    }
+    return result;
   }
 
   Future<Map<String, dynamic>?> _getRecordData(
@@ -352,15 +510,10 @@ class SyncService {
       case SyncTableId.styles:
         final record = await _db.stylesDao.getStyleById(recordId);
         return record != null ? _styleToJson(record) : null;
-      case SyncTableId.exchangeRates:
-      case SyncTableId.inflationRates:
       case SyncTableId.assetEntries:
-      case SyncTableId.customThemes:
-      case SyncTableId.settings:
-      case SyncTableId.smsPresets:
-      case SyncTableId.customDataSources:
-      case SyncTableId.apiSettings:
-        // These tables need specific get methods
+        final record = await _db.assetEntriesDao.getAssetEntryById(recordId);
+        return record != null ? _assetEntryToJson(record) : null;
+      default:
         return null;
     }
   }
@@ -381,6 +534,9 @@ class SyncService {
         break;
       case SyncTableId.styles:
         await _db.stylesDao.insertStyle(_styleFromJson(data));
+        break;
+      case SyncTableId.assetEntries:
+        await _db.assetEntriesDao.addAssetData(_assetEntryFromJson(data));
         break;
       default:
         break;
@@ -403,6 +559,9 @@ class SyncService {
         break;
       case SyncTableId.styles:
         await _db.stylesDao.updateStyle(_styleFromJson(data));
+        break;
+      case SyncTableId.assetEntries:
+        await _db.assetEntriesDao.updateAssetData(_assetEntryFromJson(data));
         break;
       default:
         break;
@@ -430,6 +589,9 @@ class SyncService {
         break;
       case SyncTableId.styles:
         await _db.stylesDao.deleteStyle(StylesCompanion(id: Value(recordId)));
+        break;
+      case SyncTableId.assetEntries:
+        await _db.assetEntriesDao.deleteAssetEntry(recordId);
         break;
       default:
         break;
@@ -546,6 +708,48 @@ class SyncService {
       iconType: Value(IconType.values[(json['iconType'] as int?) ?? 0]),
       modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
+      isDeleted: Value(json['isDeleted'] as bool? ?? false),
+    );
+  }
+
+  Map<String, dynamic> _assetEntryToJson(AssetEntry e) {
+    return {
+      'id': e.id,
+      'assetId': e.assetId,
+      'name': e.name,
+      'date': e.date.toIso8601String(),
+      'value': e.value,
+      'quantity': e.quantity,
+      'assetType': e.assetType,
+      'description': e.description,
+      'currencyCode': e.currencyCode,
+      'accountId': e.accountId,
+      'source': e.source,
+      'preset': e.preset,
+      'modifiedAt': e.modifiedAt,
+      'deviceId': e.deviceId,
+      'sourceId': e.sourceId,
+      'isDeleted': e.isDeleted,
+    };
+  }
+
+  AssetEntriesCompanion _assetEntryFromJson(Map<String, dynamic> json) {
+    return AssetEntriesCompanion(
+      id: Value(json['id'] as String),
+      assetId: Value(json['assetId'] as String),
+      name: Value(json['name'] as String? ?? 'Asset'),
+      date: Value(DateTime.parse(json['date'] as String)),
+      value: Value((json['value'] as num).toDouble()),
+      quantity: Value((json['quantity'] as num).toDouble()),
+      assetType: Value(json['assetType'] as String?),
+      description: Value(json['description'] as String?),
+      currencyCode: Value(json['currencyCode'] as String? ?? 'USD'),
+      accountId: Value(json['accountId'] as String?),
+      source: Value(json['source'] as String? ?? 'Manual'),
+      preset: Value((json['preset'] as int?) ?? 1),
+      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      deviceId: Value(json['deviceId'] as String?),
+      sourceId: Value(json['sourceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
     );
   }

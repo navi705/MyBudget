@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
@@ -697,9 +697,32 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
     await _logChange(style.id.value, 'upsert');
   }
 
-  Future<void> insertAllStyles(List<StylesCompanion> styles) {
-    return batch((batch) {
+  Future<void> insertAllStyles(List<StylesCompanion> styles) async {
+    await batch((batch) {
       batch.insertAll(this.styles, styles, mode: InsertMode.insertOrReplace);
+    });
+    // Log changes for sync
+    final ids = styles.map((s) => s.id.value).toList();
+    await _logChanges(ids, 'upsert');
+  }
+
+  Future<void> _logChanges(List<String> recordIds, String action) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    await batch((batch) {
+      batch.insertAll(
+        syncLog,
+        recordIds
+            .map(
+              (id) => SyncLogCompanion(
+                changedTableName: const Value('styles'),
+                recordId: Value(id),
+                action: Value(action),
+                timestamp: Value(timestamp),
+                exported: const Value(false),
+              ),
+            )
+            .toList(),
+      );
     });
   }
 
@@ -782,15 +805,37 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     await _logChange(account.id.value, 'upsert');
   }
 
-  Future<void> insertAllAccounts(List<AccountsCompanion> accounts) {
-    return batch((batch) {
+  Future<void> insertAllAccounts(List<AccountsCompanion> accounts) async {
+    await batch((batch) {
       batch.insertAll(
         this.accounts,
         accounts,
         mode: InsertMode.insertOrReplace,
       );
     });
-    // Note: Batch inserts not logged individually for performance
+    // Log changes for sync
+    final ids = accounts.map((a) => a.id.value).toList();
+    await _logChanges(ids, 'upsert');
+  }
+
+  Future<void> _logChanges(List<String> recordIds, String action) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    await batch((batch) {
+      batch.insertAll(
+        syncLog,
+        recordIds
+            .map(
+              (id) => SyncLogCompanion(
+                changedTableName: const Value('accounts'),
+                recordId: Value(id),
+                action: Value(action),
+                timestamp: Value(timestamp),
+                exported: const Value(false),
+              ),
+            )
+            .toList(),
+      );
+    });
   }
 
   Future<void> restoreAccount(AccountsCompanion account) =>
@@ -1357,7 +1402,7 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       );
     }
 
-    print('[PERF] SQL Optimized Aggregation: ${sw.elapsedMilliseconds}ms');
+    debugPrint('[PERF] SQL Optimized Aggregation: ${sw.elapsedMilliseconds}ms');
     return categoryTotals;
   }
 }
@@ -1527,7 +1572,7 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> addExchangeRate(ExchangeRatesCompanion rate) {
-    print('DAO: Adding exchange rate with preset: ${rate.preset.value}');
+    debugPrint('DAO: Adding exchange rate with preset: ${rate.preset.value}');
     return into(exchangeRates).insert(rate);
   }
 
@@ -1783,7 +1828,7 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
   }
 }
 
-@DriftAccessor(tables: [AssetEntries])
+@DriftAccessor(tables: [AssetEntries, SyncLog])
 class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     with _$AssetEntriesDaoMixin {
   AssetEntriesDao(super.db);
@@ -1791,6 +1836,12 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
   Future<List<AssetEntry>> getAllAssetEntries() => select(assetEntries).get();
   Stream<List<AssetEntry>> watchAllAssetEntries() =>
       select(assetEntries).watch();
+
+  Future<AssetEntry?> getAssetEntryById(String id) =>
+      (select(assetEntries)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  Future<List<AssetEntry>> getAssetEntriesByIds(List<String> ids) =>
+      (select(assetEntries)..where((t) => t.id.isIn(ids))).get();
 
   Future<List<AssetEntry>> getAssetData({
     int limit = 50,
@@ -1977,18 +2028,59 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     return count ?? 0;
   }
 
-  Future<void> addAssetData(AssetEntriesCompanion data) =>
-      into(assetEntries).insert(data);
+  Future<void> addAssetData(AssetEntriesCompanion data) async {
+    await into(assetEntries).insert(data);
+    await _logChange(data.id.value, 'upsert');
+  }
 
-  Future<void> updateAssetData(AssetEntriesCompanion data) =>
-      update(assetEntries).replace(data);
+  Future<void> updateAssetData(AssetEntriesCompanion data) async {
+    await update(assetEntries).replace(data);
+    await _logChange(data.id.value, 'upsert');
+  }
 
-  Future<void> deleteAssetEntry(String id) {
-    return (delete(assetEntries)..where((tbl) => tbl.id.equals(id))).go();
+  Future<void> deleteAssetEntry(String id) async {
+    await (delete(assetEntries)..where((tbl) => tbl.id.equals(id))).go();
+    await _logChange(id, 'delete');
   }
 
   Future<void> deleteAssets(List<String> ids) async {
     await (delete(assetEntries)..where((tbl) => tbl.id.isIn(ids))).go();
+    await _logChanges(ids, 'delete');
+  }
+
+  Future<void> _logChange(String recordId, String action) async {
+    debugPrint(
+      '[SYNC_DEBUG] AssetEntriesDao: _logChange called for $recordId ($action)',
+    );
+    await into(db.syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('asset_entries'),
+        recordId: Value(recordId),
+        action: Value(action),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+        exported: const Value(false),
+      ),
+    );
+  }
+
+  Future<void> _logChanges(List<String> recordIds, String action) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    await batch((batch) {
+      batch.insertAll(
+        db.syncLog,
+        recordIds
+            .map(
+              (id) => SyncLogCompanion(
+                changedTableName: const Value('asset_entries'),
+                recordId: Value(id),
+                action: Value(action),
+                timestamp: Value(timestamp),
+                exported: const Value(false),
+              ),
+            )
+            .toList(),
+      );
+    });
   }
 
   Future<List<String>> getAvailableAssetIds() async {

@@ -28,7 +28,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   void initState() {
     super.initState();
     _db = sl<AppDatabase>();
-    _syncService = SyncService(_db);
+    _syncService = sl<SyncService>();
     _loadSettings();
   }
 
