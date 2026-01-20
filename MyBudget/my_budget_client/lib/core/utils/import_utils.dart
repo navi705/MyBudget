@@ -262,6 +262,7 @@ class ImportDataUtils {
 
     // Logic: Desktop & Debug -> Use File Path, otherwise -> Use Assets
     final bool isDesktop = !Platform.isAndroid && !Platform.isIOS;
+    debugPrint("CurrencyInit: isDesktop=$isDesktop, kDebugMode=$kDebugMode");
 
     if (kDebugMode && isDesktop) {
       // DEBUG (PC ONLY): Read from local JSON file directly
@@ -287,17 +288,24 @@ class ImportDataUtils {
         }
       }
     } else {
-      // MOBILE or RELEASE: Read from Assets
-      // Try Binary Asset first
       try {
+        debugPrint(
+          "CurrencyInit: Attempting to load asset: $filePathCurrenciesBinaryAsset",
+        );
         final ByteData blob = await rootBundle.load(
           filePathCurrenciesBinaryAsset,
         );
-        final Uint8List bytes = blob.buffer.asUint8List();
+        final Uint8List bytes = blob.buffer.asUint8List(
+          blob.offsetInBytes,
+          blob.lengthInBytes,
+        );
+        debugPrint("CurrencyInit: Binary asset size: ${bytes.length} bytes");
         fileHistoryMap = CurrencyHistoryBinaryIO.readFromBytes(bytes);
-        debugPrint("Loaded exchange rates from Binary Asset.");
+        debugPrint(
+          "CurrencyInit: Loaded ${fileHistoryMap.length} dates from Binary Asset.",
+        );
       } catch (e) {
-        debugPrint("Error loading binary asset: $e");
+        debugPrint("CurrencyInit: Error loading binary asset: $e");
       }
     }
 
@@ -351,10 +359,15 @@ class ImportDataUtils {
     );
 
     if (listToInsert.isNotEmpty) {
-      debugPrint("Adding ${listToInsert.length} new records to DB...");
+      debugPrint(
+        "CurrencyInit: Adding ${listToInsert.length} new records to DB...",
+      );
       await currenciesRep.addExchangeRates(listToInsert);
+      debugPrint("CurrencyInit: Successfully added records.");
     } else {
-      debugPrint("Database is already up to date.");
+      debugPrint(
+        "CurrencyInit: No new data to add (DB already up to date or file empty).",
+      );
     }
 
     // 7. (DEBUG & PC ONLY) Save updated data back to binary/json if changed
