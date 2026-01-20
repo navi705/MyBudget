@@ -75,6 +75,11 @@ class Categories extends Table {
       .map(const EnumIndexConverter(CategoryType.values))
       .withDefault(const Constant(0))();
 
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  TextColumn get deviceId => text().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -88,6 +93,11 @@ class Styles extends Table {
   IntColumn get iconType => integer()
       .map(const EnumIndexConverter(IconType.values))
       .withDefault(const Constant(0))();
+
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  TextColumn get deviceId => text().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -122,6 +132,11 @@ class Accounts extends Table {
   TextColumn get feeStructure =>
       text().nullable()(); // Added: JSON string for Fee Constructor
 
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  TextColumn get deviceId => text().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
   @override
   @override
   Set<Column> get primaryKey => {id};
@@ -145,6 +160,11 @@ class Transactions extends Table {
   TextColumn get linkedTransactionId =>
       text().nullable()(); // Added: ID of the linked transaction
 
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  TextColumn get deviceId => text().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -162,6 +182,11 @@ class ExchangeRates extends Table {
   IntColumn get preset => integer()();
   DateTimeColumn get date => dateTime()();
 
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  TextColumn get deviceId => text().nullable()();
+  TextColumn get sourceId => text().nullable()(); // Custom API source
+
   @override
   Set<Column> get primaryKey => {
     fromCurrencyCode,
@@ -176,6 +201,11 @@ class InflationRates extends Table {
   RealColumn get percent => real()();
   TextColumn get country => text().nullable()();
   IntColumn get preset => integer()();
+
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  TextColumn get deviceId => text().nullable()();
+  TextColumn get sourceId => text().nullable()(); // Custom API source
 
   @override
   Set<Column> get primaryKey => {date, country, preset};
@@ -196,6 +226,12 @@ class AssetEntries extends Table {
   TextColumn get source => text()();
   IntColumn get preset => integer().withDefault(const Constant(1))();
 
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  TextColumn get deviceId => text().nullable()();
+  TextColumn get sourceId => text().nullable()(); // Custom API source
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -207,6 +243,10 @@ class Settings extends Table {
   TextColumn get key => text()();
   TextColumn get value => text()();
   TextColumn get device => text()();
+
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  TextColumn get deviceId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {key};
@@ -232,11 +272,93 @@ class CustomThemes extends Table {
   BoolColumn get isPreset => boolean().withDefault(const Constant(false))();
   BoolColumn get isActive => boolean().withDefault(const Constant(false))();
 
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  TextColumn get deviceId => text().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
 
-// --- Data Access Objects (DAOs) ---
+// --- Sync Tables ---
+
+/// Tracks local changes for sync export
+class SyncLog extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get changedTableName => text()(); // Renamed from tableName
+  TextColumn get recordId => text()();
+  TextColumn get action => text()(); // upsert, delete
+  IntColumn get timestamp => integer()();
+  BoolColumn get exported => boolean().withDefault(const Constant(false))();
+}
+
+/// Stores rejected versions during conflict resolution
+class ConflictHistory extends Table {
+  TextColumn get id => text().clientDefault(() => _uuid.v4())();
+  TextColumn get changedTableName => text()(); // Renamed from tableName
+  TextColumn get recordId => text()();
+  TextColumn get rejectedData => text()(); // JSON
+  IntColumn get rejectedAt => integer()();
+  TextColumn get rejectedDevice => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Custom API data sources
+class CustomDataSources extends Table {
+  TextColumn get id => text().clientDefault(() => _uuid.v4())();
+  TextColumn get name => text()();
+  TextColumn get url => text()();
+  IntColumn get dataType => integer()(); // 0=exchange, 1=inflation, 2=asset
+  BoolColumn get enabled => boolean().withDefault(const Constant(true))();
+  BoolColumn get autoFetch => boolean().withDefault(const Constant(false))();
+  IntColumn get lastFetchAt => integer().nullable()();
+
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  TextColumn get deviceId => text().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Built-in API settings
+class ApiSettingsTable extends Table {
+  TextColumn get id => text()(); // "exchange_rates", "inflation", "assets"
+  BoolColumn get enabled => boolean().withDefault(const Constant(true))();
+  BoolColumn get autoFetch => boolean().withDefault(const Constant(false))();
+  IntColumn get lastFetchAt => integer().nullable()();
+
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  TextColumn get deviceId => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// SMS parsing presets (migrated from SharedPreferences)
+class SmsPresets extends Table {
+  TextColumn get id => text().clientDefault(() => _uuid.v4())();
+  TextColumn get name => text()();
+  TextColumn get senderFilter => text()();
+  BoolColumn get isBuiltIn => boolean().withDefault(const Constant(false))();
+  BoolColumn get isEnabled => boolean().withDefault(const Constant(true))();
+  TextColumn get defaultAccountId => text().nullable()();
+  TextColumn get defaultCategoryId => text().nullable()();
+  TextColumn get rulesJson => text()(); // JSON array of parsing rules
+
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  TextColumn get deviceId => text().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
 
 @DriftAccessor(tables: [Languages])
 class LanguageDao extends DatabaseAccessor<AppDatabase>
@@ -331,7 +453,7 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
       delete(currencies).delete(currency);
 }
 
-@DriftAccessor(tables: [Categories, Transactions])
+@DriftAccessor(tables: [Categories, Transactions, SyncLog])
 class CategoriesDao extends DatabaseAccessor<AppDatabase>
     with _$CategoriesDaoMixin {
   CategoriesDao(super.db);
@@ -361,8 +483,12 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Stream<List<Category>> watchAllCategories() => select(categories).watch();
-  Future<void> insertCategory(CategoriesCompanion category) =>
-      into(categories).insert(category);
+
+  Future<void> insertCategory(CategoriesCompanion category) async {
+    await into(categories).insert(category);
+    await _logChange(category.id.value, 'upsert');
+  }
+
   Future<void> insertAllCategories(List<CategoriesCompanion> categories) {
     return batch((batch) {
       batch.insertAll(
@@ -373,10 +499,30 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
-  Future<bool> updateCategory(CategoriesCompanion category) =>
-      update(categories).replace(category);
-  Future<int> deleteCategory(CategoriesCompanion category) =>
-      delete(categories).delete(category);
+  Future<bool> updateCategory(CategoriesCompanion category) async {
+    final result = await update(categories).replace(category);
+    await _logChange(category.id.value, 'upsert');
+    return result;
+  }
+
+  Future<int> deleteCategory(CategoriesCompanion category) async {
+    final result = await delete(categories).delete(category);
+    await _logChange(category.id.value, 'delete');
+    return result;
+  }
+
+  /// Log a change for sync export
+  Future<void> _logChange(String recordId, String action) async {
+    await into(syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('categories'),
+        recordId: Value(recordId),
+        action: Value(action),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+        exported: const Value(false),
+      ),
+    );
+  }
 
   Future<void> deleteCategoryWithTransactions(String categoryId) {
     return db.transaction(() async {
@@ -491,7 +637,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   }
 }
 
-@DriftAccessor(tables: [Styles])
+@DriftAccessor(tables: [Styles, SyncLog])
 class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
   StylesDao(super.db);
 
@@ -519,23 +665,43 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
 
     final resultMap = {for (var style in allResults) style.id: style};
 
-    return ids
-        .map((id) => resultMap[id]) // Get style by ID
-        .whereType<Style>() // Remove nulls (in case an ID wasn't found in DB)
-        .toList();
+    return ids.map((id) => resultMap[id]).whereType<Style>().toList();
   }
 
-  Future<void> insertStyle(StylesCompanion style) => into(styles).insert(style);
+  Future<void> insertStyle(StylesCompanion style) async {
+    await into(styles).insert(style);
+    await _logChange(style.id.value, 'upsert');
+  }
+
   Future<void> insertAllStyles(List<StylesCompanion> styles) {
     return batch((batch) {
       batch.insertAll(this.styles, styles, mode: InsertMode.insertOrReplace);
     });
   }
 
-  Future<bool> updateStyle(StylesCompanion style) =>
-      update(styles).replace(style);
-  Future<int> deleteStyle(StylesCompanion style) =>
-      delete(styles).delete(style);
+  Future<bool> updateStyle(StylesCompanion style) async {
+    final result = await update(styles).replace(style);
+    await _logChange(style.id.value, 'upsert');
+    return result;
+  }
+
+  Future<int> deleteStyle(StylesCompanion style) async {
+    final result = await delete(styles).delete(style);
+    await _logChange(style.id.value, 'delete');
+    return result;
+  }
+
+  Future<void> _logChange(String recordId, String action) async {
+    await into(syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('styles'),
+        recordId: Value(recordId),
+        action: Value(action),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+        exported: const Value(false),
+      ),
+    );
+  }
 }
 
 @DriftAccessor(tables: [AccountTypes])
@@ -569,7 +735,7 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
       delete(accountTypes).delete(accountType);
 }
 
-@DriftAccessor(tables: [Accounts, Transactions])
+@DriftAccessor(tables: [Accounts, Transactions, SyncLog])
 class AccountsDao extends DatabaseAccessor<AppDatabase>
     with _$AccountsDaoMixin {
   AccountsDao(super.db);
@@ -585,8 +751,13 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       (select(accounts)..where((tbl) => tbl.id.isIn(ids))).get();
 
   Stream<List<DbAccount>> watchAllAccounts() => select(accounts).watch();
-  Future<void> insertAccount(AccountsCompanion account) =>
-      into(accounts).insert(account);
+
+  Future<void> insertAccount(AccountsCompanion account) async {
+    await into(accounts).insert(account);
+    // Log change for sync
+    await _logChange(account.id.value, 'upsert');
+  }
+
   Future<void> insertAllAccounts(List<AccountsCompanion> accounts) {
     return batch((batch) {
       batch.insertAll(
@@ -595,14 +766,38 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
         mode: InsertMode.insertOrReplace,
       );
     });
+    // Note: Batch inserts not logged individually for performance
   }
 
   Future<void> restoreAccount(AccountsCompanion account) =>
       into(accounts).insert(account, mode: InsertMode.insertOrReplace);
-  Future<bool> updateAccount(AccountsCompanion account) =>
-      update(accounts).replace(account);
-  Future<int> deleteAccount(AccountsCompanion account) =>
-      delete(accounts).delete(account);
+
+  Future<bool> updateAccount(AccountsCompanion account) async {
+    final result = await update(accounts).replace(account);
+    // Log change for sync
+    await _logChange(account.id.value, 'upsert');
+    return result;
+  }
+
+  Future<int> deleteAccount(AccountsCompanion account) async {
+    final result = await delete(accounts).delete(account);
+    // Log change for sync
+    await _logChange(account.id.value, 'delete');
+    return result;
+  }
+
+  /// Log a change for sync export
+  Future<void> _logChange(String recordId, String action) async {
+    await into(syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('accounts'),
+        recordId: Value(recordId),
+        action: Value(action),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+        exported: const Value(false),
+      ),
+    );
+  }
 
   Future<void> adjustBalance(String accountId, double amount) {
     return customUpdate(
@@ -762,7 +957,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   }
 }
 
-@DriftAccessor(tables: [Transactions])
+@DriftAccessor(tables: [Transactions, SyncLog])
 class TransactionsDao extends DatabaseAccessor<AppDatabase>
     with _$TransactionsDaoMixin {
   TransactionsDao(super.db);
@@ -779,8 +974,12 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       )..where((tbl) => tbl.categoryId.equals(categoryId))).get();
   Stream<List<Transaction>> watchAllTransactions() =>
       select(transactions).watch();
-  Future<void> insertTransaction(TransactionsCompanion transaction) =>
-      into(transactions).insert(transaction);
+
+  Future<void> insertTransaction(TransactionsCompanion transaction) async {
+    await into(transactions).insert(transaction);
+    await _logChange(transaction.id.value, 'upsert');
+  }
+
   Future<void> insertAllTransactions(List<TransactionsCompanion> transactions) {
     return batch((batch) {
       batch.insertAll(
@@ -791,10 +990,30 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
-  Future<bool> updateTransaction(TransactionsCompanion transaction) =>
-      update(transactions).replace(transaction);
-  Future<int> deleteTransaction(TransactionsCompanion transaction) =>
-      delete(transactions).delete(transaction);
+  Future<bool> updateTransaction(TransactionsCompanion transaction) async {
+    final result = await update(transactions).replace(transaction);
+    await _logChange(transaction.id.value, 'upsert');
+    return result;
+  }
+
+  Future<int> deleteTransaction(TransactionsCompanion transaction) async {
+    final result = await delete(transactions).delete(transaction);
+    await _logChange(transaction.id.value, 'delete');
+    return result;
+  }
+
+  Future<void> _logChange(String recordId, String action) async {
+    await into(syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('transactions'),
+        recordId: Value(recordId),
+        action: Value(action),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+        exported: const Value(false),
+      ),
+    );
+  }
+
   Future<List<Transaction>> getTransactionsWithFilters({
     int limit = 10,
     int offset = 0,
@@ -1768,22 +1987,25 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
 
 @DriftDatabase(
   tables: [
-    // Business Tables
+    Languages,
     CurrencyDesignations,
     Currencies,
     Categories,
     Styles,
+    AccountTypes,
     Accounts,
     Transactions,
-    AccountTypes,
     ExchangeRates,
-    Languages,
     InflationRates,
     AssetEntries,
-    // Technical Tables
     Settings,
     CustomThemes,
     ApiFetchStatuses,
+    SyncLog,
+    ConflictHistory,
+    CustomDataSources,
+    ApiSettingsTable,
+    SmsPresets,
   ],
   daos: [
     LanguageDao,
@@ -1794,12 +2016,15 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     AccountTypesDao,
     AccountsDao,
     TransactionsDao,
-    SettingsDao,
     ExchangeRatesDao,
-    CustomThemesDao,
     InflationRatesDao,
     AssetEntriesDao,
-    ApiFetchStatusesDao, // Added
+    SettingsDao,
+    CustomThemesDao,
+    ApiFetchStatusesDao,
+    SmsPresetsDao,
+    SyncLogDao,
+    ConflictHistoryDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -1808,7 +2033,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration {
@@ -1907,6 +2132,59 @@ class AppDatabase extends _$AppDatabase {
             "ALTER TABLE asset_entries ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'",
           );
         }
+        if (from < 19) {
+          // Add new sync tables
+          await m.createTable(syncLog);
+          await m.createTable(conflictHistory);
+          await m.createTable(customDataSources);
+          await m.createTable(apiSettingsTable);
+          await m.createTable(smsPresets);
+
+          // Add sync columns to Transactions
+          await m.addColumn(transactions, transactions.modifiedAt);
+          await m.addColumn(transactions, transactions.deviceId);
+          await m.addColumn(transactions, transactions.isDeleted);
+
+          // Add sync columns to Accounts
+          await m.addColumn(accounts, accounts.modifiedAt);
+          await m.addColumn(accounts, accounts.deviceId);
+          await m.addColumn(accounts, accounts.isDeleted);
+
+          // Add sync columns to Categories
+          await m.addColumn(categories, categories.modifiedAt);
+          await m.addColumn(categories, categories.deviceId);
+          await m.addColumn(categories, categories.isDeleted);
+
+          // Add sync columns to Styles
+          await m.addColumn(styles, styles.modifiedAt);
+          await m.addColumn(styles, styles.deviceId);
+          await m.addColumn(styles, styles.isDeleted);
+
+          // Add sync columns to ExchangeRates
+          await m.addColumn(exchangeRates, exchangeRates.modifiedAt);
+          await m.addColumn(exchangeRates, exchangeRates.deviceId);
+          await m.addColumn(exchangeRates, exchangeRates.sourceId);
+
+          // Add sync columns to InflationRates
+          await m.addColumn(inflationRates, inflationRates.modifiedAt);
+          await m.addColumn(inflationRates, inflationRates.deviceId);
+          await m.addColumn(inflationRates, inflationRates.sourceId);
+
+          // Add sync columns to AssetEntries
+          await m.addColumn(assetEntries, assetEntries.modifiedAt);
+          await m.addColumn(assetEntries, assetEntries.deviceId);
+          await m.addColumn(assetEntries, assetEntries.sourceId);
+          await m.addColumn(assetEntries, assetEntries.isDeleted);
+
+          // Add sync columns to Settings
+          await m.addColumn(settings, settings.modifiedAt);
+          await m.addColumn(settings, settings.deviceId);
+
+          // Add sync columns to CustomThemes
+          await m.addColumn(customThemes, customThemes.modifiedAt);
+          await m.addColumn(customThemes, customThemes.deviceId);
+          await m.addColumn(customThemes, customThemes.isDeleted);
+        }
       },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON');
@@ -1948,6 +2226,19 @@ class AppDatabase extends _$AppDatabase {
     final settingsToSeed = getDefaultSettings(deviceName);
     for (final setting in settingsToSeed) {
       await db.settingsDao.setSetting(setting);
+    }
+
+    // Generate and store unique device ID for sync if not exists
+    final deviceId = await db.settingsDao.getSetting('local_device_id');
+    if (deviceId == null) {
+      await db.settingsDao.setSetting(
+        SettingsCompanion(
+          key: const Value('local_device_id'),
+          value: Value(_uuid.v4()),
+          device: Value(deviceName),
+          modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+        ),
+      );
     }
   }
 
@@ -2050,4 +2341,104 @@ class ApiFetchStatusesDao extends DatabaseAccessor<AppDatabase>
 
   Future<List<ApiFetchStatus>> getAllFailedStatuses() =>
       (select(apiFetchStatuses)..where((t) => t.status.equals('failed'))).get();
+}
+
+@DriftAccessor(tables: [SmsPresets])
+class SmsPresetsDao extends DatabaseAccessor<AppDatabase>
+    with _$SmsPresetsDaoMixin {
+  SmsPresetsDao(super.db);
+
+  Future<List<SmsPreset>> getAllPresets() => select(smsPresets).get();
+  Stream<List<SmsPreset>> watchAllPresets() => select(smsPresets).watch();
+  Future<int> insertPreset(SmsPresetsCompanion preset) =>
+      into(smsPresets).insert(preset);
+  Future<bool> updatePreset(SmsPresetsCompanion preset) =>
+      update(smsPresets).replace(preset);
+  Future<int> deletePreset(String id) =>
+      (delete(smsPresets)..where((t) => t.id.equals(id))).go();
+}
+
+@DriftAccessor(tables: [SyncLog])
+class SyncLogDao extends DatabaseAccessor<AppDatabase> with _$SyncLogDaoMixin {
+  SyncLogDao(super.db);
+
+  /// Log a change for sync export
+  Future<int> logChange({
+    required String tableName,
+    required String recordId,
+    required String action, // 'upsert' or 'delete'
+  }) => into(syncLog).insert(
+    SyncLogCompanion(
+      changedTableName: Value(tableName),
+      recordId: Value(recordId),
+      action: Value(action),
+      timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+      exported: const Value(false),
+    ),
+  );
+
+  /// Get all unexported changes
+  Future<List<SyncLogData>> getPendingChanges() =>
+      (select(syncLog)..where((t) => t.exported.equals(false))).get();
+
+  /// Mark changes as exported
+  Future<void> markExported(List<int> ids) async {
+    await (update(syncLog)..where((t) => t.id.isIn(ids))).write(
+      const SyncLogCompanion(exported: Value(true)),
+    );
+  }
+
+  /// Clear old exported entries
+  Future<int> clearExportedBefore(DateTime cutoff) =>
+      (delete(syncLog)
+            ..where((t) => t.exported.equals(true))
+            ..where(
+              (t) => t.timestamp.isSmallerOrEqualValue(
+                cutoff.millisecondsSinceEpoch,
+              ),
+            ))
+          .go();
+}
+
+@DriftAccessor(tables: [ConflictHistory])
+class ConflictHistoryDao extends DatabaseAccessor<AppDatabase>
+    with _$ConflictHistoryDaoMixin {
+  ConflictHistoryDao(super.db);
+
+  /// Save a rejected version during conflict resolution
+  Future<int> saveConflict({
+    required String tableName,
+    required String recordId,
+    required String rejectedDataJson,
+    String? rejectedDevice,
+  }) => into(conflictHistory).insert(
+    ConflictHistoryCompanion(
+      changedTableName: Value(tableName),
+      recordId: Value(recordId),
+      rejectedData: Value(rejectedDataJson),
+      rejectedAt: Value(DateTime.now().millisecondsSinceEpoch),
+      rejectedDevice: Value(rejectedDevice),
+    ),
+  );
+
+  /// Get all conflicts for a specific record
+  Future<List<ConflictHistoryData>> getConflictsForRecord(String recordId) =>
+      (select(
+        conflictHistory,
+      )..where((t) => t.recordId.equals(recordId))).get();
+
+  /// Get all conflicts
+  Future<List<ConflictHistoryData>> getAllConflicts() =>
+      select(conflictHistory).get();
+
+  /// Clear old conflicts (keep only last N)
+  Future<void> clearOldConflicts(int maxKeep) async {
+    final all = await (select(
+      conflictHistory,
+    )..orderBy([(t) => OrderingTerm.desc(t.rejectedAt)])).get();
+    if (all.length > maxKeep) {
+      final toDelete = all.skip(maxKeep).map((e) => e.id).toList();
+      await (delete(conflictHistory)..where((t) => t.id.isIn(toDelete))).go();
+    }
+  }
 }

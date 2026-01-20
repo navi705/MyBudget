@@ -144,6 +144,15 @@ class SettingsScreen extends StatelessWidget {
                     ),
 
                   ListTile(
+                    leading: const Icon(Icons.sync),
+                    title: const Text('Sync Settings'),
+                    subtitle: const Text('P2P sync via Syncthing'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      context.push(AppRoutes.syncSettings);
+                    },
+                  ),
+                  ListTile(
                     leading: const Icon(Icons.import_export),
                     title: const Text('Import Data'),
                     onTap: () {
