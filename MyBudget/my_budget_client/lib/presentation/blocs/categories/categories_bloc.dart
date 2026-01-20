@@ -273,7 +273,9 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   ) async {
     PerformanceLogger().start('Categories Screen Load');
     final currentState = state;
-    emit(CategoriesLoadInProgress());
+    if (currentState is! CategoriesLoadSuccess) {
+      emit(CategoriesLoadInProgress());
+    }
 
     try {
       var filters = currentState is CategoriesLoadSuccess
