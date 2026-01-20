@@ -76,9 +76,12 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     LoadInflationRates event,
     Emitter<InflationState> emit,
   ) async {
-    emit(
-      state.copyWith(status: InflationStatus.loading, offset: 0, rates: []),
-    ); // Modified
+    if (state.status == InflationStatus.initial ||
+        state.status == InflationStatus.failure) {
+      emit(
+        state.copyWith(status: InflationStatus.loading, offset: 0, rates: []),
+      );
+    }
     try {
       // Load persisted settings
       final dateStepSetting = await _settingsRepository.getSetting(

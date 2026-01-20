@@ -22,15 +22,39 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
 
   int _calculateSelectedIndex(BuildContext context) {
     final String location = GoRouterState.of(context).uri.toString();
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     // Find the best match. Longer routes are more specific.
     int bestMatchIndex = -1;
     int longestMatch = -1;
 
     for (int i = 0; i < widget.destinations.length; i++) {
       final route = widget.destinations[i].route;
-      if (location.startsWith(route) && route.length > longestMatch) {
+
+      // Special case for root: only match exactly or if we're at a sub-path we want to group.
+      // But usually, we only want '/' to match exactly '/' to avoid it matching everything.
+      bool isMatch = false;
+      if (route == '/') {
+        isMatch = (location == '/');
+      } else {
+        isMatch = location.startsWith(route);
+      }
+
+      if (isMatch && route.length > longestMatch) {
         longestMatch = route.length;
         bestMatchIndex = i;
+      }
+    }
+
+    // Special case for Mobile: Data screen (exchange-rates) is accessed via Settings.
+    // If no match was found and we are on /exchange-rates, find Settings index.
+    if (bestMatchIndex < 0 &&
+        isMobile &&
+        location.startsWith('/exchange-rates')) {
+      for (int i = 0; i < widget.destinations.length; i++) {
+        if (widget.destinations[i].label == 'Settings') {
+          return i;
+        }
       }
     }
 

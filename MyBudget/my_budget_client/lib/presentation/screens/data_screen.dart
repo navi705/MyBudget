@@ -35,21 +35,23 @@ class _DataScreenState extends State<DataScreen> {
                 // This is a placeholder; actual add is handled by child screens
               },
             },
-            child: Column(
-              children: [
-                if (!isDesktop) _buildTabBar(context),
-                const Expanded(
-                  child: TabBarView(
-                    physics: NeverScrollableScrollPhysics(),
-                    children: [
-                      ExchangeRatesScreen(isStandalone: false),
-                      InflationTab(),
-                      AssetTab(),
-                    ],
+            child: SafeArea(
+              child: Column(
+                children: [
+                  if (!isDesktop) _buildTabBar(context),
+                  const Expanded(
+                    child: TabBarView(
+                      physics: NeverScrollableScrollPhysics(),
+                      children: [
+                        ExchangeRatesScreen(isStandalone: false),
+                        InflationTab(),
+                        AssetTab(),
+                      ],
+                    ),
                   ),
-                ),
-                if (isDesktop) _buildTabBar(context),
-              ],
+                  if (isDesktop) _buildTabBar(context),
+                ],
+              ),
             ),
           );
         },

@@ -211,13 +211,15 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   ) async {
     PerformanceLogger().start('Accounts Screen Load');
     final currentState = state;
-    emit(
-      AccountsLoadInProgress(
-        activeDate: currentState.activeDate,
-        dateStep: currentState.dateStep,
-        filters: currentState.filters,
-      ),
-    );
+    if (currentState is! AccountsLoadSuccess) {
+      emit(
+        AccountsLoadInProgress(
+          activeDate: currentState.activeDate,
+          dateStep: currentState.dateStep,
+          filters: currentState.filters,
+        ),
+      );
+    }
     try {
       var filters = currentState.filters;
       final savedFilters = await _settingsRepository.getSetting(
