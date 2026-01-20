@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as drift;
 import 'package:my_budget_client/domain/entities/transaction.dart';
+import 'package:uuid/uuid.dart';
 
 extension TransactionMapper on drift.Transaction {
   Transaction toDomain() {
@@ -23,7 +24,7 @@ extension TransactionMapper on drift.Transaction {
 extension TransactionCompanionMapper on Transaction {
   drift.TransactionsCompanion toCompanion() {
     return drift.TransactionsCompanion(
-      id: id == null ? const Value.absent() : Value(id!),
+      id: Value(id ?? const Uuid().v4()),
       description: Value(description),
       amount: Value(amount),
       date: Value(date),

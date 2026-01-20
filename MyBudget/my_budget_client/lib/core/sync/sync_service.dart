@@ -19,6 +19,10 @@ class SyncService {
   StreamSubscription<FileSystemEvent>? _watcherSubscription;
 
   bool _isRunning = false;
+  bool _hasLoggedPermissionError = false;
+
+  /// Stream controller for permission errors (to notify UI)
+  final _permissionErrorController = StreamController<String>.broadcast();
 
   /// Batch interval for exporting changes (default 30 seconds)
   Duration batchInterval = const Duration(seconds: 30);
@@ -34,6 +38,9 @@ class SyncService {
   /// Check if sync is currently running
   bool get isRunning => _isRunning;
 
+  /// Stream of permission errors (for UI to display)
+  Stream<String> get permissionErrors => _permissionErrorController.stream;
+
   /// Get the local device ID
   Future<String> getLocalDeviceId() async {
     if (_localDeviceId != null) return _localDeviceId!;
@@ -44,22 +51,40 @@ class SyncService {
   }
 
   /// Start synchronization
-  Future<void> startSync(String syncFolderPath) async {
-    if (_isRunning) return;
+  /// Returns true if sync started successfully, false if there was a permission error.
+  Future<bool> startSync(String syncFolderPath) async {
+    if (_isRunning) return true;
 
     _syncFolderPath = syncFolderPath;
     _localDeviceId = await getLocalDeviceId();
 
-    // Ensure sync folder exists
-    final syncDir = Directory(syncFolderPath);
-    if (!await syncDir.exists()) {
-      await syncDir.create(recursive: true);
-    }
+    // Ensure sync folder exists - with error handling for Android Scoped Storage
+    try {
+      final syncDir = Directory(syncFolderPath);
+      if (!await syncDir.exists()) {
+        await syncDir.create(recursive: true);
+      }
 
-    // Ensure .processed subfolder exists
-    final processedDir = Directory(p.join(syncFolderPath, '.processed'));
-    if (!await processedDir.exists()) {
-      await processedDir.create();
+      // Ensure .processed subfolder exists
+      final processedDir = Directory(p.join(syncFolderPath, '.processed'));
+      if (!await processedDir.exists()) {
+        await processedDir.create();
+      }
+    } on PathAccessException catch (e) {
+      print(
+        'SyncService: Cannot access sync folder. Permission denied: ${e.path}',
+      );
+      print(
+        'SyncService: On Android 11+, select a folder within Documents or Downloads.',
+      );
+      _syncFolderPath = null;
+      return false;
+    } on FileSystemException catch (e) {
+      print(
+        'SyncService: File system error creating sync folder: ${e.message}',
+      );
+      _syncFolderPath = null;
+      return false;
     }
 
     // Start export timer
@@ -69,12 +94,14 @@ class SyncService {
     );
 
     // Start file watcher
+    final syncDir = Directory(syncFolderPath);
     _watcherSubscription = syncDir.watch().listen(_onFileSystemEvent);
 
     // Process any existing files from other devices
     await _processExistingFiles();
 
     _isRunning = true;
+    return true;
   }
 
   /// Stop synchronization
@@ -139,14 +166,37 @@ class SyncService {
       changes: changes,
     );
 
-    // Write file
+    // Write file - with error handling for Android Scoped Storage permissions
     final fileName =
         'device_${_localDeviceId!.substring(0, 8)}_$timestamp.sync';
     final file = File(p.join(_syncFolderPath!, fileName));
-    await file.writeAsBytes(bytes);
 
-    // Mark as exported
-    await _db.syncLogDao.markExported(pendingChanges.map((e) => e.id).toList());
+    try {
+      await file.writeAsBytes(bytes);
+      // Mark as exported only if write succeeded
+      await _db.syncLogDao.markExported(
+        pendingChanges.map((e) => e.id).toList(),
+      );
+    } on PathAccessException catch (e) {
+      // Android 11+ Scoped Storage blocks direct file access to external paths.
+      // Only log once to avoid spamming the console
+      if (!_hasLoggedPermissionError) {
+        _hasLoggedPermissionError = true;
+        print(
+          'SyncService: Cannot write to sync folder. Permission denied: ${e.path}',
+        );
+        print(
+          'SyncService: On Android 11+, please select a folder within Documents or Downloads.',
+        );
+      }
+      // Broadcast to UI so it can show a snackbar
+      _permissionErrorController.add(
+        'Cannot write to sync folder. Please select a folder within Documents or Downloads.',
+      );
+      // Don't mark as exported, so we'll retry when path is fixed
+    } on FileSystemException catch (e) {
+      print('SyncService: File system error during sync export: ${e.message}');
+    }
   }
 
   /// Handle file system events

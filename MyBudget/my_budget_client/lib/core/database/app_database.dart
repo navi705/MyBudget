@@ -489,12 +489,36 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
     await _logChange(category.id.value, 'upsert');
   }
 
-  Future<void> insertAllCategories(List<CategoriesCompanion> categories) {
-    return batch((batch) {
+  Future<void> insertAllCategories(List<CategoriesCompanion> categories) async {
+    await batch((batch) {
       batch.insertAll(
         this.categories,
         categories,
         mode: InsertMode.insertOrReplace,
+      );
+    });
+    // Log changes for sync
+    final ids = categories.map((c) => c.id.value).toList();
+    await _logChanges(ids, 'upsert');
+  }
+
+  /// Log multiple changes for sync export
+  Future<void> _logChanges(List<String> recordIds, String action) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    await batch((batch) {
+      batch.insertAll(
+        syncLog,
+        recordIds
+            .map(
+              (id) => SyncLogCompanion(
+                changedTableName: const Value('categories'),
+                recordId: Value(id),
+                action: Value(action),
+                timestamp: Value(timestamp),
+                exported: const Value(false),
+              ),
+            )
+            .toList(),
       );
     });
   }
@@ -980,12 +1004,38 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     await _logChange(transaction.id.value, 'upsert');
   }
 
-  Future<void> insertAllTransactions(List<TransactionsCompanion> transactions) {
-    return batch((batch) {
+  Future<void> insertAllTransactions(
+    List<TransactionsCompanion> transactions,
+  ) async {
+    await batch((batch) {
       batch.insertAll(
         this.transactions,
         transactions,
         mode: InsertMode.insertOrReplace,
+      );
+    });
+    // Log changes for sync
+    final ids = transactions.map((t) => t.id.value).toList();
+    await _logChanges(ids, 'upsert');
+  }
+
+  /// Log multiple changes for sync export
+  Future<void> _logChanges(List<String> recordIds, String action) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    await batch((batch) {
+      batch.insertAll(
+        db.syncLog,
+        recordIds
+            .map(
+              (id) => SyncLogCompanion(
+                changedTableName: const Value('transactions'),
+                recordId: Value(id),
+                action: Value(action),
+                timestamp: Value(timestamp),
+                exported: const Value(false),
+              ),
+            )
+            .toList(),
       );
     });
   }

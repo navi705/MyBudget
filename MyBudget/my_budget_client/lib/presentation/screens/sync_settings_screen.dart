@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -20,7 +22,6 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   String? _syncFolderPath;
   bool _isEnabled = false;
   bool _isSyncing = false;
-  String _localDeviceId = '';
   int _pendingChanges = 0;
 
   @override
@@ -34,18 +35,27 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   Future<void> _loadSettings() async {
     final folderSetting = await _db.settingsDao.getSetting('sync_folder_path');
     final enabledSetting = await _db.settingsDao.getSetting('sync_enabled');
-    final deviceId = await _syncService.getLocalDeviceId();
     final pending = await _db.syncLogDao.getPendingChanges();
 
     setState(() {
       _syncFolderPath = folderSetting?.value;
       _isEnabled = enabledSetting?.value == 'true';
-      _localDeviceId = deviceId;
       _pendingChanges = pending.length;
     });
 
     if (_isEnabled && _syncFolderPath != null) {
-      await _syncService.startSync(_syncFolderPath!);
+      final success = await _syncService.startSync(_syncFolderPath!);
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Cannot access sync folder. On Android 11+, please select a folder within Documents or Downloads.',
+            ),
+            duration: Duration(seconds: 5),
+          ),
+        );
+        setState(() => _isEnabled = false);
+      }
     }
   }
 
@@ -70,6 +80,70 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     }
   }
 
+  Future<void> _clearSyncFolder() async {
+    if (_syncFolderPath == null) return;
+
+    // Show confirmation dialog
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Sync Files'),
+        content: const Text(
+          'This will delete all .sync files from the selected folder. '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final dir = Directory(_syncFolderPath!);
+      if (await dir.exists()) {
+        int deletedCount = 0;
+        await for (final entity in dir.list()) {
+          if (entity is File && entity.path.endsWith('.sync')) {
+            await entity.delete();
+            deletedCount++;
+          }
+        }
+
+        // Also clear .processed subfolder
+        final processedDir = Directory('${_syncFolderPath!}/.processed');
+        if (await processedDir.exists()) {
+          await for (final entity in processedDir.list()) {
+            if (entity is File && entity.path.endsWith('.sync')) {
+              await entity.delete();
+              deletedCount++;
+            }
+          }
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Deleted $deletedCount sync files')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error clearing files: $e')));
+      }
+    }
+  }
+
   Future<void> _toggleSync(bool enabled) async {
     setState(() => _isEnabled = enabled);
 
@@ -84,7 +158,19 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     );
 
     if (enabled && _syncFolderPath != null) {
-      await _syncService.startSync(_syncFolderPath!);
+      final success = await _syncService.startSync(_syncFolderPath!);
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Cannot access sync folder. On Android 11+, please select a folder within Documents or Downloads.',
+            ),
+            duration: Duration(seconds: 5),
+          ),
+        );
+        setState(() => _isEnabled = false);
+        return;
+      }
     } else {
       await _syncService.stopSync();
     }
@@ -96,9 +182,11 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     setState(() => _isSyncing = true);
 
     try {
-      // Start sync if not running
       if (!_syncService.isRunning) {
-        await _syncService.startSync(_syncFolderPath!);
+        final success = await _syncService.startSync(_syncFolderPath!);
+        if (!success) {
+          throw Exception('Cannot access sync folder');
+        }
       }
 
       // Export pending changes
@@ -136,28 +224,6 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Device ID card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Device ID', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  SelectableText(
-                    _localDeviceId.isEmpty ? 'Loading...' : _localDeviceId,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
           // Sync folder selection
           Card(
             child: Padding(
@@ -187,13 +253,45 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Select a folder that is synced via Syncthing',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.outline,
+                  // Android 11+ warning - only show on Android
+                  if (Platform.isAndroid) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.tertiaryContainer.withValues(
+                          alpha: 0.5,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 20,
+                            color: theme.colorScheme.onTertiaryContainer,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Android 11+: Select a folder within Documents or Downloads',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onTertiaryContainer,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
+                  if (_syncFolderPath != null) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _clearSyncFolder,
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: const Text('Clear sync files'),
+                    ),
+                  ],
                 ],
               ),
             ),

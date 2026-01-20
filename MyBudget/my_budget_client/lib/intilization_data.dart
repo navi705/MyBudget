@@ -11,7 +11,6 @@ import 'package:my_budget_client/core/utils/import_utils.dart';
 import 'dart:convert';
 import 'dart:io';
 
-/// Loads local data that is critical for app startup (blocking initialization).
 Future<void> _loadLocalDataInIsolate(bool shouldInit) async {
   if (shouldInit) {
     await init();
@@ -20,17 +19,16 @@ Future<void> _loadLocalDataInIsolate(bool shouldInit) async {
   // Load Currency History (Binary/JSON seeder)
   // This loads from the binary file or JSON debug file into the database
   await ImportDataUtils.getCurrenciesInitial();
-
-  // Load Debug Steam Data (Local JSON)
-  if (kDebugMode) {
-    await _loadDebugSteamData();
-  }
 }
 
-/// Fetches external API data (non-blocking).
 Future<void> _fetchApiDataInIsolate(bool shouldInit) async {
   if (shouldInit) {
     await init();
+  }
+
+  // Load Debug Steam Data (Local JSON) in background
+  if (kDebugMode) {
+    await _loadDebugSteamData();
   }
 
   try {

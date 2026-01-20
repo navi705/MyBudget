@@ -257,6 +257,14 @@ class ImportDataUtils {
         .map((e) => keyFormatter.format(e.date))
         .toSet();
 
+    // Optimization: If we already have data for today, skip the whole process
+    if (existingDbDates.contains(keyFormatter.format(DateTime.now()))) {
+      debugPrint(
+        "Exchange rate data is already up to date for today. Skipping.",
+      );
+      return;
+    }
+
     // 2. Load History Map from File (Binary in Prod/Debug, or JSON in Debug)
     Map<String, Map<String, double>> fileHistoryMap = {};
 
