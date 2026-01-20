@@ -109,14 +109,15 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ),
                   const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.keyboard),
-                    title: const Text('Hot Keys'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      context.push(AppRoutes.hotKeys);
-                    },
-                  ),
+                  if (!Platform.isAndroid && !Platform.isIOS)
+                    ListTile(
+                      leading: const Icon(Icons.keyboard),
+                      title: const Text('Hot Keys'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        context.push(AppRoutes.hotKeys);
+                      },
+                    ),
                   ListTile(
                     leading: const Icon(Icons.save),
                     title: const Text('Persist Advanced Filters'),

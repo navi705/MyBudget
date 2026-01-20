@@ -43,104 +43,109 @@ class DashboardHeader extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Left Arrow
-          MultiLevelTooltip(
-            message: 'Previous Period',
-            actionId: 'prev_period',
-            description: 'Go to the previous month or year',
-            child: IconButton(
-              icon: Icon(Icons.chevron_left, color: onSurface),
-              onPressed: onPrevious,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Left Arrow
+            MultiLevelTooltip(
+              message: 'Previous Period',
+              actionId: 'prev_period',
+              description: 'Go to the previous month or year',
+              child: IconButton(
+                icon: Icon(Icons.chevron_left, color: onSurface),
+                onPressed: onPrevious,
+              ),
             ),
-          ),
-          // Currency Selector
-          MultiLevelTooltip(
-            message: 'Currency',
-            actionId: 'dashboard_currency',
-            description: 'Select the primary currency for display',
-            child: DashboardCurrencySelector(
-              selectedCurrency: currencyCode,
-              availableCurrencies: availableCurrencies,
-              onCurrencyChanged: onCurrencySelected,
+            // Currency Selector
+            MultiLevelTooltip(
+              message: 'Currency',
+              actionId: 'dashboard_currency',
+              description: 'Select the primary currency for display',
+              child: DashboardCurrencySelector(
+                selectedCurrency: currencyCode,
+                availableCurrencies: availableCurrencies,
+                onCurrencyChanged: onCurrencySelected,
+              ),
             ),
-          ),
-          const SizedBox(width: 16),
-          // Center: Title
-          MultiLevelTooltip(
-            message: 'Select Date',
-            actionId: 'dashboard_pick_date',
-            description: 'Open calendar to pick a specific date or range',
-            child: InkWell(
-              onTap: onTitleTap,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  title,
-                  style: TextStyle(color: onSurface, fontSize: 18),
+            const SizedBox(width: 16),
+            // Center: Title
+            MultiLevelTooltip(
+              message: 'Select Date',
+              actionId: 'dashboard_pick_date',
+              description: 'Open calendar to pick a specific date or range',
+              child: InkWell(
+                onTap: onTitleTap,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    title,
+                    style: TextStyle(color: onSurface, fontSize: 18),
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 16),
-          // DateStep Selector (Month/Year)
-          MultiLevelTooltip(
-            message: 'Change View',
-            actionId: 'dashboard_switch_view',
-            description: 'Switch between Monthly and Yearly views',
-            child: SegmentedButton<DateStep>(
-              segments: const [
-                ButtonSegment(value: DateStep.month, label: Text('M')),
-                ButtonSegment(value: DateStep.year, label: Text('Y')),
-              ],
-              selected: {dateStep},
-              onSelectionChanged: (Set<DateStep> newSelection) {
-                onDateStepChanged(newSelection.first);
-              },
-              showSelectedIcon: false,
-              style: ButtonStyle(
-                visualDensity: VisualDensity.compact,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: WidgetStateProperty.all(
-                  const EdgeInsets.symmetric(horizontal: 10),
+            const SizedBox(width: 16),
+            // DateStep Selector (Month/Year)
+            MultiLevelTooltip(
+              message: 'Change View',
+              actionId: 'dashboard_switch_view',
+              description: 'Switch between Monthly and Yearly views',
+              child: SegmentedButton<DateStep>(
+                segments: const [
+                  ButtonSegment(value: DateStep.month, label: Text('M')),
+                  ButtonSegment(value: DateStep.year, label: Text('Y')),
+                ],
+                selected: {dateStep},
+                onSelectionChanged: (Set<DateStep> newSelection) {
+                  onDateStepChanged(newSelection.first);
+                },
+                showSelectedIcon: false,
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(horizontal: 10),
+                  ),
+                  backgroundColor: WidgetStateProperty.resolveWith<Color>((
+                    states,
+                  ) {
+                    if (states.contains(WidgetState.selected)) {
+                      return Theme.of(context).colorScheme.primary;
+                    }
+                    return Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest;
+                  }),
+                  foregroundColor: WidgetStateProperty.resolveWith<Color>((
+                    states,
+                  ) {
+                    if (states.contains(WidgetState.selected)) {
+                      return Theme.of(context).colorScheme.onPrimary;
+                    }
+                    return Theme.of(context).colorScheme.onSurface;
+                  }),
                 ),
-                backgroundColor: WidgetStateProperty.resolveWith<Color>((
-                  states,
-                ) {
-                  if (states.contains(WidgetState.selected)) {
-                    return Theme.of(context).colorScheme.primary;
-                  }
-                  return Theme.of(context).colorScheme.surfaceContainerHighest;
-                }),
-                foregroundColor: WidgetStateProperty.resolveWith<Color>((
-                  states,
-                ) {
-                  if (states.contains(WidgetState.selected)) {
-                    return Theme.of(context).colorScheme.onPrimary;
-                  }
-                  return Theme.of(context).colorScheme.onSurface;
-                }),
               ),
             ),
-          ),
-          // Right Arrow
-          MultiLevelTooltip(
-            message: 'Next Period',
-            actionId: 'next_period',
-            description: 'Go to the next month or year',
-            child: IconButton(
-              icon: Icon(Icons.chevron_right, color: onSurface),
-              onPressed: onNext,
+            // Right Arrow
+            MultiLevelTooltip(
+              message: 'Next Period',
+              actionId: 'next_period',
+              description: 'Go to the next month or year',
+              child: IconButton(
+                icon: Icon(Icons.chevron_right, color: onSurface),
+                onPressed: onNext,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

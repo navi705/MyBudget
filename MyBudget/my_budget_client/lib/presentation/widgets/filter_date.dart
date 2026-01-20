@@ -40,73 +40,78 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
     return BlocBuilder<TransactionsBloc, TransactionsState>(
       builder: (context, state) {
         final bloc = context.read<TransactionsBloc>();
-        final centerWidget = Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            MultiLevelTooltip(
-              message: 'Advanced Filter',
-              actionId: 'filter_advanced',
-              description:
-                  'Filter transactions by account, category, or amount',
-              child: IconButton(
-                icon: const Icon(Icons.tune, color: Colors.white),
-                onPressed: () =>
-                    showAdvancedFilterDialog(context, state.nonDateFilters),
+        final centerWidget = SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              MultiLevelTooltip(
+                message: 'Advanced Filter',
+                actionId: 'filter_advanced',
+                description:
+                    'Filter transactions by account, category, or amount',
+                child: IconButton(
+                  icon: const Icon(Icons.tune, color: Colors.white),
+                  onPressed: () =>
+                      showAdvancedFilterDialog(context, state.nonDateFilters),
+                ),
               ),
-            ),
-            MultiLevelTooltip(
-              message: 'Previous Period',
-              actionId: 'prev_period',
-              description: 'Go to the previous day, month, or year',
-              child: IconButton(
-                icon: const Icon(Icons.chevron_left, color: Colors.white),
-                onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
+              MultiLevelTooltip(
+                message: 'Previous Period',
+                actionId: 'prev_period',
+                description: 'Go to the previous day, month, or year',
+                child: IconButton(
+                  icon: const Icon(Icons.chevron_left, color: Colors.white),
+                  onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
+                ),
               ),
-            ),
-            MultiLevelTooltip(
-              message: 'Select Date',
-              actionId: 'filter_pick_date',
-              description: 'Choose a specific date or date range',
-              child: InkWell(
-                onTap: () => _showCustomCalendar(context, state),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12.0),
-                  alignment: Alignment.center,
-                  child: Text(
-                    _formatDate(state),
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
+              MultiLevelTooltip(
+                message: 'Select Date',
+                actionId: 'filter_pick_date',
+                description: 'Choose a specific date or date range',
+                child: InkWell(
+                  onTap: () => _showCustomCalendar(context, state),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    alignment: Alignment.center,
+                    child: Text(
+                      _formatDate(state),
+                      style: const TextStyle(color: Colors.white, fontSize: 18),
+                    ),
                   ),
                 ),
               ),
-            ),
-            MultiLevelTooltip(
-              message: 'Next Period',
-              actionId: 'next_period',
-              description: 'Go to the next day, month, or year',
-              child: IconButton(
-                icon: const Icon(Icons.chevron_right, color: Colors.white),
-                onPressed: () => bloc.add(const DatePeriodNavigated(1)),
-              ),
-            ),
-            MultiLevelTooltip(
-              message: 'Sort Order',
-              actionId: 'filter_sort',
-              description: 'Toggle between ascending and descending order',
-              child: RotatedBox(
-                quarterTurns: state.sort == Sort.ascending ? 0 : 2,
+              MultiLevelTooltip(
+                message: 'Next Period',
+                actionId: 'next_period',
+                description: 'Go to the next day, month, or year',
                 child: IconButton(
-                  icon: const Icon(Icons.sort, color: Colors.white),
-                  onPressed: () {
-                    final newSort = state.sort == Sort.ascending
-                        ? Sort.descending
-                        : Sort.ascending;
-                    context.read<TransactionsBloc>().add(SortChanged(newSort));
-                  },
+                  icon: const Icon(Icons.chevron_right, color: Colors.white),
+                  onPressed: () => bloc.add(const DatePeriodNavigated(1)),
                 ),
               ),
-            ),
-          ],
+              MultiLevelTooltip(
+                message: 'Sort Order',
+                actionId: 'filter_sort',
+                description: 'Toggle between ascending and descending order',
+                child: RotatedBox(
+                  quarterTurns: state.sort == Sort.ascending ? 0 : 2,
+                  child: IconButton(
+                    icon: const Icon(Icons.sort, color: Colors.white),
+                    onPressed: () {
+                      final newSort = state.sort == Sort.ascending
+                          ? Sort.descending
+                          : Sort.ascending;
+                      context.read<TransactionsBloc>().add(
+                        SortChanged(newSort),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
 
         return GenericFilterAppBar(

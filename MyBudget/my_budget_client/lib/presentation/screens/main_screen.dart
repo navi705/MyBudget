@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -63,7 +64,7 @@ class MainScreen extends StatelessWidget {
       ),
     ];
 
-    if (kDebugMode) {
+    if (kDebugMode && !Platform.isAndroid && !Platform.isIOS) {
       return [
         ...baseDestinations,
         const NavigationItem(
