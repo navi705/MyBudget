@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:my_budget_client/core/enums/filter_enums.dart'; // Added
 import 'package:my_budget_client/core/utils/currency_converter.dart'; // Added
 import 'package:my_budget_client/core/utils/performance_logger.dart';
@@ -555,10 +556,10 @@ _DashboardComputeResults _calculateDashboardData(
 
   // Section 2: Calculate daily data and net worth history
   sectionStopwatch.start();
-  print(
+  debugPrint(
     'DEBUG: Calc Data. Range: ${params.dateRangeStart} - ${params.dateRangeEnd}',
   );
-  print('DEBUG: Transactions: ${params.transactions.length}');
+  debugPrint('DEBUG: Transactions: ${params.transactions.length}');
 
   for (final transaction in params.transactions) {
     final date = DateTime(
@@ -578,7 +579,7 @@ _DashboardComputeResults _calculateDashboardData(
     if (categoryType == CategoryType.transfer ||
         (transaction.linkedTransactionId != null &&
             transaction.linkedTransactionId!.isNotEmpty)) {
-      print(
+      debugPrint(
         'DEBUG TRANSFER EXCLUDED: ${transaction.description}, '
         'categoryType=$categoryType, linkedTransactionId=${transaction.linkedTransactionId}, '
         'amount=${transaction.amount}',
@@ -599,7 +600,7 @@ _DashboardComputeResults _calculateDashboardData(
         date.isAfter(params.dateRangeStart.subtract(const Duration(days: 1))) &&
         date.isBefore(params.dateRangeEnd.add(const Duration(days: 1)));
 
-    // if (isInRange) print('DEBUG: Incl Tx ${transaction.date} $convertedAmount');
+    // if (isInRange) debugPrint('DEBUG: Incl Tx ${transaction.date} $convertedAmount');
 
     if (isInRange) {
       if (convertedAmount > 0) {
@@ -802,12 +803,12 @@ _DashboardComputeResults _calculateDashboardData(
     iterDate = iterDate.subtract(const Duration(days: 1));
     daysIterated++;
   }
-  print(
+  debugPrint(
     'COMPUTE: Net Worth walk-back ($daysIterated days, ${params.accounts.length} accounts): ${sectionStopwatch.elapsedMilliseconds}ms',
   );
 
   totalStopwatch.stop();
-  print('COMPUTE: TOTAL: ${totalStopwatch.elapsedMilliseconds}ms');
+  debugPrint('COMPUTE: TOTAL: ${totalStopwatch.elapsedMilliseconds}ms');
 
   return _DashboardComputeResults(
     dailyIncomes: dailyIncomes,

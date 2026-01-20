@@ -97,6 +97,7 @@ class _ImportViewState extends State<_ImportView> {
         return;
       }
 
+      if (!mounted) return;
       context.read<ImportBloc>().add(StartImportProcess(csvFiles));
     }
   }

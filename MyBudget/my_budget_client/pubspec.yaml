@@ -19,6 +19,7 @@ dependencies:
   http: any
 
   path: any
+  archive: ^3.6.1
   flutter_bloc: ^9.1.1
   equatable: ^2.0.7
   bloc: ^9.1.0

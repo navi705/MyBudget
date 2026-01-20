@@ -70,7 +70,7 @@ class NavigationTabBar extends StatelessWidget {
               color: backgroundColor, // Use explicit custom theme background
               border: Border(
                 top: BorderSide(
-                  color: Theme.of(context).dividerColor.withOpacity(0.5),
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
                   width: 1,
                 ),
               ),

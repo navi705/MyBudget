@@ -816,7 +816,7 @@ class _ExchangeRatesFilterDialogState
   @override
   void initState() {
     super.initState();
-    print('UI: ExchangeRatesFilterDialog initState');
+    debugPrint('UI: ExchangeRatesFilterDialog initState');
     _fromCurrency = widget.state.fromCurrencyFilter;
     _toCurrency = widget.state.toCurrencyFilter;
     _selectedPresets = List.from(widget.state.presetFilters);
@@ -825,7 +825,7 @@ class _ExchangeRatesFilterDialogState
 
   Future<void> _loadPresets() async {
     try {
-      print('UI: _loadPresets called');
+      debugPrint('UI: _loadPresets called');
       final repo = widget.repository;
       final presets = await repo.getAvailablePresets();
       if (mounted) {
@@ -835,7 +835,7 @@ class _ExchangeRatesFilterDialogState
         });
       }
     } catch (e, stack) {
-      print('UI: Error loading presets: $e\n$stack');
+      debugPrint('UI: Error loading presets: $e\n$stack');
       if (mounted) setState(() => _isLoading = false);
     }
   }

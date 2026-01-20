@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
@@ -651,14 +652,14 @@ class AddEditTransactionBloc
         var rateValue = double.tryParse(state.manualExchangeRate);
 
         // DEBUG: Print inversion state
-        print(
+        debugPrint(
           'DEBUG SAVE: manualExchangeRate=${state.manualExchangeRate}, isRateInputInverted=${state.isRateInputInverted}, rateValue=$rateValue',
         );
 
         // Apply inversion if user toggled to inverted direction
         if (rateValue != null && rateValue != 0 && state.isRateInputInverted) {
           rateValue = 1 / rateValue;
-          print('DEBUG SAVE: After inversion rateValue=$rateValue');
+          debugPrint('DEBUG SAVE: After inversion rateValue=$rateValue');
         }
 
         finalExchangeRate = rateValue;
@@ -669,10 +670,10 @@ class AddEditTransactionBloc
         }
       }
 
-      print(
+      debugPrint(
         'DEBUG SAVE: isAssetTransaction=${state.isAssetTransaction}, isTransferMode=${state.isTransferMode}, isEditing=${state.isEditing}',
       );
-      print(
+      debugPrint(
         'DEBUG SAVE: amount=$amount, categoryId=$categoryId, finalExchangeRate=$finalExchangeRate',
       );
 
@@ -883,16 +884,16 @@ class AddEditTransactionBloc
             exchangeRatePreset: finalPreset,
             fee: fee,
           );
-          print('DEBUG SAVE: Saving standard new transaction...');
+          debugPrint('DEBUG SAVE: Saving standard new transaction...');
           await _transactionRepository.addTransaction(newTransaction);
-          print('DEBUG SAVE: Standard transaction saved successfully!');
+          debugPrint('DEBUG SAVE: Standard transaction saved successfully!');
         }
       }
 
       emit(state.copyWith(isSaving: false, isSaveSuccess: true));
     } catch (e, stackTrace) {
-      print('DEBUG SAVE ERROR: $e');
-      print('DEBUG SAVE STACKTRACE: $stackTrace');
+      debugPrint('DEBUG SAVE ERROR: $e');
+      debugPrint('DEBUG SAVE STACKTRACE: $stackTrace');
       emit(
         state.copyWith(isSaving: false, validationError: 'Error saving: $e'),
       );
@@ -974,7 +975,7 @@ class AddEditTransactionBloc
 
     emit(state.copyWith(isLoadingRates: true));
     try {
-      final targetDate = date ?? DateTime.now();
+      final targetDate = date;
 
       // --- STRATEGY: Find Best "System" Rate (Virtual Preset 1) ---
       // We look for:
@@ -1234,7 +1235,7 @@ class AddEditTransactionBloc
     // SIMPLIFIED: Just toggle the flag
     // manualExchangeRate stores user's raw input, interpretation changes based on flag
     final newValue = !state.isRateInputInverted;
-    print(
+    debugPrint(
       'DEBUG TOGGLE: isRateInputInverted changing from ${state.isRateInputInverted} to $newValue',
     );
     emit(state.copyWith(isRateInputInverted: newValue));
@@ -1266,7 +1267,7 @@ class AddEditTransactionBloc
       // Apply inversion if toggled (same as save logic)
       if (rateValue != 0 && state.isRateInputInverted) {
         rateValue = 1 / rateValue;
-        print('DEBUG NEW PRESET: Inverted rate to $rateValue');
+        debugPrint('DEBUG NEW PRESET: Inverted rate to $rateValue');
       }
 
       String fromCode = state.selectedCurrency!.code;
@@ -1345,7 +1346,7 @@ class AddEditTransactionBloc
 
     emit(state.copyWith(isLoadingRates: true));
     try {
-      print(
+      debugPrint(
         'DEBUG UPDATE PRESET: Updating preset ${event.rate.preset} with rate $rateValue',
       );
       final updatedRate = event.rate.copyWith(rate: rateValue);

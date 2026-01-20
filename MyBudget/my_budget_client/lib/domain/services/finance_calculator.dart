@@ -107,7 +107,7 @@ class PeriodStats {
 class FinanceCalculator {
   /// Returns map of AccountId -> Nominal Balance
   ///
-  /// For Assset Accounts: Quantity * Price at [data.date]
+  /// For Asset Accounts: Quantity * Price at [data.date]
   /// For Standard Accounts: Initial + Sum(Transactions <= [data.date])
   Map<String, double> calculateBalances(FinancialSnapshot data) {
     final balances = <String, double>{};
@@ -353,8 +353,6 @@ class FinanceCalculator {
     return total;
   }
 
-  /// Returns breakdown by Currency (Nominal converted to Base?)
-  /// Returns Map<CurrencyCode, ValueInBaseCurrency>
   Map<String, double> calculateCurrencyBreakdown(FinancialSnapshot data) {
     final balances = calculateBalances(data);
     final breakdown = <String, double>{};

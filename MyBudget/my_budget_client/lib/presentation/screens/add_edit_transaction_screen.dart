@@ -515,7 +515,7 @@ class _CategoryField extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
+                        color: color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: color),
                       ),
@@ -627,7 +627,7 @@ class _SaveButton extends StatelessWidget {
     return FilledButton.tonal(
       onPressed: () {
         final isValid = formKey.currentState?.validate() ?? false;
-        print('DEBUG SAVE BUTTON: Form valid = $isValid');
+        debugPrint('DEBUG SAVE BUTTON: Form valid = $isValid');
 
         // Always submit - bloc will validate and show errors
         context.read<AddEditTransactionBloc>().add(

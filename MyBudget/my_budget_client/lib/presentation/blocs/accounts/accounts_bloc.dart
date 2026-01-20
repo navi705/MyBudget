@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import 'package:equatable/equatable.dart';
 // import 'package:my_budget_client/core/utils/device_utils.dart';
@@ -114,7 +115,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     final currentState = state;
     if (currentState is! AccountsLoadSuccess) return;
 
-    print(
+    debugPrint(
       'DEBUG DatePeriodNavigated: direction=${event.direction}, currentDate=${currentState.activeDate}, dateStep=${currentState.dateStep}',
     );
 
@@ -149,7 +150,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         newDate = DateTime(targetYear.year, 12, 31, 23, 59, 59);
         break;
     }
-    print('DEBUG DatePeriodNavigated: newDate=$newDate');
+    debugPrint('DEBUG DatePeriodNavigated: newDate=$newDate');
     emit(currentState.copyWith(activeDate: newDate));
     add(LoadHistoricalBalances(newDate));
   }
@@ -158,10 +159,10 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
       DateTime newDate = currentState.activeDate;
-      print(
+      debugPrint(
         'DEBUG DateStepChanged: from ${currentState.dateStep} to ${event.dateStep}',
       );
-      print('DEBUG DateStepChanged: currentDate=$newDate');
+      debugPrint('DEBUG DateStepChanged: currentDate=$newDate');
 
       // When switching to Month or Year, snap to the end of that period
       // to show the "Result" of the period (e.g. End of Month Balance).
@@ -171,7 +172,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         newDate = DateTime(newDate.year, 12, 31, 23, 59, 59);
       }
 
-      print('DEBUG DateStepChanged: newDate=$newDate');
+      debugPrint('DEBUG DateStepChanged: newDate=$newDate');
 
       emit(
         currentState.copyWith(dateStep: event.dateStep, activeDate: newDate),
@@ -186,7 +187,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   ) {
     final currentState = state;
     if (currentState is AccountsLoadSuccess) {
-      print(
+      debugPrint(
         'DEBUG ActiveDateChanged: oldDate=${currentState.activeDate} newDate=${event.date} newStep=${event.dateStep}',
       );
 
@@ -1093,7 +1094,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       );
     } catch (e) {
       // Keep old state if error, maybe show snackbar?
-      print('HistoricalLoad Error: $e');
+      debugPrint('HistoricalLoad Error: $e');
     }
   }
 

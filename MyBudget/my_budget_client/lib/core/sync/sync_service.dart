@@ -111,16 +111,16 @@ class SyncService {
         await processedDir.create();
       }
     } on PathAccessException catch (e) {
-      print(
+      debugPrint(
         'SyncService: Cannot access sync folder. Permission denied: ${e.path}',
       );
-      print(
+      debugPrint(
         'SyncService: On Android 11+, select a folder within Documents or Downloads.',
       );
       _syncFolderPath = null;
       return false;
     } on FileSystemException catch (e) {
-      print(
+      debugPrint(
         'SyncService: File system error creating sync folder: ${e.message}',
       );
       _syncFolderPath = null;
@@ -369,7 +369,7 @@ class SyncService {
       await _moveToProcessed(file);
     } catch (e) {
       // Log error but don't crash
-      print('Error processing sync file ${file.path}: $e');
+      debugPrint('Error processing sync file ${file.path}: $e');
     }
   }
 

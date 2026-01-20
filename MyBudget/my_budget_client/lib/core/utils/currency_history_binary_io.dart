@@ -51,7 +51,9 @@ class CurrencyHistoryBinaryIO {
     final encoder = GZipEncoder();
     final compressed = encoder.encode(dataBuffer.toBytes());
 
-    buffer.add(compressed);
+    if (compressed != null) {
+      buffer.add(compressed);
+    }
 
     await file.writeAsBytes(buffer.toBytes());
   }

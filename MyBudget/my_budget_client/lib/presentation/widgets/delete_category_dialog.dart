@@ -56,6 +56,12 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
               title: const Text('Reassign transactions to another category'),
               leading: Radio<DeleteCategoryOption>(
                 value: DeleteCategoryOption.reassign,
+                groupValue: _selectedOption,
+                onChanged: (value) {
+                  setState(() {
+                    _selectedOption = value!;
+                  });
+                },
               ),
               onTap: () {
                 setState(() {
@@ -82,6 +88,12 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
               title: const Text('Delete all associated transactions'),
               leading: Radio<DeleteCategoryOption>(
                 value: DeleteCategoryOption.delete,
+                groupValue: _selectedOption,
+                onChanged: (value) {
+                  setState(() {
+                    _selectedOption = value!;
+                  });
+                },
               ),
               onTap: () {
                 setState(() {

@@ -9,7 +9,7 @@ import 'package:my_budget_client/core/di/injection_container.dart' as di;
 import 'package:my_budget_client/core/utils/currency_history_binary_io.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:flutter/services.dart';
-import 'dart:typed_data';
+// import 'dart:typed_data'; // Redundant - provided by foundation.dart
 
 class OneMoneyRecord {
   final DateTime date;
@@ -283,8 +283,9 @@ class ImportDataUtils {
               if (v is Map) {
                 Map<String, double> rates = {};
                 v.forEach((curr, rate) {
-                  if (rate is num)
+                  if (rate is num) {
                     rates[curr.toString().toUpperCase()] = rate.toDouble();
+                  }
                 });
                 fileHistoryMap[k.toString()] = rates;
               }
@@ -371,8 +372,9 @@ class ImportDataUtils {
       // Save to JSON
       try {
         final File localJsonFile = File(filePathCurrenciesRate);
-        if (!await localJsonFile.parent.exists())
+        if (!await localJsonFile.parent.exists()) {
           await localJsonFile.parent.create(recursive: true);
+        }
 
         final String jsonContent = const JsonEncoder.withIndent(
           '  ',

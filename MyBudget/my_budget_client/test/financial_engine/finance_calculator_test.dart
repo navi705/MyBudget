@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_budget_client/domain/services/finance_calculator.dart';
@@ -115,7 +116,7 @@ void main() {
           assetId: firstAssetId,
           assetQuantity: 1.0,
         );
-        print(
+        debugPrint(
           'Bound Account "${accounts[accountIndex].name}" to Asset "$firstAssetId" for testing.',
         );
       } else if (accounts.isNotEmpty) {
@@ -123,12 +124,12 @@ void main() {
           assetId: firstAssetId,
           assetQuantity: 1.0,
         );
-        print(
+        debugPrint(
           'Bound Account "${accounts[0].name}" to Asset "$firstAssetId" for testing.',
         );
       }
     } else {
-      print('WARNING: No asset entries found in backup.');
+      debugPrint('WARNING: No asset entries found in backup.');
     }
 
     // Assign 'Serbia' to standardParams for inflation test
@@ -192,11 +193,11 @@ void main() {
 
       final calculatedBalances = calculator.calculateBalances(debugSnapshot);
 
-      print('\n--- BALANCE COMPARISON TABLE ---');
-      print(
+      debugPrint('\n--- BALANCE COMPARISON TABLE ---');
+      debugPrint(
         '${"Account Name".padRight(30)} | ${"Currency".padRight(5)} | ${"Expected (Backup)".padRight(20)} | ${"Calculated (Sum Tx)".padRight(20)} | ${"Diff".padRight(20)}',
       );
-      print('-' * 105);
+      debugPrint('-' * 105);
 
       for (final account in debugSnapshot.accounts) {
         final calculated = calculatedBalances[account.id] ?? 0.0;
@@ -205,7 +206,7 @@ void main() {
 
         // DEBUG: Drill down into 'cash eur'
         if (account.name.toLowerCase().contains('cash eur')) {
-          print(
+          debugPrint(
             '\n[DEBUG] Transactions for ${account.name} (ID: ${account.id}):',
           );
           final accountTx = debugSnapshot.transactions
@@ -217,15 +218,15 @@ void main() {
           double runningSum = 0.0;
           for (final tx in accountTx) {
             runningSum += tx.amount;
-            print(
+            debugPrint(
               '  ${tx.date.toString().substring(0, 10)} | Amount: ${tx.amount.toStringAsFixed(2).padRight(10)} | Sum: ${runningSum.toStringAsFixed(2)} | Desc: ${tx.description}',
             );
           }
-          print('[DEBUG] Total Tx Count: ${accountTx.length}');
-          print('[DEBUG] Final Sum: $runningSum\n');
+          debugPrint('[DEBUG] Total Tx Count: ${accountTx.length}');
+          debugPrint('[DEBUG] Final Sum: $runningSum\n');
         }
 
-        print(
+        debugPrint(
           '${account.name.padRight(30)} | '
           '${account.currencyCode.padRight(5)} | '
           '${expected.toStringAsFixed(2).padRight(20)} | '
@@ -233,9 +234,11 @@ void main() {
           '${diff.toStringAsFixed(2).padRight(20)}',
         );
       }
-      print('-' * 105);
-      print('Note: "Expected" is the balance stored in the Account object.');
-      print(
+      debugPrint('-' * 105);
+      debugPrint(
+        'Note: "Expected" is the balance stored in the Account object.',
+      );
+      debugPrint(
         'Note: "Calculated" is the Sum of Transactions (or Asset Value).\n',
       );
     });
@@ -270,36 +273,36 @@ void main() {
 
       final netWorthRsd = netWorth * eurToRsd;
 
-      print('\n--- TOTAL NET WORTH TABLE ---');
-      print(
+      debugPrint('\n--- TOTAL NET WORTH TABLE ---');
+      debugPrint(
         '${"Metric".padRight(30)} | ${"Value".padRight(20)} | ${"Currency".padRight(10)}',
       );
-      print('-' * 66);
-      print(
+      debugPrint('-' * 66);
+      debugPrint(
         '${"Total Net Worth".padRight(30)} | ${netWorth.toStringAsFixed(2).padRight(20)} | ${snapshot.baseCurrency.padRight(10)}',
       );
-      print(
+      debugPrint(
         '${"Total Net Worth (RSD)".padRight(30)} | ${netWorthRsd.toStringAsFixed(2).padRight(20)} | ${"RSD".padRight(10)}',
       );
-      print('-' * 66 + '\n');
+      debugPrint('-' * 66 + '\n');
     });
 
     test('calculateCurrencyBreakdown returns map', () {
       final breakdown = calculator.calculateCurrencyBreakdown(snapshot);
       expect(breakdown, isNotEmpty);
-      print('\n--- CURRENCY BREAKDOWN TABLE ---');
-      print(
+      debugPrint('\n--- CURRENCY BREAKDOWN TABLE ---');
+      debugPrint(
         '${"Currency".padRight(10)} | ${"Value (Base)".padRight(20)} | ${"Share".padRight(10)}',
       );
-      print('-' * 46);
+      debugPrint('-' * 46);
       final total = breakdown.values.fold(0.0, (sum, v) => sum + v);
       breakdown.forEach((currency, value) {
         final share = total == 0 ? 0.0 : (value / total) * 100;
-        print(
+        debugPrint(
           '${currency.padRight(10)} | ${value.toStringAsFixed(2).padRight(20)} | ${share.toStringAsFixed(1)}%',
         );
       });
-      print('-' * 46 + '\n');
+      debugPrint('-' * 46 + '\n');
     });
 
     test('calculateRealBalances adjusts for inflation', () {
@@ -341,22 +344,22 @@ void main() {
         defaultCountry: 'Serbia',
       );
 
-      print('\n--- REAL vs NOMINAL BALANCE TABLE (Default: Serbia) ---');
-      print(
+      debugPrint('\n--- REAL vs NOMINAL BALANCE TABLE (Default: Serbia) ---');
+      debugPrint(
         '${"Account Name".padRight(30)} | ${"Country".padRight(10)} | ${"Nominal".padRight(15)} | ${"Real (Adj)".padRight(15)} | ${"Multiplier".padRight(10)}',
       );
-      print('-' * 89);
+      debugPrint('-' * 89);
       for (final account in testSnapshot.accounts) {
         final nominal = balances[account.id] ?? 0.0;
         final real = realBalances[account.id] ?? 0.0;
         final multiplier = nominal == 0
             ? 0.0
             : nominal / real; // Nominal / Real = Multiplier
-        print(
+        debugPrint(
           '${account.name.padRight(30)} | ${account.country?.padRight(10) ?? "N/A".padRight(10)} | ${nominal.toStringAsFixed(2).padRight(15)} | ${real.toStringAsFixed(2).padRight(15)} | ${multiplier.toStringAsFixed(3).padRight(10)}',
         );
       }
-      print('-' * 89 + '\n');
+      debugPrint('-' * 89 + '\n');
 
       final nominal = balances[standardParams.id]!;
       final real = realBalances[standardParams.id]!;
@@ -395,11 +398,11 @@ void main() {
         defaultCountry: 'Serbia',
       );
 
-      print('\n--- PERIOD STATS TABLE (Last 10 Years) ---');
-      print(
+      debugPrint('\n--- PERIOD STATS TABLE (Last 10 Years) ---');
+      debugPrint(
         '${"Currency".padRight(10)} | ${"Income (Nom)".padRight(15)} | ${"Income (Real)".padRight(15)} | ${"Expense (Nom)".padRight(15)} | ${"Expense (Real)".padRight(15)}',
       );
-      print('-' * 80);
+      debugPrint('-' * 80);
 
       final allAccountIds = {
         ...stats.income.keys,
@@ -416,13 +419,17 @@ void main() {
         final expNom = stats.expense[accId] ?? 0.0;
         final expReal = stats.realExpense[accId] ?? 0.0;
 
-        print(
+        debugPrint(
           '${currency.padRight(10)} | ${incNom.toStringAsFixed(2).padRight(15)} | ${incReal.toStringAsFixed(2).padRight(15)} | ${expNom.toStringAsFixed(2).padRight(15)} | ${expReal.toStringAsFixed(2).padRight(15)}',
         );
       }
-      print('-' * 80);
-      print('Total Income (Base): ${stats.totalIncome.toStringAsFixed(2)}');
-      print('Total Expense (Base): ${stats.totalExpense.toStringAsFixed(2)}\n');
+      debugPrint('-' * 80);
+      debugPrint(
+        'Total Income (Base): ${stats.totalIncome.toStringAsFixed(2)}',
+      );
+      debugPrint(
+        'Total Expense (Base): ${stats.totalExpense.toStringAsFixed(2)}\n',
+      );
 
       expect(stats.income, isNotEmpty);
       expect(stats.expense, isNotEmpty);

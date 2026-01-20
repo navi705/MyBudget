@@ -807,7 +807,7 @@ class _AccountsDateAppBar extends StatelessWidget
             onApply: (date, range, step, mode) {
               final bloc = context.read<AccountsBloc>();
 
-              print(
+              debugPrint(
                 'DEBUG onApply: date=$date, step=$step, currentStep=${state.dateStep}',
               );
 
@@ -826,7 +826,7 @@ class _AccountsDateAppBar extends StatelessWidget
                 adjustedDate = DateTime(date.year, 12, 31, 23, 59, 59);
               }
 
-              print('DEBUG onApply: adjustedDate=$adjustedDate');
+              debugPrint('DEBUG onApply: adjustedDate=$adjustedDate');
 
               // Single atomic event - updates both date and step
               if (state.dateStep != step) {

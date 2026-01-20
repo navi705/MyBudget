@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class AndroidFilePickerService {
@@ -18,7 +19,7 @@ class AndroidFilePickerService {
       });
       return result?.cast<String>();
     } on PlatformException catch (e) {
-      print("Failed to pick file: '${e.message}'.");
+      debugPrint("Failed to pick file: '${e.message}'.");
       return null;
     }
   }

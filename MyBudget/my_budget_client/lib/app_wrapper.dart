@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/app.dart';
 import 'package:my_budget_client/core/sync/sync_service.dart';

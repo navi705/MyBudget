@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/core/mappers/currency_designation_mapper.dart';
 import 'package:my_budget_client/core/mappers/currency_mapper.dart';
@@ -204,7 +205,7 @@ class LocalCurrencyRepository implements CurrencyRepository {
 
   @override
   Future<List<int>> getAvailablePresets() {
-    print('Repo: calling database.exchangeRatesDao.getAvailablePresets()');
+    debugPrint('Repo: calling database.exchangeRatesDao.getAvailablePresets()');
     return database.exchangeRatesDao.getAvailablePresets();
   }
 
