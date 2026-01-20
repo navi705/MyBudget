@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -46,14 +47,41 @@ class _ImportView extends StatefulWidget {
 
 class _ImportViewState extends State<_ImportView> {
   Future<void> _startOneMoneyImport() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['csv'],
-      allowMultiple: true,
-    );
+    FilePickerResult? result;
+
+    if (Platform.isAndroid) {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: true,
+      );
+    } else {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        allowMultiple: true,
+      );
+    }
 
     if (result != null && result.files.isNotEmpty && mounted) {
-      context.read<ImportBloc>().add(StartImportProcess(result.files));
+      final csvFiles = result.files.where((file) {
+        final ext =
+            file.extension?.toLowerCase() ??
+            file.path?.split('.').last.toLowerCase();
+        return ext == 'csv';
+      }).toList();
+
+      if (csvFiles.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please select CSV files for OneMoney import.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      context.read<ImportBloc>().add(StartImportProcess(csvFiles));
     }
   }
 

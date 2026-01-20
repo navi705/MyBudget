@@ -324,15 +324,42 @@ class ThemeSettingsScreen extends StatelessWidget {
                 Expanded(
                   child: FilledButton.tonalIcon(
                     onPressed: () async {
-                      final result = await FilePicker.platform.pickFiles(
-                        type: FileType.image,
-                      );
+                      FilePickerResult? result;
+                      if (Platform.isAndroid) {
+                        result = await FilePicker.platform.pickFiles(
+                          type: FileType.any,
+                        );
+                      } else {
+                        result = await FilePicker.platform.pickFiles(
+                          type: FileType.image,
+                        );
+                      }
+
                       if (result != null && result.files.single.path != null) {
+                        final path = result.files.single.path!;
+                        final ext = path.split('.').last.toLowerCase();
+                        final isImage = [
+                          'jpg',
+                          'jpeg',
+                          'png',
+                          'gif',
+                          'webp',
+                          'bmp',
+                        ].contains(ext);
+
+                        if (!isImage) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please select an image file.'),
+                              ),
+                            );
+                          }
+                          return;
+                        }
+
                         if (context.mounted) {
-                          _update(
-                            context,
-                            backgroundImagePath: result.files.single.path,
-                          );
+                          _update(context, backgroundImagePath: path);
                         }
                       }
                     },

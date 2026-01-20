@@ -14,13 +14,30 @@ class DataImportService {
   DataImportService(this._db);
 
   Future<void> importData(bool isCsv) async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: isCsv ? ['csv'] : ['json'],
-    );
+    final expectedExt = isCsv ? 'csv' : 'json';
+    FilePickerResult? result;
+
+    if (Platform.isAndroid) {
+      result = await FilePicker.platform.pickFiles(type: FileType.any);
+    } else {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: [expectedExt],
+      );
+    }
 
     if (result != null && result.files.isNotEmpty) {
       final file = File(result.files.single.path!);
+      final extension =
+          result.files.single.extension?.toLowerCase() ??
+          file.path.split('.').last.toLowerCase();
+
+      if (extension != expectedExt) {
+        throw Exception(
+          'Invalid file type. Please select a .$expectedExt file.',
+        );
+      }
+
       final content = await file.readAsString();
 
       if (content.trim().isEmpty) {
@@ -36,15 +53,30 @@ class DataImportService {
   }
 
   Future<void> importExchangeRates() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['csv', 'json'],
-    );
+    FilePickerResult? result;
+    if (Platform.isAndroid) {
+      result = await FilePicker.platform.pickFiles(type: FileType.any);
+    } else {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv', 'json'],
+      );
+    }
 
     if (result != null && result.files.isNotEmpty) {
       final file = File(result.files.single.path!);
+      final extension =
+          result.files.single.extension?.toLowerCase() ??
+          file.path.split('.').last.toLowerCase();
+
+      if (extension != 'csv' && extension != 'json') {
+        throw Exception(
+          'Invalid file type. Please select a .csv or .json file.',
+        );
+      }
+
       final content = await file.readAsString();
-      final isCsv = result.files.single.extension == 'csv';
+      final isCsv = extension == 'csv';
 
       if (isCsv) {
         await _importExchangeRatesCsv(content);
