@@ -272,9 +272,9 @@ class _ImportViewState extends State<_ImportView> {
       final androidPicker = sl<AndroidFilePickerService>();
       final service = DataImportService(db, androidPicker);
       final title = AppLocalizations.of(context)?.filePickerChooserTitle;
-      await service.importData(isCsv, title: title);
+      final success = await service.importData(isCsv, title: title);
 
-      if (mounted) {
+      if (mounted && success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Import completed successfully.')),
         );

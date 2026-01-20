@@ -15,7 +15,7 @@ class DataImportService {
 
   DataImportService(this._db, this._androidFilePicker);
 
-  Future<void> importData(bool isCsv, {String? title}) async {
+  Future<bool> importData(bool isCsv, {String? title}) async {
     final expectedExt = isCsv ? 'csv' : 'json';
     List<String>? pickedPaths;
     FilePickerResult? result;
@@ -57,7 +57,9 @@ class DataImportService {
       } else {
         await _importJson(content);
       }
+      return true;
     }
+    return false;
   }
 
   Future<void> importExchangeRates({String? title}) async {
