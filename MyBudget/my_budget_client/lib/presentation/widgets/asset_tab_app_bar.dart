@@ -187,17 +187,8 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
         else if (!isMobile) ...[
           const SizedBox(width: 8),
         ],
-        MultiLevelTooltip(
-          message: 'Next Period',
-          actionId: 'next_period',
-          description: 'Move forward by one day, month, or year',
-          child: IconButton(
-            icon: Icon(Icons.chevron_right, color: onSurface),
-            onPressed: () => _navigate(bloc, 1),
-          ),
-        ),
         if (!isMobile) ...[
-          const SizedBox(width: 24),
+          const SizedBox(width: 8),
           RotatedBox(
             quarterTurns: state.sort == Sort.ascending ? 2 : 0,
             child: MultiLevelTooltip(
@@ -215,7 +206,17 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
           ),
+          const SizedBox(width: 8),
         ],
+        MultiLevelTooltip(
+          message: 'Next Period',
+          actionId: 'next_period',
+          description: 'Move forward by one day, month, or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_right, color: onSurface),
+            onPressed: () => _navigate(bloc, 1),
+          ),
+        ),
       ],
     );
 

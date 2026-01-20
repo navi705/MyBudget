@@ -740,17 +740,8 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
         else if (!isMobile) ...[
           const SizedBox(width: 8),
         ],
-        MultiLevelTooltip(
-          message: 'Next Period',
-          actionId: 'next_period',
-          description: 'Go to the next day, month, or year',
-          child: IconButton(
-            icon: Icon(Icons.chevron_right, color: onSurface),
-            onPressed: () => _navigateInAppBar(context, bloc, 1),
-          ),
-        ),
         if (!isMobile) ...[
-          const SizedBox(width: 24),
+          const SizedBox(width: 8),
           MultiLevelTooltip(
             message: 'Sort Order',
             actionId: 'exchange_rates_sort',
@@ -769,7 +760,17 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
               ),
             ),
           ),
+          const SizedBox(width: 8),
         ],
+        MultiLevelTooltip(
+          message: 'Next Period',
+          actionId: 'next_period',
+          description: 'Go to the next day, month, or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_right, color: onSurface),
+            onPressed: () => _navigateInAppBar(context, bloc, 1),
+          ),
+        ),
       ],
     );
 

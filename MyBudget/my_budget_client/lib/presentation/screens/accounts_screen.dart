@@ -947,17 +947,8 @@ class _AccountsDateAppBar extends StatelessWidget
         else if (!isMobile) ...[
           const SizedBox(width: 8),
         ],
-        MultiLevelTooltip(
-          message: 'Next Period',
-          actionId: 'next_period',
-          description: 'Go to the next month or year',
-          child: IconButton(
-            icon: Icon(Icons.chevron_right, color: onSurface),
-            onPressed: () => bloc.add(const DatePeriodNavigated(1)),
-          ),
-        ),
         if (!isMobile) ...[
-          const SizedBox(width: 24),
+          const SizedBox(width: 8),
           MultiLevelTooltip(
             message: 'Sort Order',
             actionId: 'accounts_sort',
@@ -975,7 +966,17 @@ class _AccountsDateAppBar extends StatelessWidget
               ),
             ),
           ),
+          const SizedBox(width: 8),
         ],
+        MultiLevelTooltip(
+          message: 'Next Period',
+          actionId: 'next_period',
+          description: 'Go to the next month or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_right, color: onSurface),
+            onPressed: () => bloc.add(const DatePeriodNavigated(1)),
+          ),
+        ),
       ],
     );
 

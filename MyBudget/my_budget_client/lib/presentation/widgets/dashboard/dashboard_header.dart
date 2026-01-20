@@ -45,138 +45,140 @@ class DashboardHeader extends StatelessWidget {
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 600;
 
-        final navigationItems = [
-          // Left Arrow
-          MultiLevelTooltip(
-            message: 'Previous Period',
-            actionId: 'prev_period',
-            description: 'Go to the previous month or year',
-            child: IconButton(
-              icon: Icon(Icons.chevron_left, color: onSurface),
-              onPressed: onPrevious,
-            ),
+        // Shared Components
+        final leftArrow = MultiLevelTooltip(
+          message: 'Previous Period',
+          actionId: 'prev_period',
+          description: 'Go to the previous month or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_left, color: onSurface),
+            onPressed: onPrevious,
           ),
-          // Center: Title
-          Expanded(
-            flex: isMobile ? 1 : 0,
-            child: MultiLevelTooltip(
-              message: 'Select Date',
-              actionId: 'dashboard_pick_date',
-              description: 'Open calendar to pick a specific date or range',
-              child: InkWell(
-                onTap: onTitleTap,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    title,
-                    style: TextStyle(color: onSurface, fontSize: 18),
-                  ),
-                ),
+        );
+
+        final rightArrow = MultiLevelTooltip(
+          message: 'Next Period',
+          actionId: 'next_period',
+          description: 'Go to the next month or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_right, color: onSurface),
+            onPressed: onNext,
+          ),
+        );
+
+        final titleWidget = MultiLevelTooltip(
+          message: 'Select Date',
+          actionId: 'dashboard_pick_date',
+          description: 'Open calendar to pick a specific date or range',
+          child: InkWell(
+            onTap: onTitleTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              alignment: Alignment.center,
+              child: Text(
+                title,
+                style: TextStyle(color: onSurface, fontSize: 18),
               ),
             ),
           ),
-          // Right Arrow
-          MultiLevelTooltip(
-            message: 'Next Period',
-            actionId: 'next_period',
-            description: 'Go to the next month or year',
-            child: IconButton(
-              icon: Icon(Icons.chevron_right, color: onSurface),
-              onPressed: onNext,
-            ),
-          ),
-        ];
+        );
 
-        final selectorItems = [
-          // Currency Selector
-          MultiLevelTooltip(
-            message: 'Currency',
-            actionId: 'dashboard_currency',
-            description: 'Select the primary currency for display',
-            child: DashboardCurrencySelector(
-              selectedCurrency: currencyCode,
-              availableCurrencies: availableCurrencies,
-              onCurrencyChanged: onCurrencySelected,
-            ),
+        final currencySelector = MultiLevelTooltip(
+          message: 'Currency',
+          actionId: 'dashboard_currency',
+          description: 'Select the primary currency for display',
+          child: DashboardCurrencySelector(
+            selectedCurrency: currencyCode,
+            availableCurrencies: availableCurrencies,
+            onCurrencyChanged: onCurrencySelected,
           ),
-          const SizedBox(width: 8),
-          // DateStep Selector (Month/Year)
-          MultiLevelTooltip(
-            message: 'Change View',
-            actionId: 'dashboard_switch_view',
-            description: 'Switch between Monthly and Yearly views',
-            child: SegmentedButton<DateStep>(
-              segments: const [
-                ButtonSegment(value: DateStep.month, label: Text('M')),
-                ButtonSegment(value: DateStep.year, label: Text('Y')),
-              ],
-              selected: {dateStep},
-              onSelectionChanged: (Set<DateStep> newSelection) {
-                onDateStepChanged(newSelection.first);
-              },
-              showSelectedIcon: false,
-              style: ButtonStyle(
-                visualDensity: VisualDensity.compact,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: WidgetStateProperty.all(
-                  const EdgeInsets.symmetric(horizontal: 10),
-                ),
-                backgroundColor: WidgetStateProperty.resolveWith<Color>((
-                  states,
-                ) {
-                  if (states.contains(WidgetState.selected)) {
-                    return Theme.of(context).colorScheme.primary;
-                  }
-                  return Theme.of(context).colorScheme.surfaceContainerHighest;
-                }),
-                foregroundColor: WidgetStateProperty.resolveWith<Color>((
-                  states,
-                ) {
-                  if (states.contains(WidgetState.selected)) {
-                    return Theme.of(context).colorScheme.onPrimary;
-                  }
-                  return Theme.of(context).colorScheme.onSurface;
-                }),
+        );
+
+        final viewSwitcher = MultiLevelTooltip(
+          message: 'Change View',
+          actionId: 'dashboard_switch_view',
+          description: 'Switch between Monthly and Yearly views',
+          child: SegmentedButton<DateStep>(
+            segments: const [
+              ButtonSegment(value: DateStep.month, label: Text('M')),
+              ButtonSegment(value: DateStep.year, label: Text('Y')),
+            ],
+            selected: {dateStep},
+            onSelectionChanged: (Set<DateStep> newSelection) {
+              onDateStepChanged(newSelection.first);
+            },
+            showSelectedIcon: false,
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: WidgetStateProperty.all(
+                const EdgeInsets.symmetric(horizontal: 10),
               ),
+              backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return Theme.of(context).colorScheme.primary;
+                }
+                return Theme.of(context).colorScheme.surfaceContainerHighest;
+              }),
+              foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return Theme.of(context).colorScheme.onPrimary;
+                }
+                return Theme.of(context).colorScheme.onSurface;
+              }),
             ),
           ),
-        ];
+        );
 
+        // --- MOBILE LAYOUT (2 Rows) ---
         if (isMobile) {
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Row 1: Arrows and Title
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: navigationItems,
+                children: [
+                  leftArrow,
+                  Expanded(child: titleWidget),
+                  rightArrow,
+                ],
               ),
               const SizedBox(height: 4),
+              // Row 2: Controls
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: selectorItems,
+                children: [
+                  currencySelector,
+                  const SizedBox(width: 8),
+                  viewSwitcher,
+                ],
               ),
             ],
           );
         }
 
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            navigationItems[0], // Left Arrow
-            const SizedBox(width: 8),
-            selectorItems[0], // Currency
-            const SizedBox(width: 16),
-            navigationItems[1], // Title
-            const SizedBox(width: 16),
-            selectorItems[1], // Segments
-            const SizedBox(width: 8),
-            navigationItems[2], // Right Arrow
-          ],
+        // --- DESKTOP/WIDE LAYOUT (1 Row) ---
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                leftArrow,
+                const SizedBox(width: 8),
+                currencySelector,
+                const SizedBox(width: 16),
+                titleWidget,
+                const SizedBox(width: 16),
+                viewSwitcher,
+                const SizedBox(width: 8),
+                rightArrow,
+              ],
+            ),
+          ),
         );
       },
     );
