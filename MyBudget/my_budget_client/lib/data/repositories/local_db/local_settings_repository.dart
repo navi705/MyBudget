@@ -71,7 +71,7 @@ class LocalSettingsRepository implements SettingsRepository {
     final companion = db.SettingsCompanion.insert(
       key: key,
       value: value,
-      device: device,
+      device: Value(device),
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
     return _database.settingsDao.setSetting(companion);
@@ -111,9 +111,7 @@ class LocalSettingsRepository implements SettingsRepository {
     final deviceName = await getDeviceName();
     final defaults = getDefaultSettings(deviceName);
 
-    // Upsert all defaults. This repairs any missing fields (like NULL device)
-    // for existing settings, and adds missing ones (like sync_enabled).
-    // We use a transaction for efficiency.
+    // 2. Upsert defaults.
     await _database.batch((batch) {
       for (final setting in defaults) {
         // We use insertOnConflictUpdate which corresponds to INSERT OR REPLACE

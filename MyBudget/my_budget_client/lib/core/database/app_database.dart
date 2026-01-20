@@ -243,7 +243,7 @@ class AssetEntries extends Table {
 class Settings extends Table {
   TextColumn get key => text()();
   TextColumn get value => text()();
-  TextColumn get device => text()();
+  TextColumn get device => text().nullable()();
 
   // Sync fields
   IntColumn get modifiedAt => integer().withDefault(const Constant(0))();

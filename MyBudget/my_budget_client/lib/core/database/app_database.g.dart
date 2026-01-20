@@ -5962,9 +5962,9 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
   late final GeneratedColumn<String> device = GeneratedColumn<String>(
     'device',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _modifiedAtMeta = const VerificationMeta(
     'modifiedAt',
@@ -6030,8 +6030,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         _deviceMeta,
         device.isAcceptableOrUnknown(data['device']!, _deviceMeta),
       );
-    } else if (isInserting) {
-      context.missing(_deviceMeta);
     }
     if (data.containsKey('modified_at')) {
       context.handle(
@@ -6065,7 +6063,7 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
       device: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}device'],
-      )!,
+      ),
       modifiedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}modified_at'],
@@ -6086,13 +6084,13 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
 class Setting extends DataClass implements Insertable<Setting> {
   final String key;
   final String value;
-  final String device;
+  final String? device;
   final int modifiedAt;
   final String? deviceId;
   const Setting({
     required this.key,
     required this.value,
-    required this.device,
+    this.device,
     required this.modifiedAt,
     this.deviceId,
   });
@@ -6101,7 +6099,9 @@ class Setting extends DataClass implements Insertable<Setting> {
     final map = <String, Expression>{};
     map['key'] = Variable<String>(key);
     map['value'] = Variable<String>(value);
-    map['device'] = Variable<String>(device);
+    if (!nullToAbsent || device != null) {
+      map['device'] = Variable<String>(device);
+    }
     map['modified_at'] = Variable<int>(modifiedAt);
     if (!nullToAbsent || deviceId != null) {
       map['device_id'] = Variable<String>(deviceId);
@@ -6113,7 +6113,9 @@ class Setting extends DataClass implements Insertable<Setting> {
     return SettingsCompanion(
       key: Value(key),
       value: Value(value),
-      device: Value(device),
+      device: device == null && nullToAbsent
+          ? const Value.absent()
+          : Value(device),
       modifiedAt: Value(modifiedAt),
       deviceId: deviceId == null && nullToAbsent
           ? const Value.absent()
@@ -6129,7 +6131,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     return Setting(
       key: serializer.fromJson<String>(json['key']),
       value: serializer.fromJson<String>(json['value']),
-      device: serializer.fromJson<String>(json['device']),
+      device: serializer.fromJson<String?>(json['device']),
       modifiedAt: serializer.fromJson<int>(json['modifiedAt']),
       deviceId: serializer.fromJson<String?>(json['deviceId']),
     );
@@ -6140,7 +6142,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     return <String, dynamic>{
       'key': serializer.toJson<String>(key),
       'value': serializer.toJson<String>(value),
-      'device': serializer.toJson<String>(device),
+      'device': serializer.toJson<String?>(device),
       'modifiedAt': serializer.toJson<int>(modifiedAt),
       'deviceId': serializer.toJson<String?>(deviceId),
     };
@@ -6149,13 +6151,13 @@ class Setting extends DataClass implements Insertable<Setting> {
   Setting copyWith({
     String? key,
     String? value,
-    String? device,
+    Value<String?> device = const Value.absent(),
     int? modifiedAt,
     Value<String?> deviceId = const Value.absent(),
   }) => Setting(
     key: key ?? this.key,
     value: value ?? this.value,
-    device: device ?? this.device,
+    device: device.present ? device.value : this.device,
     modifiedAt: modifiedAt ?? this.modifiedAt,
     deviceId: deviceId.present ? deviceId.value : this.deviceId,
   );
@@ -6199,7 +6201,7 @@ class Setting extends DataClass implements Insertable<Setting> {
 class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<String> key;
   final Value<String> value;
-  final Value<String> device;
+  final Value<String?> device;
   final Value<int> modifiedAt;
   final Value<String?> deviceId;
   final Value<int> rowid;
@@ -6214,13 +6216,12 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   SettingsCompanion.insert({
     required String key,
     required String value,
-    required String device,
+    this.device = const Value.absent(),
     this.modifiedAt = const Value.absent(),
     this.deviceId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : key = Value(key),
-       value = Value(value),
-       device = Value(device);
+       value = Value(value);
   static Insertable<Setting> custom({
     Expression<String>? key,
     Expression<String>? value,
@@ -6242,7 +6243,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   SettingsCompanion copyWith({
     Value<String>? key,
     Value<String>? value,
-    Value<String>? device,
+    Value<String?>? device,
     Value<int>? modifiedAt,
     Value<String?>? deviceId,
     Value<int>? rowid,
@@ -16442,7 +16443,7 @@ typedef $$SettingsTableCreateCompanionBuilder =
     SettingsCompanion Function({
       required String key,
       required String value,
-      required String device,
+      Value<String?> device,
       Value<int> modifiedAt,
       Value<String?> deviceId,
       Value<int> rowid,
@@ -16451,7 +16452,7 @@ typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
       Value<String> key,
       Value<String> value,
-      Value<String> device,
+      Value<String?> device,
       Value<int> modifiedAt,
       Value<String?> deviceId,
       Value<int> rowid,
@@ -16584,7 +16585,7 @@ class $$SettingsTableTableManager
               ({
                 Value<String> key = const Value.absent(),
                 Value<String> value = const Value.absent(),
-                Value<String> device = const Value.absent(),
+                Value<String?> device = const Value.absent(),
                 Value<int> modifiedAt = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -16600,7 +16601,7 @@ class $$SettingsTableTableManager
               ({
                 required String key,
                 required String value,
-                required String device,
+                Value<String?> device = const Value.absent(),
                 Value<int> modifiedAt = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),

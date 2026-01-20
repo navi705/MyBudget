@@ -1,13 +1,10 @@
 import 'package:my_budget_client/core/database/app_database.dart' as db;
+import 'package:drift/drift.dart' as drift;
 import 'package:my_budget_client/domain/entities/settings.dart';
 
 extension SettingMapper on db.Setting {
   Settings toDomain() {
-    return Settings(
-      key: key,
-      value: value,
-      device: device,
-    );
+    return Settings(key: key, value: value, device: device ?? 'unknown');
   }
 }
 
@@ -16,7 +13,7 @@ extension SettingsMapper on Settings {
     return db.SettingsCompanion.insert(
       key: key,
       value: value,
-      device: device,
+      device: drift.Value(device),
     );
   }
 }
