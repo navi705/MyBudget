@@ -344,12 +344,18 @@ class SyncService {
       final bytes = await file.readAsBytes();
       final packet = SyncBinaryFormat.decode(bytes);
 
-      // Skip our own files
+      // Skip our own files - don't even move them to .processed
+      // They should stay in the folder so other devices can sync them.
       if (packet.deviceId == _localDeviceId) {
-        // Move to processed
-        await _moveToProcessed(file);
+        debugPrint(
+          '[SYNC_DEBUG] Ignoring local sync file: ${p.basename(file.path)}',
+        );
         return;
       }
+
+      debugPrint(
+        '[SYNC_DEBUG] Importing changes from device: ${packet.deviceId}',
+      );
 
       // Process each change
       for (final change in packet.changes) {
