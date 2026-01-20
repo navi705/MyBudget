@@ -262,7 +262,6 @@ class ImportDataUtils {
 
     // Logic: Desktop & Debug -> Use File Path, otherwise -> Use Assets
     final bool isDesktop = !Platform.isAndroid && !Platform.isIOS;
-    debugPrint("CurrencyInit: isDesktop=$isDesktop, kDebugMode=$kDebugMode");
 
     if (kDebugMode && isDesktop) {
       // DEBUG (PC ONLY): Read from local JSON file directly
@@ -289,9 +288,6 @@ class ImportDataUtils {
       }
     } else {
       try {
-        debugPrint(
-          "CurrencyInit: Attempting to load asset: $filePathCurrenciesBinaryAsset",
-        );
         final ByteData blob = await rootBundle.load(
           filePathCurrenciesBinaryAsset,
         );
@@ -299,13 +295,10 @@ class ImportDataUtils {
           blob.offsetInBytes,
           blob.lengthInBytes,
         );
-        debugPrint("CurrencyInit: Binary asset size: ${bytes.length} bytes");
         fileHistoryMap = CurrencyHistoryBinaryIO.readFromBytes(bytes);
-        debugPrint(
-          "CurrencyInit: Loaded ${fileHistoryMap.length} dates from Binary Asset.",
-        );
+        debugPrint("Loaded exchange rates from Binary Asset.");
       } catch (e) {
-        debugPrint("CurrencyInit: Error loading binary asset: $e");
+        debugPrint("Error loading binary asset: $e");
       }
     }
 
@@ -359,15 +352,10 @@ class ImportDataUtils {
     );
 
     if (listToInsert.isNotEmpty) {
-      debugPrint(
-        "CurrencyInit: Adding ${listToInsert.length} new records to DB...",
-      );
+      debugPrint("Adding ${listToInsert.length} new records to DB...");
       await currenciesRep.addExchangeRates(listToInsert);
-      debugPrint("CurrencyInit: Successfully added records.");
     } else {
-      debugPrint(
-        "CurrencyInit: No new data to add (DB already up to date or file empty).",
-      );
+      debugPrint("Database is already up to date.");
     }
 
     // 7. (DEBUG & PC ONLY) Save updated data back to binary/json if changed

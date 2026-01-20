@@ -14,6 +14,7 @@ class ExchangeRatesState extends Equatable {
   final String? toCurrencyFilter;
   final List<int> presetFilters;
   final List<Currency> currencies;
+  final List<CurrencyDesignation> designations;
   final String? error;
   final bool hasReachedMax;
   final int totalCount;
@@ -32,6 +33,7 @@ class ExchangeRatesState extends Equatable {
     this.toCurrencyFilter,
     this.presetFilters = const [],
     this.currencies = const [],
+    this.designations = const [],
     this.error,
     this.hasReachedMax = false,
     this.totalCount = 0,
@@ -55,6 +57,7 @@ class ExchangeRatesState extends Equatable {
     bool clearFromCurrencyFilter = false,
     bool clearToCurrencyFilter = false,
     List<Currency>? currencies,
+    List<CurrencyDesignation>? designations,
     String? error,
     bool? hasReachedMax,
     int? totalCount,
@@ -77,6 +80,7 @@ class ExchangeRatesState extends Equatable {
           : (toCurrencyFilter ?? this.toCurrencyFilter),
       presetFilters: presetFilters ?? this.presetFilters,
       currencies: currencies ?? this.currencies,
+      designations: designations ?? this.designations,
       error: error ?? this.error,
       hasReachedMax: hasReachedMax ?? this.hasReachedMax,
       totalCount: totalCount ?? this.totalCount,
@@ -100,6 +104,7 @@ class ExchangeRatesState extends Equatable {
     toCurrencyFilter,
     presetFilters,
     currencies,
+    designations,
     error,
     hasReachedMax,
     totalCount,

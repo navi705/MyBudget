@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
+import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/presentation/blocs/exchange_rates/exchange_rates_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
@@ -202,6 +203,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
           rate: rate,
           isSelected: isSelected,
           isSelectionMode: state.isSelectionModeActive,
+          designations: state.designations,
           onSecondaryTapUp: (details) =>
               _showContextMenu(context, details, rate, state),
           onTap: () =>
@@ -457,11 +459,13 @@ class _ExchangeRateListItem extends StatelessWidget {
   final ExchangeRateDomain rate;
   final bool isSelected;
   final bool isSelectionMode;
+  final List<CurrencyDesignation> designations;
   final void Function(TapUpDetails)? onSecondaryTapUp;
   final VoidCallback? onTap;
 
   const _ExchangeRateListItem({
     required this.rate,
+    required this.designations,
     this.isSelected = false,
     this.isSelectionMode = false,
     this.onSecondaryTapUp,
@@ -510,11 +514,23 @@ class _ExchangeRateListItem extends StatelessWidget {
               : CircleAvatar(
                   backgroundColor: theme.colorScheme.primaryContainer,
                   foregroundColor: theme.colorScheme.onPrimaryContainer,
-                  child: Text(
-                    rate.toCurrencyCode,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        designations
+                                .where(
+                                  (d) => d.currencyCode == rate.toCurrencyCode,
+                                )
+                                .firstOrNull
+                                ?.value ??
+                            rate.toCurrencyCode,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
                   ),
                 ),

@@ -124,23 +124,14 @@ class ExchangeRateApiService {
     try {
       // Try Binary Asset
       try {
-        debugPrint(
-          'Fetch: Attempting to load binary asset: $_prodBinAssetPath',
-        );
         final ByteData blob = await rootBundle.load(_prodBinAssetPath);
         final Uint8List bytes = blob.buffer.asUint8List(
           blob.offsetInBytes,
           blob.lengthInBytes,
         );
         final historyMap = CurrencyHistoryBinaryIO.readFromBytes(bytes);
-        debugPrint(
-          'Fetch: Binary asset loaded, ${historyMap.length} dates found.',
-        );
         if (historyMap.containsKey(dateKey)) {
           rates = historyMap[dateKey]!;
-          debugPrint('Fetch: Found rates for $dateKey in binary asset.');
-        } else {
-          debugPrint('Fetch: Date $dateKey not found in binary asset.');
         }
       } catch (e) {
         debugPrint('Fetch: Binary asset error or missing: $e');

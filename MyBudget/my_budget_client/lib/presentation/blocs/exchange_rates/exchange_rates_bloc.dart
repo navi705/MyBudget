@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
+import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 
@@ -114,6 +115,7 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
 
       // OPTIMIZATION: Run queries in parallel using Future.wait
       final needsCurrencies = state.currencies.isEmpty;
+      final needsDesignations = state.designations.isEmpty;
       final results = await Future.wait([
         _currencyRepository.getExchangeRatesFiltered(
           limit: limit,
@@ -133,6 +135,7 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
           presets: state.presetFilters,
         ),
         if (needsCurrencies) _currencyRepository.getCurrencies(),
+        if (needsDesignations) _currencyRepository.getAllCurrencyDesignations(),
       ]);
 
       final rates = results[0] as List<ExchangeRateDomain>;
@@ -141,6 +144,10 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
           ? results[2] as List<Currency>
           : state.currencies;
 
+      final designations = needsDesignations
+          ? results[needsCurrencies ? 3 : 2] as List<CurrencyDesignation>
+          : state.designations;
+
       emit(
         state.copyWith(
           status: ExchangeRatesStatus.success,
@@ -148,6 +155,7 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
               ? rates
               : [...state.exchangeRates, ...rates],
           currencies: currencies,
+          designations: designations,
           hasReachedMax: rates.length < limit,
           totalCount: totalCount,
         ),
