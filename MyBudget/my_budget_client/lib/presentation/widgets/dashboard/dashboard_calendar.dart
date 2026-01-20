@@ -47,20 +47,23 @@ class DashboardCalendar extends StatelessWidget {
         final maxCalendarWidth = isWideScreen ? 700.0 : screenWidth;
 
         return Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxCalendarWidth),
-            child: Column(
-              children: [
-                _buildHeader(context),
-                const SizedBox(height: 16),
-                if (dateStep == DateStep.month) ...[
-                  _buildWeekdayLabels(context),
-                  const SizedBox(height: 8),
-                  _buildMonthView(context, isWideScreen),
-                ] else if (dateStep == DateStep.year) ...[
-                  _buildYearView(context),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: isWideScreen ? 0 : 12.0),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxCalendarWidth),
+              child: Column(
+                children: [
+                  _buildHeader(context),
+                  const SizedBox(height: 16),
+                  if (dateStep == DateStep.month) ...[
+                    _buildWeekdayLabels(context),
+                    const SizedBox(height: 8),
+                    _buildMonthView(context, isWideScreen),
+                  ] else if (dateStep == DateStep.year) ...[
+                    _buildYearView(context),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         );
