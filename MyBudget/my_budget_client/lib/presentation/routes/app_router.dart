@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -82,7 +81,7 @@ final GoRouter router = GoRouter(
             return _buildPage(const HotKeysScreen());
           },
         ),
-        if (kDebugMode && !Platform.isAndroid && !Platform.isIOS)
+        if (kDebugMode)
           GoRoute(
             path: AppRoutes.debug,
             pageBuilder: (context, state) => _buildPage(const DebugScreen()),

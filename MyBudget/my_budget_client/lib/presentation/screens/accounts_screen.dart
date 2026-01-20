@@ -309,7 +309,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
       },
       child: Scaffold(
         appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight),
+          preferredSize: Size.fromHeight(
+            MediaQuery.of(context).size.width < 600
+                ? kToolbarHeight * 1.8
+                : kToolbarHeight,
+          ),
           child: BlocBuilder<AccountsBloc, AccountsState>(
             builder: (context, state) {
               if (state is! AccountsLoadSuccess) {
@@ -887,33 +891,33 @@ class _AccountsDateAppBar extends StatelessWidget
   Widget build(BuildContext context) {
     final bloc = context.read<AccountsBloc>();
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final centerWidget = SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          MultiLevelTooltip(
-            message: 'Filter',
-            actionId: 'filter_accounts',
-            description: 'Filter accounts by type or hidden status',
-            child: IconButton(
-              icon: Icon(Icons.tune, color: onSurface),
-              onPressed: () {
-                showAccountFilterDialog(context, state.filters);
-              },
-            ),
+    final centerWidget = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        MultiLevelTooltip(
+          message: 'Filter',
+          actionId: 'filter_accounts',
+          description: 'Filter accounts by type or hidden status',
+          child: IconButton(
+            icon: Icon(Icons.tune, color: onSurface),
+            onPressed: () {
+              showAccountFilterDialog(context, state.filters);
+            },
           ),
-          MultiLevelTooltip(
-            message: 'Previous Period',
-            actionId: 'prev_period',
-            description: 'Go to the previous month or year',
-            child: IconButton(
-              icon: Icon(Icons.chevron_left, color: onSurface),
-              onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
-            ),
+        ),
+        MultiLevelTooltip(
+          message: 'Previous Period',
+          actionId: 'prev_period',
+          description: 'Go to the previous month or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_left, color: onSurface),
+            onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
           ),
-          MultiLevelTooltip(
+        ),
+        Expanded(
+          flex: MediaQuery.of(context).size.width < 600 ? 1 : 0,
+          child: MultiLevelTooltip(
             message: 'Select Date',
             actionId: 'accounts_pick_date',
             description: 'Choose a specific date to view historical balances',
@@ -929,48 +933,47 @@ class _AccountsDateAppBar extends StatelessWidget
               ),
             ),
           ),
-          MultiLevelTooltip(
-            message: 'Next Period',
-            actionId: 'next_period',
-            description: 'Go to the next month or year',
-            child: IconButton(
-              icon: Icon(Icons.chevron_right, color: onSurface),
-              onPressed: () => bloc.add(const DatePeriodNavigated(1)),
-            ),
+        ),
+        MultiLevelTooltip(
+          message: 'Next Period',
+          actionId: 'next_period',
+          description: 'Go to the next month or year',
+          child: IconButton(
+            icon: Icon(Icons.chevron_right, color: onSurface),
+            onPressed: () => bloc.add(const DatePeriodNavigated(1)),
           ),
-          const SizedBox(width: 24),
-          MultiLevelTooltip(
-            message: 'Sort Order',
-            actionId: 'accounts_sort',
-            description:
-                'Switch between ascending and descending balance order',
-            child: RotatedBox(
-              quarterTurns: state.sortAscending ? 2 : 0,
-              child: IconButton(
-                icon: Icon(Icons.sort, color: onSurface),
-                onPressed: () {
-                  context.read<AccountsBloc>().add(
-                    SortAccounts(!state.sortAscending),
-                  );
-                },
-              ),
-            ),
-          ),
-          MultiLevelTooltip(
-            message: 'Select Currencies',
-            actionId: 'accounts_curr_select',
-            description: 'Choose which currencies to show in total balance',
+        ),
+        SizedBox(width: MediaQuery.of(context).size.width < 600 ? 8 : 24),
+        MultiLevelTooltip(
+          message: 'Sort Order',
+          actionId: 'accounts_sort',
+          description: 'Switch between ascending and descending balance order',
+          child: RotatedBox(
+            quarterTurns: state.sortAscending ? 2 : 0,
             child: IconButton(
-              icon: Icon(Icons.calculate, color: onSurface),
+              icon: Icon(Icons.sort, color: onSurface),
               onPressed: () {
-                (context as Element)
-                    .findAncestorStateOfType<_AccountsScreenState>()!
-                    ._showCurrencySelectionDialog(context);
+                context.read<AccountsBloc>().add(
+                  SortAccounts(!state.sortAscending),
+                );
               },
             ),
           ),
-        ],
-      ),
+        ),
+        MultiLevelTooltip(
+          message: 'Select Currencies',
+          actionId: 'accounts_curr_select',
+          description: 'Choose which currencies to show in total balance',
+          child: IconButton(
+            icon: Icon(Icons.calculate, color: onSurface),
+            onPressed: () {
+              (context as Element)
+                  .findAncestorStateOfType<_AccountsScreenState>()!
+                  ._showCurrencySelectionDialog(context);
+            },
+          ),
+        ),
+      ],
     );
 
     return GenericFilterAppBar(

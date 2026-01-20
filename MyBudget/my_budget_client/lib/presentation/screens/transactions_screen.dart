@@ -123,7 +123,14 @@ class TransactionsScreen extends StatelessWidget {
                     ),
                   ],
                 )
-              : const FilterDate(),
+              : PreferredSize(
+                  preferredSize: Size.fromHeight(
+                    MediaQuery.of(context).size.width < 600
+                        ? kToolbarHeight * 1.8
+                        : kToolbarHeight,
+                  ),
+                  child: const FilterDate(),
+                ),
           body: const TransactionList(),
           floatingActionButton: isSelectionMode
               ? null

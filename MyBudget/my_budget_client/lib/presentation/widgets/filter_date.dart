@@ -13,7 +13,13 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   const FilterDate({super.key});
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => Size.fromHeight(
+    // We'll trust GenericFilterAppBar's internal logic for actual layout,
+    // but we need to declare the correct PreferredSize for Scaffold.
+    // Since we don't have context in preferredSize getter, we use a conservative standard.
+    // However, GenericFilterAppBar will handle its own height internally.
+    kToolbarHeight * 1.5,
+  );
 
   String _formatDate(TransactionsState state) {
     if (state.filterMode == FilterMode.range) {
@@ -40,33 +46,36 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
     return BlocBuilder<TransactionsBloc, TransactionsState>(
       builder: (context, state) {
         final bloc = context.read<TransactionsBloc>();
-        final centerWidget = SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              MultiLevelTooltip(
-                message: 'Advanced Filter',
-                actionId: 'filter_advanced',
-                description:
-                    'Filter transactions by account, category, or amount',
-                child: IconButton(
-                  icon: const Icon(Icons.tune, color: Colors.white),
-                  onPressed: () =>
-                      showAdvancedFilterDialog(context, state.nonDateFilters),
-                ),
+        final onSurface = Theme.of(context).colorScheme.onSurface;
+        final isMobile = MediaQuery.of(context).size.width < 600;
+
+        final centerWidget = Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            MultiLevelTooltip(
+              message: 'Advanced Filter',
+              actionId: 'filter_advanced',
+              description:
+                  'Filter transactions by account, category, or amount',
+              child: IconButton(
+                icon: Icon(Icons.tune, color: onSurface),
+                onPressed: () =>
+                    showAdvancedFilterDialog(context, state.nonDateFilters),
               ),
-              MultiLevelTooltip(
-                message: 'Previous Period',
-                actionId: 'prev_period',
-                description: 'Go to the previous day, month, or year',
-                child: IconButton(
-                  icon: const Icon(Icons.chevron_left, color: Colors.white),
-                  onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
-                ),
+            ),
+            MultiLevelTooltip(
+              message: 'Previous Period',
+              actionId: 'prev_period',
+              description: 'Go to the previous day, month, or year',
+              child: IconButton(
+                icon: Icon(Icons.chevron_left, color: onSurface),
+                onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
               ),
-              MultiLevelTooltip(
+            ),
+            Expanded(
+              flex: isMobile ? 1 : 0,
+              child: MultiLevelTooltip(
                 message: 'Select Date',
                 actionId: 'filter_pick_date',
                 description: 'Choose a specific date or date range',
@@ -77,41 +86,39 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
                     alignment: Alignment.center,
                     child: Text(
                       _formatDate(state),
-                      style: const TextStyle(color: Colors.white, fontSize: 18),
+                      style: TextStyle(color: onSurface, fontSize: 18),
                     ),
                   ),
                 ),
               ),
-              MultiLevelTooltip(
-                message: 'Next Period',
-                actionId: 'next_period',
-                description: 'Go to the next day, month, or year',
+            ),
+            MultiLevelTooltip(
+              message: 'Next Period',
+              actionId: 'next_period',
+              description: 'Go to the next day, month, or year',
+              child: IconButton(
+                icon: Icon(Icons.chevron_right, color: onSurface),
+                onPressed: () => bloc.add(const DatePeriodNavigated(1)),
+              ),
+            ),
+            MultiLevelTooltip(
+              message: 'Sort Order',
+              actionId: 'filter_sort',
+              description: 'Toggle between ascending and descending order',
+              child: RotatedBox(
+                quarterTurns: state.sort == Sort.ascending ? 0 : 2,
                 child: IconButton(
-                  icon: const Icon(Icons.chevron_right, color: Colors.white),
-                  onPressed: () => bloc.add(const DatePeriodNavigated(1)),
+                  icon: Icon(Icons.sort, color: onSurface),
+                  onPressed: () {
+                    final newSort = state.sort == Sort.ascending
+                        ? Sort.descending
+                        : Sort.ascending;
+                    context.read<TransactionsBloc>().add(SortChanged(newSort));
+                  },
                 ),
               ),
-              MultiLevelTooltip(
-                message: 'Sort Order',
-                actionId: 'filter_sort',
-                description: 'Toggle between ascending and descending order',
-                child: RotatedBox(
-                  quarterTurns: state.sort == Sort.ascending ? 0 : 2,
-                  child: IconButton(
-                    icon: const Icon(Icons.sort, color: Colors.white),
-                    onPressed: () {
-                      final newSort = state.sort == Sort.ascending
-                          ? Sort.descending
-                          : Sort.ascending;
-                      context.read<TransactionsBloc>().add(
-                        SortChanged(newSort),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         );
 
         return GenericFilterAppBar(

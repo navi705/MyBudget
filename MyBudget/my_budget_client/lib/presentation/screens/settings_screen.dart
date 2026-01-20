@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -232,6 +233,18 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     onTap: () => _confirmResetData(context),
                   ),
+                  if (kDebugMode && (Platform.isAndroid || Platform.isIOS))
+                    ListTile(
+                      leading: const Icon(
+                        Icons.bug_report,
+                        color: Colors.orange,
+                      ),
+                      title: const Text('Debug Menu'),
+                      subtitle: const Text('Internal developer tools'),
+                      onTap: () {
+                        context.push(AppRoutes.debug);
+                      },
+                    ),
                 ],
               );
             },
