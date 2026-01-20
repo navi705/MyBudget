@@ -54,26 +54,41 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
         if (constraints.maxWidth < 600) {
           return Scaffold(
             body: widget.child,
-            bottomNavigationBar: BottomNavigationBar(
-              selectedItemColor: primaryColor,
-              type: BottomNavigationBarType.fixed,
-              currentIndex: selectedIndex,
-              onTap: (index) => _onItemTapped(index, context),
-              items: widget.destinations.map((item) {
-                Widget iconWidget = Icon(item.icon);
-                if (item.tooltip != null || item.hotkeyId != null) {
-                  iconWidget = MultiLevelTooltip(
-                    message: item.tooltip ?? item.label,
-                    actionId: item.hotkeyId ?? '',
-                    description: item.tooltipDescription,
-                    child: iconWidget,
+            bottomNavigationBar: NavigationBarTheme(
+              data: NavigationBarThemeData(
+                labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                  final color = states.contains(WidgetState.selected)
+                      ? primaryColor
+                      : colorScheme.onSurface.withValues(alpha: 0.7);
+                  return TextStyle(
+                    fontSize: 12,
+                    fontWeight: states.contains(WidgetState.selected)
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    color: color,
                   );
-                }
-                return BottomNavigationBarItem(
-                  icon: iconWidget,
-                  label: item.label,
-                );
-              }).toList(),
+                }),
+              ),
+              child: NavigationBar(
+                selectedIndex: selectedIndex,
+                onDestinationSelected: (index) => _onItemTapped(index, context),
+                destinations: widget.destinations.map((item) {
+                  Widget iconWidget = Icon(item.icon);
+                  if (item.tooltip != null || item.hotkeyId != null) {
+                    iconWidget = MultiLevelTooltip(
+                      message: item.tooltip ?? item.label,
+                      actionId: item.hotkeyId ?? '',
+                      description: item.tooltipDescription,
+                      child: iconWidget,
+                    );
+                  }
+                  return NavigationDestination(
+                    icon: iconWidget,
+                    label: item.label,
+                  );
+                }).toList(),
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              ),
             ),
           );
         } else {

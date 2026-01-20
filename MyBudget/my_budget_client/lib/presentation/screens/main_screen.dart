@@ -15,7 +15,7 @@ class MainScreen extends StatelessWidget {
   List<NavigationItem> get _destinations {
     final baseDestinations = [
       NavigationItem(
-        label: 'Dashboard',
+        label: (Platform.isAndroid || Platform.isIOS) ? 'Home' : 'Dashboard',
         icon: Icons.dashboard,
         route: AppRoutes.dashboard,
         tooltip: 'Dashboard',
@@ -31,7 +31,9 @@ class MainScreen extends StatelessWidget {
         tooltipDescription: 'Manage your bank accounts and wallets',
       ),
       NavigationItem(
-        label: 'Transactions',
+        label: (Platform.isAndroid || Platform.isIOS)
+            ? 'History'
+            : 'Transactions',
         icon: Icons.swap_horiz,
         route: AppRoutes.transactions,
         tooltip: 'Transactions',
