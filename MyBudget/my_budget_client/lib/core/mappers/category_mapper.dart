@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:uuid/uuid.dart';
 
 extension CategoryMapper on db.Category {
   Category toDomain() {
@@ -17,7 +18,7 @@ extension CategoryMapper on db.Category {
 extension CategoriesMapper on Category {
   db.CategoriesCompanion toCompanion() {
     return db.CategoriesCompanion(
-      id: id == null ? const Value.absent() : Value(id!),
+      id: Value(id ?? const Uuid().v4()),
       name: Value(name),
       parentId: Value(parentId),
       styleId: Value(styleId),
