@@ -6,6 +6,7 @@ import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:my_budget_client/core/utils/currency_history_binary_io.dart';
 
 class ExchangeRateApiService {
   final ExchangeRatesDao _exchangeRatesDao;
@@ -19,7 +20,7 @@ class ExchangeRateApiService {
   );
 
   static const String _jsonPath = 'lib/data/currency_history.json';
-  static const String _prodJsonAssetPath = 'assets/currency_history.json';
+  static const String _prodBinAssetPath = 'lib/data/currency_history.bin';
   static const String _metadataJsonPath =
       'lib/data/currency_history_metadata.json';
   static const String _metadataKey = '_metadata';
@@ -121,11 +122,16 @@ class ExchangeRateApiService {
 
     Map<String, double> rates = {};
     try {
-      final assetContent = await rootBundle.loadString(_prodJsonAssetPath);
-      final Map<String, dynamic> assetJson = jsonDecode(assetContent);
-      if (assetJson.containsKey(dateKey)) {
-        final rawRates = assetJson[dateKey] as Map<String, dynamic>;
-        rates = rawRates.map((k, v) => MapEntry(k, (v as num).toDouble()));
+      // Try Binary Asset
+      try {
+        final ByteData blob = await rootBundle.load(_prodBinAssetPath);
+        final Uint8List bytes = blob.buffer.asUint8List();
+        final historyMap = CurrencyHistoryBinaryIO.readFromBytes(bytes);
+        if (historyMap.containsKey(dateKey)) {
+          rates = historyMap[dateKey]!;
+        }
+      } catch (e) {
+        debugPrint('Fetch: Binary asset error or missing: $e');
       }
 
       if (rates.isEmpty) {

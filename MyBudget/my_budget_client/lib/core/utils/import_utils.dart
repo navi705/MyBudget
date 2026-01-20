@@ -4,10 +4,10 @@ import 'package:csv/csv.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
-import 'package:my_budget_client/data/repositories/local_db/local_currency_repository.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/core/di/injection_container.dart' as di;
 import 'package:my_budget_client/core/utils/currency_history_binary_io.dart';
+import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:flutter/services.dart';
 import 'dart:typed_data';
 
@@ -247,7 +247,7 @@ class ImportDataUtils {
 
   static Future<void> getCurrenciesInitial() async {
     final DateFormat keyFormatter = DateFormat('yyyy-MM-dd');
-    final currenciesRep = di.sl<LocalCurrencyRepository>();
+    final currenciesRep = di.sl<CurrencyRepository>();
 
     // 1. Get existing data from DB (Optimization)
     // We already have these dates in DB with preset=1 (seeded data)
@@ -260,9 +260,11 @@ class ImportDataUtils {
     // 2. Load History Map from File (Binary in Prod/Debug, or JSON in Debug)
     Map<String, Map<String, double>> fileHistoryMap = {};
 
-    // Logic: Debug -> JSON File, Release -> Binary Asset
-    if (kDebugMode) {
-      // DEBUG: Read from local JSON file directly
+    // Logic: Desktop & Debug -> Use File Path, otherwise -> Use Assets
+    final bool isDesktop = !Platform.isAndroid && !Platform.isIOS;
+
+    if (kDebugMode && isDesktop) {
+      // DEBUG (PC ONLY): Read from local JSON file directly
       File jsonFile = File(filePathCurrenciesRate);
       if (await jsonFile.exists()) {
         try {
@@ -273,26 +275,29 @@ class ImportDataUtils {
               if (v is Map) {
                 Map<String, double> rates = {};
                 v.forEach((curr, rate) {
-                  if (rate is num) rates[curr.toString()] = rate.toDouble();
+                  if (rate is num)
+                    rates[curr.toString().toUpperCase()] = rate.toDouble();
                 });
                 fileHistoryMap[k.toString()] = rates;
               }
             });
           }
         } catch (e) {
-          debugPrint("Error reading Debug JSON file: $e");
+          debugPrint("Error reading Debug JSON file on PC: $e");
         }
       }
     } else {
-      // RELEASE: Read from Binary Asset (via rootBundle)
+      // MOBILE or RELEASE: Read from Assets
+      // Try Binary Asset first
       try {
         final ByteData blob = await rootBundle.load(
           filePathCurrenciesBinaryAsset,
         );
         final Uint8List bytes = blob.buffer.asUint8List();
         fileHistoryMap = CurrencyHistoryBinaryIO.readFromBytes(bytes);
+        debugPrint("Loaded exchange rates from Binary Asset.");
       } catch (e) {
-        debugPrint("Error reading Release Binary Asset: $e");
+        debugPrint("Error loading binary asset: $e");
       }
     }
 
@@ -317,8 +322,8 @@ class ImportDataUtils {
       if (fileHistoryMap.containsKey(dateKey)) {
         dataToInsertMap[dateKey] = fileHistoryMap[dateKey]!;
       }
-      // Condition 3: Missing everywhere -> Fetch from API (Debug only usually)
-      else if (kDebugMode) {
+      // Condition 3: Missing everywhere -> Fetch from API (Debug & PC only usually)
+      else if (kDebugMode && isDesktop) {
         try {
           await Future.delayed(const Duration(milliseconds: 100)); // Throttle
           final apiRates =
@@ -352,8 +357,8 @@ class ImportDataUtils {
       debugPrint("Database is already up to date.");
     }
 
-    // 7. (DEBUG ONLY) Save updated data back to binary/json if changed
-    if (kDebugMode && dataWasUpdated) {
+    // 7. (DEBUG & PC ONLY) Save updated data back to binary/json if changed
+    if (kDebugMode && isDesktop && dataWasUpdated) {
       // Save to JSON
       try {
         final File localJsonFile = File(filePathCurrenciesRate);
@@ -381,36 +386,40 @@ class ImportDataUtils {
   }
 
   static Future<List<ExchangeRateDomain>> getCurrenciesRateToSeeder() async {
-    if (kDebugMode) {
-      // DEBUG: Load from JSON File
-      final file = File(filePathCurrenciesRate);
-      if (!await file.exists()) return [];
-      try {
-        final content = await file.readAsString();
-        return compute(_parseCurrencyHistoryJson, content);
-      } catch (e) {
-        debugPrint(
-          'Error reading/parsing currency history for seeder (JSON): $e',
-        );
-        return [];
-      }
-    } else {
-      // RELEASE: Load from Binary Asset
-      try {
-        final ByteData blob = await rootBundle.load(
-          filePathCurrenciesBinaryAsset,
-        );
-        final Uint8List bytes = blob.buffer.asUint8List();
-        final historyMap = CurrencyHistoryBinaryIO.readFromBytes(bytes);
+    final bool isDesktop = !Platform.isAndroid && !Platform.isIOS;
 
-        // Convert Map to List<ExchangeRateDomain>
-        return convertCurreniesRateFromJson(historyMap);
-      } catch (e) {
+    if (kDebugMode && isDesktop) {
+      // DEBUG (PC): Load from JSON File
+      final file = File(filePathCurrenciesRate);
+      if (!await file.exists()) {
         debugPrint(
-          'Error reading/parsing currency history for seeder (Binary): $e',
+          'Seeder: JSON file not found at $filePathCurrenciesRate, falling back to assets.',
         );
-        return [];
+      } else {
+        try {
+          final content = await file.readAsString();
+          return compute(_parseCurrencyHistoryJson, content);
+        } catch (e) {
+          debugPrint(
+            'Error reading/parsing currency history for seeder (JSON): $e',
+          );
+        }
       }
+    }
+
+    // RELEASE or MOBILE: Load from Assets
+    try {
+      final ByteData blob = await rootBundle.load(
+        filePathCurrenciesBinaryAsset,
+      );
+      final Uint8List bytes = blob.buffer.asUint8List();
+      final historyMap = CurrencyHistoryBinaryIO.readFromBytes(bytes);
+      return convertCurreniesRateFromJson(historyMap);
+    } catch (e) {
+      debugPrint(
+        'Error reading/parsing currency history binary asset for seeder: $e',
+      );
+      return [];
     }
   }
 

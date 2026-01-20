@@ -69,6 +69,7 @@ flutter:
   assets:
     - .env
     - lib/icons/
-    - lib/data/currency_history.json
+    - lib/data/currency_history.bin
+    - assets/icon/
     - assets/backgrounds/
 
