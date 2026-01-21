@@ -2670,10 +2670,9 @@ class AppDatabase extends _$AppDatabase {
       await _seedLanguages(db);
       await _seedCurrencies(db);
       await _seedCurrencyDesignations(db);
-      await _seedStyles(db);
       await _seedAccountTypes(db);
     }
-
+    await _seedStyles(db);
     await _seedCategories(db);
     await _seedExchangeRates(db);
     await _seedSettings(db);
@@ -2857,13 +2856,12 @@ class AppDatabase extends _$AppDatabase {
 
       // Clear inflation rates as they are fetched data
       batch.deleteAll(inflationRates);
-
+      batch.deleteAll(exchangeRates);
+      batch.deleteAll(styles);
       if (!preserveStaticData) {
         // Only delete static data if strictly requested (Factory Reset)
-        batch.deleteAll(exchangeRates);
         batch.deleteAll(currencyDesignations);
         batch.deleteAll(accountTypes);
-        batch.deleteAll(styles);
         batch.deleteAll(currencies);
         batch.deleteAll(languages);
       }
