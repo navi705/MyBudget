@@ -228,7 +228,9 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                   ),
                                   child: IconUtils.getIconWidget(selectedStyle),
                                 )
-                              : const CircleAvatar(child: Icon(Icons.style)),
+                              : const CircleAvatar(
+                                  child: Icon(Icons.account_balance),
+                                ),
                           title: Text(l10n.iconLabel),
                           subtitle: Text(
                             selectedStyle?.name ?? l10n.selectIconSubtitle,
