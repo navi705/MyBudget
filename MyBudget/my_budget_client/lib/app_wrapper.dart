@@ -45,33 +45,26 @@ class _AppWrapperState extends State<AppWrapper> {
 
   Future<void> _initialize() async {
     try {
+      // 1. Critical initialization - MUST be fast
       _updateProgress(0.1, 'Verifying settings...');
       await sl<SettingsRepository>().initializeDefaults();
 
-      _updateProgress(0.3, 'Loading exchange rates...');
-      await IntilizationData.loadLocalData();
-
-      // Step 0.5: Initialize Sync Service
+      _updateProgress(0.3, 'Initializing Sync Service...');
       await sl<SyncService>().init();
-      // Step 1: Load local data (fast, from files)
 
-      _updateProgress(0.9, 'Ready!');
+      // 2. Non-critical initialization starts in background immediately
+      // This will handle seeding, API fetches, etc. without blocking UI
+      IntilizationData.fetchApiDataInBackground();
 
-      // Small delay to show "Ready!" message
-      await Future.delayed(const Duration(milliseconds: 1000));
-
+      // 3. Mark as initialized so the main App can be shown
       if (mounted) {
         setState(() {
           _isInitialized = true;
         });
       }
-
-      // Step 2: Fetch fresh API data in background (non-blocking)
-      // This runs AFTER the app is shown
-      IntilizationData.fetchApiDataInBackground();
     } catch (e) {
       debugPrint('Initialization error: $e');
-      // Still proceed to app even if init fails
+      // Still proceed to app even if init fails to not block the user
       if (mounted) {
         setState(() {
           _isInitialized = true;

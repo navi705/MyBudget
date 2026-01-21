@@ -11,28 +11,27 @@ import 'package:my_budget_client/core/utils/import_utils.dart';
 import 'dart:convert';
 import 'dart:io';
 
-Future<void> _loadLocalDataInIsolate(bool shouldInit) async {
-  if (shouldInit) {
-    await init();
-  }
-
-  // Load Currency History (Binary/JSON seeder)
-  // This loads from the binary file or JSON debug file into the database
-  await ImportDataUtils.getCurrenciesInitial();
-}
-
 Future<void> _fetchApiDataInIsolate(bool shouldInit) async {
   if (shouldInit) {
     await init();
   }
 
-  // Load Debug Steam Data (Local JSON) in background
+  debugPrint('[INIT_DEBUG] Starting background synchronization...');
+
+  // 1. Load Currency History (Binary/JSON seeder)
+  try {
+    await ImportDataUtils.getCurrenciesInitial();
+  } catch (e) {
+    debugPrint('Background Init Error (Seeding): $e');
+  }
+
+  // 2. Load Debug Steam Data (Local JSON)
   if (kDebugMode) {
     await _loadDebugSteamData();
   }
 
   try {
-    // 1. Fetch Exchange Rates (Today)
+    // 3. Fetch Exchange Rates (Today)
     final exchangeRateService = sl<ExchangeRateApiService>();
     await exchangeRateService.fetchRatesForDate(DateTime.now());
   } catch (e) {
@@ -40,18 +39,20 @@ Future<void> _fetchApiDataInIsolate(bool shouldInit) async {
   }
 
   try {
-    // 2. Fetch Steam Inventory
-    final steamService = sl<SteamInventoryApiService>();
-    final settingsRepository = sl<SettingsRepository>();
-    final steamIdSetting = await settingsRepository.getSetting('steam_id');
+    // 4. Fetch Steam Inventory
+    if (sl.isRegistered<SteamInventoryApiService>()) {
+      final steamService = sl<SteamInventoryApiService>();
+      final settingsRepository = sl<SettingsRepository>();
+      final steamIdSetting = await settingsRepository.getSetting('steam_id');
 
-    if (steamIdSetting != null && steamIdSetting.value.isNotEmpty) {
-      final accountId = int.tryParse(steamIdSetting.value);
-      if (accountId != null) {
-        await steamService.fetchSteamInventoryValue(
-          accountId,
-          GameApiSteam.cs2,
-        );
+      if (steamIdSetting != null && steamIdSetting.value.isNotEmpty) {
+        final accountId = int.tryParse(steamIdSetting.value);
+        if (accountId != null) {
+          await steamService.fetchSteamInventoryValue(
+            accountId,
+            GameApiSteam.cs2,
+          );
+        }
       }
     }
   } catch (e) {
@@ -59,19 +60,16 @@ Future<void> _fetchApiDataInIsolate(bool shouldInit) async {
   }
 
   try {
-    // 3. Fetch Inflation Data
-    final inflationService = sl<InflationApiService>();
-    await inflationService.fetchInflationForCountry('SRB', '2000:2024');
+    // 5. Fetch Inflation Data
+    if (sl.isRegistered<InflationApiService>()) {
+      final inflationService = sl<InflationApiService>();
+      await inflationService.fetchInflationForCountry('SRB', '2000:2024');
+    }
   } catch (e) {
     debugPrint('Background Init Error (Inflation): $e');
   }
-}
 
-// Deprecated: kept for reference or legacy paths.
-// The new flow uses loadLocalData() and fetchApiDataInBackground() separately.
-Future<void> _initInIsolate(bool shouldInit) async {
-  await _loadLocalDataInIsolate(shouldInit);
-  await _fetchApiDataInIsolate(false); // init already done
+  debugPrint('[INIT_DEBUG] Background synchronization completed.');
 }
 
 Future<void> _loadDebugSteamData() async {
@@ -139,17 +137,13 @@ Future<void> _loadDebugSteamData() async {
 }
 
 class IntilizationData {
-  /// Loads critical local data (Currency History, Debug Data).
-  /// This should be awaited during the splash screen.
+  /// Loads critical local data.
+  /// Deprecated: All heavy work moved to background.
   static Future<void> loadLocalData() async {
-    if (kDebugMode) {
-      return _loadLocalDataInIsolate(false);
-    }
-    return compute(_loadLocalDataInIsolate, true);
+    return;
   }
 
-  /// Fetches API data in the background (Exchange Rates, Steam, Inflation).
-  /// This should be called WITHOUT await after the app is interactive.
+  /// Fetches API data and performs seeding in the background.
   static void fetchApiDataInBackground() {
     if (kDebugMode) {
       _fetchApiDataInIsolate(false);
@@ -158,11 +152,7 @@ class IntilizationData {
     }
   }
 
-  // Legacy method for backward compatibility
   static Future<void> initilizate() async {
-    if (kDebugMode) {
-      return _initInIsolate(false);
-    }
-    return compute(_initInIsolate, true);
+    fetchApiDataInBackground();
   }
 }
