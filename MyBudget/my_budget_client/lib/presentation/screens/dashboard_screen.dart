@@ -55,6 +55,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               body: SafeArea(
                 child: Column(
                   children: [
+                    if (Platform.isWindows ||
+                        Platform.isLinux ||
+                        Platform.isMacOS)
+                      const SizedBox(height: 10),
                     if (!(Platform.isWindows ||
                         Platform.isLinux ||
                         Platform.isMacOS))
@@ -202,7 +206,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildCategoryView(DashboardLoadSuccess state) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
+      padding: EdgeInsets.fromLTRB(
+        16.0,
+        (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+            ? 0.0
+            : 16.0,
+        16.0,
+        16.0,
+      ),
       child: Column(
         children: [
           DashboardHeader(

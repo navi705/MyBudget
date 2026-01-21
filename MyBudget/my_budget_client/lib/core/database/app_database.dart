@@ -2672,10 +2672,10 @@ class AppDatabase extends _$AppDatabase {
       await _seedCurrencyDesignations(db);
       await _seedStyles(db);
       await _seedAccountTypes(db);
-      await _seedCategories(db);
-      await _seedExchangeRates(db);
     }
-    // Settings are always re-seeded to defaults
+
+    await _seedCategories(db);
+    await _seedExchangeRates(db);
     await _seedSettings(db);
   }
 
