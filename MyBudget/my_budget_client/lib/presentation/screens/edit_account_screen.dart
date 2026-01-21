@@ -361,11 +361,13 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                           final selectedCountry =
                               await showSingleSelectDialog<String>(
                                 context: context,
-                                items: state.countries,
+                                items: state.countries.keys.toList(),
                                 title: l10n.selectCountryTitle,
                                 selectedItem: _initialAccount.country,
-                                itemBuilder: (country) => Text(country),
-                                stringGetter: (country) => country,
+                                itemBuilder: (code) =>
+                                    Text(state.countries[code] ?? code),
+                                stringGetter: (code) =>
+                                    state.countries[code] ?? code,
                               );
                           if (mounted && selectedCountry != null) {
                             // We need to update the _initialAccount directly or a controller for it

@@ -8,6 +8,8 @@ import 'package:my_budget_client/core/utils/hotkey_utils.dart';
 import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
+import 'package:my_budget_client/core/services/inflation_api_service.dart';
+import 'package:my_budget_client/core/utils/country_codes.dart';
 
 part 'settings_event.dart';
 part 'settings_state.dart';
@@ -15,13 +17,16 @@ part 'settings_state.dart';
 class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   final SettingsRepository _settingsRepository;
   final InflationRepository _inflationRepository;
+  final InflationApiService _inflationApiService;
   StreamSubscription? _settingsSubscription;
 
   SettingsBloc({
     required SettingsRepository settingsRepository,
     required InflationRepository inflationRepository,
+    required InflationApiService inflationApiService,
   }) : _settingsRepository = settingsRepository,
        _inflationRepository = inflationRepository,
+       _inflationApiService = inflationApiService,
        super(const SettingsState()) {
     on<LoadSettings>(_onLoadSettings);
     on<UpdateSetting>(_onUpdateSetting);
@@ -48,6 +53,16 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     Emitter<SettingsState> emit,
   ) async {
     await _settingsRepository.saveSetting(event.key, event.value);
+
+    // If default inflation country changed, trigger a fetch in the background
+    if (event.key == 'default_inflation_country') {
+      unawaited(
+        _inflationApiService.fetchInflationForCountry(
+          event.value,
+          "2000:2024", // Default range
+        ),
+      );
+    }
   }
 
   Future<void> _onUpdateThemeMode(
@@ -104,6 +119,20 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
         : null;
 
     final countries = await _inflationRepository.getAvailableCountries();
+    // Convert List<String> to Map<String, String> if needed,
+    // but the state now expect Map<String, String> for countries.
+    // Actually, getAvailableCountries returns what's already in DB.
+    // Convert List<String> to Map<String, String> where key is the code and value is the full name.
+    final Map<String, String> availableCountriesMap = {
+      for (var code in countries)
+        code: worldBankCountryCodes.entries
+            .firstWhere(
+              (e) => e.value == code,
+              orElse: () =>
+                  MapEntry(code, code), // If not found, map code to itself
+            )
+            .key, // Get the full name (key) from worldBankCountryCodes
+    };
 
     final hotkeys = <String, String>{};
     settingsMap.forEach((key, value) {
@@ -120,7 +149,8 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       state.copyWith(
         settings: settingsMap,
         themeMode: themeMode,
-        countries: countries,
+        countries: availableCountriesMap,
+        allCountries: worldBankCountryCodes,
         hotkeys: hotkeys,
         locale: locale,
       ),

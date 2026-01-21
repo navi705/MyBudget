@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,6 +14,7 @@ import 'package:my_budget_client/core/services/android_file_picker_service.dart'
 
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/widgets/currency_picker_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/country_picker_dialog.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
@@ -109,27 +111,32 @@ class SettingsScreen extends StatelessWidget {
                   ListTile(
                     leading: const Icon(Icons.public),
                     title: Text(l10n.defaultInflationCountryLabel),
-                    trailing: DropdownButton<String>(
-                      value: defaultInflationCountry,
-                      items: settingsState.countries
-                          .map(
-                            (country) => DropdownMenuItem(
-                              value: country,
-                              child: Text(country),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          context.read<SettingsBloc>().add(
-                            UpdateSetting(
-                              'default_inflation_country',
-                              newValue,
-                            ),
-                          );
-                        }
-                      },
+                    subtitle: Text(
+                      settingsState.allCountries.entries
+                              .firstWhereOrNull(
+                                (e) => e.value == defaultInflationCountry,
+                              )
+                              ?.key ??
+                          defaultInflationCountry,
                     ),
+                    onTap: () async {
+                      final selectedCode = await showDialog<String>(
+                        context: context,
+                        builder: (context) => CountryPickerDialog(
+                          allCountries: settingsState.allCountries,
+                          selectedCountryCode: defaultInflationCountry,
+                        ),
+                      );
+
+                      if (selectedCode != null && context.mounted) {
+                        context.read<SettingsBloc>().add(
+                          UpdateSetting(
+                            'default_inflation_country',
+                            selectedCode,
+                          ),
+                        );
+                      }
+                    },
                   ),
                   ListTile(
                     leading: const Icon(Icons.save),

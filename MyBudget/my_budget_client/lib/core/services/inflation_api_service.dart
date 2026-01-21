@@ -1,6 +1,8 @@
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
+import 'package:my_budget_client/data/models/world_bank_inflation_model.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 
 class InflationApiService {
   final InflationRatesDao _inflationRatesDao;
@@ -29,9 +31,9 @@ class InflationApiService {
       return;
     }
 
-    final dataPoints = await ExternalData.getInflationFromWorldBank(
-      countryCode,
-      dateRange,
+    final dataPoints = await compute(
+      _fetchInflationData,
+      _InflationFetchArgs(countryCode, dateRange),
     );
 
     for (var dataPoint in dataPoints) {
@@ -46,4 +48,20 @@ class InflationApiService {
       }
     }
   }
+
+  static Future<List<InflationDataPoint>> _fetchInflationData(
+    _InflationFetchArgs args,
+  ) async {
+    return ExternalData.getInflationFromWorldBank(
+      args.countryCode,
+      args.dateRange,
+    );
+  }
+}
+
+class _InflationFetchArgs {
+  final String countryCode;
+  final String dateRange;
+
+  _InflationFetchArgs(this.countryCode, this.dateRange);
 }

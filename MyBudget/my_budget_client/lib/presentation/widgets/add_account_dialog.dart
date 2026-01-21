@@ -193,11 +193,11 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                   return DropdownButtonFormField<String>(
                     initialValue: _selectedCountry,
                     hint: Text(l10n.selectCountryTitle),
-                    items: state.countries
+                    items: state.countries.entries
                         .map(
-                          (country) => DropdownMenuItem(
-                            value: country,
-                            child: Text(country),
+                          (e) => DropdownMenuItem(
+                            value: e.key,
+                            child: Text(e.value),
                           ),
                         )
                         .toList(),

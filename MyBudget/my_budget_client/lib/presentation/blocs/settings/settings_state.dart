@@ -3,7 +3,8 @@ part of 'settings_bloc.dart';
 class SettingsState extends Equatable {
   final ThemeMode themeMode;
   final Map<String, String> settings;
-  final List<String> countries;
+  final Map<String, String> countries;
+  final Map<String, String> allCountries;
   final Map<String, String> hotkeys;
   final String? deviceName;
   final Locale? locale;
@@ -11,7 +12,8 @@ class SettingsState extends Equatable {
   const SettingsState({
     this.themeMode = ThemeMode.system,
     this.settings = const {},
-    this.countries = const [],
+    this.countries = const {},
+    this.allCountries = const {},
     this.hotkeys = const {},
     this.deviceName,
     this.locale,
@@ -20,7 +22,8 @@ class SettingsState extends Equatable {
   SettingsState copyWith({
     ThemeMode? themeMode,
     Map<String, String>? settings,
-    List<String>? countries,
+    Map<String, String>? countries,
+    Map<String, String>? allCountries,
     Map<String, String>? hotkeys,
     String? deviceName,
     Locale? locale,
@@ -29,6 +32,7 @@ class SettingsState extends Equatable {
       themeMode: themeMode ?? this.themeMode,
       settings: settings ?? this.settings,
       countries: countries ?? this.countries,
+      allCountries: allCountries ?? this.allCountries,
       hotkeys: hotkeys ?? this.hotkeys,
       deviceName: deviceName ?? this.deviceName,
       locale: locale ?? this.locale,
@@ -40,6 +44,7 @@ class SettingsState extends Equatable {
     themeMode,
     settings,
     countries,
+    allCountries,
     hotkeys,
     deviceName,
     locale,

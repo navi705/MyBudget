@@ -71,7 +71,11 @@ Future<void> init() async {
     ),
   );
   sl.registerFactory(
-    () => SettingsBloc(settingsRepository: sl(), inflationRepository: sl()),
+    () => SettingsBloc(
+      settingsRepository: sl(),
+      inflationRepository: sl(),
+      inflationApiService: sl(),
+    ),
   );
   sl.registerFactory(() => CurrencyBloc(currencyRepository: sl()));
   sl.registerFactory(() => StylesBloc(styleRepository: sl()));
