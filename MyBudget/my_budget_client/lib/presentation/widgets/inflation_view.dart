@@ -6,7 +6,7 @@ import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dar
 import 'package:my_budget_client/presentation/widgets/generic/grouped_paginated_list.dart';
 
 class InflationView extends StatelessWidget {
-  final Function(InflationRateDomain) onEdit;
+  final Function(InflationRateDomain?) onEdit;
 
   const InflationView({super.key, required this.onEdit});
 
@@ -23,61 +23,106 @@ class InflationView extends StatelessWidget {
         }
 
         if (state.rates.isEmpty) {
-          return const Center(child: Text('No inflation rates found.'));
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onSecondaryTapUp: (details) =>
+                _showEmptyAreaContextMenu(context, details.globalPosition),
+            onLongPressStart: (details) =>
+                _showEmptyAreaContextMenu(context, details.globalPosition),
+            child: const Center(child: Text('No inflation rates found.')),
+          );
         }
 
-        return Column(
-          children: [
-            Expanded(
-              child: GroupedPaginatedList<InflationRateDomain, DateTime>(
-                items: state.rates,
-                hasMoreDown: state.hasMore,
-                onFetchMoreDown: () {
-                  context.read<InflationBloc>().add(LoadMoreInflationRates());
-                },
-                groupKeyGetter: (item) =>
-                    DateTime(item.date.year, item.date.month),
-                keyComparator: (a, b) {
-                  if (state.sort.toString().contains('ascending')) {
-                    return a.compareTo(b);
-                  }
-                  return b.compareTo(a);
-                },
-                groupHeaderBuilder: (context, date) {
-                  return const SizedBox.shrink();
-                },
-                itemBuilder: (context, item) {
-                  final isSelected = state.selectedRates.contains(item);
-                  return _InflationListItem(
-                    item: item,
-                    isSelected: isSelected,
-                    isSelectionMode: state.isSelectionModeActive,
-                    onTap: () {
-                      if (state.isSelectionModeActive) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onSecondaryTapUp: (details) =>
+              _showEmptyAreaContextMenu(context, details.globalPosition),
+          onLongPressStart: (details) =>
+              _showEmptyAreaContextMenu(context, details.globalPosition),
+          child: Column(
+            children: [
+              Expanded(
+                child: GroupedPaginatedList<InflationRateDomain, DateTime>(
+                  items: state.rates,
+                  hasMoreDown: state.hasMore,
+                  onFetchMoreDown: () {
+                    context.read<InflationBloc>().add(LoadMoreInflationRates());
+                  },
+                  groupKeyGetter: (item) =>
+                      DateTime(item.date.year, item.date.month),
+                  keyComparator: (a, b) {
+                    if (state.sort.toString().contains('ascending')) {
+                      return a.compareTo(b);
+                    }
+                    return b.compareTo(a);
+                  },
+                  groupHeaderBuilder: (context, date) {
+                    return const SizedBox.shrink();
+                  },
+                  itemBuilder: (context, item) {
+                    final isSelected = state.selectedRates.contains(item);
+                    return _InflationListItem(
+                      item: item,
+                      isSelected: isSelected,
+                      isSelectionMode: state.isSelectionModeActive,
+                      onTap: () {
+                        if (state.isSelectionModeActive) {
+                          context.read<InflationBloc>().add(
+                            ToggleInflationSelection(item),
+                          );
+                        } else {
+                          onEdit(item);
+                        }
+                      },
+                      onLongPress: () {
                         context.read<InflationBloc>().add(
                           ToggleInflationSelection(item),
                         );
-                      } else {
-                        onEdit(item);
-                      }
-                    },
-                    onLongPress: () {
-                      context.read<InflationBloc>().add(
-                        ToggleInflationSelection(item),
-                      );
-                    },
-                    onSecondaryTapUp: (details) {
-                      _showContextMenu(context, details.globalPosition, item);
-                    },
-                  );
-                },
+                      },
+                      onSecondaryTapUp: (details) {
+                        _showContextMenu(context, details.globalPosition, item);
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
-            if (state.isLoadingMore) const LinearProgressIndicator(),
-          ],
+              if (state.isLoadingMore) const LinearProgressIndicator(),
+            ],
+          ),
         );
       },
     );
+  }
+
+  void _showEmptyAreaContextMenu(BuildContext context, Offset position) async {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final value = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+        Offset.zero & overlay.size,
+      ),
+      items: <PopupMenuEntry<String>>[
+        const PopupMenuItem(
+          value: 'add_inflation',
+          child: Row(
+            children: [
+              Icon(Icons.add),
+              SizedBox(width: 8),
+              Text('Add Inflation Rate'),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (!context.mounted || value == null) return;
+
+    if (value == 'add_inflation') {
+      onEdit(null);
+    }
   }
 
   void _showContextMenu(

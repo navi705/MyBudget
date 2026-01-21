@@ -253,6 +253,41 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     }
   }
 
+  void _showEmptyAreaContextMenu(BuildContext context, Offset position) async {
+    final state = context.read<CategoriesBloc>().state;
+    if (state is! CategoriesLoadSuccess) return;
+
+    final l10n = context.l10n;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final value = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+        Offset.zero & overlay.size,
+      ),
+      items: <PopupMenuEntry<String>>[
+        PopupMenuItem(
+          value: 'add_category',
+          child: Row(
+            children: [
+              const Icon(Icons.add),
+              const SizedBox(width: 8),
+              Flexible(child: Text(l10n.addCategoryDescription)),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (!context.mounted || value == null) return;
+
+    if (value == 'add_category') {
+      _showAddEditCategoryDialog(context, allCategories: state.allCategories);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -357,58 +392,74 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       .where((c) => c.category.parentId == null)
                       .toList();
 
-                  return ListView.builder(
-                    controller: _scrollController,
-                    itemCount: state.hasReachedMax
-                        ? topLevelCategories.length
-                        : topLevelCategories.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index >= topLevelCategories.length) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      final categoryWithTotal = topLevelCategories[index];
-                      final category = categoryWithTotal.category;
-                      final isSelected = state.selectedCategoryIds.contains(
-                        category.id,
-                      );
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onSecondaryTapUp: (details) => _showEmptyAreaContextMenu(
+                      context,
+                      details.globalPosition,
+                    ),
+                    onLongPressStart: (details) => _showEmptyAreaContextMenu(
+                      context,
+                      details.globalPosition,
+                    ),
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      itemCount: state.hasReachedMax
+                          ? topLevelCategories.length
+                          : topLevelCategories.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index >= topLevelCategories.length) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+                        final categoryWithTotal = topLevelCategories[index];
+                        final category = categoryWithTotal.category;
+                        final isSelected = state.selectedCategoryIds.contains(
+                          category.id,
+                        );
 
-                      return CategoryListItem(
-                        categoryWithTotal: categoryWithTotal,
-                        allCategoriesWithTotals: filteredCategories,
-                        isSelected: isSelected,
-                        onTap: (tappedCategory) {
-                          if (state.isSelectionModeActive) {
-                            bloc.add(
-                              ToggleCategorySelection(tappedCategory.id!),
-                            );
-                          } else {
-                            _navigateToAddTransaction(context, tappedCategory);
-                          }
-                        },
-                        onLongPressStart: (details) {
-                          if (state.isSelectionModeActive) {
-                            bloc.add(ToggleCategorySelection(category.id!));
-                          } else {
+                        return CategoryListItem(
+                          categoryWithTotal: categoryWithTotal,
+                          allCategoriesWithTotals: filteredCategories,
+                          isSelected: isSelected,
+                          onTap: (tappedCategory) {
+                            if (state.isSelectionModeActive) {
+                              bloc.add(
+                                ToggleCategorySelection(tappedCategory.id!),
+                              );
+                            } else {
+                              _navigateToAddTransaction(
+                                context,
+                                tappedCategory,
+                              );
+                            }
+                          },
+                          onLongPressStart: (details) {
+                            if (state.isSelectionModeActive) {
+                              bloc.add(ToggleCategorySelection(category.id!));
+                            } else {
+                              _showContextMenu(
+                                context,
+                                details.globalPosition,
+                                category,
+                                state,
+                              );
+                            }
+                          },
+                          onSecondaryTapUp: (details) {
                             _showContextMenu(
                               context,
                               details.globalPosition,
                               category,
                               state,
                             );
-                          }
-                        },
-                        onSecondaryTapUp: (details) {
-                          _showContextMenu(
-                            context,
-                            details.globalPosition,
-                            category,
-                            state,
-                          );
-                        },
-                        mainCurrencyCode: state.mainCurrencyCode,
-                        currencyDesignations: state.currencyDesignations,
-                      );
-                    },
+                          },
+                          mainCurrencyCode: state.mainCurrencyCode,
+                          currencyDesignations: state.currencyDesignations,
+                        );
+                      },
+                    ),
                   );
                 }
                 return Center(child: Text(context.l10n.accountsLoadFailure));

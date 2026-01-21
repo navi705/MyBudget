@@ -256,6 +256,48 @@ class _AccountsScreenState extends State<AccountsScreen> {
     }
   }
 
+  void _showEmptyAreaContextMenu(BuildContext context, Offset position) async {
+    final l10n = context.l10n;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final value = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+        Offset.zero & overlay.size,
+      ),
+      items: <PopupMenuEntry<String>>[
+        PopupMenuItem(
+          value: 'add_account',
+          child: Row(
+            children: [
+              const Icon(Icons.add),
+              const SizedBox(width: 8),
+              Flexible(child: Text(l10n.addAccountDescription)),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (!context.mounted || value == null) return;
+
+    if (value == 'add_account') {
+      showDialog(
+        context: context,
+        builder: (dialogContext) => MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: context.read<AccountsBloc>()),
+            BlocProvider.value(value: context.read<CurrencyBloc>()),
+            BlocProvider.value(value: context.read<StylesBloc>()),
+          ],
+          child: const AddAccountDialog(),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -487,6 +529,21 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
                     return const SliverToBoxAdapter(child: SizedBox.shrink());
                   },
+                ),
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onSecondaryTapUp: (details) => _showEmptyAreaContextMenu(
+                      context,
+                      details.globalPosition,
+                    ),
+                    onLongPressStart: (details) => _showEmptyAreaContextMenu(
+                      context,
+                      details.globalPosition,
+                    ),
+                    child: const SizedBox(height: 200),
+                  ),
                 ),
               ],
             ),

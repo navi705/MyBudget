@@ -9,7 +9,7 @@ import 'package:my_budget_client/presentation/blocs/asset/asset_state.dart';
 import 'package:my_budget_client/presentation/widgets/generic/grouped_paginated_list.dart';
 
 class AssetView extends StatelessWidget {
-  final Function(AssetDataDomain) onEdit;
+  final Function(AssetDataDomain?) onEdit;
 
   const AssetView({super.key, required this.onEdit});
 
@@ -26,59 +26,106 @@ class AssetView extends StatelessWidget {
         }
 
         if (state.assetData.isEmpty) {
-          return const Center(child: Text('No assets found.'));
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onSecondaryTapUp: (details) =>
+                _showEmptyAreaContextMenu(context, details.globalPosition),
+            onLongPressStart: (details) =>
+                _showEmptyAreaContextMenu(context, details.globalPosition),
+            child: const Center(child: Text('No assets found.')),
+          );
         }
 
-        return Column(
-          children: [
-            Expanded(
-              child: GroupedPaginatedList<AssetDataDomain, DateTime>(
-                items: state.assetData,
-                hasMoreDown: state.hasMore,
-                onFetchMoreDown: () {
-                  context.read<AssetBloc>().add(const LoadMoreAssetData());
-                },
-                groupKeyGetter: (item) =>
-                    DateTime(item.date.year, item.date.month),
-                keyComparator: (a, b) {
-                  if (state.sort.toString().contains('ascending')) {
-                    return a.compareTo(b);
-                  }
-                  return b.compareTo(a);
-                },
-                groupHeaderBuilder: (context, date) {
-                  return const SizedBox.shrink();
-                },
-                itemBuilder: (context, item) {
-                  final isSelected = state.selectedAssets.contains(item);
-                  return _AssetListItem(
-                    item: item,
-                    isSelected: isSelected,
-                    isSelectionMode: state.isSelectionModeActive,
-                    onTap: () {
-                      if (state.isSelectionModeActive) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onSecondaryTapUp: (details) =>
+              _showEmptyAreaContextMenu(context, details.globalPosition),
+          onLongPressStart: (details) =>
+              _showEmptyAreaContextMenu(context, details.globalPosition),
+          child: Column(
+            children: [
+              Expanded(
+                child: GroupedPaginatedList<AssetDataDomain, DateTime>(
+                  items: state.assetData,
+                  hasMoreDown: state.hasMore,
+                  onFetchMoreDown: () {
+                    context.read<AssetBloc>().add(const LoadMoreAssetData());
+                  },
+                  groupKeyGetter: (item) =>
+                      DateTime(item.date.year, item.date.month),
+                  keyComparator: (a, b) {
+                    if (state.sort.toString().contains('ascending')) {
+                      return a.compareTo(b);
+                    }
+                    return b.compareTo(a);
+                  },
+                  groupHeaderBuilder: (context, date) {
+                    return const SizedBox.shrink();
+                  },
+                  itemBuilder: (context, item) {
+                    final isSelected = state.selectedAssets.contains(item);
+                    return _AssetListItem(
+                      item: item,
+                      isSelected: isSelected,
+                      isSelectionMode: state.isSelectionModeActive,
+                      onTap: () {
+                        if (state.isSelectionModeActive) {
+                          context.read<AssetBloc>().add(
+                            ToggleAssetSelection(item),
+                          );
+                        } else {
+                          onEdit(item);
+                        }
+                      },
+                      onLongPress: () {
                         context.read<AssetBloc>().add(
                           ToggleAssetSelection(item),
                         );
-                      } else {
-                        onEdit(item);
-                      }
-                    },
-                    onLongPress: () {
-                      context.read<AssetBloc>().add(ToggleAssetSelection(item));
-                    },
-                    onSecondaryTapUp: (details) {
-                      _showContextMenu(context, details.globalPosition, item);
-                    },
-                  );
-                },
+                      },
+                      onSecondaryTapUp: (details) {
+                        _showContextMenu(context, details.globalPosition, item);
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
-            if (state.isLoadingMore) const LinearProgressIndicator(),
-          ],
+              if (state.isLoadingMore) const LinearProgressIndicator(),
+            ],
+          ),
         );
       },
     );
+  }
+
+  void _showEmptyAreaContextMenu(BuildContext context, Offset position) async {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final value = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+        Offset.zero & overlay.size,
+      ),
+      items: <PopupMenuEntry<String>>[
+        const PopupMenuItem(
+          value: 'add_asset',
+          child: Row(
+            children: [
+              Icon(Icons.add),
+              SizedBox(width: 8),
+              Text('Add Asset Data'),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (!context.mounted || value == null) return;
+
+    if (value == 'add_asset') {
+      onEdit(null);
+    }
   }
 
   void _showContextMenu(

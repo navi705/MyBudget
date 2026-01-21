@@ -74,53 +74,75 @@ class ManageStylesScreen extends StatelessWidget {
                 }
                 if (state is StylesLoadSuccess) {
                   if (state.styles.isEmpty) {
-                    return Center(child: Text(context.l10n.noIconsCreated));
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onSecondaryTapUp: (details) => _showEmptyAreaContextMenu(
+                        context,
+                        details.globalPosition,
+                      ),
+                      onLongPressStart: (details) => _showEmptyAreaContextMenu(
+                        context,
+                        details.globalPosition,
+                      ),
+                      child: Center(child: Text(context.l10n.noIconsCreated)),
+                    );
                   }
-                  return ListView.builder(
-                    itemCount: state.styles.length,
-                    itemBuilder: (context, index) {
-                      final style = state.styles[index];
-                      final isSelected = state.selectedStyleIds.contains(
-                        style.id,
-                      );
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onSecondaryTapUp: (details) => _showEmptyAreaContextMenu(
+                      context,
+                      details.globalPosition,
+                    ),
+                    onLongPressStart: (details) => _showEmptyAreaContextMenu(
+                      context,
+                      details.globalPosition,
+                    ),
+                    child: ListView.builder(
+                      itemCount: state.styles.length,
+                      itemBuilder: (context, index) {
+                        final style = state.styles[index];
+                        final isSelected = state.selectedStyleIds.contains(
+                          style.id,
+                        );
 
-                      return _StyleListItem(
-                        style: style,
-                        isSelected: isSelected,
-                        isSelectionMode: isSelectionMode,
-                        onTap: () {
-                          if (isSelectionMode) {
+                        return _StyleListItem(
+                          style: style,
+                          isSelected: isSelected,
+                          isSelectionMode: isSelectionMode,
+                          onTap: () {
+                            if (isSelectionMode) {
+                              if (style.id != null) {
+                                context.read<StylesBloc>().add(
+                                  ToggleStyleSelection(style.id!),
+                                );
+                              }
+                            } else {
+                              // Edit mode navigation
+                              if (style.id != null) {
+                                context.push(
+                                  AppRoutes.editAccountStyle.replaceFirst(
+                                    ':id',
+                                    style.id!.toString(),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          onLongPress: () {
                             if (style.id != null) {
+                              if (!isSelectionMode) {
+                                context.read<StylesBloc>().add(
+                                  const ToggleStyleSelectionMode(true),
+                                );
+                              }
                               context.read<StylesBloc>().add(
                                 ToggleStyleSelection(style.id!),
                               );
                             }
-                          } else {
-                            // Edit mode navigation
-                            if (style.id != null) {
-                              context.push(
-                                AppRoutes.editAccountStyle.replaceFirst(
-                                  ':id',
-                                  style.id!.toString(),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        onLongPress: () {
-                          if (style.id != null) {
-                            if (!isSelectionMode) {
-                              context.read<StylesBloc>().add(
-                                const ToggleStyleSelectionMode(true),
-                              );
-                            }
-                            context.read<StylesBloc>().add(
-                              ToggleStyleSelection(style.id!),
-                            );
-                          }
-                        },
-                      );
-                    },
+                          },
+                        );
+                      },
+                    ),
                   );
                 }
                 return Center(child: Text(context.l10n.failedToLoadIcons));
@@ -200,6 +222,43 @@ class ManageStylesScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _showEmptyAreaContextMenu(BuildContext context, Offset position) async {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final value = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+        Offset.zero & overlay.size,
+      ),
+      items: <PopupMenuEntry<String>>[
+        PopupMenuItem(
+          value: 'add_style',
+          child: Row(
+            children: [
+              const Icon(Icons.add),
+              const SizedBox(width: 8),
+              Flexible(child: const Text('Add Icon')),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (!context.mounted || value == null) return;
+
+    if (value == 'add_style') {
+      showDialog(
+        context: context,
+        builder: (_) => BlocProvider.value(
+          value: BlocProvider.of<StylesBloc>(context),
+          child: const AddStyleDialog(),
+        ),
+      );
+    }
   }
 }
 

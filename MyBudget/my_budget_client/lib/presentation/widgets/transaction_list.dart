@@ -111,6 +111,38 @@ class _TransactionListState extends State<TransactionList> {
     }
   }
 
+  void _showEmptyAreaContextMenu(BuildContext context, Offset position) async {
+    final l10n = context.l10n;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final value = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+        Offset.zero & overlay.size,
+      ),
+      items: <PopupMenuEntry<String>>[
+        PopupMenuItem(
+          value: 'add_transaction',
+          child: Row(
+            children: [
+              const Icon(Icons.add),
+              const SizedBox(width: 8),
+              Flexible(child: Text(l10n.addTransactionDescription)),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (!context.mounted || value == null) return;
+
+    if (value == 'add_transaction') {
+      context.push(AppRoutes.addEditTransaction);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<SettingsBloc, SettingsState>(
@@ -134,110 +166,117 @@ class _TransactionListState extends State<TransactionList> {
             return Center(child: Text(context.l10n.accountsLoadFailure));
           }
 
-          return Stack(
-            children: [
-              GroupedPaginatedList<TransactionCategory, DateTime>(
-                items: state.transactions,
-                hasMoreUp: state.hasMoreUp,
-                hasMoreDown: state.hasMoreDown,
-                onFetchMoreUp: () => context.read<TransactionsBloc>().add(
-                  const LoadTransactionsUp(),
-                ),
-                onFetchMoreDown: () => context.read<TransactionsBloc>().add(
-                  const LoadTransactionsDown(),
-                ),
-                groupKeyGetter: (item) => DateTime(
-                  item.transaction.date.year,
-                  item.transaction.date.month,
-                  item.transaction.date.day,
-                ),
-                groupHeaderBuilder: (context, date) {
-                  final dailyTotal = state.dailyTotals[date] ?? 0.0;
-                  return _DateHeader(
-                    date: date,
-                    dailySum: dailyTotal,
-                    mainCurrencyCode: state.mainCurrencyCode,
-                    currencyDesignations: state.currencyDesignations,
-                  );
-                },
-                itemBuilder: (context, item) {
-                  final bloc = context.read<TransactionsBloc>();
-                  return TransactionListItem(
-                    transactionCategory: item,
-                    isSelected: state.selectedTransactionIds.contains(
-                      item.transaction.id,
-                    ),
-                    onTap: () {
-                      if (state.isSelectionModeActive) {
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onSecondaryTapUp: (details) =>
+                _showEmptyAreaContextMenu(context, details.globalPosition),
+            onLongPressStart: (details) =>
+                _showEmptyAreaContextMenu(context, details.globalPosition),
+            child: Stack(
+              children: [
+                GroupedPaginatedList<TransactionCategory, DateTime>(
+                  items: state.transactions,
+                  hasMoreUp: state.hasMoreUp,
+                  hasMoreDown: state.hasMoreDown,
+                  onFetchMoreUp: () => context.read<TransactionsBloc>().add(
+                    const LoadTransactionsUp(),
+                  ),
+                  onFetchMoreDown: () => context.read<TransactionsBloc>().add(
+                    const LoadTransactionsDown(),
+                  ),
+                  groupKeyGetter: (item) => DateTime(
+                    item.transaction.date.year,
+                    item.transaction.date.month,
+                    item.transaction.date.day,
+                  ),
+                  groupHeaderBuilder: (context, date) {
+                    final dailyTotal = state.dailyTotals[date] ?? 0.0;
+                    return _DateHeader(
+                      date: date,
+                      dailySum: dailyTotal,
+                      mainCurrencyCode: state.mainCurrencyCode,
+                      currencyDesignations: state.currencyDesignations,
+                    );
+                  },
+                  itemBuilder: (context, item) {
+                    final bloc = context.read<TransactionsBloc>();
+                    return TransactionListItem(
+                      transactionCategory: item,
+                      isSelected: state.selectedTransactionIds.contains(
+                        item.transaction.id,
+                      ),
+                      onTap: () {
+                        if (state.isSelectionModeActive) {
+                          bloc.add(
+                            ToggleTransactionSelection(item.transaction.id!),
+                          );
+                        } else {
+                          context.push(
+                            AppRoutes.addEditTransaction,
+                            extra: {'transaction': item.transaction},
+                          );
+                        }
+                      },
+                      onLongPress: () {
+                        if (!state.isSelectionModeActive) {
+                          bloc.add(const ToggleSelectionMode(true));
+                        }
                         bloc.add(
                           ToggleTransactionSelection(item.transaction.id!),
                         );
-                      } else {
-                        context.push(
-                          AppRoutes.addEditTransaction,
-                          extra: {'transaction': item.transaction},
-                        );
-                      }
-                    },
-                    onLongPress: () {
-                      if (!state.isSelectionModeActive) {
-                        bloc.add(const ToggleSelectionMode(true));
-                      }
-                      bloc.add(
-                        ToggleTransactionSelection(item.transaction.id!),
-                      );
-                    },
-                    onSecondaryTapUp: (details) {
-                      if (kIsWeb ||
-                          defaultTargetPlatform == TargetPlatform.macOS ||
-                          defaultTargetPlatform == TargetPlatform.linux ||
-                          defaultTargetPlatform == TargetPlatform.windows) {
-                        _showContextMenu(
-                          context,
-                          details.globalPosition,
-                          state.selectedTransactionIds.contains(
-                            item.transaction.id,
-                          ),
-                          item,
-                        );
-                      }
-                    },
-                    mainCurrencyCode: state.mainCurrencyCode,
-                    currencyDesignations: state.currencyDesignations,
-                  );
-                },
-                jumpToItemId: state.jumpToItemId,
-                jumpToAlignment: state.jumpToAlignment,
-                keyComparator: (a, b) {
-                  // Assuming Sort is available and has ascending/descending
-                  // If Sort is definitely OrderingMode from drift:
-                  // if (state.sort == OrderingMode.asc) return a.compareTo(b);
-                  // return b.compareTo(a);
-                  // But checking for 'Sort' enum.
-                  if (state.sort.toString().contains('ascending') ||
-                      state.sort.index == 0) {
-                    // Safety fallback if Enum name unkown
-                    return a.compareTo(b);
-                  }
-                  return b.compareTo(a);
-                },
-              ),
-              if (state.status == TransactionStatus.loading)
-                const Positioned(
-                  top: 20,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Card(
-                      shape: CircleBorder(),
-                      child: Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: CircularProgressIndicator(),
+                      },
+                      onSecondaryTapUp: (details) {
+                        if (kIsWeb ||
+                            defaultTargetPlatform == TargetPlatform.macOS ||
+                            defaultTargetPlatform == TargetPlatform.linux ||
+                            defaultTargetPlatform == TargetPlatform.windows) {
+                          _showContextMenu(
+                            context,
+                            details.globalPosition,
+                            state.selectedTransactionIds.contains(
+                              item.transaction.id,
+                            ),
+                            item,
+                          );
+                        }
+                      },
+                      mainCurrencyCode: state.mainCurrencyCode,
+                      currencyDesignations: state.currencyDesignations,
+                    );
+                  },
+                  jumpToItemId: state.jumpToItemId,
+                  jumpToAlignment: state.jumpToAlignment,
+                  keyComparator: (a, b) {
+                    // Assuming Sort is available and has ascending/descending
+                    // If Sort is definitely OrderingMode from drift:
+                    // if (state.sort == OrderingMode.asc) return a.compareTo(b);
+                    // return b.compareTo(a);
+                    // But checking for 'Sort' enum.
+                    if (state.sort.toString().contains('ascending') ||
+                        state.sort.index == 0) {
+                      // Safety fallback if Enum name unkown
+                      return a.compareTo(b);
+                    }
+                    return b.compareTo(a);
+                  },
+                ),
+                if (state.status == TransactionStatus.loading)
+                  const Positioned(
+                    top: 20,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Card(
+                        shape: CircleBorder(),
+                        child: Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: CircularProgressIndicator(),
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           );
         },
       ),

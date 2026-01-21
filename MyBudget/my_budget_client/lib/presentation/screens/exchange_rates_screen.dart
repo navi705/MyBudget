@@ -64,6 +64,37 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
     return currentScroll >= (maxScroll * 0.9);
   }
 
+  void _showEmptyAreaContextMenu(BuildContext context, Offset position) async {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final value = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+        Offset.zero & overlay.size,
+      ),
+      items: <PopupMenuEntry<String>>[
+        const PopupMenuItem(
+          value: 'add_rate',
+          child: Row(
+            children: [
+              Icon(Icons.add),
+              SizedBox(width: 8),
+              Flexible(child: Text('Add Exchange Rate')),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (!context.mounted || value == null) return;
+
+    if (value == 'add_rate') {
+      _showAddEditExchangeRateDialog(context);
+    }
+  }
+
   void _navigate(ExchangeRatesBloc bloc, ExchangeRatesState state, int i) {
     if (state.filterMode == FilterMode.range) return;
 
@@ -179,37 +210,51 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
     }
     if (state.exchangeRates.isEmpty &&
         state.status == ExchangeRatesStatus.success) {
-      return const Center(child: Text('No exchange rates found.'));
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onSecondaryTapUp: (details) =>
+            _showEmptyAreaContextMenu(context, details.globalPosition),
+        onLongPressStart: (details) =>
+            _showEmptyAreaContextMenu(context, details.globalPosition),
+        child: const Center(child: Text('No exchange rates found.')),
+      );
     }
 
-    return ListView.builder(
-      controller: _scrollController,
-      itemExtent: 88.0,
-      itemCount: state.hasReachedMax
-          ? state.exchangeRates.length
-          : state.exchangeRates.length + 1,
-      itemBuilder: (context, index) {
-        if (index >= state.exchangeRates.length) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: CircularProgressIndicator(),
-            ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onSecondaryTapUp: (details) =>
+          _showEmptyAreaContextMenu(context, details.globalPosition),
+      onLongPressStart: (details) =>
+          _showEmptyAreaContextMenu(context, details.globalPosition),
+      child: ListView.builder(
+        controller: _scrollController,
+        itemExtent: 88.0,
+        itemCount: state.hasReachedMax
+            ? state.exchangeRates.length
+            : state.exchangeRates.length + 1,
+        itemBuilder: (context, index) {
+          if (index >= state.exchangeRates.length) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+          final rate = state.exchangeRates[index];
+          final isSelected = state.selectedExchangeRates.contains(rate);
+          return _ExchangeRateListItem(
+            rate: rate,
+            isSelected: isSelected,
+            isSelectionMode: state.isSelectionModeActive,
+            designations: state.designations,
+            onSecondaryTapUp: (details) =>
+                _showContextMenu(context, details, rate, state),
+            onTap: () =>
+                _showAddEditExchangeRateDialog(context, existingRate: rate),
           );
-        }
-        final rate = state.exchangeRates[index];
-        final isSelected = state.selectedExchangeRates.contains(rate);
-        return _ExchangeRateListItem(
-          rate: rate,
-          isSelected: isSelected,
-          isSelectionMode: state.isSelectionModeActive,
-          designations: state.designations,
-          onSecondaryTapUp: (details) =>
-              _showContextMenu(context, details, rate, state),
-          onTap: () =>
-              _showAddEditExchangeRateDialog(context, existingRate: rate),
-        );
-      },
+        },
+      ),
     );
   }
 
