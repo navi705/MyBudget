@@ -812,169 +812,186 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
             ? l10n.addCategoryTooltip
             : l10n.contextMenuEdit,
       ),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _nameController,
-              decoration: InputDecoration(labelText: l10n.categoryNameLabel),
-              validator: (value) => (value == null || value.isEmpty)
-                  ? l10n.formValidationPleaseEnterName
-                  : null,
-            ),
-            BlocBuilder<StylesBloc, StylesState>(
-              builder: (context, state) {
-                if (state is StylesLoadSuccess) {
-                  return GestureDetector(
-                    onTap: () async {
-                      final selectedIconId = await showIconSelectionDialog(
-                        context,
-                        _selectedStyleId,
+      content: SingleChildScrollView(
+        child: SizedBox(
+          width: double.maxFinite,
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: l10n.categoryNameLabel,
+                  ),
+                  validator: (value) => (value == null || value.isEmpty)
+                      ? l10n.formValidationPleaseEnterName
+                      : null,
+                ),
+                BlocBuilder<StylesBloc, StylesState>(
+                  builder: (context, state) {
+                    if (state is StylesLoadSuccess) {
+                      return GestureDetector(
+                        onTap: () async {
+                          final selectedIconId = await showIconSelectionDialog(
+                            context,
+                            _selectedStyleId,
+                          );
+                          if (mounted && selectedIconId != null) {
+                            setState(() {
+                              _selectedStyleId = selectedIconId;
+                            });
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: TextFormField(
+                            key: Key(_selectedStyleId ?? 'no_style'),
+                            initialValue:
+                                state.styles
+                                    .firstWhereOrNull(
+                                      (s) => s.id == _selectedStyleId,
+                                    )
+                                    ?.name ??
+                                l10n.selectIconSubtitle,
+                            decoration: InputDecoration(
+                              labelText: l10n.styleLabel,
+                              prefixIcon: _selectedStyleId != null
+                                  ? BlocBuilder<StylesBloc, StylesState>(
+                                      builder: (context, stylesState) {
+                                        if (stylesState is StylesLoadSuccess) {
+                                          final style = stylesState.styles
+                                              .firstWhereOrNull(
+                                                (s) => s.id == _selectedStyleId,
+                                              );
+                                          if (style != null) {
+                                            return IconUtils.getIconWidget(
+                                              style,
+                                            );
+                                          }
+                                        }
+                                        return const Icon(Icons.style);
+                                      },
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        ),
                       );
-                      if (mounted && selectedIconId != null) {
-                        setState(() {
-                          _selectedStyleId = selectedIconId;
-                        });
-                      }
-                    },
-                    child: AbsorbPointer(
-                      child: TextFormField(
-                        key: Key(_selectedStyleId ?? 'no_style'),
-                        initialValue:
-                            state.styles
-                                .firstWhereOrNull(
-                                  (s) => s.id == _selectedStyleId,
-                                )
-                                ?.name ??
-                            l10n.selectIconSubtitle,
-                        decoration: InputDecoration(
-                          labelText: l10n.styleLabel,
-                          prefixIcon: _selectedStyleId != null
-                              ? BlocBuilder<StylesBloc, StylesState>(
-                                  builder: (context, stylesState) {
-                                    if (stylesState is StylesLoadSuccess) {
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                GestureDetector(
+                  onTap: () async {
+                    final selectedParent =
+                        await showSingleSelectDialog<Category>(
+                          context: context,
+                          items: widget.allCategories,
+                          title: l10n.parentCategoryLabel,
+                          selectedItem: widget.allCategories.firstWhereOrNull(
+                            (c) => c.id == _selectedParentId,
+                          ),
+                          itemBuilder: (category) => Row(
+                            children: [
+                              BlocBuilder<StylesBloc, StylesState>(
+                                builder: (context, stylesState) {
+                                  if (stylesState is StylesLoadSuccess) {
+                                    final style = stylesState.styles
+                                        .firstWhereOrNull(
+                                          (s) => s.id == category.styleId,
+                                        );
+                                    if (style != null) {
+                                      return IconUtils.getIconWidget(style);
+                                    }
+                                  }
+                                  return const Icon(Icons.category);
+                                },
+                              ),
+                              const SizedBox(width: 8),
+                              Text(category.name),
+                            ],
+                          ),
+                          stringGetter: (category) => category.name,
+                        );
+                    if (mounted) {
+                      setState(() {
+                        _selectedParentId = selectedParent?.id;
+                      });
+                    }
+                  },
+                  child: AbsorbPointer(
+                    child: TextFormField(
+                      key: Key(_selectedParentId ?? 'no_parent'),
+                      initialValue:
+                          widget.allCategories
+                              .firstWhereOrNull(
+                                (c) => c.id == _selectedParentId,
+                              )
+                              ?.name ??
+                          l10n.noneLabel,
+                      decoration: InputDecoration(
+                        labelText: l10n.parentCategoryLabel,
+                        prefixIcon: _selectedParentId != null
+                            ? BlocBuilder<StylesBloc, StylesState>(
+                                builder: (context, stylesState) {
+                                  if (stylesState is StylesLoadSuccess) {
+                                    final parentCategory = widget.allCategories
+                                        .firstWhereOrNull(
+                                          (c) => c.id == _selectedParentId,
+                                        );
+                                    if (parentCategory != null) {
                                       final style = stylesState.styles
                                           .firstWhereOrNull(
-                                            (s) => s.id == _selectedStyleId,
+                                            (s) =>
+                                                s.id == parentCategory.styleId,
                                           );
                                       if (style != null) {
                                         return IconUtils.getIconWidget(style);
                                       }
                                     }
-                                    return const Icon(Icons.style);
-                                  },
-                                )
-                              : null,
-                        ),
+                                  }
+                                  return const Icon(Icons.category);
+                                },
+                              )
+                            : null,
                       ),
                     ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-            GestureDetector(
-              onTap: () async {
-                final selectedParent = await showSingleSelectDialog<Category>(
-                  context: context,
-                  items: widget.allCategories,
-                  title: l10n.parentCategoryLabel,
-                  selectedItem: widget.allCategories.firstWhereOrNull(
-                    (c) => c.id == _selectedParentId,
-                  ),
-                  itemBuilder: (category) => Row(
-                    children: [
-                      BlocBuilder<StylesBloc, StylesState>(
-                        builder: (context, stylesState) {
-                          if (stylesState is StylesLoadSuccess) {
-                            final style = stylesState.styles.firstWhereOrNull(
-                              (s) => s.id == category.styleId,
-                            );
-                            if (style != null) {
-                              return IconUtils.getIconWidget(style);
-                            }
-                          }
-                          return const Icon(Icons.category);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      Text(category.name),
-                    ],
-                  ),
-                  stringGetter: (category) => category.name,
-                );
-                if (mounted) {
-                  setState(() {
-                    _selectedParentId = selectedParent?.id;
-                  });
-                }
-              },
-              child: AbsorbPointer(
-                child: TextFormField(
-                  key: Key(_selectedParentId ?? 'no_parent'),
-                  initialValue:
-                      widget.allCategories
-                          .firstWhereOrNull((c) => c.id == _selectedParentId)
-                          ?.name ??
-                      l10n.noneLabel,
-                  decoration: InputDecoration(
-                    labelText: l10n.parentCategoryLabel,
-                    prefixIcon: _selectedParentId != null
-                        ? BlocBuilder<StylesBloc, StylesState>(
-                            builder: (context, stylesState) {
-                              if (stylesState is StylesLoadSuccess) {
-                                final parentCategory = widget.allCategories
-                                    .firstWhereOrNull(
-                                      (c) => c.id == _selectedParentId,
-                                    );
-                                if (parentCategory != null) {
-                                  final style = stylesState.styles
-                                      .firstWhereOrNull(
-                                        (s) => s.id == parentCategory.styleId,
-                                      );
-                                  if (style != null) {
-                                    return IconUtils.getIconWidget(style);
-                                  }
-                                }
-                              }
-                              return const Icon(Icons.category);
-                            },
-                          )
-                        : null,
                   ),
                 ),
-              ),
-            ),
-            GestureDetector(
-              onTap: () async {
-                final selectedType = await showSingleSelectDialog<CategoryType>(
-                  context: context,
-                  items: CategoryType.values,
-                  title: l10n.typeLabel,
-                  selectedItem: _selectedCategoryType,
-                  itemBuilder: (type) => Text(type.toString().split('.').last),
-                  stringGetter: (type) => type.toString().split('.').last,
-                );
-                if (mounted && selectedType != null) {
-                  setState(() {
-                    _selectedCategoryType = selectedType;
-                  });
-                }
-              },
-              child: AbsorbPointer(
-                child: TextFormField(
-                  key: Key(_selectedCategoryType.toString()),
-                  initialValue: _selectedCategoryType
-                      .toString()
-                      .split('.')
-                      .last,
-                  decoration: InputDecoration(labelText: l10n.typeLabel),
+                GestureDetector(
+                  onTap: () async {
+                    final selectedType =
+                        await showSingleSelectDialog<CategoryType>(
+                          context: context,
+                          items: CategoryType.values,
+                          title: l10n.typeLabel,
+                          selectedItem: _selectedCategoryType,
+                          itemBuilder: (type) =>
+                              Text(type.toString().split('.').last),
+                          stringGetter: (type) =>
+                              type.toString().split('.').last,
+                        );
+                    if (mounted && selectedType != null) {
+                      setState(() {
+                        _selectedCategoryType = selectedType;
+                      });
+                    }
+                  },
+                  child: AbsorbPointer(
+                    child: TextFormField(
+                      key: Key(_selectedCategoryType.toString()),
+                      initialValue: _selectedCategoryType
+                          .toString()
+                          .split('.')
+                          .last,
+                      decoration: InputDecoration(labelText: l10n.typeLabel),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
       actions: [

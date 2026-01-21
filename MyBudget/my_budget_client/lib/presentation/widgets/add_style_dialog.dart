@@ -62,11 +62,11 @@ class _AddStyleDialogState extends State<AddStyleDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Add New Style'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
+      content: SingleChildScrollView(
+        child: SizedBox(
+          width: double.maxFinite,
+          child: Form(
+            key: _formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,

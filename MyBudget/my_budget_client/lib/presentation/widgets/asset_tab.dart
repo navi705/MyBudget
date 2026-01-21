@@ -68,90 +68,93 @@ class _AssetTabContent extends StatelessWidget {
         builder: (context, setState) => AlertDialog(
           title: Text(asset == null ? 'Add Asset Data' : 'Edit Asset Data'),
           content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Asset Name (e.g. Apple Stock)',
-                  ),
-                ),
-                TextField(
-                  controller: assetIdController,
-                  decoration: const InputDecoration(
-                    labelText: 'Asset ID (e.g. AAPL)',
-                  ),
-                ),
-                TextField(
-                  controller: valueController,
-                  decoration: const InputDecoration(
-                    labelText: 'Value (Price per unit)',
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                ),
-                TextField(
-                  controller: quantityController,
-                  decoration: const InputDecoration(labelText: 'Quantity'),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                ),
-                TextField(
-                  controller: assetTypeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Asset Type (Optional)',
-                  ),
-                ),
-                TextField(
-                  controller: descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description (Optional)',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: () async {
-                    final account = await showSingleSelectDialog<Account>(
-                      context: context,
-                      items: accounts,
-                      title: 'Select Linked Account',
-                      selectedItem: selectedAccount,
-                      itemBuilder: (account) => Text(account.name),
-                      stringGetter: (account) => account.name,
-                    );
-                    setState(() => selectedAccount = account);
-                  },
-                  child: InputDecorator(
+            child: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
                     decoration: const InputDecoration(
-                      labelText: 'Linked Account (Optional)',
-                      suffixIcon: Icon(Icons.arrow_drop_down),
-                      border: OutlineInputBorder(),
+                      labelText: 'Asset Name (e.g. Apple Stock)',
                     ),
-                    child: Text(selectedAccount?.name ?? 'None'),
                   ),
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  title: Text(
-                    'Date: ${DateFormat('dd MMM yyyy').format(selectedDate)}',
+                  TextField(
+                    controller: assetIdController,
+                    decoration: const InputDecoration(
+                      labelText: 'Asset ID (e.g. AAPL)',
+                    ),
                   ),
-                  trailing: const Icon(Icons.calendar_today),
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (date != null) {
-                      setState(() => selectedDate = date);
-                    }
-                  },
-                ),
-              ],
+                  TextField(
+                    controller: valueController,
+                    decoration: const InputDecoration(
+                      labelText: 'Value (Price per unit)',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                  ),
+                  TextField(
+                    controller: quantityController,
+                    decoration: const InputDecoration(labelText: 'Quantity'),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                  ),
+                  TextField(
+                    controller: assetTypeController,
+                    decoration: const InputDecoration(
+                      labelText: 'Asset Type (Optional)',
+                    ),
+                  ),
+                  TextField(
+                    controller: descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description (Optional)',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: () async {
+                      final account = await showSingleSelectDialog<Account>(
+                        context: context,
+                        items: accounts,
+                        title: 'Select Linked Account',
+                        selectedItem: selectedAccount,
+                        itemBuilder: (account) => Text(account.name),
+                        stringGetter: (account) => account.name,
+                      );
+                      setState(() => selectedAccount = account);
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Linked Account (Optional)',
+                        suffixIcon: Icon(Icons.arrow_drop_down),
+                        border: OutlineInputBorder(),
+                      ),
+                      child: Text(selectedAccount?.name ?? 'None'),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    title: Text(
+                      'Date: ${DateFormat('dd MMM yyyy').format(selectedDate)}',
+                    ),
+                    trailing: const Icon(Icons.calendar_today),
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (date != null) {
+                        setState(() => selectedDate = date);
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [

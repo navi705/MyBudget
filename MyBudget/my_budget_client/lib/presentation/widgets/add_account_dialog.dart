@@ -12,7 +12,6 @@ import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart'
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
-import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/presentation/widgets/icon_selection_dialog.dart';
 
 class AddAccountDialog extends StatefulWidget {
@@ -66,210 +65,184 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(labelText: l10n.accountNameHint),
-                validator: (value) => (value == null || value.isEmpty)
-                    ? l10n.formValidationPleaseEnterName
-                    : null,
-              ),
-              TextFormField(
-                controller: _descriptionController, // ADDED
-                decoration: InputDecoration(labelText: l10n.descriptionLabel),
-                maxLines: 3,
-                keyboardType: TextInputType.multiline,
-              ),
-              TextFormField(
-                controller: _balanceController,
-                decoration: InputDecoration(labelText: l10n.initialBalanceHint),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return l10n.formValidationPleaseEnterBalance;
-                  }
-                  if (double.tryParse(value) == null) {
-                    return l10n.formValidationPleaseEnterValidNumber;
-                  }
-                  return null;
-                },
-              ),
-              BlocBuilder<CurrencyBloc, CurrencyState>(
-                builder: (context, state) {
-                  if (state is CurrencyLoadSuccess) {
-                    return GestureDetector(
-                      onTap: () async {
-                        final selectedCurrency =
-                            await showSingleSelectDialog<Currency>(
-                              context: context,
-                              items: state.currencies,
-                              title: l10n.selectCurrencyTitle,
-                              selectedItem: state.currencies.firstWhereOrNull(
-                                (c) => c.code == _selectedCurrencyCode,
-                              ),
-                              itemBuilder: (currency) => Text(currency.name),
-                              stringGetter: (currency) =>
-                                  '${currency.name} ${currency.code}',
-                            );
-                        if (mounted && selectedCurrency != null) {
-                          setState(() {
-                            _selectedCurrencyCode = selectedCurrency.code;
-                            _selectedCurrencyDesignationId = state.designations
+          child: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(labelText: l10n.accountNameHint),
+                  validator: (value) => (value == null || value.isEmpty)
+                      ? l10n.formValidationPleaseEnterName
+                      : null,
+                ),
+                // Hide Description
+                /*
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: InputDecoration(labelText: l10n.descriptionLabel),
+                  maxLines: 3,
+                  keyboardType: TextInputType.multiline,
+                ),
+                */
+                TextFormField(
+                  controller: _balanceController,
+                  decoration: InputDecoration(
+                    labelText: l10n.initialBalanceHint,
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return l10n.formValidationPleaseEnterBalance;
+                    }
+                    if (double.tryParse(value) == null) {
+                      return l10n.formValidationPleaseEnterValidNumber;
+                    }
+                    return null;
+                  },
+                ),
+                BlocBuilder<CurrencyBloc, CurrencyState>(
+                  builder: (context, state) {
+                    if (state is CurrencyLoadSuccess) {
+                      return GestureDetector(
+                        onTap: () async {
+                          final selectedCurrency =
+                              await showSingleSelectDialog<Currency>(
+                                context: context,
+                                items: state.currencies,
+                                title: l10n.selectCurrencyTitle,
+                                selectedItem: state.currencies.firstWhereOrNull(
+                                  (c) => c.code == _selectedCurrencyCode,
+                                ),
+                                itemBuilder: (currency) => Text(currency.name),
+                                stringGetter: (currency) =>
+                                    '${currency.name} ${currency.code}',
+                              );
+                          if (mounted && selectedCurrency != null) {
+                            setState(() {
+                              _selectedCurrencyCode = selectedCurrency.code;
+                              _selectedCurrencyDesignationId = state
+                                  .designations
+                                  .firstWhereOrNull(
+                                    (d) =>
+                                        d.currencyCode == _selectedCurrencyCode,
+                                  )
+                                  ?.id;
+                            });
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: TextFormField(
+                            key: Key(_selectedCurrencyCode ?? 'no_currency'),
+                            initialValue: state.currencies
                                 .firstWhereOrNull(
-                                  (d) =>
-                                      d.currencyCode == _selectedCurrencyCode,
+                                  (c) => c.code == _selectedCurrencyCode,
                                 )
-                                ?.id;
-                          });
-                        }
-                      },
-                      child: AbsorbPointer(
-                        child: TextFormField(
-                          key: Key(_selectedCurrencyCode ?? 'no_currency'),
-                          initialValue: state.currencies
-                              .firstWhereOrNull(
-                                (c) => c.code == _selectedCurrencyCode,
-                              )
-                              ?.name,
-                          decoration: InputDecoration(
-                            labelText: l10n.currencyLabel,
+                                ?.name,
+                            decoration: InputDecoration(
+                              labelText: l10n.currencyLabel,
+                            ),
+                            validator: (value) => _selectedCurrencyCode == null
+                                ? l10n.formValidationPleaseSelectCurrency
+                                : null,
                           ),
-                          validator: (value) => _selectedCurrencyCode == null
-                              ? l10n.formValidationPleaseSelectCurrency
-                              : null,
-                        ),
-                      ),
-                    );
-                  }
-                  return const Center(child: CircularProgressIndicator());
-                },
-              ),
-              BlocBuilder<AccountsBloc, AccountsState>(
-                // NEW BLOC BUILDER FOR AccountTypes
-                builder: (context, state) {
-                  if (state is AccountsLoadSuccess) {
-                    return GestureDetector(
-                      onTap: () async {
-                        final selectedAccountType =
-                            await showSingleSelectDialog<AccountType>(
-                              context: context,
-                              items: state.accountTypes,
-                              title: l10n.selectAccountTypeTitle,
-                              selectedItem: state.accountTypes.firstWhereOrNull(
-                                (t) => t.id == _selectedAccountTypeId,
-                              ),
-                              itemBuilder: (type) => Text(type.name),
-                              stringGetter: (type) => type.name,
-                            );
-                        if (mounted && selectedAccountType != null) {
-                          setState(() {
-                            _selectedAccountTypeId = selectedAccountType.id;
-                          });
-                        }
-                      },
-                      child: AbsorbPointer(
-                        child: TextFormField(
-                          key: Key(_selectedAccountTypeId ?? 'no_type'),
-                          initialValue: state.accountTypes
-                              .firstWhereOrNull(
-                                (t) => t.id == _selectedAccountTypeId,
-                              )
-                              ?.name,
-                          decoration: InputDecoration(
-                            labelText: l10n.accountTypeLabel,
-                          ),
-                          validator: (value) => _selectedAccountTypeId == null
-                              ? l10n.formValidationPleaseSelectAccountType
-                              : null,
-                        ),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-              BlocBuilder<SettingsBloc, SettingsState>(
-                builder: (context, state) {
-                  final localizedCountryName = _selectedCountry != null
-                      ? getLocalizedCountryName(
-                          _selectedCountry!,
-                          state.settings['language_code'] ?? 'en',
-                        )
-                      : null;
-
-                  return GestureDetector(
-                    onTap: () async {
-                      final selectedCode = await showDialog<String>(
-                        context: context,
-                        builder: (context) => CountryPickerDialog(
-                          allCountries: state.allCountries,
-                          selectedCountryCode: _selectedCountry,
                         ),
                       );
-
-                      if (mounted && selectedCode != null) {
-                        setState(() {
-                          _selectedCountry = selectedCode;
-                        });
-                      }
-                    },
-                    child: AbsorbPointer(
-                      child: TextFormField(
-                        key: Key(_selectedCountry ?? 'no_country'),
-                        initialValue: localizedCountryName,
-                        decoration: InputDecoration(
-                          labelText: l10n.defaultInflationCountryLabel,
-                          hintText: l10n.selectCountryTitle,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              BlocBuilder<StylesBloc, StylesState>(
-                builder: (context, state) {
-                  if (state is StylesLoadSuccess) {
-                    if (_selectedStyleId == null && state.styles.isNotEmpty) {
-                      _selectedStyleId = state.styles.first.id;
                     }
+                    return const Center(child: CircularProgressIndicator());
+                  },
+                ),
+                BlocBuilder<AccountsBloc, AccountsState>(
+                  // Automatic selection of first account type if none selected
+                  builder: (context, state) {
+                    if (state is AccountsLoadSuccess) {
+                      if (_selectedAccountTypeId == null &&
+                          state.accountTypes.isNotEmpty) {
+                        _selectedAccountTypeId = state.accountTypes.first.id;
+                      }
+                      return const SizedBox.shrink(); // Hide Account Type
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                BlocBuilder<SettingsBloc, SettingsState>(
+                  builder: (context, state) {
+                    final localizedCountryName = _selectedCountry != null
+                        ? getLocalizedCountryName(
+                            _selectedCountry!,
+                            state.settings['language_code'] ?? 'en',
+                          )
+                        : null;
 
-                    final selectedStyle = state.styles.firstWhereOrNull(
-                      (s) => s.id == _selectedStyleId,
-                    );
-
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: selectedStyle != null
-                          ? CircleAvatar(
-                              backgroundColor: _getColorFromHex(
-                                selectedStyle.colorHex,
-                              ),
-                              child: IconUtils.getIconWidget(selectedStyle),
-                            )
-                          : const CircleAvatar(child: Icon(Icons.style)),
-                      title: Text(l10n.iconLabel),
-                      subtitle: Text(
-                        selectedStyle?.name ?? l10n.selectIconSubtitle,
-                      ),
+                    return GestureDetector(
                       onTap: () async {
-                        final newStyleId = await showIconSelectionDialog(
-                          context,
-                          _selectedStyleId ?? '',
+                        final selectedCode = await showDialog<String>(
+                          context: context,
+                          builder: (context) => CountryPickerDialog(
+                            allCountries: state.allCountries,
+                            selectedCountryCode: _selectedCountry,
+                          ),
                         );
-                        if (newStyleId != null) {
+
+                        if (mounted && selectedCode != null) {
                           setState(() {
-                            _selectedStyleId = newStyleId;
+                            _selectedCountry = selectedCode;
                           });
                         }
                       },
+                      child: AbsorbPointer(
+                        child: TextFormField(
+                          key: Key(_selectedCountry ?? 'no_country'),
+                          initialValue: localizedCountryName,
+                          decoration: InputDecoration(
+                            labelText: l10n.defaultInflationCountryLabel,
+                            hintText: l10n.selectCountryTitle,
+                          ),
+                        ),
+                      ),
                     );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-            ],
+                  },
+                ),
+                BlocBuilder<StylesBloc, StylesState>(
+                  builder: (context, state) {
+                    if (state is StylesLoadSuccess) {
+                      final selectedStyle = state.styles.firstWhereOrNull(
+                        (s) => s.id == _selectedStyleId,
+                      );
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: selectedStyle != null
+                            ? CircleAvatar(
+                                backgroundColor: _getColorFromHex(
+                                  selectedStyle.colorHex,
+                                ),
+                                child: IconUtils.getIconWidget(selectedStyle),
+                              )
+                            : const CircleAvatar(child: Icon(Icons.style)),
+                        title: Text(l10n.iconLabel),
+                        subtitle: Text(
+                          selectedStyle?.name ?? l10n.selectIconSubtitle,
+                        ),
+                        onTap: () async {
+                          final newStyleId = await showIconSelectionDialog(
+                            context,
+                            _selectedStyleId ?? '',
+                          );
+                          if (newStyleId != null) {
+                            setState(() {
+                              _selectedStyleId = newStyleId;
+                            });
+                          }
+                        },
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),

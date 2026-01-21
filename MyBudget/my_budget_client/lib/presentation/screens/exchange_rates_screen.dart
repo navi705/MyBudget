@@ -359,61 +359,66 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
               existingRate == null ? 'Add Exchange Rate' : 'Edit Exchange Rate',
             ),
             content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  buildCurrencySelector(
-                    'From Currency',
-                    fromCurrency,
-                    (val) => setState(() => fromCurrency = val!),
-                  ),
-                  const SizedBox(height: 8),
-                  buildCurrencySelector(
-                    'To Currency',
-                    toCurrency,
-                    (val) => setState(() => toCurrency = val),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: rateController,
-                          decoration: const InputDecoration(labelText: 'Rate'),
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: presetController,
-                          decoration: const InputDecoration(
-                            labelText: 'Preset ID',
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    title: Text(
-                      'Date: ${DateFormat('dd.MM.yyyy').format(selectedDate)}',
+              child: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    buildCurrencySelector(
+                      'From Currency',
+                      fromCurrency,
+                      (val) => setState(() => fromCurrency = val!),
                     ),
-                    trailing: const Icon(Icons.calendar_today),
-                    onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
-                      if (date != null) setState(() => selectedDate = date);
-                    },
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    buildCurrencySelector(
+                      'To Currency',
+                      toCurrency,
+                      (val) => setState(() => toCurrency = val),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: rateController,
+                            decoration: const InputDecoration(
+                              labelText: 'Rate',
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: presetController,
+                            decoration: const InputDecoration(
+                              labelText: 'Preset ID',
+                            ),
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      title: Text(
+                        'Date: ${DateFormat('dd.MM.yyyy').format(selectedDate)}',
+                      ),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (date != null) setState(() => selectedDate = date);
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
             actions: [

@@ -11,7 +11,6 @@ import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
-import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/icon_selection_dialog.dart';
@@ -212,6 +211,8 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                         ? l10n.formValidationPleaseEnterName
                         : null,
                   ),
+                  // Hide Description as requested
+                  /*
                   TextFormField(
                     controller: _descriptionController,
                     decoration: InputDecoration(
@@ -220,6 +221,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                     maxLines: 3,
                     keyboardType: TextInputType.multiline,
                   ),
+                  */
                   const SizedBox(height: 16),
                   // Added spacing for new field
                   TextFormField(
@@ -310,6 +312,8 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
+                  // Hide Account Type as requested
+                  /*
                   BlocBuilder<AccountsBloc, AccountsState>(
                     builder: (context, state) {
                       if (state is AccountsLoadSuccess) {
@@ -355,6 +359,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                       return const SizedBox.shrink();
                     },
                   ),
+                  */
                   const SizedBox(height: 16),
                   BlocBuilder<SettingsBloc, SettingsState>(
                     builder: (context, state) {
