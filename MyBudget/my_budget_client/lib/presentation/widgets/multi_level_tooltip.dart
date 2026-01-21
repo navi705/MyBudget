@@ -31,7 +31,7 @@ class _MultiLevelTooltipState extends State<MultiLevelTooltip> {
   OverlayEntry? _overlayEntry;
   bool _isLevel2 = false;
   static const Duration _showDelay = Duration(milliseconds: 1000);
-  static const Duration _expandDelay = Duration(milliseconds: 5000);
+  static const Duration _expandDelay = Duration(milliseconds: 3000);
 
   @override
   void dispose() {
@@ -72,7 +72,7 @@ class _MultiLevelTooltipState extends State<MultiLevelTooltip> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: colorScheme.inverseSurface,
+          color: colorScheme.secondary,
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(

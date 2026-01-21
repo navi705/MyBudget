@@ -1,4 +1,6 @@
 import 'package:equatable/equatable.dart';
+import 'package:my_budget_client/domain/entities/api_setting.dart';
+import 'package:my_budget_client/domain/entities/custom_data_source.dart';
 
 abstract class ApiSettingsState extends Equatable {
   const ApiSettingsState();
@@ -13,22 +15,30 @@ class ApiSettingsLoadInProgress extends ApiSettingsState {}
 
 class ApiSettingsLoadSuccess extends ApiSettingsState {
   final String? steamId;
+  final List<ApiSettingDomain> apiSettings;
+  final List<CustomDataSourceDomain> customDataSources;
   final String? lastError;
   final bool isOperationInProgress;
 
   const ApiSettingsLoadSuccess({
     this.steamId,
+    this.apiSettings = const [],
+    this.customDataSources = const [],
     this.lastError,
     this.isOperationInProgress = false,
   });
 
   ApiSettingsLoadSuccess copyWith({
     String? steamId,
+    List<ApiSettingDomain>? apiSettings,
+    List<CustomDataSourceDomain>? customDataSources,
     String? lastError,
     bool? isOperationInProgress,
   }) {
     return ApiSettingsLoadSuccess(
       steamId: steamId ?? this.steamId,
+      apiSettings: apiSettings ?? this.apiSettings,
+      customDataSources: customDataSources ?? this.customDataSources,
       lastError: lastError,
       isOperationInProgress:
           isOperationInProgress ?? this.isOperationInProgress,
@@ -37,10 +47,12 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
 
   @override
   List<Object?> get props => [
-        steamId,
-        lastError,
-        isOperationInProgress,
-      ];
+    steamId,
+    apiSettings,
+    customDataSources,
+    lastError,
+    isOperationInProgress,
+  ];
 }
 
 class ApiSettingsFailure extends ApiSettingsState {

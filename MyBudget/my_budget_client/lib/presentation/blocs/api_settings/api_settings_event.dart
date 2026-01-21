@@ -47,3 +47,37 @@ class FetchInflationData extends ApiSettingsEvent {
   @override
   List<Object?> get props => [countryCode, dateRange];
 }
+
+class UpdateApiSetting extends ApiSettingsEvent {
+  final String id;
+  final bool? enabled;
+  final bool? autoFetch;
+
+  const UpdateApiSetting({required this.id, this.enabled, this.autoFetch});
+
+  @override
+  List<Object?> get props => [id, enabled, autoFetch];
+}
+
+class AddCustomDataSource extends ApiSettingsEvent {
+  final String name;
+  final String url;
+  final int dataType;
+
+  const AddCustomDataSource({
+    required this.name,
+    required this.url,
+    required this.dataType,
+  });
+
+  @override
+  List<Object?> get props => [name, url, dataType];
+}
+
+class DeleteCustomDataSource extends ApiSettingsEvent {
+  final String id;
+  const DeleteCustomDataSource(this.id);
+
+  @override
+  List<Object?> get props => [id];
+}

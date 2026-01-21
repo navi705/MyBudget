@@ -33,6 +33,10 @@ import 'package:my_budget_client/domain/services/finance_calculator.dart';
 import 'package:my_budget_client/presentation/blocs/sms/sms_bloc.dart';
 import 'package:my_budget_client/domain/repositories/sms_repository.dart';
 import 'package:my_budget_client/data/repositories/local_sms_repository.dart';
+import 'package:my_budget_client/domain/repositories/api_settings_repository.dart';
+import 'package:my_budget_client/data/repositories/local_db/local_api_settings_repository.dart';
+import 'package:my_budget_client/domain/repositories/custom_data_source_repository.dart';
+import 'package:my_budget_client/data/repositories/local_db/local_custom_data_source_repository.dart';
 import 'package:my_budget_client/core/services/android_file_picker_service.dart';
 import 'package:my_budget_client/core/sync/sync_service.dart';
 
@@ -111,7 +115,16 @@ Future<void> init() async {
     () => InflationBloc(inflationRepository: sl(), settingsRepository: sl()),
   );
   sl.registerFactory(() => AssetBloc(sl(), sl()));
-  sl.registerFactory(() => ApiSettingsBloc(sl(), sl(), sl(), sl()));
+  sl.registerFactory(
+    () => ApiSettingsBloc(
+      sl(),
+      sl(),
+      sl(),
+      sl(),
+      apiSettingsRepository: sl(),
+      customDataSourceRepository: sl(),
+    ),
+  );
   sl.registerFactory(
     () => SmsBloc(
       smsRepository: sl(),
@@ -170,6 +183,13 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<DbRepository>(() => LocalDbRepository(sl()));
   sl.registerLazySingleton<SmsRepository>(() => LocalSmsRepository());
+  sl.registerLazySingleton<ApiSettingsRepository>(
+    () => LocalApiSettingsRepository(sl<AppDatabase>().apiSettingsDao),
+  );
+  sl.registerLazySingleton<CustomDataSourceRepository>(
+    () =>
+        LocalCustomDataSourceRepository(sl<AppDatabase>().customDataSourcesDao),
+  );
 
   // Core
   sl.registerLazySingleton(() => AppDatabase());

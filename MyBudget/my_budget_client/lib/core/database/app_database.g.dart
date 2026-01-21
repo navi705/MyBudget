@@ -10607,6 +10607,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final CustomDataSourcesDao customDataSourcesDao = CustomDataSourcesDao(
     this as AppDatabase,
   );
+  late final ApiSettingsDao apiSettingsDao = ApiSettingsDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -19086,5 +19089,10 @@ mixin _$ConflictHistoryDaoMixin on DatabaseAccessor<AppDatabase> {
 mixin _$CustomDataSourcesDaoMixin on DatabaseAccessor<AppDatabase> {
   $CustomDataSourcesTable get customDataSources =>
       attachedDatabase.customDataSources;
+  $SyncLogTable get syncLog => attachedDatabase.syncLog;
+}
+mixin _$ApiSettingsDaoMixin on DatabaseAccessor<AppDatabase> {
+  $ApiSettingsTableTable get apiSettingsTable =>
+      attachedDatabase.apiSettingsTable;
   $SyncLogTable get syncLog => attachedDatabase.syncLog;
 }

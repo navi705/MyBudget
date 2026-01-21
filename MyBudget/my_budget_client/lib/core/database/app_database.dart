@@ -2568,6 +2568,7 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     SyncLogDao,
     ConflictHistoryDao,
     CustomDataSourcesDao,
+    ApiSettingsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -2974,6 +2975,39 @@ class CustomDataSourcesDao extends DatabaseAccessor<AppDatabase>
             .toList(),
       );
     });
+  }
+}
+
+@DriftAccessor(tables: [ApiSettingsTable, SyncLog])
+class ApiSettingsDao extends DatabaseAccessor<AppDatabase>
+    with _$ApiSettingsDaoMixin {
+  ApiSettingsDao(super.db);
+
+  Future<List<ApiSettingsTableData>> getAllSettings() =>
+      select(apiSettingsTable).get();
+
+  Future<ApiSettingsTableData?> getSettingById(String id) => (select(
+    apiSettingsTable,
+  )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+
+  Future<void> upsertSetting(ApiSettingsTableCompanion setting) async {
+    final toInsert = setting.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    await into(apiSettingsTable).insert(toInsert, mode: InsertMode.replace);
+    await _logChange(toInsert.id.value, 'upsert');
+  }
+
+  Future<void> _logChange(String recordId, String action) async {
+    await into(db.syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('api_settings_table'),
+        recordId: Value(recordId),
+        action: Value(action),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+        exported: const Value(false),
+      ),
+    );
   }
 }
 

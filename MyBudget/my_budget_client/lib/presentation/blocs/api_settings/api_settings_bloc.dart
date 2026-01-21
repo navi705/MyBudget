@@ -1,6 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
+import 'package:my_budget_client/domain/repositories/api_settings_repository.dart';
+import 'package:my_budget_client/domain/repositories/custom_data_source_repository.dart';
+import 'package:my_budget_client/domain/entities/custom_data_source.dart';
 import 'package:my_budget_client/core/services/exchange_rate_api_service.dart';
 import 'package:my_budget_client/core/services/inflation_api_service.dart';
 import 'package:my_budget_client/core/services/steam_inventory_api_service.dart';
@@ -12,18 +14,27 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
   final ExchangeRateApiService _exchangeRateApiService;
   final SteamInventoryApiService _steamInventoryApiService;
   final InflationApiService _inflationApiService;
+  final ApiSettingsRepository _apiSettingsRepository;
+  final CustomDataSourceRepository _customDataSourceRepository;
 
   ApiSettingsBloc(
     this._settingsRepository,
     this._exchangeRateApiService,
     this._steamInventoryApiService,
-    this._inflationApiService,
-  ) : super(ApiSettingsInitial()) {
+    this._inflationApiService, {
+    required ApiSettingsRepository apiSettingsRepository,
+    required CustomDataSourceRepository customDataSourceRepository,
+  }) : _apiSettingsRepository = apiSettingsRepository,
+       _customDataSourceRepository = customDataSourceRepository,
+       super(ApiSettingsInitial()) {
     on<LoadApiSettings>(_onLoadApiSettings);
     on<ManualFetchRange>(_onManualFetchRange);
     on<FetchSteamInventory>(_onFetchSteamInventory);
     on<SaveSteamId>(_onSaveSteamId);
     on<FetchInflationData>(_onFetchInflationData);
+    on<UpdateApiSetting>(_onUpdateApiSetting);
+    on<AddCustomDataSource>(_onAddCustomDataSource);
+    on<DeleteCustomDataSource>(_onDeleteCustomDataSource);
   }
 
   Future<void> _onLoadApiSettings(
@@ -32,15 +43,80 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
   ) async {
     emit(ApiSettingsLoadInProgress());
     try {
-      var steamIdSetting = await _settingsRepository.getSetting('steam_id');
-      if (steamIdSetting == null && kDebugMode) {
-        const defaultSteamId = '76561198085715972';
-        await _settingsRepository.saveSetting('steam_id', defaultSteamId);
-        steamIdSetting = await _settingsRepository.getSetting('steam_id');
-      }
-      emit(ApiSettingsLoadSuccess(steamId: steamIdSetting?.value));
+      final steamIdSetting = await _settingsRepository.getSetting('steam_id');
+      final apiSettings = await _apiSettingsRepository.getAllSettings();
+      final customDataSources = await _customDataSourceRepository
+          .getAllDataSources();
+
+      emit(
+        ApiSettingsLoadSuccess(
+          steamId: steamIdSetting?.value,
+          apiSettings: apiSettings,
+          customDataSources: customDataSources,
+        ),
+      );
     } catch (e) {
       emit(ApiSettingsFailure(e.toString()));
+    }
+  }
+
+  Future<void> _onUpdateApiSetting(
+    UpdateApiSetting event,
+    Emitter<ApiSettingsState> emit,
+  ) async {
+    if (state is ApiSettingsLoadSuccess) {
+      final currentState = state as ApiSettingsLoadSuccess;
+      try {
+        final setting = currentState.apiSettings.firstWhere(
+          (s) => s.id == event.id,
+        );
+        final updatedSetting = setting.copyWith(
+          enabled: event.enabled,
+          autoFetch: event.autoFetch,
+        );
+        await _apiSettingsRepository.saveSetting(updatedSetting);
+        add(LoadApiSettings());
+      } catch (e) {
+        emit(currentState.copyWith(lastError: e.toString()));
+      }
+    }
+  }
+
+  Future<void> _onAddCustomDataSource(
+    AddCustomDataSource event,
+    Emitter<ApiSettingsState> emit,
+  ) async {
+    if (state is ApiSettingsLoadSuccess) {
+      final currentState = state as ApiSettingsLoadSuccess;
+      try {
+        final newSource = CustomDataSourceDomain(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: event.name,
+          url: event.url,
+          dataType: ApiDataType.values[event.dataType],
+          enabled: true,
+          autoFetch: false,
+        );
+        await _customDataSourceRepository.saveDataSource(newSource);
+        add(LoadApiSettings());
+      } catch (e) {
+        emit(currentState.copyWith(lastError: e.toString()));
+      }
+    }
+  }
+
+  Future<void> _onDeleteCustomDataSource(
+    DeleteCustomDataSource event,
+    Emitter<ApiSettingsState> emit,
+  ) async {
+    if (state is ApiSettingsLoadSuccess) {
+      final currentState = state as ApiSettingsLoadSuccess;
+      try {
+        await _customDataSourceRepository.deleteDataSource(event.id);
+        add(LoadApiSettings());
+      } catch (e) {
+        emit(currentState.copyWith(lastError: e.toString()));
+      }
     }
   }
 
@@ -52,7 +128,10 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
       final currentState = state as ApiSettingsLoadSuccess;
       emit(currentState.copyWith(isOperationInProgress: true));
       try {
-        await _exchangeRateApiService.fetchRatesForRange(event.start, event.end);
+        await _exchangeRateApiService.fetchRatesForRange(
+          event.start,
+          event.end,
+        );
         emit(currentState.copyWith(isOperationInProgress: false));
       } catch (e) {
         emit(
@@ -73,7 +152,10 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
       final currentState = state as ApiSettingsLoadSuccess;
       emit(currentState.copyWith(isOperationInProgress: true));
       try {
-        await _steamInventoryApiService.fetchSteamInventoryValue(event.accountId, event.game);
+        await _steamInventoryApiService.fetchSteamInventoryValue(
+          event.accountId,
+          event.game,
+        );
         emit(currentState.copyWith(isOperationInProgress: false));
       } catch (e) {
         emit(
@@ -109,7 +191,10 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
       final currentState = state as ApiSettingsLoadSuccess;
       emit(currentState.copyWith(isOperationInProgress: true));
       try {
-        await _inflationApiService.fetchInflationForCountry(event.countryCode, event.dateRange);
+        await _inflationApiService.fetchInflationForCountry(
+          event.countryCode,
+          event.dateRange,
+        );
         emit(currentState.copyWith(isOperationInProgress: false));
       } catch (e) {
         emit(
@@ -122,4 +207,3 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
     }
   }
 }
- 
