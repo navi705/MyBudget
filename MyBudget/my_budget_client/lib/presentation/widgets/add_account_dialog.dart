@@ -1,3 +1,5 @@
+import '../../core/utils/country_codes.dart';
+import 'country_picker_dialog.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -190,22 +192,39 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
               ),
               BlocBuilder<SettingsBloc, SettingsState>(
                 builder: (context, state) {
-                  return DropdownButtonFormField<String>(
-                    initialValue: _selectedCountry,
-                    hint: Text(l10n.selectCountryTitle),
-                    items: state.countries.entries
-                        .map(
-                          (e) => DropdownMenuItem(
-                            value: e.key,
-                            child: Text(e.value),
-                          ),
+                  final localizedCountryName = _selectedCountry != null
+                      ? getLocalizedCountryName(
+                          _selectedCountry!,
+                          state.settings['language_code'] ?? 'en',
                         )
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedCountry = value;
-                      });
+                      : null;
+
+                  return GestureDetector(
+                    onTap: () async {
+                      final selectedCode = await showDialog<String>(
+                        context: context,
+                        builder: (context) => CountryPickerDialog(
+                          allCountries: state.allCountries,
+                          selectedCountryCode: _selectedCountry,
+                        ),
+                      );
+
+                      if (mounted && selectedCode != null) {
+                        setState(() {
+                          _selectedCountry = selectedCode;
+                        });
+                      }
                     },
+                    child: AbsorbPointer(
+                      child: TextFormField(
+                        key: Key(_selectedCountry ?? 'no_country'),
+                        initialValue: localizedCountryName,
+                        decoration: InputDecoration(
+                          labelText: l10n.defaultInflationCountryLabel,
+                          hintText: l10n.selectCountryTitle,
+                        ),
+                      ),
+                    ),
                   );
                 },
               ),

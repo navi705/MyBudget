@@ -1,3 +1,5 @@
+import '../../core/utils/country_codes.dart';
+import '../widgets/country_picker_dialog.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -356,27 +358,28 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                   const SizedBox(height: 16),
                   BlocBuilder<SettingsBloc, SettingsState>(
                     builder: (context, state) {
+                      final localizedCountryName =
+                          _initialAccount.country != null
+                          ? getLocalizedCountryName(
+                              _initialAccount.country!,
+                              state.settings['language_code'] ?? 'en',
+                            )
+                          : null;
+
                       return GestureDetector(
                         onTap: () async {
-                          final selectedCountry =
-                              await showSingleSelectDialog<String>(
-                                context: context,
-                                items: state.countries.keys.toList(),
-                                title: l10n.selectCountryTitle,
-                                selectedItem: _initialAccount.country,
-                                itemBuilder: (code) =>
-                                    Text(state.countries[code] ?? code),
-                                stringGetter: (code) =>
-                                    state.countries[code] ?? code,
-                              );
-                          if (mounted && selectedCountry != null) {
-                            // We need to update the _initialAccount directly or a controller for it
-                            // Since there is no controller for country, let's store it in a local variable
-                            // But wait, the UpdateAccount event uses _initialAccount.copyWith...
-                            // We should probably introduce a state variable for selectedCountry
+                          final selectedCode = await showDialog<String>(
+                            context: context,
+                            builder: (context) => CountryPickerDialog(
+                              allCountries: state.allCountries,
+                              selectedCountryCode: _initialAccount.country,
+                            ),
+                          );
+
+                          if (mounted && selectedCode != null) {
                             setState(() {
                               _initialAccount = _initialAccount.copyWith(
-                                country: selectedCountry,
+                                country: selectedCode,
                               );
                             });
                           }
@@ -384,7 +387,8 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                         child: AbsorbPointer(
                           child: TextFormField(
                             key: Key(_initialAccount.country ?? 'no_country'),
-                            initialValue: _initialAccount.country,
+                            initialValue:
+                                localizedCountryName ?? _initialAccount.country,
                             decoration: InputDecoration(
                               labelText: l10n.defaultInflationCountryLabel,
                             ),

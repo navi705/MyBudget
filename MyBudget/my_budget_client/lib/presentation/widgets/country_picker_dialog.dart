@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/country_codes.dart';
 
 class CountryPickerDialog extends StatefulWidget {
   final Map<String, String> allCountries;
@@ -16,14 +17,38 @@ class CountryPickerDialog extends StatefulWidget {
 
 class _CountryPickerDialogState extends State<CountryPickerDialog> {
   late TextEditingController _searchController;
+  late List<MapEntry<String, String>> _localizedCountries;
   late List<MapEntry<String, String>> _filteredCountries;
+  String? _currentLocale;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final locale = Localizations.localeOf(context).toString();
+    if (_currentLocale != locale) {
+      _currentLocale = locale;
+      _updateLocalizedCountries();
+    }
+  }
+
+  void _updateLocalizedCountries() {
+    _localizedCountries = widget.allCountries.values.map((code) {
+      final name = getLocalizedCountryName(code, _currentLocale ?? 'en');
+      return MapEntry(name, code);
+    }).toList();
+
+    // Initial sort by localized name
+    _localizedCountries.sort((a, b) => a.key.compareTo(b.key));
+    _onSearchChanged();
+  }
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
-    _filteredCountries = widget.allCountries.entries.toList();
     _searchController.addListener(_onSearchChanged);
+    // Note: Items will be populated in didChangeDependencies
+    _filteredCountries = [];
   }
 
   @override
@@ -35,7 +60,7 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
   void _onSearchChanged() {
     final query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredCountries = widget.allCountries.entries.where((e) {
+      _filteredCountries = _localizedCountries.where((e) {
         return e.key.toLowerCase().contains(query) ||
             e.value.toLowerCase().contains(query);
       }).toList();

@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:collection/collection.dart';
+import '../../core/utils/country_codes.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -35,8 +35,8 @@ class SettingsScreen extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 800),
           child: BlocBuilder<SettingsBloc, SettingsState>(
             builder: (context, settingsState) {
-              final persistFilters =
-                  settingsState.settings['persist_advanced_filters'] == 'true';
+              // final persistFilters =
+              //     settingsState.settings['persist_advanced_filters'] == 'true';
               final mainCurrencyCode =
                   settingsState.settings['main_currency_code'] ?? 'EUR';
               final defaultInflationCountry =
@@ -112,12 +112,10 @@ class SettingsScreen extends StatelessWidget {
                     leading: const Icon(Icons.public),
                     title: Text(l10n.defaultInflationCountryLabel),
                     subtitle: Text(
-                      settingsState.allCountries.entries
-                              .firstWhereOrNull(
-                                (e) => e.value == defaultInflationCountry,
-                              )
-                              ?.key ??
-                          defaultInflationCountry,
+                      getLocalizedCountryName(
+                        defaultInflationCountry,
+                        settingsState.settings['language_code'] ?? 'en',
+                      ),
                     ),
                     onTap: () async {
                       final selectedCode = await showDialog<String>(
@@ -138,21 +136,21 @@ class SettingsScreen extends StatelessWidget {
                       }
                     },
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.save),
-                    title: Text(l10n.persistAdvancedFiltersLabel),
-                    trailing: Switch(
-                      value: persistFilters,
-                      onChanged: (bool value) {
-                        context.read<SettingsBloc>().add(
-                          UpdateSetting(
-                            'persist_advanced_filters',
-                            value.toString(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+                  // ListTile(
+                  //   leading: const Icon(Icons.save),
+                  //   title: Text(l10n.persistAdvancedFiltersLabel),
+                  //   trailing: Switch(
+                  //     value: persistFilters,
+                  //     onChanged: (bool value) {
+                  //       context.read<SettingsBloc>().add(
+                  //         UpdateSetting(
+                  //           'persist_advanced_filters',
+                  //           value.toString(),
+                  //         ),
+                  //       );
+                  //     },
+                  //   ),
+                  // ),
                   if (!Platform.isAndroid && !Platform.isIOS)
                     ListTile(
                       leading: const Icon(Icons.keyboard),

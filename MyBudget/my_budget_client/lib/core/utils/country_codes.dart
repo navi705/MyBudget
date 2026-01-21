@@ -1,3 +1,5 @@
+import 'country_translations.dart';
+
 final Map<String, String> worldBankCountryCodes = {
   'Afghanistan': 'AFG',
   'Albania': 'ALB',
@@ -218,3 +220,10 @@ final Map<String, String> worldBankCountryCodes = {
   'Zambia': 'ZMB',
   'Zimbabwe': 'ZWE',
 };
+
+String getLocalizedCountryName(String countryCode, String locale) {
+  final languageCode = locale.split('_').first;
+  final translationMap =
+      countryTranslations[languageCode] ?? countryTranslations['en']!;
+  return translationMap[countryCode] ?? countryCode;
+}
