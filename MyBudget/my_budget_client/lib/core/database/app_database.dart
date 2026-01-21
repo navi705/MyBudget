@@ -20,6 +20,7 @@ import 'package:my_budget_client/data/seed_data/currencies_data.dart';
 import 'package:my_budget_client/data/seed_data/languages_data.dart';
 import 'package:my_budget_client/data/seed_data/settings_data.dart';
 import 'package:my_budget_client/data/seed_data/account_types_data.dart';
+import 'package:my_budget_client/data/seed_data/categories_data.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:uuid/uuid.dart';
@@ -2671,6 +2672,7 @@ class AppDatabase extends _$AppDatabase {
       await _seedCurrencyDesignations(db);
       await _seedStyles(db);
       await _seedAccountTypes(db);
+      await _seedCategories(db);
       await _seedExchangeRates(db);
     }
     // Settings are always re-seeded to defaults
@@ -2718,6 +2720,13 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> _seedAccountTypes(AppDatabase db) async {
     await db.accountTypesDao.insertAllAccountTypes(defaultAccountTypes);
+  }
+
+  Future<void> _seedCategories(AppDatabase db) async {
+    final languageCode = Platform.localeName.split('_').first;
+    await db.categoriesDao.insertAllCategories(
+      getDefaultCategories(languageCode),
+    );
   }
 
   Future<void> _seedExchangeRates(AppDatabase db) async {
