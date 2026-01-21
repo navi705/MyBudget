@@ -293,5 +293,8 @@
     "iconLabel": "Icono",
     "languageLabel": "Idioma",
     "systemDefaultLabel": "Predeterminado del sistema",
-    "selectLanguageTitle": "Seleccionar idioma"
+    "selectLanguageTitle": "Seleccionar idioma",
+    "dashboardLabel": "Panel",
+    "homeLabel": "Inicio",
+    "historyLabel": "Historial"
 }

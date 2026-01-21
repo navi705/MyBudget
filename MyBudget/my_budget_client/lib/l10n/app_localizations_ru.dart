@@ -921,4 +921,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get selectLanguageTitle => 'Выберите язык';
+
+  @override
+  String get dashboardLabel => 'Сводка';
+
+  @override
+  String get homeLabel => 'Главная';
+
+  @override
+  String get historyLabel => 'История';
 }

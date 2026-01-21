@@ -921,4 +921,13 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get selectLanguageTitle => 'ভাষা নির্বাচন করুন';
+
+  @override
+  String get dashboardLabel => 'ড্যাশবোর্ড';
+
+  @override
+  String get homeLabel => 'হোম';
+
+  @override
+  String get historyLabel => 'ইতিহাস';
 }

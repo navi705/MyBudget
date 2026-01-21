@@ -289,5 +289,8 @@
     "iconLabel": "आइकन",
     "languageLabel": "भाषा",
     "systemDefaultLabel": "सिस्टम डिफॉल्ट",
-    "selectLanguageTitle": "भाषा चुनें"
+    "selectLanguageTitle": "भाषा चुनें",
+    "dashboardLabel": "डैशबोर्ड",
+    "homeLabel": "होम",
+    "historyLabel": "इतिहास"
 }

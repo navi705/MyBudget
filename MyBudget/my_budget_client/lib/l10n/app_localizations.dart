@@ -1766,6 +1766,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select Language'**
   String get selectLanguageTitle;
+
+  /// No description provided for @dashboardLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashboard'**
+  String get dashboardLabel;
+
+  /// No description provided for @homeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get homeLabel;
+
+  /// No description provided for @historyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get historyLabel;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

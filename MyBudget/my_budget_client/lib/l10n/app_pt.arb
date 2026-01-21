@@ -295,5 +295,8 @@
     "iconLabel": "Ícone",
     "languageLabel": "Idioma",
     "systemDefaultLabel": "Padrão do sistema",
-    "selectLanguageTitle": "Selecionar idioma"
+    "selectLanguageTitle": "Selecionar idioma",
+    "dashboardLabel": "Painel",
+    "homeLabel": "Início",
+    "historyLabel": "Histórico"
 }

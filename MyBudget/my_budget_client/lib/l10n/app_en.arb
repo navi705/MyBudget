@@ -276,5 +276,8 @@
     "iconLabel": "Icon",
     "languageLabel": "Language",
     "systemDefaultLabel": "System Default",
-    "selectLanguageTitle": "Select Language"
+    "selectLanguageTitle": "Select Language",
+    "dashboardLabel": "Dashboard",
+    "homeLabel": "Home",
+    "historyLabel": "History"
 }

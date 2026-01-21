@@ -921,4 +921,13 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get selectLanguageTitle => 'اختر اللغة';
+
+  @override
+  String get dashboardLabel => 'لوحة المعلومات';
+
+  @override
+  String get homeLabel => 'الرئيسية';
+
+  @override
+  String get historyLabel => 'السجل';
 }

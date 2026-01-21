@@ -921,4 +921,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get selectLanguageTitle => '选择语言';
+
+  @override
+  String get dashboardLabel => '仪表板';
+
+  @override
+  String get homeLabel => '首页';
+
+  @override
+  String get historyLabel => '历史';
 }

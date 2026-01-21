@@ -921,4 +921,13 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get selectLanguageTitle => 'زبان منتخب کریں';
+
+  @override
+  String get dashboardLabel => 'ڈیش بورڈ';
+
+  @override
+  String get homeLabel => 'ہوم';
+
+  @override
+  String get historyLabel => 'تاریخ';
 }

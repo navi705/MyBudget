@@ -276,5 +276,8 @@
     "iconLabel": "آئیکن",
     "languageLabel": "زبان",
     "systemDefaultLabel": "سسٹم ڈیفالٹ",
-    "selectLanguageTitle": "زبان منتخب کریں"
+    "selectLanguageTitle": "زبان منتخب کریں",
+    "dashboardLabel": "ڈیش بورڈ",
+    "homeLabel": "ہوم",
+    "historyLabel": "تاریخ"
 }

@@ -921,4 +921,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get selectLanguageTitle => 'Seleccionar idioma';
+
+  @override
+  String get dashboardLabel => 'Panel';
+
+  @override
+  String get homeLabel => 'Inicio';
+
+  @override
+  String get historyLabel => 'Historial';
 }

@@ -921,4 +921,13 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get selectLanguageTitle => 'भाषा चुनें';
+
+  @override
+  String get dashboardLabel => 'डैशबोर्ड';
+
+  @override
+  String get homeLabel => 'होम';
+
+  @override
+  String get historyLabel => 'इतिहास';
 }

@@ -146,13 +146,14 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     _addDefaultHotkeys(hotkeys);
 
     emit(
-      state.copyWith(
+      SettingsState(
         settings: settingsMap,
         themeMode: themeMode,
         countries: availableCountriesMap,
         allCountries: worldBankCountryCodes,
         hotkeys: hotkeys,
         locale: locale,
+        deviceName: deviceName,
       ),
     );
   }

@@ -291,5 +291,8 @@
     "iconLabel": "أيقونة",
     "languageLabel": "اللغة",
     "systemDefaultLabel": "افتراضي النظام",
-    "selectLanguageTitle": "اختر اللغة"
+    "selectLanguageTitle": "اختر اللغة",
+    "dashboardLabel": "لوحة المعلومات",
+    "homeLabel": "الرئيسية",
+    "historyLabel": "السجل"
 }

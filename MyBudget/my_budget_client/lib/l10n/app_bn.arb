@@ -291,5 +291,8 @@
     "iconLabel": "আইকন",
     "languageLabel": "ভাষা",
     "systemDefaultLabel": "সিস্টেম ডিফল্ট",
-    "selectLanguageTitle": "ভাষা নির্বাচন করুন"
+    "selectLanguageTitle": "ভাষা নির্বাচন করুন",
+    "dashboardLabel": "ড্যাশবোর্ড",
+    "homeLabel": "হোম",
+    "historyLabel": "ইতিহাস"
 }

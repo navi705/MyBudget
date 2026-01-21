@@ -921,4 +921,13 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get selectLanguageTitle => 'Selecionar idioma';
+
+  @override
+  String get dashboardLabel => 'Painel';
+
+  @override
+  String get homeLabel => 'Início';
+
+  @override
+  String get historyLabel => 'Histórico';
 }

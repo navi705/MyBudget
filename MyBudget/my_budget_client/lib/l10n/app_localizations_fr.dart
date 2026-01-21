@@ -921,4 +921,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get selectLanguageTitle => 'Choisir la langue';
+
+  @override
+  String get dashboardLabel => 'Tableau de bord';
+
+  @override
+  String get homeLabel => 'Accueil';
+
+  @override
+  String get historyLabel => 'Historique';
 }

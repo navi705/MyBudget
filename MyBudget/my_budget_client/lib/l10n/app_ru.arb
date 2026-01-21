@@ -299,5 +299,8 @@
     "iconLabel": "Иконка",
     "languageLabel": "Язык",
     "systemDefaultLabel": "Системный",
-    "selectLanguageTitle": "Выберите язык"
+    "selectLanguageTitle": "Выберите язык",
+    "dashboardLabel": "Сводка",
+    "homeLabel": "Главная",
+    "historyLabel": "История"
 }
