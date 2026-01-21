@@ -71,10 +71,11 @@ class AppProviders extends StatelessWidget {
             create: (context) =>
                 di.sl<InflationBloc>()..add(LoadInflationRates()),
           ),
-          BlocProvider(
-            create: (context) => di.sl<SmsBloc>()..add(LoadSmsPresets()),
-            lazy: false,
-          ),
+          if (Platform.isAndroid)
+            BlocProvider(
+              create: (context) => di.sl<SmsBloc>()..add(LoadSmsPresets()),
+              lazy: false,
+            )
         ],
         child: BlocListener<ThemeBloc, ThemeState>(
           listener: (context, state) {
