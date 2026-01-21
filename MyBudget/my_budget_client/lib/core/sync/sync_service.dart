@@ -361,9 +361,17 @@ class SyncService {
         '[SYNC_DEBUG] Importing changes from device: ${packet.deviceId}',
       );
 
-      // Process each change
-      for (final change in packet.changes) {
-        await _applyChange(change, packet.deviceId);
+      // Disable FK checks during import to handle dependencies across packets
+      await _db.customStatement('PRAGMA foreign_keys = OFF;');
+
+      try {
+        // Process each change
+        for (final change in packet.changes) {
+          await _applyChange(change, packet.deviceId);
+        }
+      } finally {
+        // Re-enable FK checks
+        await _db.customStatement('PRAGMA foreign_keys = ON;');
       }
 
       // Move to processed
@@ -448,17 +456,22 @@ class SyncService {
   // --- Helper methods for data access ---
 
   SyncTableId? _tableNameToId(String name) {
+    if (name == 'transactions') return SyncTableId.transactions;
+    if (name == 'accounts') return SyncTableId.accounts;
+    if (name == 'categories') return SyncTableId.categories;
+    if (name == 'styles') return SyncTableId.styles;
     if (name == 'asset_entries') return SyncTableId.assetEntries;
     if (name == 'exchange_rates') return SyncTableId.exchangeRates;
     if (name == 'inflation_rates') return SyncTableId.inflationRates;
     if (name == 'custom_themes') return SyncTableId.customThemes;
     if (name == 'api_settings') return SyncTableId.apiSettings;
     if (name == 'sms_presets') return SyncTableId.smsPresets;
+    if (name == 'account_types') return SyncTableId.accountTypes;
+    if (name == 'currency_designations')
+      return SyncTableId.currencyDesignations;
+    if (name == 'custom_data_sources') return SyncTableId.customDataSources;
 
-    return SyncTableId.values.cast<SyncTableId?>().firstWhere(
-      (e) => e?.name == name,
-      orElse: () => null,
-    );
+    return null;
   }
 
   Future<Map<String, Map<String, dynamic>>> _getBulkRecordData(
@@ -497,6 +510,26 @@ class SyncService {
           result[r.id] = _assetEntryToJson(r);
         }
         break;
+      case SyncTableId.accountTypes:
+        final records = await _db.accountTypesDao.getAccountTypesByIds(ids);
+        for (final r in records) {
+          result[r.id] = _accountTypeToJson(r);
+        }
+        break;
+      case SyncTableId.currencyDesignations:
+        final records = await _db.currencyDesignationsDao.getDesignationsByIds(
+          ids,
+        );
+        for (final r in records) {
+          result[r.id] = _currencyDesignationToJson(r);
+        }
+        break;
+      case SyncTableId.customDataSources:
+        final records = await _db.customDataSourcesDao.getDataSourcesByIds(ids);
+        for (final r in records) {
+          result[r.id] = _customDataSourceToJson(r);
+        }
+        break;
       default:
         break;
     }
@@ -523,6 +556,19 @@ class SyncService {
       case SyncTableId.assetEntries:
         final record = await _db.assetEntriesDao.getAssetEntryById(recordId);
         return record != null ? _assetEntryToJson(record) : null;
+      case SyncTableId.accountTypes:
+        final record = await _db.accountTypesDao.getAccountTypeById(recordId);
+        return record != null ? _accountTypeToJson(record) : null;
+      case SyncTableId.currencyDesignations:
+        final record = await _db.currencyDesignationsDao.getDesignationById(
+          recordId,
+        );
+        return record != null ? _currencyDesignationToJson(record) : null;
+      case SyncTableId.customDataSources:
+        final record = await _db.customDataSourcesDao.getDataSourceById(
+          recordId,
+        );
+        return record != null ? _customDataSourceToJson(record) : null;
       default:
         return null;
     }
@@ -548,6 +594,19 @@ class SyncService {
       case SyncTableId.assetEntries:
         await _db.assetEntriesDao.addAssetData(_assetEntryFromJson(data));
         break;
+      case SyncTableId.accountTypes:
+        await _db.accountTypesDao.insertAccountType(_accountTypeFromJson(data));
+        break;
+      case SyncTableId.currencyDesignations:
+        await _db.currencyDesignationsDao.insertDesignation(
+          _currencyDesignationFromJson(data),
+        );
+        break;
+      case SyncTableId.customDataSources:
+        await _db.customDataSourcesDao.insertDataSource(
+          _customDataSourceFromJson(data),
+        );
+        break;
       default:
         break;
     }
@@ -572,6 +631,19 @@ class SyncService {
         break;
       case SyncTableId.assetEntries:
         await _db.assetEntriesDao.updateAssetData(_assetEntryFromJson(data));
+        break;
+      case SyncTableId.accountTypes:
+        await _db.accountTypesDao.updateAccountType(_accountTypeFromJson(data));
+        break;
+      case SyncTableId.currencyDesignations:
+        await _db.currencyDesignationsDao.updateDesignation(
+          _currencyDesignationFromJson(data),
+        );
+        break;
+      case SyncTableId.customDataSources:
+        await _db.customDataSourcesDao.updateDataSource(
+          _customDataSourceFromJson(data),
+        );
         break;
       default:
         break;
@@ -602,6 +674,21 @@ class SyncService {
         break;
       case SyncTableId.assetEntries:
         await _db.assetEntriesDao.deleteAssetEntry(recordId);
+        break;
+      case SyncTableId.accountTypes:
+        await _db.accountTypesDao.deleteAccountType(
+          AccountTypesCompanion(id: Value(recordId)),
+        );
+        break;
+      case SyncTableId.currencyDesignations:
+        await _db.currencyDesignationsDao.deleteDesignation(
+          CurrencyDesignationsCompanion(id: Value(recordId)),
+        );
+        break;
+      case SyncTableId.customDataSources:
+        await _db.customDataSourcesDao.deleteDataSource(
+          CustomDataSourcesCompanion(id: Value(recordId)),
+        );
         break;
       default:
         break;
@@ -786,6 +873,84 @@ class SyncService {
       modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       sourceId: Value(json['sourceId'] as String?),
+      isDeleted: Value(json['isDeleted'] as bool? ?? false),
+    );
+  }
+
+  Map<String, dynamic> _accountTypeToJson(AccountType at) {
+    return {
+      'id': at.id,
+      'name': at.name,
+      'languageCode': at.languageCode,
+      'modifiedAt': at.modifiedAt,
+      'deviceId': at.deviceId,
+      'isDeleted': at.isDeleted,
+    };
+  }
+
+  AccountTypesCompanion _accountTypeFromJson(Map<String, dynamic> json) {
+    return AccountTypesCompanion(
+      id: Value(json['id'] as String),
+      name: Value(json['name'] as String? ?? 'Account Type'),
+      languageCode: Value(json['languageCode'] as String? ?? 'en'),
+      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      deviceId: Value(json['deviceId'] as String?),
+      isDeleted: Value(json['isDeleted'] as bool? ?? false),
+    );
+  }
+
+  Map<String, dynamic> _currencyDesignationToJson(CurrencyDesignation cd) {
+    return {
+      'id': cd.id,
+      'value': cd.value,
+      'currencyCode': cd.currencyCode,
+      'modifiedAt': cd.modifiedAt,
+      'deviceId': cd.deviceId,
+      'isDeleted': cd.isDeleted,
+    };
+  }
+
+  CurrencyDesignationsCompanion _currencyDesignationFromJson(
+    Map<String, dynamic> json,
+  ) {
+    return CurrencyDesignationsCompanion(
+      id: Value(json['id'] as String),
+      value: Value(json['value'] as String? ?? ''),
+      currencyCode: Value(json['currencyCode'] as String? ?? 'USD'),
+      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      deviceId: Value(json['deviceId'] as String?),
+      isDeleted: Value(json['isDeleted'] as bool? ?? false),
+    );
+  }
+
+  Map<String, dynamic> _customDataSourceToJson(CustomDataSource cds) {
+    return {
+      'id': cds.id,
+      'name': cds.name,
+      'url': cds.url,
+      'dataType': cds.dataType,
+      'enabled': cds.enabled,
+      'autoFetch': cds.autoFetch,
+      'lastFetchAt': cds.lastFetchAt,
+      'modifiedAt': cds.modifiedAt,
+      'deviceId': cds.deviceId,
+      'isDeleted': cds.isDeleted,
+    };
+  }
+
+  CustomDataSourcesCompanion _customDataSourceFromJson(
+    Map<String, dynamic> json,
+  ) {
+    return CustomDataSourcesCompanion(
+      id: Value(json['id'] as String),
+      name: Value(json['name'] as String? ?? 'Custom Data Source'),
+      url: Value(json['url'] as String? ?? ''),
+      dataType: Value((json['dataType'] as int?) ?? 0),
+      enabled: Value(json['enabled'] as bool? ?? true),
+      autoFetch: Value(json['autoFetch'] as bool? ?? false),
+      lastFetchAt: Value(json['lastFetchAt'] as int?),
+      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
     );
   }

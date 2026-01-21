@@ -15,7 +15,9 @@ enum SyncTableId {
   settings(8),
   smsPresets(9),
   customDataSources(10),
-  apiSettings(11);
+  apiSettings(11),
+  accountTypes(12),
+  currencyDesignations(13);
 
   const SyncTableId(this.value);
   final int value;

@@ -51,6 +51,12 @@ class CurrencyDesignations extends Table {
   TextColumn get value => text().withLength(min: 1, max: 5)();
   TextColumn get currencyCode => text().references(Currencies, #code)();
 
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  @ReferenceName('CurrencyDesignationDevice')
+  TextColumn get deviceId => text().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -108,6 +114,12 @@ class AccountTypes extends Table {
   TextColumn get id => text().clientDefault(() => _uuid.v4())();
   TextColumn get name => text().withLength(min: 1, max: 50).unique()();
   TextColumn get languageCode => text().references(Languages, #languageCode)();
+
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  @ReferenceName('AccountTypeDevice')
+  TextColumn get deviceId => text().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -404,24 +416,97 @@ class CurrencyDesignationsDao extends DatabaseAccessor<AppDatabase>
   Future<CurrencyDesignation?> getDesignationById(String id) => (select(
     currencyDesignations,
   )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
-  Future<void> insertDesignation(CurrencyDesignationsCompanion designation) =>
-      into(currencyDesignations).insert(designation);
+
+  Future<List<CurrencyDesignation>> getDesignationsByIds(
+    List<String> ids,
+  ) async {
+    final query = select(currencyDesignations)..where((t) => t.id.isIn(ids));
+    return query.get();
+  }
+
+  Future<void> insertDesignation(
+    CurrencyDesignationsCompanion designation,
+  ) async {
+    final toInsert = designation.id.present
+        ? designation
+        : designation.copyWith(id: Value(_uuid.v4()));
+    await into(currencyDesignations).insert(toInsert);
+    await _logChange(toInsert.id.value, 'upsert');
+  }
+
   Future<void> insertAllCurrencyDesignations(
     List<CurrencyDesignationsCompanion> designations,
-  ) {
-    return batch((batch) {
+  ) async {
+    final List<CurrencyDesignationsCompanion> designationsWithIds = designations
+        .map((d) {
+          if (d.id.present) return d;
+          return d.copyWith(id: Value(_uuid.v4()));
+        })
+        .toList();
+
+    await batch((batch) {
       batch.insertAll(
         currencyDesignations,
-        designations,
+        designationsWithIds,
         mode: InsertMode.insertOrReplace,
       );
     });
+
+    final ids = designationsWithIds.map((d) => d.id.value).toList();
+    await _logChanges(ids, 'upsert');
   }
 
-  Future<bool> updateDesignation(CurrencyDesignationsCompanion designation) =>
-      update(currencyDesignations).replace(designation);
-  Future<int> deleteDesignation(CurrencyDesignationsCompanion designation) =>
-      delete(currencyDesignations).delete(designation);
+  Future<bool> updateDesignation(
+    CurrencyDesignationsCompanion designation,
+  ) async {
+    final result = await update(currencyDesignations).replace(designation);
+    if (result) {
+      await _logChange(designation.id.value, 'upsert');
+    }
+    return result;
+  }
+
+  Future<int> deleteDesignation(
+    CurrencyDesignationsCompanion designation,
+  ) async {
+    final result = await delete(currencyDesignations).delete(designation);
+    if (result > 0) {
+      await _logChange(designation.id.value, 'delete');
+    }
+    return result;
+  }
+
+  Future<void> _logChange(String recordId, String action) async {
+    await into(db.syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('currency_designations'),
+        recordId: Value(recordId),
+        action: Value(action),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+        exported: const Value(false),
+      ),
+    );
+  }
+
+  Future<void> _logChanges(List<String> recordIds, String action) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    await batch((batch) {
+      batch.insertAll(
+        db.syncLog,
+        recordIds
+            .map(
+              (id) => SyncLogCompanion(
+                changedTableName: const Value('currency_designations'),
+                recordId: Value(id),
+                action: Value(action),
+                timestamp: Value(timestamp),
+                exported: const Value(false),
+              ),
+            )
+            .toList(),
+      );
+    });
+  }
 }
 
 @DriftAccessor(tables: [Currencies])
@@ -785,22 +870,89 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
   Future<AccountType?> getAccountTypeById(String id) => (select(
     accountTypes,
   )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
-  Future<void> insertAccountType(AccountTypesCompanion accountType) =>
-      into(accountTypes).insert(accountType);
-  Future<void> insertAllAccountTypes(List<AccountTypesCompanion> accountTypes) {
-    return batch((batch) {
+
+  Future<List<AccountType>> getAccountTypesByIds(List<String> ids) async {
+    final query = select(accountTypes)..where((t) => t.id.isIn(ids));
+    return query.get();
+  }
+
+  Future<void> insertAccountType(AccountTypesCompanion accountType) async {
+    final toInsert = accountType.id.present
+        ? accountType
+        : accountType.copyWith(id: Value(_uuid.v4()));
+    await into(accountTypes).insert(toInsert);
+    await _logChange(toInsert.id.value, 'upsert');
+  }
+
+  Future<void> insertAllAccountTypes(
+    List<AccountTypesCompanion> accountTypes,
+  ) async {
+    final List<AccountTypesCompanion> accountTypesWithIds = accountTypes.map((
+      t,
+    ) {
+      if (t.id.present) return t;
+      return t.copyWith(id: Value(_uuid.v4()));
+    }).toList();
+
+    await batch((batch) {
       batch.insertAll(
         this.accountTypes,
-        accountTypes,
+        accountTypesWithIds,
         mode: InsertMode.insertOrReplace,
       );
     });
+
+    final ids = accountTypesWithIds.map((t) => t.id.value).toList();
+    await _logChanges(ids, 'upsert');
   }
 
-  Future<bool> updateAccountType(AccountTypesCompanion accountType) =>
-      update(accountTypes).replace(accountType);
-  Future<int> deleteAccountType(AccountTypesCompanion accountType) =>
-      delete(accountTypes).delete(accountType);
+  Future<bool> updateAccountType(AccountTypesCompanion accountType) async {
+    final result = await update(accountTypes).replace(accountType);
+    if (result) {
+      await _logChange(accountType.id.value, 'upsert');
+    }
+    return result;
+  }
+
+  Future<int> deleteAccountType(AccountTypesCompanion accountType) async {
+    final result = await delete(accountTypes).delete(accountType);
+    if (result > 0) {
+      await _logChange(accountType.id.value, 'delete');
+    }
+    return result;
+  }
+
+  Future<void> _logChange(String recordId, String action) async {
+    await into(db.syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('account_types'),
+        recordId: Value(recordId),
+        action: Value(action),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+        exported: const Value(false),
+      ),
+    );
+  }
+
+  Future<void> _logChanges(List<String> recordIds, String action) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    await batch((batch) {
+      batch.insertAll(
+        db.syncLog,
+        recordIds
+            .map(
+              (id) => SyncLogCompanion(
+                changedTableName: const Value('account_types'),
+                recordId: Value(id),
+                action: Value(action),
+                timestamp: Value(timestamp),
+                exported: const Value(false),
+              ),
+            )
+            .toList(),
+      );
+    });
+  }
 }
 
 @DriftAccessor(tables: [Accounts, Transactions, SyncLog])
@@ -2212,6 +2364,7 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     SmsPresetsDao,
     SyncLogDao,
     ConflictHistoryDao,
+    CustomDataSourcesDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -2220,7 +2373,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration {
@@ -2228,6 +2381,34 @@ class AppDatabase extends _$AppDatabase {
       onCreate: (Migrator m) async {
         await m.createAll();
         await _seedData(this);
+      },
+      onUpgrade: (Migrator m, int from, int to) async {
+        if (from < 2) {
+          // 1. Add sync columns to existing tables
+          await m.addColumn(styles, styles.modifiedAt);
+          await m.addColumn(styles, styles.deviceId);
+          await m.addColumn(styles, styles.isDeleted);
+
+          await m.addColumn(accountTypes, accountTypes.modifiedAt);
+          await m.addColumn(accountTypes, accountTypes.deviceId);
+          await m.addColumn(accountTypes, accountTypes.isDeleted);
+
+          await m.addColumn(
+            currencyDesignations,
+            currencyDesignations.modifiedAt,
+          );
+          await m.addColumn(
+            currencyDesignations,
+            currencyDesignations.deviceId,
+          );
+          await m.addColumn(
+            currencyDesignations,
+            currencyDesignations.isDeleted,
+          );
+
+          // 2. Perform ID migration to stable IDs
+          await _migrateToStableIds(this);
+        }
       },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON');
@@ -2297,6 +2478,112 @@ class AppDatabase extends _$AppDatabase {
     await db.exchangeRatesDao.insertAllExchangeRates(rates.toCompanionList());
   }
 
+  /// Migration helper to convert old UUID-based IDs to new stable IDs
+  Future<void> _migrateToStableIds(AppDatabase db) async {
+    // Disable FK checks during migration
+    await customStatement('PRAGMA foreign_keys = OFF');
+
+    try {
+      await db.transaction(() async {
+        // 1. Migrate Account Types
+        for (final type in defaultAccountTypes) {
+          final stableId = type.id.value;
+          final name = type.name.value;
+
+          // Find old record by name
+          final oldRecord = await (select(
+            accountTypes,
+          )..where((t) => t.name.equals(name))).getSingleOrNull();
+
+          if (oldRecord != null && oldRecord.id != stableId) {
+            final oldId = oldRecord.id;
+
+            // Update references in Accounts
+            await (update(accounts)
+                  ..where((a) => a.accountTypeId.equals(oldId)))
+                .write(AccountsCompanion(accountTypeId: Value(stableId)));
+
+            // Update the record itself (Delete old, insert new with stable ID)
+            await (delete(accountTypes)..where((t) => t.id.equals(oldId))).go();
+            await into(accountTypes).insert(type, mode: InsertMode.replace);
+          } else if (oldRecord == null) {
+            // Record missing? Insert it.
+            await into(accountTypes).insert(type, mode: InsertMode.replace);
+          }
+        }
+
+        // 2. Migrate Currency Designations
+        for (final des in defaultCurrencyDesignations) {
+          final stableId = des.id.value;
+          final value = des.value.value;
+          final currencyCode = des.currencyCode.value;
+
+          // Find old record by value and currencyCode
+          final oldRecord =
+              await (select(currencyDesignations)
+                    ..where((t) => t.value.equals(value))
+                    ..where((t) => t.currencyCode.equals(currencyCode)))
+                  .getSingleOrNull();
+
+          if (oldRecord != null && oldRecord.id != stableId) {
+            final oldId = oldRecord.id;
+
+            // Update references in Accounts
+            await (update(
+              accounts,
+            )..where((a) => a.currencyDesignationId.equals(oldId))).write(
+              AccountsCompanion(currencyDesignationId: Value(stableId)),
+            );
+
+            // Update the record itself
+            await (delete(
+              currencyDesignations,
+            )..where((t) => t.id.equals(oldId))).go();
+            await into(
+              currencyDesignations,
+            ).insert(des, mode: InsertMode.replace);
+          } else if (oldRecord == null) {
+            await into(
+              currencyDesignations,
+            ).insert(des, mode: InsertMode.replace);
+          }
+        }
+
+        // 3. Migrate Styles
+        for (final style in defaultStyles) {
+          final stableId = style.id.value;
+          final name = style.name.value;
+
+          // Find old record by name
+          final oldRecord = await (select(
+            styles,
+          )..where((t) => t.name.equals(name))).getSingleOrNull();
+
+          if (oldRecord != null && oldRecord.id != stableId) {
+            final oldId = oldRecord.id;
+
+            // Update references in Accounts
+            await (update(accounts)..where((a) => a.styleId.equals(oldId)))
+                .write(AccountsCompanion(styleId: Value(stableId)));
+
+            // Update references in Categories
+            await (update(categories)..where((c) => c.styleId.equals(oldId)))
+                .write(CategoriesCompanion(styleId: Value(stableId)));
+
+            // Update the record itself
+            await (delete(styles)..where((t) => t.id.equals(oldId))).go();
+            await into(styles).insert(style, mode: InsertMode.replace);
+          } else if (oldRecord == null) {
+            await into(styles).insert(style, mode: InsertMode.replace);
+          }
+        }
+      });
+    } finally {
+      // Re-enable FK checks
+      await customStatement('PRAGMA foreign_keys = ON');
+    }
+  }
+
   Future<void> clearAllData({bool preserveStaticData = true}) async {
     // Disable FK checks during clear and reseed
     await customStatement('PRAGMA foreign_keys = OFF');
@@ -2330,6 +2617,102 @@ class AppDatabase extends _$AppDatabase {
 
     // Re-enable FK checks
     await customStatement('PRAGMA foreign_keys = ON');
+  }
+}
+
+@DriftAccessor(tables: [CustomDataSources, SyncLog])
+class CustomDataSourcesDao extends DatabaseAccessor<AppDatabase>
+    with _$CustomDataSourcesDaoMixin {
+  CustomDataSourcesDao(super.db);
+
+  Future<List<CustomDataSource>> getAllDataSources() =>
+      select(customDataSources).get();
+
+  Future<CustomDataSource?> getDataSourceById(String id) => (select(
+    customDataSources,
+  )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+
+  Future<List<CustomDataSource>> getDataSourcesByIds(List<String> ids) async {
+    final query = select(customDataSources)..where((t) => t.id.isIn(ids));
+    return query.get();
+  }
+
+  Future<void> insertDataSource(CustomDataSourcesCompanion dataSource) async {
+    final toInsert = dataSource.id.present
+        ? dataSource
+        : dataSource.copyWith(id: Value(_uuid.v4()));
+    await into(customDataSources).insert(toInsert);
+    await _logChange(toInsert.id.value, 'upsert');
+  }
+
+  Future<void> insertAllDataSources(
+    List<CustomDataSourcesCompanion> dataSources,
+  ) async {
+    final List<CustomDataSourcesCompanion> dataSourcesWithIds = dataSources.map(
+      (d) {
+        if (d.id.present) return d;
+        return d.copyWith(id: Value(_uuid.v4()));
+      },
+    ).toList();
+
+    await batch((batch) {
+      batch.insertAll(
+        customDataSources,
+        dataSourcesWithIds,
+        mode: InsertMode.insertOrReplace,
+      );
+    });
+
+    final ids = dataSourcesWithIds.map((d) => d.id.value).toList();
+    await _logChanges(ids, 'upsert');
+  }
+
+  Future<bool> updateDataSource(CustomDataSourcesCompanion dataSource) async {
+    final result = await update(customDataSources).replace(dataSource);
+    if (result) {
+      await _logChange(dataSource.id.value, 'upsert');
+    }
+    return result;
+  }
+
+  Future<int> deleteDataSource(CustomDataSourcesCompanion dataSource) async {
+    final result = await delete(customDataSources).delete(dataSource);
+    if (result > 0) {
+      await _logChange(dataSource.id.value, 'delete');
+    }
+    return result;
+  }
+
+  Future<void> _logChange(String recordId, String action) async {
+    await into(db.syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('custom_data_sources'),
+        recordId: Value(recordId),
+        action: Value(action),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+        exported: const Value(false),
+      ),
+    );
+  }
+
+  Future<void> _logChanges(List<String> recordIds, String action) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    await batch((batch) {
+      batch.insertAll(
+        db.syncLog,
+        recordIds
+            .map(
+              (id) => SyncLogCompanion(
+                changedTableName: const Value('custom_data_sources'),
+                recordId: Value(id),
+                action: Value(action),
+                timestamp: Value(timestamp),
+                exported: const Value(false),
+              ),
+            )
+            .toList(),
+      );
+    });
   }
 }
 

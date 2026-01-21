@@ -377,10 +377,14 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
           .getAllCurrencyDesignations();
       final allAccountTypes = await _accountRepository.getAccountTypes();
 
-      // Fallback to the first available type if 'checking' isn't found, avoiding '1' which is invalid.
+      // Use stable IDs for checking account type, fallback to 'default_cash'
       final defaultAccountType = allAccountTypes.firstWhere(
-        (t) => t.name.toLowerCase().contains('checking'),
-        orElse: () => allAccountTypes.first,
+        (t) =>
+            t.id == 'default_card' || t.name.toLowerCase().contains('checking'),
+        orElse: () => allAccountTypes.firstWhere(
+          (t) => t.id == 'default_cash',
+          orElse: () => allAccountTypes.first,
+        ),
       );
 
       for (final name in newAccountNames) {
@@ -454,6 +458,9 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
           // HERE IS THE CHANGE: Save as "Salary (Income)"
           name: _getCategoryDisplayName(nameDisplay, typeString),
           type: type,
+          styleId: type == CategoryType.income
+              ? 'style_other_income'
+              : 'style_other_expense',
         );
       }).toList();
 
@@ -481,6 +488,7 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
         final newCategory = Category(
           name: AppConstants.systemTransferCategoryName,
           type: CategoryType.transfer,
+          styleId: 'style_transfer',
         );
         await _categoryRepository.addCategory(newCategory);
         allCategories = await _categoryRepository.getCategories(
