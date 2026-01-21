@@ -9,7 +9,7 @@ class SmsPresetDefaults {
   static SmsPreset _altaBankPreset() {
     return SmsPreset(
       id: 'alta_bank',
-      name: 'Alta Bank',
+      name: 'Alta_Bank',
       senderFilter: 'ALTA',
       isBuiltIn: true,
       isEnabled: false,

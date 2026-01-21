@@ -912,4 +912,13 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get iconLabel => 'آئیکن';
+
+  @override
+  String get languageLabel => 'زبان';
+
+  @override
+  String get systemDefaultLabel => 'سسٹم ڈیفالٹ';
+
+  @override
+  String get selectLanguageTitle => 'زبان منتخب کریں';
 }

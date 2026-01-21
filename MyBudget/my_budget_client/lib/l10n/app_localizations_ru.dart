@@ -912,4 +912,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get iconLabel => 'Иконка';
+
+  @override
+  String get languageLabel => 'Язык';
+
+  @override
+  String get systemDefaultLabel => 'Системный';
+
+  @override
+  String get selectLanguageTitle => 'Выберите язык';
 }

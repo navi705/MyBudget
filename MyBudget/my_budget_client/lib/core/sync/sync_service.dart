@@ -580,30 +580,36 @@ class SyncService {
   ) async {
     switch (tableId) {
       case SyncTableId.transactions:
-        await _db.transactionsDao.insertTransaction(_transactionFromJson(data));
+        await _db.transactionsDao.insertSyncedTransaction(
+          _transactionFromJson(data),
+        );
         break;
       case SyncTableId.accounts:
-        await _db.accountsDao.insertAccount(_accountFromJson(data));
+        await _db.accountsDao.insertSyncedAccount(_accountFromJson(data));
         break;
       case SyncTableId.categories:
-        await _db.categoriesDao.insertCategory(_categoryFromJson(data));
+        await _db.categoriesDao.insertSyncedCategory(_categoryFromJson(data));
         break;
       case SyncTableId.styles:
-        await _db.stylesDao.insertStyle(_styleFromJson(data));
+        await _db.stylesDao.insertSyncedStyle(_styleFromJson(data));
         break;
       case SyncTableId.assetEntries:
-        await _db.assetEntriesDao.addAssetData(_assetEntryFromJson(data));
+        await _db.assetEntriesDao.insertSyncedAssetEntry(
+          _assetEntryFromJson(data),
+        );
         break;
       case SyncTableId.accountTypes:
-        await _db.accountTypesDao.insertAccountType(_accountTypeFromJson(data));
+        await _db.accountTypesDao.insertSyncedAccountType(
+          _accountTypeFromJson(data),
+        );
         break;
       case SyncTableId.currencyDesignations:
-        await _db.currencyDesignationsDao.insertDesignation(
+        await _db.currencyDesignationsDao.insertSyncedDesignation(
           _currencyDesignationFromJson(data),
         );
         break;
       case SyncTableId.customDataSources:
-        await _db.customDataSourcesDao.insertDataSource(
+        await _db.customDataSourcesDao.insertSyncedCustomDataSource(
           _customDataSourceFromJson(data),
         );
         break;
@@ -618,30 +624,36 @@ class SyncService {
   ) async {
     switch (tableId) {
       case SyncTableId.transactions:
-        await _db.transactionsDao.updateTransaction(_transactionFromJson(data));
+        await _db.transactionsDao.insertSyncedTransaction(
+          _transactionFromJson(data),
+        );
         break;
       case SyncTableId.accounts:
-        await _db.accountsDao.updateAccount(_accountFromJson(data));
+        await _db.accountsDao.insertSyncedAccount(_accountFromJson(data));
         break;
       case SyncTableId.categories:
-        await _db.categoriesDao.updateCategory(_categoryFromJson(data));
+        await _db.categoriesDao.insertSyncedCategory(_categoryFromJson(data));
         break;
       case SyncTableId.styles:
-        await _db.stylesDao.updateStyle(_styleFromJson(data));
+        await _db.stylesDao.insertSyncedStyle(_styleFromJson(data));
         break;
       case SyncTableId.assetEntries:
-        await _db.assetEntriesDao.updateAssetData(_assetEntryFromJson(data));
+        await _db.assetEntriesDao.insertSyncedAssetEntry(
+          _assetEntryFromJson(data),
+        );
         break;
       case SyncTableId.accountTypes:
-        await _db.accountTypesDao.updateAccountType(_accountTypeFromJson(data));
+        await _db.accountTypesDao.insertSyncedAccountType(
+          _accountTypeFromJson(data),
+        );
         break;
       case SyncTableId.currencyDesignations:
-        await _db.currencyDesignationsDao.updateDesignation(
+        await _db.currencyDesignationsDao.insertSyncedDesignation(
           _currencyDesignationFromJson(data),
         );
         break;
       case SyncTableId.customDataSources:
-        await _db.customDataSourcesDao.updateDataSource(
+        await _db.customDataSourcesDao.insertSyncedCustomDataSource(
           _customDataSourceFromJson(data),
         );
         break;

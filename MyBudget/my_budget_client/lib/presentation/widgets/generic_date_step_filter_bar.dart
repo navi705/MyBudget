@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 class GenericDateStepFilterBar extends StatelessWidget
     implements PreferredSizeWidget {
@@ -37,7 +38,7 @@ class GenericDateStepFilterBar extends StatelessWidget
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
-  String _formatDate() {
+  String _formatDate(BuildContext context) {
     if (filterMode == FilterMode.range) {
       if (dateRange == null) return 'Select Range';
       final start = DateFormat('dd.MM.yyyy').format(dateRange!.start);
@@ -49,7 +50,10 @@ class GenericDateStepFilterBar extends StatelessWidget
       case DateStep.day:
         return DateFormat('dd.MM.yyyy').format(currentDate);
       case DateStep.month:
-        return DateFormat('MMMM yyyy').format(currentDate);
+        return DateFormat(
+          'MMMM yyyy',
+          Localizations.localeOf(context).toString(),
+        ).format(currentDate);
       case DateStep.year:
         return DateFormat('yyyy').format(currentDate);
     }
@@ -65,7 +69,7 @@ class GenericDateStepFilterBar extends StatelessWidget
         children: [
           // Total Count Area
           Text(
-            'Total: $totalCount',
+            context.l10n.totalCountLabel(totalCount.toString()),
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -101,7 +105,7 @@ class GenericDateStepFilterBar extends StatelessWidget
                       vertical: 8.0,
                     ),
                     child: Text(
-                      _formatDate(),
+                      _formatDate(context),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 18,

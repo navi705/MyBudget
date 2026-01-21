@@ -1,6 +1,8 @@
+import 'package:collection/collection.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/core/utils/sms_parser.dart';
+import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/sms_preset.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
@@ -31,8 +33,8 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     on<DeleteSmsPreset>(_onDeletePreset);
     on<TestSmsRule>(_onTestRule);
     on<ImportSmsMessages>(_onImportMessages);
+    on<ImportSmsWithPreset>(_onImportWithPreset);
     on<RequestSmsPermission>(_onRequestPermission);
-    on<CreateTransactionsFromSms>(_onCreateTransactions);
   }
 
   Future<void> _onLoadPresets(
@@ -96,23 +98,84 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
       return;
     }
 
-    final senderFilters = enabledPresets.map((p) => p.senderFilter).toList();
-    final messages = await _smsRepository.getSmsMessages(
+    final int created = await _processImport(
+      presets: enabledPresets,
       since: event.since,
+      until: event.until,
+      emit: emit,
+    );
+
+    emit(
+      state.copyWith(
+        isImporting: false,
+        createdTransactionsCount: created,
+        lastSyncTimestamp: DateTime.now(),
+      ),
+    );
+  }
+
+  Future<void> _onImportWithPreset(
+    ImportSmsWithPreset event,
+    Emitter<SmsState> emit,
+  ) async {
+    emit(state.copyWith(isImporting: true, importProgress: 0));
+
+    final preset = state.presets.firstWhereOrNull(
+      (p) => p.id == event.presetId,
+    );
+    if (preset == null) {
+      emit(state.copyWith(isImporting: false, importError: 'Preset not found'));
+      return;
+    }
+
+    final int created = await _processImport(
+      presets: [preset],
+      since: event.since,
+      until: event.until,
+      emit: emit,
+    );
+
+    emit(
+      state.copyWith(
+        isImporting: false,
+        createdTransactionsCount: created,
+        lastSyncTimestamp: DateTime.now(),
+      ),
+    );
+  }
+
+  Future<int> _processImport({
+    required List<SmsPreset> presets,
+    required Emitter<SmsState> emit,
+    DateTime? since,
+    DateTime? until,
+  }) async {
+    final senderFilters = presets.map((p) => p.senderFilter).toList();
+    var messages = await _smsRepository.getSmsMessages(
+      since: since,
       senderFilters: senderFilters,
     );
 
-    final parsed = <SmsParseResult>[];
+    if (until != null) {
+      messages = messages.where((msg) => msg.date.isBefore(until)).toList();
+    }
+
+    if (messages.isEmpty) return 0;
+
+    int created = 0;
+    final currencies = await _currencyRepository.getCurrencies();
 
     for (var i = 0; i < messages.length; i++) {
       final msg = messages[i];
-      for (final preset in enabledPresets) {
+      for (final preset in presets) {
         if (msg.sender.toLowerCase().contains(
           preset.senderFilter.toLowerCase(),
         )) {
           final result = _parser.parse(msg.body, preset);
-          if (result.isMatch) {
-            parsed.add(result);
+          if (result.isMatch && result.amount != null) {
+            // Immediate creation
+            await _createTransactionFromResult(result, preset, currencies);
+            created++;
             break;
           }
         }
@@ -121,58 +184,44 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     }
 
     await _smsRepository.setLastSyncTimestamp(DateTime.now());
-
-    emit(
-      state.copyWith(
-        isImporting: false,
-        importedResults: parsed,
-        lastSyncTimestamp: DateTime.now(),
-      ),
-    );
+    return created;
   }
 
-  Future<void> _onCreateTransactions(
-    CreateTransactionsFromSms event,
-    Emitter<SmsState> emit,
+  Future<void> _createTransactionFromResult(
+    SmsParseResult result,
+    SmsPreset preset,
+    List<Currency> currencies,
   ) async {
-    emit(state.copyWith(isImporting: true));
-
-    int created = 0;
-    final currencies = await _currencyRepository.getCurrencies();
-
-    for (final result in event.results) {
-      if (!result.isMatch || result.amount == null) continue;
-
-      // Find currency by code
-      String? currencyCode = result.currencyCode;
-      if (currencyCode != null) {
-        final found = currencies.any(
-          (c) => c.code.toUpperCase() == currencyCode!.toUpperCase(),
-        );
-        if (!found) {
-          currencyCode = null; // Use default if not found
-        }
-      }
-
-      // Amount is positive for income, negative for expense
-      final isIncome = result.type == TransactionType.income;
-      final amount = isIncome ? result.amount!.abs() : -result.amount!.abs();
-
-      final transaction = Transaction(
-        id: const Uuid().v4(),
-        amount: amount,
-        currencyCode: currencyCode ?? 'RSD',
-        date: result.date ?? DateTime.now(),
-        description: 'Imported from SMS',
-        categoryId: event.defaultCategoryId ?? 'other',
-        accountId: event.defaultAccountId ?? 'default',
+    // Find currency by code
+    String? currencyCode = result.currencyCode;
+    if (currencyCode != null) {
+      final found = currencies.any(
+        (c) => c.code.toUpperCase() == currencyCode!.toUpperCase(),
       );
-
-      await _transactionRepository.addTransaction(transaction);
-      created++;
+      if (!found) {
+        currencyCode = null; // Use default
+      }
     }
 
-    emit(state.copyWith(isImporting: false, createdTransactionsCount: created));
+    final isIncome = result.type == TransactionType.income;
+    final amount = isIncome ? result.amount!.abs() : -result.amount!.abs();
+
+    final rawDescription = result.rawMessage ?? 'Imported from SMS';
+    final description = rawDescription.length > 100
+        ? rawDescription.substring(0, 100)
+        : rawDescription;
+
+    final transaction = Transaction(
+      id: const Uuid().v4(),
+      amount: amount,
+      currencyCode: currencyCode ?? 'RSD',
+      date: result.date ?? DateTime.now(),
+      description: description,
+      categoryId: preset.defaultCategoryId ?? 'other',
+      accountId: preset.defaultAccountId ?? 'default',
+    );
+
+    await _transactionRepository.addTransaction(transaction);
   }
 
   Future<void> _onRequestPermission(

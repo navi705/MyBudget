@@ -912,4 +912,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get iconLabel => '图标';
+
+  @override
+  String get languageLabel => '语言';
+
+  @override
+  String get systemDefaultLabel => '系统默认';
+
+  @override
+  String get selectLanguageTitle => '选择语言';
 }

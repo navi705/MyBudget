@@ -273,5 +273,8 @@
     "noneLabel": "کوئی نہیں",
     "accountTypeLabel": "اکاؤنٹ کی قسم",
     "formValidationPleaseSelectAccountType": "براہ کرم اکاؤنٹ کی قسم منتخب کریں",
-    "iconLabel": "آئیکن"
+    "iconLabel": "آئیکن",
+    "languageLabel": "زبان",
+    "systemDefaultLabel": "سسٹم ڈیفالٹ",
+    "selectLanguageTitle": "زبان منتخب کریں"
 }

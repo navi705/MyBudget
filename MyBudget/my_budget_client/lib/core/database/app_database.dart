@@ -427,20 +427,39 @@ class CurrencyDesignationsDao extends DatabaseAccessor<AppDatabase>
   Future<void> insertDesignation(
     CurrencyDesignationsCompanion designation,
   ) async {
-    final toInsert = designation.id.present
+    var toInsert = designation.id.present
         ? designation
         : designation.copyWith(id: Value(_uuid.v4()));
+
+    toInsert = toInsert.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+
     await into(currencyDesignations).insert(toInsert);
     await _logChange(toInsert.id.value, 'upsert');
   }
+
+  Future<void> insertSyncedDesignation(
+    CurrencyDesignationsCompanion designation,
+  ) => into(
+    currencyDesignations,
+  ).insert(designation, mode: InsertMode.insertOrReplace);
 
   Future<void> insertAllCurrencyDesignations(
     List<CurrencyDesignationsCompanion> designations,
   ) async {
     final List<CurrencyDesignationsCompanion> designationsWithIds = designations
         .map((d) {
-          if (d.id.present) return d;
-          return d.copyWith(id: Value(_uuid.v4()));
+          final now = DateTime.now().millisecondsSinceEpoch;
+          var companion = d;
+          if (!companion.id.present) {
+            companion = companion.copyWith(id: Value(_uuid.v4()));
+          }
+          if (!companion.modifiedAt.present ||
+              companion.modifiedAt.value == 0) {
+            companion = companion.copyWith(modifiedAt: Value(now));
+          }
+          return companion;
         })
         .toList();
 
@@ -459,7 +478,15 @@ class CurrencyDesignationsDao extends DatabaseAccessor<AppDatabase>
   Future<bool> updateDesignation(
     CurrencyDesignationsCompanion designation,
   ) async {
-    final result = await update(currencyDesignations).replace(designation);
+    final updatedDesignation = designation.copyWith(
+      modifiedAt:
+          (designation.modifiedAt.present && designation.modifiedAt.value > 0)
+          ? designation.modifiedAt
+          : Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    final result = await update(
+      currencyDesignations,
+    ).replace(updatedDesignation);
     if (result) {
       await _logChange(designation.id.value, 'upsert');
     }
@@ -571,17 +598,32 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   Stream<List<Category>> watchAllCategories() => select(categories).watch();
 
   Future<void> insertCategory(CategoriesCompanion category) async {
-    final toInsert = category.id.present
+    var toInsert = category.id.present
         ? category
         : category.copyWith(id: Value(_uuid.v4()));
+
+    toInsert = toInsert.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+
     await into(categories).insert(toInsert);
     await _logChange(toInsert.id.value, 'upsert');
   }
 
+  Future<void> insertSyncedCategory(CategoriesCompanion category) =>
+      into(categories).insert(category, mode: InsertMode.insertOrReplace);
+
   Future<void> insertAllCategories(List<CategoriesCompanion> categories) async {
     final List<CategoriesCompanion> categoriesWithIds = categories.map((c) {
-      if (c.id.present) return c;
-      return c.copyWith(id: Value(_uuid.v4()));
+      final now = DateTime.now().millisecondsSinceEpoch;
+      var companion = c;
+      if (!companion.id.present) {
+        companion = companion.copyWith(id: Value(_uuid.v4()));
+      }
+      if (!companion.modifiedAt.present || companion.modifiedAt.value == 0) {
+        companion = companion.copyWith(modifiedAt: Value(now));
+      }
+      return companion;
     }).toList();
 
     await batch((batch) {
@@ -618,7 +660,12 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<bool> updateCategory(CategoriesCompanion category) async {
-    final result = await update(categories).replace(category);
+    final updatedCategory = category.copyWith(
+      modifiedAt: (category.modifiedAt.present && category.modifiedAt.value > 0)
+          ? category.modifiedAt
+          : Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    final result = await update(categories).replace(updatedCategory);
     await _logChange(category.id.value, 'upsert');
     return result;
   }
@@ -787,17 +834,32 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
   }
 
   Future<void> insertStyle(StylesCompanion style) async {
-    final toInsert = style.id.present
+    var toInsert = style.id.present
         ? style
         : style.copyWith(id: Value(_uuid.v4()));
+
+    toInsert = toInsert.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+
     await into(styles).insert(toInsert);
     await _logChange(toInsert.id.value, 'upsert');
   }
 
+  Future<void> insertSyncedStyle(StylesCompanion style) =>
+      into(styles).insert(style, mode: InsertMode.insertOrReplace);
+
   Future<void> insertAllStyles(List<StylesCompanion> styles) async {
     final List<StylesCompanion> stylesWithIds = styles.map((s) {
-      if (s.id.present) return s;
-      return s.copyWith(id: Value(_uuid.v4()));
+      final now = DateTime.now().millisecondsSinceEpoch;
+      var companion = s;
+      if (!companion.id.present) {
+        companion = companion.copyWith(id: Value(_uuid.v4()));
+      }
+      if (!companion.modifiedAt.present || companion.modifiedAt.value == 0) {
+        companion = companion.copyWith(modifiedAt: Value(now));
+      }
+      return companion;
     }).toList();
 
     await batch((batch) {
@@ -833,7 +895,12 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
   }
 
   Future<bool> updateStyle(StylesCompanion style) async {
-    final result = await update(styles).replace(style);
+    final updatedStyle = style.copyWith(
+      modifiedAt: (style.modifiedAt.present && style.modifiedAt.value > 0)
+          ? style.modifiedAt
+          : Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    final result = await update(styles).replace(updatedStyle);
     await _logChange(style.id.value, 'upsert');
     return result;
   }
@@ -877,12 +944,20 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> insertAccountType(AccountTypesCompanion accountType) async {
-    final toInsert = accountType.id.present
+    var toInsert = accountType.id.present
         ? accountType
         : accountType.copyWith(id: Value(_uuid.v4()));
+
+    toInsert = toInsert.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+
     await into(accountTypes).insert(toInsert);
     await _logChange(toInsert.id.value, 'upsert');
   }
+
+  Future<void> insertSyncedAccountType(AccountTypesCompanion accountType) =>
+      into(accountTypes).insert(accountType, mode: InsertMode.insertOrReplace);
 
   Future<void> insertAllAccountTypes(
     List<AccountTypesCompanion> accountTypes,
@@ -890,8 +965,12 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
     final List<AccountTypesCompanion> accountTypesWithIds = accountTypes.map((
       t,
     ) {
-      if (t.id.present) return t;
-      return t.copyWith(id: Value(_uuid.v4()));
+      final now = DateTime.now().millisecondsSinceEpoch;
+      var companion = t;
+      if (!companion.id.present) {
+        companion = companion.copyWith(id: Value(_uuid.v4()));
+      }
+      return companion.copyWith(modifiedAt: Value(now));
     }).toList();
 
     await batch((batch) {
@@ -907,7 +986,10 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<bool> updateAccountType(AccountTypesCompanion accountType) async {
-    final result = await update(accountTypes).replace(accountType);
+    final updatedAccountType = accountType.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    final result = await update(accountTypes).replace(updatedAccountType);
     if (result) {
       await _logChange(accountType.id.value, 'upsert');
     }
@@ -973,18 +1055,30 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   Stream<List<DbAccount>> watchAllAccounts() => select(accounts).watch();
 
   Future<void> insertAccount(AccountsCompanion account) async {
-    final toInsert = account.id.present
+    var toInsert = account.id.present
         ? account
         : account.copyWith(id: Value(_uuid.v4()));
+
+    toInsert = toInsert.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+
     await into(accounts).insert(toInsert);
     // Log change for sync
     await _logChange(toInsert.id.value, 'upsert');
   }
 
+  Future<void> insertSyncedAccount(AccountsCompanion account) =>
+      into(accounts).insert(account, mode: InsertMode.insertOrReplace);
+
   Future<void> insertAllAccounts(List<AccountsCompanion> accounts) async {
     final List<AccountsCompanion> accountsWithIds = accounts.map((a) {
-      if (a.id.present) return a;
-      return a.copyWith(id: Value(_uuid.v4()));
+      final now = DateTime.now().millisecondsSinceEpoch;
+      var companion = a;
+      if (!companion.id.present) {
+        companion = companion.copyWith(id: Value(_uuid.v4()));
+      }
+      return companion.copyWith(modifiedAt: Value(now));
     }).toList();
 
     await batch((batch) {
@@ -1019,11 +1113,18 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
-  Future<void> restoreAccount(AccountsCompanion account) =>
-      into(accounts).insert(account, mode: InsertMode.insertOrReplace);
+  Future<void> restoreAccount(AccountsCompanion account) {
+    final toInsert = account.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    return into(accounts).insert(toInsert, mode: InsertMode.insertOrReplace);
+  }
 
   Future<bool> updateAccount(AccountsCompanion account) async {
-    final result = await update(accounts).replace(account);
+    final updatedAccount = account.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    final result = await update(accounts).replace(updatedAccount);
     // Log change for sync
     await _logChange(account.id.value, 'upsert');
     return result;
@@ -1050,9 +1151,10 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> adjustBalance(String accountId, double amount) {
+    final now = DateTime.now().millisecondsSinceEpoch;
     return customUpdate(
-      'UPDATE accounts SET balance = balance + ? WHERE id = ?',
-      variables: [Variable(amount), Variable(accountId)],
+      'UPDATE accounts SET balance = balance + ?, modified_at = ? WHERE id = ?',
+      variables: [Variable(amount), Variable(now), Variable(accountId)],
       updates: {accounts},
     );
   }
@@ -1075,6 +1177,9 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
 
     // Build IN clause variables
     final idsInClause = List.filled(accountIds.length, '?').join(', ');
+    final now = DateTime.now().millisecondsSinceEpoch;
+    variables.add(Variable(now));
+
     for (final accountId in accountIds) {
       variables.add(Variable(accountId));
     }
@@ -1082,7 +1187,8 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     final sql =
         '''
       UPDATE accounts
-      SET balance = balance + (CASE id ${caseClauses.join(' ')} END)
+      SET balance = balance + (CASE id ${caseClauses.join(' ')} END),
+          modified_at = ?
       WHERE id IN ($idsInClause)
     ''';
 
@@ -1226,12 +1332,20 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       select(transactions).watch();
 
   Future<void> insertTransaction(TransactionsCompanion transaction) async {
-    final toInsert = transaction.id.present
+    var toInsert = transaction.id.present
         ? transaction
         : transaction.copyWith(id: Value(_uuid.v4()));
+
+    toInsert = toInsert.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+
     await into(transactions).insert(toInsert);
     await _logChange(toInsert.id.value, 'upsert');
   }
+
+  Future<void> insertSyncedTransaction(TransactionsCompanion transaction) =>
+      into(transactions).insert(transaction, mode: InsertMode.insertOrReplace);
 
   Future<void> insertAllTransactions(
     List<TransactionsCompanion> transactions,
@@ -1239,8 +1353,12 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     final List<TransactionsCompanion> transactionsWithIds = transactions.map((
       t,
     ) {
-      if (t.id.present) return t;
-      return t.copyWith(id: Value(_uuid.v4()));
+      final now = DateTime.now().millisecondsSinceEpoch;
+      var companion = t;
+      if (!companion.id.present) {
+        companion = companion.copyWith(id: Value(_uuid.v4()));
+      }
+      return companion.copyWith(modifiedAt: Value(now));
     }).toList();
 
     await batch((batch) {
@@ -1277,7 +1395,10 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<bool> updateTransaction(TransactionsCompanion transaction) async {
-    final result = await update(transactions).replace(transaction);
+    final updatedTransaction = transaction.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    final result = await update(transactions).replace(updatedTransaction);
     await _logChange(transaction.id.value, 'upsert');
     return result;
   }
@@ -1770,15 +1891,33 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> addExchangeRate(ExchangeRatesCompanion rate) {
     debugPrint('DAO: Adding exchange rate with preset: ${rate.preset.value}');
-    return into(exchangeRates).insert(rate);
+    final toInsert = rate.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    return into(exchangeRates).insert(toInsert);
   }
 
-  Future<void> updateExchangeRate(ExchangeRatesCompanion rate) =>
-      update(exchangeRates).replace(rate);
+  Future<void> insertSyncedExchangeRate(ExchangeRatesCompanion rate) =>
+      into(exchangeRates).insert(rate, mode: InsertMode.insertOrReplace);
+
+  Future<void> updateExchangeRate(ExchangeRatesCompanion rate) {
+    final updatedRate = rate.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    return update(exchangeRates).replace(updatedRate);
+  }
 
   Future<void> insertAllExchangeRates(List<ExchangeRatesCompanion> rates) {
     return batch((batch) {
-      batch.insertAll(exchangeRates, rates, mode: InsertMode.insertOrReplace);
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final ratesWithTimestamp = rates
+          .map((r) => r.copyWith(modifiedAt: Value(now)))
+          .toList();
+      batch.insertAll(
+        exchangeRates,
+        ratesWithTimestamp,
+        mode: InsertMode.insertOrReplace,
+      );
     });
   }
 
@@ -1822,6 +1961,7 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
             date: Value(rate.date),
             preset: Value(newPreset),
             rate: Value(rate.rate),
+            modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
           ),
           mode: InsertMode.replace,
         );
@@ -1844,27 +1984,66 @@ class CustomThemesDao extends DatabaseAccessor<AppDatabase>
     customThemes,
   )..where((tbl) => tbl.isActive.equals(true))).getSingleOrNull();
 
-  Future<void> insertTheme(CustomThemesCompanion theme) =>
+  Future<void> insertTheme(CustomThemesCompanion theme) {
+    var toInsert = theme.id.present
+        ? theme
+        : theme.copyWith(id: Value(_uuid.v4()));
+
+    toInsert = toInsert.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    return into(
+      customThemes,
+    ).insert(toInsert, mode: InsertMode.insertOrReplace);
+  }
+
+  Future<void> insertSyncedTheme(CustomThemesCompanion theme) =>
       into(customThemes).insert(theme, mode: InsertMode.insertOrReplace);
 
   Future<void> insertAllThemes(List<CustomThemesCompanion> themes) {
     return batch((batch) {
-      batch.insertAll(customThemes, themes, mode: InsertMode.insertOrReplace);
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final themesWithIds = themes.map((t) {
+        var companion = t;
+        if (!companion.id.present) {
+          companion = companion.copyWith(id: Value(_uuid.v4()));
+        }
+        return companion.copyWith(modifiedAt: Value(now));
+      }).toList();
+      batch.insertAll(
+        customThemes,
+        themesWithIds,
+        mode: InsertMode.insertOrReplace,
+      );
     });
   }
 
-  Future<bool> updateTheme(CustomThemesCompanion theme) =>
-      update(customThemes).replace(theme);
+  Future<bool> updateTheme(CustomThemesCompanion theme) {
+    final updatedTheme = theme.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    return update(customThemes).replace(updatedTheme);
+  }
 
   Future<int> deleteTheme(String id) =>
       (delete(customThemes)..where((tbl) => tbl.id.equals(id))).go();
 
   Future<void> setActiveTheme(String id) {
     return transaction(() async {
-      await (update(customThemes)..where((tbl) => tbl.isActive.equals(true)))
-          .write(const CustomThemesCompanion(isActive: Value(false)));
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await (update(
+        customThemes,
+      )..where((tbl) => tbl.isActive.equals(true))).write(
+        CustomThemesCompanion(
+          isActive: const Value(false),
+          modifiedAt: Value(now),
+        ),
+      );
       await (update(customThemes)..where((tbl) => tbl.id.equals(id))).write(
-        const CustomThemesCompanion(isActive: Value(true)),
+        CustomThemesCompanion(
+          isActive: const Value(true),
+          modifiedAt: Value(now),
+        ),
       );
     });
   }
@@ -1938,7 +2117,16 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
     return query.watch();
   }
 
-  Future<void> insertInflationRate(InflationRatesCompanion rate) =>
+  Future<void> insertInflationRate(InflationRatesCompanion rate) {
+    final toInsert = rate.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    return into(
+      inflationRates,
+    ).insert(toInsert, mode: InsertMode.insertOrReplace);
+  }
+
+  Future<void> insertSyncedInflationRate(InflationRatesCompanion rate) =>
       into(inflationRates).insert(rate, mode: InsertMode.insertOrReplace);
 
   Future<void> deleteInflationRate(DateTime date, String? country, int preset) {
@@ -1953,8 +2141,12 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
         .go();
   }
 
-  Future<bool> updateInflationRate(InflationRatesCompanion rate) =>
-      update(inflationRates).replace(rate);
+  Future<bool> updateInflationRate(InflationRatesCompanion rate) {
+    final updatedRate = rate.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    return update(inflationRates).replace(updatedRate);
+  }
 
   Future<void> deleteInflationRates(List<InflationRateDomain> rates) async {
     await batch((batch) {
@@ -2226,15 +2418,26 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> addAssetData(AssetEntriesCompanion data) async {
-    final toInsert = data.id.present
+    var toInsert = data.id.present
         ? data
         : data.copyWith(id: Value(_uuid.v4()));
+
+    toInsert = toInsert.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+
     await into(assetEntries).insert(toInsert);
     await _logChange(toInsert.id.value, 'upsert');
   }
 
+  Future<void> insertSyncedAssetEntry(AssetEntriesCompanion entry) =>
+      into(assetEntries).insert(entry, mode: InsertMode.insertOrReplace);
+
   Future<void> updateAssetData(AssetEntriesCompanion data) async {
-    await update(assetEntries).replace(data);
+    final updatedData = data.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    await update(assetEntries).replace(updatedData);
     await _logChange(data.id.value, 'upsert');
   }
 
@@ -2412,6 +2615,13 @@ class AppDatabase extends _$AppDatabase {
       },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON');
+
+        // Repair corrupted modifiedAt columns (fix for previous batchUpdateBalances bug)
+        // Reset to current time to ensure they are treated as valid updates
+        final now = DateTime.now().millisecondsSinceEpoch;
+        await customStatement(
+          "UPDATE accounts SET modified_at = $now WHERE typeof(modified_at) = 'text'",
+        );
       },
     );
   }
@@ -2638,12 +2848,23 @@ class CustomDataSourcesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> insertDataSource(CustomDataSourcesCompanion dataSource) async {
-    final toInsert = dataSource.id.present
+    var toInsert = dataSource.id.present
         ? dataSource
         : dataSource.copyWith(id: Value(_uuid.v4()));
+
+    toInsert = toInsert.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+
     await into(customDataSources).insert(toInsert);
     await _logChange(toInsert.id.value, 'upsert');
   }
+
+  Future<void> insertSyncedCustomDataSource(
+    CustomDataSourcesCompanion dataSource,
+  ) => into(
+    customDataSources,
+  ).insert(dataSource, mode: InsertMode.insertOrReplace);
 
   Future<void> insertAllDataSources(
     List<CustomDataSourcesCompanion> dataSources,
@@ -2668,7 +2889,10 @@ class CustomDataSourcesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<bool> updateDataSource(CustomDataSourcesCompanion dataSource) async {
-    final result = await update(customDataSources).replace(dataSource);
+    final updatedDataSource = dataSource.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    final result = await update(customDataSources).replace(updatedDataSource);
     if (result) {
       await _logChange(dataSource.id.value, 'upsert');
     }

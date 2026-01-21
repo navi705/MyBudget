@@ -912,4 +912,13 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get iconLabel => 'आइकन';
+
+  @override
+  String get languageLabel => 'भाषा';
+
+  @override
+  String get systemDefaultLabel => 'सिस्टम डिफॉल्ट';
+
+  @override
+  String get selectLanguageTitle => 'भाषा चुनें';
 }

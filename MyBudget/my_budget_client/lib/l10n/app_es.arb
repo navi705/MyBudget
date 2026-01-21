@@ -290,5 +290,8 @@
     "noneLabel": "Ninguno",
     "accountTypeLabel": "Tipo de cuenta",
     "formValidationPleaseSelectAccountType": "Por favor, seleccione un tipo de cuenta",
-    "iconLabel": "Icono"
+    "iconLabel": "Icono",
+    "languageLabel": "Idioma",
+    "systemDefaultLabel": "Predeterminado del sistema",
+    "selectLanguageTitle": "Seleccionar idioma"
 }

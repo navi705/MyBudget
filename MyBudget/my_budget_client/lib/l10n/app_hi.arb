@@ -286,5 +286,8 @@
     "noneLabel": "कोई नहीं",
     "accountTypeLabel": "खाता प्रकार",
     "formValidationPleaseSelectAccountType": "कृपया खाता प्रकार चुनें",
-    "iconLabel": "आइकन"
+    "iconLabel": "आइकन",
+    "languageLabel": "भाषा",
+    "systemDefaultLabel": "सिस्टम डिफॉल्ट",
+    "selectLanguageTitle": "भाषा चुनें"
 }

@@ -61,6 +61,21 @@ class SettingsScreen extends StatelessWidget {
                   const Divider(),
 
                   // Regional & General Preferences
+                  ListTile(
+                    leading: const Icon(Icons.language),
+                    title: Text(l10n.languageLabel),
+                    subtitle: Text(
+                      _getLanguageName(
+                        settingsState.settings['language_code'],
+                        context,
+                      ),
+                    ),
+                    onTap: () => _showLanguageDialog(
+                      context,
+                      settingsState.settings['language_code'],
+                    ),
+                  ),
+
                   BlocBuilder<CurrencyBloc, CurrencyState>(
                     builder: (context, currencyState) {
                       if (currencyState is CurrencyLoadSuccess) {
@@ -356,5 +371,80 @@ class SettingsScreen extends StatelessWidget {
     context.read<SettingsBloc>().add(LoadSettings());
     context.read<StylesBloc>().add(LoadStyles());
     context.read<TransactionsBloc>().add(const InitialLoadTransactions());
+  }
+
+  String _getLanguageName(String? code, BuildContext context) {
+    if (code == null || code.isEmpty) return context.l10n.systemDefaultLabel;
+    const languageMap = {
+      'en': 'English',
+      'ru': 'Русский',
+      'ar': 'العربية',
+      'bn': 'বাংলা',
+      'es': 'Español',
+      'fr': 'Français',
+      'hi': 'हिन्दी',
+      'pt': 'Português',
+      'ur': 'اردو',
+      'zh': '中文',
+    };
+    return languageMap[code] ?? code;
+  }
+
+  Future<void> _showLanguageDialog(
+    BuildContext context,
+    String? currentCode,
+  ) async {
+    const languageMap = {
+      'en': 'English',
+      'ru': 'Русский',
+      'ar': 'العربية',
+      'bn': 'বাংলা',
+      'es': 'Español',
+      'fr': 'Français',
+      'hi': 'हिन्दी',
+      'pt': 'Português',
+      'ur': 'اردو',
+      'zh': '中文',
+    };
+
+    final selected = await showDialog<String?>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text(context.l10n.selectLanguageTitle),
+        children: [
+          SimpleDialogOption(
+            onPressed: () =>
+                Navigator.pop(dialogContext, ''), // Empty for system
+            child: Row(
+              children: [
+                if (currentCode == null || currentCode.isEmpty)
+                  const Icon(Icons.check, size: 16),
+                const SizedBox(width: 8),
+                Text(context.l10n.systemDefaultLabel),
+              ],
+            ),
+          ),
+          const Divider(),
+          ...languageMap.entries.map(
+            (e) => SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, e.key),
+              child: Row(
+                children: [
+                  if (currentCode == e.key) const Icon(Icons.check, size: 16),
+                  const SizedBox(width: 8),
+                  Text(e.value),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (selected != null && context.mounted) {
+      // If empty string, we want to clear the setting (null)
+      final value = selected.isEmpty ? '' : selected;
+      context.read<SettingsBloc>().add(UpdateSetting('language_code', value));
+    }
   }
 }

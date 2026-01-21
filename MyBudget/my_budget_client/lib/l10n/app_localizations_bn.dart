@@ -912,4 +912,13 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get iconLabel => 'আইকন';
+
+  @override
+  String get languageLabel => 'ভাষা';
+
+  @override
+  String get systemDefaultLabel => 'সিস্টেম ডিফল্ট';
+
+  @override
+  String get selectLanguageTitle => 'ভাষা নির্বাচন করুন';
 }

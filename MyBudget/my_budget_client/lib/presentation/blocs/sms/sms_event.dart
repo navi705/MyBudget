@@ -49,11 +49,23 @@ class TestSmsRule extends SmsEvent {
 
 class ImportSmsMessages extends SmsEvent {
   final DateTime? since;
+  final DateTime? until;
 
-  const ImportSmsMessages({this.since});
+  const ImportSmsMessages({this.since, this.until});
 
   @override
-  List<Object?> get props => [since];
+  List<Object?> get props => [since, until];
+}
+
+class ImportSmsWithPreset extends SmsEvent {
+  final String presetId;
+  final DateTime? since;
+  final DateTime? until;
+
+  const ImportSmsWithPreset({required this.presetId, this.since, this.until});
+
+  @override
+  List<Object?> get props => [presetId, since, until];
 }
 
 class RequestSmsPermission extends SmsEvent {}

@@ -261,7 +261,10 @@ class _DateHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = dailySum >= 0 ? Colors.green : Colors.red;
-    final formattedDate = DateFormat('EEE, MMM d, yyyy').format(date);
+    final formattedDate = DateFormat(
+      'EEE, MMM d, yyyy',
+      Localizations.localeOf(context).toString(),
+    ).format(date);
 
     final designation = currencyDesignations.firstWhereOrNull(
       (d) => d.currencyCode == mainCurrencyCode,

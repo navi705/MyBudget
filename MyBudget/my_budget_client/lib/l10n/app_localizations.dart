@@ -1748,6 +1748,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Icon'**
   String get iconLabel;
+
+  /// No description provided for @languageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get languageLabel;
+
+  /// No description provided for @systemDefaultLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'System Default'**
+  String get systemDefaultLabel;
+
+  /// No description provided for @selectLanguageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Language'**
+  String get selectLanguageTitle;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

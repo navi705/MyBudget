@@ -912,4 +912,13 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get iconLabel => 'Ícone';
+
+  @override
+  String get languageLabel => 'Idioma';
+
+  @override
+  String get systemDefaultLabel => 'Padrão do sistema';
+
+  @override
+  String get selectLanguageTitle => 'Selecionar idioma';
 }

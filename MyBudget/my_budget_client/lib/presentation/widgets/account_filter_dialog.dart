@@ -286,7 +286,7 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
               children: [
                 Expanded(
                   child: Text(
-                    'Date create: ${_creationDate != null ? DateFormat.yMd().format(_creationDate!) : 'Any'}',
+                    'Date create: ${_creationDate != null ? DateFormat.yMd(Localizations.localeOf(context).toString()).format(_creationDate!) : 'Any'}',
                   ),
                 ),
                 IconButton(

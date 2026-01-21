@@ -288,5 +288,8 @@
     "noneLabel": "无",
     "accountTypeLabel": "账户类型",
     "formValidationPleaseSelectAccountType": "请选择账户类型",
-    "iconLabel": "图标"
+    "iconLabel": "图标",
+    "languageLabel": "语言",
+    "systemDefaultLabel": "系统默认",
+    "selectLanguageTitle": "选择语言"
 }

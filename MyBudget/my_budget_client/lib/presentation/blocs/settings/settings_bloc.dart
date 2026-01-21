@@ -3,7 +3,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-// import 'package:my_budget_client/core/utils/device_utils.dart';
+import 'package:my_budget_client/core/utils/device_utils.dart' as dev_utils;
 import 'package:my_budget_client/core/utils/hotkey_utils.dart';
 import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
@@ -30,7 +30,13 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<_SettingsChanged>(_onSettingsChanged);
   }
 
-  void _onLoadSettings(LoadSettings event, Emitter<SettingsState> emit) {
+  Future<void> _onLoadSettings(
+    LoadSettings event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final deviceName = await dev_utils.getDeviceName();
+    emit(state.copyWith(deviceName: deviceName));
+
     _settingsSubscription?.cancel();
     _settingsSubscription = _settingsRepository.watchAllSettings().listen(
       (settings) => add(_SettingsChanged(settings)),
@@ -83,9 +89,19 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     _SettingsChanged event,
     Emitter<SettingsState> emit,
   ) async {
-    final settingsMap = {for (var s in event.settings) s.key: s.value};
+    final deviceName = state.deviceName ?? await dev_utils.getDeviceName();
+    // Filter settings for the current device
+    final settingsMap = {
+      for (var s in event.settings)
+        if (s.device == deviceName) s.key: s.value,
+    };
     final themeModeValue = settingsMap['themeMode'] ?? 'system';
     final themeMode = _stringToThemeMode(themeModeValue);
+
+    final languageCode = settingsMap['language_code'];
+    final locale = languageCode != null && languageCode.isNotEmpty
+        ? Locale(languageCode)
+        : null;
 
     final countries = await _inflationRepository.getAvailableCountries();
 
@@ -106,6 +122,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
         themeMode: themeMode,
         countries: countries,
         hotkeys: hotkeys,
+        locale: locale,
       ),
     );
   }

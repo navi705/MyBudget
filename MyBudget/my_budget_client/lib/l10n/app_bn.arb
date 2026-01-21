@@ -288,5 +288,8 @@
     "noneLabel": "কোনটিই নয়",
     "accountTypeLabel": "অ্যাকাউন্টের ধরন",
     "formValidationPleaseSelectAccountType": "অনুগ্রহ করে অ্যাকাউন্টের ধরন নির্বাচন করুন",
-    "iconLabel": "আইকন"
+    "iconLabel": "আইকন",
+    "languageLabel": "ভাষা",
+    "systemDefaultLabel": "সিস্টেম ডিফল্ট",
+    "selectLanguageTitle": "ভাষা নির্বাচন করুন"
 }

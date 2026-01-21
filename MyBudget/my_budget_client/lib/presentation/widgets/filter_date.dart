@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/advanced_filter_dialog.dart';
@@ -21,23 +22,29 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
     kToolbarHeight * 1.5,
   );
 
-  String _formatDate(TransactionsState state) {
+  String _formatDate(TransactionsState state, BuildContext context) {
+    final locale = Localizations.localeOf(context).toString();
     if (state.filterMode == FilterMode.range) {
-      if (state.activeDateRange == null) return 'Select Range';
+      if (state.activeDateRange == null)
+        return 'Select Range'; // Localize if needed
       final start = DateFormat(
         'dd.MM.yyyy',
+        locale,
       ).format(state.activeDateRange!.start);
-      final end = DateFormat('dd.MM.yyyy').format(state.activeDateRange!.end);
+      final end = DateFormat(
+        'dd.MM.yyyy',
+        locale,
+      ).format(state.activeDateRange!.end);
       return '$start - $end';
     }
 
     switch (state.dateStep) {
       case DateStep.day:
-        return DateFormat('dd.MM.yyyy').format(state.activeDate);
+        return DateFormat('dd.MM.yyyy', locale).format(state.activeDate);
       case DateStep.month:
-        return DateFormat('MMMM yyyy', 'ru_RU').format(state.activeDate);
+        return DateFormat('MMMM yyyy', locale).format(state.activeDate);
       case DateStep.year:
-        return DateFormat('yyyy').format(state.activeDate);
+        return DateFormat('yyyy', locale).format(state.activeDate);
     }
   }
 
@@ -55,9 +62,9 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
           mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
           children: [
             MultiLevelTooltip(
-              message: 'Previous Period',
+              message: context.l10n.previousPeriodTooltip,
               actionId: 'prev_period',
-              description: 'Go to the previous day, month, or year',
+              description: context.l10n.previousPeriodDescription,
               child: IconButton(
                 icon: Icon(Icons.chevron_left, color: onSurface),
                 onPressed: () => context.read<TransactionsBloc>().add(
@@ -67,10 +74,9 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
             ),
             if (isMobile)
               MultiLevelTooltip(
-                message: 'Advanced Filter',
+                message: context.l10n.filterTooltip,
                 actionId: 'filter_advanced',
-                description:
-                    'Filter transactions by account, category, or amount',
+                description: context.l10n.filterCategoriesDescription,
                 child: IconButton(
                   icon: Icon(Icons.tune, color: onSurface),
                   onPressed: () =>
@@ -94,16 +100,16 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
             Expanded(
               flex: isMobile ? 1 : 0,
               child: MultiLevelTooltip(
-                message: 'Select Date',
+                message: context.l10n.selectDateTooltip,
                 actionId: 'filter_pick_date',
-                description: 'Choose a specific date or date range',
+                description: context.l10n.selectDateDescription,
                 child: InkWell(
                   onTap: () => _showCustomCalendar(context, state),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12.0),
                     alignment: Alignment.center,
                     child: Text(
-                      _formatDate(state),
+                      _formatDate(state, context),
                       style: TextStyle(
                         color: onSurface,
                         fontSize: isMobile ? 16 : 18,
@@ -163,9 +169,9 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
               const SizedBox(width: 8),
             ],
             MultiLevelTooltip(
-              message: 'Next Period',
+              message: context.l10n.nextPeriodTooltip,
               actionId: 'next_period',
-              description: 'Go to the next day, month, or year',
+              description: context.l10n.nextPeriodDescription,
               child: IconButton(
                 icon: Icon(Icons.chevron_right, color: onSurface),
                 onPressed: () => context.read<TransactionsBloc>().add(
@@ -177,7 +183,9 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
         );
 
         return GenericFilterAppBar(
-          totalCountText: 'Всего: ${state.totalCount}',
+          totalCountText: context.l10n.totalCountLabel(
+            state.totalCount.toString(),
+          ),
           centerWidget: centerWidget,
         );
       },

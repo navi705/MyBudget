@@ -292,5 +292,8 @@
     "noneLabel": "Nenhum",
     "accountTypeLabel": "Tipo de conta",
     "formValidationPleaseSelectAccountType": "Por favor, selecione um tipo de conta",
-    "iconLabel": "Ícone"
+    "iconLabel": "Ícone",
+    "languageLabel": "Idioma",
+    "systemDefaultLabel": "Padrão do sistema",
+    "selectLanguageTitle": "Selecionar idioma"
 }

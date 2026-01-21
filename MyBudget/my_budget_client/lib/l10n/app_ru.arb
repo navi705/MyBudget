@@ -296,5 +296,8 @@
     "noneLabel": "Нет",
     "accountTypeLabel": "Тип аккаунта",
     "formValidationPleaseSelectAccountType": "Пожалуйста, выберите тип аккаунта",
-    "iconLabel": "Иконка"
+    "iconLabel": "Иконка",
+    "languageLabel": "Язык",
+    "systemDefaultLabel": "Системный",
+    "selectLanguageTitle": "Выберите язык"
 }

@@ -1,11 +1,17 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:collection/collection.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
+import 'package:my_budget_client/domain/entities/account.dart';
+import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/sms_preset.dart';
+import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/sms/sms_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/sms_rule_builder_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 class SmsSettingsScreen extends StatelessWidget {
   const SmsSettingsScreen({super.key});
@@ -165,8 +171,16 @@ class _SmsSettingsContent extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (routeContext) => BlocProvider.value(
-          value: context.read<SmsBloc>(),
+        builder: (routeContext) => MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: context.read<SmsBloc>()),
+            BlocProvider(
+              create: (context) => sl<AccountsBloc>()..add(LoadAccounts()),
+            ),
+            BlocProvider(
+              create: (context) => sl<CategoriesBloc>()..add(LoadCategories()),
+            ),
+          ],
           child: SmsPresetEditorScreen(preset: preset),
         ),
       ),
@@ -228,6 +242,8 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
   late final TextEditingController _senderController;
   late final TextEditingController _testSmsController;
   late List<SmsParsingRule> _rules;
+  String? _selectedAccountId;
+  String? _selectedCategoryId;
 
   bool get isEditing => widget.preset != null;
   bool get isBuiltIn => widget.preset?.isBuiltIn ?? false;
@@ -241,6 +257,8 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
     );
     _testSmsController = TextEditingController();
     _rules = List.from(widget.preset?.rules ?? []);
+    _selectedAccountId = widget.preset?.defaultAccountId;
+    _selectedCategoryId = widget.preset?.defaultCategoryId;
   }
 
   @override
@@ -283,11 +301,174 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
             enabled: !isBuiltIn,
           ),
           const SizedBox(height: 24),
+          _buildDefaultsSection(),
+          const SizedBox(height: 24),
           _buildRulesSection(),
           const SizedBox(height: 24),
+          if (isEditing) ...[_buildImportSection(), const SizedBox(height: 24)],
           _buildTestSection(),
         ],
       ),
+    );
+  }
+
+  Widget _buildDefaultsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Defaults', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 16),
+        BlocBuilder<AccountsBloc, AccountsState>(
+          builder: (context, state) {
+            final accounts = state is AccountsLoadSuccess
+                ? state.accounts
+                : <Account>[];
+            final selectedAccount = accounts.firstWhereOrNull(
+              (a) => a.id == _selectedAccountId,
+            );
+
+            return InkWell(
+              onTap: isBuiltIn
+                  ? null
+                  : () async {
+                      final account = await showSingleSelectDialog<Account>(
+                        context: context,
+                        items: accounts,
+                        title: context.l10n.selectAccountTitle,
+                        selectedItem: selectedAccount,
+                        itemBuilder: (account) => Text(account.name),
+                        stringGetter: (account) => account.name,
+                      );
+
+                      if (account != null) {
+                        setState(() => _selectedAccountId = account.id);
+                      }
+                    },
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Default Account',
+                  border: OutlineInputBorder(),
+                ),
+                child: Text(selectedAccount?.name ?? 'Select Account'),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        BlocBuilder<CategoriesBloc, CategoriesState>(
+          builder: (context, state) {
+            final categories = state is CategoriesLoadSuccess
+                ? state.allCategories
+                : <Category>[];
+            final selectedCategory = categories.firstWhereOrNull(
+              (c) => c.id == _selectedCategoryId,
+            );
+
+            return InkWell(
+              onTap: isBuiltIn
+                  ? null
+                  : () async {
+                      final category = await showSingleSelectDialog<Category>(
+                        context: context,
+                        items: categories,
+                        title: context.l10n.selectCategoryTitle,
+                        selectedItem: selectedCategory,
+                        itemBuilder: (category) => Text(category.name),
+                        stringGetter: (category) => category.name,
+                      );
+
+                      if (category != null) {
+                        setState(() => _selectedCategoryId = category.id);
+                      }
+                    },
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Default Category',
+                  border: OutlineInputBorder(),
+                ),
+                child: Text(selectedCategory?.name ?? 'Select Category'),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImportSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Import for this Preset',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          children: [
+            OutlinedButton(
+              onPressed: () {
+                final since = DateTime.now().subtract(const Duration(days: 7));
+                context.read<SmsBloc>().add(
+                  ImportSmsWithPreset(
+                    presetId: widget.preset!.id,
+                    since: since,
+                  ),
+                );
+              },
+              child: const Text('Last 7 Days'),
+            ),
+            OutlinedButton(
+              onPressed: () {
+                context.read<SmsBloc>().add(
+                  ImportSmsWithPreset(presetId: widget.preset!.id),
+                );
+              },
+              child: const Text('All Time'),
+            ),
+            OutlinedButton(
+              onPressed: () async {
+                final range = await showDateRangePicker(
+                  context: context,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
+                );
+                if (range != null && mounted) {
+                  context.read<SmsBloc>().add(
+                    ImportSmsWithPreset(
+                      presetId: widget.preset!.id,
+                      since: range.start,
+                      until: range.end,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Custom Range'),
+            ),
+          ],
+        ),
+        BlocBuilder<SmsBloc, SmsState>(
+          builder: (context, state) {
+            if (state.isImporting) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 16),
+                child: LinearProgressIndicator(),
+              );
+            }
+            if (state.createdTransactionsCount > 0) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Text(
+                  'Success: ${state.createdTransactionsCount} transactions imported',
+                  style: const TextStyle(color: Colors.green),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+      ],
     );
   }
 
@@ -448,8 +629,8 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
       senderFilter: _senderController.text,
       isBuiltIn: false,
       isEnabled: widget.preset?.isEnabled ?? true,
-      defaultAccountId: widget.preset?.defaultAccountId,
-      defaultCategoryId: widget.preset?.defaultCategoryId,
+      defaultAccountId: _selectedAccountId,
+      defaultCategoryId: _selectedCategoryId,
       rules: _rules,
     );
 

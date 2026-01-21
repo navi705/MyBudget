@@ -912,4 +912,13 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get iconLabel => 'أيقونة';
+
+  @override
+  String get languageLabel => 'اللغة';
+
+  @override
+  String get systemDefaultLabel => 'افتراضي النظام';
+
+  @override
+  String get selectLanguageTitle => 'اختر اللغة';
 }

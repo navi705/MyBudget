@@ -34,7 +34,9 @@ class DashboardHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     String title;
     if (dateStep == DateStep.month) {
-      title = DateFormat.yMMMM().format(selectedDay);
+      title = DateFormat.yMMMM(
+        Localizations.localeOf(context).toString(),
+      ).format(selectedDay);
     } else {
       title = selectedDay.year.toString();
     }

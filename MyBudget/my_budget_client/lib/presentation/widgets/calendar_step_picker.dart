@@ -512,7 +512,9 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      DateFormat.MMM().format(monthDate),
+                      DateFormat.MMM(
+                        Localizations.localeOf(context).toString(),
+                      ).format(monthDate),
                       style: TextStyle(
                         color: isSelected ? onPrimaryColor : null,
                         fontWeight: FontWeight.bold,

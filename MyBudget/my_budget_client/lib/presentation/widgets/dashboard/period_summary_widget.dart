@@ -121,17 +121,27 @@ class PeriodSummaryWidget extends StatelessWidget {
       text = '+$text';
     }
 
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    final textWidget = Text(
+      text,
+      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+        color: color,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+
     return Column(
       children: [
         Text(label, style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: 4),
-        Text(
-          text,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: color,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        if (isMobile)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 100),
+            child: FittedBox(fit: BoxFit.scaleDown, child: textWidget),
+          )
+        else
+          textWidget,
       ],
     );
   }

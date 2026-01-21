@@ -273,5 +273,8 @@
     "noneLabel": "None",
     "accountTypeLabel": "Account Type",
     "formValidationPleaseSelectAccountType": "Please select an account type",
-    "iconLabel": "Icon"
+    "iconLabel": "Icon",
+    "languageLabel": "Language",
+    "systemDefaultLabel": "System Default",
+    "selectLanguageTitle": "Select Language"
 }

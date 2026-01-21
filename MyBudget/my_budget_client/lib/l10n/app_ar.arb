@@ -288,5 +288,8 @@
     "noneLabel": "لا يوجد",
     "accountTypeLabel": "نوع الحساب",
     "formValidationPleaseSelectAccountType": "يرجى اختيار نوع الحساب",
-    "iconLabel": "أيقونة"
+    "iconLabel": "أيقونة",
+    "languageLabel": "اللغة",
+    "systemDefaultLabel": "افتراضي النظام",
+    "selectLanguageTitle": "اختر اللغة"
 }
