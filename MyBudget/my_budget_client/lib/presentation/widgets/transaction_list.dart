@@ -412,12 +412,19 @@ class TransactionListItem extends StatelessWidget {
             child: iconWidget,
           ),
           title: Text(
-            transactionCategory.transaction.description,
+            transactionCategory.category?.name ?? 'Uncategorized',
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (transactionCategory.transaction.description.isNotEmpty) ...[
+                Text(
+                  transactionCategory.transaction.description,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 2),
+              ],
               Text(
                 transactionCategory.isAssetTransaction
                     ? context.l10n.quantityLabel(

@@ -155,6 +155,7 @@ Future<_ProcessDataResult> _processTransactionsData(
       TransactionCategory(
         transaction: transaction,
         style: foundStyle ?? defaultStyle,
+        category: category,
         isAssetTransaction:
             params.accounts[transaction.accountId]?.assetId?.isNotEmpty == true,
         isLinkedAssetTransaction:

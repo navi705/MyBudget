@@ -1,19 +1,23 @@
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 
+import 'package:my_budget_client/domain/entities/category.dart';
+
 class TransactionCategory {
   final Transaction transaction;
   final Style style;
+  final Category? category; // Added
   final Transaction? linkedTransaction;
-  final bool isAssetTransaction; // Added
-  final bool isLinkedAssetTransaction; // Added
+  final bool isAssetTransaction;
+  final bool isLinkedAssetTransaction;
 
   TransactionCategory({
     required this.transaction,
     required this.style,
+    this.category, // Added
     this.linkedTransaction,
-    this.isAssetTransaction = false, // Added default false
-    this.isLinkedAssetTransaction = false, // Added default false
+    this.isAssetTransaction = false,
+    this.isLinkedAssetTransaction = false,
   });
 
   Map<String, dynamic> toJson() {
