@@ -63,71 +63,76 @@ class _AddStyleDialogState extends State<AddStyleDialog> {
     return AlertDialog(
       title: const Text('Add New Style'),
       content: SingleChildScrollView(
-        child: SizedBox(
-          width: double.maxFinite,
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Style Name'),
-                  validator: (value) => (value == null || value.isEmpty)
-                      ? 'Please enter a name'
-                      : null,
-                ),
-                const SizedBox(height: 24),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Color'),
-                  subtitle: Text(_selectedColor.hex.toUpperCase()),
-                  trailing: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _selectedColor,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Theme.of(context).dividerColor),
-                    ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 250),
+          child: SizedBox(
+            width: double.maxFinite,
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(labelText: 'Style Name'),
+                    validator: (value) => (value == null || value.isEmpty)
+                        ? 'Please enter a name'
+                        : null,
                   ),
-                  onTap: () async {
-                    final newColor = await showColorPickerDialog(
-                      context,
-                      _selectedColor,
-                      pickersEnabled: const {
-                        ColorPickerType.wheel: true,
-                        ColorPickerType.primary: false,
-                        ColorPickerType.accent: false,
-                      },
-                    );
-                    setState(() {
-                      _selectedColor = newColor;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Icon'),
-                  subtitle: Text(_selectedIconName),
-                  trailing: SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: IconUtils.getIconWidget(
-                      Style(
-                        id: 'preview',
-                        name: 'preview',
-                        iconName: _selectedIconName,
-                        colorHex: '#FFFFFF', // Ignored by util
-                        iconType: _selectedIconType,
+                  const SizedBox(height: 24),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Color'),
+                    subtitle: Text(_selectedColor.hex.toUpperCase()),
+                    trailing: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _selectedColor,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                        ),
                       ),
                     ),
+                    onTap: () async {
+                      final newColor = await showColorPickerDialog(
+                        context,
+                        _selectedColor,
+                        pickersEnabled: const {
+                          ColorPickerType.wheel: true,
+                          ColorPickerType.primary: false,
+                          ColorPickerType.accent: false,
+                        },
+                      );
+                      setState(() {
+                        _selectedColor = newColor;
+                      });
+                    },
                   ),
-                  onTap: _showIconPicker,
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Icon'),
+                    subtitle: Text(_selectedIconName),
+                    trailing: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: IconUtils.getIconWidget(
+                        Style(
+                          id: 'preview',
+                          name: 'preview',
+                          iconName: _selectedIconName,
+                          colorHex: '#FFFFFF', // Ignored by util
+                          iconType: _selectedIconType,
+                        ),
+                      ),
+                    ),
+                    onTap: _showIconPicker,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

@@ -46,55 +46,58 @@ class _InflationTabContent extends StatelessWidget {
             rate == null ? 'Add Inflation Rate' : 'Edit Inflation Rate',
           ),
           content: SingleChildScrollView(
-            child: SizedBox(
-              width: double.maxFinite,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: percentController,
-                    decoration: const InputDecoration(
-                      labelText: 'Inflation Percent (%)',
-                      hintText: 'e.g. 2.5',
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 250),
+              child: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: percentController,
+                      decoration: const InputDecoration(
+                        labelText: 'Inflation Percent (%)',
+                        hintText: 'e.g. 2.5',
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                    TextField(
+                      controller: countryController,
+                      decoration: const InputDecoration(
+                        labelText: 'Country (Optional)',
+                        hintText: 'Leave empty for Global',
+                      ),
                     ),
-                  ),
-                  TextField(
-                    controller: countryController,
-                    decoration: const InputDecoration(
-                      labelText: 'Country (Optional)',
-                      hintText: 'Leave empty for Global',
+                    TextField(
+                      controller: presetController,
+                      decoration: const InputDecoration(labelText: 'Preset ID'),
+                      keyboardType: TextInputType.number,
                     ),
-                  ),
-                  TextField(
-                    controller: presetController,
-                    decoration: const InputDecoration(labelText: 'Preset ID'),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    title: Text(
-                      'Date: ${DateFormat('MMMM yyyy').format(selectedDate)}',
+                    const SizedBox(height: 16),
+                    ListTile(
+                      title: Text(
+                        'Date: ${DateFormat('MMMM yyyy').format(selectedDate)}',
+                      ),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                          initialDatePickerMode: DatePickerMode.year,
+                        );
+                        if (date != null) {
+                          setState(() {
+                            selectedDate = DateTime(date.year, date.month);
+                          });
+                        }
+                      },
                     ),
-                    trailing: const Icon(Icons.calendar_today),
-                    onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                        initialDatePickerMode: DatePickerMode.year,
-                      );
-                      if (date != null) {
-                        setState(() {
-                          selectedDate = DateTime(date.year, date.month);
-                        });
-                      }
-                    },
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
