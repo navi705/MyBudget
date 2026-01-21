@@ -30,6 +30,8 @@ class _MultiLevelTooltipState extends State<MultiLevelTooltip> {
   Timer? _hoverTimer;
   OverlayEntry? _overlayEntry;
   bool _isLevel2 = false;
+  static const Duration _showDelay = Duration(milliseconds: 1000);
+  static const Duration _expandDelay = Duration(milliseconds: 5000);
 
   @override
   void dispose() {
@@ -148,15 +150,23 @@ class _MultiLevelTooltipState extends State<MultiLevelTooltip> {
   }
 
   void _onEnter(PointerEvent event, String hotkeyDisplay) {
-    _showOverlay(context, hotkeyDisplay);
     _hoverTimer?.cancel();
-    _hoverTimer = Timer(const Duration(milliseconds: 1500), () {
-      if (mounted && _overlayEntry != null) {
-        setState(() {
-          _isLevel2 = true;
-        });
-        _overlayEntry?.markNeedsBuild();
-      }
+
+    // 1. Запускаем первый таймер для показа уровня 1
+    _hoverTimer = Timer(_showDelay, () {
+      if (!mounted) return;
+
+      _showOverlay(context, hotkeyDisplay);
+
+      // 2. Внутри первого таймера запускаем второй — для расширения до уровня 2
+      _hoverTimer = Timer(_expandDelay, () {
+        if (mounted && _overlayEntry != null) {
+          setState(() {
+            _isLevel2 = true;
+          });
+          _overlayEntry?.markNeedsBuild();
+        }
+      });
     });
   }
 
