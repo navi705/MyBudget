@@ -84,8 +84,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
           emit(
             state.copyWith(
               lastSyncTimestamp: DateTime.now(),
-              createdTransactionsCount:
-                  (state.createdTransactionsCount ?? 0) + 1,
+              createdTransactionsCount: state.createdTransactionsCount + 1,
             ),
           );
           return; // Stop after first match
