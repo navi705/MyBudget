@@ -271,7 +271,13 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(isEditing ? 'Edit Preset' : 'New Preset'),
-        actions: const [],
+        actions: [
+          if (!isEditing)
+            TextButton(
+              onPressed: () => _savePreset(pop: true),
+              child: const Text('Save'),
+            ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -283,7 +289,9 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
               hintText: 'e.g., My Bank',
             ),
             enabled: !isBuiltIn,
-            onChanged: (_) => _savePreset(pop: false),
+            onChanged: (_) {
+              if (isEditing) _savePreset(pop: false);
+            },
           ),
           const SizedBox(height: 16),
           TextField(
@@ -294,7 +302,9 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
               helperText: 'Filter SMS by sender name or phone number',
             ),
             enabled: !isBuiltIn,
-            onChanged: (_) => _savePreset(pop: false),
+            onChanged: (_) {
+              if (isEditing) _savePreset(pop: false);
+            },
           ),
           const SizedBox(height: 24),
           _buildDefaultsSection(),
@@ -335,7 +345,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
 
                 if (account != null) {
                   setState(() => _selectedAccountId = account.id);
-                  _savePreset(pop: false);
+                  if (isEditing) _savePreset(pop: false);
                 }
               },
               child: InputDecorator(
@@ -371,7 +381,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
 
                 if (category != null) {
                   setState(() => _selectedCategoryId = category.id);
-                  _savePreset(pop: false);
+                  if (isEditing) _savePreset(pop: false);
                 }
               },
               child: InputDecorator(
@@ -533,7 +543,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                           icon: const Icon(Icons.delete),
                           onPressed: () {
                             setState(() => _rules.removeAt(index));
-                            _savePreset(pop: false);
+                            if (isEditing) _savePreset(pop: false);
                           },
                         ),
                 ),
@@ -551,7 +561,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
     );
     if (rule != null) {
       setState(() => _rules.add(rule));
-      _savePreset(pop: false);
+      if (isEditing) _savePreset(pop: false);
     }
   }
 

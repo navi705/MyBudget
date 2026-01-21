@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_sms_reader/flutter_sms_reader.dart' as sms_reader;
 import 'package:my_budget_client/data/seed_data/sms_preset_defaults.dart';
 import 'package:my_budget_client/domain/entities/sms_preset.dart';
@@ -11,11 +12,32 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Local SMS repository implementation using flutter_sms_reader.
 class LocalSmsRepository implements SmsRepository {
+  static const _smsChannel = EventChannel(
+    'com.example.my_budget_client/sms_events',
+  );
   final StreamController<SmsMessage> _smsController =
       StreamController<SmsMessage>.broadcast();
 
   static const String _presetsKey = 'sms_presets';
   static const String _lastSyncKey = 'sms_last_sync';
+
+  LocalSmsRepository() {
+    _initSmsListener();
+  }
+
+  void _initSmsListener() {
+    _smsChannel.receiveBroadcastStream().listen((dynamic event) {
+      if (event is Map) {
+        final sender = event['sender'] as String? ?? 'Unknown';
+        final body = event['body'] as String? ?? '';
+        final dateInt =
+            event['date'] as int? ?? DateTime.now().millisecondsSinceEpoch;
+        final date = DateTime.fromMillisecondsSinceEpoch(dateInt);
+
+        _smsController.add(SmsMessage(sender: sender, body: body, date: date));
+      }
+    });
+  }
 
   List<SmsPreset>? _cachedPresets;
 

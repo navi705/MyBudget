@@ -2576,7 +2576,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -2587,15 +2587,12 @@ class AppDatabase extends _$AppDatabase {
       },
       onUpgrade: (Migrator m, int from, int to) async {
         if (from < 2) {
-          // 1. Add sync columns to existing tables
           await m.addColumn(styles, styles.modifiedAt);
           await m.addColumn(styles, styles.deviceId);
           await m.addColumn(styles, styles.isDeleted);
-
           await m.addColumn(accountTypes, accountTypes.modifiedAt);
           await m.addColumn(accountTypes, accountTypes.deviceId);
           await m.addColumn(accountTypes, accountTypes.isDeleted);
-
           await m.addColumn(
             currencyDesignations,
             currencyDesignations.modifiedAt,
@@ -2608,9 +2605,49 @@ class AppDatabase extends _$AppDatabase {
             currencyDesignations,
             currencyDesignations.isDeleted,
           );
-
-          // 2. Perform ID migration to stable IDs
           await _migrateToStableIds(this);
+        }
+
+        if (from < 3) {
+          // Add sync columns to all other existing tables
+          await m.addColumn(categories, categories.modifiedAt);
+          await m.addColumn(categories, categories.deviceId);
+          await m.addColumn(categories, categories.isDeleted);
+
+          await m.addColumn(accounts, accounts.modifiedAt);
+          await m.addColumn(accounts, accounts.deviceId);
+          await m.addColumn(accounts, accounts.isDeleted);
+
+          await m.addColumn(transactions, transactions.modifiedAt);
+          await m.addColumn(transactions, transactions.deviceId);
+          await m.addColumn(transactions, transactions.isDeleted);
+
+          await m.addColumn(exchangeRates, exchangeRates.modifiedAt);
+          await m.addColumn(exchangeRates, exchangeRates.deviceId);
+
+          await m.addColumn(inflationRates, inflationRates.modifiedAt);
+          await m.addColumn(inflationRates, inflationRates.deviceId);
+
+          await m.addColumn(assetEntries, assetEntries.modifiedAt);
+          await m.addColumn(assetEntries, assetEntries.deviceId);
+          await m.addColumn(assetEntries, assetEntries.isDeleted);
+
+          await m.addColumn(settings, settings.modifiedAt);
+          await m.addColumn(settings, settings.deviceId);
+
+          await m.addColumn(customThemes, customThemes.modifiedAt);
+          await m.addColumn(customThemes, customThemes.deviceId);
+          await m.addColumn(customThemes, customThemes.isDeleted);
+
+          await m.addColumn(customDataSources, customDataSources.modifiedAt);
+          await m.addColumn(customDataSources, customDataSources.deviceId);
+          await m.addColumn(customDataSources, customDataSources.isDeleted);
+
+          await m.addColumn(apiSettingsTable, apiSettingsTable.modifiedAt);
+          await m.addColumn(apiSettingsTable, apiSettingsTable.deviceId);
+
+          // Create SmsPresets table if it doesn't exist
+          await m.createTable(smsPresets);
         }
       },
       beforeOpen: (details) async {

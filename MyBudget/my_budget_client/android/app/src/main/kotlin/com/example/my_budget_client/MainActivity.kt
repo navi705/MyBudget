@@ -6,6 +6,11 @@ import android.net.Uri
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.EventChannel
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import android.provider.Telephony
 import java.io.File
 import java.io.FileOutputStream
 
@@ -13,9 +18,28 @@ class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.example.my_budget_client/file_picker"
     private val PICK_FILE_REQUEST_CODE = 123
     private var pendingResult: MethodChannel.Result? = null
+    private val SMS_CHANNEL = "com.example.my_budget_client/sms_events"
+    private var smsEventSink: EventChannel.EventSink? = null
+
+    private val smsReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
+                val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
+                for (sms in messages) {
+                    val msgMap = mapOf(
+                        "sender" to sms.originatingAddress,
+                        "body" to sms.messageBody,
+                        "date" to sms.timestampMillis
+                    )
+                    smsEventSink?.success(msgMap)
+                }
+            }
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "pickFile") {
                 val mimeType = call.argument<String>("mimeType") ?: "*/*"
@@ -27,6 +51,20 @@ class MainActivity : FlutterActivity() {
                 result.notImplemented()
             }
         }
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, SMS_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    smsEventSink = events
+                    registerReceiver(smsReceiver, IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION))
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    smsEventSink = null
+                    unregisterReceiver(smsReceiver)
+                }
+            }
+        )
     }
 
     private fun openFilePicker(mimeType: String, title: String, allowMultiple: Boolean) {

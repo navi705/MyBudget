@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -18,6 +19,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
   final TransactionRepository _transactionRepository;
   final CurrencyRepository _currencyRepository;
   final SmsParser _parser = SmsParser();
+  StreamSubscription? _smsSubscription;
 
   SmsBloc({
     required SmsRepository smsRepository,
@@ -34,6 +36,19 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     on<ImportSmsMessages>(_onImportMessages);
     on<ImportSmsWithPreset>(_onImportWithPreset);
     on<RequestSmsPermission>(_onRequestPermission);
+
+    // Listen for incoming SMS messages
+    _smsSubscription = _smsRepository.listenForSms().listen((msg) {
+      add(
+        ImportSmsMessages(since: msg.date.subtract(const Duration(seconds: 1))),
+      );
+    });
+  }
+
+  @override
+  Future<void> close() {
+    _smsSubscription?.cancel();
+    return super.close();
   }
 
   Future<void> _onLoadPresets(
@@ -52,6 +67,12 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
         presets: presets,
       ),
     );
+
+    // Auto-import on launch if we have permission
+    if (hasPermission && presets.any((p) => p.isEnabled)) {
+      final lastSync = await _smsRepository.getLastSyncTimestamp();
+      add(ImportSmsMessages(since: lastSync));
+    }
   }
 
   Future<void> _onTogglePreset(
