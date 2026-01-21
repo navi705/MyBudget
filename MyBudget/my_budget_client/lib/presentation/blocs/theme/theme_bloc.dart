@@ -124,7 +124,8 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     String? bgPath = event.backgroundImagePath;
 
     // Logic to save image to app storage if it's new and not an asset
-    if (bgPath != null &&
+    if (event.persist &&
+        bgPath != null &&
         !event.clearBackgroundImage &&
         !bgPath.startsWith('assets/')) {
       try {
@@ -176,11 +177,15 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
       );
     }
 
-    await _themeRepository.saveTheme(updatedTheme);
-    await _themeRepository.setActiveTheme(updatedTheme.id);
+    if (event.persist) {
+      await _themeRepository.saveTheme(updatedTheme);
+      await _themeRepository.setActiveTheme(updatedTheme.id);
 
-    final themes = await _themeRepository.getAllThemes();
-    emit(state.copyWith(activeTheme: updatedTheme, presets: themes));
+      final themes = await _themeRepository.getAllThemes();
+      emit(state.copyWith(activeTheme: updatedTheme, presets: themes));
+    } else {
+      emit(state.copyWith(activeTheme: updatedTheme));
+    }
   }
 
   Future<void> _onSaveThemePreset(

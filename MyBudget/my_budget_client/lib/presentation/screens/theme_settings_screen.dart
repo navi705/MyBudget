@@ -13,8 +13,18 @@ import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/presentation/blocs/theme/theme_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
-class ThemeSettingsScreen extends StatelessWidget {
+class ThemeSettingsScreen extends StatefulWidget {
   const ThemeSettingsScreen({super.key});
+
+  @override
+  State<ThemeSettingsScreen> createState() => _ThemeSettingsScreenState();
+}
+
+class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
+  double? _localEffectOpacity;
+  double? _localSurfaceOpacity;
+  double? _localBgImageOpacity;
+  double? _localBgImageBlur;
 
   @override
   Widget build(BuildContext context) {
@@ -267,15 +277,20 @@ class ThemeSettingsScreen extends StatelessWidget {
                   'Window Tint Opacity: ${(theme.effectOpacity * 100).round()}%',
                 ),
                 Slider(
-                  value: theme.effectOpacity,
+                  value: _localEffectOpacity ?? theme.effectOpacity,
                   onChanged: (v) {
-                    _update(context, effectOpacity: v);
+                    setState(() => _localEffectOpacity = v);
+                    _update(context, effectOpacity: v, persist: false);
                     if (Platform.isWindows) {
                       _applyWindowEffect(
                         context,
                         theme.copyWith(effectOpacity: v),
                       );
                     }
+                  },
+                  onChangeEnd: (v) {
+                    _update(context, effectOpacity: v, persist: true);
+                    setState(() => _localEffectOpacity = null);
                   },
                 ),
               ],
@@ -300,8 +315,15 @@ class ThemeSettingsScreen extends StatelessWidget {
             const SizedBox(height: 16),
             Text('Surface Opacity: ${(theme.surfaceOpacity * 100).round()}%'),
             Slider(
-              value: theme.surfaceOpacity,
-              onChanged: (v) => _update(context, surfaceOpacity: v),
+              value: _localSurfaceOpacity ?? theme.surfaceOpacity,
+              onChanged: (v) {
+                setState(() => _localSurfaceOpacity = v);
+                _update(context, surfaceOpacity: v, persist: false);
+              },
+              onChangeEnd: (v) {
+                _update(context, surfaceOpacity: v, persist: true);
+                setState(() => _localSurfaceOpacity = null);
+              },
             ),
             const SizedBox(height: 8),
           ],
@@ -394,16 +416,30 @@ class ThemeSettingsScreen extends StatelessWidget {
                 'Image Intensity (Opacity): ${(theme.backgroundImageOpacity * 100).round()}%',
               ),
               Slider(
-                value: theme.backgroundImageOpacity,
-                onChanged: (v) => _update(context, backgroundImageOpacity: v),
+                value: _localBgImageOpacity ?? theme.backgroundImageOpacity,
+                onChanged: (v) {
+                  setState(() => _localBgImageOpacity = v);
+                  _update(context, backgroundImageOpacity: v, persist: false);
+                },
+                onChangeEnd: (v) {
+                  _update(context, backgroundImageOpacity: v, persist: true);
+                  setState(() => _localBgImageOpacity = null);
+                },
               ),
               const SizedBox(height: 8),
               Text('Image Blur: ${theme.backgroundImageBlur.round()}px'),
               Slider(
-                value: theme.backgroundImageBlur,
+                value: _localBgImageBlur ?? theme.backgroundImageBlur,
                 min: 0,
                 max: 20,
-                onChanged: (v) => _update(context, backgroundImageBlur: v),
+                onChanged: (v) {
+                  setState(() => _localBgImageBlur = v);
+                  _update(context, backgroundImageBlur: v, persist: false);
+                },
+                onChangeEnd: (v) {
+                  _update(context, backgroundImageBlur: v, persist: true);
+                  setState(() => _localBgImageBlur = null);
+                },
               ),
             ],
           ],
@@ -451,6 +487,7 @@ class ThemeSettingsScreen extends StatelessWidget {
     double? surfaceOpacity,
     ThemeMode? themeMode,
     bool clearBackgroundImage = false,
+    bool persist = true,
   }) {
     context.read<ThemeBloc>().add(
       UpdateThemeProperty(
@@ -466,6 +503,7 @@ class ThemeSettingsScreen extends StatelessWidget {
         surfaceOpacity: surfaceOpacity,
         themeMode: themeMode,
         clearBackgroundImage: clearBackgroundImage,
+        persist: persist,
       ),
     );
   }
@@ -501,30 +539,20 @@ class ThemeSettingsScreen extends StatelessWidget {
         break;
     }
 
-    // If background color is transparent (e.g. "Remove background color" checked),
-    // use surface color as the tint base to preserve some theme color/neutrality
-    // instead of defaulting to pure black tint.
     final tintColor = theme.backgroundColor.a == 0
         ? theme.surfaceColor
         : theme.backgroundColor;
 
-    // Fix for Transparent Mode:
-    // For WindowEffect.transparent, we need to use Window.setWindowAlphaValue()
-    // instead of relying on color alpha for proper transparency control
     if (theme.windowEffectType == WindowEffectType.transparent) {
       Window.setEffect(
         effect: WindowEffect.transparent,
-        color: Colors.transparent, // TEST: Fixed transparent color
+        color: Colors.transparent,
         dark: brightness == Brightness.dark,
       );
-      // Use setWindowAlphaValue for actual transparency control
-      Window.setWindowAlphaValue(
-        theme.effectOpacity,
-      ); // 0.0 = transparent, 1.0 = opaque
+      Window.setWindowAlphaValue(theme.effectOpacity);
       return;
     }
 
-    // For other modes (acrylic, mica), use color alpha with clamping
     final effectiveOpacity = theme.effectOpacity < 0.15
         ? 0.15
         : theme.effectOpacity;

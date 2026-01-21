@@ -49,6 +49,8 @@ class UpdateThemeProperty extends ThemeEvent {
   final ThemeMode? themeMode;
   final bool clearBackgroundImage;
 
+  final bool persist;
+
   const UpdateThemeProperty({
     this.primaryColor,
     this.secondaryColor,
@@ -62,6 +64,7 @@ class UpdateThemeProperty extends ThemeEvent {
     this.surfaceOpacity,
     this.themeMode,
     this.clearBackgroundImage = false,
+    this.persist = true,
   });
 
   @override
@@ -78,5 +81,6 @@ class UpdateThemeProperty extends ThemeEvent {
     surfaceOpacity,
     themeMode,
     clearBackgroundImage,
+    persist,
   ];
 }
