@@ -43,6 +43,12 @@ Odliv sa racuna: 0001000228369 u iznosu od: 280.00 RSD, dana: 31.12.2025. Raspol
 
 Нужно сдлеать на страницах где можно переключать даты и есть стерлки в Home/dashboard, Accounts, history/transactions, categories, data (inflation rate, currency rate, asset) 
 
+**SMS Workflow Refinements:**
+- [x] Use SMS sent date for transactions (fallback if parsing fails).
+- [x] Implement auto-save in preset editor (remove Save button).
+- [x] Fix built-in preset icon persistence bug.
+- [x] Auto-save rule changes and field edits.
+
 При вызови диалогах очень сильно лагает всё и когда откравется клавивартура окно медленно сужается а пто расширеется что очень раздражает может пофиксить, 
 
 При запуски постоянно открывется экран с загрузкой данных когда это не первый запуск и данные уже есть. 1. Если получается данные по сети то пусть отправим в другойй поток на фон  и не занимает ui

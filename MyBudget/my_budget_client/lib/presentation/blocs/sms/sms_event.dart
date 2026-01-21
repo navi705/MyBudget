@@ -37,16 +37,6 @@ class DeleteSmsPreset extends SmsEvent {
   List<Object?> get props => [presetId];
 }
 
-class TestSmsRule extends SmsEvent {
-  final String smsBody;
-  final SmsParsingRule rule;
-
-  const TestSmsRule(this.smsBody, this.rule);
-
-  @override
-  List<Object?> get props => [smsBody, rule];
-}
-
 class ImportSmsMessages extends SmsEvent {
   final DateTime? since;
   final DateTime? until;
@@ -69,18 +59,3 @@ class ImportSmsWithPreset extends SmsEvent {
 }
 
 class RequestSmsPermission extends SmsEvent {}
-
-class CreateTransactionsFromSms extends SmsEvent {
-  final List<SmsParseResult> results;
-  final String? defaultAccountId;
-  final String? defaultCategoryId;
-
-  const CreateTransactionsFromSms({
-    required this.results,
-    this.defaultAccountId,
-    this.defaultCategoryId,
-  });
-
-  @override
-  List<Object?> get props => [results, defaultAccountId, defaultCategoryId];
-}

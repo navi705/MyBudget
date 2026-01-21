@@ -240,7 +240,6 @@ class SmsPresetEditorScreen extends StatefulWidget {
 class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _senderController;
-  late final TextEditingController _testSmsController;
   late List<SmsParsingRule> _rules;
   String? _selectedAccountId;
   String? _selectedCategoryId;
@@ -255,7 +254,6 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
     _senderController = TextEditingController(
       text: widget.preset?.senderFilter ?? '',
     );
-    _testSmsController = TextEditingController();
     _rules = List.from(widget.preset?.rules ?? []);
     _selectedAccountId = widget.preset?.defaultAccountId;
     _selectedCategoryId = widget.preset?.defaultCategoryId;
@@ -265,7 +263,6 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
   void dispose() {
     _nameController.dispose();
     _senderController.dispose();
-    _testSmsController.dispose();
     super.dispose();
   }
 
@@ -274,10 +271,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(isEditing ? 'Edit Preset' : 'New Preset'),
-        actions: [
-          if (!isBuiltIn)
-            IconButton(icon: const Icon(Icons.save), onPressed: _savePreset),
-        ],
+        actions: const [],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -289,6 +283,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
               hintText: 'e.g., My Bank',
             ),
             enabled: !isBuiltIn,
+            onChanged: (_) => _savePreset(pop: false),
           ),
           const SizedBox(height: 16),
           TextField(
@@ -299,6 +294,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
               helperText: 'Filter SMS by sender name or phone number',
             ),
             enabled: !isBuiltIn,
+            onChanged: (_) => _savePreset(pop: false),
           ),
           const SizedBox(height: 24),
           _buildDefaultsSection(),
@@ -306,7 +302,6 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
           _buildRulesSection(),
           const SizedBox(height: 24),
           if (isEditing) ...[_buildImportSection(), const SizedBox(height: 24)],
-          _buildTestSection(),
         ],
       ),
     );
@@ -328,22 +323,21 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
             );
 
             return InkWell(
-              onTap: isBuiltIn
-                  ? null
-                  : () async {
-                      final account = await showSingleSelectDialog<Account>(
-                        context: context,
-                        items: accounts,
-                        title: context.l10n.selectAccountTitle,
-                        selectedItem: selectedAccount,
-                        itemBuilder: (account) => Text(account.name),
-                        stringGetter: (account) => account.name,
-                      );
+              onTap: () async {
+                final account = await showSingleSelectDialog<Account>(
+                  context: context,
+                  items: accounts,
+                  title: context.l10n.selectAccountTitle,
+                  selectedItem: selectedAccount,
+                  itemBuilder: (account) => Text(account.name),
+                  stringGetter: (account) => account.name,
+                );
 
-                      if (account != null) {
-                        setState(() => _selectedAccountId = account.id);
-                      }
-                    },
+                if (account != null) {
+                  setState(() => _selectedAccountId = account.id);
+                  _savePreset(pop: false);
+                }
+              },
               child: InputDecorator(
                 decoration: const InputDecoration(
                   labelText: 'Default Account',
@@ -365,22 +359,21 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
             );
 
             return InkWell(
-              onTap: isBuiltIn
-                  ? null
-                  : () async {
-                      final category = await showSingleSelectDialog<Category>(
-                        context: context,
-                        items: categories,
-                        title: context.l10n.selectCategoryTitle,
-                        selectedItem: selectedCategory,
-                        itemBuilder: (category) => Text(category.name),
-                        stringGetter: (category) => category.name,
-                      );
+              onTap: () async {
+                final category = await showSingleSelectDialog<Category>(
+                  context: context,
+                  items: categories,
+                  title: context.l10n.selectCategoryTitle,
+                  selectedItem: selectedCategory,
+                  itemBuilder: (category) => Text(category.name),
+                  stringGetter: (category) => category.name,
+                );
 
-                      if (category != null) {
-                        setState(() => _selectedCategoryId = category.id);
-                      }
-                    },
+                if (category != null) {
+                  setState(() => _selectedCategoryId = category.id);
+                  _savePreset(pop: false);
+                }
+              },
               child: InputDecorator(
                 decoration: const InputDecoration(
                   labelText: 'Default Category',
@@ -396,55 +389,80 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
   }
 
   Widget _buildImportSection() {
+    final bool canImport =
+        _selectedAccountId != null && _selectedCategoryId != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Import for this Preset',
-          style: Theme.of(context).textTheme.titleMedium,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Import Messages',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            if (!canImport)
+              const Text(
+                'Select defaults first',
+                style: TextStyle(color: Colors.red, fontSize: 12),
+              ),
+          ],
         ),
         const SizedBox(height: 16),
         Wrap(
           spacing: 8,
+          runSpacing: 8,
           children: [
-            OutlinedButton(
-              onPressed: () {
-                final since = DateTime.now().subtract(const Duration(days: 7));
-                context.read<SmsBloc>().add(
-                  ImportSmsWithPreset(
-                    presetId: widget.preset!.id,
-                    since: since,
-                  ),
-                );
-              },
-              child: const Text('Last 7 Days'),
+            FilledButton.tonalIcon(
+              onPressed: !canImport
+                  ? null
+                  : () {
+                      final since = DateTime.now().subtract(
+                        const Duration(days: 7),
+                      );
+                      context.read<SmsBloc>().add(
+                        ImportSmsWithPreset(
+                          presetId: widget.preset!.id,
+                          since: since,
+                        ),
+                      );
+                    },
+              icon: const Icon(Icons.calendar_view_week),
+              label: const Text('Last 7 Days'),
             ),
-            OutlinedButton(
-              onPressed: () {
-                context.read<SmsBloc>().add(
-                  ImportSmsWithPreset(presetId: widget.preset!.id),
-                );
-              },
-              child: const Text('All Time'),
+            FilledButton.tonalIcon(
+              onPressed: !canImport
+                  ? null
+                  : () {
+                      context.read<SmsBloc>().add(
+                        ImportSmsWithPreset(presetId: widget.preset!.id),
+                      );
+                    },
+              icon: const Icon(Icons.all_inclusive),
+              label: const Text('All Time'),
             ),
-            OutlinedButton(
-              onPressed: () async {
-                final range = await showDateRangePicker(
-                  context: context,
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime.now(),
-                );
-                if (range != null && mounted) {
-                  context.read<SmsBloc>().add(
-                    ImportSmsWithPreset(
-                      presetId: widget.preset!.id,
-                      since: range.start,
-                      until: range.end,
-                    ),
-                  );
-                }
-              },
-              child: const Text('Custom Range'),
+            FilledButton.icon(
+              onPressed: !canImport
+                  ? null
+                  : () async {
+                      final range = await showDateRangePicker(
+                        context: context,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime.now(),
+                      );
+                      if (range != null && mounted) {
+                        context.read<SmsBloc>().add(
+                          ImportSmsWithPreset(
+                            presetId: widget.preset!.id,
+                            since: range.start,
+                            until: range.end,
+                          ),
+                        );
+                      }
+                    },
+              icon: const Icon(Icons.date_range),
+              label: const Text('Custom Range'),
             ),
           ],
         ),
@@ -515,6 +533,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                           icon: const Icon(Icons.delete),
                           onPressed: () {
                             setState(() => _rules.removeAt(index));
+                            _savePreset(pop: false);
                           },
                         ),
                 ),
@@ -525,71 +544,6 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
     );
   }
 
-  Widget _buildTestSection() {
-    return BlocBuilder<SmsBloc, SmsState>(
-      builder: (context, state) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Test Parsing',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _testSmsController,
-              decoration: const InputDecoration(
-                labelText: 'Paste SMS text here',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 8),
-            FilledButton(onPressed: _testParsing, child: const Text('Test')),
-            if (state.testResult != null) ...[
-              const SizedBox(height: 16),
-              Card(
-                color: state.testResult!.isMatch
-                    ? Colors.green.withAlpha(30)
-                    : Colors.red.withAlpha(30),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: state.testResult!.isMatch
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '✓ Match found!',
-                              style: TextStyle(
-                                color: Colors.green[700],
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text('Type: ${state.testResult!.type?.name}'),
-                            Text(
-                              'Amount: ${state.testResult!.amount?.toStringAsFixed(2)}',
-                            ),
-                            Text(
-                              'Currency: ${state.testResult!.currencyCode ?? 'N/A'}',
-                            ),
-                          ],
-                        )
-                      : Text(
-                          '✗ No match',
-                          style: TextStyle(
-                            color: Colors.red[700],
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                ),
-              ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-
   void _addRule() async {
     final rule = await showDialog<SmsParsingRule>(
       context: context,
@@ -597,29 +551,17 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
     );
     if (rule != null) {
       setState(() => _rules.add(rule));
+      _savePreset(pop: false);
     }
   }
 
-  void _testParsing() {
-    if (_testSmsController.text.isEmpty || _rules.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter SMS text and add at least one rule'),
-        ),
-      );
-      return;
-    }
-
-    context.read<SmsBloc>().add(
-      TestSmsRule(_testSmsController.text, _rules.first),
-    );
-  }
-
-  void _savePreset() {
+  void _savePreset({bool pop = true}) {
     if (_nameController.text.isEmpty || _senderController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Name and sender filter are required')),
-      );
+      if (pop) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Name and sender filter are required')),
+        );
+      }
       return;
     }
 
@@ -627,7 +569,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
       id: widget.preset?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
       name: _nameController.text,
       senderFilter: _senderController.text,
-      isBuiltIn: false,
+      isBuiltIn: isBuiltIn,
       isEnabled: widget.preset?.isEnabled ?? true,
       defaultAccountId: _selectedAccountId,
       defaultCategoryId: _selectedCategoryId,
@@ -635,6 +577,6 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
     );
 
     context.read<SmsBloc>().add(SaveSmsPreset(preset));
-    Navigator.pop(context);
+    if (pop) Navigator.pop(context);
   }
 }

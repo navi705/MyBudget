@@ -4,7 +4,6 @@ class SmsState extends Equatable {
   final bool isLoading;
   final bool hasPermission;
   final List<SmsPreset> presets;
-  final SmsParseResult? testResult;
   final bool isImporting;
   final double importProgress;
   final String? importError;
@@ -16,7 +15,6 @@ class SmsState extends Equatable {
     this.isLoading = false,
     this.hasPermission = false,
     this.presets = const [],
-    this.testResult,
     this.isImporting = false,
     this.importProgress = 0,
     this.importError,
@@ -29,7 +27,6 @@ class SmsState extends Equatable {
     bool? isLoading,
     bool? hasPermission,
     List<SmsPreset>? presets,
-    SmsParseResult? testResult,
     bool? isImporting,
     double? importProgress,
     String? importError,
@@ -41,7 +38,6 @@ class SmsState extends Equatable {
       isLoading: isLoading ?? this.isLoading,
       hasPermission: hasPermission ?? this.hasPermission,
       presets: presets ?? this.presets,
-      testResult: testResult ?? this.testResult,
       isImporting: isImporting ?? this.isImporting,
       importProgress: importProgress ?? this.importProgress,
       importError: importError,
@@ -57,7 +53,6 @@ class SmsState extends Equatable {
     isLoading,
     hasPermission,
     presets,
-    testResult,
     isImporting,
     importProgress,
     importError,

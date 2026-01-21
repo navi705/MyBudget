@@ -26,7 +26,7 @@ class SmsParseResult {
 /// Parses SMS messages using preset rules
 class SmsParser {
   /// Try to parse an SMS using the given preset's rules
-  SmsParseResult parse(String smsBody, SmsPreset preset) {
+  SmsParseResult parse(String smsBody, SmsPreset preset, DateTime smsDate) {
     for (final rule in preset.rules) {
       final matchRegex = RegExp(rule.matchPattern, caseSensitive: false);
       if (!matchRegex.hasMatch(smsBody)) {
@@ -73,7 +73,7 @@ class SmsParser {
         type: rule.type,
         amount: amount,
         currencyCode: currencyCode,
-        date: date,
+        date: date ?? smsDate,
         rawMessage: smsBody,
         ruleId: rule.id,
       );
@@ -137,6 +137,6 @@ class SmsParser {
       senderFilter: '',
       rules: [rule],
     );
-    return parse(smsBody, tempPreset);
+    return parse(smsBody, tempPreset, DateTime.now());
   }
 }

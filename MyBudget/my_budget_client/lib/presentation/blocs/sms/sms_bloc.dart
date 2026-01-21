@@ -31,7 +31,6 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     on<ToggleSmsPreset>(_onTogglePreset);
     on<SaveSmsPreset>(_onSavePreset);
     on<DeleteSmsPreset>(_onDeletePreset);
-    on<TestSmsRule>(_onTestRule);
     on<ImportSmsMessages>(_onImportMessages);
     on<ImportSmsWithPreset>(_onImportWithPreset);
     on<RequestSmsPermission>(_onRequestPermission);
@@ -77,11 +76,6 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
   ) async {
     await _smsRepository.deletePreset(event.presetId);
     add(LoadSmsPresets());
-  }
-
-  Future<void> _onTestRule(TestSmsRule event, Emitter<SmsState> emit) async {
-    final result = _parser.testRule(event.smsBody, event.rule);
-    emit(state.copyWith(testResult: result));
   }
 
   Future<void> _onImportMessages(
@@ -171,7 +165,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
         if (msg.sender.toLowerCase().contains(
           preset.senderFilter.toLowerCase(),
         )) {
-          final result = _parser.parse(msg.body, preset);
+          final result = _parser.parse(msg.body, preset, msg.date);
           if (result.isMatch && result.amount != null) {
             // Immediate creation
             await _createTransactionFromResult(result, preset, currencies);
@@ -206,17 +200,12 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     final isIncome = result.type == TransactionType.income;
     final amount = isIncome ? result.amount!.abs() : -result.amount!.abs();
 
-    final rawDescription = result.rawMessage ?? 'Imported from SMS';
-    final description = rawDescription.length > 100
-        ? rawDescription.substring(0, 100)
-        : rawDescription;
-
     final transaction = Transaction(
       id: const Uuid().v4(),
       amount: amount,
       currencyCode: currencyCode ?? 'RSD',
       date: result.date ?? DateTime.now(),
-      description: description,
+      description: preset.name,
       categoryId: preset.defaultCategoryId ?? 'other',
       accountId: preset.defaultAccountId ?? 'default',
     );

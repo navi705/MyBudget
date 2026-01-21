@@ -21,7 +21,7 @@ void main() {
           'mesto LIDL 128 BEOGRA, dana 19.01.2026 u 12:52:35h. '
           'Rasp.: RSD 100,145.83. Vasa ALTA banka';
 
-      final result = parser.parse(sms, altaBankPreset);
+      final result = parser.parse(sms, altaBankPreset, DateTime.now());
 
       expect(result.isMatch, isTrue);
       expect(result.type, TransactionType.expense);
@@ -35,7 +35,7 @@ void main() {
           'mesto aliexpress>Luxe, dana 08.11.2025 u 11:44:20h. '
           'Rasp.: EUR 0.96. Vasa ALTA banka';
 
-      final result = parser.parse(sms, altaBankPreset);
+      final result = parser.parse(sms, altaBankPreset, DateTime.now());
 
       expect(result.isMatch, isTrue);
       expect(result.type, TransactionType.expense);
@@ -48,7 +48,7 @@ void main() {
           'Proknjizen je priliv na vas racun 0001000477288 '
           'u iznosu od 1,000.00 RSD, 07.01.2026';
 
-      final result = parser.parse(sms, altaBankPreset);
+      final result = parser.parse(sms, altaBankPreset, DateTime.now());
 
       expect(result.isMatch, isTrue);
       expect(result.type, TransactionType.income);
@@ -61,7 +61,7 @@ void main() {
           'Proknjizen je priliv na vas racun 0031000267760 '
           'u iznosu od 10.00 EUR, 08.11.2025';
 
-      final result = parser.parse(sms, altaBankPreset);
+      final result = parser.parse(sms, altaBankPreset, DateTime.now());
 
       expect(result.isMatch, isTrue);
       expect(result.type, TransactionType.income);
@@ -75,7 +75,7 @@ void main() {
           'dana: 31.12.2025. Raspolozivo stanje po odlivu 417,473.88 RSD. '
           'Vasa Alta banka';
 
-      final result = parser.parse(sms, altaBankPreset);
+      final result = parser.parse(sms, altaBankPreset, DateTime.now());
 
       expect(result.isMatch, isTrue);
       expect(result.type, TransactionType.expense);
@@ -86,7 +86,7 @@ void main() {
     test('returns no match for unrelated SMS', () {
       const sms = 'Vash kod podtverzheniya: 123456';
 
-      final result = parser.parse(sms, altaBankPreset);
+      final result = parser.parse(sms, altaBankPreset, DateTime.now());
 
       expect(result.isMatch, isFalse);
     });
@@ -109,7 +109,7 @@ void main() {
         rules: [rule],
       );
 
-      final result = parser.parse('test 1.234,56', preset);
+      final result = parser.parse('test 1.234,56', preset, DateTime.now());
       expect(result.amount, 1234.56);
     });
 
@@ -128,7 +128,7 @@ void main() {
         rules: [rule],
       );
 
-      final result = parser.parse('test 1,234.56', preset);
+      final result = parser.parse('test 1,234.56', preset, DateTime.now());
       expect(result.amount, 1234.56);
     });
   });
