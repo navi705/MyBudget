@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
-import 'package:my_budget_client/l10n/app_localizations.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
@@ -165,7 +165,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = context.l10n;
 
     return EscapeBackHandler(
       child: BlocListener<AccountsBloc, AccountsState>(
@@ -177,7 +177,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
         },
         child: Scaffold(
           appBar: AppBar(
-            title: Text('Edit: ${_initialAccount.name}'),
+            title: Text(l10n.editAccountTitle(_initialAccount.name)),
             actions: [
               PopupMenuButton<String>(
                 onSelected: (value) {
@@ -186,9 +186,9 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                   }
                 },
                 itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'delete',
-                    child: Text('Delete'),
+                    child: Text(l10n.deleteButton),
                   ),
                 ],
               ),
@@ -211,10 +211,10 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                         : null,
                   ),
                   TextFormField(
-                    // ADDED
                     controller: _descriptionController,
-                    decoration: const InputDecoration(labelText: 'Description'),
-                    // TODO: Localize
+                    decoration: InputDecoration(
+                      labelText: l10n.descriptionLabel,
+                    ),
                     maxLines: 3,
                     keyboardType: TextInputType.multiline,
                   ),
@@ -241,11 +241,14 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                     },
                   ),
                   if (_selectedAssetId != null)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4.0),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
                       child: Text(
-                        'Balance is calculated from Asset Quantity * Price',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        l10n.balanceCalculatedFromAsset,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
                       ),
                     ),
                   const SizedBox(height: 16),
@@ -258,7 +261,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                 await showSingleSelectDialog<Currency>(
                                   context: context,
                                   items: state.currencies,
-                                  title: 'Select Currency',
+                                  title: l10n.selectCurrencyTitle,
                                   selectedItem: state.currencies
                                       .firstWhereOrNull(
                                         (c) => c.code == _selectedCurrencyCode,
@@ -314,7 +317,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                 await showSingleSelectDialog<AccountType>(
                                   context: context,
                                   items: state.accountTypes,
-                                  title: 'Select Account Type',
+                                  title: l10n.selectAccountTypeTitle,
                                   selectedItem: state.accountTypes
                                       .firstWhereOrNull(
                                         (t) => t.id == _selectedAccountTypeId,
@@ -336,12 +339,12 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                     (t) => t.id == _selectedAccountTypeId,
                                   )
                                   ?.name,
-                              decoration: const InputDecoration(
-                                labelText: 'Account Type',
+                              decoration: InputDecoration(
+                                labelText: l10n.typeLabel,
                               ),
                               validator: (value) =>
                                   _selectedAccountTypeId == null
-                                  ? 'Please select an account type'
+                                  ? l10n.selectAccountError
                                   : null,
                             ),
                           ),
@@ -359,7 +362,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                               await showSingleSelectDialog<String>(
                                 context: context,
                                 items: state.countries,
-                                title: 'Select Country',
+                                title: l10n.selectCountryTitle,
                                 selectedItem: _initialAccount.country,
                                 itemBuilder: (country) => Text(country),
                                 stringGetter: (country) => country,
@@ -380,8 +383,8 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                           child: TextFormField(
                             key: Key(_initialAccount.country ?? 'no_country'),
                             initialValue: _initialAccount.country,
-                            decoration: const InputDecoration(
-                              labelText: 'Country (Inflation)',
+                            decoration: InputDecoration(
+                              labelText: l10n.defaultInflationCountryLabel,
                             ),
                           ),
                         ),
@@ -406,9 +409,9 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                   child: IconUtils.getIconWidget(selectedStyle),
                                 )
                               : const CircleAvatar(child: Icon(Icons.style)),
-                          title: const Text('Icon'),
+                          title: Text(l10n.styleLabel),
                           subtitle: Text(
-                            selectedStyle?.name ?? 'Select an icon',
+                            selectedStyle?.name ?? l10n.selectIconSubtitle,
                           ),
                           onTap: () async {
                             final newStyleId = await showIconSelectionDialog(
@@ -446,9 +449,9 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Divider(),
-                          const Text(
-                            'Bind to Asset (Optional)',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                          Text(
+                            l10n.bindToAssetLabel,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
                           GestureDetector(
@@ -457,7 +460,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                   await showSingleSelectDialog<String>(
                                     context: context,
                                     items: uniqueAssets.keys.toList(),
-                                    title: 'Select Asset',
+                                    title: l10n.selectAssetTitle,
                                     selectedItem: _selectedAssetId,
                                     itemBuilder: (id) {
                                       final asset = uniqueAssets[id]!;
@@ -496,10 +499,10 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                     ? uniqueAssets[_selectedAssetId]?.name
                                     : null,
                                 decoration: InputDecoration(
-                                  labelText: 'Selected Asset',
+                                  labelText: l10n.selectedAssetLabel,
                                   helperText: _selectedAssetId != null
-                                      ? 'Balance is calculated automatically'
-                                      : 'Tap to bind an asset',
+                                      ? l10n.balanceAutoCalculatedLabel
+                                      : l10n.tapToBindAssetLabel,
                                   suffixIcon: _selectedAssetId != null
                                       ? IconButton(
                                           icon: const Icon(Icons.clear),
@@ -526,10 +529,13 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                     TextFormField(
                       controller: _assetQuantityController,
                       decoration: InputDecoration(
-                        labelText: 'Asset Quantity',
+                        labelText: l10n.assetQuantityLabel,
                         helperText:
                             _currentAssetPrice != null && _assetCurrency != null
-                            ? 'Current Price: $_currentAssetPrice $_assetCurrency'
+                            ? l10n.currentPriceLabel(
+                                _currentAssetPrice!.toString(),
+                                _assetCurrency!,
+                              )
                             : null,
                       ),
                       keyboardType: const TextInputType.numberWithOptions(
@@ -578,9 +584,9 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            "Linked Assets",
-                            style: TextStyle(
+                          Text(
+                            l10n.linkedAssetsTitle,
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),

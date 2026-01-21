@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
-import 'package:my_budget_client/l10n/app_localizations.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
@@ -169,90 +169,96 @@ class _AccountsScreenState extends State<AccountsScreen> {
     Offset position,
     Account account,
     AccountsLoadSuccess state,
-  ) {
+  ) async {
     final bloc = context.read<AccountsBloc>();
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
+    final l10n = context.l10n;
     final isSelected = state.selectedAccountIds.contains(account.id);
 
-    showMenu(
+    final value = await showMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
         Rect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
         Offset.zero & overlay.size,
       ),
-      items: <PopupMenuEntry<dynamic>>[
+      items: <PopupMenuEntry<String>>[
         PopupMenuItem(
           value: 'select',
-          child: Text(isSelected ? 'Deselect' : 'Select'),
-        ),
-        const PopupMenuItem(value: 'select_all', child: Text('Select All')),
-        if (state.selectedAccountIds.isNotEmpty)
-          const PopupMenuItem(
-            value: 'deselect_all',
-            child: Text('Deselect All'),
+          child: Text(
+            isSelected ? l10n.contextMenuDeselect : l10n.contextMenuSelect,
           ),
-        const PopupMenuItem(
-          value: 'add_transaction',
-          child: Text('Add Transaction'),
         ),
-        // Hide Transfer for asset-linked accounts (use Add Transaction instead)
-        if (account.assetId == null)
-          const PopupMenuItem(value: 'transfer', child: Text('Transfer')),
+        PopupMenuItem(
+          value: 'select_all',
+          child: Text(l10n.contextMenuSelectAll),
+        ),
+        if (state.selectedAccountIds.isNotEmpty)
+          PopupMenuItem(
+            value: 'deselect_all',
+            child: Text(l10n.contextMenuDeselectAll),
+          ),
         const PopupMenuDivider(),
-        const PopupMenuItem(value: 'edit', child: Text('Edit')),
-        const PopupMenuItem(value: 'delete', child: Text('Delete')),
-        const PopupMenuItem(value: 'change_type', child: Text('Change Type')),
+        PopupMenuItem(
+          value: 'add_transaction',
+          child: Text(l10n.contextMenuAddTransaction),
+        ),
+        PopupMenuItem(value: 'transfer', child: Text(l10n.contextMenuTransfer)),
+        PopupMenuItem(value: 'edit', child: Text(l10n.contextMenuEdit)),
+        PopupMenuItem(
+          value: 'change_type',
+          child: Text(l10n.contextMenuChangeType),
+        ),
+        PopupMenuItem(value: 'delete', child: Text(l10n.contextMenuDelete)),
       ],
-    ).then((value) {
-      if (!mounted) return;
-      final selectedIds = state.selectedAccountIds.toList();
-      if (value == 'select') {
-        if (!bloc.state.isSelectionModeActive) {
-          bloc.add(const ToggleSelectionMode(true));
-        }
-        bloc.add(ToggleAccountSelection(account.id!));
-      } else if (value == 'select_all') {
-        if (!bloc.state.isSelectionModeActive) {
-          bloc.add(const ToggleSelectionMode(true));
-        }
-        bloc.add(SelectAllAccounts());
-      } else if (value == 'deselect_all') {
-        bloc.add(ClearSelection());
-      } else if (value == 'add_transaction') {
-        context.push(
-          AppRoutes.addEditTransaction,
-          extra: {'accountId': account.id},
-        );
-      } else if (value == 'transfer') {
-        context.push(
-          AppRoutes.addEditTransaction,
-          extra: {'accountId': account.id, 'isTransfer': true},
-        );
-      } else if (value == 'edit') {
-        context.push(AppRoutes.editAccount, extra: account);
-      } else if (value == 'delete') {
-        if (!mounted) return;
-        _showDeleteConfirmationDialog(
-          context,
-          bloc,
-          isSelected ? selectedIds : [account.id!],
-        );
-      } else if (value == 'change_type') {
-        if (!mounted) return;
-        _showChangeAccountTypeDialog(
-          context,
-          bloc,
-          isSelected ? selectedIds : [account.id!],
-          state.accountTypes,
-        );
+    );
+
+    if (!context.mounted || value == null) return;
+    final selectedIds = state.selectedAccountIds.toList();
+
+    if (value == 'select') {
+      if (!bloc.state.isSelectionModeActive) {
+        bloc.add(const ToggleSelectionMode(true));
       }
-    });
+      bloc.add(ToggleAccountSelection(account.id!));
+    } else if (value == 'select_all') {
+      if (!bloc.state.isSelectionModeActive) {
+        bloc.add(const ToggleSelectionMode(true));
+      }
+      bloc.add(SelectAllAccounts());
+    } else if (value == 'deselect_all') {
+      bloc.add(ClearSelection());
+    } else if (value == 'add_transaction') {
+      context.push(
+        AppRoutes.addEditTransaction,
+        extra: {'accountId': account.id},
+      );
+    } else if (value == 'transfer') {
+      context.push(
+        AppRoutes.addEditTransaction,
+        extra: {'accountId': account.id, 'isTransfer': true},
+      );
+    } else if (value == 'edit') {
+      context.push(AppRoutes.editAccount, extra: account);
+    } else if (value == 'delete') {
+      _showDeleteConfirmationDialog(
+        context,
+        bloc,
+        isSelected ? selectedIds : [account.id!],
+      );
+    } else if (value == 'change_type') {
+      _showChangeAccountTypeDialog(
+        context,
+        bloc,
+        isSelected ? selectedIds : [account.id!],
+        state.accountTypes,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = context.l10n;
 
     final bloc = context.read<AccountsBloc>();
 
@@ -320,11 +326,13 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 ..showSnackBar(
                   SnackBar(
                     content: Text(
-                      '${state.recentlyDeletedAccount!.name} deleted', // TODO: Proper localization with variable
+                      l10n.itemDeletedMessage(
+                        state.recentlyDeletedAccount!.name,
+                      ),
                     ),
 
                     action: SnackBarAction(
-                      label: 'Undo', // TODO: Localize
+                      label: l10n.undoButton,
 
                       onPressed: () {
                         context.read<AccountsBloc>().add(UndoDeleteAccount());
@@ -486,9 +494,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
         ),
 
         floatingActionButton: MultiLevelTooltip(
-          message: 'Add Account',
+          message: l10n.accountsAddTooltip,
           actionId: 'add_action',
-          description: 'Create a new bank account, wallet, or asset',
+          description: l10n.addAccountDescription,
           child: FloatingActionButton(
             onPressed: () {
               showDialog(
@@ -528,6 +536,7 @@ class _SelectionAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final bloc = context.read<AccountsBloc>();
 
     final selectedCount = state.selectedAccountIds.length;
@@ -538,22 +547,24 @@ class _SelectionAppBar extends StatelessWidget {
 
     return AppBar(
       leading: MultiLevelTooltip(
-        message: 'Close Selection',
+        message: l10n.closeSelectionTooltip,
         actionId: 'accounts_selection_close',
-        description: 'Exit account selection mode',
+        description: l10n.exitSelectionDescription,
         child: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => bloc.add(const ToggleSelectionMode(false)),
         ),
       ),
-      title: Text('$selectedCount selected'),
+      title: Text(l10n.selectedCountLabel(selectedCount)),
       actions: [
         MultiLevelTooltip(
-          message: isAllSelected ? 'Deselect All' : 'Select All',
+          message: isAllSelected
+              ? l10n.contextMenuDeselectAll
+              : l10n.contextMenuSelectAll,
           actionId: 'accounts_selection_all',
           description: isAllSelected
-              ? 'Unselect all accounts'
-              : 'Select all listed accounts',
+              ? l10n.contextMenuDeselectAll
+              : l10n.contextMenuSelectAll,
           child: IconButton(
             icon: Icon(
               isAllSelected
@@ -571,18 +582,18 @@ class _SelectionAppBar extends StatelessWidget {
         ),
         if (selectedCount > 0) ...[
           MultiLevelTooltip(
-            message: 'Delete Selected',
+            message: l10n.contextMenuDelete,
             actionId: 'accounts_selection_delete',
-            description: 'Delete all selected accounts and their transactions',
+            description: l10n.deleteTransactionsDescription,
             child: IconButton(
               icon: const Icon(Icons.delete),
               onPressed: onDelete,
             ),
           ),
           MultiLevelTooltip(
-            message: 'Change Type',
+            message: l10n.contextMenuChangeType,
             actionId: 'accounts_selection_change_type',
-            description: 'Update the category/type for selected accounts',
+            description: l10n.contextMenuChangeType,
             child: IconButton(
               icon: const Icon(Icons.drive_file_rename_outline),
               onPressed: onChangeType,
@@ -606,6 +617,7 @@ class TotalBalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final formatter = NumberFormat.decimalPattern();
     return Card(
       margin: const EdgeInsets.all(8.0),
@@ -615,13 +627,13 @@ class TotalBalanceCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text(
-              'Total Balance', // TODO: Localize
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              l10n.totalBalanceLabel,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             if (converterState.selectedCurrencies.isEmpty)
-              const Text('No currencies selected.')
+              Text(l10n.noCurrenciesSelected)
             else
               Wrap(
                 spacing: 16.0,

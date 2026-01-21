@@ -54,51 +54,53 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
               'This account may have associated transactions. What would you like to do?',
             ),
             const SizedBox(height: 16),
-            if (availableAccounts.isNotEmpty) ...[
-              RadioListTile<DeleteAccountOption>(
-                title: const Text('Reassign transactions to another account'),
-                value: DeleteAccountOption.reassign,
-                groupValue: _selectedOption,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedOption = value!;
-                  });
-                },
-              ),
-              if (_selectedOption == DeleteAccountOption.reassign)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _newAccountId,
-                    items: availableAccounts
-                        .map(
-                          (a) => DropdownMenuItem(
-                            value: a.id,
-                            child: Text(a.name),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _newAccountId = value;
-                      });
-                    },
-                    decoration: const InputDecoration(
-                      labelText: 'New Account',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-            ],
-            RadioListTile<DeleteAccountOption>(
-              title: const Text('Delete all associated transactions'),
-              value: DeleteAccountOption.delete,
+            RadioGroup<DeleteAccountOption>(
               groupValue: _selectedOption,
               onChanged: (value) {
                 setState(() {
                   _selectedOption = value!;
                 });
               },
+              child: Column(
+                children: [
+                  if (availableAccounts.isNotEmpty) ...[
+                    RadioListTile<DeleteAccountOption>(
+                      title: const Text(
+                        'Reassign transactions to another account',
+                      ),
+                      value: DeleteAccountOption.reassign,
+                    ),
+                    if (_selectedOption == DeleteAccountOption.reassign)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: DropdownButtonFormField<String>(
+                          initialValue: _newAccountId,
+                          items: availableAccounts
+                              .map(
+                                (a) => DropdownMenuItem(
+                                  value: a.id,
+                                  child: Text(a.name),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _newAccountId = value;
+                            });
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'New Account',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                  ],
+                  RadioListTile<DeleteAccountOption>(
+                    title: const Text('Delete all associated transactions'),
+                    value: DeleteAccountOption.delete,
+                  ),
+                ],
+              ),
             ),
           ],
         ),

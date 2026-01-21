@@ -11,6 +11,7 @@ import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart'
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/debug/debug_data_seeder.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 class DebugScreen extends StatelessWidget {
   const DebugScreen({super.key});
@@ -25,14 +26,13 @@ class DebugScreen extends StatelessWidget {
     context.read<StylesBloc>().add(LoadStyles());
     context.read<TransactionsBloc>().add(
       const InitialLoadTransactions(),
-    ); //TODO remove direction scroll
+    ); 
   }
 
   @override
   Widget build(BuildContext context) {
-    //final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: const Text('Debug Menu')),
+      appBar: AppBar(title: Text(context.l10n.debugMenuLabel)),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
@@ -45,14 +45,12 @@ class DebugScreen extends StatelessWidget {
                   if (!context.mounted) return;
                   _reloadAllBlocs(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'All data cleared and re-seeded with defaults.',
-                      ),
+                    SnackBar(
+                      content: Text(context.l10n.debugAllDataClearedMessage),
                     ),
                   );
                 },
-                child: const Text('Clear All Data (and re-seed defaults)'),
+                child: Text(context.l10n.debugClearAllDataLabel),
               ),
               const SizedBox(height: 16),
               FilledButton.tonal(
@@ -61,10 +59,12 @@ class DebugScreen extends StatelessWidget {
                   if (!context.mounted) return;
                   _reloadAllBlocs(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Minimum data seeded.')),
+                    SnackBar(
+                      content: Text(context.l10n.debugMinimumDataSeededMessage),
+                    ),
                   );
                 },
-                child: const Text('Seed Minimum Data'),
+                child: Text(context.l10n.debugSeedMinimumDataLabel),
               ),
               const SizedBox(height: 16),
               FilledButton.tonal(
@@ -73,10 +73,12 @@ class DebugScreen extends StatelessWidget {
                   if (!context.mounted) return;
                   _reloadAllBlocs(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Medium data seeded.')),
+                    SnackBar(
+                      content: Text(context.l10n.debugMediumDataSeededMessage),
+                    ),
                   );
                 },
-                child: const Text('Seed Medium Data'),
+                child: Text(context.l10n.debugSeedMediumDataLabel),
               ),
               const SizedBox(height: 16),
               FilledButton.tonal(
@@ -85,15 +87,17 @@ class DebugScreen extends StatelessWidget {
                   if (!context.mounted) return;
                   _reloadAllBlocs(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Maximum data seeded.')),
+                    SnackBar(
+                      content: Text(context.l10n.debugMaximumDataSeededMessage),
+                    ),
                   );
                 },
-                child: const Text('Seed Maximum Data (for performance test)'),
+                child: Text(context.l10n.debugSeedMaximumDataLabel),
               ),
               const SizedBox(height: 16),
               if (kDebugMode) // Example of debug mode check
                 Text(
-                  'Running in DEBUG mode',
+                  context.l10n.debugRunningInDebugModeLabel,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
             ],

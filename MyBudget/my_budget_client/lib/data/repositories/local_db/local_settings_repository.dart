@@ -111,10 +111,9 @@ class LocalSettingsRepository implements SettingsRepository {
     final deviceName = await getDeviceName();
     final defaults = getDefaultSettings(deviceName);
 
-    // 2. Upsert defaults.
     await _database.batch((batch) {
       for (final setting in defaults) {
-        // We use insertOnConflictUpdate which corresponds to INSERT OR REPLACE
+        debugPrint('Initializing default setting: ${setting.key.value} = ${setting.value.value}');
         batch.insert(
           _database.settings,
           setting,

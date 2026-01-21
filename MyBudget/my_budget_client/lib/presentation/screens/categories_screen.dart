@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
@@ -65,24 +66,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     CategoriesBloc bloc,
     List<String> categoryIds,
   ) {
+    final l10n = context.l10n;
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Delete ${categoryIds.length} categories?'),
-        content: const Text(
-          'Are you sure you want to delete the selected categories?',
-        ),
+        title: Text(l10n.deleteCategoriesConfirmationTitle(categoryIds.length)),
+        content: Text(l10n.deleteCategoriesConfirmationMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
               bloc.add(DeleteMultipleCategories(categoryIds));
               Navigator.pop(dialogContext);
             },
-            child: const Text('Delete'),
+            child: Text(l10n.deleteButton),
           ),
         ],
       ),
@@ -94,12 +94,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     CategoriesBloc bloc,
     List<String> categoryIds,
   ) {
+    final l10n = context.l10n;
     showDialog(
       context: context,
       builder: (dialogContext) {
         CategoryType? selectedType = CategoryType.expense;
         return AlertDialog(
-          title: const Text('Change Category Type'),
+          title: Text(l10n.changeCategoryTypeDialogTitle),
           content: DropdownButton<CategoryType>(
             value: selectedType,
             onChanged: (newValue) {
@@ -116,11 +117,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ),
           actions: [
             TextButton(
-              child: const Text('Cancel'),
+              child: Text(l10n.cancelButton),
               onPressed: () => Navigator.of(dialogContext).pop(),
             ),
             TextButton(
-              child: const Text('Change'),
+              child: Text(l10n.categoriesChangeButton),
               onPressed: () {
                 if (selectedType != null) {
                   bloc.add(
@@ -170,80 +171,91 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     Offset position,
     Category category,
     CategoriesLoadSuccess state,
-  ) {
+  ) async {
     final bloc = context.read<CategoriesBloc>();
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
     final isSelected = state.selectedCategoryIds.contains(category.id);
 
-    showMenu(
+    final l10n = context.l10n;
+    final value = await showMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
         Rect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
         Offset.zero & overlay.size,
       ),
-      items: <PopupMenuEntry<dynamic>>[
-        const PopupMenuItem(
+      items: <PopupMenuEntry<String>>[
+        PopupMenuItem(
           value: 'add_transaction',
-          child: Text('Add Transaction'),
+          child: Text(l10n.contextMenuAddTransaction),
         ),
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'select',
-          child: Text(isSelected ? 'Deselect' : 'Select'),
+          child: Text(
+            isSelected ? l10n.contextMenuDeselect : l10n.contextMenuSelect,
+          ),
         ),
-        const PopupMenuItem(value: 'select_all', child: Text('Select All')),
+        PopupMenuItem(
+          value: 'select_all',
+          child: Text(l10n.contextMenuSelectAll),
+        ),
         if (state.selectedCategoryIds.isNotEmpty)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'deselect_all',
-            child: Text('Deselect All'),
+            child: Text(l10n.contextMenuDeselectAll),
           ),
         const PopupMenuDivider(),
-        const PopupMenuItem(value: 'edit', child: Text('Edit')),
-        const PopupMenuItem(value: 'delete', child: Text('Delete')),
-        const PopupMenuItem(value: 'change_type', child: Text('Change Type')),
+        PopupMenuItem(value: 'edit', child: Text(l10n.contextMenuEdit)),
+        PopupMenuItem(value: 'delete', child: Text(l10n.contextMenuDelete)),
+        PopupMenuItem(
+          value: 'change_type',
+          child: Text(l10n.contextMenuChangeType),
+        ),
       ],
-    ).then((value) {
-      if (!mounted) return;
-      final selectedIds = state.selectedCategoryIds.toList();
-      if (value == 'add_transaction') {
-        _navigateToAddTransaction(context, category);
-      } else if (value == 'select') {
-        if (!state.isSelectionModeActive) {
-          bloc.add(const ToggleSelectionMode(true));
-        }
-        bloc.add(ToggleCategorySelection(category.id!));
-      } else if (value == 'select_all') {
-        if (!state.isSelectionModeActive) {
-          bloc.add(const ToggleSelectionMode(true));
-        }
-        bloc.add(SelectAllCategories());
-      } else if (value == 'deselect_all') {
-        bloc.add(ClearSelection());
-      } else if (value == 'edit') {
-        _showAddEditCategoryDialog(
-          context,
-          category: category,
-          allCategories: state.allCategories,
-        );
-      } else if (value == 'delete') {
-        if (isSelected && state.selectedCategoryIds.length > 1) {
-          _showDeleteConfirmationDialog(context, bloc, selectedIds);
-        } else {
-          bloc.add(DeleteCategory(category.id!));
-        }
-      } else if (value == 'change_type') {
-        _showChangeCategoryTypeDialog(
-          context,
-          bloc,
-          isSelected ? selectedIds : [category.id!],
-        );
+    );
+
+    if (!context.mounted || value == null) return;
+    final selectedIds = state.selectedCategoryIds.toList();
+
+    if (value == 'add_transaction') {
+      _navigateToAddTransaction(context, category);
+    } else if (value == 'select') {
+      if (!state.isSelectionModeActive) {
+        bloc.add(const ToggleSelectionMode(true));
       }
-    });
+      bloc.add(ToggleCategorySelection(category.id!));
+    } else if (value == 'select_all') {
+      if (!state.isSelectionModeActive) {
+        bloc.add(const ToggleSelectionMode(true));
+      }
+      bloc.add(SelectAllCategories());
+    } else if (value == 'deselect_all') {
+      bloc.add(ClearSelection());
+    } else if (value == 'edit') {
+      _showAddEditCategoryDialog(
+        context,
+        category: category,
+        allCategories: state.allCategories,
+      );
+    } else if (value == 'delete') {
+      if (isSelected && state.selectedCategoryIds.length > 1) {
+        _showDeleteConfirmationDialog(context, bloc, selectedIds);
+      } else {
+        bloc.add(DeleteCategory(category.id!));
+      }
+    } else if (value == 'change_type') {
+      _showChangeCategoryTypeDialog(
+        context,
+        bloc,
+        isSelected ? selectedIds : [category.id!],
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final bloc = context.read<CategoriesBloc>();
     return BlocListener<CategoriesBloc, CategoriesState>(
       listener: (context, state) {
@@ -304,7 +316,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         }
                         return _CategoriesDateAppBar(state: state);
                       }
-                      return AppBar(title: const Text('Categories'));
+                      return AppBar(
+                        title: Text(context.l10n.categoriesAppBarTitle),
+                      );
                     },
                   ),
                 )
@@ -328,8 +342,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 }
                 if (state is CategoriesLoadSuccess) {
                   if (state.categoriesWithTotals.isEmpty) {
-                    return const Center(
-                      child: Text('No categories created yet.'),
+                    return Center(
+                      child: Text(context.l10n.noCategoriesCreated),
                     );
                   }
 
@@ -397,7 +411,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     },
                   );
                 }
-                return const Center(child: Text('Failed to load categories.'));
+                return Center(child: Text(context.l10n.accountsLoadFailure));
               },
             ),
           ),
@@ -408,9 +422,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 return const SizedBox.shrink();
               }
               return MultiLevelTooltip(
-                message: 'Add Category',
+                message: l10n.addCategoryTooltip,
                 actionId: 'add_action',
-                description: 'Create a new expense or income category',
+                description: l10n.addCategoryDescription,
                 child: FloatingActionButton(
                   onPressed: () {
                     final state = context.read<CategoriesBloc>().state;
@@ -490,7 +504,7 @@ class _CategoriesDateAppBar extends StatelessWidget {
 
   String _formatDate(BuildContext context, CategoriesLoadSuccess state) {
     if (state.filterMode == FilterMode.range) {
-      if (state.activeDateRange == null) return 'Select Range';
+      if (state.activeDateRange == null) return context.l10n.selectDateTooltip;
       final start = MaterialLocalizations.of(
         context,
       ).formatShortDate(state.activeDateRange!.start);
@@ -517,6 +531,7 @@ class _CategoriesDateAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bloc = context.read<CategoriesBloc>();
+    final l10n = context.l10n;
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final isMobile = MediaQuery.of(context).size.width < 600;
 
@@ -527,9 +542,9 @@ class _CategoriesDateAppBar extends StatelessWidget {
       mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
       children: [
         MultiLevelTooltip(
-          message: 'Previous Period',
+          message: context.l10n.previousPeriodTooltip,
           actionId: 'prev_period',
-          description: 'Go to the previous month or year',
+          description: context.l10n.previousPeriodDescription,
           child: IconButton(
             icon: Icon(Icons.chevron_left, color: onSurface),
             onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
@@ -537,9 +552,9 @@ class _CategoriesDateAppBar extends StatelessWidget {
         ),
         if (isMobile)
           MultiLevelTooltip(
-            message: 'Filter',
+            message: context.l10n.filterTooltip,
             actionId: 'filter_categories',
-            description: 'Filter categories by type (Income/Expense)',
+            description: context.l10n.filterCategoriesDescription,
             child: IconButton(
               icon: Icon(Icons.tune, color: onSurface),
               onPressed: () => showCategoryFilterDialog(context, state.filters),
@@ -547,9 +562,9 @@ class _CategoriesDateAppBar extends StatelessWidget {
           )
         else if (!isMobile) ...[
           MultiLevelTooltip(
-            message: 'Filter',
+            message: l10n.filterTooltip,
             actionId: 'filter_categories',
-            description: 'Filter categories by type (Income/Expense)',
+            description: l10n.filterCategoriesDescription,
             child: IconButton(
               icon: Icon(Icons.tune, color: onSurface),
               onPressed: () => showCategoryFilterDialog(context, state.filters),
@@ -560,9 +575,9 @@ class _CategoriesDateAppBar extends StatelessWidget {
         Expanded(
           flex: isMobile ? 1 : 0,
           child: MultiLevelTooltip(
-            message: 'Select Date',
+            message: l10n.selectDateTooltip,
             actionId: 'categories_pick_date',
-            description: 'Choose a specific date range to view totals',
+            description: context.l10n.selectDateDescription,
             child: InkWell(
               onTap: () => _showCustomCalendar(context, state),
               child: Container(
@@ -582,9 +597,9 @@ class _CategoriesDateAppBar extends StatelessWidget {
         ),
         if (isMobile)
           MultiLevelTooltip(
-            message: 'Sort Order',
+            message: context.l10n.sortOrderTooltip,
             actionId: 'categories_sort',
-            description: 'Switch between ascending and descending amount order',
+            description: context.l10n.sortOrderDescription,
             child: RotatedBox(
               quarterTurns: state.filters.sort == Sort.ascending ? 2 : 0,
               child: IconButton(
@@ -604,9 +619,9 @@ class _CategoriesDateAppBar extends StatelessWidget {
         if (!isMobile) ...[
           const SizedBox(width: 8),
           MultiLevelTooltip(
-            message: 'Sort Order',
+            message: l10n.sortOrderTooltip,
             actionId: 'categories_sort',
-            description: 'Switch between ascending and descending amount order',
+            description: l10n.sortOrderDescription,
             child: RotatedBox(
               quarterTurns: state.filters.sort == Sort.ascending ? 2 : 0,
               child: IconButton(
@@ -623,9 +638,9 @@ class _CategoriesDateAppBar extends StatelessWidget {
           const SizedBox(width: 8),
         ],
         MultiLevelTooltip(
-          message: 'Next Period',
+          message: l10n.nextPeriodTooltip,
           actionId: 'next_period',
-          description: 'Go to the next month or year',
+          description: l10n.nextPeriodDescription,
           child: IconButton(
             icon: Icon(Icons.chevron_right, color: onSurface),
             onPressed: () => bloc.add(const DatePeriodNavigated(1)),
@@ -636,7 +651,9 @@ class _CategoriesDateAppBar extends StatelessWidget {
 
     return GenericFilterAppBar(
       centerWidget: centerWidget,
-      totalCountText: 'Total: ${state.categoriesWithTotals.length}',
+      totalCountText: l10n.totalCountLabel(
+        state.categoriesWithTotals.length.toString(),
+      ),
     );
   }
 }
@@ -659,24 +676,27 @@ class _SelectionAppBar extends StatelessWidget {
     final allCount = state.categoriesWithTotals.length;
     final isAllSelected = selectedCount == allCount && allCount > 0;
 
+    final l10n = context.l10n;
     return AppBar(
       leading: MultiLevelTooltip(
-        message: 'Close Selection',
+        message: l10n.closeSelectionTooltip,
         actionId: 'categories_selection_close',
-        description: 'Exit category selection mode',
+        description: l10n.exitSelectionDescription,
         child: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => bloc.add(const ToggleSelectionMode(false)),
         ),
       ),
-      title: Text('$selectedCount selected'),
+      title: Text(l10n.selectedCountLabel(selectedCount.toString())),
       actions: [
         MultiLevelTooltip(
-          message: isAllSelected ? 'Deselect All' : 'Select All',
+          message: isAllSelected
+              ? l10n.contextMenuDeselectAll
+              : l10n.contextMenuSelectAll,
           actionId: 'categories_selection_all',
           description: isAllSelected
-              ? 'Unselect all categories'
-              : 'Select all listed categories',
+              ? l10n.contextMenuDeselectAll
+              : l10n.contextMenuSelectAll,
           child: IconButton(
             icon: Icon(
               isAllSelected
@@ -694,18 +714,18 @@ class _SelectionAppBar extends StatelessWidget {
         ),
         if (selectedCount > 0) ...[
           MultiLevelTooltip(
-            message: 'Delete Selected',
+            message: l10n.contextMenuDelete,
             actionId: 'categories_selection_delete',
-            description: 'Permanently delete all selected categories',
+            description: l10n.deleteCategoriesConfirmationMessage,
             child: IconButton(
               icon: const Icon(Icons.delete),
               onPressed: onDelete,
             ),
           ),
           MultiLevelTooltip(
-            message: 'Change Type',
+            message: l10n.contextMenuChangeType,
             actionId: 'categories_selection_change_type',
-            description: 'Change the type for selected categories',
+            description: l10n.changeCategoryTypeDialogTitle,
             child: IconButton(
               icon: const Icon(Icons.drive_file_rename_outline),
               onPressed: onChangeType,
@@ -785,8 +805,13 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AlertDialog(
-      title: Text(widget.category == null ? 'Add Category' : 'Edit Category'),
+      title: Text(
+        widget.category == null
+            ? l10n.addCategoryTooltip
+            : l10n.contextMenuEdit,
+      ),
       content: Form(
         key: _formKey,
         child: Column(
@@ -794,9 +819,9 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
           children: [
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Category Name'),
+              decoration: InputDecoration(labelText: l10n.categoryNameLabel),
               validator: (value) => (value == null || value.isEmpty)
-                  ? 'Please enter a name'
+                  ? l10n.formValidationPleaseEnterName
                   : null,
             ),
             BlocBuilder<StylesBloc, StylesState>(
@@ -823,9 +848,9 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                                   (s) => s.id == _selectedStyleId,
                                 )
                                 ?.name ??
-                            'Select an icon',
+                            l10n.selectIconSubtitle,
                         decoration: InputDecoration(
-                          labelText: 'Icon',
+                          labelText: l10n.styleLabel,
                           prefixIcon: _selectedStyleId != null
                               ? BlocBuilder<StylesBloc, StylesState>(
                                   builder: (context, stylesState) {
@@ -855,7 +880,7 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                 final selectedParent = await showSingleSelectDialog<Category>(
                   context: context,
                   items: widget.allCategories,
-                  title: 'Select Parent Category',
+                  title: l10n.parentCategoryLabel,
                   selectedItem: widget.allCategories.firstWhereOrNull(
                     (c) => c.id == _selectedParentId,
                   ),
@@ -893,9 +918,9 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                       widget.allCategories
                           .firstWhereOrNull((c) => c.id == _selectedParentId)
                           ?.name ??
-                      'None',
+                      l10n.noneLabel,
                   decoration: InputDecoration(
-                    labelText: 'Parent Category',
+                    labelText: l10n.parentCategoryLabel,
                     prefixIcon: _selectedParentId != null
                         ? BlocBuilder<StylesBloc, StylesState>(
                             builder: (context, stylesState) {
@@ -927,7 +952,7 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                 final selectedType = await showSingleSelectDialog<CategoryType>(
                   context: context,
                   items: CategoryType.values,
-                  title: 'Select Category Type',
+                  title: l10n.typeLabel,
                   selectedItem: _selectedCategoryType,
                   itemBuilder: (type) => Text(type.toString().split('.').last),
                   stringGetter: (type) => type.toString().split('.').last,
@@ -945,7 +970,7 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                       .toString()
                       .split('.')
                       .last,
-                  decoration: const InputDecoration(labelText: 'Category Type'),
+                  decoration: InputDecoration(labelText: l10n.typeLabel),
                 ),
               ),
             ),
@@ -955,9 +980,9 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancelButton),
         ),
-        FilledButton.tonal(onPressed: _onSave, child: const Text('Save')),
+        FilledButton.tonal(onPressed: _onSave, child: Text(l10n.saveButton)),
       ],
     );
   }

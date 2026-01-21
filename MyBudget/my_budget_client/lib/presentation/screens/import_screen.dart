@@ -20,7 +20,7 @@ import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:collection/collection.dart';
-import 'package:my_budget_client/l10n/app_localizations.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/services/android_file_picker_service.dart';
 
 class ImportScreen extends StatelessWidget {
@@ -55,9 +55,7 @@ class _ImportViewState extends State<_ImportView> {
     if (Platform.isAndroid) {
       pickedPaths = await sl<AndroidFilePickerService>().pickFile(
         mimeType: '*/*',
-        title:
-            AppLocalizations.of(context)?.filePickerChooserTitle ??
-            'Select CSV',
+        title: context.l10n.filePickerChooserTitle,
         allowMultiple: true,
       );
     } else {
@@ -89,8 +87,10 @@ class _ImportViewState extends State<_ImportView> {
       if (!allValid) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please select valid CSV files from OneMoney.'),
+            SnackBar(
+              content: Text(
+                context.l10n.selectAccountError,
+              ), // Using selectAccountError as a fallback or I should add a specific one
             ),
           );
         }
@@ -107,14 +107,14 @@ class _ImportViewState extends State<_ImportView> {
     return EscapeBackHandler(
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Import Data'),
+          title: Text(context.l10n.importDataTitle),
           actions: [
             BlocBuilder<ImportBloc, ImportState>(
               builder: (context, state) {
                 if (state.step != ImportStep.idle) {
                   return IconButton(
                     icon: const Icon(Icons.refresh),
-                    tooltip: 'Start Over',
+                    tooltip: context.l10n.importStartOverTooltip,
                     onPressed: () {
                       context.read<ImportBloc>().add(ResetImport());
                     },
@@ -131,13 +131,13 @@ class _ImportViewState extends State<_ImportView> {
               case ImportStep.idle:
                 return _buildFileSelectionStep();
               case ImportStep.parsing:
-                return const Center(
+                return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Parsing CSV files...'),
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text(context.l10n.importParsingStep),
                     ],
                   ),
                 );
@@ -150,13 +150,13 @@ class _ImportViewState extends State<_ImportView> {
               case ImportStep.resolvingDuplicates:
                 return _buildDuplicateResolutionStep(state);
               case ImportStep.fetchingRates:
-                return const Center(
+                return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Fetching exchange rates...'),
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text(context.l10n.importFetchingRatesStep),
                     ],
                   ),
                 );
@@ -167,7 +167,11 @@ class _ImportViewState extends State<_ImportView> {
               case ImportStep.complete:
                 return _buildCompletionStep(state);
               case ImportStep.failure:
-                return Center(child: Text('Error: ${state.errorMessage}'));
+                return Center(
+                  child: Text(
+                    context.l10n.importErrorLabel(state.errorMessage ?? ''),
+                  ),
+                );
             }
           },
         ),
@@ -188,7 +192,7 @@ class _ImportViewState extends State<_ImportView> {
               // Existing OneMoney Import
               OutlinedButton.icon(
                 icon: const Icon(Icons.attach_money),
-                label: const Text('Import from OneMoney (CSV)'),
+                label: Text(context.l10n.importOneMoneyLabel),
                 onPressed: _startOneMoneyImport,
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -199,7 +203,7 @@ class _ImportViewState extends State<_ImportView> {
               // MyBudget CSV Import
               OutlinedButton.icon(
                 icon: const Icon(Icons.table_chart),
-                label: const Text('Import MyBudget Transactions (CSV)'),
+                label: Text(context.l10n.importMyBudgetLabel),
                 onPressed: () => _handleGeneralImport(true),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -210,7 +214,7 @@ class _ImportViewState extends State<_ImportView> {
               // JSON Backup Import
               FilledButton.tonalIcon(
                 icon: const Icon(Icons.restore),
-                label: const Text('Restore Backup (JSON)'),
+                label: Text(context.l10n.restoreBackupLabel),
                 onPressed: () => _handleGeneralImport(false), // JSON
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -222,13 +226,13 @@ class _ImportViewState extends State<_ImportView> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Center(
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Text(
-                    "Select 'OneMoney' for migration, 'MyBudget' for adding transactions, or 'Restore Backup' to overwrite all data.",
+                    context.l10n.importSelectionHelp,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
+                    style: const TextStyle(color: Colors.grey),
                   ),
                 ),
               ),
@@ -240,6 +244,7 @@ class _ImportViewState extends State<_ImportView> {
   }
 
   Future<void> _handleGeneralImport(bool isCsv) async {
+    final l10n = context.l10n;
     // Logic for general import
     // Note: This bypasses the ImportBloc which is specific to OneMoney mapping.
     // For simplicity, we run it directly here.
@@ -247,19 +252,17 @@ class _ImportViewState extends State<_ImportView> {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Warning: Overwrite Data?'),
-          content: const Text(
-            'Restoring a backup will DELETE ALL current data and replace it with the backup. This cannot be undone.',
-          ),
+          title: Text(l10n.warningOverwriteTitle),
+          content: Text(l10n.warningOverwriteMessage),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancelButton),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Restore & Overwrite'),
+              child: Text(l10n.restoreOverwriteButton),
             ),
           ],
         ),
@@ -268,23 +271,24 @@ class _ImportViewState extends State<_ImportView> {
     }
 
     try {
-      // Use Service Locator to get DB
       final db = sl<AppDatabase>();
       final androidPicker = sl<AndroidFilePickerService>();
       final service = DataImportService(db, androidPicker);
-      final title = AppLocalizations.of(context)?.filePickerChooserTitle;
+      final title = l10n.filePickerChooserTitle;
       final success = await service.importData(isCsv, title: title);
 
       if (mounted && success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Import completed successfully.')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(l10n.importSuccess)));
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.importFailed(e.toString()))),
+        );
       }
     }
   }
@@ -300,7 +304,7 @@ class _ImportViewState extends State<_ImportView> {
             children: [
               FilledButton.tonalIcon(
                 icon: const Icon(Icons.add_circle_outline),
-                label: const Text('Create All New'),
+                label: Text(context.l10n.importCreateAllNew),
                 onPressed: () {
                   for (final name in unmapped) {
                     context.read<ImportBloc>().add(MapAccount(name, 'new'));
@@ -323,7 +327,7 @@ class _ImportViewState extends State<_ImportView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'New account found: "$accountName"',
+                        context.l10n.importNewAccountFound(accountName),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 16),
@@ -334,11 +338,13 @@ class _ImportViewState extends State<_ImportView> {
                             onPressed: () async {
                               final existingAccounts =
                                   await sl<AccountRepository>().getAccounts();
-                              if (!mounted) return;
+                              if (!context.mounted) return;
                               final selectedId = await showDialog<String>(
                                 context: context,
                                 builder: (_) => _MappingDialog<Account>(
-                                  title: 'Map "$accountName" to...',
+                                  title: context.l10n.importMapAccountTitle(
+                                    accountName,
+                                  ),
                                   items: existingAccounts,
                                   itemNameProvider: (account) => account.name,
                                   itemBuilder: (account) {
@@ -355,7 +361,7 @@ class _ImportViewState extends State<_ImportView> {
                                         ) ??
                                         Style(
                                           id: 'default',
-                                          name: 'Default',
+                                          name: context.l10n.newAccountLabel,
                                           iconName: 'account_balance',
                                           colorHex: '#808080',
                                           iconType: IconType.material,
@@ -376,7 +382,7 @@ class _ImportViewState extends State<_ImportView> {
                                         Container(
                                           padding: const EdgeInsets.all(8.0),
                                           decoration: BoxDecoration(
-                                            color: color.withOpacity(0.2),
+                                            color: color.withValues(alpha: 0.2),
                                             borderRadius: BorderRadius.circular(
                                               8.0,
                                             ),
@@ -390,22 +396,22 @@ class _ImportViewState extends State<_ImportView> {
                                   },
                                 ),
                               );
-                              if (selectedId != null && mounted) {
+                              if (!context.mounted) return;
+                              if (selectedId != null) {
                                 context.read<ImportBloc>().add(
                                   MapAccount(accountName, selectedId),
                                 );
                               }
                             },
-                            child: const Text('Map to Existing'),
+                            child: Text(context.l10n.importMapToExisting),
                           ),
-                          const SizedBox(width: 8),
                           FilledButton.tonal(
                             onPressed: () {
                               context.read<ImportBloc>().add(
                                 MapAccount(accountName, 'new'),
                               );
                             },
-                            child: const Text('Create New'),
+                            child: Text(context.l10n.importCreateNew),
                           ),
                         ],
                       ),
@@ -431,7 +437,7 @@ class _ImportViewState extends State<_ImportView> {
             children: [
               FilledButton.tonalIcon(
                 icon: const Icon(Icons.add_circle_outline),
-                label: const Text('Create All New'),
+                label: Text(context.l10n.importCreateAllNew),
                 onPressed: () {
                   for (final name in unmapped) {
                     context.read<ImportBloc>().add(MapCategory(name, 'new'));
@@ -454,7 +460,7 @@ class _ImportViewState extends State<_ImportView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'New category found: "$categoryName"',
+                        context.l10n.importNewCategoryFound(categoryName),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 16),
@@ -466,11 +472,13 @@ class _ImportViewState extends State<_ImportView> {
                               final existingCategories =
                                   await sl<CategoryRepository>()
                                       .getCategories();
-                              if (!mounted) return;
+                              if (!context.mounted) return;
                               final selectedId = await showDialog<String>(
                                 context: context,
                                 builder: (_) => _MappingDialog<Category>(
-                                  title: 'Map "$categoryName" to...',
+                                  title: context.l10n.importMapCategoryTitle(
+                                    categoryName,
+                                  ),
                                   items: existingCategories,
                                   itemNameProvider: (category) => category.name,
                                   itemBuilder: (category) {
@@ -487,7 +495,7 @@ class _ImportViewState extends State<_ImportView> {
                                         ) ??
                                         Style(
                                           id: 'default',
-                                          name: 'Default',
+                                          name: context.l10n.searchHint,
                                           iconName: 'category',
                                           colorHex: '#808080',
                                           iconType: IconType.material,
@@ -508,7 +516,7 @@ class _ImportViewState extends State<_ImportView> {
                                         Container(
                                           padding: const EdgeInsets.all(8.0),
                                           decoration: BoxDecoration(
-                                            color: color.withOpacity(0.2),
+                                            color: color.withValues(alpha: 0.2),
                                             borderRadius: BorderRadius.circular(
                                               8.0,
                                             ),
@@ -522,13 +530,14 @@ class _ImportViewState extends State<_ImportView> {
                                   },
                                 ),
                               );
-                              if (selectedId != null && mounted) {
+                              if (!context.mounted) return;
+                              if (selectedId != null) {
                                 context.read<ImportBloc>().add(
                                   MapCategory(categoryName, selectedId),
                                 );
                               }
                             },
-                            child: const Text('Map to Existing'),
+                            child: Text(context.l10n.importMapToExisting),
                           ),
                           const SizedBox(width: 8),
                           FilledButton.tonal(
@@ -537,7 +546,7 @@ class _ImportViewState extends State<_ImportView> {
                                 MapCategory(categoryName, 'new'),
                               );
                             },
-                            child: const Text('Create New'),
+                            child: Text(context.l10n.importCreateNew),
                           ),
                         ],
                       ),
@@ -563,7 +572,7 @@ class _ImportViewState extends State<_ImportView> {
             children: [
               FilledButton.tonalIcon(
                 icon: const Icon(Icons.add_circle_outline),
-                label: const Text('Create All New'),
+                label: Text(context.l10n.importCreateAllNew),
                 onPressed: () {
                   for (final name in unmapped) {
                     context.read<ImportBloc>().add(MapCurrency(name, 'new'));
@@ -586,7 +595,7 @@ class _ImportViewState extends State<_ImportView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'New currency found: "$currencyName"',
+                        context.l10n.importNewCurrencyFound(currencyName),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 16),
@@ -598,24 +607,26 @@ class _ImportViewState extends State<_ImportView> {
                               final existingCurrencies =
                                   await sl<CurrencyRepository>()
                                       .getCurrencies();
-                              if (!mounted) return;
+                              if (!context.mounted) return;
                               final selectedId = await showDialog<String>(
                                 context: context,
                                 builder: (_) => _MappingDialog<Currency>(
-                                  title: 'Map "$currencyName" to...',
+                                  title: context.l10n.importMapCurrencyTitle(
+                                    currencyName,
+                                  ),
                                   items: existingCurrencies,
                                   itemNameProvider: (currency) => currency.name,
                                   itemBuilder: (currency) =>
                                       Text(currency.name),
                                 ),
                               );
-                              if (selectedId != null && mounted) {
+                              if (selectedId != null && context.mounted) {
                                 context.read<ImportBloc>().add(
                                   MapCurrency(currencyName, selectedId),
                                 );
                               }
                             },
-                            child: const Text('Map to Existing'),
+                            child: Text(context.l10n.importMapToExisting),
                           ),
                           const SizedBox(width: 8),
                           FilledButton.tonal(
@@ -624,7 +635,7 @@ class _ImportViewState extends State<_ImportView> {
                                 MapCurrency(currencyName, 'new'),
                               );
                             },
-                            child: const Text('Create New'),
+                            child: Text(context.l10n.importCreateNew),
                           ),
                         ],
                       ),
@@ -650,7 +661,7 @@ class _ImportViewState extends State<_ImportView> {
             children: [
               OutlinedButton.icon(
                 icon: const Icon(Icons.skip_next),
-                label: const Text('Skip All'),
+                label: Text(context.l10n.importSkipAll),
                 onPressed: () {
                   for (final record in duplicates) {
                     context.read<ImportBloc>().add(
@@ -662,7 +673,7 @@ class _ImportViewState extends State<_ImportView> {
               const SizedBox(width: 8),
               FilledButton.tonalIcon(
                 icon: const Icon(Icons.download),
-                label: const Text('Import All'),
+                label: Text(context.l10n.importImportAll),
                 onPressed: () {
                   for (final record in duplicates) {
                     context.read<ImportBloc>().add(
@@ -690,16 +701,23 @@ class _ImportViewState extends State<_ImportView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Potential Duplicate:',
+                        context.l10n.importPotentialDuplicate,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Date: ${record.date.toLocal().toString().split(' ')[0]}',
+                        context.l10n.importDateLabel(
+                          record.date.toLocal().toString().split(' ')[0],
+                        ),
                       ),
-                      Text('From: ${record.from}'),
-                      Text('To: ${record.to}'),
-                      Text('Amount: ${record.amount} ${record.currency}'),
+                      Text(context.l10n.importFromLabel(record.from)),
+                      Text(context.l10n.importToLabel(record.to)),
+                      Text(
+                        context.l10n.importAmountLabel(
+                          record.amount,
+                          record.currency,
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       if (resolution == null)
                         Row(
@@ -711,7 +729,7 @@ class _ImportViewState extends State<_ImportView> {
                                   ResolveDuplicate(record, 'skip'),
                                 );
                               },
-                              child: const Text('Skip'),
+                              child: Text(context.l10n.importSkip),
                             ),
                             const SizedBox(width: 8),
                             FilledButton.tonal(
@@ -720,14 +738,16 @@ class _ImportViewState extends State<_ImportView> {
                                   ResolveDuplicate(record, 'import'),
                                 );
                               },
-                              child: const Text('Import Anyway'),
+                              child: Text(context.l10n.importImportAnyway),
                             ),
                           ],
                         )
                       else
                         Center(
                           child: Text(
-                            'Decision: ${resolution.toUpperCase()}',
+                            context.l10n.importDecisionLabel(
+                              resolution.toUpperCase(),
+                            ),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -756,12 +776,12 @@ class _ImportViewState extends State<_ImportView> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Ready to Import',
+              context.l10n.importReadyTitle,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
             Text(
-              '${state.parsedRecords.length} transactions are ready to be imported.',
+              context.l10n.importReadyMessage(state.parsedRecords.length),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
@@ -775,7 +795,7 @@ class _ImportViewState extends State<_ImportView> {
                   vertical: 16,
                 ),
               ),
-              child: const Text('Finalize Import'),
+              child: Text(context.l10n.importFinalizeButton),
             ),
           ],
         ),
@@ -793,7 +813,7 @@ class _ImportViewState extends State<_ImportView> {
             const CircularProgressIndicator(),
             const SizedBox(height: 24),
             Text(
-              'Importing...',
+              context.l10n.importingTitle,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
@@ -814,14 +834,30 @@ class _ImportViewState extends State<_ImportView> {
             const Icon(Icons.task_alt, color: Colors.blue, size: 80),
             const SizedBox(height: 24),
             Text(
-              'Import Complete',
+              context.l10n.importCompleteTitle,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 24),
-            Text('New Accounts Created: ${state.createdAccountsCount}'),
-            Text('New Categories Created: ${state.createdCategoriesCount}'),
-            Text('Transactions Imported: ${state.importedTransactionsCount}'),
-            Text('Duplicates Skipped: ${state.skippedDuplicatesCount}'),
+            Text(
+              context.l10n.importAccountsCreatedLabel(
+                state.createdAccountsCount,
+              ),
+            ),
+            Text(
+              context.l10n.importCategoriesCreatedLabel(
+                state.createdCategoriesCount,
+              ),
+            ),
+            Text(
+              context.l10n.importTransactionsImportedLabel(
+                state.importedTransactionsCount,
+              ),
+            ),
+            Text(
+              context.l10n.importDuplicatesSkippedLabel(
+                state.skippedDuplicatesCount,
+              ),
+            ),
           ],
         ),
       ),
@@ -885,7 +921,7 @@ class _MappingDialogState<T> extends State<_MappingDialog<T>> {
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                labelText: 'Search',
+                labelText: context.l10n.searchHint,
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.clear),
@@ -917,7 +953,7 @@ class _MappingDialogState<T> extends State<_MappingDialog<T>> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancelButton),
         ),
       ],
     );

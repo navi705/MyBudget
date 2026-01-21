@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
@@ -17,6 +18,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (converterState.selectedCurrencies.isEmpty &&
         accountsState.accounts.isEmpty) {
       return const SizedBox.shrink();
@@ -54,7 +56,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                 tilePadding: EdgeInsets.zero,
                 initiallyExpanded: false, // Auto-expand if showing Total
                 title: Text(
-                  'Total Net Worth',
+                  l10n.totalNetWorth,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.outline,
@@ -89,7 +91,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
               child: ExpansionTile(
                 tilePadding: EdgeInsets.zero,
                 title: Text(
-                  'Currency Breakdown',
+                  l10n.currencyBreakdown,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.outline,
@@ -137,6 +139,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
     Currency currency,
     List<Account> accounts,
   ) {
+    final l10n = context.l10n;
     // 1. Balance
     final nominalBalance = totalBalanceFor(
       currency: currency,
@@ -232,7 +235,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                 children: [
                   _buildMetricColumn(
                     context,
-                    "Balance",
+                    l10n.metricBalance,
                     nominalBalance,
                     prevBalance,
                     realBalance,
@@ -242,7 +245,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                   const SizedBox(width: 24),
                   _buildMetricColumn(
                     context,
-                    "Income",
+                    l10n.metricIncome,
                     nominalIncome,
                     prevIncome,
                     realIncome, // Restore Real Income
@@ -252,7 +255,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                   const SizedBox(width: 24),
                   _buildMetricColumn(
                     context,
-                    "Expense",
+                    l10n.metricExpense,
                     nominalExpense,
                     prevExpense,
                     null, // Hide Real Expense
@@ -277,6 +280,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
     double? prevReal,
     Color color,
   ) {
+    final l10n = context.l10n;
     if (nominal.abs() < 0.01 &&
         (real == null || real.abs() < 0.01) &&
         prevNominal.abs() < 0.01) {
@@ -314,12 +318,12 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
               ),
               if (nominalDiff.abs() >= 0.01) ...[
                 TextSpan(
-                  text: '  Change: ',
+                  text: '  ${l10n.metricChange}: ',
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(
                       context,
-                    ).textTheme.bodySmall?.color?.withOpacity(0.7),
+                    ).textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                   ),
                 ),
                 TextSpan(
@@ -344,7 +348,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                 fontSize: 14,
               ),
               children: [
-                const TextSpan(text: 'Real: '),
+                TextSpan(text: '${l10n.metricReal}: '),
                 TextSpan(text: formatter.format(real).replaceAll(',', ' ')),
                 if (realDiff.abs() >= 0.01) ...[
                   const TextSpan(text: ' '),

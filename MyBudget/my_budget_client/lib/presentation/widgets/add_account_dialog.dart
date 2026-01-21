@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
-import 'package:my_budget_client/l10n/app_localizations.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
@@ -57,7 +57,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = context.l10n;
 
     return AlertDialog(
       title: Text(l10n.addAccountDialogTitle),
@@ -76,9 +76,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
               ),
               TextFormField(
                 controller: _descriptionController, // ADDED
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                ), // TODO: Localize
+                decoration: InputDecoration(labelText: l10n.descriptionLabel),
                 maxLines: 3,
                 keyboardType: TextInputType.multiline,
               ),
@@ -105,7 +103,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                             await showSingleSelectDialog<Currency>(
                               context: context,
                               items: state.currencies,
-                              title: 'Select Currency',
+                              title: l10n.selectCurrencyTitle,
                               selectedItem: state.currencies.firstWhereOrNull(
                                 (c) => c.code == _selectedCurrencyCode,
                               ),
@@ -156,7 +154,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                             await showSingleSelectDialog<AccountType>(
                               context: context,
                               items: state.accountTypes,
-                              title: 'Select Account Type',
+                              title: l10n.selectAccountTypeTitle,
                               selectedItem: state.accountTypes.firstWhereOrNull(
                                 (t) => t.id == _selectedAccountTypeId,
                               ),
@@ -177,11 +175,11 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                 (t) => t.id == _selectedAccountTypeId,
                               )
                               ?.name,
-                          decoration: const InputDecoration(
-                            labelText: 'Account Type',
+                          decoration: InputDecoration(
+                            labelText: l10n.accountTypeLabel,
                           ),
                           validator: (value) => _selectedAccountTypeId == null
-                              ? 'Please select an account type'
+                              ? l10n.formValidationPleaseSelectAccountType
                               : null,
                         ),
                       ),
@@ -194,7 +192,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                 builder: (context, state) {
                   return DropdownButtonFormField<String>(
                     initialValue: _selectedCountry,
-                    hint: const Text('Select Country'),
+                    hint: Text(l10n.selectCountryTitle),
                     items: state.countries
                         .map(
                           (country) => DropdownMenuItem(
@@ -232,8 +230,10 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                               child: IconUtils.getIconWidget(selectedStyle),
                             )
                           : const CircleAvatar(child: Icon(Icons.style)),
-                      title: const Text('Icon'),
-                      subtitle: Text(selectedStyle?.name ?? 'Select an icon'),
+                      title: Text(l10n.iconLabel),
+                      subtitle: Text(
+                        selectedStyle?.name ?? l10n.selectIconSubtitle,
+                      ),
                       onTap: () async {
                         final newStyleId = await showIconSelectionDialog(
                           context,

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -31,12 +32,13 @@ class _TransactionListState extends State<TransactionList> {
     Offset position,
     bool isSelected,
     TransactionCategory transactionCategory,
-  ) {
+  ) async {
     final bloc = context.read<TransactionsBloc>();
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
 
-    showMenu(
+    final l10n = context.l10n;
+    final value = await showMenu(
       context: context,
       position: RelativeRect.fromRect(
         Rect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
@@ -45,66 +47,68 @@ class _TransactionListState extends State<TransactionList> {
       items: <PopupMenuEntry<dynamic>>[
         PopupMenuItem(
           value: 'select',
-          child: Text(isSelected ? 'Deselect' : 'Select'),
+          child: Text(
+            isSelected ? l10n.contextMenuDeselect : l10n.contextMenuSelect,
+          ),
         ),
-        const PopupMenuItem(value: 'select_all', child: Text('Select All')),
+        PopupMenuItem(
+          value: 'select_all',
+          child: Text(l10n.contextMenuSelectAll),
+        ),
         if (bloc.state.selectedTransactionIds.isNotEmpty)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'deselect_all',
-            child: Text('Deselect All'),
+            child: Text(l10n.contextMenuDeselectAll),
           ),
         const PopupMenuDivider(),
-        const PopupMenuItem(value: 'edit', child: Text('Edit')),
-        const PopupMenuItem(value: 'delete', child: Text('Delete')),
+        PopupMenuItem(value: 'edit', child: Text(l10n.contextMenuEdit)),
+        PopupMenuItem(value: 'delete', child: Text(l10n.contextMenuDelete)),
       ],
-    ).then((value) {
-      if (!mounted) return;
-      if (value == 'select') {
-        if (!bloc.state.isSelectionModeActive) {
-          bloc.add(const ToggleSelectionMode(true));
-        }
-        bloc.add(
-          ToggleTransactionSelection(transactionCategory.transaction.id!),
-        );
-      } else if (value == 'select_all') {
-        if (!bloc.state.isSelectionModeActive) {
-          bloc.add(const ToggleSelectionMode(true));
-        }
-        bloc.add(const SelectAllTransactions());
-      } else if (value == 'deselect_all') {
-        bloc.add(const ClearSelection());
-      } else if (value == 'edit') {
-        context.push(
-          AppRoutes.addEditTransaction,
-          extra: {'transaction': transactionCategory.transaction},
-        );
-      } else if (value == 'delete') {
-        showDialog(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Delete Transaction'),
-            content: const Text(
-              'Are you sure you want to delete this transaction?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  bloc.add(
-                    DeleteTransaction(transactionCategory.transaction.id!),
-                  );
-                  Navigator.pop(dialogContext);
-                },
-                child: const Text('Delete'),
-              ),
-            ],
-          ),
-        );
+    );
+
+    if (!context.mounted || value == null) return;
+
+    if (value == 'select') {
+      if (!bloc.state.isSelectionModeActive) {
+        bloc.add(const ToggleSelectionMode(true));
       }
-    });
+      bloc.add(ToggleTransactionSelection(transactionCategory.transaction.id!));
+    } else if (value == 'select_all') {
+      if (!bloc.state.isSelectionModeActive) {
+        bloc.add(const ToggleSelectionMode(true));
+      }
+      bloc.add(const SelectAllTransactions());
+    } else if (value == 'deselect_all') {
+      bloc.add(const ClearSelection());
+    } else if (value == 'edit') {
+      context.push(
+        AppRoutes.addEditTransaction,
+        extra: {'transaction': transactionCategory.transaction},
+      );
+    } else if (value == 'delete') {
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(l10n.deleteTransactionsConfirmationTitle),
+          content: Text(l10n.deleteTransactionsConfirmationMessage('1')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(l10n.cancelButton),
+            ),
+            TextButton(
+              onPressed: () {
+                bloc.add(
+                  DeleteTransaction(transactionCategory.transaction.id!),
+                );
+                Navigator.pop(dialogContext);
+              },
+              child: Text(l10n.deleteButton),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override
@@ -127,7 +131,7 @@ class _TransactionListState extends State<TransactionList> {
             return const Center(child: CircularProgressIndicator());
           }
           if (state.status == TransactionStatus.failure) {
-            return const Center(child: Text('Failed to load transactions'));
+            return Center(child: Text(context.l10n.accountsLoadFailure));
           }
 
           return Stack(
@@ -374,7 +378,11 @@ class TransactionListItem extends StatelessWidget {
             children: [
               Text(
                 transactionCategory.isAssetTransaction
-                    ? 'Qty: ${transactionCategory.transaction.amount.toStringAsFixed(2)}'
+                    ? context.l10n.quantityLabel(
+                        transactionCategory.transaction.amount.toStringAsFixed(
+                          2,
+                        ),
+                      )
                     : '${transactionCategory.transaction.amount.toStringAsFixed(2)} $currencySymbol',
                 style: TextStyle(color: balanceColor, fontSize: 14),
               ),
@@ -399,7 +407,9 @@ class TransactionListItem extends StatelessWidget {
 
                     return Text(
                       isLinkedAsset
-                          ? 'Qty: ${linkedTx.amount > 0 ? '+' : ''}${linkedTx.amount.toStringAsFixed(2)}'
+                          ? context.l10n.quantityLabel(
+                              '${linkedTx.amount > 0 ? '+' : ''}${linkedTx.amount.toStringAsFixed(2)}',
+                            )
                           : '${linkedTx.amount > 0 ? '+' : ''}${linkedTx.amount.toStringAsFixed(2)} $linkedSymbol',
                       style: TextStyle(
                         color: Colors.grey[600],

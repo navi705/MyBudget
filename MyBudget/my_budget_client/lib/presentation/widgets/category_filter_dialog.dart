@@ -25,7 +25,7 @@ class CategoryFilterDialog extends StatefulWidget {
   const CategoryFilterDialog({super.key, required this.currentFilters});
 
   @override
-  _CategoryFilterDialogState createState() => _CategoryFilterDialogState();
+  State<CategoryFilterDialog> createState() => _CategoryFilterDialogState();
 }
 
 class _CategoryFilterDialogState extends State<CategoryFilterDialog> {

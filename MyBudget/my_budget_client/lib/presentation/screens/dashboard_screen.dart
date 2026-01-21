@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/presentation/widgets/navigation/navigation_tab_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
@@ -70,8 +71,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           );
         }
 
-        return const Scaffold(
-          body: Center(child: Text('Failed to load dashboard')),
+        return Scaffold(
+          body: Center(child: Text(context.l10n.failedToLoadDashboard)),
         );
       },
     );
@@ -244,14 +245,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               ChoiceChip(
-                label: const Text('Expenses'),
+                label: Text(context.l10n.dashboardExpensesLabel),
                 selected: !state.isIncomeView,
                 onSelected: (val) =>
                     context.read<DashboardBloc>().add(ToggleChartType(false)),
               ),
               const SizedBox(width: 16),
               ChoiceChip(
-                label: const Text('Income'),
+                label: Text(context.l10n.dashboardIncomeLabel),
                 selected: state.isIncomeView,
                 onSelected: (val) =>
                     context.read<DashboardBloc>().add(ToggleChartType(true)),
@@ -334,27 +335,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return NavigationTabBar(
       selectedIndex: state.activeTabIndex,
       onTap: (index) => context.read<DashboardBloc>().add(ChangeTab(index)),
-      items: const [
+      items: [
         NavigationTabBarItem(
           icon: Icons.calendar_month,
-          label: 'Calendar',
-          tooltip: 'Calendar View',
+          label: context.l10n.dashboardCalendarTab,
+          tooltip: context.l10n.dashboardCalendarTooltip,
           hotkeyId: 'dashboard_tab_1',
-          tooltipDescription: "View transactions in a calendar format",
+          tooltipDescription: context.l10n.dashboardCalendarDescription,
         ),
         NavigationTabBarItem(
           icon: Icons.pie_chart,
-          label: 'Categories',
-          tooltip: 'Category Analysis',
+          label: context.l10n.dashboardCategoriesTab,
+          tooltip: context.l10n.dashboardCategoriesTooltip,
           hotkeyId: 'dashboard_tab_2',
-          tooltipDescription: "Breakdown of expenses by category",
+          tooltipDescription: context.l10n.dashboardCategoriesDescription,
         ),
         NavigationTabBarItem(
           icon: Icons.show_chart,
-          label: 'Balance',
-          tooltip: 'Balance History',
+          label: context.l10n.dashboardBalanceTab,
+          tooltip: context.l10n.dashboardBalanceTooltip,
           hotkeyId: 'dashboard_tab_3',
-          tooltipDescription: "Track net worth over time",
+          tooltipDescription: context.l10n.dashboardBalanceDescription,
         ),
       ],
     );

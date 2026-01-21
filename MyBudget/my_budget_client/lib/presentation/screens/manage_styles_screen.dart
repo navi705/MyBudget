@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
@@ -43,7 +44,9 @@ class ManageStylesScreen extends StatelessWidget {
                         );
                       },
                     ),
-                    title: Text('$selectedCount selected'),
+                    title: Text(
+                      context.l10n.selectedCountLabel(selectedCount.toString()),
+                    ),
                     actions: [
                       IconButton(
                         icon: const Icon(Icons.delete),
@@ -63,7 +66,7 @@ class ManageStylesScreen extends StatelessWidget {
                       const SizedBox(width: 8),
                     ],
                   )
-                : AppBar(title: const Text('Manage Icons')),
+                : AppBar(title: Text(context.l10n.manageIconsTitle)),
             body: Builder(
               builder: (context) {
                 if (state is StylesLoadInProgress) {
@@ -71,7 +74,7 @@ class ManageStylesScreen extends StatelessWidget {
                 }
                 if (state is StylesLoadSuccess) {
                   if (state.styles.isEmpty) {
-                    return const Center(child: Text('No icons created yet.'));
+                    return Center(child: Text(context.l10n.noIconsCreated));
                   }
                   return ListView.builder(
                     itemCount: state.styles.length,
@@ -120,7 +123,7 @@ class ManageStylesScreen extends StatelessWidget {
                     },
                   );
                 }
-                return const Center(child: Text('Failed to load icons.'));
+                return Center(child: Text(context.l10n.failedToLoadIcons));
               },
             ),
             floatingActionButton: isSelectionMode
@@ -161,7 +164,7 @@ class ManageStylesScreen extends StatelessWidget {
     if (countToDelete <= 0) {
       // Only Transfer was selected
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot delete the Transfer icon.')),
+        SnackBar(content: Text(context.l10n.cannotDeleteTransferIcon)),
       );
       return;
     }
@@ -169,25 +172,29 @@ class ManageStylesScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Icons'),
+        title: Text(context.l10n.deleteIconsDialogTitle),
         content: Text(
           hasTransfer
-              ? 'Are you sure you want to delete $countToDelete selected icons? (Transfer icon will be skipped)'
-              : 'Are you sure you want to delete ${ids.length} selected icons?',
+              ? context.l10n.deleteIconsWithSkipTransferMessage(
+                  countToDelete.toString(),
+                )
+              : context.l10n.deleteIconsConfirmationMessage(
+                  ids.length.toString(),
+                ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
               context.read<StylesBloc>().add(DeleteMultipleStyles(ids));
               Navigator.of(dialogContext).pop();
             },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.redAccent),
+            child: Text(
+              context.l10n.deleteButton,
+              style: const TextStyle(color: Colors.redAccent),
             ),
           ),
         ],
@@ -240,18 +247,28 @@ class _StyleListItemState extends State<_StyleListItem> {
       items: <PopupMenuEntry<dynamic>>[
         PopupMenuItem(
           value: 'select',
-          child: Text(widget.isSelected ? 'Deselect' : 'Select'),
+          child: Text(
+            widget.isSelected
+                ? context.l10n.contextMenuDeselect
+                : context.l10n.contextMenuSelect,
+          ),
         ),
-        const PopupMenuItem(value: 'select_all', child: Text('Select All')),
+        PopupMenuItem(
+          value: 'select_all',
+          child: Text(context.l10n.contextMenuSelectAll),
+        ),
         if (widget.isSelectionMode)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'deselect_all',
-            child: Text('Deselect All'),
+            child: Text(context.l10n.contextMenuDeselectAll),
           ),
         const PopupMenuDivider(),
-        const PopupMenuItem(value: 'edit', child: Text('Edit')),
+        PopupMenuItem(value: 'edit', child: Text(context.l10n.contextMenuEdit)),
         if (widget.style.name != 'Transfer')
-          const PopupMenuItem(value: 'delete', child: Text('Delete')),
+          PopupMenuItem(
+            value: 'delete',
+            child: Text(context.l10n.contextMenuDelete),
+          ),
       ],
     ).then((value) {
       if (!mounted) return;
@@ -291,14 +308,14 @@ class _StyleListItemState extends State<_StyleListItem> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Icon'),
+        title: Text(context.l10n.deleteIconDialogTitle),
         content: Text(
-          'Are you sure you want to delete "${widget.style.name}"?',
+          context.l10n.deleteIconConfirmationMessage(widget.style.name),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
@@ -307,9 +324,9 @@ class _StyleListItemState extends State<_StyleListItem> {
               }
               Navigator.of(dialogContext).pop();
             },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.redAccent),
+            child: Text(
+              context.l10n.deleteButton,
+              style: const TextStyle(color: Colors.redAccent),
             ),
           ),
         ],

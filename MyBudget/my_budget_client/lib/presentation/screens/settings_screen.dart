@@ -19,7 +19,7 @@ import 'package:my_budget_client/presentation/blocs/currency_converter/currency_
 import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
-import 'package:my_budget_client/l10n/app_localizations.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -27,7 +27,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text(context.l10n.settingsTitle)),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),
@@ -40,19 +40,20 @@ class SettingsScreen extends StatelessWidget {
               final defaultInflationCountry =
                   settingsState.settings['default_inflation_country'] ?? 'SRB';
 
+              final l10n = context.l10n;
               return ListView(
                 children: [
                   // Appearance
                   ListTile(
                     leading: const Icon(Icons.palette),
-                    title: const Text('Manage Icons'),
+                    title: Text(l10n.manageIconsLabel),
                     onTap: () {
                       context.push(AppRoutes.manageAccountStyles);
                     },
                   ),
                   ListTile(
                     leading: const Icon(Icons.brightness_6),
-                    title: const Text('Manage Theme'),
+                    title: Text(l10n.manageThemeLabel),
                     onTap: () {
                       context.push(AppRoutes.themeSettings);
                     },
@@ -65,7 +66,7 @@ class SettingsScreen extends StatelessWidget {
                       if (currencyState is CurrencyLoadSuccess) {
                         return ListTile(
                           leading: const Icon(Icons.money),
-                          title: const Text('Main Currency'),
+                          title: Text(l10n.mainCurrencyLabel),
                           subtitle: Text(mainCurrencyCode),
                           onTap: () async {
                             final selectedCode = await showDialog<String>(
@@ -92,7 +93,7 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   ListTile(
                     leading: const Icon(Icons.public),
-                    title: const Text('Default Inflation Country'),
+                    title: Text(l10n.defaultInflationCountryLabel),
                     trailing: DropdownButton<String>(
                       value: defaultInflationCountry,
                       items: settingsState.countries
@@ -117,7 +118,7 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   ListTile(
                     leading: const Icon(Icons.save),
-                    title: const Text('Persist Advanced Filters'),
+                    title: Text(l10n.persistAdvancedFiltersLabel),
                     trailing: Switch(
                       value: persistFilters,
                       onChanged: (bool value) {
@@ -133,7 +134,7 @@ class SettingsScreen extends StatelessWidget {
                   if (!Platform.isAndroid && !Platform.isIOS)
                     ListTile(
                       leading: const Icon(Icons.keyboard),
-                      title: const Text('Hot Keys'),
+                      title: Text(l10n.hotKeysLabel),
                       onTap: () {
                         context.push(AppRoutes.hotKeys);
                       },
@@ -144,7 +145,7 @@ class SettingsScreen extends StatelessWidget {
                   if (Platform.isAndroid || Platform.isIOS)
                     ListTile(
                       leading: const Icon(Icons.bar_chart),
-                      title: const Text('Data'),
+                      title: Text(l10n.dataLabel),
                       onTap: () {
                         context.push(AppRoutes.exchangeRates);
                       },
@@ -152,15 +153,15 @@ class SettingsScreen extends StatelessWidget {
                   if (Platform.isAndroid || Platform.isIOS)
                     ListTile(
                       leading: const Icon(Icons.sms),
-                      title: const Text('SMS Import'),
-                      subtitle: const Text('Import transactions from bank SMS'),
+                      title: Text(l10n.smsImportLabel),
+                      subtitle: Text(l10n.smsImportSubtitle),
                       onTap: () {
                         context.push(AppRoutes.smsSettings);
                       },
                     ),
                   ListTile(
                     leading: const Icon(Icons.api),
-                    title: const Text('API Management'),
+                    title: Text(l10n.apiManagementLabel),
                     onTap: () {
                       context.push(AppRoutes.apiSettings);
                     },
@@ -170,8 +171,8 @@ class SettingsScreen extends StatelessWidget {
                   // Synchronization
                   ListTile(
                     leading: const Icon(Icons.sync),
-                    title: const Text('Sync Settings'),
-                    subtitle: const Text('P2P sync via Syncthing'),
+                    title: Text(l10n.syncSettingsLabel),
+                    subtitle: Text(l10n.syncSettingsSubtitle),
                     onTap: () {
                       context.push(AppRoutes.syncSettings);
                     },
@@ -181,36 +182,34 @@ class SettingsScreen extends StatelessWidget {
                   // Data Operations (Import/Export)
                   ListTile(
                     leading: const Icon(Icons.import_export),
-                    title: const Text('Import Data'),
+                    title: Text(l10n.importDataLabel),
                     onTap: () {
                       context.push(AppRoutes.importScreen);
                     },
                   ),
                   ListTile(
                     leading: const Icon(Icons.file_download),
-                    title: const Text('Export Data'),
+                    title: Text(l10n.exportDataLabel),
                     onTap: () {
                       showDialog(
                         context: context,
                         builder: (context) => AlertDialog(
-                          title: const Text('Export Data'),
-                          content: const Text(
-                            'Choose format:\n\nJSON: Full backup of all data.\nCSV: Readable report of transactions.',
-                          ),
+                          title: Text(l10n.exportDataLabel),
+                          content: Text(l10n.exportFormatMessage),
                           actions: [
                             TextButton(
                               onPressed: () {
                                 Navigator.pop(context);
                                 _exportData(context, isCsv: false);
                               },
-                              child: const Text('JSON'),
+                              child: Text(l10n.jsonFormat),
                             ),
                             TextButton(
                               onPressed: () {
                                 Navigator.pop(context);
                                 _exportData(context, isCsv: true);
                               },
-                              child: const Text('CSV'),
+                              child: Text(l10n.csvFormat),
                             ),
                           ],
                         ),
@@ -219,7 +218,7 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   ListTile(
                     leading: const Icon(Icons.currency_exchange),
-                    title: const Text('Import Exchange Rates (CSV/JSON)'),
+                    title: Text(l10n.importExchangeRatesLabel),
                     onTap: () => _importExchangeRates(context),
                   ),
                   const Divider(),
@@ -227,13 +226,11 @@ class SettingsScreen extends StatelessWidget {
                   // System / Danger Zone
                   ListTile(
                     leading: const Icon(Icons.restore_page, color: Colors.red),
-                    title: const Text(
-                      'Reset Data to Defaults',
-                      style: TextStyle(color: Colors.red),
+                    title: Text(
+                      l10n.resetDataLabel,
+                      style: const TextStyle(color: Colors.red),
                     ),
-                    subtitle: const Text(
-                      'This will delete all data and restore default settings.',
-                    ),
+                    subtitle: Text(l10n.resetDataSubtitle),
                     onTap: () => _confirmResetData(context),
                   ),
                   if (kDebugMode && (Platform.isAndroid || Platform.isIOS))
@@ -242,8 +239,8 @@ class SettingsScreen extends StatelessWidget {
                         Icons.bug_report,
                         color: Colors.orange,
                       ),
-                      title: const Text('Debug Menu'),
-                      subtitle: const Text('Internal developer tools'),
+                      title: Text(l10n.debugMenuLabel),
+                      subtitle: Text(l10n.debugMenuSubtitle),
                       onTap: () {
                         context.push(AppRoutes.debug);
                       },
@@ -263,15 +260,17 @@ class SettingsScreen extends StatelessWidget {
       final service = DataExportService(db);
       await service.exportData(isCsv);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Export completed successfully')),
-        );
+        final l10n = context.l10n;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.exportSuccessMessage)));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+        final l10n = context.l10n;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.exportFailedMessage(e.toString()))),
+        );
       }
     }
   }
@@ -282,37 +281,36 @@ class SettingsScreen extends StatelessWidget {
       final androidPicker = GetIt.I<AndroidFilePickerService>();
       final service = DataImportService(db, androidPicker);
       // We pass a localized title if available, otherwise default string
-      final title = AppLocalizations.of(context)?.filePickerChooserTitle;
+      final title = context.l10n.filePickerChooserTitle;
       await service.importExchangeRates(title: title);
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Import completed successfully')),
-        );
+        final l10n = context.l10n;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.importSuccessMessage)));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
+        final l10n = context.l10n;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.importFailedMessage(e.toString()))),
+        );
       }
     }
   }
 
   void _confirmResetData(BuildContext context) {
+    final l10n = context.l10n;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset Data?'),
-        content: const Text(
-          'Warning! This will delete ALL your transactions, accounts, and settings.\n\n'
-          'The app will be restored to its initial state with default data.\n'
-          'This action CANNOT be undone.',
-        ),
+        title: Text(l10n.resetDataConfirmationTitle),
+        content: Text(l10n.resetDataConfirmationMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancelButton),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -320,7 +318,7 @@ class SettingsScreen extends StatelessWidget {
               Navigator.of(context).pop(); // Close dialog
               await _performReset(context);
             },
-            child: const Text('Reset Everything'),
+            child: Text(l10n.resetEverythingButton),
           ),
         ],
       ),
@@ -333,16 +331,18 @@ class SettingsScreen extends StatelessWidget {
       await db.clearAllData();
 
       if (context.mounted) {
+        final l10n = context.l10n;
         _reloadAllBlocs(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Data reset and defaults restored.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.resetSuccessMessage)));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Reset failed: $e')));
+        final l10n = context.l10n;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.resetFailedMessage(e.toString()))),
+        );
       }
     }
   }

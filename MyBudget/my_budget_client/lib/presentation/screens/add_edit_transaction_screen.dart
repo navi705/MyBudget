@@ -23,6 +23,7 @@ import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 class AddEditTransactionScreen extends StatelessWidget {
   final Transaction? transaction;
@@ -108,11 +109,25 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
 
           // Show validation error if present
           if (state.validationError != null) {
+            String error = state.validationError!;
+            // Map hardcoded Bloc errors to localized strings if they match exactly
+            // Ideally Bloc should return keys.
+            final l10n = context.l10n;
+            if (error == 'Please enter an amount') {
+              error = l10n.emptyAmountError;
+            }
+            if (error == 'Please select an account') {
+              error = l10n.selectAccountError;
+            }
+            if (error == 'Please select a date') {
+              error = l10n.selectDateError;
+            }
+            if (error == 'Please select a category') {
+              error = l10n.selectCategoryError;
+            }
+
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.validationError!),
-                backgroundColor: Colors.red,
-              ),
+              SnackBar(content: Text(error), backgroundColor: Colors.red),
             );
           }
 
@@ -143,12 +158,15 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
           appBar: AppBar(
             title: BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
               builder: (context, state) {
+                final l10n = context.l10n;
                 return Text(
                   state.isTransferMode
-                      ? (state.isEditing ? 'Edit Transfer' : 'New Transfer')
+                      ? (state.isEditing
+                            ? l10n.editTransferTitle
+                            : l10n.newTransferTitle)
                       : (state.isEditing
-                            ? 'Edit Transaction'
-                            : 'Add Transaction'),
+                            ? l10n.editTransactionTitle
+                            : l10n.addTransactionTitle),
                 );
               },
             ),
@@ -158,7 +176,7 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
               if (state.status == AddEditTransactionStatus.loading) {
                 return const Center(child: CircularProgressIndicator());
               } else if (state.status == AddEditTransactionStatus.failure) {
-                return const Center(child: Text('Failed to load data'));
+                return Center(child: Text(context.l10n.failedToLoadData));
               }
 
               return Center(
@@ -184,7 +202,8 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                                         Expanded(
                                           child: _AmountField(
                                             controller: _amountController,
-                                            label: 'Quantity',
+                                            label:
+                                                context.l10n.quantityFormLabel,
                                           ),
                                         ),
                                         const SizedBox(width: 16),
@@ -232,8 +251,8 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                                     const _ConvertedAmountDisplay(),
                                     const SizedBox(height: 16),
                                     if (state.isTransferMode) ...[
-                                      const _AccountField(
-                                        label: 'From Account',
+                                      _AccountField(
+                                        label: context.l10n.fromAccountLabel,
                                       ),
                                       Align(
                                         alignment: Alignment.center,
@@ -246,14 +265,17 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                                                   const AddEditTransactionSwapAccounts(),
                                                 );
                                           },
-                                          tooltip: 'Swap Accounts',
+                                          tooltip:
+                                              context.l10n.swapAccountsTooltip,
                                         ),
                                       ),
-                                      const _LinkedAccountField(
-                                        label: 'To Account',
+                                      _LinkedAccountField(
+                                        label: context.l10n.toAccountLabel,
                                       ),
                                     ] else ...[
-                                      const _AccountField(label: 'Account'),
+                                      _AccountField(
+                                        label: context.l10n.accountLabel,
+                                      ),
                                       const SizedBox(height: 16),
                                       const _CategoryField(),
                                     ],
@@ -295,9 +317,9 @@ class _DescriptionField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
-      decoration: const InputDecoration(
-        labelText: 'Description (Optional)',
-        border: OutlineInputBorder(),
+      decoration: InputDecoration(
+        labelText: context.l10n.descriptionOptionalLabel,
+        border: const OutlineInputBorder(),
       ),
       onChanged: (value) => context.read<AddEditTransactionBloc>().add(
         AddEditTransactionDescriptionChanged(value),
@@ -323,7 +345,7 @@ class _AmountField extends StatelessWidget {
         return TextFormField(
           controller: controller,
           decoration: InputDecoration(
-            labelText: label ?? 'Amount',
+            labelText: label ?? context.l10n.amountLabel,
             border: const OutlineInputBorder(),
           ),
           style: TextStyle(color: color, fontWeight: FontWeight.bold),
@@ -345,11 +367,12 @@ class _AmountField extends StatelessWidget {
             AddEditTransactionAmountChanged(value),
           ),
           validator: (value) {
+            final l10n = context.l10n;
             if (value == null || value.isEmpty) {
-              return 'Please enter an amount';
+              return l10n.emptyAmountError;
             }
             if (double.tryParse(value) == null) {
-              return 'Please enter a valid number';
+              return l10n.invalidAmountError;
             }
             return null;
           },
@@ -360,8 +383,8 @@ class _AmountField extends StatelessWidget {
 }
 
 class _AccountField extends StatelessWidget {
-  final String label;
-  const _AccountField({this.label = 'Account'});
+  final String? label;
+  const _AccountField({this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -377,7 +400,7 @@ class _AccountField extends StatelessWidget {
             final selectedAccount = await showSingleSelectDialog<Account>(
               context: context,
               items: availableAccounts,
-              title: 'Select Account',
+              title: context.l10n.selectAccountTitle,
               selectedItem: state.selectedAccount,
               itemBuilder: (account) => _AccountTile(account: account),
               stringGetter: (account) => account.name,
@@ -393,7 +416,7 @@ class _AccountField extends StatelessWidget {
               key: Key(state.selectedAccount?.id ?? 'no_account'),
               initialValue: state.selectedAccount?.name,
               decoration: InputDecoration(
-                labelText: label,
+                labelText: label ?? context.l10n.accountLabel,
                 border: const OutlineInputBorder(),
                 prefixIcon: state.selectedAccount != null
                     ? BlocBuilder<StylesBloc, StylesState>(
@@ -412,7 +435,7 @@ class _AccountField extends StatelessWidget {
                     : null,
               ),
               validator: (value) => state.selectedAccount == null
-                  ? 'Please select an account'
+                  ? context.l10n.selectAccountError
                   : null,
             ),
           ),
@@ -485,12 +508,14 @@ class _CategoryField extends StatelessWidget {
             final selectedCategory = await showSingleSelectDialog<Category>(
               context: context,
               items: state.categories,
-              title: 'Select Category',
+              title: context.l10n.selectCategoryTitle,
               selectedItem: state.selectedCategory,
               itemBuilder: (category) {
                 final isIncome = category.type == CategoryType.income;
                 final color = isIncome ? Colors.green : Colors.red;
-                final typeLabel = isIncome ? 'Income' : 'Expense';
+                final typeLabel = isIncome
+                    ? context.l10n.incomeType
+                    : context.l10n.expenseType;
 
                 return Row(
                   children: [
@@ -544,7 +569,7 @@ class _CategoryField extends StatelessWidget {
               key: Key(state.selectedCategory?.id ?? 'no_category'),
               initialValue: state.selectedCategory?.name,
               decoration: InputDecoration(
-                labelText: 'Category',
+                labelText: context.l10n.categoryLabel,
                 border: const OutlineInputBorder(),
                 prefixIcon: state.selectedCategory != null
                     ? BlocBuilder<StylesBloc, StylesState>(
@@ -578,7 +603,7 @@ class _CategoryField extends StatelessWidget {
                 ),
               ),
               validator: (value) => state.selectedCategory == null
-                  ? 'Please select a category'
+                  ? context.l10n.selectCategoryError
                   : null,
             ),
           ),
@@ -594,9 +619,10 @@ class _DateField extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
       builder: (context, state) {
+        final l10n = context.l10n;
         return ListTile(
           title: Text(
-            "Date: ${state.date?.toLocal().toString().split(' ')[0] ?? 'Select Date'}",
+            "${l10n.dateLabel}: ${state.date?.toLocal().toString().split(' ')[0] ?? l10n.selectDateLabel}",
           ),
           trailing: const Icon(Icons.calendar_today),
           onTap: () async {
@@ -637,7 +663,7 @@ class _SaveButton extends StatelessWidget {
       style: FilledButton.styleFrom(
         minimumSize: const Size(double.infinity, 50),
       ),
-      child: const Text('Save'),
+      child: Text(context.l10n.saveButton),
     );
   }
 }
@@ -659,7 +685,7 @@ class _CurrencyField extends StatelessWidget {
                       await showSingleSelectDialog<Currency>(
                         context: context,
                         items: state.currencies,
-                        title: 'Select Currency',
+                        title: context.l10n.selectCurrencyTitle,
                         selectedItem: state.selectedCurrency,
                         itemBuilder: (currency) => ListTile(
                           title: Text('${currency.code} - ${currency.name}'),
@@ -681,14 +707,14 @@ class _CurrencyField extends StatelessWidget {
               readOnly: true,
               enabled: !isTransfer, // Visually disabled if transfer
               decoration: InputDecoration(
-                labelText: 'Currency',
+                labelText: context.l10n.currencyLabel,
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.monetization_on),
                 suffixIcon: isTransfer
                     ? const Icon(Icons.lock, size: 16)
                     : null,
                 helperText: isTransfer
-                    ? 'Locked to From Account currency'
+                    ? context.l10n.currencyLockedMessage
                     : null,
               ),
             ),
@@ -812,7 +838,7 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
               children: [
                 // Header with title
                 Text(
-                  'Exchange Rate',
+                  context.l10n.exchangeRateLabel,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -860,7 +886,7 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         child: IconButton.filled(
                           icon: const Icon(Icons.swap_horiz),
-                          tooltip: 'Swap Direction',
+                          tooltip: context.l10n.swapDirectionTooltip,
                           onPressed: () {
                             context.read<AddEditTransactionBloc>().add(
                               const AddEditTransactionToggleRateDirection(),
@@ -905,9 +931,9 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                 else ...[
                   // Presets Chips
                   if (state.availableExchangeRates.isNotEmpty) ...[
-                    const Text(
-                      'Available Presets:',
-                      style: TextStyle(fontSize: 12),
+                    Text(
+                      context.l10n.availablePresetsLabel,
+                      style: const TextStyle(fontSize: 12),
                     ),
                     const SizedBox(height: 4),
                     Wrap(
@@ -944,7 +970,8 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                           // Removed Key to allow controller to manage text persistence smoothly
                           controller: _rateController,
                           decoration: InputDecoration(
-                            labelText: 'Rate ($rightCurrency)',
+                            labelText:
+                                '${context.l10n.exchangeRateLabel} ($rightCurrency)',
                             border: const OutlineInputBorder(),
                             isDense: true,
                           ),
@@ -980,7 +1007,7 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                           state.selectedExchangeRate!.preset != 1)
                         TextButton.icon(
                           icon: const Icon(Icons.delete, size: 16),
-                          label: const Text('Delete'),
+                          label: Text(context.l10n.deleteButton),
                           style: TextButton.styleFrom(
                             foregroundColor: Colors.red,
                           ),
@@ -998,7 +1025,7 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                           state.selectedExchangeRate!.preset != 1)
                         TextButton.icon(
                           icon: const Icon(Icons.edit, size: 16),
-                          label: const Text('Update'),
+                          label: Text(context.l10n.updateButton),
                           onPressed: () {
                             context.read<AddEditTransactionBloc>().add(
                               AddEditTransactionUpdatePreset(
@@ -1011,7 +1038,7 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                       const SizedBox(width: 8),
                       TextButton.icon(
                         icon: const Icon(Icons.add, size: 16),
-                        label: const Text('New Preset'),
+                        label: Text(context.l10n.newPresetButton),
                         onPressed: () {
                           context.read<AddEditTransactionBloc>().add(
                             const AddEditTransactionAddNewRate(),
@@ -1053,8 +1080,8 @@ class _ConvertedAmountDisplay extends StatelessWidget {
         final isToAccount =
             state.selectedCurrency?.code != state.selectedAccount?.currencyCode;
         final targetLabel = isToAccount
-            ? 'Amount to Add to Account:'
-            : 'Value in Global (${state.mainCurrencyCode}):';
+            ? context.l10n.amountToAddToAccountLabel
+            : context.l10n.valueInGlobalLabel(state.mainCurrencyCode);
         final targetCurrency = isToAccount
             ? state.selectedAccount?.currencyCode
             : state.mainCurrencyCode;
@@ -1099,9 +1126,9 @@ class _FeeField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
-      decoration: const InputDecoration(
-        labelText: 'Fee (Commission)',
-        border: OutlineInputBorder(),
+      decoration: InputDecoration(
+        labelText: context.l10n.feeCommissionLabel,
+        border: const OutlineInputBorder(),
         hintText: '0.00',
       ),
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -1129,16 +1156,16 @@ class _AssetActionToggle extends StatelessWidget {
           children: [
             Expanded(
               child: SegmentedButton<AssetAction>(
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: AssetAction.buy,
-                    label: Text('Buy'),
-                    icon: Icon(Icons.add_shopping_cart),
+                    label: Text(context.l10n.buyAction),
+                    icon: const Icon(Icons.add_shopping_cart),
                   ),
                   ButtonSegment(
                     value: AssetAction.sell,
-                    label: Text('Sell'),
-                    icon: Icon(Icons.sell),
+                    label: Text(context.l10n.sellAction),
+                    icon: const Icon(Icons.sell),
                   ),
                 ],
                 selected: {state.assetAction},
@@ -1168,7 +1195,7 @@ class _TotalValueField extends StatelessWidget {
         return TextFormField(
           controller: controller,
           decoration: InputDecoration(
-            labelText: 'Total Value',
+            labelText: context.l10n.totalValueLabel,
             prefixText: state.linkedAccount?.currencyCode ?? '',
             border: const OutlineInputBorder(),
           ),
@@ -1178,7 +1205,7 @@ class _TotalValueField extends StatelessWidget {
           ],
           validator: (value) {
             if (value == null || value.isEmpty) {
-              return 'Required';
+              return context.l10n.requiredError;
             }
             return null;
           },
@@ -1208,7 +1235,7 @@ class _AssetPriceDisplay extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: Text(
-            'Current Price: $price $currency',
+            context.l10n.currentPriceLabel(price.toString(), currency),
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         );
@@ -1218,8 +1245,8 @@ class _AssetPriceDisplay extends StatelessWidget {
 }
 
 class _LinkedAccountField extends StatelessWidget {
-  final String label;
-  const _LinkedAccountField({this.label = 'Linked Account'});
+  final String? label;
+  const _LinkedAccountField({this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -1236,7 +1263,7 @@ class _LinkedAccountField extends StatelessWidget {
           initialValue: state.linkedAccount,
           validator: (value) {
             if (state.linkedAccount == null) {
-              return 'Required';
+              return context.l10n.requiredError;
             }
             return null;
           },
@@ -1250,7 +1277,7 @@ class _LinkedAccountField extends StatelessWidget {
                         await showSingleSelectDialog<Account>(
                           context: context,
                           items: cashAccounts,
-                          title: 'Select Linked Account',
+                          title: context.l10n.selectLinkedAccountTitle,
                           selectedItem: state.linkedAccount,
                           itemBuilder: (account) => ListTile(
                             title: Text(account.name),
@@ -1268,7 +1295,7 @@ class _LinkedAccountField extends StatelessWidget {
                   },
                   child: InputDecorator(
                     decoration: InputDecoration(
-                      labelText: label,
+                      labelText: label ?? context.l10n.linkedAccountLabel,
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -1280,7 +1307,8 @@ class _LinkedAccountField extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          state.linkedAccount?.name ?? 'Select Account',
+                          state.linkedAccount?.name ??
+                              context.l10n.selectAccountTitle,
                           style: state.linkedAccount == null
                               ? Theme.of(context).textTheme.bodyLarge?.copyWith(
                                   color: Theme.of(context).hintColor,

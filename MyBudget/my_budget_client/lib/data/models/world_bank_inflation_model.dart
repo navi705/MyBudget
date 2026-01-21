@@ -2,7 +2,6 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'world_bank_inflation_model.g.dart';
 
-@JsonSerializable()
 class WorldBankInflationResponse {
   final List<InflationDataPoint> data;
 

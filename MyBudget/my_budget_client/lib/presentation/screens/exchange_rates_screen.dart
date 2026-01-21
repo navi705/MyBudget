@@ -213,18 +213,18 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
     );
   }
 
-  void _showContextMenu(
+  Future<void> _showContextMenu(
     BuildContext context,
     TapUpDetails details,
     ExchangeRateDomain rate,
     ExchangeRatesState state,
-  ) {
+  ) async {
     final bloc = context.read<ExchangeRatesBloc>();
     final isSelected = state.selectedExchangeRates.contains(rate);
 
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
 
-    showMenu(
+    final value = await showMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
         Rect.fromLTRB(
@@ -253,51 +253,48 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
         ),
         const PopupMenuItem(value: 'delete', child: Text('Delete')),
       ],
-    ).then((value) {
-      if (!mounted) return;
-      if (value == 'select') {
+    );
+
+    if (!mounted || value == null) return;
+
+    if (value == 'select') {
+      if (!state.isSelectionModeActive) {
+        bloc.add(const ToggleSelectionMode(true));
+      }
+      bloc.add(ToggleExchangeRateSelection(rate));
+    } else if (value == 'select_all') {
+      if (!state.isSelectionModeActive) {
+        bloc.add(const ToggleSelectionMode(true));
+      }
+      bloc.add(const SelectAllExchangeRates());
+    } else if (value == 'deselect_all') {
+      bloc.add(const ClearSelection());
+    } else if (value == 'change_preset') {
+      // If not selected, select it first for the action
+      if (!isSelected) {
         if (!state.isSelectionModeActive) {
           bloc.add(const ToggleSelectionMode(true));
         }
         bloc.add(ToggleExchangeRateSelection(rate));
-      } else if (value == 'select_all') {
+      }
+      // Small delay to let selection update propagate if needed
+      await Future.delayed(const Duration(milliseconds: 50));
+      if (context.mounted) _showBulkPresetUpdate(context, bloc);
+    } else if (value == 'delete') {
+      if (!isSelected) {
         if (!state.isSelectionModeActive) {
           bloc.add(const ToggleSelectionMode(true));
         }
-        bloc.add(const SelectAllExchangeRates());
-      } else if (value == 'deselect_all') {
-        bloc.add(const ClearSelection());
-      } else if (value == 'change_preset') {
-        // If not selected, select it first for the action
-        if (!isSelected) {
-          if (!state.isSelectionModeActive) {
-            bloc.add(const ToggleSelectionMode(true));
-          }
-          bloc.add(ToggleExchangeRateSelection(rate));
-        }
-        // Small delay to let selection update propagate if needed, though bloc is async.
-        // For better UX, we might just pass the list directly if we had immediate state,
-        // but here we rely on the bloc state.
-        Future.delayed(const Duration(milliseconds: 50), () {
-          if (mounted) _showBulkPresetUpdate(context, bloc);
-        });
-      } else if (value == 'delete') {
-        if (!isSelected) {
-          if (!state.isSelectionModeActive) {
-            bloc.add(const ToggleSelectionMode(true));
-          }
-          bloc.add(ToggleExchangeRateSelection(rate));
-        }
-        Future.delayed(const Duration(milliseconds: 50), () {
-          if (mounted) {
-            // We need to get the latest count, but state here is stale from the closure.
-            // We can read the bloc's current state.
-            final currentCount = bloc.state.selectedExchangeRates.length;
-            _showDeleteConfirmation(context, bloc, currentCount);
-          }
-        });
+        bloc.add(ToggleExchangeRateSelection(rate));
       }
-    });
+      await Future.delayed(const Duration(milliseconds: 50));
+      if (context.mounted) {
+        // We need to get the latest count, but state here is stale from the closure.
+        // We can read the bloc's current state.
+        final currentCount = bloc.state.selectedExchangeRates.length;
+        _showDeleteConfirmation(context, bloc, currentCount);
+      }
+    }
   }
 
   void _showAddEditExchangeRateDialog(

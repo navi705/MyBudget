@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
@@ -19,13 +20,14 @@ class TransactionsScreen extends StatelessWidget {
         final isSelectionMode = state.isSelectionModeActive;
         final selectedCount = state.selectedTransactionIds.length;
 
+        final l10n = context.l10n;
         final scaffold = Scaffold(
           appBar: isSelectionMode
               ? AppBar(
                   leading: MultiLevelTooltip(
-                    message: 'Close Selection',
+                    message: l10n.closeSelectionTooltip,
                     actionId: 'selection_close',
-                    description: 'Exit transaction selection mode',
+                    description: l10n.exitTransactionsSelectionDescription,
                     child: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () {
@@ -35,27 +37,32 @@ class TransactionsScreen extends StatelessWidget {
                       },
                     ),
                   ),
-                  title: Text('$selectedCount selected'),
+                  title: Text(
+                    l10n.selectedCountLabel(selectedCount.toString()),
+                  ),
                   actions: [
                     MultiLevelTooltip(
-                      message: 'Delete Selected',
+                      message: l10n.contextMenuDelete,
                       actionId: 'selection_delete',
-                      description:
-                          'Permanently delete all selected transactions',
+                      description: l10n.deleteTransactionsDescription,
                       child: IconButton(
                         icon: const Icon(Icons.delete),
                         onPressed: () {
                           showDialog(
                             context: context,
                             builder: (dialogContext) => AlertDialog(
-                              title: const Text('Delete Transactions'),
+                              title: Text(
+                                l10n.deleteTransactionsConfirmationTitle,
+                              ),
                               content: Text(
-                                'Are you sure you want to delete $selectedCount selected transactions?',
+                                l10n.deleteTransactionsConfirmationMessage(
+                                  selectedCount.toString(),
+                                ),
                               ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(dialogContext),
-                                  child: const Text('Cancel'),
+                                  child: Text(l10n.cancelButton),
                                 ),
                                 TextButton(
                                   onPressed: () {
@@ -66,7 +73,7 @@ class TransactionsScreen extends StatelessWidget {
                                     );
                                     Navigator.pop(dialogContext);
                                   },
-                                  child: const Text('Delete'),
+                                  child: Text(l10n.deleteButton),
                                 ),
                               ],
                             ),
@@ -75,10 +82,9 @@ class TransactionsScreen extends StatelessWidget {
                       ),
                     ),
                     MultiLevelTooltip(
-                      message: 'Change Date',
+                      message: l10n.changeDateTooltip,
                       actionId: 'selection_change_date',
-                      description:
-                          'Update the date for all selected transactions',
+                      description: l10n.changeDateDescription,
                       child: IconButton(
                         icon: const Icon(Icons.calendar_today),
                         onPressed: () async {
@@ -88,7 +94,7 @@ class TransactionsScreen extends StatelessWidget {
                             firstDate: DateTime(2000),
                             lastDate: DateTime(2100),
                           );
-                          if (newDate != null) {
+                          if (newDate != null && context.mounted) {
                             context.read<TransactionsBloc>().add(
                               UpdateDateForMultipleTransactions(
                                 state.selectedTransactionIds.toList(),
@@ -100,10 +106,9 @@ class TransactionsScreen extends StatelessWidget {
                       ),
                     ),
                     MultiLevelTooltip(
-                      message: 'Change Category',
+                      message: l10n.changeCategoryTooltip,
                       actionId: 'selection_change_category',
-                      description:
-                          'Update the category for all selected transactions',
+                      description: l10n.changeCategoryDescription,
                       child: IconButton(
                         icon: const Icon(Icons.category),
                         onPressed: () {
@@ -135,9 +140,9 @@ class TransactionsScreen extends StatelessWidget {
           floatingActionButton: isSelectionMode
               ? null
               : MultiLevelTooltip(
-                  message: 'Add Transaction',
+                  message: l10n.contextMenuAddTransaction,
                   actionId: 'add_action',
-                  description: 'Create a new income or expense entry',
+                  description: l10n.addTransactionDescription,
                   child: FloatingActionButton(
                     onPressed: () {
                       context.push(AppRoutes.addEditTransaction);

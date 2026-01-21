@@ -9,7 +9,7 @@ import 'package:get_it/get_it.dart';
 import 'package:my_budget_client/core/services/android_file_picker_service.dart';
 import 'package:my_budget_client/core/theme/app_theme.dart';
 import 'package:my_budget_client/domain/entities/custom_theme.dart';
-import 'package:my_budget_client/l10n/app_localizations.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/presentation/blocs/theme/theme_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
@@ -334,11 +334,7 @@ class ThemeSettingsScreen extends StatelessWidget {
                         pickedPaths = await GetIt.I<AndroidFilePickerService>()
                             .pickFile(
                               mimeType: 'image/*',
-                              title:
-                                  AppLocalizations.of(
-                                    context,
-                                  )?.imagePickerChooserTitle ??
-                                  'Select Image',
+                              title: context.l10n.imagePickerChooserTitle,
                             );
                       } else {
                         result = await FilePicker.platform.pickFiles(

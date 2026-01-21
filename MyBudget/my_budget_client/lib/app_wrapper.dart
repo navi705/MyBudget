@@ -50,12 +50,13 @@ class _AppWrapperState extends State<AppWrapper> {
       _updateProgress(0.1, 'Verifying settings...');
       await sl<SettingsRepository>().initializeDefaults();
 
+          _updateProgress(0.3, 'Loading exchange rates...');
+      await IntilizationData.loadLocalData();
       // Step 0.5: Initialize Sync Service
       await sl<SyncService>().init();
       // Step 1: Load local data (fast, from files)
-      _updateProgress(0.3, 'Loading exchange rates...');
-      await IntilizationData.loadLocalData();
 
+     
       _updateProgress(0.9, 'Ready!');
 
       // Small delay to show "Ready!" message
