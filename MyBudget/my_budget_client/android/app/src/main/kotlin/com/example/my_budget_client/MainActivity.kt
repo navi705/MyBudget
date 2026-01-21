@@ -7,6 +7,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.EventChannel
+import android.util.Log
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.IntentFilter
@@ -24,8 +25,10 @@ class MainActivity : FlutterActivity() {
     private val smsReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
+                Log.d("SMS_DEBUG", "Native: onReceive triggered")
                 val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
                 for (sms in messages) {
+                    Log.d("SMS_DEBUG", "Native: Sending message from ${sms.originatingAddress}")
                     val msgMap = mapOf(
                         "sender" to sms.originatingAddress,
                         "body" to sms.messageBody,
@@ -55,6 +58,7 @@ class MainActivity : FlutterActivity() {
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, SMS_CHANNEL).setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    Log.d("SMS_DEBUG", "Native: onListen called")
                     smsEventSink = events
                     registerReceiver(smsReceiver, IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION))
                 }

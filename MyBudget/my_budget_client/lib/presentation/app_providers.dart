@@ -73,6 +73,7 @@ class AppProviders extends StatelessWidget {
           ),
           BlocProvider(
             create: (context) => di.sl<SmsBloc>()..add(LoadSmsPresets()),
+            lazy: false,
           ),
         ],
         child: BlocListener<ThemeBloc, ThemeState>(

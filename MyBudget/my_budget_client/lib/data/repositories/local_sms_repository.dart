@@ -22,11 +22,14 @@ class LocalSmsRepository implements SmsRepository {
   static const String _lastSyncKey = 'sms_last_sync';
 
   LocalSmsRepository() {
+    print('SMS_DEBUG: LocalSmsRepository initialized');
     _initSmsListener();
   }
 
   void _initSmsListener() {
+    print('SMS_DEBUG: Wrapper listening to native stream');
     _smsChannel.receiveBroadcastStream().listen((dynamic event) {
+      print('SMS_DEBUG: Wrapper received event: $event');
       if (event is Map) {
         final sender = event['sender'] as String? ?? 'Unknown';
         final body = event['body'] as String? ?? '';

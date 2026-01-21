@@ -59,3 +59,12 @@ class ImportSmsWithPreset extends SmsEvent {
 }
 
 class RequestSmsPermission extends SmsEvent {}
+
+class SmsReceived extends SmsEvent {
+  final SmsMessage message;
+
+  const SmsReceived(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}

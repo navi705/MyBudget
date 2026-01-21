@@ -171,7 +171,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 16),
           Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 700,),
+              constraints: const BoxConstraints(maxWidth: 700),
               child: Column(
                 children: [
                   PeriodSummaryWidget(

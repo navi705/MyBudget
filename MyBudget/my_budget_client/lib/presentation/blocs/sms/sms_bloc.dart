@@ -36,13 +36,16 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     on<ImportSmsMessages>(_onImportMessages);
     on<ImportSmsWithPreset>(_onImportWithPreset);
     on<RequestSmsPermission>(_onRequestPermission);
+    on<SmsReceived>(_onSmsReceived); // Register handler
 
     // Listen for incoming SMS messages
     _smsSubscription = _smsRepository.listenForSms().listen((msg) {
-      add(
-        ImportSmsMessages(since: msg.date.subtract(const Duration(seconds: 1))),
-      );
+      print('SMS_DEBUG: Bloc received real-time SMS from ${msg.sender}');
+      // Direct processing to avoid database race conditions
+      add(SmsReceived(msg));
     });
+
+    print('SMS_DEBUG: SmsBloc initialized & listening');
   }
 
   @override
@@ -51,14 +54,59 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     return super.close();
   }
 
+  Future<void> _onSmsReceived(SmsReceived event, Emitter<SmsState> emit) async {
+    final msg = event.message;
+    print('SMS_DEBUG: Processing received message directly: ${msg.body}');
+
+    final enabledPresets = await _smsRepository.getEnabledPresets();
+    if (enabledPresets.isEmpty) {
+      print('SMS_DEBUG: No enabled presets found during real-time processing.');
+      return;
+    }
+
+    final currencies = await _currencyRepository.getCurrencies();
+
+    // Iterate presets to find a match
+    for (final preset in enabledPresets) {
+      if (msg.sender.toLowerCase().contains(
+        preset.senderFilter.toLowerCase(),
+      )) {
+        print('SMS_DEBUG: Matched sender filter for preset: ${preset.name}');
+        final result = _parser.parse(msg.body, preset, msg.date);
+
+        if (result.isMatch && result.amount != null) {
+          print('SMS_DEBUG: Parser matched! Amount: ${result.amount}');
+          await _createTransactionFromResult(result, preset, currencies);
+
+          // Update default sync timestamp to avoid re-importing this later
+          await _smsRepository.setLastSyncTimestamp(DateTime.now());
+
+          emit(
+            state.copyWith(
+              lastSyncTimestamp: DateTime.now(),
+              createdTransactionsCount:
+                  (state.createdTransactionsCount ?? 0) + 1,
+            ),
+          );
+          return; // Stop after first match
+        } else {
+          print('SMS_DEBUG: Parser did NOT match for preset: ${preset.name}');
+        }
+      }
+    }
+    print('SMS_DEBUG: No matching preset found for message.');
+  }
+
   Future<void> _onLoadPresets(
     LoadSmsPresets event,
     Emitter<SmsState> emit,
   ) async {
+    print('SMS_DEBUG: Bloc _onLoadPresets called');
     emit(state.copyWith(isLoading: true));
 
     final hasPermission = await _smsRepository.hasSmsPermission();
     final presets = await _smsRepository.getAllPresets();
+    print('SMS_DEBUG: Permissions: $hasPermission, Presets: ${presets.length}');
 
     emit(
       state.copyWith(
@@ -68,10 +116,20 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
       ),
     );
 
-    // Auto-import on launch if we have permission
+    // Auto-import logic:
+    // Only import if we've synced specific presets before (lastSync exists).
+    // This prevents importing ALL history on fresh install.
     if (hasPermission && presets.any((p) => p.isEnabled)) {
       final lastSync = await _smsRepository.getLastSyncTimestamp();
-      add(ImportSmsMessages(since: lastSync));
+      print('SMS_DEBUG: Last sync: $lastSync');
+      if (lastSync != null) {
+        print('SMS_DEBUG: Triggering catch-up import since $lastSync');
+        add(ImportSmsMessages(since: lastSync));
+      } else {
+        // First run? Mark 'now' as the sync point so we don't import past messages unless asked.
+        print('SMS_DEBUG: No last sync found. Setting sync point to NOW.');
+        await _smsRepository.setLastSyncTimestamp(DateTime.now());
+      }
     }
   }
 
@@ -178,7 +236,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     if (messages.isEmpty) return 0;
 
     int created = 0;
-    final currencies = await _currencyRepository.getCurrencies();
+    final currencies = await _currencyRepository.getCurrencies(); // Fetch once
 
     for (var i = 0; i < messages.length; i++) {
       final msg = messages[i];
@@ -221,6 +279,9 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     final isIncome = result.type == TransactionType.income;
     final amount = isIncome ? result.amount!.abs() : -result.amount!.abs();
 
+    print(
+      'SMS_DEBUG: Creating transaction for preset ${preset.name}, amount: $amount, date: ${result.date}',
+    );
     final transaction = Transaction(
       id: const Uuid().v4(),
       amount: amount,
@@ -231,7 +292,12 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
       accountId: preset.defaultAccountId ?? 'default',
     );
 
-    await _transactionRepository.addTransaction(transaction);
+    try {
+      await _transactionRepository.addTransaction(transaction);
+      print('SMS_DEBUG: Transaction added successfully via repository');
+    } catch (e) {
+      print('SMS_DEBUG: Transaction addition FAILED: $e');
+    }
   }
 
   Future<void> _onRequestPermission(
