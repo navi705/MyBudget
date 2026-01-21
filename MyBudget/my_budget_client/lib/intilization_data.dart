@@ -1,19 +1,17 @@
 import 'package:flutter/foundation.dart';
-import 'package:my_budget_client/core/services/exchange_rate_api_service.dart';
-import 'package:my_budget_client/core/di/injection_container.dart';
-import 'package:my_budget_client/core/services/inflation_api_service.dart';
-import 'package:my_budget_client/core/services/steam_inventory_api_service.dart';
-import 'package:my_budget_client/data/api/external_data.dart';
-import 'package:my_budget_client/domain/repositories/settings_repository.dart';
-import 'package:my_budget_client/domain/repositories/asset_repository.dart';
+import 'package:my_budget_client/core/services/startup_sync_service.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
+import 'package:my_budget_client/domain/repositories/asset_repository.dart';
 import 'package:my_budget_client/core/utils/import_utils.dart';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:my_budget_client/core/di/injection_container.dart' as di;
+import 'package:my_budget_client/core/di/injection_container.dart'; // for sl
+
 Future<void> _fetchApiDataInIsolate(bool shouldInit) async {
   if (shouldInit) {
-    await init();
+    await di.init();
   }
 
   debugPrint('[INIT_DEBUG] Starting background synchronization...');
@@ -31,42 +29,14 @@ Future<void> _fetchApiDataInIsolate(bool shouldInit) async {
   }
 
   try {
-    // 3. Fetch Exchange Rates (Today)
-    final exchangeRateService = sl<ExchangeRateApiService>();
-    await exchangeRateService.fetchRatesForDate(DateTime.now());
-  } catch (e) {
-    debugPrint('Background Init Error (Exchange Rates): $e');
-  }
-
-  try {
-    // 4. Fetch Steam Inventory
-    if (sl.isRegistered<SteamInventoryApiService>()) {
-      final steamService = sl<SteamInventoryApiService>();
-      final settingsRepository = sl<SettingsRepository>();
-      final steamIdSetting = await settingsRepository.getSetting('steam_id');
-
-      if (steamIdSetting != null && steamIdSetting.value.isNotEmpty) {
-        final accountId = int.tryParse(steamIdSetting.value);
-        if (accountId != null) {
-          await steamService.fetchSteamInventoryValue(
-            accountId,
-            GameApiSteam.cs2,
-          );
-        }
-      }
+    // 3. Execute Startup Sync (Master Switch + Auto-fetch logic)
+    if (sl.isRegistered<StartupSyncService>()) {
+      debugPrint('[INIT_DEBUG] Delegating to StartupSyncService...');
+      final startupService = sl<StartupSyncService>();
+      await startupService.executeStartupSync();
     }
   } catch (e) {
-    debugPrint('Background Init Error (Steam): $e');
-  }
-
-  try {
-    // 5. Fetch Inflation Data
-    if (sl.isRegistered<InflationApiService>()) {
-      final inflationService = sl<InflationApiService>();
-      await inflationService.fetchInflationForCountry('SRB', '2000:2024');
-    }
-  } catch (e) {
-    debugPrint('Background Init Error (Inflation): $e');
+    debugPrint('Background Init Error (Startup Sync): $e');
   }
 
   debugPrint('[INIT_DEBUG] Background synchronization completed.');

@@ -81,3 +81,26 @@ class DeleteCustomDataSource extends ApiSettingsEvent {
   @override
   List<Object?> get props => [id];
 }
+
+class UpdateCustomDataSource extends ApiSettingsEvent {
+  final String id;
+  final bool? enabled;
+  final bool? autoFetch;
+
+  const UpdateCustomDataSource({
+    required this.id,
+    this.enabled,
+    this.autoFetch,
+  });
+
+  @override
+  List<Object?> get props => [id, enabled, autoFetch];
+}
+
+class ToggleStartupSync extends ApiSettingsEvent {
+  final bool enabled;
+  const ToggleStartupSync(this.enabled);
+
+  @override
+  List<Object?> get props => [enabled];
+}

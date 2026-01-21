@@ -35,6 +35,8 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
     on<UpdateApiSetting>(_onUpdateApiSetting);
     on<AddCustomDataSource>(_onAddCustomDataSource);
     on<DeleteCustomDataSource>(_onDeleteCustomDataSource);
+    on<UpdateCustomDataSource>(_onUpdateCustomDataSource);
+    on<ToggleStartupSync>(_onToggleStartupSync);
   }
 
   Future<void> _onLoadApiSettings(
@@ -47,16 +49,40 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
       final apiSettings = await _apiSettingsRepository.getAllSettings();
       final customDataSources = await _customDataSourceRepository
           .getAllDataSources();
+      final startupSyncSetting = await _settingsRepository.getSetting(
+        'startup_sync_enabled',
+      );
+      final startupSyncEnabled =
+          startupSyncSetting?.value.toLowerCase() == 'true';
 
       emit(
         ApiSettingsLoadSuccess(
           steamId: steamIdSetting?.value,
           apiSettings: apiSettings,
           customDataSources: customDataSources,
+          startupSyncEnabled: startupSyncEnabled,
         ),
       );
     } catch (e) {
       emit(ApiSettingsFailure(e.toString()));
+    }
+  }
+
+  Future<void> _onToggleStartupSync(
+    ToggleStartupSync event,
+    Emitter<ApiSettingsState> emit,
+  ) async {
+    if (state is ApiSettingsLoadSuccess) {
+      final currentState = state as ApiSettingsLoadSuccess;
+      try {
+        await _settingsRepository.saveSetting(
+          'startup_sync_enabled',
+          event.enabled.toString(),
+        );
+        emit(currentState.copyWith(startupSyncEnabled: event.enabled));
+      } catch (e) {
+        emit(currentState.copyWith(lastError: e.toString()));
+      }
     }
   }
 
@@ -113,6 +139,28 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
       final currentState = state as ApiSettingsLoadSuccess;
       try {
         await _customDataSourceRepository.deleteDataSource(event.id);
+        add(LoadApiSettings());
+      } catch (e) {
+        emit(currentState.copyWith(lastError: e.toString()));
+      }
+    }
+  }
+
+  Future<void> _onUpdateCustomDataSource(
+    UpdateCustomDataSource event,
+    Emitter<ApiSettingsState> emit,
+  ) async {
+    if (state is ApiSettingsLoadSuccess) {
+      final currentState = state as ApiSettingsLoadSuccess;
+      try {
+        final source = currentState.customDataSources.firstWhere(
+          (s) => s.id == event.id,
+        );
+        final updatedSource = source.copyWith(
+          enabled: event.enabled,
+          autoFetch: event.autoFetch,
+        );
+        await _customDataSourceRepository.saveDataSource(updatedSource);
         add(LoadApiSettings());
       } catch (e) {
         emit(currentState.copyWith(lastError: e.toString()));

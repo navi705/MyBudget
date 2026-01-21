@@ -19,6 +19,7 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
   final List<CustomDataSourceDomain> customDataSources;
   final String? lastError;
   final bool isOperationInProgress;
+  final bool startupSyncEnabled;
 
   const ApiSettingsLoadSuccess({
     this.steamId,
@@ -26,6 +27,7 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
     this.customDataSources = const [],
     this.lastError,
     this.isOperationInProgress = false,
+    this.startupSyncEnabled = true,
   });
 
   ApiSettingsLoadSuccess copyWith({
@@ -34,6 +36,7 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
     List<CustomDataSourceDomain>? customDataSources,
     String? lastError,
     bool? isOperationInProgress,
+    bool? startupSyncEnabled,
   }) {
     return ApiSettingsLoadSuccess(
       steamId: steamId ?? this.steamId,
@@ -42,6 +45,7 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
       lastError: lastError,
       isOperationInProgress:
           isOperationInProgress ?? this.isOperationInProgress,
+      startupSyncEnabled: startupSyncEnabled ?? this.startupSyncEnabled,
     );
   }
 
@@ -52,6 +56,7 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
     customDataSources,
     lastError,
     isOperationInProgress,
+    startupSyncEnabled,
   ];
 }
 

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
-import 'package:my_budget_client/data/api/external_data.dart';
 import 'package:my_budget_client/domain/entities/api_setting.dart';
 import 'package:my_budget_client/domain/entities/custom_data_source.dart';
 import 'package:my_budget_client/presentation/blocs/api_settings/api_settings_bloc.dart';
@@ -25,7 +24,6 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
   GameApiSteam? _selectedGame;
   final _steamIdController = TextEditingController();
   final _countryCodeController = TextEditingController(text: 'SRB');
-  final _dateRangeController = TextEditingController(text: '2000:2024');
 
   @override
   void initState() {
@@ -39,7 +37,6 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
   void dispose() {
     _steamIdController.dispose();
     _countryCodeController.dispose();
-    _dateRangeController.dispose();
     super.dispose();
   }
 
@@ -50,66 +47,73 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
         create: (context) => sl<ApiSettingsBloc>()..add(LoadApiSettings()),
         child: Scaffold(
           appBar: AppBar(title: const Text('API Management')),
-          body: BlocConsumer<ApiSettingsBloc, ApiSettingsState>(
-            listener: (context, state) {
-              if (state is ApiSettingsLoadSuccess) {
-                if (state.lastError != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: ${state.lastError}')),
-                  );
-                }
-              }
-            },
-            builder: (context, state) {
-              if (state is ApiSettingsLoadInProgress) {
-                return const Center(child: CircularProgressIndicator());
-              }
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: BlocConsumer<ApiSettingsBloc, ApiSettingsState>(
+                listener: (context, state) {
+                  if (state is ApiSettingsLoadSuccess) {
+                    if (state.lastError != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: ${state.lastError}')),
+                      );
+                    }
+                  }
+                },
+                builder: (context, state) {
+                  if (state is ApiSettingsLoadInProgress) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-              if (state is ApiSettingsLoadSuccess) {
-                if (state.steamId != null && _steamIdController.text.isEmpty) {
-                  _steamIdController.text = state.steamId!;
-                }
-                return ListView(
-                  padding: const EdgeInsets.all(16.0),
-                  children: [
-                    _buildSectionTitle(context, 'Built-in APIs'),
-                    const SizedBox(height: 8),
-                    ...state.apiSettings.map(
-                      (setting) =>
-                          _buildApiSettingCard(context, setting, state),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSectionTitle(context, 'Custom Data Sources'),
-                    const SizedBox(height: 8),
-                    ...state.customDataSources.map(
-                      (source) => _buildCustomSourceCard(context, source),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.add),
-                      title: const Text('Add Source'),
-                      onTap: () => _showAddSourceDialog(context),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.outline.withAlpha(50),
+                  if (state is ApiSettingsLoadSuccess) {
+                    if (state.steamId != null &&
+                        _steamIdController.text.isEmpty) {
+                      _steamIdController.text = state.steamId!;
+                    }
+                    return ListView(
+                      padding: const EdgeInsets.all(16.0),
+                      children: [
+                        _buildMasterSyncSwitch(state),
+                        _buildSectionTitle(context, 'Built-in APIs'),
+                        const SizedBox(height: 8),
+                        ...state.apiSettings.map(
+                          (setting) =>
+                              _buildApiSettingCard(context, setting, state),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSectionTitle(context, 'Manual Utilities'),
-                    const SizedBox(height: 8),
-                    _buildExchangeRatesUtil(context, state),
-                    _buildSteamUtil(context, state),
-                    _buildInflationUtil(context, state),
-                    const SizedBox(height: 48),
-                  ],
-                );
-              }
+                        const SizedBox(height: 16),
+                        _buildSectionTitle(context, 'Custom Data Sources'),
+                        const SizedBox(height: 8),
+                        ...state.customDataSources.map(
+                          (source) => _buildCustomSourceCard(context, source),
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.add),
+                          title: const Text('Add Source'),
+                          onTap: () => _showAddSourceDialog(context),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outline.withAlpha(50),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildSectionTitle(context, 'Manual Utilities'),
+                        const SizedBox(height: 8),
+                        _buildExchangeRatesUtil(context, state),
+                        _buildSteamUtil(context, state),
+                        _buildInflationUtil(context, state),
+                        const SizedBox(height: 48),
+                      ],
+                    );
+                  }
 
-              return const SizedBox();
-            },
+                  return const SizedBox();
+                },
+              ),
+            ),
           ),
         ),
       ),
@@ -197,17 +201,59 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
           color: Theme.of(context).colorScheme.outline.withAlpha(50),
         ),
       ),
-      child: ListTile(
+      child: ExpansionTile(
         title: Text(source.name),
         subtitle: Text(source.url),
-        trailing: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () {
-            context.read<ApiSettingsBloc>().add(
-              DeleteCustomDataSource(source.id),
-            );
-          },
+        trailing: SizedBox(
+          width: 96,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Switch(
+                value: source.enabled,
+                onChanged: (val) {
+                  context.read<ApiSettingsBloc>().add(
+                    UpdateCustomDataSource(id: source.id, enabled: val),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
+            child: Row(
+              children: [
+                const Text('Auto-fetch daily'),
+                const Spacer(),
+                Switch(
+                  value: source.autoFetch,
+                  onChanged: (val) {
+                    context.read<ApiSettingsBloc>().add(
+                      UpdateCustomDataSource(id: source.id, autoFetch: val),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete, color: Colors.redAccent),
+            title: const Text(
+              'Remove Source',
+              style: TextStyle(color: Colors.redAccent),
+            ),
+            onTap: () {
+              context.read<ApiSettingsBloc>().add(
+                DeleteCustomDataSource(source.id),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -364,31 +410,69 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: _date_range_controller,
-                  decoration: const InputDecoration(
-                    labelText: 'Years (e.g. 2000:2024)',
-                    border: OutlineInputBorder(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    _startDate == null
+                        ? 'Select Start Year'
+                        : 'From: ${_startDate!.year}',
                   ),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime(1900),
+                      lastDate: DateTime.now(),
+                      initialDatePickerMode: DatePickerMode.year,
+                    );
+                    if (picked != null) setState(() => _startDate = picked);
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    _endDate == null
+                        ? 'Select End Year'
+                        : 'To: ${_endDate!.year}',
+                  ),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime(1900),
+                      lastDate: DateTime.now(),
+                      initialDatePickerMode: DatePickerMode.year,
+                    );
+                    if (picked != null) setState(() => _endDate = picked);
+                  },
                 ),
                 const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed:
-                      state.isOperationInProgress ||
-                          _countryCodeController.text.isEmpty
-                      ? null
-                      : () {
-                          context.read<ApiSettingsBloc>().add(
-                            FetchInflationData(
-                              _countryCodeController.text,
-                              _dateRangeController.text,
-                            ),
-                          );
-                        },
-                  icon: state.isOperationInProgress
-                      ? const _MiniLoading()
-                      : const Icon(Icons.cloud_download),
-                  label: const Text('Fetch Data'),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed:
+                        state.isOperationInProgress ||
+                            _countryCodeController.text.isEmpty ||
+                            _startDate == null ||
+                            _endDate == null
+                        ? null
+                        : () {
+                            final range =
+                                '${_startDate!.year}:${_endDate!.year}';
+                            context.read<ApiSettingsBloc>().add(
+                              FetchInflationData(
+                                _countryCodeController.text,
+                                range,
+                              ),
+                            );
+                          },
+                    icon: state.isOperationInProgress
+                        ? const _MiniLoading()
+                        : const Icon(Icons.cloud_download),
+                    label: const Text('Fetch Data'),
+                  ),
                 ),
               ],
             ),
@@ -397,8 +481,6 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
       ),
     );
   }
-
-  get _date_range_controller => _dateRangeController;
 
   void _showAddSourceDialog(BuildContext context) {
     final nameCtrl = TextEditingController();
@@ -455,6 +537,35 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
               child: const Text('Add'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMasterSyncSwitch(ApiSettingsLoadSuccess state) {
+    return Card(
+      elevation: 0,
+      color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+      margin: const EdgeInsets.only(bottom: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: SwitchListTile(
+        title: Text(
+          'Global Startup Sync',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+        subtitle: const Text(
+          'Master switch to control all data fetching on application startup.',
+        ),
+        value: state.startupSyncEnabled,
+        onChanged: (val) {
+          context.read<ApiSettingsBloc>().add(ToggleStartupSync(val));
+        },
+        secondary: Icon(
+          Icons.sync_lock,
+          color: Theme.of(context).colorScheme.primary,
         ),
       ),
     );
