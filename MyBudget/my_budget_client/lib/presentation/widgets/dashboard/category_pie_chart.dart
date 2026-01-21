@@ -361,10 +361,10 @@ class CategoryPieChart extends StatelessWidget {
 
       if (percentage > labelThreshold + 10) {
         // Large slice: Show everything
-        title = '${percentage.toStringAsFixed(0)}%\n$formattedValue';
+        title = '${percentage.toStringAsFixed(1)}%\n$formattedValue';
       } else if (percentage > labelThreshold) {
         // Medium slice: Show only percentage
-        title = '${percentage.toStringAsFixed(0)}%';
+        title = '${percentage.toStringAsFixed(1)}%';
       }
       // Small slice: Show nothing to prevent clutter
 

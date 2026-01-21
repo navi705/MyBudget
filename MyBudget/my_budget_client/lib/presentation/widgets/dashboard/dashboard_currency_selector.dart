@@ -20,7 +20,7 @@ class DashboardCurrencySelector extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.secondaryContainer,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -94,45 +94,51 @@ class _CurrencyPickerDialogState extends State<_CurrencyPickerDialog> {
       maxChildSize: 0.9,
       expand: false,
       builder: (context, scrollController) {
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: _searchController,
-                decoration: const InputDecoration(
-                  labelText: 'Search Currency',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor.withValues(alpha: 0.95),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: const InputDecoration(
+                    labelText: 'Search Currency',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: _filter,
                 ),
-                onChanged: _filter,
               ),
-            ),
-            Expanded(
-              child: ListView.separated(
-                controller: scrollController,
-                itemCount: _filteredCurrencies.length,
-                separatorBuilder: (_, __) => const Divider(),
-                itemBuilder: (context, index) {
-                  final currency = _filteredCurrencies[index];
-                  final isSelected = currency == widget.currentCurrency;
-                  return ListTile(
-                    title: Text(currency),
-                    trailing: isSelected
-                        ? Icon(
-                            Icons.check,
-                            color: Theme.of(context).colorScheme.primary,
-                          )
-                        : null,
-                    onTap: () {
-                      widget.onSelected(currency);
-                      Navigator.pop(context);
-                    },
-                  );
-                },
+              Expanded(
+                child: ListView.separated(
+                  controller: scrollController,
+                  itemCount: _filteredCurrencies.length,
+                  separatorBuilder: (_, __) => const Divider(),
+                  itemBuilder: (context, index) {
+                    final currency = _filteredCurrencies[index];
+                    final isSelected = currency == widget.currentCurrency;
+                    return ListTile(
+                      title: Text(currency),
+                      trailing: isSelected
+                          ? Icon(
+                              Icons.check,
+                              color: Theme.of(context).colorScheme.primary,
+                            )
+                          : null,
+                      onTap: () {
+                        widget.onSelected(currency);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );

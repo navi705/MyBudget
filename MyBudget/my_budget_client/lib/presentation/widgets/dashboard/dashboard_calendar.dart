@@ -156,21 +156,21 @@ class DashboardCalendar extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return InkWell(
-      onTap: () => onDaySelected(date),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isSelected
-              ? colorScheme.primaryContainer
-              : (isToday
-                    ? colorScheme.primaryContainer.withValues(alpha: 0.8)
-                    : theme.cardColor),
-          borderRadius: BorderRadius.circular(8),
-          border: isSelected
-              ? Border.all(color: colorScheme.primary, width: 2)
-              : null,
-        ),
+    return Ink(
+      decoration: BoxDecoration(
+        color: isSelected
+            ? colorScheme.primaryContainer
+            : (isToday
+                  ? colorScheme.primaryContainer.withValues(alpha: 0.8)
+                  : theme.cardColor),
+        borderRadius: BorderRadius.circular(8),
+        border: isSelected
+            ? Border.all(color: colorScheme.primary, width: 2)
+            : null,
+      ),
+      child: InkWell(
+        onTap: () => onDaySelected(date),
+        borderRadius: BorderRadius.circular(8),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
@@ -265,24 +265,24 @@ class DashboardCalendar extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return InkWell(
-      onTap: () => onDaySelected(monthDate),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? colorScheme.primaryContainer
-              : (isCurrentMonth
-                    ? colorScheme.primaryContainer.withValues(
-                        alpha: 0.3,
-                      ) // Consistent with day view today
-                    : theme.cardColor),
-          borderRadius: BorderRadius.circular(16),
-          border: isSelected
-              ? Border.all(color: colorScheme.primary, width: 2)
-              : null,
-        ),
+    return Ink(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? colorScheme.primaryContainer
+            : (isCurrentMonth
+                  ? colorScheme.primaryContainer.withValues(
+                      alpha: 0.3,
+                    ) // Consistent with day view today
+                  : theme.cardColor),
+        borderRadius: BorderRadius.circular(16),
+        border: isSelected
+            ? Border.all(color: colorScheme.primary, width: 2)
+            : null,
+      ),
+      child: InkWell(
+        onTap: () => onDaySelected(monthDate),
+        borderRadius: BorderRadius.circular(16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

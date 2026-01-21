@@ -54,7 +54,7 @@ class AppTheme {
           ? Colors.transparent
           : theme.backgroundColor,
       canvasColor: isTransparentBackground
-          ? Colors.transparent
+          ? theme.surfaceColor.withValues(alpha: 0.95)
           : theme.backgroundColor,
       cardColor: translucentSurface,
       cardTheme: CardThemeData(
@@ -70,7 +70,9 @@ class AppTheme {
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: translucentSurface,
+        backgroundColor: isTransparentBackground
+            ? theme.surfaceColor.withValues(alpha: 0.95)
+            : translucentSurface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
@@ -111,6 +113,23 @@ class AppTheme {
         surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: isTransparentBackground
+            ? theme.surfaceColor.withValues(alpha: 0.95)
+            : translucentSurface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      menuTheme: MenuThemeData(
+        style: MenuStyle(
+          backgroundColor: WidgetStateProperty.all(
+            isTransparentBackground
+                ? theme.surfaceColor.withValues(alpha: 0.95)
+                : translucentSurface,
+          ),
+          surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
         ),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
@@ -154,7 +173,7 @@ class AppTheme {
           ? Colors.transparent
           : theme.backgroundColor,
       canvasColor: isTransparentBackground
-          ? Colors.transparent
+          ? theme.surfaceColor.withValues(alpha: 0.95)
           : theme.backgroundColor,
       cardColor: translucentSurface,
       cardTheme: CardThemeData(
@@ -170,7 +189,9 @@ class AppTheme {
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: translucentSurface,
+        backgroundColor: isTransparentBackground
+            ? theme.surfaceColor.withValues(alpha: 0.95)
+            : translucentSurface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
@@ -211,6 +232,23 @@ class AppTheme {
         surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: isTransparentBackground
+            ? theme.surfaceColor.withValues(alpha: 0.95)
+            : translucentSurface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      menuTheme: MenuThemeData(
+        style: MenuStyle(
+          backgroundColor: WidgetStateProperty.all(
+            isTransparentBackground
+                ? theme.surfaceColor.withValues(alpha: 0.95)
+                : translucentSurface,
+          ),
+          surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
         ),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(

@@ -375,7 +375,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '${e.key} ${percentage.toStringAsFixed(0)}%',
+                  '${e.key} ${percentage.toStringAsFixed(1)}%',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],

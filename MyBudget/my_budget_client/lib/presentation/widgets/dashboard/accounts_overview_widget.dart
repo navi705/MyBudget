@@ -135,7 +135,7 @@ class AccountsOverviewWidget extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  '${e.key} (${percentage.toStringAsFixed(0)}%)',
+                  '${e.key} (${percentage.toStringAsFixed(1)}%)',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
