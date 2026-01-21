@@ -38,14 +38,24 @@ class AppTheme {
       primary: theme.primaryColor,
       secondary: theme.secondaryColor,
       surface: translucentSurface,
+      surfaceContainerHighest: theme.surfaceColor.withValues(alpha: 0.1),
     );
+
+    final isTransparentBackground =
+        hasWindowEffect ||
+        (theme.backgroundImagePath != null &&
+            theme.backgroundImagePath!.isNotEmpty);
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       brightness: Brightness.light,
-      scaffoldBackgroundColor: hasWindowEffect ? Colors.transparent : null,
-      canvasColor: hasWindowEffect ? Colors.transparent : null,
+      scaffoldBackgroundColor: isTransparentBackground
+          ? Colors.transparent
+          : theme.backgroundColor,
+      canvasColor: isTransparentBackground
+          ? Colors.transparent
+          : theme.backgroundColor,
       cardColor: translucentSurface,
       cardTheme: CardThemeData(
         elevation: 4,
@@ -65,15 +75,42 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: theme.backgroundColor.withValues(
-          alpha: theme.surfaceOpacity * 0.5,
-        ),
+        backgroundColor: isTransparentBackground
+            ? Colors.transparent
+            : theme.backgroundColor.withValues(
+                alpha: theme.surfaceOpacity * 0.5,
+              ),
         elevation: 0,
         iconTheme: IconThemeData(color: colorScheme.onSurface),
         titleTextStyle: TextStyle(
           color: colorScheme.onSurface,
           fontSize: 20,
           fontWeight: FontWeight.bold,
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: translucentSurface,
+        selectedColor: colorScheme.primary,
+        secondarySelectedColor: colorScheme.primary,
+        labelStyle: TextStyle(color: colorScheme.onSurface),
+        secondaryLabelStyle: TextStyle(color: colorScheme.onPrimary),
+        brightness: Brightness.light,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        side: BorderSide(color: colorScheme.outline, width: 0.5),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: SegmentedButton.styleFrom(
+          selectedBackgroundColor: colorScheme.primary,
+          selectedForegroundColor: colorScheme.onPrimary,
+          backgroundColor: theme.surfaceColor.withValues(alpha: 0.1),
+          foregroundColor: colorScheme.onSurface,
+        ),
+      ),
+      searchBarTheme: SearchBarThemeData(
+        backgroundColor: WidgetStateProperty.all(translucentSurface),
+        surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
@@ -101,14 +138,24 @@ class AppTheme {
       primary: theme.primaryColor,
       secondary: theme.secondaryColor,
       surface: translucentSurface,
+      surfaceContainerHighest: theme.surfaceColor.withValues(alpha: 0.2),
     );
+
+    final isTransparentBackground =
+        hasWindowEffect ||
+        (theme.backgroundImagePath != null &&
+            theme.backgroundImagePath!.isNotEmpty);
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: hasWindowEffect ? Colors.transparent : null,
-      canvasColor: hasWindowEffect ? Colors.transparent : null,
+      scaffoldBackgroundColor: isTransparentBackground
+          ? Colors.transparent
+          : theme.backgroundColor,
+      canvasColor: isTransparentBackground
+          ? Colors.transparent
+          : theme.backgroundColor,
       cardColor: translucentSurface,
       cardTheme: CardThemeData(
         elevation: 8,
@@ -128,15 +175,42 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: theme.backgroundColor.withValues(
-          alpha: theme.surfaceOpacity * 0.5,
-        ),
+        backgroundColor: isTransparentBackground
+            ? Colors.transparent
+            : theme.backgroundColor.withValues(
+                alpha: theme.surfaceOpacity * 0.5,
+              ),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
         titleTextStyle: const TextStyle(
           color: Colors.white,
           fontSize: 20,
           fontWeight: FontWeight.bold,
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: translucentSurface,
+        selectedColor: colorScheme.primary,
+        secondarySelectedColor: colorScheme.primary,
+        labelStyle: TextStyle(color: colorScheme.onSurface),
+        secondaryLabelStyle: TextStyle(color: colorScheme.onPrimary),
+        brightness: Brightness.dark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        side: BorderSide(color: colorScheme.outline, width: 0.5),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: SegmentedButton.styleFrom(
+          selectedBackgroundColor: colorScheme.primary,
+          selectedForegroundColor: colorScheme.onPrimary,
+          backgroundColor: theme.surfaceColor.withValues(alpha: 0.2),
+          foregroundColor: colorScheme.onSurface,
+        ),
+      ),
+      searchBarTheme: SearchBarThemeData(
+        backgroundColor: WidgetStateProperty.all(translucentSurface),
+        surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(

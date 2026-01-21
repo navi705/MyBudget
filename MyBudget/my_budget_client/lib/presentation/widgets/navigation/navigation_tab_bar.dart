@@ -40,17 +40,15 @@ class NavigationTabBar extends StatelessWidget {
       builder: (context, state) {
         final activeTheme = state.activeTheme;
 
-        Color backgroundColor;
-        if (activeTheme != null) {
-          if (activeTheme.windowEffectType != WindowEffectType.none) {
-            backgroundColor = Colors.transparent;
-          } else {
-            backgroundColor = activeTheme.backgroundColor;
-          }
-        } else {
-          backgroundColor = Theme.of(context).colorScheme.surface;
-        }
+        final isTransparent =
+            (activeTheme?.windowEffectType ?? WindowEffectType.none) !=
+                WindowEffectType.none ||
+            (activeTheme?.backgroundImagePath?.isNotEmpty ?? false);
 
+        final backgroundColor = isTransparent
+            ? Colors.transparent
+            : (activeTheme?.backgroundColor ??
+                  Theme.of(context).scaffoldBackgroundColor);
         final primaryColor =
             activeTheme?.primaryColor ?? Theme.of(context).colorScheme.primary;
         final unselectedColor = activeTheme?.surfaceColor != null

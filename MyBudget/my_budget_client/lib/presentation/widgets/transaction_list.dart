@@ -327,7 +327,7 @@ class TransactionListItem extends StatelessWidget {
         !transactionCategory.isLinkedAssetTransaction;
 
     final color = isRegularTransfer
-        ? const Color(0xFF424242)
+        ? Theme.of(context).colorScheme.outline
         : _getColorFromHex(transactionCategory.style.colorHex);
 
     final iconWidget = isRegularTransfer
@@ -341,7 +341,7 @@ class TransactionListItem extends StatelessWidget {
     } else if (amount < 0) {
       balanceColor = Colors.red;
     } else {
-      balanceColor = Colors.grey[600]!; // Default or specific for zero
+      balanceColor = Theme.of(context).colorScheme.onSurfaceVariant;
     }
 
     final designation = currencyDesignations.firstWhereOrNull(
@@ -415,7 +415,7 @@ class TransactionListItem extends StatelessWidget {
                             )
                           : '${linkedTx.amount > 0 ? '+' : ''}${linkedTx.amount.toStringAsFixed(2)} $linkedSymbol',
                       style: TextStyle(
-                        color: Colors.grey[600],
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 13,
                         height: 1.2,
                       ),
