@@ -377,7 +377,7 @@ class LanguageDao extends DatabaseAccessor<AppDatabase>
   Future<int> deleteLanguage(LanguagesCompanion lang) =>
       delete(languages).delete(lang);
 
-  Future<void> insertAllinsertLanguages(List<LanguagesCompanion> languages) {
+  Future<void> insertAllLanguages(List<LanguagesCompanion> languages) {
     return batch((batch) {
       batch.insertAll(
         this.languages,
@@ -486,20 +486,28 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   Stream<List<Category>> watchAllCategories() => select(categories).watch();
 
   Future<void> insertCategory(CategoriesCompanion category) async {
-    await into(categories).insert(category);
-    await _logChange(category.id.value, 'upsert');
+    final toInsert = category.id.present
+        ? category
+        : category.copyWith(id: Value(_uuid.v4()));
+    await into(categories).insert(toInsert);
+    await _logChange(toInsert.id.value, 'upsert');
   }
 
   Future<void> insertAllCategories(List<CategoriesCompanion> categories) async {
+    final List<CategoriesCompanion> categoriesWithIds = categories.map((c) {
+      if (c.id.present) return c;
+      return c.copyWith(id: Value(_uuid.v4()));
+    }).toList();
+
     await batch((batch) {
       batch.insertAll(
         this.categories,
-        categories,
+        categoriesWithIds,
         mode: InsertMode.insertOrReplace,
       );
     });
     // Log changes for sync
-    final ids = categories.map((c) => c.id.value).toList();
+    final ids = categoriesWithIds.map((c) => c.id.value).toList();
     await _logChanges(ids, 'upsert');
   }
 
@@ -694,16 +702,28 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
   }
 
   Future<void> insertStyle(StylesCompanion style) async {
-    await into(styles).insert(style);
-    await _logChange(style.id.value, 'upsert');
+    final toInsert = style.id.present
+        ? style
+        : style.copyWith(id: Value(_uuid.v4()));
+    await into(styles).insert(toInsert);
+    await _logChange(toInsert.id.value, 'upsert');
   }
 
   Future<void> insertAllStyles(List<StylesCompanion> styles) async {
+    final List<StylesCompanion> stylesWithIds = styles.map((s) {
+      if (s.id.present) return s;
+      return s.copyWith(id: Value(_uuid.v4()));
+    }).toList();
+
     await batch((batch) {
-      batch.insertAll(this.styles, styles, mode: InsertMode.insertOrReplace);
+      batch.insertAll(
+        this.styles,
+        stylesWithIds,
+        mode: InsertMode.insertOrReplace,
+      );
     });
     // Log changes for sync
-    final ids = styles.map((s) => s.id.value).toList();
+    final ids = stylesWithIds.map((s) => s.id.value).toList();
     await _logChanges(ids, 'upsert');
   }
 
@@ -801,21 +821,29 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   Stream<List<DbAccount>> watchAllAccounts() => select(accounts).watch();
 
   Future<void> insertAccount(AccountsCompanion account) async {
-    await into(accounts).insert(account);
+    final toInsert = account.id.present
+        ? account
+        : account.copyWith(id: Value(_uuid.v4()));
+    await into(accounts).insert(toInsert);
     // Log change for sync
-    await _logChange(account.id.value, 'upsert');
+    await _logChange(toInsert.id.value, 'upsert');
   }
 
   Future<void> insertAllAccounts(List<AccountsCompanion> accounts) async {
+    final List<AccountsCompanion> accountsWithIds = accounts.map((a) {
+      if (a.id.present) return a;
+      return a.copyWith(id: Value(_uuid.v4()));
+    }).toList();
+
     await batch((batch) {
       batch.insertAll(
         this.accounts,
-        accounts,
+        accountsWithIds,
         mode: InsertMode.insertOrReplace,
       );
     });
     // Log changes for sync
-    final ids = accounts.map((a) => a.id.value).toList();
+    final ids = accountsWithIds.map((a) => a.id.value).toList();
     await _logChanges(ids, 'upsert');
   }
 
@@ -1046,22 +1074,32 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       select(transactions).watch();
 
   Future<void> insertTransaction(TransactionsCompanion transaction) async {
-    await into(transactions).insert(transaction);
-    await _logChange(transaction.id.value, 'upsert');
+    final toInsert = transaction.id.present
+        ? transaction
+        : transaction.copyWith(id: Value(_uuid.v4()));
+    await into(transactions).insert(toInsert);
+    await _logChange(toInsert.id.value, 'upsert');
   }
 
   Future<void> insertAllTransactions(
     List<TransactionsCompanion> transactions,
   ) async {
+    final List<TransactionsCompanion> transactionsWithIds = transactions.map((
+      t,
+    ) {
+      if (t.id.present) return t;
+      return t.copyWith(id: Value(_uuid.v4()));
+    }).toList();
+
     await batch((batch) {
       batch.insertAll(
         this.transactions,
-        transactions,
+        transactionsWithIds,
         mode: InsertMode.insertOrReplace,
       );
     });
     // Log changes for sync
-    final ids = transactions.map((t) => t.id.value).toList();
+    final ids = transactionsWithIds.map((t) => t.id.value).toList();
     await _logChanges(ids, 'upsert');
   }
 
@@ -1438,6 +1476,17 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
       (select(settings)..where((tbl) => tbl.key.equals(key))).getSingleOrNull();
   Future<void> setSetting(SettingsCompanion setting) =>
       into(settings).insert(setting, mode: InsertMode.insertOrReplace);
+
+  Future<void> insertAllSettings(List<SettingsCompanion> settings) {
+    return batch((batch) {
+      batch.insertAll(
+        this.settings,
+        settings,
+        mode: InsertMode.insertOrReplace,
+      );
+    });
+  }
+
   Future<List<Setting>> getAllSettings() => select(settings).get();
   Future<List<Setting>> getSettings({int limit = 10, int offset = 0}) =>
       (select(settings)..limit(limit, offset: offset)).get();
@@ -2025,8 +2074,11 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> addAssetData(AssetEntriesCompanion data) async {
-    await into(assetEntries).insert(data);
-    await _logChange(data.id.value, 'upsert');
+    final toInsert = data.id.present
+        ? data
+        : data.copyWith(id: Value(_uuid.v4()));
+    await into(assetEntries).insert(toInsert);
+    await _logChange(toInsert.id.value, 'upsert');
   }
 
   Future<void> updateAssetData(AssetEntriesCompanion data) async {
@@ -2045,9 +2097,6 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> _logChange(String recordId, String action) async {
-    debugPrint(
-      '[SYNC_DEBUG] AssetEntriesDao: _logChange called for $recordId ($action)',
-    );
     await into(db.syncLog).insert(
       SyncLogCompanion(
         changedTableName: const Value('asset_entries'),
@@ -2202,7 +2251,7 @@ class AppDatabase extends _$AppDatabase {
   // --- Seeding Methods ---
 
   Future<void> _seedLanguages(AppDatabase db) async {
-    await db.languageDao.insertAllinsertLanguages(defaultLanguages);
+    await db.languageDao.insertAllLanguages(defaultLanguages);
   }
 
   Future<void> _seedCurrencyDesignations(AppDatabase db) async {
@@ -2218,9 +2267,7 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _seedSettings(AppDatabase db) async {
     final deviceName = await getDeviceName();
     final settingsToSeed = getDefaultSettings(deviceName);
-    for (final setting in settingsToSeed) {
-      await db.settingsDao.setSetting(setting);
-    }
+    await db.settingsDao.insertAllSettings(settingsToSeed);
 
     // Generate and store unique device ID for sync if not exists
     final deviceId = await db.settingsDao.getSetting('local_device_id');

@@ -44,19 +44,17 @@ class _AppWrapperState extends State<AppWrapper> {
   }
 
   Future<void> _initialize() async {
-    debugPrint('[SYNC_DEBUG] AppWrapper._initialize() started');
     try {
-      // Step 0: Ensure local DB defaults are seeded (fixes crash on old DBs)
       _updateProgress(0.1, 'Verifying settings...');
       await sl<SettingsRepository>().initializeDefaults();
 
-          _updateProgress(0.3, 'Loading exchange rates...');
+      _updateProgress(0.3, 'Loading exchange rates...');
       await IntilizationData.loadLocalData();
+
       // Step 0.5: Initialize Sync Service
       await sl<SyncService>().init();
       // Step 1: Load local data (fast, from files)
 
-     
       _updateProgress(0.9, 'Ready!');
 
       // Small delay to show "Ready!" message

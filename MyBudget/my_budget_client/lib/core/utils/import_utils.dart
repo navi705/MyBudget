@@ -246,153 +246,166 @@ class ImportDataUtils {
       r'lib/data/currency_history.bin';
 
   static Future<void> getCurrenciesInitial() async {
-    final DateFormat keyFormatter = DateFormat('yyyy-MM-dd');
-    final currenciesRep = di.sl<CurrencyRepository>();
+    try {
+      final DateFormat keyFormatter = DateFormat('yyyy-MM-dd');
+      final currenciesRep = di.sl<CurrencyRepository>();
 
-    // 1. Get existing data from DB (Optimization)
-    // We already have these dates in DB with preset=1 (seeded data)
-    final dbRatesList = await currenciesRep.getLatestExchangeRatesAll();
-    final Set<String> existingDbDates = dbRatesList
-        .where((e) => e.preset == 1)
-        .map((e) => keyFormatter.format(e.date))
-        .toSet();
-
-    // Optimization: If we already have data for today, skip the whole process
-    if (existingDbDates.contains(keyFormatter.format(DateTime.now()))) {
+      // 1. Get existing data from DB (Optimization)
+      // We already have these dates in DB with preset=1 (seeded data)
       debugPrint(
-        "Exchange rate data is already up to date for today. Skipping.",
+        '[INIT_DEBUG] getCurrenciesInitial: Fetching latest rates from DB...',
       );
-      return;
-    }
+      final dbRatesList = await currenciesRep.getLatestExchangeRatesAll();
+      debugPrint(
+        '[INIT_DEBUG] getCurrenciesInitial: Found ${dbRatesList.length} rates in DB.',
+      );
+      final Set<String> existingDbDates = dbRatesList
+          .where((e) => e.preset == 1)
+          .map((e) => keyFormatter.format(e.date))
+          .toSet();
 
-    // 2. Load History Map from File (Binary in Prod/Debug, or JSON in Debug)
-    Map<String, Map<String, double>> fileHistoryMap = {};
+      // Optimization: If we already have data for today, skip the whole process
+      if (existingDbDates.contains(keyFormatter.format(DateTime.now()))) {
+        debugPrint(
+          "Exchange rate data is already up to date for today. Skipping.",
+        );
+        return;
+      }
 
-    // Logic: Desktop & Debug -> Use File Path, otherwise -> Use Assets
-    final bool isDesktop = !Platform.isAndroid && !Platform.isIOS;
+      // 2. Load History Map from File (Binary in Prod/Debug, or JSON in Debug)
+      Map<String, Map<String, double>> fileHistoryMap = {};
 
-    if (kDebugMode && isDesktop) {
-      // DEBUG (PC ONLY): Read from local JSON file directly
-      File jsonFile = File(filePathCurrenciesRate);
-      if (await jsonFile.exists()) {
-        try {
-          final content = await jsonFile.readAsString();
-          final jsonMap = jsonDecode(content);
-          if (jsonMap is Map) {
-            jsonMap.forEach((k, v) {
-              if (v is Map) {
-                Map<String, double> rates = {};
-                v.forEach((curr, rate) {
-                  if (rate is num) {
-                    rates[curr.toString().toUpperCase()] = rate.toDouble();
-                  }
-                });
-                fileHistoryMap[k.toString()] = rates;
-              }
-            });
+      // Logic: Desktop & Debug -> Use File Path, otherwise -> Use Assets
+      final bool isDesktop = !Platform.isAndroid && !Platform.isIOS;
+
+      if (kDebugMode && isDesktop) {
+        // DEBUG (PC ONLY): Read from local JSON file directly
+        File jsonFile = File(filePathCurrenciesRate);
+        if (await jsonFile.exists()) {
+          try {
+            final content = await jsonFile.readAsString();
+            final jsonMap = jsonDecode(content);
+            if (jsonMap is Map) {
+              jsonMap.forEach((k, v) {
+                if (v is Map) {
+                  Map<String, double> rates = {};
+                  v.forEach((curr, rate) {
+                    if (rate is num) {
+                      rates[curr.toString().toUpperCase()] = rate.toDouble();
+                    }
+                  });
+                  fileHistoryMap[k.toString()] = rates;
+                }
+              });
+            }
+          } catch (e) {
+            debugPrint("Error reading Debug JSON file on PC: $e");
           }
+        }
+      } else {
+        try {
+          final ByteData blob = await rootBundle.load(
+            filePathCurrenciesBinaryAsset,
+          );
+          final Uint8List bytes = blob.buffer.asUint8List(
+            blob.offsetInBytes,
+            blob.lengthInBytes,
+          );
+          fileHistoryMap = CurrencyHistoryBinaryIO.readFromBytes(bytes);
+          debugPrint("Loaded exchange rates from Binary Asset.");
         } catch (e) {
-          debugPrint("Error reading Debug JSON file on PC: $e");
+          debugPrint("Error loading binary asset: $e");
         }
       }
-    } else {
-      try {
-        final ByteData blob = await rootBundle.load(
-          filePathCurrenciesBinaryAsset,
-        );
-        final Uint8List bytes = blob.buffer.asUint8List(
-          blob.offsetInBytes,
-          blob.lengthInBytes,
-        );
-        fileHistoryMap = CurrencyHistoryBinaryIO.readFromBytes(bytes);
-        debugPrint("Loaded exchange rates from Binary Asset.");
-      } catch (e) {
-        debugPrint("Error loading binary asset: $e");
-      }
-    }
 
-    // 4. Loop through required dates range
-    DateTime startDate = DateTime(2024, 4, 1);
-    DateTime endDate = DateTime.now();
-    DateTime currentDate = startDate;
+      // 4. Loop through required dates range
+      DateTime startDate = DateTime(2024, 4, 1);
+      DateTime endDate = DateTime.now();
+      DateTime currentDate = startDate;
 
-    Map<String, Map<String, double>> dataToInsertMap = {};
-    bool dataWasUpdated = false;
+      Map<String, Map<String, double>> dataToInsertMap = {};
+      bool dataWasUpdated = false;
 
-    while (!currentDate.isAfter(endDate)) {
-      String dateKey = keyFormatter.format(currentDate);
+      while (!currentDate.isAfter(endDate)) {
+        String dateKey = keyFormatter.format(currentDate);
 
-      // Condition 1: Exists in DB? -> Skip
-      if (existingDbDates.contains(dateKey)) {
+        // Condition 1: Exists in DB? -> Skip
+        if (existingDbDates.contains(dateKey)) {
+          currentDate = currentDate.add(const Duration(days: 1));
+          continue;
+        }
+
+        // Condition 2: Exists in File Map? -> Use it
+        if (fileHistoryMap.containsKey(dateKey)) {
+          dataToInsertMap[dateKey] = fileHistoryMap[dateKey]!;
+        }
+        // Condition 3: Missing everywhere -> Fetch from API (Debug & PC only usually)
+        else if (kDebugMode && isDesktop) {
+          try {
+            await Future.delayed(const Duration(milliseconds: 100)); // Throttle
+            final apiRates =
+                await ExternalData.getCurrencyRatesFromFreeExchangeRates(
+                  currentDate,
+                );
+
+            if (apiRates.isNotEmpty) {
+              dataToInsertMap[dateKey] = apiRates;
+              // Also update our file map so we can save it later
+              fileHistoryMap[dateKey] = apiRates;
+              dataWasUpdated = true;
+            }
+          } catch (e) {
+            debugPrint("API Error for $dateKey: $e");
+          }
+        }
+
         currentDate = currentDate.add(const Duration(days: 1));
-        continue;
       }
 
-      // Condition 2: Exists in File Map? -> Use it
-      if (fileHistoryMap.containsKey(dateKey)) {
-        dataToInsertMap[dateKey] = fileHistoryMap[dateKey]!;
+      // 6. Convert & Insert into DB
+      final List<ExchangeRateDomain> listToInsert =
+          convertCurreniesRateFromJson(
+            dataToInsertMap, // This helper works with the inner map structure
+          );
+
+      if (listToInsert.isNotEmpty) {
+        debugPrint("Adding ${listToInsert.length} new records to DB...");
+        await currenciesRep.addExchangeRates(listToInsert);
+      } else {
+        debugPrint("Database is already up to date.");
       }
-      // Condition 3: Missing everywhere -> Fetch from API (Debug & PC only usually)
-      else if (kDebugMode && isDesktop) {
+
+      // 7. (DEBUG & PC ONLY) Save updated data back to binary/json if changed
+      if (kDebugMode && isDesktop && dataWasUpdated) {
+        // Save to JSON
         try {
-          await Future.delayed(const Duration(milliseconds: 100)); // Throttle
-          final apiRates =
-              await ExternalData.getCurrencyRatesFromFreeExchangeRates(
-                currentDate,
-              );
-
-          if (apiRates.isNotEmpty) {
-            dataToInsertMap[dateKey] = apiRates;
-            // Also update our file map so we can save it later
-            fileHistoryMap[dateKey] = apiRates;
-            dataWasUpdated = true;
+          final File localJsonFile = File(filePathCurrenciesRate);
+          if (!await localJsonFile.parent.exists()) {
+            await localJsonFile.parent.create(recursive: true);
           }
+
+          final String jsonContent = const JsonEncoder.withIndent(
+            '  ',
+          ).convert(fileHistoryMap);
+          await localJsonFile.writeAsString(jsonContent);
+          debugPrint("Updated local JSON history file.");
         } catch (e) {
-          debugPrint("API Error for $dateKey: $e");
-        }
-      }
-
-      currentDate = currentDate.add(const Duration(days: 1));
-    }
-
-    // 6. Convert & Insert into DB
-    final List<ExchangeRateDomain> listToInsert = convertCurreniesRateFromJson(
-      dataToInsertMap, // This helper works with the inner map structure
-    );
-
-    if (listToInsert.isNotEmpty) {
-      debugPrint("Adding ${listToInsert.length} new records to DB...");
-      await currenciesRep.addExchangeRates(listToInsert);
-    } else {
-      debugPrint("Database is already up to date.");
-    }
-
-    // 7. (DEBUG & PC ONLY) Save updated data back to binary/json if changed
-    if (kDebugMode && isDesktop && dataWasUpdated) {
-      // Save to JSON
-      try {
-        final File localJsonFile = File(filePathCurrenciesRate);
-        if (!await localJsonFile.parent.exists()) {
-          await localJsonFile.parent.create(recursive: true);
+          debugPrint("Failed to save JSON: $e");
         }
 
-        final String jsonContent = const JsonEncoder.withIndent(
-          '  ',
-        ).convert(fileHistoryMap);
-        await localJsonFile.writeAsString(jsonContent);
-        debugPrint("Updated local JSON history file.");
-      } catch (e) {
-        debugPrint("Failed to save JSON: $e");
+        // Save to Binary
+        try {
+          final File localBinaryFile = File(filePathCurrenciesBinary);
+          await CurrencyHistoryBinaryIO.write(localBinaryFile, fileHistoryMap);
+          debugPrint("Updated local BINARY history file.");
+        } catch (e) {
+          debugPrint("Failed to save Binary: $e");
+        }
       }
-
-      // Save to Binary
-      try {
-        final File localBinaryFile = File(filePathCurrenciesBinary);
-        await CurrencyHistoryBinaryIO.write(localBinaryFile, fileHistoryMap);
-        debugPrint("Updated local BINARY history file.");
-      } catch (e) {
-        debugPrint("Failed to save Binary: $e");
-      }
+    } catch (e, stack) {
+      debugPrint('[INIT_DEBUG] getCurrenciesInitial CRITICAL ERROR: $e');
+      debugPrint('[INIT_DEBUG] Stack trace: $stack');
+      rethrow;
     }
   }
 

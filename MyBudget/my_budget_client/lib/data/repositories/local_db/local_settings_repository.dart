@@ -113,7 +113,6 @@ class LocalSettingsRepository implements SettingsRepository {
 
     await _database.batch((batch) {
       for (final setting in defaults) {
-        debugPrint('Initializing default setting: ${setting.key.value} = ${setting.value.value}');
         batch.insert(
           _database.settings,
           setting,

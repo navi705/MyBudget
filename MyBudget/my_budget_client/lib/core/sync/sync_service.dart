@@ -44,8 +44,8 @@ class SyncService {
 
   /// Initialize sync settings from database and start sync if enabled
   Future<void> init() async {
-    debugPrint('[SYNC_DEBUG] SyncService.init() called');
     try {
+      debugPrint('[SYNC_DEBUG] SyncService.init() started');
       debugPrint('[SYNC_DEBUG] Loading sync_enabled setting...');
       final enabledSetting = await _db.settingsDao.getSetting('sync_enabled');
 
@@ -66,8 +66,9 @@ class SyncService {
       } else {
         debugPrint('[SYNC_DEBUG] Sync is disabled or folder not set.');
       }
-    } catch (e) {
-      debugPrint('[SYNC_DEBUG] Initialization error: $e');
+    } catch (e, stack) {
+      debugPrint('[SYNC_DEBUG] Initialization CRITICAL ERROR: $e');
+      debugPrint('[SYNC_DEBUG] Stack trace: $stack');
     }
   }
 
@@ -618,6 +619,10 @@ class SyncService {
       'accountId': t.accountId,
       'categoryId': t.categoryId,
       'currencyCode': t.currencyCode,
+      'exchangeRate': t.exchangeRate,
+      'exchangeRatePreset': t.exchangeRatePreset,
+      'fee': t.fee,
+      'linkedTransactionId': t.linkedTransactionId,
       'modifiedAt': t.modifiedAt,
       'deviceId': t.deviceId,
       'isDeleted': t.isDeleted,
@@ -633,6 +638,10 @@ class SyncService {
       accountId: Value(json['accountId'] as String? ?? ''),
       categoryId: Value(json['categoryId'] as String? ?? ''),
       currencyCode: Value(json['currencyCode'] as String? ?? 'USD'),
+      exchangeRate: Value(json['exchangeRate'] as double?),
+      exchangeRatePreset: Value(json['exchangeRatePreset'] as int?),
+      fee: Value((json['fee'] as num?)?.toDouble() ?? 0.0),
+      linkedTransactionId: Value(json['linkedTransactionId'] as String?),
       modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
@@ -646,8 +655,14 @@ class SyncService {
       'description': a.description,
       'balance': a.balance,
       'currencyCode': a.currencyCode,
+      'currencyDesignationId': a.currencyDesignationId,
       'accountTypeId': a.accountTypeId,
       'styleId': a.styleId,
+      'creationDate': a.creationDate.toIso8601String(),
+      'country': a.country,
+      'assetId': a.assetId,
+      'assetQuantity': a.assetQuantity,
+      'feeStructure': a.feeStructure,
       'modifiedAt': a.modifiedAt,
       'deviceId': a.deviceId,
       'isDeleted': a.isDeleted,
@@ -661,8 +676,20 @@ class SyncService {
       description: Value(json['description'] as String?),
       balance: Value((json['balance'] as num).toDouble()),
       currencyCode: Value(json['currencyCode'] as String? ?? 'USD'),
+      currencyDesignationId: Value(
+        json['currencyDesignationId'] as String? ?? '',
+      ),
       accountTypeId: Value(json['accountTypeId'] as String? ?? ''),
       styleId: Value(json['styleId'] as String?),
+      creationDate: Value(
+        json['creationDate'] != null
+            ? DateTime.parse(json['creationDate'] as String)
+            : DateTime.now(),
+      ),
+      country: Value(json['country'] as String?),
+      assetId: Value(json['assetId'] as String?),
+      assetQuantity: Value((json['assetQuantity'] as num?)?.toDouble() ?? 0.0),
+      feeStructure: Value(json['feeStructure'] as String?),
       modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
@@ -701,7 +728,7 @@ class SyncService {
       'name': s.name,
       'colorHex': s.colorHex,
       'iconName': s.iconName,
-      'iconType': s.iconType,
+      'iconType': s.iconType.index,
       'modifiedAt': s.modifiedAt,
       'deviceId': s.deviceId,
       'isDeleted': s.isDeleted,
