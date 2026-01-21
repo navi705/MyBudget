@@ -17,6 +17,7 @@ dependencies:
   path_provider: ^2.1.5
   get_it: ^7.7.0
   http: any
+  web_socket_channel: ^3.0.0
 
   path: any
   archive: ^3.6.1

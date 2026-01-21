@@ -42,6 +42,7 @@ import 'package:my_budget_client/core/sync/sync_service.dart';
 
 import 'package:my_budget_client/core/services/startup_sync_service.dart';
 import 'package:my_budget_client/core/services/custom_api_service.dart';
+import 'package:my_budget_client/core/services/server_sync_service.dart';
 
 import '../../data/repositories/local_db/local_account_repository.dart';
 import '../../data/repositories/local_db/local_currency_designation_repository.dart';
@@ -139,8 +140,9 @@ Future<void> init() async {
   // Services
   sl.registerLazySingleton(() => CustomApiService());
   sl.registerLazySingleton(
-    () => StartupSyncService(sl(), sl(), sl(), sl(), sl(), sl(), sl()),
+    () => StartupSyncService(sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl()),
   );
+  sl.registerLazySingleton(() => ServerSyncService(database: sl()));
   sl.registerLazySingleton(() => FinanceCalculator());
   sl.registerLazySingleton(
     () => ExchangeRateApiService(

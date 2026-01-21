@@ -6,6 +6,7 @@ import 'package:my_budget_client/core/services/exchange_rate_api_service.dart';
 import 'package:my_budget_client/core/services/inflation_api_service.dart';
 import 'package:my_budget_client/core/services/steam_inventory_api_service.dart';
 import 'package:my_budget_client/core/services/custom_api_service.dart';
+import 'package:my_budget_client/core/services/server_sync_service.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
 
 class StartupSyncService {
@@ -16,6 +17,7 @@ class StartupSyncService {
   final InflationApiService _inflationApiService;
   final SteamInventoryApiService _steamInventoryApiService;
   final CustomApiService _customApiService;
+  final ServerSyncService _serverSyncService;
 
   StartupSyncService(
     this._settingsRepository,
@@ -25,6 +27,7 @@ class StartupSyncService {
     this._inflationApiService,
     this._steamInventoryApiService,
     this._customApiService,
+    this._serverSyncService,
   );
 
   Future<void> executeStartupSync() async {
@@ -65,6 +68,17 @@ class StartupSyncService {
         );
         await _customApiService.fetchCustomData(source.url);
       }
+    }
+
+    // 4. Process Server Sync (New)
+    try {
+      debugPrint('[StartupSyncService] Starting Server Sync...');
+      // Initialize WebSocket connection for the session
+      _serverSyncService.initWebSocket();
+      // Perform initial sync
+      await _serverSyncService.sync();
+    } catch (e) {
+      debugPrint('[StartupSyncService] Server Sync failed: $e');
     }
 
     debugPrint('[StartupSyncService] Startup sync completed.');
