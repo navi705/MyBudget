@@ -75,6 +75,39 @@ class ExternalData {
     }
   }
 
+  static Future<Map<String, double>> getCurrencyRatesFromLatest() async {
+    final uri = Uri.https(
+      "cdn.jsdelivr.net",
+      "/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json",
+    );
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        Map<dynamic, dynamic> body = jsonDecode(response.body);
+        Map<String, dynamic> data = body['eur'];
+        Map<String, double> dictionary = {};
+        data.forEach((key, value) {
+          if (value is num) {
+            dictionary[key] = value.toDouble();
+          } else if (value is String) {
+            try {
+              dictionary[key] = double.parse(value);
+            } catch (e) {
+              throw Exception('Rate is not number: $e');
+            }
+          }
+        });
+        return dictionary;
+      } else {
+        throw Exception(
+          'API request failed with status: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Failed to fetch latest currency rates: $e');
+    }
+  }
+
   static Future<double> getSteamInventoryValue(
     int accountId,
     GameApiSteam game,
@@ -293,6 +326,9 @@ class ExternalData {
     );
     try {
       final response = await http.get(uri);
+      debugPrint(
+        '[ExternalData] World Bank Response: ${response.statusCode}, Length: ${response.body.length}',
+      );
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         return WorldBankInflationResponse.fromJson(decoded).data;

@@ -31,21 +31,40 @@ class InflationApiService {
       return;
     }
 
-    final dataPoints = await compute(
-      _fetchInflationData,
+    debugPrint('[InflationApiService] Fetching inflation from API...');
+    final dataPoints = await _fetchInflationData(
       _InflationFetchArgs(countryCode, dateRange),
     );
 
+    debugPrint(
+      '[InflationApiService] Received ${dataPoints.length} data points.',
+    );
+
+    final List<InflationRatesCompanion> companions = [];
     for (var dataPoint in dataPoints) {
       if (dataPoint.value != null) {
-        final companion = InflationRatesCompanion(
-          country: Value(countryCode),
-          percent: Value(dataPoint.value!),
-          date: Value(DateTime(int.parse(dataPoint.date), 1, 1)),
-          preset: const Value(1),
+        companions.add(
+          InflationRatesCompanion(
+            country: Value(countryCode),
+            percent: Value(dataPoint.value!),
+            date: Value(DateTime(int.parse(dataPoint.date), 1, 1)),
+            preset: const Value(1),
+          ),
         );
-        await _inflationRatesDao.insertInflationRate(companion);
       }
+    }
+
+    if (companions.isNotEmpty) {
+      await _inflationRatesDao.batch((batch) {
+        batch.insertAll(
+          _inflationRatesDao.inflationRates,
+          companions,
+          mode: InsertMode.insertOrReplace,
+        );
+      });
+      debugPrint(
+        '[InflationApiService] Saved ${companions.length} data points to DB.',
+      );
     }
   }
 

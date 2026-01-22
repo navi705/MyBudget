@@ -138,7 +138,15 @@ class ExchangeRateApiService {
       }
 
       if (rates.isEmpty) {
-        rates = await ExternalData.getCurrencyRatesFromFreeExchangeRates(date);
+        try {
+          rates = await ExternalData.getCurrencyRatesFromFreeExchangeRates(
+            date,
+          );
+        } catch (e) {
+          debugPrint('Fetch: Specific date failed, trying latest: $e');
+          // Fallback to latest if specific date (e.g. today) is not yet available
+          rates = await ExternalData.getCurrencyRatesFromLatest();
+        }
       }
 
       if (rates.isNotEmpty) {

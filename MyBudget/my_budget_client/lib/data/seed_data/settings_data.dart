@@ -19,11 +19,13 @@ List<SettingsCompanion> getDefaultSettings(String deviceName) {
       value: 'EUR',
       device: Value(deviceName),
     ),
+    /* // Removed to allow StartupSyncService to detect region on first launch
     SettingsCompanion.insert(
       key: 'default_inflation_country',
       value: 'SRB',
       device: Value(deviceName),
     ),
+    */
 
     // transction list screen
     SettingsCompanion.insert(
@@ -144,6 +146,11 @@ List<SettingsCompanion> getDefaultSettings(String deviceName) {
     SettingsCompanion.insert(
       key: 'sync_enabled',
       value: 'false',
+      device: Value(deviceName),
+    ),
+    SettingsCompanion.insert(
+      key: 'startup_sync_enabled',
+      value: 'true',
       device: Value(deviceName),
     ),
   ];

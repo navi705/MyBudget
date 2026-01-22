@@ -7,6 +7,7 @@ import 'package:my_budget_client/core/services/inflation_api_service.dart';
 import 'package:my_budget_client/core/services/steam_inventory_api_service.dart';
 import 'package:my_budget_client/core/services/custom_api_service.dart';
 import 'package:my_budget_client/core/services/server_sync_service.dart';
+import 'package:my_budget_client/core/utils/region_utils.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
 
 class StartupSyncService {
@@ -46,11 +47,27 @@ class StartupSyncService {
       return;
     }
 
-    debugPrint(
-      '[StartupSyncService] Startup sync is ENABLED. Processing sources...',
+    // 2. Detect region on first launch if not set
+    final inflationCountryRef = await _settingsRepository.getSetting(
+      'default_inflation_country',
     );
+    if (inflationCountryRef == null) {
+      final alpha2 = RegionUtils.detectDeviceRegion();
+      if (alpha2 != null) {
+        final alpha3 = RegionUtils.mapAlpha2ToAlpha3(alpha2);
+        if (alpha3 != null) {
+          debugPrint(
+            '[StartupSyncService] First launch detected. Auto-setting inflation country to $alpha3 (from $alpha2)',
+          );
+          await _settingsRepository.saveSetting(
+            'default_inflation_country',
+            alpha3,
+          );
+        }
+      }
+    }
 
-    // 2. Process Built-in APIs
+    // 3. Process Built-in APIs
     final apiSettings = await _apiSettingsRepository.getAllSettings();
     for (final setting in apiSettings) {
       if (setting.enabled && setting.autoFetch) {
@@ -91,13 +108,21 @@ class StartupSyncService {
           await _exchangeRateApiService.fetchRatesForDate(DateTime.now());
           break;
         case 'inflation':
-          // Default to Serbia and recent range for auto-fetch, or make this configurable later.
-          // Currently hardcoded in initialization_data.dart as 'SRB' and '2000:2024'.
-          // Ideally, we should store these parameters in the ApiSetting or a separate config.
-          // For now, preserving existing behavior:
+          final countrySetting = await _settingsRepository.getSetting(
+            'default_inflation_country',
+          );
+          final countryCode = countrySetting?.value ?? 'SRB';
+
+          debugPrint(
+            '[StartupSyncService] Fetching inflation for $countryCode...',
+          );
+          // Auto-fetch for the last 25 years
+          final currentYear = DateTime.now().year;
+          final range = '${currentYear - 25}:$currentYear';
+
           await _inflationApiService.fetchInflationForCountry(
-            'SRB',
-            '2000:2024',
+            countryCode,
+            range,
           );
           break;
         case 'steam_inventory': // Assuming 'steam_inventory' is the ID used in seed data, need to verify.
@@ -124,6 +149,13 @@ class StartupSyncService {
           break;
         default:
           debugPrint('[StartupSyncService] Unknown built-in API ID: $id');
+      }
+      // Update lastFetchAt after successful fetch
+      final setting = await _apiSettingsRepository.getSettingById(id);
+      if (setting != null) {
+        await _apiSettingsRepository.saveSetting(
+          setting.copyWith(lastFetchAt: DateTime.now()),
+        );
       }
     } catch (e) {
       debugPrint('[StartupSyncService] Error fetching $id: $e');

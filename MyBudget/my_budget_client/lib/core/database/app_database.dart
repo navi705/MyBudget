@@ -2676,6 +2676,7 @@ class AppDatabase extends _$AppDatabase {
     await _seedCategories(db);
     await _seedExchangeRates(db);
     await _seedSettings(db);
+    await _seedApiSettings(db);
   }
 
   // --- Seeding Methods ---
@@ -2711,6 +2712,34 @@ class AppDatabase extends _$AppDatabase {
         ),
       );
     }
+  }
+
+  Future<void> _seedApiSettings(AppDatabase db) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.apiSettingsDao.upsertSetting(
+      ApiSettingsTableCompanion(
+        id: const Value('exchange_rates'),
+        enabled: const Value(true),
+        autoFetch: const Value(true),
+        modifiedAt: Value(now),
+      ),
+    );
+    await db.apiSettingsDao.upsertSetting(
+      ApiSettingsTableCompanion(
+        id: const Value('inflation'),
+        enabled: const Value(true),
+        autoFetch: const Value(true),
+        modifiedAt: Value(now),
+      ),
+    );
+    await db.apiSettingsDao.upsertSetting(
+      ApiSettingsTableCompanion(
+        id: const Value('assets'),
+        enabled: const Value(true),
+        autoFetch: const Value(true),
+        modifiedAt: Value(now),
+      ),
+    );
   }
 
   Future<void> _seedStyles(AppDatabase db) async {
