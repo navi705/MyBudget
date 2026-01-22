@@ -9,6 +9,9 @@ import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/sms_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+import 'package:my_budget_client/domain/repositories/account_repository.dart';
+import 'package:my_budget_client/domain/repositories/settings_repository.dart';
+import 'package:my_budget_client/domain/services/currency_converter_service.dart';
 import 'package:uuid/uuid.dart';
 
 part 'sms_event.dart';
@@ -18,6 +21,9 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
   final SmsRepository _smsRepository;
   final TransactionRepository _transactionRepository;
   final CurrencyRepository _currencyRepository;
+  final AccountRepository _accountRepository;
+  final CurrencyConverterService _currencyConverterService;
+  final SettingsRepository _settingsRepository;
   final SmsParser _parser = SmsParser();
   StreamSubscription? _smsSubscription;
 
@@ -25,9 +31,15 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     required SmsRepository smsRepository,
     required TransactionRepository transactionRepository,
     required CurrencyRepository currencyRepository,
+    required AccountRepository accountRepository,
+    required CurrencyConverterService currencyConverterService,
+    required SettingsRepository settingsRepository,
   }) : _smsRepository = smsRepository,
        _transactionRepository = transactionRepository,
        _currencyRepository = currencyRepository,
+       _accountRepository = accountRepository,
+       _currencyConverterService = currencyConverterService,
+       _settingsRepository = settingsRepository,
        super(const SmsState()) {
     on<LoadSmsPresets>(_onLoadPresets);
     on<ToggleSmsPreset>(_onTogglePreset);
@@ -264,31 +276,64 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     SmsPreset preset,
     List<Currency> currencies,
   ) async {
-    // Find currency by code
-    String? currencyCode = result.currencyCode;
-    if (currencyCode != null) {
+    final accountId = preset.defaultAccountId ?? 'default';
+    final account = await _accountRepository.getAccountById(accountId);
+    final accountCurrency = account?.currencyCode ?? 'RSD';
+
+    // Find currency by code from SMS result
+    String? smsCurrencyCode = result.currencyCode;
+    if (smsCurrencyCode != null) {
       final found = currencies.any(
-        (c) => c.code.toUpperCase() == currencyCode!.toUpperCase(),
+        (c) => c.code.toUpperCase() == smsCurrencyCode!.toUpperCase(),
       );
       if (!found) {
-        currencyCode = null; // Use default
+        smsCurrencyCode = null; // Use default
       }
     }
 
+    final finalSmsCurrency = smsCurrencyCode ?? accountCurrency;
     final isIncome = result.type == TransactionType.income;
-    final amount = isIncome ? result.amount!.abs() : -result.amount!.abs();
+    final rawAmount = isIncome ? result.amount!.abs() : -result.amount!.abs();
+
+    double finalAmount = rawAmount;
+    double? finalExchangeRate;
+    String finalCurrency = accountCurrency;
+
+    // Trigger conversion if SMS currency differs from Account currency
+    if (finalSmsCurrency.toUpperCase() != accountCurrency.toUpperCase()) {
+      final mainCurrencySetting = await _settingsRepository.getSetting(
+        'main_currency_code',
+      );
+      final mainCurrencyCode = mainCurrencySetting?.value ?? 'EUR';
+      final txDate = result.date ?? DateTime.now();
+
+      final rate = await _currencyConverterService.getExchangeRate(
+        fromCurrencyCode: finalSmsCurrency,
+        toCurrencyCode: accountCurrency,
+        date: txDate,
+        mainCurrencyCode: mainCurrencyCode,
+      );
+
+      if (rate != null) {
+        finalAmount = rawAmount * rate.rate;
+        finalExchangeRate = rate.rate;
+      }
+    }
 
     print(
-      'SMS_DEBUG: Creating transaction for preset ${preset.name}, amount: $amount, date: ${result.date}',
+      'SMS_DEBUG: Creating transaction for preset ${preset.name}, raw amount: $rawAmount $finalSmsCurrency, converted: $finalAmount $finalCurrency, rate: $finalExchangeRate, date: ${result.date}',
     );
+
     final transaction = Transaction(
       id: const Uuid().v4(),
-      amount: amount,
-      currencyCode: currencyCode ?? 'RSD',
+      amount: finalAmount,
+      currencyCode: finalCurrency,
       date: result.date ?? DateTime.now(),
       description: preset.name,
       categoryId: preset.defaultCategoryId ?? 'other',
-      accountId: preset.defaultAccountId ?? 'default',
+      accountId: accountId,
+      exchangeRate: finalExchangeRate,
+      exchangeRatePreset: finalExchangeRate != null ? 1 : null,
     );
 
     try {

@@ -39,6 +39,7 @@ import 'package:my_budget_client/domain/repositories/custom_data_source_reposito
 import 'package:my_budget_client/data/repositories/local_db/local_custom_data_source_repository.dart';
 import 'package:my_budget_client/core/services/android_file_picker_service.dart';
 import 'package:my_budget_client/core/sync/sync_service.dart';
+import 'package:my_budget_client/domain/services/currency_converter_service.dart';
 
 import 'package:my_budget_client/core/services/startup_sync_service.dart';
 import 'package:my_budget_client/core/services/custom_api_service.dart';
@@ -139,6 +140,9 @@ Future<void> init() async {
       smsRepository: sl(),
       transactionRepository: sl(),
       currencyRepository: sl(),
+      accountRepository: sl(),
+      currencyConverterService: sl(),
+      settingsRepository: sl(),
     ),
   );
 
@@ -158,6 +162,7 @@ Future<void> init() async {
     () => ServerSyncService(database: sl(), settingsRepository: sl()),
   );
   sl.registerLazySingleton(() => FinanceCalculator());
+  sl.registerLazySingleton(() => CurrencyConverterService(sl()));
   sl.registerLazySingleton(
     () => ExchangeRateApiService(
       sl<AppDatabase>().exchangeRatesDao,
