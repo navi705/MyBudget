@@ -35,6 +35,7 @@ class BalanceReportWidget extends StatefulWidget {
 
 class _BalanceReportWidgetState extends State<BalanceReportWidget> {
   String? _selectedAccountId; // null means "All Accounts"
+  bool _isAccountSelectorHovered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -106,53 +107,109 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
   }
 
   Widget _buildAccountSelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isAccountSelectorHovered = true),
+      onExit: (_) => setState(() => _isAccountSelectorHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: EdgeInsets.zero,
+        height: 44,
+        decoration: BoxDecoration(
+          color: _isAccountSelectorHovered
+              ? colorScheme.surfaceContainerHighest
+              : colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _isAccountSelectorHovered
+                ? colorScheme.onSurface.withValues(alpha: 0.2)
+                : colorScheme.onSurface.withValues(alpha: 0.1),
+            width: 1,
+          ),
         ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String?>(
-          value: _selectedAccountId,
-          isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down),
-          hint: const Text("All Accounts (Total Net Worth)"),
-          onChanged: (val) {
-            setState(() {
-              _selectedAccountId = val;
-            });
-          },
-          items: [
-            const DropdownMenuItem<String?>(
-              value: null,
-              child: Text(
-                "All Accounts",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String?>(
+            value: _selectedAccountId,
+            isExpanded: true,
+            isDense: true,
+            focusColor: Colors.transparent,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            icon: Icon(
+              Icons.unfold_more_rounded,
+              color: colorScheme.onSurfaceVariant,
+              size: 20,
             ),
-            ...widget.accounts.map((acc) {
-              return DropdownMenuItem<String?>(
-                value: acc.id,
-                child: Row(
-                  children: [
-                    Text(acc.name),
-                    const SizedBox(width: 8),
-                    Text(
-                      _formatCurrency(acc.balance, acc.currencyCode),
+            dropdownColor: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+            onChanged: (val) {
+              setState(() {
+                _selectedAccountId = val;
+              });
+            },
+            selectedItemBuilder: (BuildContext context) {
+              return [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    "All Accounts",
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                ...widget.accounts.map((acc) {
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      acc.name,
                       style: TextStyle(
-                        color: Theme.of(context).colorScheme.secondary,
-                        fontSize: 12,
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ],
+                  );
+                }),
+              ];
+            },
+            items: [
+              DropdownMenuItem<String?>(
+                value: null,
+                child: Text(
+                  "All Accounts",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
                 ),
-              );
-            }),
-          ],
+              ),
+              ...widget.accounts.map((acc) {
+                return DropdownMenuItem<String?>(
+                  value: acc.id,
+                  child: Row(
+                    children: [
+                      Text(
+                        acc.name,
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                      const Spacer(),
+                      Text(
+                        _formatCurrency(acc.balance, acc.currencyCode),
+                        style: TextStyle(
+                          color: colorScheme.secondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
         ),
       ),
     );
@@ -161,33 +218,30 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
   Widget _buildMainChartSection(bool isAllAccounts) {
     // If specific account, we need its data.
     // NOTE: The widget props currently don't include 'dayBalances' map needed for specific account history.
-    // I need to add that to the widget parameters in the next step (updating dashboard_screen.dart).
-    // For now I will assume 'dailyNetWorth' is correct for 'All', and I'll add a placeholder or update props.
-    // Wait, I can't access data I don't have.
-    // I will modify the widget constructor to accept 'dayBalances' in this same edit to be safe,
-    // or relying on a Todo.
-    // Let's rely on adding `dayBalances` property.
-
-    // But since I am editing the file now, I should add the property definitions.
-    // See updated class definition below.
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        const SizedBox(height: 8),
         Text(
           isAllAccounts ? 'Total Net Worth Trend' : 'Account Balance Trend',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            letterSpacing: 0.5,
+          ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         Container(
           height: 300,
           width: double.infinity,
-          padding: const EdgeInsets.only(right: 16, top: 16),
+          padding: const EdgeInsets.only(right: 16, top: 24, bottom: 8),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.05),
+            ),
           ),
           child: BalanceLineChart(
             dailyNetWorth: _getDataForChart(),
