@@ -8,7 +8,10 @@ import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/sms_preset.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/sms/sms_bloc.dart';
+import 'package:my_budget_client/domain/entities/style.dart';
+import 'package:my_budget_client/presentation/widgets/budget_icon.dart';
 import 'package:my_budget_client/presentation/widgets/sms_rule_builder_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
@@ -114,23 +117,34 @@ class _SmsSettingsContent extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      itemCount: state.presets.length,
-      itemBuilder: (context, index) {
-        final preset = state.presets[index];
-        return _PresetCard(
-          preset: preset,
-          onToggle: (enabled) {
-            context.read<SmsBloc>().add(ToggleSmsPreset(preset.id, enabled));
-          },
-          onEdit: () => _showPresetEditor(context, preset),
-          onDelete: preset.isBuiltIn
-              ? null
-              : () {
-                  context.read<SmsBloc>().add(DeleteSmsPreset(preset.id));
-                },
-        );
-      },
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => sl<AccountsBloc>()..add(LoadAccounts()),
+        ),
+        BlocProvider(
+          create: (context) => sl<CategoriesBloc>()..add(LoadCategories()),
+        ),
+        BlocProvider(create: (context) => sl<StylesBloc>()..add(LoadStyles())),
+      ],
+      child: ListView.builder(
+        itemCount: state.presets.length,
+        itemBuilder: (context, index) {
+          final preset = state.presets[index];
+          return _PresetCard(
+            preset: preset,
+            onToggle: (enabled) {
+              context.read<SmsBloc>().add(ToggleSmsPreset(preset.id, enabled));
+            },
+            onEdit: () => _showPresetEditor(context, preset),
+            onDelete: preset.isBuiltIn
+                ? null
+                : () {
+                    context.read<SmsBloc>().add(DeleteSmsPreset(preset.id));
+                  },
+          );
+        },
+      ),
     );
   }
 
@@ -180,6 +194,9 @@ class _SmsSettingsContent extends StatelessWidget {
             BlocProvider(
               create: (context) => sl<CategoriesBloc>()..add(LoadCategories()),
             ),
+            BlocProvider(
+              create: (context) => sl<StylesBloc>()..add(LoadStyles()),
+            ),
           ],
           child: SmsPresetEditorScreen(preset: preset),
         ),
@@ -213,7 +230,100 @@ class _PresetCard extends StatelessWidget {
               : Colors.grey,
         ),
         title: Text(preset.name),
-        subtitle: Text('Filter: ${preset.senderFilter}'),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Filter: ${preset.senderFilter}'),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                BlocBuilder<AccountsBloc, AccountsState>(
+                  builder: (context, accState) {
+                    if (accState is AccountsLoadSuccess) {
+                      final account = accState.accounts.firstWhereOrNull(
+                        (a) => a.id == preset.defaultAccountId,
+                      );
+                      if (account != null) {
+                        return BlocBuilder<StylesBloc, StylesState>(
+                          builder: (context, styleState) {
+                            if (styleState is StylesLoadSuccess) {
+                              final style = styleState.styles.firstWhereOrNull(
+                                (s) => s.id == account.styleId,
+                              );
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (style != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 4),
+                                      child: BudgetIcon(
+                                        style: style,
+                                        radius: 8,
+                                      ),
+                                    ),
+                                  Text(
+                                    account.name,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                              );
+                            }
+                            return Text(account.name);
+                          },
+                        );
+                      }
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                BlocBuilder<CategoriesBloc, CategoriesState>(
+                  builder: (context, catState) {
+                    if (catState is CategoriesLoadSuccess) {
+                      final category = catState.allCategories.firstWhereOrNull(
+                        (c) => c.id == preset.defaultCategoryId,
+                      );
+                      if (category != null) {
+                        return BlocBuilder<StylesBloc, StylesState>(
+                          builder: (context, styleState) {
+                            if (styleState is StylesLoadSuccess) {
+                              final style = styleState.styles.firstWhereOrNull(
+                                (s) => s.id == category.styleId,
+                              );
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (style != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 4),
+                                      child: BudgetIcon(
+                                        style: style,
+                                        radius: 8,
+                                      ),
+                                    ),
+                                  Text(
+                                    category.name,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
+                                ],
+                              );
+                            }
+                            return Text(category.name);
+                          },
+                        );
+                      }
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -332,29 +442,70 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
               (a) => a.id == _selectedAccountId,
             );
 
-            return InkWell(
-              onTap: () async {
-                final account = await showSingleSelectDialog<Account>(
-                  context: context,
-                  items: accounts,
-                  title: context.l10n.selectAccountTitle,
-                  selectedItem: selectedAccount,
-                  itemBuilder: (account) => Text(account.name),
-                  stringGetter: (account) => account.name,
-                );
-
-                if (account != null) {
-                  setState(() => _selectedAccountId = account.id);
-                  if (isEditing) _savePreset(pop: false);
+            return BlocBuilder<StylesBloc, StylesState>(
+              builder: (context, styleState) {
+                Style? style;
+                if (styleState is StylesLoadSuccess &&
+                    selectedAccount != null) {
+                  style = styleState.styles.firstWhereOrNull(
+                    (s) => s.id == selectedAccount.styleId,
+                  );
                 }
+
+                return InkWell(
+                  onTap: () async {
+                    final account = await showSingleSelectDialog<Account>(
+                      context: context,
+                      items: accounts,
+                      title: context.l10n.selectAccountTitle,
+                      selectedItem: selectedAccount,
+                      itemBuilder: (account) => Row(
+                        children: [
+                          BlocBuilder<StylesBloc, StylesState>(
+                            builder: (context, state) {
+                              if (state is StylesLoadSuccess) {
+                                final s = state.styles.firstWhereOrNull(
+                                  (s) => s.id == account.styleId,
+                                );
+                                if (s != null) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 12),
+                                    child: BudgetIcon(style: s, radius: 12),
+                                  );
+                                }
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                          Text(account.name),
+                        ],
+                      ),
+                      stringGetter: (account) => account.name,
+                    );
+
+                    if (account != null) {
+                      setState(() => _selectedAccountId = account.id);
+                      if (isEditing) _savePreset(pop: false);
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Default Account',
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Row(
+                      children: [
+                        if (style != null)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: BudgetIcon(style: style, radius: 12),
+                          ),
+                        Text(selectedAccount?.name ?? 'Select Account'),
+                      ],
+                    ),
+                  ),
+                );
               },
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Default Account',
-                  border: OutlineInputBorder(),
-                ),
-                child: Text(selectedAccount?.name ?? 'Select Account'),
-              ),
             );
           },
         ),
@@ -368,29 +519,70 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
               (c) => c.id == _selectedCategoryId,
             );
 
-            return InkWell(
-              onTap: () async {
-                final category = await showSingleSelectDialog<Category>(
-                  context: context,
-                  items: categories,
-                  title: context.l10n.selectCategoryTitle,
-                  selectedItem: selectedCategory,
-                  itemBuilder: (category) => Text(category.name),
-                  stringGetter: (category) => category.name,
-                );
-
-                if (category != null) {
-                  setState(() => _selectedCategoryId = category.id);
-                  if (isEditing) _savePreset(pop: false);
+            return BlocBuilder<StylesBloc, StylesState>(
+              builder: (context, styleState) {
+                Style? style;
+                if (styleState is StylesLoadSuccess &&
+                    selectedCategory != null) {
+                  style = styleState.styles.firstWhereOrNull(
+                    (s) => s.id == selectedCategory.styleId,
+                  );
                 }
+
+                return InkWell(
+                  onTap: () async {
+                    final category = await showSingleSelectDialog<Category>(
+                      context: context,
+                      items: categories,
+                      title: context.l10n.selectCategoryTitle,
+                      selectedItem: selectedCategory,
+                      itemBuilder: (category) => Row(
+                        children: [
+                          BlocBuilder<StylesBloc, StylesState>(
+                            builder: (context, state) {
+                              if (state is StylesLoadSuccess) {
+                                final s = state.styles.firstWhereOrNull(
+                                  (s) => s.id == category.styleId,
+                                );
+                                if (s != null) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 12),
+                                    child: BudgetIcon(style: s, radius: 12),
+                                  );
+                                }
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                          Text(category.name),
+                        ],
+                      ),
+                      stringGetter: (category) => category.name,
+                    );
+
+                    if (category != null) {
+                      setState(() => _selectedCategoryId = category.id);
+                      if (isEditing) _savePreset(pop: false);
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Default Category',
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Row(
+                      children: [
+                        if (style != null)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: BudgetIcon(style: style, radius: 12),
+                          ),
+                        Text(selectedCategory?.name ?? 'Select Category'),
+                      ],
+                    ),
+                  ),
+                );
               },
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Default Category',
-                  border: OutlineInputBorder(),
-                ),
-                child: Text(selectedCategory?.name ?? 'Select Category'),
-              ),
             );
           },
         ),
