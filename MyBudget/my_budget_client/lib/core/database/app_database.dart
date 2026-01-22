@@ -2882,6 +2882,7 @@ class AppDatabase extends _$AppDatabase {
       batch.deleteAll(apiFetchStatuses);
       batch.deleteAll(assetEntries);
       batch.deleteAll(settings);
+      batch.deleteAll(smsPresets);
 
       // Clear inflation rates as they are fetched data
       batch.deleteAll(inflationRates);

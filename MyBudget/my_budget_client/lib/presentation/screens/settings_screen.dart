@@ -11,6 +11,7 @@ import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/core/services/data_export_service.dart';
 import 'package:my_budget_client/core/services/data_import_service.dart';
 import 'package:my_budget_client/core/services/android_file_picker_service.dart';
+import 'package:my_budget_client/domain/repositories/sms_repository.dart';
 
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/widgets/currency_picker_dialog.dart';
@@ -21,6 +22,7 @@ import 'package:my_budget_client/presentation/blocs/currency_converter/currency_
 import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/sms/sms_bloc.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -353,6 +355,7 @@ class SettingsScreen extends StatelessWidget {
     try {
       final db = GetIt.I<AppDatabase>();
       await db.clearAllData();
+      await GetIt.I<SmsRepository>().clearData();
 
       if (context.mounted) {
         final l10n = context.l10n;
@@ -380,6 +383,7 @@ class SettingsScreen extends StatelessWidget {
     context.read<SettingsBloc>().add(LoadSettings());
     context.read<StylesBloc>().add(LoadStyles());
     context.read<TransactionsBloc>().add(const InitialLoadTransactions());
+    context.read<SmsBloc>().add(LoadSmsPresets());
   }
 
   String _getLanguageName(String? code, BuildContext context) {

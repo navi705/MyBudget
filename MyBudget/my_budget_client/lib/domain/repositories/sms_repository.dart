@@ -38,6 +38,9 @@ abstract class SmsRepository {
 
   /// Request SMS permission
   Future<bool> requestSmsPermission();
+
+  /// Clear all SMS-related data (presets, sync state)
+  Future<void> clearData();
 }
 
 /// Represents an SMS message

@@ -206,6 +206,15 @@ class LocalSmsRepository implements SmsRepository {
     return status.isGranted;
   }
 
+  @override
+  Future<void> clearData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_presetsKey);
+    await prefs.remove(_lastSyncKey);
+    _cachedPresets = null;
+    print('SMS_DEBUG: LocalSmsRepository data cleared');
+  }
+
   // JSON serialization helpers
   Map<String, dynamic> _presetToJson(SmsPreset preset) {
     return {
