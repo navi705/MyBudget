@@ -184,109 +184,117 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                   constraints: const BoxConstraints(maxWidth: 600),
                   child: Stack(
                     children: [
-                      SingleChildScrollView(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Form(
-                          key: _formKey,
-                          child: state.isAssetTransaction
-                              ? Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    const _AccountField(),
-                                    const SizedBox(height: 16),
-                                    const _AssetActionToggle(),
-                                    const SizedBox(height: 16),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: _AmountField(
-                                            controller: _amountController,
-                                            label:
-                                                context.l10n.quantityFormLabel,
+                      RepaintBoundary(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Form(
+                            key: _formKey,
+                            child: state.isAssetTransaction
+                                ? Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      const _AccountField(),
+                                      const SizedBox(height: 16),
+                                      const _AssetActionToggle(),
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _AmountField(
+                                              controller: _amountController,
+                                              label: context
+                                                  .l10n
+                                                  .quantityFormLabel,
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        Expanded(
-                                          child: _TotalValueField(
-                                            controller: _totalValueController,
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: _TotalValueField(
+                                              controller: _totalValueController,
+                                            ),
                                           ),
-                                        ),
+                                        ],
+                                      ),
+                                      const _AssetPriceDisplay(),
+                                      const SizedBox(height: 16),
+                                      const _LinkedAccountField(),
+                                      const SizedBox(height: 16),
+                                      const _DateField(),
+                                      const SizedBox(height: 16),
+                                      _DescriptionField(
+                                        controller: _descriptionController,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      _FeeField(controller: _feeController),
+                                      const Divider(),
+                                      if (state.isForeignCurrency) ...[
+                                        const _ExchangeRateSection(),
+                                        const SizedBox(height: 16),
                                       ],
-                                    ),
-                                    const _AssetPriceDisplay(),
-                                    const SizedBox(height: 16),
-                                    const _LinkedAccountField(),
-                                    const SizedBox(height: 16),
-                                    const _DateField(),
-                                    const SizedBox(height: 16),
-                                    _DescriptionField(
-                                      controller: _descriptionController,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _FeeField(controller: _feeController),
-                                    const Divider(),
-                                    if (state.isForeignCurrency) ...[
-                                      const _ExchangeRateSection(),
-                                      const SizedBox(height: 16),
+                                      const SizedBox(height: 32),
+                                      _SaveButton(formKey: _formKey),
                                     ],
-                                    const SizedBox(height: 32),
-                                    _SaveButton(formKey: _formKey),
-                                  ],
-                                )
-                              : Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    _DescriptionField(
-                                      controller: _descriptionController,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _AmountField(controller: _amountController),
-                                    const SizedBox(height: 16),
-                                    if (state.isForeignCurrency) ...[
-                                      const _ExchangeRateSection(),
-                                      const SizedBox(height: 16),
-                                    ],
-                                    // Fee field hidden for standard transactions
-                                    const _ConvertedAmountDisplay(),
-                                    const SizedBox(height: 16),
-                                    if (state.isTransferMode) ...[
-                                      _AccountField(
-                                        label: context.l10n.fromAccountLabel,
+                                  )
+                                : Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _DescriptionField(
+                                        controller: _descriptionController,
                                       ),
-                                      Align(
-                                        alignment: Alignment.center,
-                                        child: IconButton(
-                                          icon: const Icon(Icons.swap_vert),
-                                          onPressed: () {
-                                            context
-                                                .read<AddEditTransactionBloc>()
-                                                .add(
-                                                  const AddEditTransactionSwapAccounts(),
-                                                );
-                                          },
-                                          tooltip:
-                                              context.l10n.swapAccountsTooltip,
+                                      const SizedBox(height: 16),
+                                      _AmountField(
+                                        controller: _amountController,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      if (state.isForeignCurrency) ...[
+                                        const _ExchangeRateSection(),
+                                        const SizedBox(height: 16),
+                                      ],
+                                      // Fee field hidden for standard transactions
+                                      const _ConvertedAmountDisplay(),
+                                      const SizedBox(height: 16),
+                                      if (state.isTransferMode) ...[
+                                        _AccountField(
+                                          label: context.l10n.fromAccountLabel,
                                         ),
-                                      ),
-                                      _LinkedAccountField(
-                                        label: context.l10n.toAccountLabel,
-                                      ),
-                                    ] else ...[
-                                      _AccountField(
-                                        label: context.l10n.accountLabel,
-                                      ),
+                                        Align(
+                                          alignment: Alignment.center,
+                                          child: IconButton(
+                                            icon: const Icon(Icons.swap_vert),
+                                            onPressed: () {
+                                              context
+                                                  .read<
+                                                    AddEditTransactionBloc
+                                                  >()
+                                                  .add(
+                                                    const AddEditTransactionSwapAccounts(),
+                                                  );
+                                            },
+                                            tooltip: context
+                                                .l10n
+                                                .swapAccountsTooltip,
+                                          ),
+                                        ),
+                                        _LinkedAccountField(
+                                          label: context.l10n.toAccountLabel,
+                                        ),
+                                      ] else ...[
+                                        _AccountField(
+                                          label: context.l10n.accountLabel,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        const _CategoryField(),
+                                      ],
                                       const SizedBox(height: 16),
-                                      const _CategoryField(),
+                                      const _CurrencyField(),
+                                      const SizedBox(height: 16),
+                                      const _DateField(),
+                                      const SizedBox(height: 32),
+                                      _SaveButton(formKey: _formKey),
                                     ],
-                                    const SizedBox(height: 16),
-                                    const _CurrencyField(),
-                                    const SizedBox(height: 16),
-                                    const _DateField(),
-                                    const SizedBox(height: 32),
-                                    _SaveButton(formKey: _formKey),
-                                  ],
-                                ),
+                                  ),
+                          ),
                         ),
                       ),
                       if (state.isSaving)

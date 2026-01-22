@@ -14,32 +14,32 @@ import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/currency_selection_dialog.dart';
 import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
+import 'package:my_budget_client/core/utils/dialog_utils.dart';
 
 void showAccountFilterDialog(
   BuildContext context,
   AccountFilters currentFilters,
 ) {
   final isMobile = MediaQuery.of(context).size.width < 600;
-  showDialog(
+  DialogUtils.showAppDialog(
     context: context,
-    builder: (dialogContext) {
-      return MultiBlocProvider(
-        providers: [
-          BlocProvider.value(value: BlocProvider.of<AccountsBloc>(context)),
-          BlocProvider.value(value: BlocProvider.of<SettingsBloc>(context)),
-          BlocProvider.value(value: BlocProvider.of<CategoriesBloc>(context)),
-          BlocProvider.value(value: BlocProvider.of<CurrencyBloc>(context)),
-          if (isMobile)
-            BlocProvider.value(
-              value: BlocProvider.of<CurrencyConverterBloc>(context),
-            ),
-        ],
-        child: AccountFilterDialog(
-          currentFilters: currentFilters,
-          isMobile: isMobile,
-        ),
-      );
-    },
+    resizeToAvoidBottomInset: false,
+    child: MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: BlocProvider.of<AccountsBloc>(context)),
+        BlocProvider.value(value: BlocProvider.of<SettingsBloc>(context)),
+        BlocProvider.value(value: BlocProvider.of<CategoriesBloc>(context)),
+        BlocProvider.value(value: BlocProvider.of<CurrencyBloc>(context)),
+        if (isMobile)
+          BlocProvider.value(
+            value: BlocProvider.of<CurrencyConverterBloc>(context),
+          ),
+      ],
+      child: AccountFilterDialog(
+        currentFilters: currentFilters,
+        isMobile: isMobile,
+      ),
+    ),
   );
 }
 

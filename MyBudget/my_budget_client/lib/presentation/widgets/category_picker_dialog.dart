@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
+import 'package:my_budget_client/core/utils/dialog_utils.dart';
 
-void showCategoryPickerDialog(BuildContext context,
-    {required Function(String) onCategorySelected}) {
-  showDialog(
+void showCategoryPickerDialog(
+  BuildContext context, {
+  required Function(String) onCategorySelected,
+}) {
+  DialogUtils.showAppDialog(
     context: context,
-    builder: (dialogContext) {
-      return BlocProvider.value(
-        value: BlocProvider.of<CategoriesBloc>(context),
-        child: CategoryPickerDialog(onCategorySelected: onCategorySelected),
-      );
-    },
+    resizeToAvoidBottomInset: false,
+    child: BlocProvider.value(
+      value: BlocProvider.of<CategoriesBloc>(context),
+      child: CategoryPickerDialog(onCategorySelected: onCategorySelected),
+    ),
   );
 }
 

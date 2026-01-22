@@ -20,6 +20,7 @@ import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/presentation/widgets/total_balance_summary_widget.dart';
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
+import 'package:my_budget_client/core/utils/dialog_utils.dart';
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
@@ -70,9 +71,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
       final state = bloc.state;
       if (state is AccountsLoadSuccess) {
         final account = state.accounts.firstWhere((a) => a.id == accountId);
-        showDialog(
+        DialogUtils.showAppDialog(
           context: context,
-          builder: (context) => DeleteAccountDialog(
+          resizeToAvoidBottomInset: false,
+          child: DeleteAccountDialog(
             accountToDelete: account,
             allAccounts: state.accounts,
           ),
@@ -81,16 +83,17 @@ class _AccountsScreenState extends State<AccountsScreen> {
       return;
     }
 
-    showDialog(
+    DialogUtils.showAppDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      resizeToAvoidBottomInset: false,
+      child: AlertDialog(
         title: Text('Delete ${accountIds.length} accounts?'),
         content: const Text(
           'Are you sure you want to delete the selected accounts? All associated transactions will be deleted.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
           TextButton(
@@ -104,7 +107,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
               // Wait, if I don't fix multiple, user will still crash on bulk delete.
               // I should probably update `DeleteMultipleAccounts` handler in Bloc to use `deleteAccountWithTransactions` for each ID.
               bloc.add(DeleteMultipleAccounts(accountIds));
-              Navigator.pop(dialogContext);
+              Navigator.pop(context);
             },
             child: const Text('Delete All'),
           ),
@@ -119,48 +122,53 @@ class _AccountsScreenState extends State<AccountsScreen> {
     List<String> accountIds,
     List<AccountType> accountTypes,
   ) {
-    showDialog(
+    DialogUtils.showAppDialog(
       context: context,
-      builder: (dialogContext) {
-        String? selectedTypeId = accountTypes.first.id;
-        return AlertDialog(
-          title: const Text('Change Account Type'),
-          content: DropdownButton<String>(
-            value: selectedTypeId,
-            onChanged: (newValue) {
-              // This needs to be in a stateful builder to update UI
-              // For simplicity, we'll just handle it on submission
-              selectedTypeId = newValue;
-            },
-            items: accountTypes
-                .map(
-                  (type) =>
-                      DropdownMenuItem(value: type.id, child: Text(type.name)),
-                )
-                .toList(),
-          ),
-          actions: [
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.of(dialogContext).pop(),
-            ),
-            TextButton(
-              child: const Text('Change'),
-              onPressed: () {
-                if (selectedTypeId != null) {
-                  bloc.add(
-                    UpdateAccountTypeForMultipleAccounts(
-                      accountIds,
-                      selectedTypeId!,
-                    ),
-                  );
-                }
-                Navigator.of(dialogContext).pop();
+      resizeToAvoidBottomInset: false,
+      child: Builder(
+        builder: (context) {
+          String? selectedTypeId = accountTypes.first.id;
+          return AlertDialog(
+            title: const Text('Change Account Type'),
+            content: DropdownButton<String>(
+              value: selectedTypeId,
+              onChanged: (newValue) {
+                // This needs to be in a stateful builder to update UI
+                // For simplicity, we'll just handle it on submission
+                selectedTypeId = newValue;
               },
+              items: accountTypes
+                  .map(
+                    (type) => DropdownMenuItem(
+                      value: type.id,
+                      child: Text(type.name),
+                    ),
+                  )
+                  .toList(),
             ),
-          ],
-        );
-      },
+            actions: [
+              TextButton(
+                child: const Text('Cancel'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              TextButton(
+                child: const Text('Change'),
+                onPressed: () {
+                  if (selectedTypeId != null) {
+                    bloc.add(
+                      UpdateAccountTypeForMultipleAccounts(
+                        accountIds,
+                        selectedTypeId!,
+                      ),
+                    );
+                  }
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -284,9 +292,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
     if (!context.mounted || value == null) return;
 
     if (value == 'add_account') {
-      showDialog(
+      DialogUtils.showAppDialog(
         context: context,
-        builder: (dialogContext) => MultiBlocProvider(
+        resizeToAvoidBottomInset: false,
+        child: MultiBlocProvider(
           providers: [
             BlocProvider.value(value: context.read<AccountsBloc>()),
             BlocProvider.value(value: context.read<CurrencyBloc>()),
@@ -307,9 +316,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
     return ScreenShortcuts(
       actions: {
         'add_action': () {
-          showDialog(
+          DialogUtils.showAppDialog(
             context: context,
-            builder: (dialogContext) => MultiBlocProvider(
+            resizeToAvoidBottomInset: false,
+            child: MultiBlocProvider(
               providers: [
                 BlocProvider.value(value: context.read<AccountsBloc>()),
                 BlocProvider.value(value: context.read<CurrencyBloc>()),
@@ -556,9 +566,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
           description: l10n.addAccountDescription,
           child: FloatingActionButton(
             onPressed: () {
-              showDialog(
+              DialogUtils.showAppDialog(
                 context: context,
-                builder: (dialogContext) => MultiBlocProvider(
+                resizeToAvoidBottomInset: false,
+                child: MultiBlocProvider(
                   providers: [
                     BlocProvider.value(value: context.read<AccountsBloc>()),
                     BlocProvider.value(value: context.read<CurrencyBloc>()),

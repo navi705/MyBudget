@@ -6,19 +6,19 @@ import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_event.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
+import 'package:my_budget_client/core/utils/dialog_utils.dart';
 
 void showAssetFilterDialog(BuildContext context) {
-  showDialog(
+  DialogUtils.showAppDialog(
     context: context,
-    builder: (dialogContext) {
-      return MultiBlocProvider(
-        providers: [
-          BlocProvider.value(value: BlocProvider.of<AssetBloc>(context)),
-          BlocProvider.value(value: BlocProvider.of<CurrencyBloc>(context)),
-        ],
-        child: const AssetFilterDialog(),
-      );
-    },
+    resizeToAvoidBottomInset: false,
+    child: MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: BlocProvider.of<AssetBloc>(context)),
+        BlocProvider.value(value: BlocProvider.of<CurrencyBloc>(context)),
+      ],
+      child: const AssetFilterDialog(),
+    ),
   );
 }
 
@@ -197,16 +197,18 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () async {
-                      final results = await showDialog<List<String>>(
-                        context: context,
-                        builder: (context) => MultiSelectDialog<String, String>(
-                          items: _availableAssetTypes,
-                          selectedIds: _selectedAssetTypes,
-                          itemBuilder: (item) => Text(item),
-                          idGetter: (item) => item,
-                          stringGetter: (item) => item,
-                        ),
-                      );
+                      final results =
+                          await DialogUtils.showAppDialog<List<String>>(
+                            context: context,
+                            resizeToAvoidBottomInset: false,
+                            child: MultiSelectDialog<String, String>(
+                              items: _availableAssetTypes,
+                              selectedIds: _selectedAssetTypes,
+                              itemBuilder: (item) => Text(item),
+                              idGetter: (item) => item,
+                              stringGetter: (item) => item,
+                            ),
+                          );
                       if (results != null) {
                         setState(() {
                           _selectedAssetTypes = results;
@@ -229,10 +231,11 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                         ),
                         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                         onTap: () async {
-                          final results = await showDialog<List<String>>(
-                            context: context,
-                            builder: (context) =>
-                                MultiSelectDialog<Currency, String>(
+                          final results =
+                              await DialogUtils.showAppDialog<List<String>>(
+                                context: context,
+                                resizeToAvoidBottomInset: false,
+                                child: MultiSelectDialog<Currency, String>(
                                   items: currencies,
                                   selectedIds: _selectedCurrencyCodes,
                                   itemBuilder: (item) => Text(item.code),
@@ -240,7 +243,7 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                                   stringGetter: (item) =>
                                       '${item.name} (${item.code})',
                                 ),
-                          );
+                              );
                           if (results != null) {
                             setState(() {
                               _selectedCurrencyCodes = results;
@@ -260,16 +263,18 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () async {
-                      final results = await showDialog<List<String>>(
-                        context: context,
-                        builder: (context) => MultiSelectDialog<String, String>(
-                          items: _availableSources,
-                          selectedIds: _selectedSources,
-                          itemBuilder: (item) => Text(item),
-                          idGetter: (item) => item,
-                          stringGetter: (item) => item,
-                        ),
-                      );
+                      final results =
+                          await DialogUtils.showAppDialog<List<String>>(
+                            context: context,
+                            resizeToAvoidBottomInset: false,
+                            child: MultiSelectDialog<String, String>(
+                              items: _availableSources,
+                              selectedIds: _selectedSources,
+                              itemBuilder: (item) => Text(item),
+                              idGetter: (item) => item,
+                              stringGetter: (item) => item,
+                            ),
+                          );
                       if (results != null) {
                         setState(() {
                           _selectedSources = results;
@@ -287,16 +292,18 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () async {
-                      final results = await showDialog<List<int>>(
-                        context: context,
-                        builder: (context) => MultiSelectDialog<int, int>(
-                          items: _availablePresets,
-                          selectedIds: _selectedPresets,
-                          itemBuilder: (item) => Text(item.toString()),
-                          idGetter: (item) => item,
-                          stringGetter: (item) => item.toString(),
-                        ),
-                      );
+                      final results =
+                          await DialogUtils.showAppDialog<List<int>>(
+                            context: context,
+                            resizeToAvoidBottomInset: false,
+                            child: MultiSelectDialog<int, int>(
+                              items: _availablePresets,
+                              selectedIds: _selectedPresets,
+                              itemBuilder: (item) => Text(item.toString()),
+                              idGetter: (item) => item,
+                              stringGetter: (item) => item.toString(),
+                            ),
+                          );
                       if (results != null) {
                         setState(() {
                           _selectedPresets = results;

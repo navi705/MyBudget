@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/utils/dialog_utils.dart';
 
 Future<T?> showSingleSelectDialog<T>({
   required BuildContext context,
@@ -8,17 +9,16 @@ Future<T?> showSingleSelectDialog<T>({
   required Widget Function(T) itemBuilder,
   required String Function(T) stringGetter,
 }) {
-  return showDialog<T>(
+  return DialogUtils.showAppDialog<T>(
     context: context,
-    builder: (dialogContext) {
-      return SingleSelectDialog<T>(
-        items: items,
-        title: title,
-        selectedItem: selectedItem,
-        itemBuilder: itemBuilder,
-        stringGetter: stringGetter,
-      );
-    },
+    resizeToAvoidBottomInset: false,
+    child: SingleSelectDialog<T>(
+      items: items,
+      title: title,
+      selectedItem: selectedItem,
+      itemBuilder: itemBuilder,
+      stringGetter: stringGetter,
+    ),
   );
 }
 

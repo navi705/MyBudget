@@ -3,21 +3,21 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/add_style_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/budget_icon.dart';
+import 'package:my_budget_client/core/utils/dialog_utils.dart';
 
 Future<String?> showIconSelectionDialog(
   BuildContext context,
   String? currentIconId,
 ) {
-  return showDialog<String>(
+  return DialogUtils.showAppDialog<String>(
     context: context,
-    builder: (dialogContext) {
-      return MultiBlocProvider(
-        providers: [
-          BlocProvider.value(value: BlocProvider.of<StylesBloc>(context)),
-        ],
-        child: IconSelectionDialog(currentIconId: currentIconId),
-      );
-    },
+    resizeToAvoidBottomInset: false,
+    child: MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: BlocProvider.of<StylesBloc>(context)),
+      ],
+      child: IconSelectionDialog(currentIconId: currentIconId),
+    ),
   );
 }
 
@@ -74,9 +74,10 @@ class _IconSelectionDialogState extends State<IconSelectionDialog> {
               width: double.infinity,
               child: FilledButton.tonalIcon(
                 onPressed: () {
-                  showDialog(
+                  DialogUtils.showAppDialog(
                     context: context,
-                    builder: (_) => BlocProvider.value(
+                    resizeToAvoidBottomInset: false,
+                    child: BlocProvider.value(
                       value: BlocProvider.of<StylesBloc>(context),
                       child: const AddStyleDialog(),
                     ),

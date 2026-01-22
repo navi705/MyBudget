@@ -3,16 +3,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
+import 'package:my_budget_client/core/utils/dialog_utils.dart';
 
 void showInflationFilterDialog(BuildContext context) {
-  showDialog(
+  DialogUtils.showAppDialog(
     context: context,
-    builder: (dialogContext) {
-      return BlocProvider.value(
-        value: BlocProvider.of<InflationBloc>(context),
-        child: const InflationFilterDialog(),
-      );
-    },
+    resizeToAvoidBottomInset: false,
+    child: BlocProvider.value(
+      value: BlocProvider.of<InflationBloc>(context),
+      child: const InflationFilterDialog(),
+    ),
   );
 }
 
@@ -102,16 +102,18 @@ class _InflationFilterDialogState extends State<InflationFilterDialog> {
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () async {
-                      final results = await showDialog<List<String>>(
-                        context: context,
-                        builder: (context) => MultiSelectDialog<String, String>(
-                          items: _availableCountries,
-                          selectedIds: _selectedCountries,
-                          itemBuilder: (item) => Text(item),
-                          idGetter: (item) => item,
-                          stringGetter: (item) => item,
-                        ),
-                      );
+                      final results =
+                          await DialogUtils.showAppDialog<List<String>>(
+                            context: context,
+                            resizeToAvoidBottomInset: false,
+                            child: MultiSelectDialog<String, String>(
+                              items: _availableCountries,
+                              selectedIds: _selectedCountries,
+                              itemBuilder: (item) => Text(item),
+                              idGetter: (item) => item,
+                              stringGetter: (item) => item,
+                            ),
+                          );
                       if (results != null) {
                         setState(() {
                           _selectedCountries = results;
@@ -129,16 +131,18 @@ class _InflationFilterDialogState extends State<InflationFilterDialog> {
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () async {
-                      final results = await showDialog<List<int>>(
-                        context: context,
-                        builder: (context) => MultiSelectDialog<int, int>(
-                          items: _availablePresets,
-                          selectedIds: _selectedPresets,
-                          itemBuilder: (item) => Text(item.toString()),
-                          idGetter: (item) => item,
-                          stringGetter: (item) => item.toString(),
-                        ),
-                      );
+                      final results =
+                          await DialogUtils.showAppDialog<List<int>>(
+                            context: context,
+                            resizeToAvoidBottomInset: false,
+                            child: MultiSelectDialog<int, int>(
+                              items: _availablePresets,
+                              selectedIds: _selectedPresets,
+                              itemBuilder: (item) => Text(item.toString()),
+                              idGetter: (item) => item,
+                              stringGetter: (item) => item.toString(),
+                            ),
+                          );
                       if (results != null) {
                         setState(() {
                           _selectedPresets = results;

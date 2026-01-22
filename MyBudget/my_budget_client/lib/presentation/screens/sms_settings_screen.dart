@@ -15,6 +15,7 @@ import 'package:my_budget_client/presentation/widgets/budget_icon.dart';
 import 'package:my_budget_client/presentation/widgets/sms_rule_builder_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/utils/dialog_utils.dart';
 
 class SmsSettingsScreen extends StatelessWidget {
   const SmsSettingsScreen({super.key});
@@ -149,21 +150,22 @@ class _SmsSettingsContent extends StatelessWidget {
   }
 
   void _showImportDialog(BuildContext context) {
-    showDialog(
+    DialogUtils.showAppDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      resizeToAvoidBottomInset: false,
+      child: AlertDialog(
         title: const Text('Import SMS'),
         content: const Text(
           'Import transactions from SMS messages. Choose a time range:',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(dialogContext);
+              Navigator.pop(context);
               final lastWeek = DateTime.now().subtract(const Duration(days: 7));
               context.read<SmsBloc>().add(ImportSmsMessages(since: lastWeek));
             },
@@ -171,7 +173,7 @@ class _SmsSettingsContent extends StatelessWidget {
           ),
           FilledButton(
             onPressed: () {
-              Navigator.pop(dialogContext);
+              Navigator.pop(context);
               context.read<SmsBloc>().add(const ImportSmsMessages());
             },
             child: const Text('All Time'),
@@ -747,9 +749,10 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
   }
 
   void _addRule() async {
-    final rule = await showDialog<SmsParsingRule>(
+    final rule = await DialogUtils.showAppDialog<SmsParsingRule>(
       context: context,
-      builder: (context) => const SmsRuleBuilderDialog(),
+      resizeToAvoidBottomInset: false,
+      child: const SmsRuleBuilderDialog(),
     );
     if (rule != null) {
       setState(() => _rules.add(rule));

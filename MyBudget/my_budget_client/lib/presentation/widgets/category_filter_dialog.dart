@@ -3,19 +3,19 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
+import 'package:my_budget_client/core/utils/dialog_utils.dart';
 
 void showCategoryFilterDialog(
   BuildContext context,
   CategoryFilters currentFilters,
 ) {
-  showDialog(
+  DialogUtils.showAppDialog(
     context: context,
-    builder: (dialogContext) {
-      return BlocProvider.value(
-        value: BlocProvider.of<CategoriesBloc>(context),
-        child: CategoryFilterDialog(currentFilters: currentFilters),
-      );
-    },
+    resizeToAvoidBottomInset: false,
+    child: BlocProvider.value(
+      value: BlocProvider.of<CategoriesBloc>(context),
+      child: CategoryFilterDialog(currentFilters: currentFilters),
+    ),
   );
 }
 

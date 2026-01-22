@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/utils/dialog_utils.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/presentation/widgets/budget_icon.dart';
@@ -67,20 +68,21 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     List<String> categoryIds,
   ) {
     final l10n = context.l10n;
-    showDialog(
+    DialogUtils.showAppDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      resizeToAvoidBottomInset: false,
+      child: AlertDialog(
         title: Text(l10n.deleteCategoriesConfirmationTitle(categoryIds.length)),
         content: Text(l10n.deleteCategoriesConfirmationMessage),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: () => Navigator.pop(context),
             child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
               bloc.add(DeleteMultipleCategories(categoryIds));
-              Navigator.pop(dialogContext);
+              Navigator.pop(context);
             },
             child: Text(l10n.deleteButton),
           ),
@@ -95,48 +97,51 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     List<String> categoryIds,
   ) {
     final l10n = context.l10n;
-    showDialog(
+    DialogUtils.showAppDialog(
       context: context,
-      builder: (dialogContext) {
-        CategoryType? selectedType = CategoryType.expense;
-        return AlertDialog(
-          title: Text(l10n.changeCategoryTypeDialogTitle),
-          content: DropdownButton<CategoryType>(
-            value: selectedType,
-            onChanged: (newValue) {
-              selectedType = newValue;
-            },
-            items: CategoryType.values
-                .map(
-                  (type) => DropdownMenuItem(
-                    value: type,
-                    child: Text(type.toString().split('.').last),
-                  ),
-                )
-                .toList(),
-          ),
-          actions: [
-            TextButton(
-              child: Text(l10n.cancelButton),
-              onPressed: () => Navigator.of(dialogContext).pop(),
-            ),
-            TextButton(
-              child: Text(l10n.categoriesChangeButton),
-              onPressed: () {
-                if (selectedType != null) {
-                  bloc.add(
-                    UpdateCategoryTypeForMultipleCategories(
-                      categoryIds,
-                      selectedType!,
-                    ),
-                  );
-                }
-                Navigator.of(dialogContext).pop();
+      resizeToAvoidBottomInset: false,
+      child: Builder(
+        builder: (context) {
+          CategoryType? selectedType = CategoryType.expense;
+          return AlertDialog(
+            title: Text(l10n.changeCategoryTypeDialogTitle),
+            content: DropdownButton<CategoryType>(
+              value: selectedType,
+              onChanged: (newValue) {
+                selectedType = newValue;
               },
+              items: CategoryType.values
+                  .map(
+                    (type) => DropdownMenuItem(
+                      value: type,
+                      child: Text(type.toString().split('.').last),
+                    ),
+                  )
+                  .toList(),
             ),
-          ],
-        );
-      },
+            actions: [
+              TextButton(
+                child: Text(l10n.cancelButton),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              TextButton(
+                child: Text(l10n.categoriesChangeButton),
+                onPressed: () {
+                  if (selectedType != null) {
+                    bloc.add(
+                      UpdateCategoryTypeForMultipleCategories(
+                        categoryIds,
+                        selectedType!,
+                      ),
+                    );
+                  }
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -295,9 +300,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     return BlocListener<CategoriesBloc, CategoriesState>(
       listener: (context, state) {
         if (state is CategoryDeletionConfirmationNeeded) {
-          showDialog(
+          DialogUtils.showAppDialog(
             context: context,
-            builder: (dialogContext) => BlocProvider.value(
+            resizeToAvoidBottomInset: false,
+            child: BlocProvider.value(
               value: context.read<CategoriesBloc>(),
               child: DeleteCategoryDialog(
                 categoryToDelete: state.categoryToDelete,
@@ -361,9 +367,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           body: BlocListener<CategoriesBloc, CategoriesState>(
             listener: (context, state) {
               if (state is CategoryDeletionConfirmationNeeded) {
-                showDialog(
+                DialogUtils.showAppDialog(
                   context: context,
-                  builder: (dialogContext) => DeleteCategoryDialog(
+                  resizeToAvoidBottomInset: false,
+                  child: DeleteCategoryDialog(
                     categoryToDelete: state.categoryToDelete,
                     allCategories: state.allCategories,
                   ),
@@ -501,20 +508,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     Category? category,
     required List<Category> allCategories,
   }) {
-    showDialog(
+    DialogUtils.showAppDialog(
       context: context,
-      builder: (dialogContext) {
-        return MultiBlocProvider(
-          providers: [
-            BlocProvider.value(value: BlocProvider.of<CategoriesBloc>(context)),
-            BlocProvider.value(value: BlocProvider.of<StylesBloc>(context)),
-          ],
-          child: AddEditCategoryDialog(
-            category: category,
-            allCategories: allCategories,
-          ),
-        );
-      },
+      resizeToAvoidBottomInset: false,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: BlocProvider.of<CategoriesBloc>(context)),
+          BlocProvider.value(value: BlocProvider.of<StylesBloc>(context)),
+        ],
+        child: AddEditCategoryDialog(
+          category: category,
+          allCategories: allCategories,
+        ),
+      ),
     );
   }
 }

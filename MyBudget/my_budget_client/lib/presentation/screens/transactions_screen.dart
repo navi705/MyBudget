@@ -9,6 +9,7 @@ import 'package:my_budget_client/presentation/widgets/filter_date.dart';
 import 'package:my_budget_client/presentation/widgets/transaction_list.dart';
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
+import 'package:my_budget_client/core/utils/dialog_utils.dart';
 
 class TransactionsScreen extends StatelessWidget {
   const TransactionsScreen({super.key});
@@ -48,9 +49,10 @@ class TransactionsScreen extends StatelessWidget {
                       child: IconButton(
                         icon: const Icon(Icons.delete),
                         onPressed: () {
-                          showDialog(
+                          DialogUtils.showAppDialog(
                             context: context,
-                            builder: (dialogContext) => AlertDialog(
+                            resizeToAvoidBottomInset: false,
+                            child: AlertDialog(
                               title: Text(
                                 l10n.deleteTransactionsConfirmationTitle,
                               ),
@@ -61,7 +63,7 @@ class TransactionsScreen extends StatelessWidget {
                               ),
                               actions: [
                                 TextButton(
-                                  onPressed: () => Navigator.pop(dialogContext),
+                                  onPressed: () => Navigator.pop(context),
                                   child: Text(l10n.cancelButton),
                                 ),
                                 TextButton(
@@ -71,7 +73,7 @@ class TransactionsScreen extends StatelessWidget {
                                         state.selectedTransactionIds.toList(),
                                       ),
                                     );
-                                    Navigator.pop(dialogContext);
+                                    Navigator.pop(context);
                                   },
                                   child: Text(l10n.deleteButton),
                                 ),

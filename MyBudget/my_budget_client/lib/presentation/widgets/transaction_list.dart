@@ -11,6 +11,7 @@ import 'package:my_budget_client/presentation/blocs/transactions/transactions_bl
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart'; // Import IconUtils
 import 'package:my_budget_client/presentation/widgets/generic/grouped_paginated_list.dart';
+import 'package:my_budget_client/core/utils/dialog_utils.dart';
 import 'package:collection/collection.dart';
 
 class TransactionList extends StatefulWidget {
@@ -86,14 +87,15 @@ class _TransactionListState extends State<TransactionList> {
         extra: {'transaction': transactionCategory.transaction},
       );
     } else if (value == 'delete') {
-      showDialog(
+      DialogUtils.showAppDialog(
         context: context,
-        builder: (dialogContext) => AlertDialog(
+        resizeToAvoidBottomInset: false,
+        child: AlertDialog(
           title: Text(l10n.deleteTransactionsConfirmationTitle),
           content: Text(l10n.deleteTransactionsConfirmationMessage('1')),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
+              onPressed: () => Navigator.pop(context),
               child: Text(l10n.cancelButton),
             ),
             TextButton(
@@ -101,7 +103,7 @@ class _TransactionListState extends State<TransactionList> {
                 bloc.add(
                   DeleteTransaction(transactionCategory.transaction.id!),
                 );
-                Navigator.pop(dialogContext);
+                Navigator.pop(context);
               },
               child: Text(l10n.deleteButton),
             ),
@@ -174,91 +176,93 @@ class _TransactionListState extends State<TransactionList> {
                 _showEmptyAreaContextMenu(context, details.globalPosition),
             child: Stack(
               children: [
-                GroupedPaginatedList<TransactionCategory, DateTime>(
-                  items: state.transactions,
-                  hasMoreUp: state.hasMoreUp,
-                  hasMoreDown: state.hasMoreDown,
-                  onFetchMoreUp: () => context.read<TransactionsBloc>().add(
-                    const LoadTransactionsUp(),
-                  ),
-                  onFetchMoreDown: () => context.read<TransactionsBloc>().add(
-                    const LoadTransactionsDown(),
-                  ),
-                  groupKeyGetter: (item) => DateTime(
-                    item.transaction.date.year,
-                    item.transaction.date.month,
-                    item.transaction.date.day,
-                  ),
-                  groupHeaderBuilder: (context, date) {
-                    final dailyTotal = state.dailyTotals[date] ?? 0.0;
-                    return _DateHeader(
-                      date: date,
-                      dailySum: dailyTotal,
-                      mainCurrencyCode: state.mainCurrencyCode,
-                      currencyDesignations: state.currencyDesignations,
-                    );
-                  },
-                  itemBuilder: (context, item) {
-                    final bloc = context.read<TransactionsBloc>();
-                    return TransactionListItem(
-                      transactionCategory: item,
-                      isSelected: state.selectedTransactionIds.contains(
-                        item.transaction.id,
-                      ),
-                      onTap: () {
-                        if (state.isSelectionModeActive) {
+                RepaintBoundary(
+                  child: GroupedPaginatedList<TransactionCategory, DateTime>(
+                    items: state.transactions,
+                    hasMoreUp: state.hasMoreUp,
+                    hasMoreDown: state.hasMoreDown,
+                    onFetchMoreUp: () => context.read<TransactionsBloc>().add(
+                      const LoadTransactionsUp(),
+                    ),
+                    onFetchMoreDown: () => context.read<TransactionsBloc>().add(
+                      const LoadTransactionsDown(),
+                    ),
+                    groupKeyGetter: (item) => DateTime(
+                      item.transaction.date.year,
+                      item.transaction.date.month,
+                      item.transaction.date.day,
+                    ),
+                    groupHeaderBuilder: (context, date) {
+                      final dailyTotal = state.dailyTotals[date] ?? 0.0;
+                      return _DateHeader(
+                        date: date,
+                        dailySum: dailyTotal,
+                        mainCurrencyCode: state.mainCurrencyCode,
+                        currencyDesignations: state.currencyDesignations,
+                      );
+                    },
+                    itemBuilder: (context, item) {
+                      final bloc = context.read<TransactionsBloc>();
+                      return TransactionListItem(
+                        transactionCategory: item,
+                        isSelected: state.selectedTransactionIds.contains(
+                          item.transaction.id,
+                        ),
+                        onTap: () {
+                          if (state.isSelectionModeActive) {
+                            bloc.add(
+                              ToggleTransactionSelection(item.transaction.id!),
+                            );
+                          } else {
+                            context.push(
+                              AppRoutes.addEditTransaction,
+                              extra: {'transaction': item.transaction},
+                            );
+                          }
+                        },
+                        onLongPress: () {
+                          if (!state.isSelectionModeActive) {
+                            bloc.add(const ToggleSelectionMode(true));
+                          }
                           bloc.add(
                             ToggleTransactionSelection(item.transaction.id!),
                           );
-                        } else {
-                          context.push(
-                            AppRoutes.addEditTransaction,
-                            extra: {'transaction': item.transaction},
-                          );
-                        }
-                      },
-                      onLongPress: () {
-                        if (!state.isSelectionModeActive) {
-                          bloc.add(const ToggleSelectionMode(true));
-                        }
-                        bloc.add(
-                          ToggleTransactionSelection(item.transaction.id!),
-                        );
-                      },
-                      onSecondaryTapUp: (details) {
-                        if (kIsWeb ||
-                            defaultTargetPlatform == TargetPlatform.macOS ||
-                            defaultTargetPlatform == TargetPlatform.linux ||
-                            defaultTargetPlatform == TargetPlatform.windows) {
-                          _showContextMenu(
-                            context,
-                            details.globalPosition,
-                            state.selectedTransactionIds.contains(
-                              item.transaction.id,
-                            ),
-                            item,
-                          );
-                        }
-                      },
-                      mainCurrencyCode: state.mainCurrencyCode,
-                      currencyDesignations: state.currencyDesignations,
-                    );
-                  },
-                  jumpToItemId: state.jumpToItemId,
-                  jumpToAlignment: state.jumpToAlignment,
-                  keyComparator: (a, b) {
-                    // Assuming Sort is available and has ascending/descending
-                    // If Sort is definitely OrderingMode from drift:
-                    // if (state.sort == OrderingMode.asc) return a.compareTo(b);
-                    // return b.compareTo(a);
-                    // But checking for 'Sort' enum.
-                    if (state.sort.toString().contains('ascending') ||
-                        state.sort.index == 0) {
-                      // Safety fallback if Enum name unkown
-                      return a.compareTo(b);
-                    }
-                    return b.compareTo(a);
-                  },
+                        },
+                        onSecondaryTapUp: (details) {
+                          if (kIsWeb ||
+                              defaultTargetPlatform == TargetPlatform.macOS ||
+                              defaultTargetPlatform == TargetPlatform.linux ||
+                              defaultTargetPlatform == TargetPlatform.windows) {
+                            _showContextMenu(
+                              context,
+                              details.globalPosition,
+                              state.selectedTransactionIds.contains(
+                                item.transaction.id,
+                              ),
+                              item,
+                            );
+                          }
+                        },
+                        mainCurrencyCode: state.mainCurrencyCode,
+                        currencyDesignations: state.currencyDesignations,
+                      );
+                    },
+                    jumpToItemId: state.jumpToItemId,
+                    jumpToAlignment: state.jumpToAlignment,
+                    keyComparator: (a, b) {
+                      // Assuming Sort is available and has ascending/descending
+                      // If Sort is definitely OrderingMode from drift:
+                      // if (state.sort == OrderingMode.asc) return a.compareTo(b);
+                      // return b.compareTo(a);
+                      // But checking for 'Sort' enum.
+                      if (state.sort.toString().contains('ascending') ||
+                          state.sort.index == 0) {
+                        // Safety fallback if Enum name unkown
+                        return a.compareTo(b);
+                      }
+                      return b.compareTo(a);
+                    },
+                  ),
                 ),
                 if (state.status == TransactionStatus.loading)
                   const Positioned(
