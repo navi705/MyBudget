@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/add_style_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/budget_icon.dart';
 
 Future<String?> showIconSelectionDialog(
   BuildContext context,
@@ -43,17 +43,6 @@ class _IconSelectionDialogState extends State<IconSelectionDialog> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
-  }
-
-  Color _getColorFromHex(String? hexColor) {
-    hexColor = (hexColor ?? '#FF5733').replaceAll("#", "");
-    if (hexColor.length == 6) {
-      hexColor = "FF$hexColor";
-    }
-    if (hexColor.length == 8) {
-      return Color(int.parse("0x$hexColor"));
-    }
-    return Colors.orange;
   }
 
   @override
@@ -147,13 +136,7 @@ class _IconSelectionDialogState extends State<IconSelectionDialog> {
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    CircleAvatar(
-                                      radius: 20,
-                                      backgroundColor: _getColorFromHex(
-                                        style.colorHex,
-                                      ),
-                                      child: IconUtils.getIconWidget(style),
-                                    ),
+                                    BudgetIcon(style: style, radius: 20),
                                     const SizedBox(height: 4),
                                     Text(
                                       style.name,

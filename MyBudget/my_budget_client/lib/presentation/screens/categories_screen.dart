@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:my_budget_client/presentation/widgets/budget_icon.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:collection/collection.dart';
-import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/category_list_item.dart';
@@ -921,8 +921,14 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                                                       s.id == _selectedStyleId,
                                                 );
                                             if (style != null) {
-                                              return IconUtils.getIconWidget(
-                                                style,
+                                              return Padding(
+                                                padding: const EdgeInsets.all(
+                                                  8.0,
+                                                ),
+                                                child: BudgetIcon(
+                                                  style: style,
+                                                  radius: 12,
+                                                ),
                                               );
                                             }
                                           }
@@ -958,7 +964,10 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                                             (s) => s.id == category.styleId,
                                           );
                                       if (style != null) {
-                                        return IconUtils.getIconWidget(style);
+                                        return BudgetIcon(
+                                          style: style,
+                                          radius: 15,
+                                        );
                                       }
                                     }
                                     return const Icon(Icons.category);
@@ -1005,7 +1014,13 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                                                   parentCategory.styleId,
                                             );
                                         if (style != null) {
-                                          return IconUtils.getIconWidget(style);
+                                          return Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: BudgetIcon(
+                                              style: style,
+                                              radius: 12,
+                                            ),
+                                          );
                                         }
                                       }
                                     }

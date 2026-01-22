@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
-import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
@@ -23,6 +22,7 @@ import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/budget_icon.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 class AddEditTransactionScreen extends StatelessWidget {
@@ -426,7 +426,10 @@ class _AccountField extends StatelessWidget {
                               (s) => s.id == state.selectedAccount!.styleId,
                             );
                             if (style != null) {
-                              return IconUtils.getIconWidget(style);
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: BudgetIcon(style: style, radius: 12),
+                              );
                             }
                           }
                           return const Icon(Icons.account_balance);
@@ -450,17 +453,6 @@ class _AccountTile extends StatelessWidget {
 
   const _AccountTile({required this.account});
 
-  Color _getColorFromHex(String? hexColor) {
-    hexColor = (hexColor ?? '#FF5733').replaceAll("#", "");
-    if (hexColor.length == 6) {
-      hexColor = "FF$hexColor";
-    }
-    if (hexColor.length == 8) {
-      return Color(int.parse("0x$hexColor"));
-    }
-    return Colors.orange;
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<StylesBloc, StylesState>(
@@ -483,11 +475,7 @@ class _AccountTile extends StatelessWidget {
 
         return Row(
           children: [
-            CircleAvatar(
-              radius: 15,
-              backgroundColor: _getColorFromHex(finalStyle.colorHex),
-              child: IconUtils.getIconWidget(finalStyle),
-            ),
+            BudgetIcon(style: finalStyle, radius: 15),
             const SizedBox(width: 10),
             Text(account.name),
           ],
@@ -526,7 +514,7 @@ class _CategoryField extends StatelessWidget {
                             (s) => s.id == category.styleId,
                           );
                           if (style != null) {
-                            return IconUtils.getIconWidget(style);
+                            return BudgetIcon(style: style, radius: 15);
                           }
                         }
                         return const Icon(Icons.category);
@@ -579,7 +567,10 @@ class _CategoryField extends StatelessWidget {
                               (s) => s.id == state.selectedCategory!.styleId,
                             );
                             if (style != null) {
-                              return IconUtils.getIconWidget(style);
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: BudgetIcon(style: style, radius: 12),
+                              );
                             }
                           }
                           return const Icon(Icons.category);
