@@ -72,6 +72,14 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
         return 0;
       }
       break;
+    case WM_SYSKEYDOWN:
+    case WM_SYSKEYUP:
+      if (wparam == VK_MENU) {
+        // Consume the raw Alt key press/release to prevent system menu activation
+        // (which causes the "beep" on Windows if not handled).
+        return 0;
+      }
+      break;
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);

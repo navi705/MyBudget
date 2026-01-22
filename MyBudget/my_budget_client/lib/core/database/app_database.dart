@@ -1895,7 +1895,9 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     final toInsert = rate.copyWith(
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
-    return into(exchangeRates).insert(toInsert);
+    return into(
+      exchangeRates,
+    ).insert(toInsert, mode: InsertMode.insertOrReplace);
   }
 
   Future<void> insertSyncedExchangeRate(ExchangeRatesCompanion rate) =>

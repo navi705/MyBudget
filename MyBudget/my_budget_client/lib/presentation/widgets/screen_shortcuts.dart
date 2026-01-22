@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -35,11 +36,46 @@ class ScreenShortcuts extends StatelessWidget {
           debugLabel: 'ScreenShortcutsFocus ($actions)',
           canRequestFocus: true,
           onKeyEvent: (node, event) {
-            if (event is KeyDownEvent) {
+            final isModifier =
+                event.logicalKey == LogicalKeyboardKey.alt ||
+                event.logicalKey == LogicalKeyboardKey.altLeft ||
+                event.logicalKey == LogicalKeyboardKey.altRight ||
+                event.logicalKey == LogicalKeyboardKey.control ||
+                event.logicalKey == LogicalKeyboardKey.controlLeft ||
+                event.logicalKey == LogicalKeyboardKey.controlRight ||
+                event.logicalKey == LogicalKeyboardKey.shift ||
+                event.logicalKey == LogicalKeyboardKey.shiftLeft ||
+                event.logicalKey == LogicalKeyboardKey.shiftRight ||
+                event.logicalKey == LogicalKeyboardKey.meta ||
+                event.logicalKey == LogicalKeyboardKey.metaLeft ||
+                event.logicalKey == LogicalKeyboardKey.metaRight;
+
+            if (event is KeyDownEvent || event is KeyRepeatEvent) {
               for (final entry in bindings.entries) {
                 if (entry.key.accepts(event, HardwareKeyboard.instance)) {
                   entry.value();
                   return KeyEventResult.handled;
+                }
+              }
+
+              // If it's a modifier key and we have shortcuts registered that might use it,
+              // handle it to prevent Windows system beep/menu activation.
+              if (isModifier) {
+                final hasAltActive =
+                    HardwareKeyboard.instance.isAltPressed ||
+                    event.logicalKey == LogicalKeyboardKey.alt ||
+                    event.logicalKey == LogicalKeyboardKey.altLeft ||
+                    event.logicalKey == LogicalKeyboardKey.altRight;
+
+                if (hasAltActive) {
+                  // Only handle if it's likely part of a shortcut to avoid breaking system combos like Alt+F4
+                  // We check if any of our bindings use Alt
+                  final anyAltShortcut = bindings.keys.any(
+                    (activator) => activator.alt,
+                  );
+                  if (anyAltShortcut) {
+                    return KeyEventResult.handled;
+                  }
                 }
               }
             }
