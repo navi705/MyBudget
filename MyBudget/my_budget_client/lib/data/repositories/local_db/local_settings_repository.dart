@@ -108,6 +108,12 @@ class LocalSettingsRepository implements SettingsRepository {
 
   @override
   Future<void> initializeDefaults() async {
+    // Optimization: Check if we already have settings to avoid redundant DB writes on every startup
+    final existingSettings = await _database.settingsDao.getAllSettings();
+    if (existingSettings.isNotEmpty) {
+      return;
+    }
+
     final deviceName = await getDeviceName();
     final defaults = getDefaultSettings(deviceName);
 

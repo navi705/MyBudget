@@ -10,7 +10,9 @@ import 'package:my_budget_client/core/di/injection_container.dart' as di;
 import 'package:my_budget_client/core/di/injection_container.dart'; // for sl
 
 Future<void> _fetchApiDataInIsolate(bool shouldInit) async {
-  if (shouldInit) {
+  // If we are on the main isolate, DI is already initialized.
+  // We only need to init if we are in a truly separate isolate (which we aren't right now).
+  if (shouldInit && !sl.isRegistered<StartupSyncService>()) {
     await di.init();
   }
 
@@ -115,11 +117,7 @@ class IntilizationData {
 
   /// Fetches API data and performs seeding in the background.
   static void fetchApiDataInBackground() {
-    if (kDebugMode) {
-      _fetchApiDataInIsolate(false);
-    } else {
-      compute(_fetchApiDataInIsolate, true);
-    }
+    _fetchApiDataInIsolate(true);
   }
 
   static Future<void> initilizate() async {

@@ -72,18 +72,7 @@ class DashboardHeader extends StatelessWidget {
           message: 'Select Date',
           actionId: 'dashboard_pick_date',
           description: 'Open calendar to pick a specific date or range',
-          child: InkWell(
-            onTap: onTitleTap,
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              alignment: Alignment.center,
-              child: Text(
-                title,
-                style: TextStyle(color: onSurface, fontSize: 18),
-              ),
-            ),
-          ),
+          child: _PeriodSelector(title: title, onTap: onTitleTap),
         );
 
         final currencySelector = MultiLevelTooltip(
@@ -183,6 +172,59 @@ class DashboardHeader extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _PeriodSelector extends StatefulWidget {
+  final String title;
+  final VoidCallback onTap;
+
+  const _PeriodSelector({required this.title, required this.onTap});
+
+  @override
+  State<_PeriodSelector> createState() => _PeriodSelectorState();
+}
+
+class _PeriodSelectorState extends State<_PeriodSelector> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? colorScheme.surfaceContainerHighest
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _isHovered
+                  ? colorScheme.onSurface.withValues(alpha: 0.1)
+                  : Colors.transparent,
+              width: 1,
+            ),
+          ),
+          child: Text(
+            widget.title,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

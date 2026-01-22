@@ -49,11 +49,15 @@ class _AppWrapperState extends State<AppWrapper> {
       _updateProgress(0.1, 'Verifying settings...');
       await sl<SettingsRepository>().initializeDefaults();
 
-      _updateProgress(0.3, 'Initializing Sync Service...');
-      await sl<SyncService>().init();
+      // 2. Start Services
+      // We start non-critical services in the background without awaiting them
+      // to let the user enter the app as soon as possible.
+      _updateProgress(0.6, 'Starting background services...');
+      sl<SyncService>().init().catchError((e) {
+        debugPrint('SyncService init error: $e');
+      });
 
-      // 2. Non-critical initialization starts in background immediately
-      // This will handle seeding, API fetches, etc. without blocking UI
+      // Non-critical background tasks (compute isolates)
       IntilizationData.fetchApiDataInBackground();
 
       // 3. Mark as initialized so the main App can be shown

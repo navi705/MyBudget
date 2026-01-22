@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class DashboardCurrencySelector extends StatelessWidget {
+class DashboardCurrencySelector extends StatefulWidget {
   final String selectedCurrency;
   final List<String> availableCurrencies;
   final Function(String) onCurrencyChanged;
@@ -13,28 +13,56 @@ class DashboardCurrencySelector extends StatelessWidget {
   });
 
   @override
+  State<DashboardCurrencySelector> createState() =>
+      _DashboardCurrencySelectorState();
+}
+
+class _DashboardCurrencySelectorState extends State<DashboardCurrencySelector> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => _showCurrencyPicker(context),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              selectedCurrency,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => _showCurrencyPicker(context),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 100),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? colorScheme.surfaceContainerHighest
+                : Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _isHovered
+                  ? colorScheme.onSurface.withValues(alpha: 0.1)
+                  : Colors.transparent,
+              width: 1,
             ),
-            const SizedBox(width: 4),
-            const Icon(Icons.arrow_drop_down, size: 20),
-          ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.selectedCurrency,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.arrow_drop_down,
+                size: 20,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -44,10 +72,11 @@ class DashboardCurrencySelector extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => _CurrencyPickerDialog(
-        availableCurrencies: availableCurrencies,
-        onSelected: onCurrencyChanged,
-        currentCurrency: selectedCurrency,
+        availableCurrencies: widget.availableCurrencies,
+        onSelected: widget.onCurrencyChanged,
+        currentCurrency: widget.selectedCurrency,
       ),
     );
   }
@@ -116,19 +145,18 @@ class _CurrencyPickerDialogState extends State<_CurrencyPickerDialog> {
               Expanded(
                 child: ListView.separated(
                   controller: scrollController,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   itemCount: _filteredCurrencies.length,
-                  separatorBuilder: (_, __) => const Divider(),
+                  separatorBuilder: (_, __) => const SizedBox(height: 4),
                   itemBuilder: (context, index) {
                     final currency = _filteredCurrencies[index];
                     final isSelected = currency == widget.currentCurrency;
-                    return ListTile(
-                      title: Text(currency),
-                      trailing: isSelected
-                          ? Icon(
-                              Icons.check,
-                              color: Theme.of(context).colorScheme.primary,
-                            )
-                          : null,
+                    return _CurrencyListItem(
+                      currency: currency,
+                      isSelected: isSelected,
                       onTap: () {
                         widget.onSelected(currency);
                         Navigator.pop(context);
@@ -141,6 +169,67 @@ class _CurrencyPickerDialogState extends State<_CurrencyPickerDialog> {
           ),
         );
       },
+    );
+  }
+}
+
+class _CurrencyListItem extends StatefulWidget {
+  final String currency;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _CurrencyListItem({
+    required this.currency,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_CurrencyListItem> createState() => _CurrencyListItemState();
+}
+
+class _CurrencyListItemState extends State<_CurrencyListItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: widget.isSelected
+              ? colorScheme.primary.withValues(alpha: 0.15)
+              : _isHovered
+              ? colorScheme.onSurface.withValues(alpha: 0.08)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: ListTile(
+          onTap: widget.onTap,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: Text(
+            widget.currency,
+            style: TextStyle(
+              fontWeight: widget.isSelected
+                  ? FontWeight.bold
+                  : FontWeight.normal,
+              color: widget.isSelected
+                  ? colorScheme.primary
+                  : colorScheme.onSurface,
+            ),
+          ),
+          trailing: widget.isSelected
+              ? Icon(Icons.check, color: colorScheme.primary)
+              : null,
+        ),
+      ),
     );
   }
 }
