@@ -99,7 +99,15 @@ class CategoryPieChart extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 48), // Increased gap
-              Expanded(child: _buildCategoryList(context, filteredTotals)),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 650),
+                    child: _buildCategoryList(context, filteredTotals),
+                  ),
+                ),
+              ),
             ],
           );
         } else {
@@ -308,15 +316,7 @@ class CategoryPieChart extends StatelessWidget {
     return filteredTotals.asMap().entries.map((item) {
       final index = item.key;
       final entry = item.value;
-      final category = categories.firstWhere(
-        (c) => c.id == entry.key,
-        orElse: () => Category(
-          id: 'unknown',
-          name: 'Unknown',
-          type: CategoryType.expense,
-          styleId: null,
-        ),
-      );
+      /* Unused category retrieval was here */
       // Always use the palette color based on index to ensure distinct colors
       // for the chart, even if categories share the same style.
       final styleColor = ChartColorUtils.getPaletteColor(index);
@@ -375,18 +375,5 @@ class CategoryPieChart extends StatelessWidget {
   Style? _getStyle(String? styleId) {
     if (styleId == null) return null;
     return styles.firstWhereOrNull((s) => s.id == styleId);
-  }
-
-  Color? _parseColor(String? hex) {
-    if (hex == null) return null;
-    try {
-      String formattedHex = hex.replaceAll('#', '');
-      if (formattedHex.length == 6) {
-        formattedHex = 'FF$formattedHex';
-      }
-      return Color(int.parse('0x$formattedHex'));
-    } catch (_) {
-      return null;
-    }
   }
 }
