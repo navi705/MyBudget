@@ -372,7 +372,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                               final selectedCode = await showDialog<String>(
                                 context: context,
                                 builder: (context) => CountryPickerDialog(
-                                  allCountries: state.allCountries,
+                                  allCountries: state.countries,
                                   selectedCountryCode: _initialAccount.country,
                                 ),
                               );
