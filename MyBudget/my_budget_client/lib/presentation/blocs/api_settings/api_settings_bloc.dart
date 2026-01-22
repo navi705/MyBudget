@@ -6,6 +6,7 @@ import 'package:my_budget_client/domain/entities/custom_data_source.dart';
 import 'package:my_budget_client/core/services/exchange_rate_api_service.dart';
 import 'package:my_budget_client/core/services/inflation_api_service.dart';
 import 'package:my_budget_client/core/services/steam_inventory_api_service.dart';
+import 'package:my_budget_client/core/services/custom_api_service.dart';
 import 'api_settings_event.dart';
 import 'api_settings_state.dart';
 
@@ -16,6 +17,7 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
   final InflationApiService _inflationApiService;
   final ApiSettingsRepository _apiSettingsRepository;
   final CustomDataSourceRepository _customDataSourceRepository;
+  final CustomApiService _customApiService;
 
   ApiSettingsBloc(
     this._settingsRepository,
@@ -24,8 +26,10 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
     this._inflationApiService, {
     required ApiSettingsRepository apiSettingsRepository,
     required CustomDataSourceRepository customDataSourceRepository,
+    required CustomApiService customApiService,
   }) : _apiSettingsRepository = apiSettingsRepository,
        _customDataSourceRepository = customDataSourceRepository,
+       _customApiService = customApiService,
        super(ApiSettingsInitial()) {
     on<LoadApiSettings>(_onLoadApiSettings);
     on<ManualFetchRange>(_onManualFetchRange);
@@ -37,6 +41,7 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
     on<DeleteCustomDataSource>(_onDeleteCustomDataSource);
     on<UpdateCustomDataSource>(_onUpdateCustomDataSource);
     on<ToggleStartupSync>(_onToggleStartupSync);
+    on<TestCustomDataSource>(_onTestCustomDataSource);
   }
 
   Future<void> _onLoadApiSettings(
@@ -249,6 +254,33 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
           currentState.copyWith(
             isOperationInProgress: false,
             lastError: e.toString(),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _onTestCustomDataSource(
+    TestCustomDataSource event,
+    Emitter<ApiSettingsState> emit,
+  ) async {
+    if (state is ApiSettingsLoadSuccess) {
+      final currentState = state as ApiSettingsLoadSuccess;
+      emit(currentState.copyWith(isOperationInProgress: true));
+      try {
+        final result = await _customApiService.testConnection(event.url);
+        emit(
+          currentState.copyWith(
+            isOperationInProgress: false,
+            testResult: result,
+          ),
+        );
+      } catch (e) {
+        emit(
+          currentState.copyWith(
+            isOperationInProgress: false,
+            lastError: e.toString(),
+            testResult: false,
           ),
         );
       }

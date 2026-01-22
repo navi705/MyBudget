@@ -84,7 +84,8 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                         _buildSectionTitle(context, 'Custom Data Sources'),
                         const SizedBox(height: 8),
                         ...state.customDataSources.map(
-                          (source) => _buildCustomSourceCard(context, source),
+                          (source) =>
+                              _buildCustomSourceCard(context, source, state),
                         ),
                         ListTile(
                           leading: const Icon(Icons.add),
@@ -191,6 +192,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
   Widget _buildCustomSourceCard(
     BuildContext context,
     CustomDataSourceDomain source,
+    ApiSettingsLoadSuccess state,
   ) {
     return Card(
       elevation: 0,
@@ -226,17 +228,57 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
               horizontal: 16.0,
               vertical: 8.0,
             ),
-            child: Row(
+            child: Column(
               children: [
-                const Text('Auto-fetch daily'),
-                const Spacer(),
-                Switch(
-                  value: source.autoFetch,
-                  onChanged: (val) {
-                    context.read<ApiSettingsBloc>().add(
-                      UpdateCustomDataSource(id: source.id, autoFetch: val),
-                    );
-                  },
+                Row(
+                  children: [
+                    const Text('Auto-fetch daily'),
+                    const Spacer(),
+                    Switch(
+                      value: source.autoFetch,
+                      onChanged: (val) {
+                        context.read<ApiSettingsBloc>().add(
+                          UpdateCustomDataSource(id: source.id, autoFetch: val),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    if (state.testResult != null) ...[
+                      Icon(
+                        state.testResult! ? Icons.check_circle : Icons.error,
+                        color: state.testResult! ? Colors.green : Colors.red,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        state.testResult!
+                            ? 'Connection OK'
+                            : 'Connection Failed',
+                        style: TextStyle(
+                          color: state.testResult! ? Colors.green : Colors.red,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const Spacer(),
+                    ],
+                    OutlinedButton.icon(
+                      onPressed: state.isOperationInProgress
+                          ? null
+                          : () {
+                              context.read<ApiSettingsBloc>().add(
+                                TestCustomDataSource(source.url),
+                              );
+                            },
+                      icon: state.isOperationInProgress
+                          ? const _MiniLoading()
+                          : const Icon(Icons.network_check, size: 18),
+                      label: const Text('Test Connection'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -485,36 +527,87 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
   void _showAddSourceDialog(BuildContext context) {
     final nameCtrl = TextEditingController();
     final urlCtrl = TextEditingController();
+    final portCtrl = TextEditingController();
     int type = 0;
+    String? errorText;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: const Text('Add Custom Source'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Name'),
-              ),
-              TextField(
-                controller: urlCtrl,
-                decoration: const InputDecoration(labelText: 'URL'),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<int>(
-                value: type,
-                items: const [
-                  DropdownMenuItem(value: 0, child: Text('Exchange Rates')),
-                  DropdownMenuItem(value: 1, child: Text('Inflation')),
-                  DropdownMenuItem(value: 2, child: Text('Assets')),
-                ],
-                onChanged: (v) => setDialogState(() => type = v!),
-                decoration: const InputDecoration(labelText: 'Data Type'),
-              ),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Address Formats:\n'
+                  '• 192.168.1.10 (IP)\n'
+                  '• localhost or api.my.com\n'
+                  '• http://myserver.com',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Name',
+                    hintText: 'My Home Server',
+                  ),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: TextField(
+                        controller: urlCtrl,
+                        decoration: InputDecoration(
+                          labelText: 'URL / IP',
+                          hintText: '192.168.1.10',
+                          errorText: errorText,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 1,
+                      child: TextField(
+                        controller: portCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Port',
+                          hintText: '8080',
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<int>(
+                  initialValue: type,
+                  items: const [
+                    DropdownMenuItem(value: 0, child: Text('Exchange Rates')),
+                    DropdownMenuItem(value: 1, child: Text('Inflation')),
+                    DropdownMenuItem(value: 2, child: Text('Assets')),
+                  ],
+                  onChanged: (v) => setDialogState(() => type = v!),
+                  decoration: const InputDecoration(labelText: 'Data Type'),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Required JSON Format:',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                _buildJsonFormatHint(type, context),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -523,16 +616,28 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
             ),
             FilledButton(
               onPressed: () {
-                if (nameCtrl.text.isNotEmpty && urlCtrl.text.isNotEmpty) {
-                  context.read<ApiSettingsBloc>().add(
-                    AddCustomDataSource(
-                      name: nameCtrl.text,
-                      url: urlCtrl.text,
-                      dataType: type,
-                    ),
-                  );
-                  Navigator.pop(ctx);
+                final url = urlCtrl.text.trim();
+                final name = nameCtrl.text.trim();
+                final port = portCtrl.text.trim();
+
+                if (name.isEmpty || url.isEmpty) {
+                  setDialogState(() => errorText = 'Required');
+                  return;
                 }
+
+                String finalUrl = url;
+                if (port.isNotEmpty) {
+                  finalUrl = '$url:$port';
+                }
+
+                context.read<ApiSettingsBloc>().add(
+                  AddCustomDataSource(
+                    name: name,
+                    url: finalUrl,
+                    dataType: type,
+                  ),
+                );
+                Navigator.pop(ctx);
               },
               child: const Text('Add'),
             ),
@@ -542,10 +647,48 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
     );
   }
 
+  Widget _buildJsonFormatHint(int type, BuildContext context) {
+    String json;
+    switch (type) {
+      case 0:
+        json =
+            '{\n  "type": "exchange_rates",\n  "data": [\n    { "date": "2023-01-01", "from": "EUR", "to": "USD", "rate": 1.08 }\n  ]\n}';
+        break;
+      case 1:
+        json =
+            '{\n  "type": "inflation",\n  "data": [\n    { "date": "2023-01-01", "country": "USA", "rate": 6.5 }\n  ]\n}';
+        break;
+      default:
+        json =
+            '{\n  "type": "assets",\n  "data": [\n    { "date": "2023-01-01", "code": "BTC", "value": 20000 }\n  ]\n}';
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withAlpha(100),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withAlpha(50),
+        ),
+      ),
+      child: Text(
+        json,
+        style: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 12,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
+    );
+  }
+
   Widget _buildMasterSyncSwitch(ApiSettingsLoadSuccess state) {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+      color: Theme.of(context).colorScheme.primaryContainer.withAlpha(76),
       margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SwitchListTile(

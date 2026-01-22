@@ -15,11 +15,20 @@ class CustomApiService {
     this._assetEntriesDao,
   );
 
+  /// Helper to convert string to Uri, adding http:// if no scheme is present
+  Uri _getUri(String url) {
+    String formattedUrl = url.trim();
+    if (!formattedUrl.contains('://')) {
+      formattedUrl = 'http://$formattedUrl';
+    }
+    return Uri.parse(formattedUrl);
+  }
+
   /// Tests connection and returns true if status 200
   Future<bool> testConnection(String url) async {
     try {
       final response = await http
-          .get(Uri.parse(url))
+          .get(_getUri(url))
           .timeout(const Duration(seconds: 10));
       return response.statusCode == 200;
     } catch (e) {
@@ -31,8 +40,9 @@ class CustomApiService {
   /// Fetches data and parses it based on 'type' field in JSON
   Future<void> fetchCustomData(String url) async {
     try {
-      debugPrint('[CustomApiService] Fetching from $url...');
-      final response = await http.get(Uri.parse(url));
+      final uri = _getUri(url);
+      debugPrint('[CustomApiService] Fetching from $uri...');
+      final response = await http.get(uri);
 
       if (response.statusCode != 200) {
         debugPrint(

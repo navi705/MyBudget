@@ -104,3 +104,11 @@ class ToggleStartupSync extends ApiSettingsEvent {
   @override
   List<Object?> get props => [enabled];
 }
+
+class TestCustomDataSource extends ApiSettingsEvent {
+  final String url;
+  const TestCustomDataSource(this.url);
+
+  @override
+  List<Object?> get props => [url];
+}

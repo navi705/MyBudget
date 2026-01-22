@@ -131,6 +131,7 @@ Future<void> init() async {
       sl(),
       apiSettingsRepository: sl(),
       customDataSourceRepository: sl(),
+      customApiService: sl(),
     ),
   );
   sl.registerFactory(
