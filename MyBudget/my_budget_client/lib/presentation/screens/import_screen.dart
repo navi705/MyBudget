@@ -201,15 +201,15 @@ class _ImportViewState extends State<_ImportView> {
               ),
               const SizedBox(height: 16),
               // MyBudget CSV Import
-              OutlinedButton.icon(
-                icon: const Icon(Icons.table_chart),
-                label: Text(context.l10n.importMyBudgetLabel),
-                onPressed: () => _handleGeneralImport(true),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  textStyle: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
+              // OutlinedButton.icon(
+              //   icon: const Icon(Icons.table_chart),
+              //   label: Text(context.l10n.importMyBudgetLabel),
+              //   onPressed: () => _handleGeneralImport(true),
+              //   style: OutlinedButton.styleFrom(
+              //     padding: const EdgeInsets.symmetric(vertical: 16),
+              //     textStyle: Theme.of(context).textTheme.titleMedium,
+              //   ),
+              // ),
               const SizedBox(height: 16),
               // JSON Backup Import
               FilledButton.tonalIcon(

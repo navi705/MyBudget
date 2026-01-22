@@ -217,6 +217,7 @@ class _PeriodSelectorState extends State<_PeriodSelector> {
           ),
           child: Text(
             widget.title,
+            textAlign: TextAlign.center,
             style: TextStyle(
               color: colorScheme.onSurface,
               fontSize: 18,

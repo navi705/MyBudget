@@ -121,7 +121,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
         decoration: BoxDecoration(
           color: _isAccountSelectorHovered
               ? colorScheme.surfaceContainerHighest
-              : colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: _isAccountSelectorHovered

@@ -156,57 +156,66 @@ class DashboardCalendar extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Ink(
-      decoration: BoxDecoration(
-        color: isSelected
-            ? colorScheme.primaryContainer
-            : (isToday
-                  ? colorScheme.primaryContainer.withValues(alpha: 0.8)
-                  : theme.cardColor),
-        borderRadius: BorderRadius.circular(8),
-        border: isSelected
-            ? Border.all(color: colorScheme.primary, width: 2)
-            : null,
-      ),
-      child: InkWell(
-        onTap: () => onDaySelected(date),
-        borderRadius: BorderRadius.circular(8),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            // Date Number
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(top: 4, right: 6),
-              alignment: Alignment.topRight,
-              child: Text(
-                date.day.toString(),
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: isSelected || isToday
-                      ? FontWeight.bold
-                      : FontWeight.normal,
-                  color: isSelected ? colorScheme.onPrimaryContainer : null,
+    return Material(
+      // 1. Делаем фон прозрачным, так как цвет задается внутри Ink
+      color: Colors.transparent,
+      // 2. Ограничиваем область отрисовки (подсветка не выйдет за границы)
+      clipBehavior: Clip.antiAlias,
+      // 3. Скругление должно совпадать со скруглением Ink
+      borderRadius: BorderRadius.circular(8),
+      child: Ink(
+        decoration: BoxDecoration(
+          color: isSelected
+              ? colorScheme.primaryContainer
+              : (isToday
+                    ? colorScheme.primaryContainer.withValues(alpha: 0.8)
+                    : theme.cardColor),
+          borderRadius: BorderRadius.circular(8),
+          border: isSelected
+              ? Border.all(color: colorScheme.primary, width: 2)
+              : null,
+        ),
+        child: InkWell(
+          onTap: () => onDaySelected(date),
+          // Указываем радиус для эффекта нажатия
+          borderRadius: BorderRadius.circular(8),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              // Номер дня
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.only(top: 4, right: 6),
+                alignment: Alignment.topRight,
+                child: Text(
+                  date.day.toString(),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: isSelected || isToday
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    color: isSelected ? colorScheme.onPrimaryContainer : null,
+                  ),
                 ),
               ),
-            ),
-            const Spacer(),
-            // Stats - show compact numbers with currency SYMBOL at END
-            if (income > 0 || expense > 0) ...[
-              if (income > 0)
-                _buildMiniStat(
-                  context,
-                  '+${NumberFormat.compact().format(income)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
-                  Colors.green,
-                ),
-              if (expense > 0)
-                _buildMiniStat(
-                  context,
-                  '-${NumberFormat.compact().format(expense)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
-                  Colors.red,
-                ),
+              const Spacer(),
+              // Статистика (Доходы/Расходы)
+              if (income > 0 || expense > 0) ...[
+                if (income > 0)
+                  _buildMiniStat(
+                    context,
+                    '+${NumberFormat.compact().format(income)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
+                    Colors.green,
+                  ),
+                if (expense > 0)
+                  _buildMiniStat(
+                    context,
+                    '-${NumberFormat.compact().format(expense)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
+                    Colors.red,
+                  ),
+              ],
+              const Spacer(),
             ],
-            const Spacer(),
-          ],
+          ),
         ),
       ),
     );

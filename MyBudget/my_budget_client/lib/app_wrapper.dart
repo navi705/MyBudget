@@ -5,6 +5,7 @@ import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/intilization_data.dart';
 import 'package:my_budget_client/presentation/screens/splash_screen.dart';
+import 'dart:async';
 
 /// Wrapper that shows splash screen during initialization, then shows the main app.
 class AppWrapper extends StatefulWidget {
@@ -20,6 +21,7 @@ class _AppWrapperState extends State<AppWrapper> {
   double? _progress;
 
   late final AppLifecycleListener _lifecycleListener;
+  Timer? _syncTimer;
 
   @override
   void initState() {
@@ -34,6 +36,7 @@ class _AppWrapperState extends State<AppWrapper> {
   @override
   void dispose() {
     _lifecycleListener.dispose();
+    _syncTimer?.cancel();
     super.dispose();
   }
 
@@ -57,8 +60,17 @@ class _AppWrapperState extends State<AppWrapper> {
         debugPrint('SyncService init error: $e');
       });
 
-      // Non-critical background tasks (compute isolates)
+      // Non-critical background tasks (asynchronous launch)
+      // Note: On Windows, compute() can crash, so we run in the main isolate
+      // but without 'await' to achieve background effect.
       IntilizationData.fetchApiDataInBackground();
+
+      // Setup 24h periodic sync timer
+      _syncTimer?.cancel();
+      _syncTimer = Timer.periodic(const Duration(hours: 24), (timer) {
+        debugPrint('[SYNC_DEBUG] 24h timer triggered, starting sync...');
+        IntilizationData.fetchApiDataInBackground();
+      });
 
       // 3. Mark as initialized so the main App can be shown
       if (mounted) {

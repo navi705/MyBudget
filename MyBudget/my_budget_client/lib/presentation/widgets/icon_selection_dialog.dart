@@ -98,16 +98,16 @@ class _IconSelectionDialogState extends State<IconSelectionDialog> {
               ),
             ),
             const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  context.push(AppRoutes.manageAccountStyles);
-                },
-                icon: const Icon(Icons.edit),
-                label: const Text('Manage Icons'),
-              ),
-            ),
+            // SizedBox(
+            //   width: double.infinity,
+            //   child: OutlinedButton.icon(
+            //     onPressed: () {
+            //       context.push(AppRoutes.manageAccountStyles);
+            //     },
+            //     icon: const Icon(Icons.edit),
+            //     label: const Text('Manage Icons'),
+            //   ),
+            // ),
             const SizedBox(height: 16),
             Expanded(
               child: BlocBuilder<StylesBloc, StylesState>(

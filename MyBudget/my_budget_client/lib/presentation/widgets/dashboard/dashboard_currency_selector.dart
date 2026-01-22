@@ -36,7 +36,7 @@ class _DashboardCurrencySelectorState extends State<DashboardCurrencySelector> {
           decoration: BoxDecoration(
             color: _isHovered
                 ? colorScheme.surfaceContainerHighest
-                : Theme.of(context).cardColor,
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: _isHovered

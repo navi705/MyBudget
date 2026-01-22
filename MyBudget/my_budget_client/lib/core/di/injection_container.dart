@@ -142,7 +142,14 @@ Future<void> init() async {
   );
 
   // Services
-  sl.registerLazySingleton(() => CustomApiService());
+  sl.registerLazySingleton(
+    () => CustomApiService(
+      sl<AppDatabase>().exchangeRatesDao,
+      sl<AppDatabase>().inflationRatesDao,
+      sl<AppDatabase>().assetEntriesDao,
+    ),
+  );
+
   sl.registerLazySingleton(
     () => StartupSyncService(sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl()),
   );

@@ -214,8 +214,12 @@ class SettingsScreen extends StatelessWidget {
                       showDialog(
                         context: context,
                         builder: (context) => AlertDialog(
-                          title: Text(l10n.exportDataLabel),
-                          content: Text(l10n.exportFormatMessage),
+                          actionsAlignment: MainAxisAlignment.center,
+                          title: Text(
+                            l10n.exportDataLabel,
+                            textAlign: TextAlign.center,
+                          ),
+                          // content: Text(l10n.exportFormatMessage),
                           actions: [
                             TextButton(
                               onPressed: () {
@@ -224,13 +228,13 @@ class SettingsScreen extends StatelessWidget {
                               },
                               child: Text(l10n.jsonFormat),
                             ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                _exportData(context, isCsv: true);
-                              },
-                              child: Text(l10n.csvFormat),
-                            ),
+                            // TextButton(
+                            //   onPressed: () {
+                            //     Navigator.pop(context);
+                            //     _exportData(context, isCsv: true);
+                            //   },
+                            //   child: Text(l10n.csvFormat),
+                            // ),
                           ],
                         ),
                       );
