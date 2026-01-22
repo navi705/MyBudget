@@ -127,11 +127,19 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
                   Tab(text: 'Custom Icons'),
                 ],
               ),
-              SizedBox(
-                height: 400,
-                child: TabBarView(
-                  children: [_buildMaterialIconList(), _buildCustomIconGrid()],
-                ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final screenHeight = MediaQuery.of(context).size.height;
+                  return SizedBox(
+                    height: screenHeight * 0.5, // 50% of screen height
+                    child: TabBarView(
+                      children: [
+                        _buildMaterialIconList(),
+                        _buildCustomIconGrid(),
+                      ],
+                    ),
+                  );
+                },
               ),
             ],
           ),

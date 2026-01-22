@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:my_budget_client/core/navigation/navigator_keys.dart';
 import 'package:my_budget_client/presentation/widgets/navigation_item.dart';
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 
@@ -62,6 +63,8 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
   }
 
   void _onItemTapped(int index, BuildContext context) {
+    // Close any open context menus or popups before navigating
+    AppNavigator.dismissAllOverlays();
     context.go(widget.destinations[index].route);
   }
 

@@ -477,8 +477,8 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           sortAscending: filters.sort == Sort.ascending,
           filters: filters,
           activeDate: currentState.activeDate,
-          isSelectionModeActive: currentState.isSelectionModeActive,
-          selectedAccountIds: currentState.selectedAccountIds,
+          isSelectionModeActive: false,
+          selectedAccountIds: {},
           dateStep: currentState.dateStep,
           exchangeRates: exchangeRates,
           realBalances: realBalances,
@@ -1167,6 +1167,12 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     }
     // Note: We aren't setting recentlyDeletedAccount for bulk delete because UI doesn't usually undo bulk.
     // Undo only supports single account for now based on state model.
+    emit(
+      (state as AccountsLoadSuccess).copyWith(
+        selectedAccountIds: {},
+        isSelectionModeActive: false,
+      ),
+    );
     add(LoadAccounts());
   }
 
@@ -1177,6 +1183,12 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     await _accountRepository.updateAccountTypeForMultipleAccounts(
       event.accountIds,
       event.accountTypeId,
+    );
+    emit(
+      (state as AccountsLoadSuccess).copyWith(
+        selectedAccountIds: {},
+        isSelectionModeActive: false,
+      ),
     );
     add(LoadAccounts());
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:my_budget_client/core/navigation/navigator_keys.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/presentation/debug/debug_screen.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
@@ -23,18 +24,16 @@ import 'package:my_budget_client/presentation/screens/sms_settings_screen.dart';
 import 'package:my_budget_client/presentation/screens/sync_settings_screen.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 
-// Private navigator keys
-final _rootNavigatorKey = GlobalKey<NavigatorState>();
-final _shellNavigatorKey = GlobalKey<NavigatorState>();
+// Navigator keys now handled by AppNavigator
 
 /// The router configuration.
 final GoRouter router = GoRouter(
   initialLocation: AppRoutes.dashboard,
-  navigatorKey: _rootNavigatorKey,
+  navigatorKey: AppNavigator.rootNavigatorKey,
   routes: <RouteBase>[
     /// MainWrapper
     ShellRoute(
-      navigatorKey: _shellNavigatorKey,
+      navigatorKey: AppNavigator.shellNavigatorKey,
       builder: (context, state, child) {
         return MainScreen(child: child);
       },

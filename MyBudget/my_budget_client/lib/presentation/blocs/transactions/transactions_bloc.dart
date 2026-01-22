@@ -544,6 +544,8 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           currencyDesignations: currencyDesignations,
           dailyTotals: processResult.dailyTotals,
           mainCurrencyCode: mainCurrencyCode,
+          isSelectionModeActive: false,
+          selectedTransactionIds: {},
         ),
       );
       await PerformanceLogger().stop('Transactions: emit state');
@@ -773,10 +775,12 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     try {
       await _transactionRepository.deleteMultipleTransactions(event.ids);
 
-      final newSelectedIds = Set<String>.from(state.selectedTransactionIds);
-      newSelectedIds.removeWhere((id) => event.ids.contains(id));
-
-      emit(state.copyWith(selectedTransactionIds: newSelectedIds));
+      emit(
+        state.copyWith(
+          selectedTransactionIds: {},
+          isSelectionModeActive: false,
+        ),
+      );
 
       add(const InitialLoadTransactions());
     } catch (e) {
@@ -793,6 +797,12 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         event.ids,
         event.newDate,
       );
+      emit(
+        state.copyWith(
+          selectedTransactionIds: {},
+          isSelectionModeActive: false,
+        ),
+      );
       add(const InitialLoadTransactions());
     } catch (e) {
       emit(state.copyWith(status: TransactionStatus.failure));
@@ -807,6 +817,12 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       await _transactionRepository.updateCategoryForMultipleTransactions(
         event.ids,
         event.newCategoryId,
+      );
+      emit(
+        state.copyWith(
+          selectedTransactionIds: {},
+          isSelectionModeActive: false,
+        ),
       );
       add(const InitialLoadTransactions());
     } catch (e) {
