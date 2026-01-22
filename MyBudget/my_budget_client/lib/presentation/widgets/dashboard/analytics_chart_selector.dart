@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/utils/chart_color_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/balance_line_chart.dart';
@@ -311,13 +312,13 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
   Widget _buildDistributions(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth > 700) {
+        if (constraints.maxWidth > 800) {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: _buildAccountDistribution(context)),
-              const SizedBox(width: 24),
-              Expanded(child: _buildCurrencyDistribution(context)),
+              Expanded(flex: 3, child: _buildAccountDistribution(context)),
+              const SizedBox(width: 48),
+              Expanded(flex: 3, child: _buildCurrencyDistribution(context)),
             ],
           );
         } else {
@@ -391,18 +392,29 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
             PieChartData(
               sectionsSpace: 2,
               centerSpaceRadius: 40,
-              sections: data.map((e) {
+              sections: data.asMap().entries.map((item) {
+                final index = item.key;
+                final e = item.value;
                 final percentage = total > 0 ? (e.value / total) * 100 : 0.0;
                 final isLarge = percentage > 5;
+                final isDarkTheme =
+                    Theme.of(context).brightness == Brightness.dark;
+                final baseColor = ChartColorUtils.getPaletteColor(index);
+                final color = ChartColorUtils.getAdaptiveColor(
+                  baseColor,
+                  isDarkTheme,
+                );
+                final textColor = ChartColorUtils.getContrastColor(color);
+
                 return PieChartSectionData(
-                  color: _getRandomColor(e.key.hashCode),
+                  color: color,
                   value: e.value,
                   title: isLarge ? '${percentage.toStringAsFixed(1)}%' : '',
                   radius: 60,
-                  titleStyle: const TextStyle(
+                  titleStyle: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: textColor,
                   ),
                 );
               }).toList(),
@@ -414,8 +426,15 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
           spacing: 16,
           runSpacing: 8,
           alignment: WrapAlignment.center,
-          children: data.map((e) {
+          children: data.asMap().entries.map((item) {
+            final index = item.key;
+            final e = item.value;
             final percentage = total > 0 ? (e.value / total) * 100 : 0.0;
+            final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+            final color = ChartColorUtils.getAdaptiveColor(
+              ChartColorUtils.getPaletteColor(index),
+              isDarkTheme,
+            );
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -423,7 +442,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
                   width: 12,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: _getRandomColor(e.key.hashCode),
+                    color: color,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -456,22 +475,6 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
     // Use pre-calculated currency breakdown from Bloc (already converted)
     return widget.currencyBreakdown.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-  }
-
-  Color _getRandomColor(int seed) {
-    final colors = [
-      Colors.blue,
-      Colors.red,
-      Colors.green,
-      Colors.amber,
-      Colors.purple,
-      Colors.orange,
-      Colors.teal,
-      Colors.pink,
-      Colors.cyan,
-      Colors.indigo,
-    ];
-    return colors[seed % colors.length];
   }
 
   String _formatCurrency(double amount, String code) {

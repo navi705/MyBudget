@@ -188,7 +188,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                           final selectedCode = await showDialog<String>(
                             context: context,
                             builder: (context) => CountryPickerDialog(
-                              allCountries: state.allCountries,
+                              allCountries: state.countries,
                               selectedCountryCode: _selectedCountry,
                             ),
                           );

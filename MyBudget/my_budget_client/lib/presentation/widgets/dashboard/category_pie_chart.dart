@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/utils/chart_color_utils.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
@@ -43,19 +44,19 @@ class CategoryPieChart extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 600;
+        final isWide = constraints.maxWidth > 800; // Increased threshold
         final double maxDiameter;
         if (isWide) {
-          // In Row: (Total - Gap) * (0.35)
-          // Cap at 280 to keep it smaller in windowed mode
-          double calculated = (constraints.maxWidth - 24) * 0.35;
-          maxDiameter = calculated > 280.0 ? 280.0 : calculated;
+          // In Row: (Total - Gap) * (0.4)
+          // Cap at 450 to make it significantly larger on big screens
+          double calculated = (constraints.maxWidth - 48) * 0.4;
+          maxDiameter = calculated.clamp(300.0, 450.0);
         } else {
           // In Column: min(width, fixed height)
-          // Cap at 240 for mobile/narrow
-          maxDiameter = constraints.maxWidth < 240
+          // Cap at 280 for mobile/narrow
+          maxDiameter = constraints.maxWidth < 280
               ? constraints.maxWidth
-              : 240.0;
+              : 280.0;
         }
 
         // Calculate responsive dimensions
@@ -165,9 +166,12 @@ class CategoryPieChart extends StatelessWidget {
           ),
         );
         final style = _getStyle(category.styleId);
-        final color =
-            _parseColor(style?.colorHex) ??
-            _getRandomColor(category.id.hashCode);
+        // Always use the palette color based on index to ensure distinct colors
+        // for the chart, even if categories share the same style.
+        final styleColor = ChartColorUtils.getPaletteColor(index);
+
+        final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+        final color = ChartColorUtils.getAdaptiveColor(styleColor, isDarkTheme);
 
         final iconWidget = style != null
             ? IconUtils.getIconWidget(style)
@@ -301,7 +305,9 @@ class CategoryPieChart extends StatelessWidget {
       (sum, entry) => sum + entry.value,
     );
 
-    return filteredTotals.map((entry) {
+    return filteredTotals.asMap().entries.map((item) {
+      final index = item.key;
+      final entry = item.value;
       final category = categories.firstWhere(
         (c) => c.id == entry.key,
         orElse: () => Category(
@@ -311,10 +317,16 @@ class CategoryPieChart extends StatelessWidget {
           styleId: null,
         ),
       );
-      final style = _getStyle(category.styleId);
+      // Always use the palette color based on index to ensure distinct colors
+      // for the chart, even if categories share the same style.
+      final styleColor = ChartColorUtils.getPaletteColor(index);
       final percentage = totalSum > 0 ? (entry.value / totalSum) * 100 : 0.0;
-      final color =
-          _parseColor(style?.colorHex) ?? _getRandomColor(category.id.hashCode);
+
+      final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+      final adjustedColor = ChartColorUtils.getAdaptiveColor(
+        styleColor,
+        isDarkTheme,
+      );
 
       // Compact format for chart slice
       final compactFormat = NumberFormat.compact();
@@ -323,33 +335,8 @@ class CategoryPieChart extends StatelessWidget {
       ).currencySymbol;
       final formattedValue = '${compactFormat.format(entry.value)}$symbol';
 
-      // SMART FORMULA: Adjust color to harmonize with background
-      final isThemeDark = Theme.of(context).brightness == Brightness.dark;
-      Color adjustedColor = color;
-
-      try {
-        final hsl = HSLColor.fromColor(color);
-        if (isThemeDark) {
-          // In dark mode: ensure colors aren't too dark (visibilty) or too pastel (contrast)
-          // Boost lightness slightly if very dark, boost saturation if very dull
-          adjustedColor = hsl
-              .withLightness(hsl.lightness.clamp(0.4, 0.8))
-              .withSaturation(hsl.saturation.clamp(0.6, 1.0))
-              .toColor();
-        } else {
-          // In light mode: ensure colors aren't too bright (washed out against white/light card)
-          // standard colors usually look okay, but maybe clamp lightness
-          adjustedColor = hsl
-              .withLightness(hsl.lightness.clamp(0.3, 0.7))
-              .toColor();
-        }
-      } catch (_) {
-        // Fallback if conversion fails (rare)
-      }
-
       // Determine text color based on ADJUSTED background luminance
-      final isDarkBg = adjustedColor.computeLuminance() < 0.5;
-      final textColor = isDarkBg ? Colors.white : Colors.black;
+      final textColor = ChartColorUtils.getContrastColor(adjustedColor);
 
       // Smart label logic
       String title = '';
@@ -401,21 +388,5 @@ class CategoryPieChart extends StatelessWidget {
     } catch (_) {
       return null;
     }
-  }
-
-  Color _getRandomColor(int seed) {
-    final colors = [
-      Colors.blue,
-      Colors.red,
-      Colors.green,
-      Colors.amber, // Was Colors.yellow, changed to Amber for better visibility
-      Colors.purple,
-      Colors.orange,
-      Colors.teal,
-      Colors.pink,
-      Colors.cyan,
-      Colors.indigo,
-    ];
-    return colors[seed % colors.length];
   }
 }

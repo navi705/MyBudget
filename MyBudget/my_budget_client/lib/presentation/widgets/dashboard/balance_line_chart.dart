@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/utils/chart_color_utils.dart';
 
 class BalanceLineChart extends StatelessWidget {
   final Map<DateTime, double> dailyNetWorth;
@@ -179,8 +180,14 @@ class BalanceLineChart extends StatelessWidget {
               isCurved: true,
               gradient: LinearGradient(
                 colors: [
-                  Theme.of(context).colorScheme.primary,
-                  Theme.of(context).colorScheme.secondary,
+                  ChartColorUtils.getAdaptiveColor(
+                    Theme.of(context).colorScheme.primary,
+                    Theme.of(context).brightness == Brightness.dark,
+                  ),
+                  ChartColorUtils.getAdaptiveColor(
+                    Theme.of(context).colorScheme.secondary,
+                    Theme.of(context).brightness == Brightness.dark,
+                  ),
                 ],
               ),
               barWidth: 3,
@@ -190,12 +197,14 @@ class BalanceLineChart extends StatelessWidget {
                 show: true,
                 gradient: LinearGradient(
                   colors: [
-                    Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.3),
-                    Theme.of(
-                      context,
-                    ).colorScheme.secondary.withValues(alpha: 0.0),
+                    ChartColorUtils.getAdaptiveColor(
+                      Theme.of(context).colorScheme.primary,
+                      Theme.of(context).brightness == Brightness.dark,
+                    ).withValues(alpha: 0.3),
+                    ChartColorUtils.getAdaptiveColor(
+                      Theme.of(context).colorScheme.secondary,
+                      Theme.of(context).brightness == Brightness.dark,
+                    ).withValues(alpha: 0.0),
                   ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
