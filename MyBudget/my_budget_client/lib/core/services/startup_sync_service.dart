@@ -89,11 +89,16 @@ class StartupSyncService {
 
     // 4. Process Server Sync (New)
     try {
-      debugPrint('[StartupSyncService] Starting Server Sync...');
-      // Initialize WebSocket connection for the session
-      _serverSyncService.initWebSocket();
-      // Perform initial sync
-      await _serverSyncService.sync();
+      final serverEnabledSetting = await _settingsRepository.getSetting(
+        'server_sync_enabled',
+      );
+      if (serverEnabledSetting?.value == 'true') {
+        debugPrint('[StartupSyncService] Starting Server Sync...');
+        // Initialize WebSocket connection for the session
+        await _serverSyncService.initWebSocket();
+        // Perform initial sync
+        await _serverSyncService.sync();
+      }
     } catch (e) {
       debugPrint('[StartupSyncService] Server Sync failed: $e');
     }

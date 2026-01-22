@@ -5,27 +5,43 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:drift/drift.dart' as drift_db;
 import 'package:my_budget_client/core/database/app_database.dart'; // contains Category
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 
 class ServerSyncService {
   final AppDatabase _database;
-  final String _baseUrl;
+  final SettingsRepository _settingsRepository;
   WebSocketChannel? _channel;
-
-  // TODO: Move to secure storage or settings
-  static const String _authToken = 'dev_token';
 
   ServerSyncService({
     required AppDatabase database,
-    // Default to localhost for Windows dev, strictly for now.
-    // In production, this should be configurable.
-    String baseUrl = 'http://localhost:8080',
+    required SettingsRepository settingsRepository,
   }) : _database = database,
-       _baseUrl = baseUrl;
+       _settingsRepository = settingsRepository;
+
+  Future<String> _getBaseUrl() async {
+    final setting = await _settingsRepository.getSetting('server_sync_url');
+    return setting?.value ?? 'http://localhost:8080';
+  }
+
+  Future<String> _getAuthToken() async {
+    final setting = await _settingsRepository.getSetting('server_sync_token');
+    return setting?.value ?? 'dev_token';
+  }
+
+  Future<bool> _isEnabled() async {
+    final setting = await _settingsRepository.getSetting('server_sync_enabled');
+    return setting?.value == 'true';
+  }
 
   /// Main entry point to sync data.
   /// 1. PULL changes from server
   /// 2. PUSH local changes to server
   Future<void> sync() async {
+    if (!await _isEnabled()) {
+      debugPrint('[ServerSync] Server sync is disabled. Skipping.');
+      return;
+    }
+
     try {
       debugPrint('[ServerSync] Starting sync...');
       await _pull();
@@ -38,9 +54,12 @@ class ServerSyncService {
   }
 
   /// Initialize real-time updates via WebSocket
-  void initWebSocket() {
+  Future<void> initWebSocket() async {
+    if (!await _isEnabled()) return;
+
     try {
-      final wsUrl = _baseUrl.replaceFirst('http', 'ws') + '/ws/sync';
+      final baseUrl = await _getBaseUrl();
+      final wsUrl = baseUrl.replaceFirst('http', 'ws') + '/ws/sync';
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
 
       _channel?.stream.listen((message) {
@@ -65,10 +84,12 @@ class ServerSyncService {
     final lastSyncKey = 'server_last_sync_timestamp';
     final lastSync = prefs.getInt(lastSyncKey) ?? 0;
 
-    final url = Uri.parse('$_baseUrl/api/sync/pull?last_sync=$lastSync');
+    final baseUrl = await _getBaseUrl();
+    final url = Uri.parse('$baseUrl/api/sync/pull?last_sync=$lastSync');
+    final authToken = await _getAuthToken();
     final response = await http.get(
       url,
-      headers: {'Authorization': 'Bearer $_authToken'},
+      headers: {'Authorization': 'Bearer $authToken'},
     );
 
     if (response.statusCode == 200) {
@@ -113,12 +134,14 @@ class ServerSyncService {
       return;
     }
 
-    final url = Uri.parse('$_baseUrl/api/sync/push');
+    final baseUrl = await _getBaseUrl();
+    final url = Uri.parse('$baseUrl/api/sync/push');
+    final authToken = await _getAuthToken();
     final response = await http.post(
       url,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $_authToken',
+        'Authorization': 'Bearer $authToken',
       },
       body: jsonEncode(payload),
     );

@@ -1,12 +1,12 @@
 import 'dart:io';
 
-// import 'package:drift/drift.dart' show Value;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/core/sync/sync_service.dart';
+import 'package:my_budget_client/core/services/server_sync_service.dart';
 
 /// Settings screen for P2P synchronization via Syncthing
 class SyncSettingsScreen extends StatefulWidget {
@@ -18,11 +18,16 @@ class SyncSettingsScreen extends StatefulWidget {
 
 class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   late final SyncService _syncService;
+  late final ServerSyncService _serverSyncService;
   late final AppDatabase _db;
   late final SettingsRepository _settingsRepository;
 
+  final _serverUrlController = TextEditingController();
+  final _serverTokenController = TextEditingController();
+
   String? _syncFolderPath;
-  bool _isEnabled = false;
+  bool _isP2PEnabled = false;
+  bool _isServerEnabled = false;
   bool _isSyncing = false;
   int _pendingChanges = 0;
 
@@ -31,36 +36,42 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     super.initState();
     _db = sl<AppDatabase>();
     _syncService = sl<SyncService>();
+    _serverSyncService = sl<ServerSyncService>();
     _settingsRepository = sl<SettingsRepository>();
-    _loadSettings();
+    _loadSyncSettings();
   }
 
-  Future<void> _loadSettings() async {
+  Future<void> _loadSyncSettings() async {
     final folderSetting = await _settingsRepository.getSetting(
       'sync_folder_path',
     );
-    final enabledSetting = await _settingsRepository.getSetting('sync_enabled');
+    final p2pEnabledSetting = await _settingsRepository.getSetting(
+      'sync_enabled',
+    );
+    final serverEnabledSetting = await _settingsRepository.getSetting(
+      'server_sync_enabled',
+    );
+    final serverUrlSetting = await _settingsRepository.getSetting(
+      'server_sync_url',
+    );
+    final serverTokenSetting = await _settingsRepository.getSetting(
+      'server_sync_token',
+    );
+
     final pending = await _db.syncLogDao.getPendingChanges();
 
     setState(() {
       _syncFolderPath = folderSetting?.value;
-      _isEnabled = enabledSetting?.value == 'true';
+      _isP2PEnabled = p2pEnabledSetting?.value == 'true';
+      _isServerEnabled = serverEnabledSetting?.value == 'true';
+      _serverUrlController.text =
+          serverUrlSetting?.value ?? 'http://localhost:8080';
+      _serverTokenController.text = serverTokenSetting?.value ?? 'dev_token';
       _pendingChanges = pending.length;
     });
 
-    if (_isEnabled && _syncFolderPath != null) {
-      final success = await _syncService.startSync(_syncFolderPath!);
-      if (!success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Cannot access sync folder. On Android 11+, please select a folder within Documents or Downloads.',
-            ),
-            duration: Duration(seconds: 5),
-          ),
-        );
-        setState(() => _isEnabled = false);
-      }
+    if (_isP2PEnabled && _syncFolderPath != null) {
+      await _syncService.startSync(_syncFolderPath!);
     }
   }
 
@@ -71,8 +82,6 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
 
     if (result != null) {
       setState(() => _syncFolderPath = result);
-
-      // Save setting
       await _settingsRepository.saveSetting('sync_folder_path', result);
     }
   }
@@ -80,14 +89,12 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   Future<void> _clearSyncFolder() async {
     if (_syncFolderPath == null) return;
 
-    // Show confirmation dialog
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Clear Sync Files'),
         content: const Text(
-          'This will delete all .sync files from the selected folder. '
-          'This action cannot be undone.',
+          'This will delete all .sync files from the selected folder. This action cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -114,18 +121,6 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
             deletedCount++;
           }
         }
-
-        // Also clear .processed subfolder
-        final processedDir = Directory('${_syncFolderPath!}/.processed');
-        if (await processedDir.exists()) {
-          await for (final entity in processedDir.list()) {
-            if (entity is File && entity.path.endsWith('.sync')) {
-              await entity.delete();
-              deletedCount++;
-            }
-          }
-        }
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Deleted $deletedCount sync files')),
@@ -141,50 +136,70 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     }
   }
 
-  Future<void> _toggleSync(bool enabled) async {
-    setState(() => _isEnabled = enabled);
+  Future<void> _toggleP2P(bool enabled) async {
+    setState(() {
+      _isP2PEnabled = enabled;
+      if (enabled) _isServerEnabled = false;
+    });
 
     await _settingsRepository.saveSetting('sync_enabled', enabled.toString());
-
-    if (enabled && _syncFolderPath != null) {
-      final success = await _syncService.startSync(_syncFolderPath!);
-      if (!success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Cannot access sync folder. On Android 11+, please select a folder within Documents or Downloads.',
-            ),
-            duration: Duration(seconds: 5),
-          ),
-        );
-        setState(() => _isEnabled = false);
-        return;
+    if (enabled) {
+      await _settingsRepository.saveSetting('server_sync_enabled', 'false');
+      if (_syncFolderPath != null) {
+        await _syncService.startSync(_syncFolderPath!);
       }
     } else {
       await _syncService.stopSync();
     }
   }
 
+  Future<void> _toggleServer(bool enabled) async {
+    setState(() {
+      _isServerEnabled = enabled;
+      if (enabled) _isP2PEnabled = false;
+    });
+
+    await _settingsRepository.saveSetting(
+      'server_sync_enabled',
+      enabled.toString(),
+    );
+    if (enabled) {
+      await _settingsRepository.saveSetting('sync_enabled', 'false');
+      await _syncService.stopSync();
+      // Optionally trigger initial sync
+      _syncNow();
+    }
+  }
+
+  Future<void> _saveServerSettings() async {
+    await _settingsRepository.saveSetting(
+      'server_sync_url',
+      _serverUrlController.text,
+    );
+    await _settingsRepository.saveSetting(
+      'server_sync_token',
+      _serverTokenController.text,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Server settings saved')));
+    }
+  }
+
   Future<void> _syncNow() async {
-    if (_syncFolderPath == null) return;
-
     setState(() => _isSyncing = true);
-
     try {
-      if (!_syncService.isRunning) {
-        final success = await _syncService.startSync(_syncFolderPath!);
-        if (!success) {
-          throw Exception('Cannot access sync folder');
+      if (_isServerEnabled) {
+        await _serverSyncService.sync();
+      } else if (_isP2PEnabled && _syncFolderPath != null) {
+        if (!_syncService.isRunning) {
+          await _syncService.startSync(_syncFolderPath!);
         }
+        await _syncService.exportNow();
+        await _syncService.importNow();
       }
 
-      // Export pending changes
-      await _syncService.exportNow();
-
-      // Import new files
-      await _syncService.importNow();
-
-      // Refresh pending count
       final pending = await _db.syncLogDao.getPendingChanges();
       setState(() => _pendingChanges = pending.length);
 
@@ -209,141 +224,190 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sync Settings')),
+      appBar: AppBar(title: const Text('Synchronization Settings')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Sync folder selection
+          // Section Label: P2P
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Text(
+              'P2P Synchronization (Syncthing)',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
           Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Syncthing Folder', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _syncFolderPath ?? 'Not selected',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: _syncFolderPath == null
-                                ? theme.colorScheme.outline
-                                : null,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton.tonal(
-                        onPressed: _pickFolder,
-                        child: const Text('Browse'),
-                      ),
-                    ],
+            child: Column(
+              children: [
+                SwitchListTile(
+                  title: const Text('Enable P2P Sync'),
+                  subtitle: const Text(
+                    'Sync via .sync files in a shared folder',
                   ),
-                  // Android 11+ warning - only show on Android
-                  if (Platform.isAndroid) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.tertiaryContainer.withValues(
-                          alpha: 0.5,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 20,
-                            color: theme.colorScheme.onTertiaryContainer,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Android 11+: Select a folder within Documents or Downloads',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onTertiaryContainer,
+                  value: _isP2PEnabled,
+                  onChanged: _syncFolderPath != null ? _toggleP2P : null,
+                ),
+                if (_isP2PEnabled || _syncFolderPath == null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        Text('Sync Folder', style: theme.textTheme.labelLarge),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _syncFolderPath ?? 'Not selected',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: _syncFolderPath == null
+                                      ? theme.colorScheme.error
+                                      : null,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            FilledButton.tonal(
+                              onPressed: _pickFolder,
+                              child: const Text('Browse'),
+                            ),
+                          ],
+                        ),
+                        if (_syncFolderPath != null) ...[
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: _clearSyncFolder,
+                            icon: const Icon(Icons.delete_outline, size: 18),
+                            label: const Text('Clear sync files'),
                           ),
                         ],
-                      ),
+                      ],
                     ),
-                  ],
-                  if (_syncFolderPath != null) ...[
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: _clearSyncFolder,
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      label: const Text('Clear sync files'),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Enable sync toggle
-          Card(
-            child: SwitchListTile(
-              title: const Text('Enable Sync'),
-              subtitle: Text(
-                _syncService.isRunning ? 'Sync is active' : 'Sync is disabled',
-              ),
-              value: _isEnabled,
-              onChanged: _syncFolderPath != null ? _toggleSync : null,
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Status card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Status', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Pending changes:'),
-                      Text('$_pendingChanges'),
-                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Sync interval:'),
-                      Text('${_syncService.batchInterval.inSeconds}s'),
-                    ],
-                  ),
-                ],
-              ),
+              ],
             ),
           ),
 
           const SizedBox(height: 24),
 
-          // Sync now button
-          FilledButton.icon(
-            onPressed: _syncFolderPath != null && !_isSyncing ? _syncNow : null,
-            icon: _isSyncing
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.sync),
-            label: Text(_isSyncing ? 'Syncing...' : 'Sync Now'),
+          // Section Label: Server
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Text(
+              'Cloud Synchronization (Server)',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Card(
+            child: Column(
+              children: [
+                SwitchListTile(
+                  title: const Text('Enable Server Sync'),
+                  subtitle: const Text('Sync with a MyBudget Server instance'),
+                  value: _isServerEnabled,
+                  onChanged: _toggleServer,
+                ),
+                if (_isServerEnabled)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Divider(),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _serverUrlController,
+                          decoration: const InputDecoration(
+                            labelText: 'Server URL',
+                            hintText: 'http://localhost:8080',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.link),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _serverTokenController,
+                          decoration: const InputDecoration(
+                            labelText: 'API Token',
+                            hintText: 'Enter your security token',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.lock_outline),
+                          ),
+                          obscureText: true,
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: _saveServerSettings,
+                            icon: const Icon(Icons.save_outlined),
+                            label: const Text('Save Server Settings'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Shared Status & Action
+          Card(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.3,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Pending local changes:'),
+                      Text(
+                        '$_pendingChanges',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed:
+                          (_isP2PEnabled || _isServerEnabled) && !_isSyncing
+                          ? _syncNow
+                          : null,
+                      icon: _isSyncing
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.sync_alt),
+                      label: Text(_isSyncing ? 'Syncing...' : 'Sync Now'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -352,7 +416,8 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
 
   @override
   void dispose() {
-    // Don't stop sync on dispose - let it run in background
+    _serverUrlController.dispose();
+    _serverTokenController.dispose();
     super.dispose();
   }
 }

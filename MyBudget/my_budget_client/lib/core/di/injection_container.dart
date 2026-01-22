@@ -154,7 +154,9 @@ Future<void> init() async {
   sl.registerLazySingleton(
     () => StartupSyncService(sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl()),
   );
-  sl.registerLazySingleton(() => ServerSyncService(database: sl()));
+  sl.registerLazySingleton(
+    () => ServerSyncService(database: sl(), settingsRepository: sl()),
+  );
   sl.registerLazySingleton(() => FinanceCalculator());
   sl.registerLazySingleton(
     () => ExchangeRateApiService(
