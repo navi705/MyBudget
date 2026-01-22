@@ -382,8 +382,9 @@ class ImportDataUtils {
           shouldLoadFile) {
         try {
           final File localJsonFile = File(filePathCurrenciesRate);
-          if (!await localJsonFile.parent.exists())
+          if (!await localJsonFile.parent.exists()) {
             await localJsonFile.parent.create(recursive: true);
+          }
           final String jsonContent = const JsonEncoder.withIndent(
             '  ',
           ).convert(fileHistoryMap);

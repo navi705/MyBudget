@@ -390,7 +390,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<GameApiSteam>(
-                  value: _selectedGame,
+                  initialValue: _selectedGame,
                   hint: const Text('Select Game'),
                   items: GameApiSteam.values
                       .map(

@@ -467,8 +467,9 @@ class SyncService {
     if (name == 'api_settings') return SyncTableId.apiSettings;
     if (name == 'sms_presets') return SyncTableId.smsPresets;
     if (name == 'account_types') return SyncTableId.accountTypes;
-    if (name == 'currency_designations')
+    if (name == 'currency_designations') {
       return SyncTableId.currencyDesignations;
+    }
     if (name == 'custom_data_sources') return SyncTableId.customDataSources;
 
     return null;

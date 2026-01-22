@@ -59,7 +59,7 @@ class ServerSyncService {
 
     try {
       final baseUrl = await _getBaseUrl();
-      final wsUrl = baseUrl.replaceFirst('http', 'ws') + '/ws/sync';
+      final wsUrl = '${baseUrl.replaceFirst('http', 'ws')}/ws/sync';
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
 
       _channel?.stream.listen((message) {

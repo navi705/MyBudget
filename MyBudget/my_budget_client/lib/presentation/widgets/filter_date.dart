@@ -25,8 +25,9 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   String _formatDate(TransactionsState state, BuildContext context) {
     final locale = Localizations.localeOf(context).toString();
     if (state.filterMode == FilterMode.range) {
-      if (state.activeDateRange == null)
+      if (state.activeDateRange == null) {
         return 'Select Range'; // Localize if needed
+      }
       final start = DateFormat(
         'dd.MM.yyyy',
         locale,

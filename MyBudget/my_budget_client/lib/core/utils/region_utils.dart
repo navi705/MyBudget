@@ -1,5 +1,4 @@
 import 'dart:ui';
-import 'package:flutter/foundation.dart';
 
 class RegionUtils {
   /// Detects the device's region (2-letter ISO country code).
