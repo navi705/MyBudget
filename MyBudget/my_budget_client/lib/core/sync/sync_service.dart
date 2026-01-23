@@ -167,6 +167,38 @@ class SyncService {
     await _processExistingFiles();
   }
 
+  /// Get count of incoming files waiting to be imported
+  Future<int> getIncomingFileCount() async {
+    if (_syncFolderPath == null) return 0;
+    final syncDir = Directory(_syncFolderPath!);
+    if (!await syncDir.exists()) return 0;
+
+    // Get local device ID to exclude own files
+    final localId = await getLocalDeviceId();
+
+    try {
+      final files = await syncDir.list().where((entity) {
+        if (entity is! File) return false;
+        final name = p.basename(entity.path);
+        // Match .sync files that adhere to naming convention: timestamp_deviceid.sync
+        if (!name.endsWith('.sync')) return false;
+
+        // Exclude own files
+        if (name.contains(localId)) {
+          // debugPrint('[SYNC_DEBUG] Ignoring own file in count: $name');
+          return false;
+        }
+
+        debugPrint('[SYNC_DEBUG] Found incoming file in Incoming Count: $name');
+        return true;
+      }).length;
+      return files;
+    } catch (e) {
+      debugPrint('[SYNC_DEBUG] Error counting incoming files: $e');
+      return 0;
+    }
+  }
+
   /// Export pending changes to a .sync file
   Future<void> _exportPendingChanges() async {
     try {
@@ -313,10 +345,22 @@ class SyncService {
   }
 
   /// Handle file system events
+  /// Handle file system events
   void _onFileSystemEvent(FileSystemEvent event) {
-    if (event is FileSystemCreateEvent && event.path.endsWith('.sync')) {
-      // New sync file detected
-      _processFile(File(event.path));
+    if (event.path.endsWith('.sync')) {
+      // Process on Create, Move, or Modify (after write completes)
+      // Syncthing often writes to a temp file then renames (Move)
+      // Or might modify an existing file.
+      // We add a small delay to ensure write is complete if it's a modify event
+
+      if (event is FileSystemModifyEvent) {
+        // Delay processing for modify events to avoid reading during write
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _processFile(File(event.path));
+        });
+      } else {
+        _processFile(File(event.path));
+      }
     }
   }
 
@@ -420,9 +464,15 @@ class SyncService {
     // Upsert
     if (localData == null) {
       // New record - insert
+      debugPrint(
+        '[SYNC_DEBUG] Inserting new record: ${change.recordId} into ${change.tableId.name}',
+      );
       await _insertRecord(change.tableId, change.data!);
     } else if (incomingModifiedAt > localModifiedAt) {
       // Incoming is newer - update, save local to conflict history
+      debugPrint(
+        '[SYNC_DEBUG] Updating record: ${change.recordId} in ${change.tableId.name} (Incoming newer)',
+      );
       await _db.conflictHistoryDao.saveConflict(
         tableName: change.tableId.name,
         recordId: change.recordId,
@@ -432,6 +482,9 @@ class SyncService {
       await _updateRecord(change.tableId, change.data!);
     } else {
       // Local is newer - save incoming to conflict history
+      debugPrint(
+        '[SYNC_DEBUG] Ignoring incoming update for: ${change.recordId} (Local newer: $localModifiedAt >= $incomingModifiedAt)',
+      );
       await _db.conflictHistoryDao.saveConflict(
         tableName: change.tableId.name,
         recordId: change.recordId,

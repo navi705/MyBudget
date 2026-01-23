@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
@@ -30,6 +31,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   bool _isServerEnabled = false;
   bool _isSyncing = false;
   int _pendingChanges = 0;
+  int _incomingChanges = 0;
 
   @override
   void initState() {
@@ -59,6 +61,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     );
 
     final pending = await _db.syncLogDao.getPendingChanges();
+    final incoming = await _syncService.getIncomingFileCount();
 
     setState(() {
       _syncFolderPath = folderSetting?.value;
@@ -68,6 +71,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
           serverUrlSetting?.value ?? 'http://localhost:8080';
       _serverTokenController.text = serverTokenSetting?.value ?? 'dev_token';
       _pendingChanges = pending.length;
+      _incomingChanges = incoming;
     });
 
     if (_isP2PEnabled && _syncFolderPath != null) {
@@ -76,6 +80,31 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   }
 
   Future<void> _pickFolder() async {
+    if (Platform.isAndroid) {
+      // Request Manage External Storage for Android 11+
+      var status = await Permission.manageExternalStorage.status;
+      if (!status.isGranted) {
+        status = await Permission.manageExternalStorage.request();
+      }
+
+      // Fallback for older Android (though manageExternalStorage covers newer)
+      if (!status.isGranted) {
+        final storageStatus = await Permission.storage.request();
+        if (!storageStatus.isGranted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Storage permission required for sync. Please enable "All files access" in settings.',
+                ),
+              ),
+            );
+          }
+          return;
+        }
+      }
+    }
+
     final result = await FilePicker.platform.getDirectoryPath(
       dialogTitle: 'Select Syncthing Folder',
     );
@@ -201,7 +230,11 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
       }
 
       final pending = await _db.syncLogDao.getPendingChanges();
-      setState(() => _pendingChanges = pending.length);
+      final incoming = await _syncService.getIncomingFileCount();
+      setState(() {
+        _pendingChanges = pending.length;
+        _incomingChanges = incoming;
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(
@@ -380,6 +413,22 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                         '$_pendingChanges',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Incoming changes pending:'),
+                      Text(
+                        '$_incomingChanges',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: _incomingChanges > 0
+                              ? theme.colorScheme.primary
+                              : null,
                         ),
                       ),
                     ],
