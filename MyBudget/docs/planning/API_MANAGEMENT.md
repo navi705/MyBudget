@@ -71,6 +71,15 @@
 
 ### 3. Цены активов (Asset Prices)
 **URL DataType:** `2` (или `assets`)
+
+Поля объекта (Fields):
+*   `date` (Required): Формат `YYYY-MM-DD`
+*   `code` (Required): Тикер актива (например, `AAPL`)
+*   `name` (Optional): Название актива (например, `Apple Inc.`). Если не указано, используется `code`.
+*   `value` (Required): Цена
+*   `currency` (Optional): Валюта цены (например, `USD`). Если не указано, по умолчанию `EUR`.
+
+Пример:
 ```json
 {
   "type": "assets",
@@ -78,6 +87,8 @@
     {
       "date": "2026-01-22",
       "code": "AAPL",
+      "name": "Apple Inc.",
+      "currency": "USD",
       "value": 185.50
     }
   ]

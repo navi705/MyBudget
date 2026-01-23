@@ -114,13 +114,16 @@ class CustomApiService {
       final code = item['code'] as String;
       final value = (item['value'] as num).toDouble();
 
+      final currency = item['currency'] as String? ?? 'EUR';
+      final name = item['name'] as String? ?? code;
+
       await _assetEntriesDao.addAssetData(
         AssetEntriesCompanion(
           assetId: Value(code),
-          name: Value(code),
+          name: Value(name),
           date: Value(date),
           value: Value(value),
-          currencyCode: const Value('EUR'), // Default to EUR for now
+          currencyCode: Value(currency),
           source: const Value('custom_api'),
           preset: const Value(2),
         ),
