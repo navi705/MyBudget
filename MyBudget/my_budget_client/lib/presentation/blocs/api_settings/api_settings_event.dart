@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
+import 'package:my_budget_client/domain/entities/custom_data_source.dart';
 
 abstract class ApiSettingsEvent extends Equatable {
   const ApiSettingsEvent();
@@ -8,7 +9,13 @@ abstract class ApiSettingsEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class LoadApiSettings extends ApiSettingsEvent {}
+class LoadApiSettings extends ApiSettingsEvent {
+  final bool silent;
+  const LoadApiSettings({this.silent = false});
+
+  @override
+  List<Object?> get props => [silent];
+}
 
 class ManualFetchRange extends ApiSettingsEvent {
   final DateTime start;
@@ -111,4 +118,23 @@ class TestCustomDataSource extends ApiSettingsEvent {
 
   @override
   List<Object?> get props => [url];
+}
+
+class ToggleAllCustomSources extends ApiSettingsEvent {
+  final ApiDataType dataType;
+  final bool enabled;
+
+  const ToggleAllCustomSources({required this.dataType, required this.enabled});
+
+  @override
+  List<Object?> get props => [dataType, enabled];
+}
+
+class SaveSteamGame extends ApiSettingsEvent {
+  final GameApiSteam game;
+
+  const SaveSteamGame(this.game);
+
+  @override
+  List<Object?> get props => [game];
 }

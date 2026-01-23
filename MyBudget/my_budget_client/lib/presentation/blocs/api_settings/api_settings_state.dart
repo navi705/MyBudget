@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:my_budget_client/data/api/external_data.dart';
 import 'package:my_budget_client/domain/entities/api_setting.dart';
 import 'package:my_budget_client/domain/entities/custom_data_source.dart';
 
@@ -15,6 +16,7 @@ class ApiSettingsLoadInProgress extends ApiSettingsState {}
 
 class ApiSettingsLoadSuccess extends ApiSettingsState {
   final String? steamId;
+  final GameApiSteam? steamGame;
   final List<ApiSettingDomain> apiSettings;
   final List<CustomDataSourceDomain> customDataSources;
   final String? lastError;
@@ -24,6 +26,7 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
 
   const ApiSettingsLoadSuccess({
     this.steamId,
+    this.steamGame,
     this.apiSettings = const [],
     this.customDataSources = const [],
     this.lastError,
@@ -34,6 +37,7 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
 
   ApiSettingsLoadSuccess copyWith({
     String? steamId,
+    GameApiSteam? steamGame,
     List<ApiSettingDomain>? apiSettings,
     List<CustomDataSourceDomain>? customDataSources,
     String? lastError,
@@ -43,6 +47,7 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
   }) {
     return ApiSettingsLoadSuccess(
       steamId: steamId ?? this.steamId,
+      steamGame: steamGame ?? this.steamGame,
       apiSettings: apiSettings ?? this.apiSettings,
       customDataSources: customDataSources ?? this.customDataSources,
       lastError: lastError,
@@ -56,6 +61,7 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
   @override
   List<Object?> get props => [
     steamId,
+    steamGame,
     apiSettings,
     customDataSources,
     lastError,

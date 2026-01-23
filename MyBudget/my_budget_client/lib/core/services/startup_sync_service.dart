@@ -47,6 +47,8 @@ class StartupSyncService {
       return;
     }
 
+    final now = DateTime.now();
+
     // 2. Detect region on first launch if not set
     final inflationCountryRef = await _settingsRepository.getSetting(
       'default_inflation_country',
@@ -71,6 +73,13 @@ class StartupSyncService {
     final apiSettings = await _apiSettingsRepository.getAllSettings();
     for (final setting in apiSettings) {
       if (setting.enabled && setting.autoFetch) {
+        if (setting.lastFetchAt != null &&
+            _isSameDay(now, setting.lastFetchAt!)) {
+          debugPrint(
+            '[StartupSyncService] Built-in API ${setting.id} already fetched today. Skipping.',
+          );
+          continue;
+        }
         debugPrint('[StartupSyncService] Fetching ${setting.id}...');
         await _fetchBuiltInApi(setting.id);
       }
@@ -80,10 +89,27 @@ class StartupSyncService {
     final customSources = await _customDataSourceRepository.getAllDataSources();
     for (final source in customSources) {
       if (source.enabled && source.autoFetch) {
+        if (source.lastFetchAt != null &&
+            _isSameDay(now, source.lastFetchAt!)) {
+          debugPrint(
+            '[StartupSyncService] Custom source ${source.name} already fetched today. Skipping.',
+          );
+          continue;
+        }
         debugPrint(
           '[StartupSyncService] Fetching custom source: ${source.name} (${source.url})...',
         );
-        await _customApiService.fetchCustomData(source.url);
+        try {
+          await _customApiService.fetchCustomData(source.url);
+          // Update lastFetchAt
+          await _customDataSourceRepository.saveDataSource(
+            source.copyWith(lastFetchAt: DateTime.now()),
+          );
+        } catch (e) {
+          debugPrint(
+            '[StartupSyncService] Error fetching custom source ${source.name}: $e',
+          );
+        }
       }
     }
 
@@ -104,6 +130,10 @@ class StartupSyncService {
     }
 
     debugPrint('[StartupSyncService] Startup sync completed.');
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   Future<void> _fetchBuiltInApi(String id) async {
@@ -130,27 +160,35 @@ class StartupSyncService {
             range,
           );
           break;
-        case 'steam_inventory': // Assuming 'steam_inventory' is the ID used in seed data, need to verify.
-          // Actually, seed data might use a different ID. Let's check or be safe.
-          // Based on previous files, 'steam' or similar?
-          // Let's check logic in initialization_data.dart: it reads 'steam_id' setting.
+        case 'steam_inventory':
+        case 'assets':
           final steamIdSetting = await _settingsRepository.getSetting(
             'steam_id',
           );
+          final steamGameSetting = await _settingsRepository.getSetting(
+            'steam_game',
+          );
+
           if (steamIdSetting != null && steamIdSetting.value.isNotEmpty) {
             final accountId = int.tryParse(steamIdSetting.value);
             if (accountId != null) {
+              GameApiSteam game = GameApiSteam.cs2;
+              if (steamGameSetting != null) {
+                game = GameApiSteam.values.firstWhere(
+                  (g) => g.name == steamGameSetting.value,
+                  orElse: () => GameApiSteam.cs2,
+                );
+              }
+
+              debugPrint(
+                '[StartupSyncService] Fetching Steam items for $game...',
+              );
               await _steamInventoryApiService.fetchSteamInventoryValue(
                 accountId,
-                GameApiSteam.cs2,
+                game,
               );
             }
           }
-          break;
-        case 'assets':
-          // Asset prices might be handled by one of the above or a separate service?
-          // ExternalData has getCurrenciesFromFreeExchangeRates but that's part of exchange rates.
-          // Leaving placeholder for now if 'assets' ID exists.
           break;
         default:
           debugPrint('[StartupSyncService] Unknown built-in API ID: $id');
