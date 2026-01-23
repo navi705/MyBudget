@@ -7969,6 +7969,1381 @@ class ApiFetchStatusesCompanion extends UpdateCompanion<ApiFetchStatus> {
   }
 }
 
+class $ApiSettingsTableTable extends ApiSettingsTable
+    with TableInfo<$ApiSettingsTableTable, ApiSettingsTableData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ApiSettingsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _enabledMeta = const VerificationMeta(
+    'enabled',
+  );
+  @override
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+    'enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _autoFetchMeta = const VerificationMeta(
+    'autoFetch',
+  );
+  @override
+  late final GeneratedColumn<bool> autoFetch = GeneratedColumn<bool>(
+    'auto_fetch',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auto_fetch" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _lastFetchAtMeta = const VerificationMeta(
+    'lastFetchAt',
+  );
+  @override
+  late final GeneratedColumn<int> lastFetchAt = GeneratedColumn<int>(
+    'last_fetch_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _modifiedAtMeta = const VerificationMeta(
+    'modifiedAt',
+  );
+  @override
+  late final GeneratedColumn<int> modifiedAt = GeneratedColumn<int>(
+    'modified_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    enabled,
+    autoFetch,
+    lastFetchAt,
+    modifiedAt,
+    deviceId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'api_settings_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ApiSettingsTableData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('enabled')) {
+      context.handle(
+        _enabledMeta,
+        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
+      );
+    }
+    if (data.containsKey('auto_fetch')) {
+      context.handle(
+        _autoFetchMeta,
+        autoFetch.isAcceptableOrUnknown(data['auto_fetch']!, _autoFetchMeta),
+      );
+    }
+    if (data.containsKey('last_fetch_at')) {
+      context.handle(
+        _lastFetchAtMeta,
+        lastFetchAt.isAcceptableOrUnknown(
+          data['last_fetch_at']!,
+          _lastFetchAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('modified_at')) {
+      context.handle(
+        _modifiedAtMeta,
+        modifiedAt.isAcceptableOrUnknown(data['modified_at']!, _modifiedAtMeta),
+      );
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ApiSettingsTableData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ApiSettingsTableData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      enabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}enabled'],
+      )!,
+      autoFetch: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auto_fetch'],
+      )!,
+      lastFetchAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_fetch_at'],
+      ),
+      modifiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}modified_at'],
+      )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      ),
+    );
+  }
+
+  @override
+  $ApiSettingsTableTable createAlias(String alias) {
+    return $ApiSettingsTableTable(attachedDatabase, alias);
+  }
+}
+
+class ApiSettingsTableData extends DataClass
+    implements Insertable<ApiSettingsTableData> {
+  final String id;
+  final bool enabled;
+  final bool autoFetch;
+  final int? lastFetchAt;
+  final int modifiedAt;
+  final String? deviceId;
+  const ApiSettingsTableData({
+    required this.id,
+    required this.enabled,
+    required this.autoFetch,
+    this.lastFetchAt,
+    required this.modifiedAt,
+    this.deviceId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['enabled'] = Variable<bool>(enabled);
+    map['auto_fetch'] = Variable<bool>(autoFetch);
+    if (!nullToAbsent || lastFetchAt != null) {
+      map['last_fetch_at'] = Variable<int>(lastFetchAt);
+    }
+    map['modified_at'] = Variable<int>(modifiedAt);
+    if (!nullToAbsent || deviceId != null) {
+      map['device_id'] = Variable<String>(deviceId);
+    }
+    return map;
+  }
+
+  ApiSettingsTableCompanion toCompanion(bool nullToAbsent) {
+    return ApiSettingsTableCompanion(
+      id: Value(id),
+      enabled: Value(enabled),
+      autoFetch: Value(autoFetch),
+      lastFetchAt: lastFetchAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastFetchAt),
+      modifiedAt: Value(modifiedAt),
+      deviceId: deviceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deviceId),
+    );
+  }
+
+  factory ApiSettingsTableData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ApiSettingsTableData(
+      id: serializer.fromJson<String>(json['id']),
+      enabled: serializer.fromJson<bool>(json['enabled']),
+      autoFetch: serializer.fromJson<bool>(json['autoFetch']),
+      lastFetchAt: serializer.fromJson<int?>(json['lastFetchAt']),
+      modifiedAt: serializer.fromJson<int>(json['modifiedAt']),
+      deviceId: serializer.fromJson<String?>(json['deviceId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'enabled': serializer.toJson<bool>(enabled),
+      'autoFetch': serializer.toJson<bool>(autoFetch),
+      'lastFetchAt': serializer.toJson<int?>(lastFetchAt),
+      'modifiedAt': serializer.toJson<int>(modifiedAt),
+      'deviceId': serializer.toJson<String?>(deviceId),
+    };
+  }
+
+  ApiSettingsTableData copyWith({
+    String? id,
+    bool? enabled,
+    bool? autoFetch,
+    Value<int?> lastFetchAt = const Value.absent(),
+    int? modifiedAt,
+    Value<String?> deviceId = const Value.absent(),
+  }) => ApiSettingsTableData(
+    id: id ?? this.id,
+    enabled: enabled ?? this.enabled,
+    autoFetch: autoFetch ?? this.autoFetch,
+    lastFetchAt: lastFetchAt.present ? lastFetchAt.value : this.lastFetchAt,
+    modifiedAt: modifiedAt ?? this.modifiedAt,
+    deviceId: deviceId.present ? deviceId.value : this.deviceId,
+  );
+  ApiSettingsTableData copyWithCompanion(ApiSettingsTableCompanion data) {
+    return ApiSettingsTableData(
+      id: data.id.present ? data.id.value : this.id,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
+      autoFetch: data.autoFetch.present ? data.autoFetch.value : this.autoFetch,
+      lastFetchAt: data.lastFetchAt.present
+          ? data.lastFetchAt.value
+          : this.lastFetchAt,
+      modifiedAt: data.modifiedAt.present
+          ? data.modifiedAt.value
+          : this.modifiedAt,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ApiSettingsTableData(')
+          ..write('id: $id, ')
+          ..write('enabled: $enabled, ')
+          ..write('autoFetch: $autoFetch, ')
+          ..write('lastFetchAt: $lastFetchAt, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('deviceId: $deviceId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, enabled, autoFetch, lastFetchAt, modifiedAt, deviceId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ApiSettingsTableData &&
+          other.id == this.id &&
+          other.enabled == this.enabled &&
+          other.autoFetch == this.autoFetch &&
+          other.lastFetchAt == this.lastFetchAt &&
+          other.modifiedAt == this.modifiedAt &&
+          other.deviceId == this.deviceId);
+}
+
+class ApiSettingsTableCompanion extends UpdateCompanion<ApiSettingsTableData> {
+  final Value<String> id;
+  final Value<bool> enabled;
+  final Value<bool> autoFetch;
+  final Value<int?> lastFetchAt;
+  final Value<int> modifiedAt;
+  final Value<String?> deviceId;
+  final Value<int> rowid;
+  const ApiSettingsTableCompanion({
+    this.id = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.autoFetch = const Value.absent(),
+    this.lastFetchAt = const Value.absent(),
+    this.modifiedAt = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ApiSettingsTableCompanion.insert({
+    required String id,
+    this.enabled = const Value.absent(),
+    this.autoFetch = const Value.absent(),
+    this.lastFetchAt = const Value.absent(),
+    this.modifiedAt = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id);
+  static Insertable<ApiSettingsTableData> custom({
+    Expression<String>? id,
+    Expression<bool>? enabled,
+    Expression<bool>? autoFetch,
+    Expression<int>? lastFetchAt,
+    Expression<int>? modifiedAt,
+    Expression<String>? deviceId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (enabled != null) 'enabled': enabled,
+      if (autoFetch != null) 'auto_fetch': autoFetch,
+      if (lastFetchAt != null) 'last_fetch_at': lastFetchAt,
+      if (modifiedAt != null) 'modified_at': modifiedAt,
+      if (deviceId != null) 'device_id': deviceId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ApiSettingsTableCompanion copyWith({
+    Value<String>? id,
+    Value<bool>? enabled,
+    Value<bool>? autoFetch,
+    Value<int?>? lastFetchAt,
+    Value<int>? modifiedAt,
+    Value<String?>? deviceId,
+    Value<int>? rowid,
+  }) {
+    return ApiSettingsTableCompanion(
+      id: id ?? this.id,
+      enabled: enabled ?? this.enabled,
+      autoFetch: autoFetch ?? this.autoFetch,
+      lastFetchAt: lastFetchAt ?? this.lastFetchAt,
+      modifiedAt: modifiedAt ?? this.modifiedAt,
+      deviceId: deviceId ?? this.deviceId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
+    if (autoFetch.present) {
+      map['auto_fetch'] = Variable<bool>(autoFetch.value);
+    }
+    if (lastFetchAt.present) {
+      map['last_fetch_at'] = Variable<int>(lastFetchAt.value);
+    }
+    if (modifiedAt.present) {
+      map['modified_at'] = Variable<int>(modifiedAt.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ApiSettingsTableCompanion(')
+          ..write('id: $id, ')
+          ..write('enabled: $enabled, ')
+          ..write('autoFetch: $autoFetch, ')
+          ..write('lastFetchAt: $lastFetchAt, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SmsPresetsTable extends SmsPresets
+    with TableInfo<$SmsPresetsTable, SmsPreset> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SmsPresetsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    clientDefault: () => _uuid.v4(),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _senderFilterMeta = const VerificationMeta(
+    'senderFilter',
+  );
+  @override
+  late final GeneratedColumn<String> senderFilter = GeneratedColumn<String>(
+    'sender_filter',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isBuiltInMeta = const VerificationMeta(
+    'isBuiltIn',
+  );
+  @override
+  late final GeneratedColumn<bool> isBuiltIn = GeneratedColumn<bool>(
+    'is_built_in',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_built_in" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isEnabledMeta = const VerificationMeta(
+    'isEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> isEnabled = GeneratedColumn<bool>(
+    'is_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _defaultAccountIdMeta = const VerificationMeta(
+    'defaultAccountId',
+  );
+  @override
+  late final GeneratedColumn<String> defaultAccountId = GeneratedColumn<String>(
+    'default_account_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _defaultCategoryIdMeta = const VerificationMeta(
+    'defaultCategoryId',
+  );
+  @override
+  late final GeneratedColumn<String> defaultCategoryId =
+      GeneratedColumn<String>(
+        'default_category_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _rulesJsonMeta = const VerificationMeta(
+    'rulesJson',
+  );
+  @override
+  late final GeneratedColumn<String> rulesJson = GeneratedColumn<String>(
+    'rules_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _modifiedAtMeta = const VerificationMeta(
+    'modifiedAt',
+  );
+  @override
+  late final GeneratedColumn<int> modifiedAt = GeneratedColumn<int>(
+    'modified_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    senderFilter,
+    isBuiltIn,
+    isEnabled,
+    defaultAccountId,
+    defaultCategoryId,
+    rulesJson,
+    modifiedAt,
+    deviceId,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sms_presets';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SmsPreset> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('sender_filter')) {
+      context.handle(
+        _senderFilterMeta,
+        senderFilter.isAcceptableOrUnknown(
+          data['sender_filter']!,
+          _senderFilterMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_senderFilterMeta);
+    }
+    if (data.containsKey('is_built_in')) {
+      context.handle(
+        _isBuiltInMeta,
+        isBuiltIn.isAcceptableOrUnknown(data['is_built_in']!, _isBuiltInMeta),
+      );
+    }
+    if (data.containsKey('is_enabled')) {
+      context.handle(
+        _isEnabledMeta,
+        isEnabled.isAcceptableOrUnknown(data['is_enabled']!, _isEnabledMeta),
+      );
+    }
+    if (data.containsKey('default_account_id')) {
+      context.handle(
+        _defaultAccountIdMeta,
+        defaultAccountId.isAcceptableOrUnknown(
+          data['default_account_id']!,
+          _defaultAccountIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('default_category_id')) {
+      context.handle(
+        _defaultCategoryIdMeta,
+        defaultCategoryId.isAcceptableOrUnknown(
+          data['default_category_id']!,
+          _defaultCategoryIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rules_json')) {
+      context.handle(
+        _rulesJsonMeta,
+        rulesJson.isAcceptableOrUnknown(data['rules_json']!, _rulesJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_rulesJsonMeta);
+    }
+    if (data.containsKey('modified_at')) {
+      context.handle(
+        _modifiedAtMeta,
+        modifiedAt.isAcceptableOrUnknown(data['modified_at']!, _modifiedAtMeta),
+      );
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SmsPreset map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SmsPreset(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      senderFilter: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_filter'],
+      )!,
+      isBuiltIn: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_built_in'],
+      )!,
+      isEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_enabled'],
+      )!,
+      defaultAccountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}default_account_id'],
+      ),
+      defaultCategoryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}default_category_id'],
+      ),
+      rulesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rules_json'],
+      )!,
+      modifiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}modified_at'],
+      )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $SmsPresetsTable createAlias(String alias) {
+    return $SmsPresetsTable(attachedDatabase, alias);
+  }
+}
+
+class SmsPreset extends DataClass implements Insertable<SmsPreset> {
+  final String id;
+  final String name;
+  final String senderFilter;
+  final bool isBuiltIn;
+  final bool isEnabled;
+  final String? defaultAccountId;
+  final String? defaultCategoryId;
+  final String rulesJson;
+  final int modifiedAt;
+  final String? deviceId;
+  final bool isDeleted;
+  const SmsPreset({
+    required this.id,
+    required this.name,
+    required this.senderFilter,
+    required this.isBuiltIn,
+    required this.isEnabled,
+    this.defaultAccountId,
+    this.defaultCategoryId,
+    required this.rulesJson,
+    required this.modifiedAt,
+    this.deviceId,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['sender_filter'] = Variable<String>(senderFilter);
+    map['is_built_in'] = Variable<bool>(isBuiltIn);
+    map['is_enabled'] = Variable<bool>(isEnabled);
+    if (!nullToAbsent || defaultAccountId != null) {
+      map['default_account_id'] = Variable<String>(defaultAccountId);
+    }
+    if (!nullToAbsent || defaultCategoryId != null) {
+      map['default_category_id'] = Variable<String>(defaultCategoryId);
+    }
+    map['rules_json'] = Variable<String>(rulesJson);
+    map['modified_at'] = Variable<int>(modifiedAt);
+    if (!nullToAbsent || deviceId != null) {
+      map['device_id'] = Variable<String>(deviceId);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  SmsPresetsCompanion toCompanion(bool nullToAbsent) {
+    return SmsPresetsCompanion(
+      id: Value(id),
+      name: Value(name),
+      senderFilter: Value(senderFilter),
+      isBuiltIn: Value(isBuiltIn),
+      isEnabled: Value(isEnabled),
+      defaultAccountId: defaultAccountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(defaultAccountId),
+      defaultCategoryId: defaultCategoryId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(defaultCategoryId),
+      rulesJson: Value(rulesJson),
+      modifiedAt: Value(modifiedAt),
+      deviceId: deviceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deviceId),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory SmsPreset.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SmsPreset(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      senderFilter: serializer.fromJson<String>(json['senderFilter']),
+      isBuiltIn: serializer.fromJson<bool>(json['isBuiltIn']),
+      isEnabled: serializer.fromJson<bool>(json['isEnabled']),
+      defaultAccountId: serializer.fromJson<String?>(json['defaultAccountId']),
+      defaultCategoryId: serializer.fromJson<String?>(
+        json['defaultCategoryId'],
+      ),
+      rulesJson: serializer.fromJson<String>(json['rulesJson']),
+      modifiedAt: serializer.fromJson<int>(json['modifiedAt']),
+      deviceId: serializer.fromJson<String?>(json['deviceId']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'senderFilter': serializer.toJson<String>(senderFilter),
+      'isBuiltIn': serializer.toJson<bool>(isBuiltIn),
+      'isEnabled': serializer.toJson<bool>(isEnabled),
+      'defaultAccountId': serializer.toJson<String?>(defaultAccountId),
+      'defaultCategoryId': serializer.toJson<String?>(defaultCategoryId),
+      'rulesJson': serializer.toJson<String>(rulesJson),
+      'modifiedAt': serializer.toJson<int>(modifiedAt),
+      'deviceId': serializer.toJson<String?>(deviceId),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  SmsPreset copyWith({
+    String? id,
+    String? name,
+    String? senderFilter,
+    bool? isBuiltIn,
+    bool? isEnabled,
+    Value<String?> defaultAccountId = const Value.absent(),
+    Value<String?> defaultCategoryId = const Value.absent(),
+    String? rulesJson,
+    int? modifiedAt,
+    Value<String?> deviceId = const Value.absent(),
+    bool? isDeleted,
+  }) => SmsPreset(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    senderFilter: senderFilter ?? this.senderFilter,
+    isBuiltIn: isBuiltIn ?? this.isBuiltIn,
+    isEnabled: isEnabled ?? this.isEnabled,
+    defaultAccountId: defaultAccountId.present
+        ? defaultAccountId.value
+        : this.defaultAccountId,
+    defaultCategoryId: defaultCategoryId.present
+        ? defaultCategoryId.value
+        : this.defaultCategoryId,
+    rulesJson: rulesJson ?? this.rulesJson,
+    modifiedAt: modifiedAt ?? this.modifiedAt,
+    deviceId: deviceId.present ? deviceId.value : this.deviceId,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  SmsPreset copyWithCompanion(SmsPresetsCompanion data) {
+    return SmsPreset(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      senderFilter: data.senderFilter.present
+          ? data.senderFilter.value
+          : this.senderFilter,
+      isBuiltIn: data.isBuiltIn.present ? data.isBuiltIn.value : this.isBuiltIn,
+      isEnabled: data.isEnabled.present ? data.isEnabled.value : this.isEnabled,
+      defaultAccountId: data.defaultAccountId.present
+          ? data.defaultAccountId.value
+          : this.defaultAccountId,
+      defaultCategoryId: data.defaultCategoryId.present
+          ? data.defaultCategoryId.value
+          : this.defaultCategoryId,
+      rulesJson: data.rulesJson.present ? data.rulesJson.value : this.rulesJson,
+      modifiedAt: data.modifiedAt.present
+          ? data.modifiedAt.value
+          : this.modifiedAt,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SmsPreset(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('senderFilter: $senderFilter, ')
+          ..write('isBuiltIn: $isBuiltIn, ')
+          ..write('isEnabled: $isEnabled, ')
+          ..write('defaultAccountId: $defaultAccountId, ')
+          ..write('defaultCategoryId: $defaultCategoryId, ')
+          ..write('rulesJson: $rulesJson, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    senderFilter,
+    isBuiltIn,
+    isEnabled,
+    defaultAccountId,
+    defaultCategoryId,
+    rulesJson,
+    modifiedAt,
+    deviceId,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SmsPreset &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.senderFilter == this.senderFilter &&
+          other.isBuiltIn == this.isBuiltIn &&
+          other.isEnabled == this.isEnabled &&
+          other.defaultAccountId == this.defaultAccountId &&
+          other.defaultCategoryId == this.defaultCategoryId &&
+          other.rulesJson == this.rulesJson &&
+          other.modifiedAt == this.modifiedAt &&
+          other.deviceId == this.deviceId &&
+          other.isDeleted == this.isDeleted);
+}
+
+class SmsPresetsCompanion extends UpdateCompanion<SmsPreset> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> senderFilter;
+  final Value<bool> isBuiltIn;
+  final Value<bool> isEnabled;
+  final Value<String?> defaultAccountId;
+  final Value<String?> defaultCategoryId;
+  final Value<String> rulesJson;
+  final Value<int> modifiedAt;
+  final Value<String?> deviceId;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const SmsPresetsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.senderFilter = const Value.absent(),
+    this.isBuiltIn = const Value.absent(),
+    this.isEnabled = const Value.absent(),
+    this.defaultAccountId = const Value.absent(),
+    this.defaultCategoryId = const Value.absent(),
+    this.rulesJson = const Value.absent(),
+    this.modifiedAt = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SmsPresetsCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    required String senderFilter,
+    this.isBuiltIn = const Value.absent(),
+    this.isEnabled = const Value.absent(),
+    this.defaultAccountId = const Value.absent(),
+    this.defaultCategoryId = const Value.absent(),
+    required String rulesJson,
+    this.modifiedAt = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : name = Value(name),
+       senderFilter = Value(senderFilter),
+       rulesJson = Value(rulesJson);
+  static Insertable<SmsPreset> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? senderFilter,
+    Expression<bool>? isBuiltIn,
+    Expression<bool>? isEnabled,
+    Expression<String>? defaultAccountId,
+    Expression<String>? defaultCategoryId,
+    Expression<String>? rulesJson,
+    Expression<int>? modifiedAt,
+    Expression<String>? deviceId,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (senderFilter != null) 'sender_filter': senderFilter,
+      if (isBuiltIn != null) 'is_built_in': isBuiltIn,
+      if (isEnabled != null) 'is_enabled': isEnabled,
+      if (defaultAccountId != null) 'default_account_id': defaultAccountId,
+      if (defaultCategoryId != null) 'default_category_id': defaultCategoryId,
+      if (rulesJson != null) 'rules_json': rulesJson,
+      if (modifiedAt != null) 'modified_at': modifiedAt,
+      if (deviceId != null) 'device_id': deviceId,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SmsPresetsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? senderFilter,
+    Value<bool>? isBuiltIn,
+    Value<bool>? isEnabled,
+    Value<String?>? defaultAccountId,
+    Value<String?>? defaultCategoryId,
+    Value<String>? rulesJson,
+    Value<int>? modifiedAt,
+    Value<String?>? deviceId,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return SmsPresetsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      senderFilter: senderFilter ?? this.senderFilter,
+      isBuiltIn: isBuiltIn ?? this.isBuiltIn,
+      isEnabled: isEnabled ?? this.isEnabled,
+      defaultAccountId: defaultAccountId ?? this.defaultAccountId,
+      defaultCategoryId: defaultCategoryId ?? this.defaultCategoryId,
+      rulesJson: rulesJson ?? this.rulesJson,
+      modifiedAt: modifiedAt ?? this.modifiedAt,
+      deviceId: deviceId ?? this.deviceId,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (senderFilter.present) {
+      map['sender_filter'] = Variable<String>(senderFilter.value);
+    }
+    if (isBuiltIn.present) {
+      map['is_built_in'] = Variable<bool>(isBuiltIn.value);
+    }
+    if (isEnabled.present) {
+      map['is_enabled'] = Variable<bool>(isEnabled.value);
+    }
+    if (defaultAccountId.present) {
+      map['default_account_id'] = Variable<String>(defaultAccountId.value);
+    }
+    if (defaultCategoryId.present) {
+      map['default_category_id'] = Variable<String>(defaultCategoryId.value);
+    }
+    if (rulesJson.present) {
+      map['rules_json'] = Variable<String>(rulesJson.value);
+    }
+    if (modifiedAt.present) {
+      map['modified_at'] = Variable<int>(modifiedAt.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SmsPresetsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('senderFilter: $senderFilter, ')
+          ..write('isBuiltIn: $isBuiltIn, ')
+          ..write('isEnabled: $isEnabled, ')
+          ..write('defaultAccountId: $defaultAccountId, ')
+          ..write('defaultCategoryId: $defaultCategoryId, ')
+          ..write('rulesJson: $rulesJson, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncProcessedFilesTable extends SyncProcessedFiles
+    with TableInfo<$SyncProcessedFilesTable, SyncProcessedFile> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncProcessedFilesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _fileNameMeta = const VerificationMeta(
+    'fileName',
+  );
+  @override
+  late final GeneratedColumn<String> fileName = GeneratedColumn<String>(
+    'file_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _processedAtMeta = const VerificationMeta(
+    'processedAt',
+  );
+  @override
+  late final GeneratedColumn<int> processedAt = GeneratedColumn<int>(
+    'processed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [fileName, processedAt, deviceId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_processed_files';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncProcessedFile> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('file_name')) {
+      context.handle(
+        _fileNameMeta,
+        fileName.isAcceptableOrUnknown(data['file_name']!, _fileNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fileNameMeta);
+    }
+    if (data.containsKey('processed_at')) {
+      context.handle(
+        _processedAtMeta,
+        processedAt.isAcceptableOrUnknown(
+          data['processed_at']!,
+          _processedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_processedAtMeta);
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {fileName};
+  @override
+  SyncProcessedFile map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncProcessedFile(
+      fileName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_name'],
+      )!,
+      processedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}processed_at'],
+      )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncProcessedFilesTable createAlias(String alias) {
+    return $SyncProcessedFilesTable(attachedDatabase, alias);
+  }
+}
+
+class SyncProcessedFile extends DataClass
+    implements Insertable<SyncProcessedFile> {
+  final String fileName;
+  final int processedAt;
+  final String deviceId;
+  const SyncProcessedFile({
+    required this.fileName,
+    required this.processedAt,
+    required this.deviceId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['file_name'] = Variable<String>(fileName);
+    map['processed_at'] = Variable<int>(processedAt);
+    map['device_id'] = Variable<String>(deviceId);
+    return map;
+  }
+
+  SyncProcessedFilesCompanion toCompanion(bool nullToAbsent) {
+    return SyncProcessedFilesCompanion(
+      fileName: Value(fileName),
+      processedAt: Value(processedAt),
+      deviceId: Value(deviceId),
+    );
+  }
+
+  factory SyncProcessedFile.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncProcessedFile(
+      fileName: serializer.fromJson<String>(json['fileName']),
+      processedAt: serializer.fromJson<int>(json['processedAt']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'fileName': serializer.toJson<String>(fileName),
+      'processedAt': serializer.toJson<int>(processedAt),
+      'deviceId': serializer.toJson<String>(deviceId),
+    };
+  }
+
+  SyncProcessedFile copyWith({
+    String? fileName,
+    int? processedAt,
+    String? deviceId,
+  }) => SyncProcessedFile(
+    fileName: fileName ?? this.fileName,
+    processedAt: processedAt ?? this.processedAt,
+    deviceId: deviceId ?? this.deviceId,
+  );
+  SyncProcessedFile copyWithCompanion(SyncProcessedFilesCompanion data) {
+    return SyncProcessedFile(
+      fileName: data.fileName.present ? data.fileName.value : this.fileName,
+      processedAt: data.processedAt.present
+          ? data.processedAt.value
+          : this.processedAt,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncProcessedFile(')
+          ..write('fileName: $fileName, ')
+          ..write('processedAt: $processedAt, ')
+          ..write('deviceId: $deviceId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(fileName, processedAt, deviceId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncProcessedFile &&
+          other.fileName == this.fileName &&
+          other.processedAt == this.processedAt &&
+          other.deviceId == this.deviceId);
+}
+
+class SyncProcessedFilesCompanion extends UpdateCompanion<SyncProcessedFile> {
+  final Value<String> fileName;
+  final Value<int> processedAt;
+  final Value<String> deviceId;
+  final Value<int> rowid;
+  const SyncProcessedFilesCompanion({
+    this.fileName = const Value.absent(),
+    this.processedAt = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncProcessedFilesCompanion.insert({
+    required String fileName,
+    required int processedAt,
+    required String deviceId,
+    this.rowid = const Value.absent(),
+  }) : fileName = Value(fileName),
+       processedAt = Value(processedAt),
+       deviceId = Value(deviceId);
+  static Insertable<SyncProcessedFile> custom({
+    Expression<String>? fileName,
+    Expression<int>? processedAt,
+    Expression<String>? deviceId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (fileName != null) 'file_name': fileName,
+      if (processedAt != null) 'processed_at': processedAt,
+      if (deviceId != null) 'device_id': deviceId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncProcessedFilesCompanion copyWith({
+    Value<String>? fileName,
+    Value<int>? processedAt,
+    Value<String>? deviceId,
+    Value<int>? rowid,
+  }) {
+    return SyncProcessedFilesCompanion(
+      fileName: fileName ?? this.fileName,
+      processedAt: processedAt ?? this.processedAt,
+      deviceId: deviceId ?? this.deviceId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (fileName.present) {
+      map['file_name'] = Variable<String>(fileName.value);
+    }
+    if (processedAt.present) {
+      map['processed_at'] = Variable<int>(processedAt.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncProcessedFilesCompanion(')
+          ..write('fileName: $fileName, ')
+          ..write('processedAt: $processedAt, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $SyncLogTable extends SyncLog with TableInfo<$SyncLogTable, SyncLogData> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -9420,1106 +10795,6 @@ class CustomDataSourcesCompanion extends UpdateCompanion<CustomDataSource> {
   }
 }
 
-class $ApiSettingsTableTable extends ApiSettingsTable
-    with TableInfo<$ApiSettingsTableTable, ApiSettingsTableData> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $ApiSettingsTableTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
-    'id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _enabledMeta = const VerificationMeta(
-    'enabled',
-  );
-  @override
-  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
-    'enabled',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("enabled" IN (0, 1))',
-    ),
-    defaultValue: const Constant(true),
-  );
-  static const VerificationMeta _autoFetchMeta = const VerificationMeta(
-    'autoFetch',
-  );
-  @override
-  late final GeneratedColumn<bool> autoFetch = GeneratedColumn<bool>(
-    'auto_fetch',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("auto_fetch" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
-  static const VerificationMeta _lastFetchAtMeta = const VerificationMeta(
-    'lastFetchAt',
-  );
-  @override
-  late final GeneratedColumn<int> lastFetchAt = GeneratedColumn<int>(
-    'last_fetch_at',
-    aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _modifiedAtMeta = const VerificationMeta(
-    'modifiedAt',
-  );
-  @override
-  late final GeneratedColumn<int> modifiedAt = GeneratedColumn<int>(
-    'modified_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(0),
-  );
-  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
-    'deviceId',
-  );
-  @override
-  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
-    'device_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    enabled,
-    autoFetch,
-    lastFetchAt,
-    modifiedAt,
-    deviceId,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'api_settings_table';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<ApiSettingsTableData> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
-    }
-    if (data.containsKey('enabled')) {
-      context.handle(
-        _enabledMeta,
-        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
-      );
-    }
-    if (data.containsKey('auto_fetch')) {
-      context.handle(
-        _autoFetchMeta,
-        autoFetch.isAcceptableOrUnknown(data['auto_fetch']!, _autoFetchMeta),
-      );
-    }
-    if (data.containsKey('last_fetch_at')) {
-      context.handle(
-        _lastFetchAtMeta,
-        lastFetchAt.isAcceptableOrUnknown(
-          data['last_fetch_at']!,
-          _lastFetchAtMeta,
-        ),
-      );
-    }
-    if (data.containsKey('modified_at')) {
-      context.handle(
-        _modifiedAtMeta,
-        modifiedAt.isAcceptableOrUnknown(data['modified_at']!, _modifiedAtMeta),
-      );
-    }
-    if (data.containsKey('device_id')) {
-      context.handle(
-        _deviceIdMeta,
-        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  ApiSettingsTableData map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return ApiSettingsTableData(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
-      enabled: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}enabled'],
-      )!,
-      autoFetch: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}auto_fetch'],
-      )!,
-      lastFetchAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}last_fetch_at'],
-      ),
-      modifiedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}modified_at'],
-      )!,
-      deviceId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}device_id'],
-      ),
-    );
-  }
-
-  @override
-  $ApiSettingsTableTable createAlias(String alias) {
-    return $ApiSettingsTableTable(attachedDatabase, alias);
-  }
-}
-
-class ApiSettingsTableData extends DataClass
-    implements Insertable<ApiSettingsTableData> {
-  final String id;
-  final bool enabled;
-  final bool autoFetch;
-  final int? lastFetchAt;
-  final int modifiedAt;
-  final String? deviceId;
-  const ApiSettingsTableData({
-    required this.id,
-    required this.enabled,
-    required this.autoFetch,
-    this.lastFetchAt,
-    required this.modifiedAt,
-    this.deviceId,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<String>(id);
-    map['enabled'] = Variable<bool>(enabled);
-    map['auto_fetch'] = Variable<bool>(autoFetch);
-    if (!nullToAbsent || lastFetchAt != null) {
-      map['last_fetch_at'] = Variable<int>(lastFetchAt);
-    }
-    map['modified_at'] = Variable<int>(modifiedAt);
-    if (!nullToAbsent || deviceId != null) {
-      map['device_id'] = Variable<String>(deviceId);
-    }
-    return map;
-  }
-
-  ApiSettingsTableCompanion toCompanion(bool nullToAbsent) {
-    return ApiSettingsTableCompanion(
-      id: Value(id),
-      enabled: Value(enabled),
-      autoFetch: Value(autoFetch),
-      lastFetchAt: lastFetchAt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(lastFetchAt),
-      modifiedAt: Value(modifiedAt),
-      deviceId: deviceId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(deviceId),
-    );
-  }
-
-  factory ApiSettingsTableData.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return ApiSettingsTableData(
-      id: serializer.fromJson<String>(json['id']),
-      enabled: serializer.fromJson<bool>(json['enabled']),
-      autoFetch: serializer.fromJson<bool>(json['autoFetch']),
-      lastFetchAt: serializer.fromJson<int?>(json['lastFetchAt']),
-      modifiedAt: serializer.fromJson<int>(json['modifiedAt']),
-      deviceId: serializer.fromJson<String?>(json['deviceId']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<String>(id),
-      'enabled': serializer.toJson<bool>(enabled),
-      'autoFetch': serializer.toJson<bool>(autoFetch),
-      'lastFetchAt': serializer.toJson<int?>(lastFetchAt),
-      'modifiedAt': serializer.toJson<int>(modifiedAt),
-      'deviceId': serializer.toJson<String?>(deviceId),
-    };
-  }
-
-  ApiSettingsTableData copyWith({
-    String? id,
-    bool? enabled,
-    bool? autoFetch,
-    Value<int?> lastFetchAt = const Value.absent(),
-    int? modifiedAt,
-    Value<String?> deviceId = const Value.absent(),
-  }) => ApiSettingsTableData(
-    id: id ?? this.id,
-    enabled: enabled ?? this.enabled,
-    autoFetch: autoFetch ?? this.autoFetch,
-    lastFetchAt: lastFetchAt.present ? lastFetchAt.value : this.lastFetchAt,
-    modifiedAt: modifiedAt ?? this.modifiedAt,
-    deviceId: deviceId.present ? deviceId.value : this.deviceId,
-  );
-  ApiSettingsTableData copyWithCompanion(ApiSettingsTableCompanion data) {
-    return ApiSettingsTableData(
-      id: data.id.present ? data.id.value : this.id,
-      enabled: data.enabled.present ? data.enabled.value : this.enabled,
-      autoFetch: data.autoFetch.present ? data.autoFetch.value : this.autoFetch,
-      lastFetchAt: data.lastFetchAt.present
-          ? data.lastFetchAt.value
-          : this.lastFetchAt,
-      modifiedAt: data.modifiedAt.present
-          ? data.modifiedAt.value
-          : this.modifiedAt,
-      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('ApiSettingsTableData(')
-          ..write('id: $id, ')
-          ..write('enabled: $enabled, ')
-          ..write('autoFetch: $autoFetch, ')
-          ..write('lastFetchAt: $lastFetchAt, ')
-          ..write('modifiedAt: $modifiedAt, ')
-          ..write('deviceId: $deviceId')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode =>
-      Object.hash(id, enabled, autoFetch, lastFetchAt, modifiedAt, deviceId);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is ApiSettingsTableData &&
-          other.id == this.id &&
-          other.enabled == this.enabled &&
-          other.autoFetch == this.autoFetch &&
-          other.lastFetchAt == this.lastFetchAt &&
-          other.modifiedAt == this.modifiedAt &&
-          other.deviceId == this.deviceId);
-}
-
-class ApiSettingsTableCompanion extends UpdateCompanion<ApiSettingsTableData> {
-  final Value<String> id;
-  final Value<bool> enabled;
-  final Value<bool> autoFetch;
-  final Value<int?> lastFetchAt;
-  final Value<int> modifiedAt;
-  final Value<String?> deviceId;
-  final Value<int> rowid;
-  const ApiSettingsTableCompanion({
-    this.id = const Value.absent(),
-    this.enabled = const Value.absent(),
-    this.autoFetch = const Value.absent(),
-    this.lastFetchAt = const Value.absent(),
-    this.modifiedAt = const Value.absent(),
-    this.deviceId = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  ApiSettingsTableCompanion.insert({
-    required String id,
-    this.enabled = const Value.absent(),
-    this.autoFetch = const Value.absent(),
-    this.lastFetchAt = const Value.absent(),
-    this.modifiedAt = const Value.absent(),
-    this.deviceId = const Value.absent(),
-    this.rowid = const Value.absent(),
-  }) : id = Value(id);
-  static Insertable<ApiSettingsTableData> custom({
-    Expression<String>? id,
-    Expression<bool>? enabled,
-    Expression<bool>? autoFetch,
-    Expression<int>? lastFetchAt,
-    Expression<int>? modifiedAt,
-    Expression<String>? deviceId,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (enabled != null) 'enabled': enabled,
-      if (autoFetch != null) 'auto_fetch': autoFetch,
-      if (lastFetchAt != null) 'last_fetch_at': lastFetchAt,
-      if (modifiedAt != null) 'modified_at': modifiedAt,
-      if (deviceId != null) 'device_id': deviceId,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  ApiSettingsTableCompanion copyWith({
-    Value<String>? id,
-    Value<bool>? enabled,
-    Value<bool>? autoFetch,
-    Value<int?>? lastFetchAt,
-    Value<int>? modifiedAt,
-    Value<String?>? deviceId,
-    Value<int>? rowid,
-  }) {
-    return ApiSettingsTableCompanion(
-      id: id ?? this.id,
-      enabled: enabled ?? this.enabled,
-      autoFetch: autoFetch ?? this.autoFetch,
-      lastFetchAt: lastFetchAt ?? this.lastFetchAt,
-      modifiedAt: modifiedAt ?? this.modifiedAt,
-      deviceId: deviceId ?? this.deviceId,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<String>(id.value);
-    }
-    if (enabled.present) {
-      map['enabled'] = Variable<bool>(enabled.value);
-    }
-    if (autoFetch.present) {
-      map['auto_fetch'] = Variable<bool>(autoFetch.value);
-    }
-    if (lastFetchAt.present) {
-      map['last_fetch_at'] = Variable<int>(lastFetchAt.value);
-    }
-    if (modifiedAt.present) {
-      map['modified_at'] = Variable<int>(modifiedAt.value);
-    }
-    if (deviceId.present) {
-      map['device_id'] = Variable<String>(deviceId.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('ApiSettingsTableCompanion(')
-          ..write('id: $id, ')
-          ..write('enabled: $enabled, ')
-          ..write('autoFetch: $autoFetch, ')
-          ..write('lastFetchAt: $lastFetchAt, ')
-          ..write('modifiedAt: $modifiedAt, ')
-          ..write('deviceId: $deviceId, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
-class $SmsPresetsTable extends SmsPresets
-    with TableInfo<$SmsPresetsTable, SmsPreset> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $SmsPresetsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
-    'id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    clientDefault: () => _uuid.v4(),
-  );
-  static const VerificationMeta _nameMeta = const VerificationMeta('name');
-  @override
-  late final GeneratedColumn<String> name = GeneratedColumn<String>(
-    'name',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _senderFilterMeta = const VerificationMeta(
-    'senderFilter',
-  );
-  @override
-  late final GeneratedColumn<String> senderFilter = GeneratedColumn<String>(
-    'sender_filter',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _isBuiltInMeta = const VerificationMeta(
-    'isBuiltIn',
-  );
-  @override
-  late final GeneratedColumn<bool> isBuiltIn = GeneratedColumn<bool>(
-    'is_built_in',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("is_built_in" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
-  static const VerificationMeta _isEnabledMeta = const VerificationMeta(
-    'isEnabled',
-  );
-  @override
-  late final GeneratedColumn<bool> isEnabled = GeneratedColumn<bool>(
-    'is_enabled',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("is_enabled" IN (0, 1))',
-    ),
-    defaultValue: const Constant(true),
-  );
-  static const VerificationMeta _defaultAccountIdMeta = const VerificationMeta(
-    'defaultAccountId',
-  );
-  @override
-  late final GeneratedColumn<String> defaultAccountId = GeneratedColumn<String>(
-    'default_account_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _defaultCategoryIdMeta = const VerificationMeta(
-    'defaultCategoryId',
-  );
-  @override
-  late final GeneratedColumn<String> defaultCategoryId =
-      GeneratedColumn<String>(
-        'default_category_id',
-        aliasedName,
-        true,
-        type: DriftSqlType.string,
-        requiredDuringInsert: false,
-      );
-  static const VerificationMeta _rulesJsonMeta = const VerificationMeta(
-    'rulesJson',
-  );
-  @override
-  late final GeneratedColumn<String> rulesJson = GeneratedColumn<String>(
-    'rules_json',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _modifiedAtMeta = const VerificationMeta(
-    'modifiedAt',
-  );
-  @override
-  late final GeneratedColumn<int> modifiedAt = GeneratedColumn<int>(
-    'modified_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(0),
-  );
-  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
-    'deviceId',
-  );
-  @override
-  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
-    'device_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
-    'isDeleted',
-  );
-  @override
-  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
-    'is_deleted',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("is_deleted" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    name,
-    senderFilter,
-    isBuiltIn,
-    isEnabled,
-    defaultAccountId,
-    defaultCategoryId,
-    rulesJson,
-    modifiedAt,
-    deviceId,
-    isDeleted,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'sms_presets';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<SmsPreset> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('name')) {
-      context.handle(
-        _nameMeta,
-        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_nameMeta);
-    }
-    if (data.containsKey('sender_filter')) {
-      context.handle(
-        _senderFilterMeta,
-        senderFilter.isAcceptableOrUnknown(
-          data['sender_filter']!,
-          _senderFilterMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_senderFilterMeta);
-    }
-    if (data.containsKey('is_built_in')) {
-      context.handle(
-        _isBuiltInMeta,
-        isBuiltIn.isAcceptableOrUnknown(data['is_built_in']!, _isBuiltInMeta),
-      );
-    }
-    if (data.containsKey('is_enabled')) {
-      context.handle(
-        _isEnabledMeta,
-        isEnabled.isAcceptableOrUnknown(data['is_enabled']!, _isEnabledMeta),
-      );
-    }
-    if (data.containsKey('default_account_id')) {
-      context.handle(
-        _defaultAccountIdMeta,
-        defaultAccountId.isAcceptableOrUnknown(
-          data['default_account_id']!,
-          _defaultAccountIdMeta,
-        ),
-      );
-    }
-    if (data.containsKey('default_category_id')) {
-      context.handle(
-        _defaultCategoryIdMeta,
-        defaultCategoryId.isAcceptableOrUnknown(
-          data['default_category_id']!,
-          _defaultCategoryIdMeta,
-        ),
-      );
-    }
-    if (data.containsKey('rules_json')) {
-      context.handle(
-        _rulesJsonMeta,
-        rulesJson.isAcceptableOrUnknown(data['rules_json']!, _rulesJsonMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_rulesJsonMeta);
-    }
-    if (data.containsKey('modified_at')) {
-      context.handle(
-        _modifiedAtMeta,
-        modifiedAt.isAcceptableOrUnknown(data['modified_at']!, _modifiedAtMeta),
-      );
-    }
-    if (data.containsKey('device_id')) {
-      context.handle(
-        _deviceIdMeta,
-        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
-      );
-    }
-    if (data.containsKey('is_deleted')) {
-      context.handle(
-        _isDeletedMeta,
-        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  SmsPreset map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return SmsPreset(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
-      name: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}name'],
-      )!,
-      senderFilter: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}sender_filter'],
-      )!,
-      isBuiltIn: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}is_built_in'],
-      )!,
-      isEnabled: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}is_enabled'],
-      )!,
-      defaultAccountId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}default_account_id'],
-      ),
-      defaultCategoryId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}default_category_id'],
-      ),
-      rulesJson: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}rules_json'],
-      )!,
-      modifiedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}modified_at'],
-      )!,
-      deviceId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}device_id'],
-      ),
-      isDeleted: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}is_deleted'],
-      )!,
-    );
-  }
-
-  @override
-  $SmsPresetsTable createAlias(String alias) {
-    return $SmsPresetsTable(attachedDatabase, alias);
-  }
-}
-
-class SmsPreset extends DataClass implements Insertable<SmsPreset> {
-  final String id;
-  final String name;
-  final String senderFilter;
-  final bool isBuiltIn;
-  final bool isEnabled;
-  final String? defaultAccountId;
-  final String? defaultCategoryId;
-  final String rulesJson;
-  final int modifiedAt;
-  final String? deviceId;
-  final bool isDeleted;
-  const SmsPreset({
-    required this.id,
-    required this.name,
-    required this.senderFilter,
-    required this.isBuiltIn,
-    required this.isEnabled,
-    this.defaultAccountId,
-    this.defaultCategoryId,
-    required this.rulesJson,
-    required this.modifiedAt,
-    this.deviceId,
-    required this.isDeleted,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<String>(id);
-    map['name'] = Variable<String>(name);
-    map['sender_filter'] = Variable<String>(senderFilter);
-    map['is_built_in'] = Variable<bool>(isBuiltIn);
-    map['is_enabled'] = Variable<bool>(isEnabled);
-    if (!nullToAbsent || defaultAccountId != null) {
-      map['default_account_id'] = Variable<String>(defaultAccountId);
-    }
-    if (!nullToAbsent || defaultCategoryId != null) {
-      map['default_category_id'] = Variable<String>(defaultCategoryId);
-    }
-    map['rules_json'] = Variable<String>(rulesJson);
-    map['modified_at'] = Variable<int>(modifiedAt);
-    if (!nullToAbsent || deviceId != null) {
-      map['device_id'] = Variable<String>(deviceId);
-    }
-    map['is_deleted'] = Variable<bool>(isDeleted);
-    return map;
-  }
-
-  SmsPresetsCompanion toCompanion(bool nullToAbsent) {
-    return SmsPresetsCompanion(
-      id: Value(id),
-      name: Value(name),
-      senderFilter: Value(senderFilter),
-      isBuiltIn: Value(isBuiltIn),
-      isEnabled: Value(isEnabled),
-      defaultAccountId: defaultAccountId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(defaultAccountId),
-      defaultCategoryId: defaultCategoryId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(defaultCategoryId),
-      rulesJson: Value(rulesJson),
-      modifiedAt: Value(modifiedAt),
-      deviceId: deviceId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(deviceId),
-      isDeleted: Value(isDeleted),
-    );
-  }
-
-  factory SmsPreset.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return SmsPreset(
-      id: serializer.fromJson<String>(json['id']),
-      name: serializer.fromJson<String>(json['name']),
-      senderFilter: serializer.fromJson<String>(json['senderFilter']),
-      isBuiltIn: serializer.fromJson<bool>(json['isBuiltIn']),
-      isEnabled: serializer.fromJson<bool>(json['isEnabled']),
-      defaultAccountId: serializer.fromJson<String?>(json['defaultAccountId']),
-      defaultCategoryId: serializer.fromJson<String?>(
-        json['defaultCategoryId'],
-      ),
-      rulesJson: serializer.fromJson<String>(json['rulesJson']),
-      modifiedAt: serializer.fromJson<int>(json['modifiedAt']),
-      deviceId: serializer.fromJson<String?>(json['deviceId']),
-      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<String>(id),
-      'name': serializer.toJson<String>(name),
-      'senderFilter': serializer.toJson<String>(senderFilter),
-      'isBuiltIn': serializer.toJson<bool>(isBuiltIn),
-      'isEnabled': serializer.toJson<bool>(isEnabled),
-      'defaultAccountId': serializer.toJson<String?>(defaultAccountId),
-      'defaultCategoryId': serializer.toJson<String?>(defaultCategoryId),
-      'rulesJson': serializer.toJson<String>(rulesJson),
-      'modifiedAt': serializer.toJson<int>(modifiedAt),
-      'deviceId': serializer.toJson<String?>(deviceId),
-      'isDeleted': serializer.toJson<bool>(isDeleted),
-    };
-  }
-
-  SmsPreset copyWith({
-    String? id,
-    String? name,
-    String? senderFilter,
-    bool? isBuiltIn,
-    bool? isEnabled,
-    Value<String?> defaultAccountId = const Value.absent(),
-    Value<String?> defaultCategoryId = const Value.absent(),
-    String? rulesJson,
-    int? modifiedAt,
-    Value<String?> deviceId = const Value.absent(),
-    bool? isDeleted,
-  }) => SmsPreset(
-    id: id ?? this.id,
-    name: name ?? this.name,
-    senderFilter: senderFilter ?? this.senderFilter,
-    isBuiltIn: isBuiltIn ?? this.isBuiltIn,
-    isEnabled: isEnabled ?? this.isEnabled,
-    defaultAccountId: defaultAccountId.present
-        ? defaultAccountId.value
-        : this.defaultAccountId,
-    defaultCategoryId: defaultCategoryId.present
-        ? defaultCategoryId.value
-        : this.defaultCategoryId,
-    rulesJson: rulesJson ?? this.rulesJson,
-    modifiedAt: modifiedAt ?? this.modifiedAt,
-    deviceId: deviceId.present ? deviceId.value : this.deviceId,
-    isDeleted: isDeleted ?? this.isDeleted,
-  );
-  SmsPreset copyWithCompanion(SmsPresetsCompanion data) {
-    return SmsPreset(
-      id: data.id.present ? data.id.value : this.id,
-      name: data.name.present ? data.name.value : this.name,
-      senderFilter: data.senderFilter.present
-          ? data.senderFilter.value
-          : this.senderFilter,
-      isBuiltIn: data.isBuiltIn.present ? data.isBuiltIn.value : this.isBuiltIn,
-      isEnabled: data.isEnabled.present ? data.isEnabled.value : this.isEnabled,
-      defaultAccountId: data.defaultAccountId.present
-          ? data.defaultAccountId.value
-          : this.defaultAccountId,
-      defaultCategoryId: data.defaultCategoryId.present
-          ? data.defaultCategoryId.value
-          : this.defaultCategoryId,
-      rulesJson: data.rulesJson.present ? data.rulesJson.value : this.rulesJson,
-      modifiedAt: data.modifiedAt.present
-          ? data.modifiedAt.value
-          : this.modifiedAt,
-      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
-      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('SmsPreset(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('senderFilter: $senderFilter, ')
-          ..write('isBuiltIn: $isBuiltIn, ')
-          ..write('isEnabled: $isEnabled, ')
-          ..write('defaultAccountId: $defaultAccountId, ')
-          ..write('defaultCategoryId: $defaultCategoryId, ')
-          ..write('rulesJson: $rulesJson, ')
-          ..write('modifiedAt: $modifiedAt, ')
-          ..write('deviceId: $deviceId, ')
-          ..write('isDeleted: $isDeleted')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    id,
-    name,
-    senderFilter,
-    isBuiltIn,
-    isEnabled,
-    defaultAccountId,
-    defaultCategoryId,
-    rulesJson,
-    modifiedAt,
-    deviceId,
-    isDeleted,
-  );
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is SmsPreset &&
-          other.id == this.id &&
-          other.name == this.name &&
-          other.senderFilter == this.senderFilter &&
-          other.isBuiltIn == this.isBuiltIn &&
-          other.isEnabled == this.isEnabled &&
-          other.defaultAccountId == this.defaultAccountId &&
-          other.defaultCategoryId == this.defaultCategoryId &&
-          other.rulesJson == this.rulesJson &&
-          other.modifiedAt == this.modifiedAt &&
-          other.deviceId == this.deviceId &&
-          other.isDeleted == this.isDeleted);
-}
-
-class SmsPresetsCompanion extends UpdateCompanion<SmsPreset> {
-  final Value<String> id;
-  final Value<String> name;
-  final Value<String> senderFilter;
-  final Value<bool> isBuiltIn;
-  final Value<bool> isEnabled;
-  final Value<String?> defaultAccountId;
-  final Value<String?> defaultCategoryId;
-  final Value<String> rulesJson;
-  final Value<int> modifiedAt;
-  final Value<String?> deviceId;
-  final Value<bool> isDeleted;
-  final Value<int> rowid;
-  const SmsPresetsCompanion({
-    this.id = const Value.absent(),
-    this.name = const Value.absent(),
-    this.senderFilter = const Value.absent(),
-    this.isBuiltIn = const Value.absent(),
-    this.isEnabled = const Value.absent(),
-    this.defaultAccountId = const Value.absent(),
-    this.defaultCategoryId = const Value.absent(),
-    this.rulesJson = const Value.absent(),
-    this.modifiedAt = const Value.absent(),
-    this.deviceId = const Value.absent(),
-    this.isDeleted = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  SmsPresetsCompanion.insert({
-    this.id = const Value.absent(),
-    required String name,
-    required String senderFilter,
-    this.isBuiltIn = const Value.absent(),
-    this.isEnabled = const Value.absent(),
-    this.defaultAccountId = const Value.absent(),
-    this.defaultCategoryId = const Value.absent(),
-    required String rulesJson,
-    this.modifiedAt = const Value.absent(),
-    this.deviceId = const Value.absent(),
-    this.isDeleted = const Value.absent(),
-    this.rowid = const Value.absent(),
-  }) : name = Value(name),
-       senderFilter = Value(senderFilter),
-       rulesJson = Value(rulesJson);
-  static Insertable<SmsPreset> custom({
-    Expression<String>? id,
-    Expression<String>? name,
-    Expression<String>? senderFilter,
-    Expression<bool>? isBuiltIn,
-    Expression<bool>? isEnabled,
-    Expression<String>? defaultAccountId,
-    Expression<String>? defaultCategoryId,
-    Expression<String>? rulesJson,
-    Expression<int>? modifiedAt,
-    Expression<String>? deviceId,
-    Expression<bool>? isDeleted,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (name != null) 'name': name,
-      if (senderFilter != null) 'sender_filter': senderFilter,
-      if (isBuiltIn != null) 'is_built_in': isBuiltIn,
-      if (isEnabled != null) 'is_enabled': isEnabled,
-      if (defaultAccountId != null) 'default_account_id': defaultAccountId,
-      if (defaultCategoryId != null) 'default_category_id': defaultCategoryId,
-      if (rulesJson != null) 'rules_json': rulesJson,
-      if (modifiedAt != null) 'modified_at': modifiedAt,
-      if (deviceId != null) 'device_id': deviceId,
-      if (isDeleted != null) 'is_deleted': isDeleted,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  SmsPresetsCompanion copyWith({
-    Value<String>? id,
-    Value<String>? name,
-    Value<String>? senderFilter,
-    Value<bool>? isBuiltIn,
-    Value<bool>? isEnabled,
-    Value<String?>? defaultAccountId,
-    Value<String?>? defaultCategoryId,
-    Value<String>? rulesJson,
-    Value<int>? modifiedAt,
-    Value<String?>? deviceId,
-    Value<bool>? isDeleted,
-    Value<int>? rowid,
-  }) {
-    return SmsPresetsCompanion(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      senderFilter: senderFilter ?? this.senderFilter,
-      isBuiltIn: isBuiltIn ?? this.isBuiltIn,
-      isEnabled: isEnabled ?? this.isEnabled,
-      defaultAccountId: defaultAccountId ?? this.defaultAccountId,
-      defaultCategoryId: defaultCategoryId ?? this.defaultCategoryId,
-      rulesJson: rulesJson ?? this.rulesJson,
-      modifiedAt: modifiedAt ?? this.modifiedAt,
-      deviceId: deviceId ?? this.deviceId,
-      isDeleted: isDeleted ?? this.isDeleted,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<String>(id.value);
-    }
-    if (name.present) {
-      map['name'] = Variable<String>(name.value);
-    }
-    if (senderFilter.present) {
-      map['sender_filter'] = Variable<String>(senderFilter.value);
-    }
-    if (isBuiltIn.present) {
-      map['is_built_in'] = Variable<bool>(isBuiltIn.value);
-    }
-    if (isEnabled.present) {
-      map['is_enabled'] = Variable<bool>(isEnabled.value);
-    }
-    if (defaultAccountId.present) {
-      map['default_account_id'] = Variable<String>(defaultAccountId.value);
-    }
-    if (defaultCategoryId.present) {
-      map['default_category_id'] = Variable<String>(defaultCategoryId.value);
-    }
-    if (rulesJson.present) {
-      map['rules_json'] = Variable<String>(rulesJson.value);
-    }
-    if (modifiedAt.present) {
-      map['modified_at'] = Variable<int>(modifiedAt.value);
-    }
-    if (deviceId.present) {
-      map['device_id'] = Variable<String>(deviceId.value);
-    }
-    if (isDeleted.present) {
-      map['is_deleted'] = Variable<bool>(isDeleted.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('SmsPresetsCompanion(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('senderFilter: $senderFilter, ')
-          ..write('isBuiltIn: $isBuiltIn, ')
-          ..write('isEnabled: $isEnabled, ')
-          ..write('defaultAccountId: $defaultAccountId, ')
-          ..write('defaultCategoryId: $defaultCategoryId, ')
-          ..write('rulesJson: $rulesJson, ')
-          ..write('modifiedAt: $modifiedAt, ')
-          ..write('deviceId: $deviceId, ')
-          ..write('isDeleted: $isDeleted, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -10540,16 +10815,18 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ApiFetchStatusesTable apiFetchStatuses = $ApiFetchStatusesTable(
     this,
   );
+  late final $ApiSettingsTableTable apiSettingsTable = $ApiSettingsTableTable(
+    this,
+  );
+  late final $SmsPresetsTable smsPresets = $SmsPresetsTable(this);
+  late final $SyncProcessedFilesTable syncProcessedFiles =
+      $SyncProcessedFilesTable(this);
   late final $SyncLogTable syncLog = $SyncLogTable(this);
   late final $ConflictHistoryTable conflictHistory = $ConflictHistoryTable(
     this,
   );
   late final $CustomDataSourcesTable customDataSources =
       $CustomDataSourcesTable(this);
-  late final $ApiSettingsTableTable apiSettingsTable = $ApiSettingsTableTable(
-    this,
-  );
-  late final $SmsPresetsTable smsPresets = $SmsPresetsTable(this);
   late final Index idxTransactionsDate = Index(
     'idx_transactions_date',
     'CREATE INDEX idx_transactions_date ON transactions (date)',
@@ -10610,6 +10887,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final ApiSettingsDao apiSettingsDao = ApiSettingsDao(
     this as AppDatabase,
   );
+  late final SyncProcessedFilesDao syncProcessedFilesDao =
+      SyncProcessedFilesDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -10629,11 +10908,12 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     settings,
     customThemes,
     apiFetchStatuses,
+    apiSettingsTable,
+    smsPresets,
+    syncProcessedFiles,
     syncLog,
     conflictHistory,
     customDataSources,
-    apiSettingsTable,
-    smsPresets,
     idxTransactionsDate,
     idxTransactionsAccount,
     idxTransactionsCategory,
@@ -17716,6 +17996,735 @@ typedef $$ApiFetchStatusesTableProcessedTableManager =
       ApiFetchStatus,
       PrefetchHooks Function()
     >;
+typedef $$ApiSettingsTableTableCreateCompanionBuilder =
+    ApiSettingsTableCompanion Function({
+      required String id,
+      Value<bool> enabled,
+      Value<bool> autoFetch,
+      Value<int?> lastFetchAt,
+      Value<int> modifiedAt,
+      Value<String?> deviceId,
+      Value<int> rowid,
+    });
+typedef $$ApiSettingsTableTableUpdateCompanionBuilder =
+    ApiSettingsTableCompanion Function({
+      Value<String> id,
+      Value<bool> enabled,
+      Value<bool> autoFetch,
+      Value<int?> lastFetchAt,
+      Value<int> modifiedAt,
+      Value<String?> deviceId,
+      Value<int> rowid,
+    });
+
+class $$ApiSettingsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $ApiSettingsTableTable> {
+  $$ApiSettingsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get autoFetch => $composableBuilder(
+    column: $table.autoFetch,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastFetchAt => $composableBuilder(
+    column: $table.lastFetchAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ApiSettingsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $ApiSettingsTableTable> {
+  $$ApiSettingsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get autoFetch => $composableBuilder(
+    column: $table.autoFetch,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastFetchAt => $composableBuilder(
+    column: $table.lastFetchAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ApiSettingsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ApiSettingsTableTable> {
+  $$ApiSettingsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
+
+  GeneratedColumn<bool> get autoFetch =>
+      $composableBuilder(column: $table.autoFetch, builder: (column) => column);
+
+  GeneratedColumn<int> get lastFetchAt => $composableBuilder(
+    column: $table.lastFetchAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+}
+
+class $$ApiSettingsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ApiSettingsTableTable,
+          ApiSettingsTableData,
+          $$ApiSettingsTableTableFilterComposer,
+          $$ApiSettingsTableTableOrderingComposer,
+          $$ApiSettingsTableTableAnnotationComposer,
+          $$ApiSettingsTableTableCreateCompanionBuilder,
+          $$ApiSettingsTableTableUpdateCompanionBuilder,
+          (
+            ApiSettingsTableData,
+            BaseReferences<
+              _$AppDatabase,
+              $ApiSettingsTableTable,
+              ApiSettingsTableData
+            >,
+          ),
+          ApiSettingsTableData,
+          PrefetchHooks Function()
+        > {
+  $$ApiSettingsTableTableTableManager(
+    _$AppDatabase db,
+    $ApiSettingsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ApiSettingsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ApiSettingsTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ApiSettingsTableTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<bool> enabled = const Value.absent(),
+                Value<bool> autoFetch = const Value.absent(),
+                Value<int?> lastFetchAt = const Value.absent(),
+                Value<int> modifiedAt = const Value.absent(),
+                Value<String?> deviceId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ApiSettingsTableCompanion(
+                id: id,
+                enabled: enabled,
+                autoFetch: autoFetch,
+                lastFetchAt: lastFetchAt,
+                modifiedAt: modifiedAt,
+                deviceId: deviceId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<bool> enabled = const Value.absent(),
+                Value<bool> autoFetch = const Value.absent(),
+                Value<int?> lastFetchAt = const Value.absent(),
+                Value<int> modifiedAt = const Value.absent(),
+                Value<String?> deviceId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ApiSettingsTableCompanion.insert(
+                id: id,
+                enabled: enabled,
+                autoFetch: autoFetch,
+                lastFetchAt: lastFetchAt,
+                modifiedAt: modifiedAt,
+                deviceId: deviceId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ApiSettingsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ApiSettingsTableTable,
+      ApiSettingsTableData,
+      $$ApiSettingsTableTableFilterComposer,
+      $$ApiSettingsTableTableOrderingComposer,
+      $$ApiSettingsTableTableAnnotationComposer,
+      $$ApiSettingsTableTableCreateCompanionBuilder,
+      $$ApiSettingsTableTableUpdateCompanionBuilder,
+      (
+        ApiSettingsTableData,
+        BaseReferences<
+          _$AppDatabase,
+          $ApiSettingsTableTable,
+          ApiSettingsTableData
+        >,
+      ),
+      ApiSettingsTableData,
+      PrefetchHooks Function()
+    >;
+typedef $$SmsPresetsTableCreateCompanionBuilder =
+    SmsPresetsCompanion Function({
+      Value<String> id,
+      required String name,
+      required String senderFilter,
+      Value<bool> isBuiltIn,
+      Value<bool> isEnabled,
+      Value<String?> defaultAccountId,
+      Value<String?> defaultCategoryId,
+      required String rulesJson,
+      Value<int> modifiedAt,
+      Value<String?> deviceId,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$SmsPresetsTableUpdateCompanionBuilder =
+    SmsPresetsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String> senderFilter,
+      Value<bool> isBuiltIn,
+      Value<bool> isEnabled,
+      Value<String?> defaultAccountId,
+      Value<String?> defaultCategoryId,
+      Value<String> rulesJson,
+      Value<int> modifiedAt,
+      Value<String?> deviceId,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$SmsPresetsTableFilterComposer
+    extends Composer<_$AppDatabase, $SmsPresetsTable> {
+  $$SmsPresetsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderFilter => $composableBuilder(
+    column: $table.senderFilter,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isBuiltIn => $composableBuilder(
+    column: $table.isBuiltIn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isEnabled => $composableBuilder(
+    column: $table.isEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get defaultAccountId => $composableBuilder(
+    column: $table.defaultAccountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get defaultCategoryId => $composableBuilder(
+    column: $table.defaultCategoryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rulesJson => $composableBuilder(
+    column: $table.rulesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SmsPresetsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SmsPresetsTable> {
+  $$SmsPresetsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderFilter => $composableBuilder(
+    column: $table.senderFilter,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isBuiltIn => $composableBuilder(
+    column: $table.isBuiltIn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isEnabled => $composableBuilder(
+    column: $table.isEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get defaultAccountId => $composableBuilder(
+    column: $table.defaultAccountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get defaultCategoryId => $composableBuilder(
+    column: $table.defaultCategoryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rulesJson => $composableBuilder(
+    column: $table.rulesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SmsPresetsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SmsPresetsTable> {
+  $$SmsPresetsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get senderFilter => $composableBuilder(
+    column: $table.senderFilter,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isBuiltIn =>
+      $composableBuilder(column: $table.isBuiltIn, builder: (column) => column);
+
+  GeneratedColumn<bool> get isEnabled =>
+      $composableBuilder(column: $table.isEnabled, builder: (column) => column);
+
+  GeneratedColumn<String> get defaultAccountId => $composableBuilder(
+    column: $table.defaultAccountId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get defaultCategoryId => $composableBuilder(
+    column: $table.defaultCategoryId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get rulesJson =>
+      $composableBuilder(column: $table.rulesJson, builder: (column) => column);
+
+  GeneratedColumn<int> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$SmsPresetsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SmsPresetsTable,
+          SmsPreset,
+          $$SmsPresetsTableFilterComposer,
+          $$SmsPresetsTableOrderingComposer,
+          $$SmsPresetsTableAnnotationComposer,
+          $$SmsPresetsTableCreateCompanionBuilder,
+          $$SmsPresetsTableUpdateCompanionBuilder,
+          (
+            SmsPreset,
+            BaseReferences<_$AppDatabase, $SmsPresetsTable, SmsPreset>,
+          ),
+          SmsPreset,
+          PrefetchHooks Function()
+        > {
+  $$SmsPresetsTableTableManager(_$AppDatabase db, $SmsPresetsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SmsPresetsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SmsPresetsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SmsPresetsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> senderFilter = const Value.absent(),
+                Value<bool> isBuiltIn = const Value.absent(),
+                Value<bool> isEnabled = const Value.absent(),
+                Value<String?> defaultAccountId = const Value.absent(),
+                Value<String?> defaultCategoryId = const Value.absent(),
+                Value<String> rulesJson = const Value.absent(),
+                Value<int> modifiedAt = const Value.absent(),
+                Value<String?> deviceId = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SmsPresetsCompanion(
+                id: id,
+                name: name,
+                senderFilter: senderFilter,
+                isBuiltIn: isBuiltIn,
+                isEnabled: isEnabled,
+                defaultAccountId: defaultAccountId,
+                defaultCategoryId: defaultCategoryId,
+                rulesJson: rulesJson,
+                modifiedAt: modifiedAt,
+                deviceId: deviceId,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                required String name,
+                required String senderFilter,
+                Value<bool> isBuiltIn = const Value.absent(),
+                Value<bool> isEnabled = const Value.absent(),
+                Value<String?> defaultAccountId = const Value.absent(),
+                Value<String?> defaultCategoryId = const Value.absent(),
+                required String rulesJson,
+                Value<int> modifiedAt = const Value.absent(),
+                Value<String?> deviceId = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SmsPresetsCompanion.insert(
+                id: id,
+                name: name,
+                senderFilter: senderFilter,
+                isBuiltIn: isBuiltIn,
+                isEnabled: isEnabled,
+                defaultAccountId: defaultAccountId,
+                defaultCategoryId: defaultCategoryId,
+                rulesJson: rulesJson,
+                modifiedAt: modifiedAt,
+                deviceId: deviceId,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SmsPresetsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SmsPresetsTable,
+      SmsPreset,
+      $$SmsPresetsTableFilterComposer,
+      $$SmsPresetsTableOrderingComposer,
+      $$SmsPresetsTableAnnotationComposer,
+      $$SmsPresetsTableCreateCompanionBuilder,
+      $$SmsPresetsTableUpdateCompanionBuilder,
+      (SmsPreset, BaseReferences<_$AppDatabase, $SmsPresetsTable, SmsPreset>),
+      SmsPreset,
+      PrefetchHooks Function()
+    >;
+typedef $$SyncProcessedFilesTableCreateCompanionBuilder =
+    SyncProcessedFilesCompanion Function({
+      required String fileName,
+      required int processedAt,
+      required String deviceId,
+      Value<int> rowid,
+    });
+typedef $$SyncProcessedFilesTableUpdateCompanionBuilder =
+    SyncProcessedFilesCompanion Function({
+      Value<String> fileName,
+      Value<int> processedAt,
+      Value<String> deviceId,
+      Value<int> rowid,
+    });
+
+class $$SyncProcessedFilesTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncProcessedFilesTable> {
+  $$SyncProcessedFilesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get fileName => $composableBuilder(
+    column: $table.fileName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncProcessedFilesTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncProcessedFilesTable> {
+  $$SyncProcessedFilesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get fileName => $composableBuilder(
+    column: $table.fileName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncProcessedFilesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncProcessedFilesTable> {
+  $$SyncProcessedFilesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get fileName =>
+      $composableBuilder(column: $table.fileName, builder: (column) => column);
+
+  GeneratedColumn<int> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+}
+
+class $$SyncProcessedFilesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncProcessedFilesTable,
+          SyncProcessedFile,
+          $$SyncProcessedFilesTableFilterComposer,
+          $$SyncProcessedFilesTableOrderingComposer,
+          $$SyncProcessedFilesTableAnnotationComposer,
+          $$SyncProcessedFilesTableCreateCompanionBuilder,
+          $$SyncProcessedFilesTableUpdateCompanionBuilder,
+          (
+            SyncProcessedFile,
+            BaseReferences<
+              _$AppDatabase,
+              $SyncProcessedFilesTable,
+              SyncProcessedFile
+            >,
+          ),
+          SyncProcessedFile,
+          PrefetchHooks Function()
+        > {
+  $$SyncProcessedFilesTableTableManager(
+    _$AppDatabase db,
+    $SyncProcessedFilesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncProcessedFilesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncProcessedFilesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncProcessedFilesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> fileName = const Value.absent(),
+                Value<int> processedAt = const Value.absent(),
+                Value<String> deviceId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncProcessedFilesCompanion(
+                fileName: fileName,
+                processedAt: processedAt,
+                deviceId: deviceId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String fileName,
+                required int processedAt,
+                required String deviceId,
+                Value<int> rowid = const Value.absent(),
+              }) => SyncProcessedFilesCompanion.insert(
+                fileName: fileName,
+                processedAt: processedAt,
+                deviceId: deviceId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncProcessedFilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncProcessedFilesTable,
+      SyncProcessedFile,
+      $$SyncProcessedFilesTableFilterComposer,
+      $$SyncProcessedFilesTableOrderingComposer,
+      $$SyncProcessedFilesTableAnnotationComposer,
+      $$SyncProcessedFilesTableCreateCompanionBuilder,
+      $$SyncProcessedFilesTableUpdateCompanionBuilder,
+      (
+        SyncProcessedFile,
+        BaseReferences<
+          _$AppDatabase,
+          $SyncProcessedFilesTable,
+          SyncProcessedFile
+        >,
+      ),
+      SyncProcessedFile,
+      PrefetchHooks Function()
+    >;
 typedef $$SyncLogTableCreateCompanionBuilder =
     SyncLogCompanion Function({
       Value<int> id,
@@ -18477,558 +19486,6 @@ typedef $$CustomDataSourcesTableProcessedTableManager =
       CustomDataSource,
       PrefetchHooks Function()
     >;
-typedef $$ApiSettingsTableTableCreateCompanionBuilder =
-    ApiSettingsTableCompanion Function({
-      required String id,
-      Value<bool> enabled,
-      Value<bool> autoFetch,
-      Value<int?> lastFetchAt,
-      Value<int> modifiedAt,
-      Value<String?> deviceId,
-      Value<int> rowid,
-    });
-typedef $$ApiSettingsTableTableUpdateCompanionBuilder =
-    ApiSettingsTableCompanion Function({
-      Value<String> id,
-      Value<bool> enabled,
-      Value<bool> autoFetch,
-      Value<int?> lastFetchAt,
-      Value<int> modifiedAt,
-      Value<String?> deviceId,
-      Value<int> rowid,
-    });
-
-class $$ApiSettingsTableTableFilterComposer
-    extends Composer<_$AppDatabase, $ApiSettingsTableTable> {
-  $$ApiSettingsTableTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get enabled => $composableBuilder(
-    column: $table.enabled,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get autoFetch => $composableBuilder(
-    column: $table.autoFetch,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get lastFetchAt => $composableBuilder(
-    column: $table.lastFetchAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get modifiedAt => $composableBuilder(
-    column: $table.modifiedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get deviceId => $composableBuilder(
-    column: $table.deviceId,
-    builder: (column) => ColumnFilters(column),
-  );
-}
-
-class $$ApiSettingsTableTableOrderingComposer
-    extends Composer<_$AppDatabase, $ApiSettingsTableTable> {
-  $$ApiSettingsTableTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get enabled => $composableBuilder(
-    column: $table.enabled,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get autoFetch => $composableBuilder(
-    column: $table.autoFetch,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get lastFetchAt => $composableBuilder(
-    column: $table.lastFetchAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get modifiedAt => $composableBuilder(
-    column: $table.modifiedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get deviceId => $composableBuilder(
-    column: $table.deviceId,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$ApiSettingsTableTableAnnotationComposer
-    extends Composer<_$AppDatabase, $ApiSettingsTableTable> {
-  $$ApiSettingsTableTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<bool> get enabled =>
-      $composableBuilder(column: $table.enabled, builder: (column) => column);
-
-  GeneratedColumn<bool> get autoFetch =>
-      $composableBuilder(column: $table.autoFetch, builder: (column) => column);
-
-  GeneratedColumn<int> get lastFetchAt => $composableBuilder(
-    column: $table.lastFetchAt,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get modifiedAt => $composableBuilder(
-    column: $table.modifiedAt,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get deviceId =>
-      $composableBuilder(column: $table.deviceId, builder: (column) => column);
-}
-
-class $$ApiSettingsTableTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $ApiSettingsTableTable,
-          ApiSettingsTableData,
-          $$ApiSettingsTableTableFilterComposer,
-          $$ApiSettingsTableTableOrderingComposer,
-          $$ApiSettingsTableTableAnnotationComposer,
-          $$ApiSettingsTableTableCreateCompanionBuilder,
-          $$ApiSettingsTableTableUpdateCompanionBuilder,
-          (
-            ApiSettingsTableData,
-            BaseReferences<
-              _$AppDatabase,
-              $ApiSettingsTableTable,
-              ApiSettingsTableData
-            >,
-          ),
-          ApiSettingsTableData,
-          PrefetchHooks Function()
-        > {
-  $$ApiSettingsTableTableTableManager(
-    _$AppDatabase db,
-    $ApiSettingsTableTable table,
-  ) : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$ApiSettingsTableTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$ApiSettingsTableTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$ApiSettingsTableTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> id = const Value.absent(),
-                Value<bool> enabled = const Value.absent(),
-                Value<bool> autoFetch = const Value.absent(),
-                Value<int?> lastFetchAt = const Value.absent(),
-                Value<int> modifiedAt = const Value.absent(),
-                Value<String?> deviceId = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => ApiSettingsTableCompanion(
-                id: id,
-                enabled: enabled,
-                autoFetch: autoFetch,
-                lastFetchAt: lastFetchAt,
-                modifiedAt: modifiedAt,
-                deviceId: deviceId,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required String id,
-                Value<bool> enabled = const Value.absent(),
-                Value<bool> autoFetch = const Value.absent(),
-                Value<int?> lastFetchAt = const Value.absent(),
-                Value<int> modifiedAt = const Value.absent(),
-                Value<String?> deviceId = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => ApiSettingsTableCompanion.insert(
-                id: id,
-                enabled: enabled,
-                autoFetch: autoFetch,
-                lastFetchAt: lastFetchAt,
-                modifiedAt: modifiedAt,
-                deviceId: deviceId,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$ApiSettingsTableTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $ApiSettingsTableTable,
-      ApiSettingsTableData,
-      $$ApiSettingsTableTableFilterComposer,
-      $$ApiSettingsTableTableOrderingComposer,
-      $$ApiSettingsTableTableAnnotationComposer,
-      $$ApiSettingsTableTableCreateCompanionBuilder,
-      $$ApiSettingsTableTableUpdateCompanionBuilder,
-      (
-        ApiSettingsTableData,
-        BaseReferences<
-          _$AppDatabase,
-          $ApiSettingsTableTable,
-          ApiSettingsTableData
-        >,
-      ),
-      ApiSettingsTableData,
-      PrefetchHooks Function()
-    >;
-typedef $$SmsPresetsTableCreateCompanionBuilder =
-    SmsPresetsCompanion Function({
-      Value<String> id,
-      required String name,
-      required String senderFilter,
-      Value<bool> isBuiltIn,
-      Value<bool> isEnabled,
-      Value<String?> defaultAccountId,
-      Value<String?> defaultCategoryId,
-      required String rulesJson,
-      Value<int> modifiedAt,
-      Value<String?> deviceId,
-      Value<bool> isDeleted,
-      Value<int> rowid,
-    });
-typedef $$SmsPresetsTableUpdateCompanionBuilder =
-    SmsPresetsCompanion Function({
-      Value<String> id,
-      Value<String> name,
-      Value<String> senderFilter,
-      Value<bool> isBuiltIn,
-      Value<bool> isEnabled,
-      Value<String?> defaultAccountId,
-      Value<String?> defaultCategoryId,
-      Value<String> rulesJson,
-      Value<int> modifiedAt,
-      Value<String?> deviceId,
-      Value<bool> isDeleted,
-      Value<int> rowid,
-    });
-
-class $$SmsPresetsTableFilterComposer
-    extends Composer<_$AppDatabase, $SmsPresetsTable> {
-  $$SmsPresetsTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get senderFilter => $composableBuilder(
-    column: $table.senderFilter,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get isBuiltIn => $composableBuilder(
-    column: $table.isBuiltIn,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get isEnabled => $composableBuilder(
-    column: $table.isEnabled,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get defaultAccountId => $composableBuilder(
-    column: $table.defaultAccountId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get defaultCategoryId => $composableBuilder(
-    column: $table.defaultCategoryId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get rulesJson => $composableBuilder(
-    column: $table.rulesJson,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get modifiedAt => $composableBuilder(
-    column: $table.modifiedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get deviceId => $composableBuilder(
-    column: $table.deviceId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get isDeleted => $composableBuilder(
-    column: $table.isDeleted,
-    builder: (column) => ColumnFilters(column),
-  );
-}
-
-class $$SmsPresetsTableOrderingComposer
-    extends Composer<_$AppDatabase, $SmsPresetsTable> {
-  $$SmsPresetsTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get senderFilter => $composableBuilder(
-    column: $table.senderFilter,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get isBuiltIn => $composableBuilder(
-    column: $table.isBuiltIn,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get isEnabled => $composableBuilder(
-    column: $table.isEnabled,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get defaultAccountId => $composableBuilder(
-    column: $table.defaultAccountId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get defaultCategoryId => $composableBuilder(
-    column: $table.defaultCategoryId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get rulesJson => $composableBuilder(
-    column: $table.rulesJson,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get modifiedAt => $composableBuilder(
-    column: $table.modifiedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get deviceId => $composableBuilder(
-    column: $table.deviceId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get isDeleted => $composableBuilder(
-    column: $table.isDeleted,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$SmsPresetsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $SmsPresetsTable> {
-  $$SmsPresetsTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get name =>
-      $composableBuilder(column: $table.name, builder: (column) => column);
-
-  GeneratedColumn<String> get senderFilter => $composableBuilder(
-    column: $table.senderFilter,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<bool> get isBuiltIn =>
-      $composableBuilder(column: $table.isBuiltIn, builder: (column) => column);
-
-  GeneratedColumn<bool> get isEnabled =>
-      $composableBuilder(column: $table.isEnabled, builder: (column) => column);
-
-  GeneratedColumn<String> get defaultAccountId => $composableBuilder(
-    column: $table.defaultAccountId,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get defaultCategoryId => $composableBuilder(
-    column: $table.defaultCategoryId,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get rulesJson =>
-      $composableBuilder(column: $table.rulesJson, builder: (column) => column);
-
-  GeneratedColumn<int> get modifiedAt => $composableBuilder(
-    column: $table.modifiedAt,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get deviceId =>
-      $composableBuilder(column: $table.deviceId, builder: (column) => column);
-
-  GeneratedColumn<bool> get isDeleted =>
-      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
-}
-
-class $$SmsPresetsTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $SmsPresetsTable,
-          SmsPreset,
-          $$SmsPresetsTableFilterComposer,
-          $$SmsPresetsTableOrderingComposer,
-          $$SmsPresetsTableAnnotationComposer,
-          $$SmsPresetsTableCreateCompanionBuilder,
-          $$SmsPresetsTableUpdateCompanionBuilder,
-          (
-            SmsPreset,
-            BaseReferences<_$AppDatabase, $SmsPresetsTable, SmsPreset>,
-          ),
-          SmsPreset,
-          PrefetchHooks Function()
-        > {
-  $$SmsPresetsTableTableManager(_$AppDatabase db, $SmsPresetsTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$SmsPresetsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$SmsPresetsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$SmsPresetsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> id = const Value.absent(),
-                Value<String> name = const Value.absent(),
-                Value<String> senderFilter = const Value.absent(),
-                Value<bool> isBuiltIn = const Value.absent(),
-                Value<bool> isEnabled = const Value.absent(),
-                Value<String?> defaultAccountId = const Value.absent(),
-                Value<String?> defaultCategoryId = const Value.absent(),
-                Value<String> rulesJson = const Value.absent(),
-                Value<int> modifiedAt = const Value.absent(),
-                Value<String?> deviceId = const Value.absent(),
-                Value<bool> isDeleted = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => SmsPresetsCompanion(
-                id: id,
-                name: name,
-                senderFilter: senderFilter,
-                isBuiltIn: isBuiltIn,
-                isEnabled: isEnabled,
-                defaultAccountId: defaultAccountId,
-                defaultCategoryId: defaultCategoryId,
-                rulesJson: rulesJson,
-                modifiedAt: modifiedAt,
-                deviceId: deviceId,
-                isDeleted: isDeleted,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                Value<String> id = const Value.absent(),
-                required String name,
-                required String senderFilter,
-                Value<bool> isBuiltIn = const Value.absent(),
-                Value<bool> isEnabled = const Value.absent(),
-                Value<String?> defaultAccountId = const Value.absent(),
-                Value<String?> defaultCategoryId = const Value.absent(),
-                required String rulesJson,
-                Value<int> modifiedAt = const Value.absent(),
-                Value<String?> deviceId = const Value.absent(),
-                Value<bool> isDeleted = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => SmsPresetsCompanion.insert(
-                id: id,
-                name: name,
-                senderFilter: senderFilter,
-                isBuiltIn: isBuiltIn,
-                isEnabled: isEnabled,
-                defaultAccountId: defaultAccountId,
-                defaultCategoryId: defaultCategoryId,
-                rulesJson: rulesJson,
-                modifiedAt: modifiedAt,
-                deviceId: deviceId,
-                isDeleted: isDeleted,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$SmsPresetsTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $SmsPresetsTable,
-      SmsPreset,
-      $$SmsPresetsTableFilterComposer,
-      $$SmsPresetsTableOrderingComposer,
-      $$SmsPresetsTableAnnotationComposer,
-      $$SmsPresetsTableCreateCompanionBuilder,
-      $$SmsPresetsTableUpdateCompanionBuilder,
-      (SmsPreset, BaseReferences<_$AppDatabase, $SmsPresetsTable, SmsPreset>),
-      SmsPreset,
-      PrefetchHooks Function()
-    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -19061,16 +19518,18 @@ class $AppDatabaseManager {
       $$CustomThemesTableTableManager(_db, _db.customThemes);
   $$ApiFetchStatusesTableTableManager get apiFetchStatuses =>
       $$ApiFetchStatusesTableTableManager(_db, _db.apiFetchStatuses);
+  $$ApiSettingsTableTableTableManager get apiSettingsTable =>
+      $$ApiSettingsTableTableTableManager(_db, _db.apiSettingsTable);
+  $$SmsPresetsTableTableManager get smsPresets =>
+      $$SmsPresetsTableTableManager(_db, _db.smsPresets);
+  $$SyncProcessedFilesTableTableManager get syncProcessedFiles =>
+      $$SyncProcessedFilesTableTableManager(_db, _db.syncProcessedFiles);
   $$SyncLogTableTableManager get syncLog =>
       $$SyncLogTableTableManager(_db, _db.syncLog);
   $$ConflictHistoryTableTableManager get conflictHistory =>
       $$ConflictHistoryTableTableManager(_db, _db.conflictHistory);
   $$CustomDataSourcesTableTableManager get customDataSources =>
       $$CustomDataSourcesTableTableManager(_db, _db.customDataSources);
-  $$ApiSettingsTableTableTableManager get apiSettingsTable =>
-      $$ApiSettingsTableTableTableManager(_db, _db.apiSettingsTable);
-  $$SmsPresetsTableTableManager get smsPresets =>
-      $$SmsPresetsTableTableManager(_db, _db.smsPresets);
 }
 
 mixin _$ApiFetchStatusesDaoMixin on DatabaseAccessor<AppDatabase> {
@@ -19095,4 +19554,8 @@ mixin _$ApiSettingsDaoMixin on DatabaseAccessor<AppDatabase> {
   $ApiSettingsTableTable get apiSettingsTable =>
       attachedDatabase.apiSettingsTable;
   $SyncLogTable get syncLog => attachedDatabase.syncLog;
+}
+mixin _$SyncProcessedFilesDaoMixin on DatabaseAccessor<AppDatabase> {
+  $SyncProcessedFilesTable get syncProcessedFiles =>
+      attachedDatabase.syncProcessedFiles;
 }

@@ -348,11 +348,21 @@ class SyncService {
       final bytes = await file.readAsBytes();
       final packet = SyncBinaryFormat.decode(bytes);
 
-      // Skip our own files - don't even move them to .processed
-      // They should stay in the folder so other devices can sync them.
+      // Process any existing files from other devices
+      // Skip our own files and files we've already processed
       if (packet.deviceId == _localDeviceId) {
         debugPrint(
           '[SYNC_DEBUG] Ignoring local sync file: ${p.basename(file.path)}',
+        );
+        return;
+      }
+
+      final alreadyProcessed = await _db.syncProcessedFilesDao.isProcessed(
+        p.basename(file.path),
+      );
+      if (alreadyProcessed) {
+        debugPrint(
+          '[SYNC_DEBUG] Skipping already processed file: ${p.basename(file.path)}',
         );
         return;
       }
@@ -374,8 +384,18 @@ class SyncService {
         await _db.customStatement('PRAGMA foreign_keys = ON;');
       }
 
-      // Move to processed
-      await _moveToProcessed(file);
+      // Mark as processed in database
+      await _db.syncProcessedFilesDao.markProcessed(
+        p.basename(file.path),
+        packet.deviceId,
+      );
+
+      // We no longer move to .processed immediately to allow other devices to pick it up.
+      // Rename to .sync.processed to hide it from watcher but keep it in the folder?
+      // Or just leave it as is, and rely on isProcessed() check.
+      // Let's leave it as is for propagation, but implementation of cleanup will handle it.
+      // To avoid infinite loops in watcher, we might want to move it to a subfolder
+      // AFTER a delay. For now, markProcessed is enough to skip it.
     } catch (e) {
       // Log error but don't crash
       debugPrint('Error processing sync file ${file.path}: $e');
@@ -424,15 +444,6 @@ class SyncService {
     await _db.conflictHistoryDao.clearOldConflicts(maxConflictHistory);
   }
 
-  /// Move processed file to .processed folder
-  Future<void> _moveToProcessed(File file) async {
-    if (_syncFolderPath == null) return;
-
-    final processedDir = Directory(p.join(_syncFolderPath!, '.processed'));
-    final newPath = p.join(processedDir.path, p.basename(file.path));
-    await file.rename(newPath);
-  }
-
   /// Cleanup old processed files
   Future<void> _cleanupProcessedFiles() async {
     if (_syncFolderPath == null) return;
@@ -451,6 +462,9 @@ class SyncService {
         }
       }
     }
+
+    // Also cleanup DB records
+    await _db.syncProcessedFilesDao.clearOldProcessed(cutoff);
   }
 
   // --- Helper methods for data access ---
@@ -664,43 +678,78 @@ class SyncService {
   }
 
   Future<void> _softDeleteRecord(SyncTableId tableId, String recordId) async {
-    // Soft delete by setting is_deleted = true
-    // For now, we'll do a hard delete as soft delete requires schema changes
+    final now = DateTime.now().millisecondsSinceEpoch;
     switch (tableId) {
       case SyncTableId.transactions:
-        await _db.transactionsDao.deleteTransaction(
-          TransactionsCompanion(id: Value(recordId)),
+        await _db.transactionsDao.updateTransaction(
+          TransactionsCompanion(
+            id: Value(recordId),
+            isDeleted: const Value(true),
+            modifiedAt: Value(now),
+          ),
         );
         break;
       case SyncTableId.accounts:
-        await _db.accountsDao.deleteAccount(
-          AccountsCompanion(id: Value(recordId)),
+        await _db.accountsDao.updateAccount(
+          AccountsCompanion(
+            id: Value(recordId),
+            isDeleted: const Value(true),
+            modifiedAt: Value(now),
+          ),
         );
         break;
       case SyncTableId.categories:
-        await _db.categoriesDao.deleteCategory(
-          CategoriesCompanion(id: Value(recordId)),
+        await _db.categoriesDao.updateCategory(
+          CategoriesCompanion(
+            id: Value(recordId),
+            isDeleted: const Value(true),
+            modifiedAt: Value(now),
+          ),
         );
         break;
       case SyncTableId.styles:
-        await _db.stylesDao.deleteStyle(StylesCompanion(id: Value(recordId)));
+        await _db.stylesDao.updateStyle(
+          StylesCompanion(
+            id: Value(recordId),
+            isDeleted: const Value(true),
+            modifiedAt: Value(now),
+          ),
+        );
         break;
       case SyncTableId.assetEntries:
-        await _db.assetEntriesDao.deleteAssetEntry(recordId);
+        await _db.assetEntriesDao.updateAssetData(
+          AssetEntriesCompanion(
+            id: Value(recordId),
+            isDeleted: const Value(true),
+            modifiedAt: Value(now),
+          ),
+        );
         break;
       case SyncTableId.accountTypes:
-        await _db.accountTypesDao.deleteAccountType(
-          AccountTypesCompanion(id: Value(recordId)),
+        await _db.accountTypesDao.updateAccountType(
+          AccountTypesCompanion(
+            id: Value(recordId),
+            isDeleted: const Value(true),
+            modifiedAt: Value(now),
+          ),
         );
         break;
       case SyncTableId.currencyDesignations:
-        await _db.currencyDesignationsDao.deleteDesignation(
-          CurrencyDesignationsCompanion(id: Value(recordId)),
+        await _db.currencyDesignationsDao.updateDesignation(
+          CurrencyDesignationsCompanion(
+            id: Value(recordId),
+            isDeleted: const Value(true),
+            modifiedAt: Value(now),
+          ),
         );
         break;
       case SyncTableId.customDataSources:
-        await _db.customDataSourcesDao.deleteDataSource(
-          CustomDataSourcesCompanion(id: Value(recordId)),
+        await _db.customDataSourcesDao.updateCustomDataSource(
+          CustomDataSourcesCompanion(
+            id: Value(recordId),
+            isDeleted: const Value(true),
+            modifiedAt: Value(now),
+          ),
         );
         break;
       default:

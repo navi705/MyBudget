@@ -47,6 +47,7 @@ class SteamInventoryApiService {
     final entriesInDb =
         await (_assetEntriesDao.select(_assetEntriesDao.assetEntries)
               ..where((tbl) => tbl.assetId.equals(assetId))
+              ..where((tbl) => tbl.isDeleted.equals(false))
               ..where(
                 (tbl) =>
                     tbl.date.isBiggerOrEqualValue(startOfDay) &

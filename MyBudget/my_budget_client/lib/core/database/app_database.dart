@@ -340,6 +340,7 @@ class CustomDataSources extends Table {
 }
 
 /// Built-in API settings
+@DataClassName('ApiSettingsTableData')
 class ApiSettingsTable extends Table {
   TextColumn get id => text()(); // "exchange_rates", "inflation", "assets"
   BoolColumn get enabled => boolean().withDefault(const Constant(true))();
@@ -352,6 +353,16 @@ class ApiSettingsTable extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// Tracks which sync files have already been processed
+class SyncProcessedFiles extends Table {
+  TextColumn get fileName => text()();
+  IntColumn get processedAt => integer()();
+  TextColumn get deviceId => text()();
+
+  @override
+  Set<Column> get primaryKey => {fileName};
 }
 
 /// SMS parsing presets (migrated from SharedPreferences)
@@ -406,22 +417,30 @@ class CurrencyDesignationsDao extends DatabaseAccessor<AppDatabase>
     with _$CurrencyDesignationsDaoMixin {
   CurrencyDesignationsDao(super.db);
 
-  Future<List<CurrencyDesignation>> getAllDesignations() =>
-      select(currencyDesignations).get();
+  Future<List<CurrencyDesignation>> getAllDesignations() => (select(
+    currencyDesignations,
+  )..where((t) => t.isDeleted.equals(false))).get();
   Future<List<CurrencyDesignation>> getDesignations({
     int limit = 10,
     int offset = 0,
-  }) => (select(currencyDesignations)..limit(limit, offset: offset)).get();
-  Stream<List<CurrencyDesignation>> watchAllDesignations() =>
-      select(currencyDesignations).watch();
-  Future<CurrencyDesignation?> getDesignationById(String id) => (select(
+  }) =>
+      (select(currencyDesignations)
+            ..where((t) => t.isDeleted.equals(false))
+            ..limit(limit, offset: offset))
+          .get();
+  Stream<List<CurrencyDesignation>> watchAllDesignations() => (select(
     currencyDesignations,
-  )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+  )..where((t) => t.isDeleted.equals(false))).watch();
+  Future<CurrencyDesignation?> getDesignationById(String id) =>
+      (select(currencyDesignations)
+            ..where((tbl) => tbl.id.equals(id) & tbl.isDeleted.equals(false)))
+          .getSingleOrNull();
 
   Future<List<CurrencyDesignation>> getDesignationsByIds(
     List<String> ids,
   ) async {
-    final query = select(currencyDesignations)..where((t) => t.id.isIn(ids));
+    final query = select(currencyDesignations)
+      ..where((t) => t.id.isIn(ids) & t.isDeleted.equals(false));
     return query.get();
   }
 
@@ -497,11 +516,18 @@ class CurrencyDesignationsDao extends DatabaseAccessor<AppDatabase>
   Future<int> deleteDesignation(
     CurrencyDesignationsCompanion designation,
   ) async {
-    final result = await delete(currencyDesignations).delete(designation);
-    if (result > 0) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updatedDesignation = designation.copyWith(
+      isDeleted: const Value(true),
+      modifiedAt: Value(now),
+    );
+    final result = await update(
+      currencyDesignations,
+    ).replace(updatedDesignation);
+    if (result) {
       await _logChange(designation.id.value, 'delete');
     }
-    return result;
+    return result ? 1 : 0;
   }
 
   Future<void> _logChange(String recordId, String action) async {
@@ -572,11 +598,17 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
     with _$CategoriesDaoMixin {
   CategoriesDao(super.db);
 
-  Future<List<Category>> getAllCategories() => select(categories).get();
+  Future<List<Category>> getAllCategories() =>
+      (select(categories)..where((t) => t.isDeleted.equals(false))).get();
   Future<List<Category>> getCategories({int limit = 10, int offset = 0}) =>
-      (select(categories)..limit(limit, offset: offset)).get();
+      (select(categories)
+            ..where((t) => t.isDeleted.equals(false))
+            ..limit(limit, offset: offset))
+          .get();
   Future<Category?> getCategoryById(String id) =>
-      (select(categories)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+      (select(categories)
+            ..where((tbl) => tbl.id.equals(id) & tbl.isDeleted.equals(false)))
+          .getSingleOrNull();
 
   Future<List<Category>> getCategoriesByIds(List<String> ids) async {
     const int chunkSize = 500;
@@ -588,7 +620,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
 
       final chunkResults = await (select(
         categories,
-      )..where((u) => u.id.isIn(chunk))).get();
+      )..where((u) => u.id.isIn(chunk) & u.isDeleted.equals(false))).get();
 
       allResults.addAll(chunkResults);
     }
@@ -596,7 +628,8 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
     return ids.map((id) => resultMap[id]).whereType<Category>().toList();
   }
 
-  Stream<List<Category>> watchAllCategories() => select(categories).watch();
+  Stream<List<Category>> watchAllCategories() =>
+      (select(categories)..where((t) => t.isDeleted.equals(false))).watch();
 
   Future<void> insertCategory(CategoriesCompanion category) async {
     var toInsert = category.id.present
@@ -672,9 +705,16 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<int> deleteCategory(CategoriesCompanion category) async {
-    final result = await delete(categories).delete(category);
-    await _logChange(category.id.value, 'delete');
-    return result;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updatedCategory = category.copyWith(
+      isDeleted: const Value(true),
+      modifiedAt: Value(now),
+    );
+    final result = await update(categories).replace(updatedCategory);
+    if (result) {
+      await _logChange(category.id.value, 'delete');
+    }
+    return result ? 1 : 0;
   }
 
   /// Log a change for sync export
@@ -692,10 +732,22 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> deleteCategoryWithTransactions(String categoryId) {
     return db.transaction(() async {
-      await (delete(
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await (update(
         db.transactions,
-      )..where((t) => t.categoryId.equals(categoryId))).go();
-      await (delete(categories)..where((c) => c.id.equals(categoryId))).go();
+      )..where((t) => t.categoryId.equals(categoryId))).write(
+        TransactionsCompanion(
+          isDeleted: const Value(true),
+          modifiedAt: Value(now),
+        ),
+      );
+      await (update(categories)..where((c) => c.id.equals(categoryId))).write(
+        CategoriesCompanion(
+          isDeleted: const Value(true),
+          modifiedAt: Value(now),
+        ),
+      );
+      await _logChange(categoryId, 'delete');
     });
   }
 
@@ -704,10 +756,22 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
     String newCategoryId,
   ) {
     return db.transaction(() async {
-      await (update(db.transactions)
-            ..where((t) => t.categoryId.equals(categoryId)))
-          .write(TransactionsCompanion(categoryId: Value(newCategoryId)));
-      await (delete(categories)..where((c) => c.id.equals(categoryId))).go();
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await (update(
+        db.transactions,
+      )..where((t) => t.categoryId.equals(categoryId))).write(
+        TransactionsCompanion(
+          categoryId: Value(newCategoryId),
+          modifiedAt: Value(now),
+        ),
+      );
+      await (update(categories)..where((c) => c.id.equals(categoryId))).write(
+        CategoriesCompanion(
+          isDeleted: const Value(true),
+          modifiedAt: Value(now),
+        ),
+      );
+      await _logChange(categoryId, 'delete');
     });
   }
 
@@ -807,12 +871,19 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
 class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
   StylesDao(super.db);
 
-  Future<List<Style>> getAllStyles() => select(styles).get();
+  Future<List<Style>> getAllStyles() =>
+      (select(styles)..where((t) => t.isDeleted.equals(false))).get();
   Future<List<Style>> getStyles({int limit = 10, int offset = 0}) =>
-      (select(styles)..limit(limit, offset: offset)).get();
-  Stream<List<Style>> watchAllStyles() => select(styles).watch();
+      (select(styles)
+            ..where((t) => t.isDeleted.equals(false))
+            ..limit(limit, offset: offset))
+          .get();
+  Stream<List<Style>> watchAllStyles() =>
+      (select(styles)..where((t) => t.isDeleted.equals(false))).watch();
   Future<Style?> getStyleById(String id) =>
-      (select(styles)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+      (select(styles)
+            ..where((tbl) => tbl.id.equals(id) & tbl.isDeleted.equals(false)))
+          .getSingleOrNull();
 
   Future<List<Style>> getStylesByIds(List<String> ids) async {
     const int chunkSize = 500;
@@ -824,7 +895,7 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
 
       final chunkResults = await (select(
         styles,
-      )..where((u) => u.id.isIn(chunk))).get();
+      )..where((u) => u.id.isIn(chunk) & u.isDeleted.equals(false))).get();
 
       allResults.addAll(chunkResults);
     }
@@ -907,9 +978,16 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
   }
 
   Future<int> deleteStyle(StylesCompanion style) async {
-    final result = await delete(styles).delete(style);
-    await _logChange(style.id.value, 'delete');
-    return result;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updatedStyle = style.copyWith(
+      isDeleted: const Value(true),
+      modifiedAt: Value(now),
+    );
+    final result = await update(styles).replace(updatedStyle);
+    if (result) {
+      await _logChange(style.id.value, 'delete');
+    }
+    return result ? 1 : 0;
   }
 
   Future<void> _logChange(String recordId, String action) async {
@@ -930,17 +1008,23 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
     with _$AccountTypesDaoMixin {
   AccountTypesDao(super.db);
 
-  Future<List<AccountType>> getAllAccountTypes() => select(accountTypes).get();
+  Future<List<AccountType>> getAllAccountTypes() =>
+      (select(accountTypes)..where((t) => t.isDeleted.equals(false))).get();
   Future<List<AccountType>> getAccountTypes({int limit = 10, int offset = 0}) =>
-      (select(accountTypes)..limit(limit, offset: offset)).get();
+      (select(accountTypes)
+            ..where((t) => t.isDeleted.equals(false))
+            ..limit(limit, offset: offset))
+          .get();
   Stream<List<AccountType>> watchAllAccountTypes() =>
-      select(accountTypes).watch();
-  Future<AccountType?> getAccountTypeById(String id) => (select(
-    accountTypes,
-  )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+      (select(accountTypes)..where((t) => t.isDeleted.equals(false))).watch();
+  Future<AccountType?> getAccountTypeById(String id) =>
+      (select(accountTypes)
+            ..where((tbl) => tbl.id.equals(id) & tbl.isDeleted.equals(false)))
+          .getSingleOrNull();
 
   Future<List<AccountType>> getAccountTypesByIds(List<String> ids) async {
-    final query = select(accountTypes)..where((t) => t.id.isIn(ids));
+    final query = select(accountTypes)
+      ..where((t) => t.id.isIn(ids) & t.isDeleted.equals(false));
     return query.get();
   }
 
@@ -998,11 +1082,16 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<int> deleteAccountType(AccountTypesCompanion accountType) async {
-    final result = await delete(accountTypes).delete(accountType);
-    if (result > 0) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updatedAccountType = accountType.copyWith(
+      isDeleted: const Value(true),
+      modifiedAt: Value(now),
+    );
+    final result = await update(accountTypes).replace(updatedAccountType);
+    if (result) {
       await _logChange(accountType.id.value, 'delete');
     }
-    return result;
+    return result ? 1 : 0;
   }
 
   Future<void> _logChange(String recordId, String action) async {
@@ -1043,17 +1132,25 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     with _$AccountsDaoMixin {
   AccountsDao(super.db);
 
-  Future<List<DbAccount>> getAllAccounts() => select(accounts).get();
+  Future<List<DbAccount>> getAllAccounts() =>
+      (select(accounts)..where((t) => t.isDeleted.equals(false))).get();
   Future<List<DbAccount>> getAccounts({int limit = 10, int offset = 0}) =>
-      (select(accounts)..limit(limit, offset: offset)).get();
+      (select(accounts)
+            ..where((t) => t.isDeleted.equals(false))
+            ..limit(limit, offset: offset))
+          .get();
   Future<DbAccount?> getAccountById(String id) =>
-      (select(accounts)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+      (select(accounts)
+            ..where((tbl) => tbl.id.equals(id) & tbl.isDeleted.equals(false)))
+          .getSingleOrNull();
 
   // OPTIMIZATION: Bulk fetch accounts by IDs (O(1) vs O(n) sequential calls)
-  Future<List<DbAccount>> getAccountsByIds(List<String> ids) =>
-      (select(accounts)..where((tbl) => tbl.id.isIn(ids))).get();
+  Future<List<DbAccount>> getAccountsByIds(List<String> ids) => (select(
+    accounts,
+  )..where((tbl) => tbl.id.isIn(ids) & tbl.isDeleted.equals(false))).get();
 
-  Stream<List<DbAccount>> watchAllAccounts() => select(accounts).watch();
+  Stream<List<DbAccount>> watchAllAccounts() =>
+      (select(accounts)..where((t) => t.isDeleted.equals(false))).watch();
 
   Future<void> insertAccount(AccountsCompanion account) async {
     var toInsert = account.id.present
@@ -1132,10 +1229,16 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<int> deleteAccount(AccountsCompanion account) async {
-    final result = await delete(accounts).delete(account);
-    // Log change for sync
-    await _logChange(account.id.value, 'delete');
-    return result;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updatedAccount = account.copyWith(
+      isDeleted: const Value(true),
+      modifiedAt: Value(now),
+    );
+    final result = await update(accounts).replace(updatedAccount);
+    if (result) {
+      await _logChange(account.id.value, 'delete');
+    }
+    return result ? 1 : 0;
   }
 
   /// Log a change for sync export
@@ -1279,8 +1382,12 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     return count ?? 0;
   }
 
-  Future<void> deleteMultipleAccounts(List<String> ids) {
-    return (delete(accounts)..where((tbl) => tbl.id.isIn(ids))).go();
+  Future<void> deleteMultipleAccounts(List<String> ids) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await (update(accounts)..where((tbl) => tbl.id.isIn(ids))).write(
+      AccountsCompanion(isDeleted: const Value(true), modifiedAt: Value(now)),
+    );
+    await _logChanges(ids, 'delete');
   }
 
   Future<void> updateAccountTypeForMultipleAccounts(
@@ -1294,10 +1401,19 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> deleteAccountWithTransactions(String accountId) {
     return db.transaction(() async {
-      await (delete(
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await (update(
         db.transactions,
-      )..where((t) => t.accountId.equals(accountId))).go();
-      await (delete(accounts)..where((a) => a.id.equals(accountId))).go();
+      )..where((t) => t.accountId.equals(accountId))).write(
+        TransactionsCompanion(
+          isDeleted: const Value(true),
+          modifiedAt: Value(now),
+        ),
+      );
+      await (update(accounts)..where((a) => a.id.equals(accountId))).write(
+        AccountsCompanion(isDeleted: const Value(true), modifiedAt: Value(now)),
+      );
+      await _logChange(accountId, 'delete');
     });
   }
 
@@ -1306,10 +1422,19 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     String newAccountId,
   ) {
     return db.transaction(() async {
-      await (update(db.transactions)
-            ..where((t) => t.accountId.equals(accountId)))
-          .write(TransactionsCompanion(accountId: Value(newAccountId)));
-      await (delete(accounts)..where((a) => a.id.equals(accountId))).go();
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await (update(
+        db.transactions,
+      )..where((t) => t.accountId.equals(accountId))).write(
+        TransactionsCompanion(
+          accountId: Value(newAccountId),
+          modifiedAt: Value(now),
+        ),
+      );
+      await (update(accounts)..where((a) => a.id.equals(accountId))).write(
+        AccountsCompanion(isDeleted: const Value(true), modifiedAt: Value(now)),
+      );
+      await _logChange(accountId, 'delete');
     });
   }
 }
@@ -1319,18 +1444,25 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     with _$TransactionsDaoMixin {
   TransactionsDao(super.db);
 
-  Future<List<Transaction>> getAllTransactions() => select(transactions).get();
+  Future<List<Transaction>> getAllTransactions() =>
+      (select(transactions)..where((t) => t.isDeleted.equals(false))).get();
   Future<List<Transaction>> getTransactions({int limit = 10, int offset = 0}) =>
-      (select(transactions)..limit(limit, offset: offset)).get();
-  Future<Transaction?> getTransactionById(String id) => (select(
-    transactions,
-  )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+      (select(transactions)
+            ..where((t) => t.isDeleted.equals(false))
+            ..limit(limit, offset: offset))
+          .get();
+  Future<Transaction?> getTransactionById(String id) =>
+      (select(transactions)
+            ..where((tbl) => tbl.id.equals(id) & tbl.isDeleted.equals(false)))
+          .getSingleOrNull();
   Future<List<Transaction>> getTransactionsByCategoryId(String categoryId) =>
-      (select(
-        transactions,
-      )..where((tbl) => tbl.categoryId.equals(categoryId))).get();
+      (select(transactions)..where(
+            (tbl) =>
+                tbl.categoryId.equals(categoryId) & tbl.isDeleted.equals(false),
+          ))
+          .get();
   Stream<List<Transaction>> watchAllTransactions() =>
-      select(transactions).watch();
+      (select(transactions)..where((t) => t.isDeleted.equals(false))).watch();
 
   Future<void> insertTransaction(TransactionsCompanion transaction) async {
     var toInsert = transaction.id.present
@@ -1405,9 +1537,16 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<int> deleteTransaction(TransactionsCompanion transaction) async {
-    final result = await delete(transactions).delete(transaction);
-    await _logChange(transaction.id.value, 'delete');
-    return result;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updatedTransaction = transaction.copyWith(
+      isDeleted: const Value(true),
+      modifiedAt: Value(now),
+    );
+    final result = await update(transactions).replace(updatedTransaction);
+    if (result) {
+      await _logChange(transaction.id.value, 'delete');
+    }
+    return result ? 1 : 0;
   }
 
   Future<void> _logChange(String recordId, String action) async {
@@ -1978,14 +2117,18 @@ class CustomThemesDao extends DatabaseAccessor<AppDatabase>
     with _$CustomThemesDaoMixin {
   CustomThemesDao(super.db);
 
-  Future<List<DbCustomTheme>> getAllThemes() => select(customThemes).get();
-  Future<DbCustomTheme?> getThemeById(String id) => (select(
-    customThemes,
-  )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+  Future<List<DbCustomTheme>> getAllThemes() =>
+      (select(customThemes)..where((t) => t.isDeleted.equals(false))).get();
+  Future<DbCustomTheme?> getThemeById(String id) =>
+      (select(customThemes)
+            ..where((tbl) => tbl.id.equals(id) & tbl.isDeleted.equals(false)))
+          .getSingleOrNull();
 
-  Future<DbCustomTheme?> getActiveTheme() => (select(
-    customThemes,
-  )..where((tbl) => tbl.isActive.equals(true))).getSingleOrNull();
+  Future<DbCustomTheme?> getActiveTheme() =>
+      (select(customThemes)..where(
+            (tbl) => tbl.isActive.equals(true) & tbl.isDeleted.equals(false),
+          ))
+          .getSingleOrNull();
 
   Future<void> insertTheme(CustomThemesCompanion theme) {
     var toInsert = theme.id.present
@@ -2028,8 +2171,15 @@ class CustomThemesDao extends DatabaseAccessor<AppDatabase>
     return update(customThemes).replace(updatedTheme);
   }
 
-  Future<int> deleteTheme(String id) =>
-      (delete(customThemes)..where((tbl) => tbl.id.equals(id))).go();
+  Future<int> deleteTheme(String id) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return (update(customThemes)..where((t) => t.id.equals(id))).write(
+      CustomThemesCompanion(
+        isDeleted: const Value(true),
+        modifiedAt: Value(now),
+      ),
+    );
+  }
 
   Future<void> setActiveTheme(String id) {
     return transaction(() async {
@@ -2225,15 +2375,19 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     with _$AssetEntriesDaoMixin {
   AssetEntriesDao(super.db);
 
-  Future<List<AssetEntry>> getAllAssetEntries() => select(assetEntries).get();
+  Future<List<AssetEntry>> getAllAssetEntries() =>
+      (select(assetEntries)..where((t) => t.isDeleted.equals(false))).get();
   Stream<List<AssetEntry>> watchAllAssetEntries() =>
-      select(assetEntries).watch();
+      (select(assetEntries)..where((t) => t.isDeleted.equals(false))).watch();
 
   Future<AssetEntry?> getAssetEntryById(String id) =>
-      (select(assetEntries)..where((t) => t.id.equals(id))).getSingleOrNull();
+      (select(assetEntries)
+            ..where((t) => t.id.equals(id) & t.isDeleted.equals(false)))
+          .getSingleOrNull();
 
-  Future<List<AssetEntry>> getAssetEntriesByIds(List<String> ids) =>
-      (select(assetEntries)..where((t) => t.id.isIn(ids))).get();
+  Future<List<AssetEntry>> getAssetEntriesByIds(List<String> ids) => (select(
+    assetEntries,
+  )..where((t) => t.id.isIn(ids) & t.isDeleted.equals(false))).get();
 
   Future<List<AssetEntry>> getAssetData({
     int limit = 50,
@@ -2252,7 +2406,7 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     double? maxValue,
     OrderingMode sort = OrderingMode.desc,
   }) {
-    final query = select(assetEntries);
+    final query = select(assetEntries)..where((t) => t.isDeleted.equals(false));
     if (assetId != null) {
       query.where((t) => t.assetId.equals(assetId));
     }
@@ -2314,7 +2468,7 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     double? maxValue,
     OrderingMode sort = OrderingMode.desc,
   }) {
-    final query = select(assetEntries);
+    final query = select(assetEntries)..where((t) => t.isDeleted.equals(false));
     if (assetId != null) {
       query.where((t) => t.assetId.equals(assetId));
     }
@@ -2373,7 +2527,8 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     double? minValue,
     double? maxValue,
   }) async {
-    final query = selectOnly(assetEntries);
+    final query = selectOnly(assetEntries)
+      ..where(assetEntries.isDeleted.equals(false));
     if (assetId != null) {
       query.where(assetEntries.assetId.equals(assetId));
     }
@@ -2444,13 +2599,29 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     await _logChange(data.id.value, 'upsert');
   }
 
-  Future<void> deleteAssetEntry(String id) async {
-    await (delete(assetEntries)..where((tbl) => tbl.id.equals(id))).go();
-    await _logChange(id, 'delete');
+  Future<int> deleteAssetEntry(String id) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final result = await (update(assetEntries)..where((t) => t.id.equals(id)))
+        .write(
+          AssetEntriesCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(now),
+          ),
+        );
+    if (result > 0) {
+      await _logChange(id, 'delete');
+    }
+    return result;
   }
 
   Future<void> deleteAssets(List<String> ids) async {
-    await (delete(assetEntries)..where((tbl) => tbl.id.isIn(ids))).go();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await (update(assetEntries)..where((tbl) => tbl.id.isIn(ids))).write(
+      AssetEntriesCompanion(
+        isDeleted: const Value(true),
+        modifiedAt: Value(now),
+      ),
+    );
     await _logChanges(ids, 'delete');
   }
 
@@ -2546,11 +2717,12 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     Settings,
     CustomThemes,
     ApiFetchStatuses,
+    ApiSettingsTable,
+    SmsPresets,
+    SyncProcessedFiles,
     SyncLog,
     ConflictHistory,
     CustomDataSources,
-    ApiSettingsTable,
-    SmsPresets,
   ],
   daos: [
     LanguageDao,
@@ -2572,6 +2744,7 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     ConflictHistoryDao,
     CustomDataSourcesDao,
     ApiSettingsDao,
+    SyncProcessedFilesDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -2580,7 +2753,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -2652,6 +2825,10 @@ class AppDatabase extends _$AppDatabase {
 
           // Create SmsPresets table if it doesn't exist
           await m.createTable(smsPresets);
+        }
+
+        if (from < 4) {
+          await m.createTable(syncProcessedFiles);
         }
       },
       beforeOpen: (details) async {
@@ -2912,15 +3089,18 @@ class CustomDataSourcesDao extends DatabaseAccessor<AppDatabase>
     with _$CustomDataSourcesDaoMixin {
   CustomDataSourcesDao(super.db);
 
-  Future<List<CustomDataSource>> getAllDataSources() =>
-      select(customDataSources).get();
-
-  Future<CustomDataSource?> getDataSourceById(String id) => (select(
+  Future<List<CustomDataSource>> getAllDataSources() => (select(
     customDataSources,
-  )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+  )..where((t) => t.isDeleted.equals(false))).get();
+
+  Future<CustomDataSource?> getDataSourceById(String id) =>
+      (select(customDataSources)
+            ..where((tbl) => tbl.id.equals(id) & tbl.isDeleted.equals(false)))
+          .getSingleOrNull();
 
   Future<List<CustomDataSource>> getDataSourcesByIds(List<String> ids) async {
-    final query = select(customDataSources)..where((t) => t.id.isIn(ids));
+    final query = select(customDataSources)
+      ..where((t) => t.id.isIn(ids) & t.isDeleted.equals(false));
     return query.get();
   }
 
@@ -2965,7 +3145,9 @@ class CustomDataSourcesDao extends DatabaseAccessor<AppDatabase>
     await _logChanges(ids, 'upsert');
   }
 
-  Future<bool> updateDataSource(CustomDataSourcesCompanion dataSource) async {
+  Future<bool> updateCustomDataSource(
+    CustomDataSourcesCompanion dataSource,
+  ) async {
     final updatedDataSource = dataSource.copyWith(
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
@@ -2977,11 +3159,16 @@ class CustomDataSourcesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<int> deleteDataSource(CustomDataSourcesCompanion dataSource) async {
-    final result = await delete(customDataSources).delete(dataSource);
-    if (result > 0) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updatedDataSource = dataSource.copyWith(
+      isDeleted: const Value(true),
+      modifiedAt: Value(now),
+    );
+    final result = await update(customDataSources).replace(updatedDataSource);
+    if (result) {
       await _logChange(dataSource.id.value, 'delete');
     }
-    return result;
+    return result ? 1 : 0;
   }
 
   Future<void> _logChange(String recordId, String action) async {
@@ -3106,14 +3293,20 @@ class SmsPresetsDao extends DatabaseAccessor<AppDatabase>
     with _$SmsPresetsDaoMixin {
   SmsPresetsDao(super.db);
 
-  Future<List<SmsPreset>> getAllPresets() => select(smsPresets).get();
-  Stream<List<SmsPreset>> watchAllPresets() => select(smsPresets).watch();
+  Future<List<SmsPreset>> getAllPresets() =>
+      (select(smsPresets)..where((t) => t.isDeleted.equals(false))).get();
+  Stream<List<SmsPreset>> watchAllPresets() =>
+      (select(smsPresets)..where((t) => t.isDeleted.equals(false))).watch();
   Future<int> insertPreset(SmsPresetsCompanion preset) =>
       into(smsPresets).insert(preset);
   Future<bool> updatePreset(SmsPresetsCompanion preset) =>
       update(smsPresets).replace(preset);
-  Future<int> deletePreset(String id) =>
-      (delete(smsPresets)..where((t) => t.id.equals(id))).go();
+  Future<int> deletePreset(String id) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return (update(smsPresets)..where((t) => t.id.equals(id))).write(
+      SmsPresetsCompanion(isDeleted: const Value(true), modifiedAt: Value(now)),
+    );
+  }
 }
 
 @DriftAccessor(tables: [SyncLog])
@@ -3199,4 +3392,36 @@ class ConflictHistoryDao extends DatabaseAccessor<AppDatabase>
       await (delete(conflictHistory)..where((t) => t.id.isIn(toDelete))).go();
     }
   }
+}
+
+@DriftAccessor(tables: [SyncProcessedFiles])
+class SyncProcessedFilesDao extends DatabaseAccessor<AppDatabase>
+    with _$SyncProcessedFilesDaoMixin {
+  SyncProcessedFilesDao(super.db);
+
+  Future<bool> isProcessed(String fileName) async {
+    final query = select(syncProcessedFiles)
+      ..where((t) => t.fileName.equals(fileName));
+    final result = await query.getSingleOrNull();
+    return result != null;
+  }
+
+  Future<void> markProcessed(String fileName, String deviceId) async {
+    await into(syncProcessedFiles).insert(
+      SyncProcessedFilesCompanion(
+        fileName: Value(fileName),
+        deviceId: Value(deviceId),
+        processedAt: Value(DateTime.now().millisecondsSinceEpoch),
+      ),
+      mode: InsertMode.insertOrReplace,
+    );
+  }
+
+  Future<void> clearOldProcessed(DateTime cutoff) =>
+      (delete(syncProcessedFiles)..where(
+            (t) => t.processedAt.isSmallerOrEqualValue(
+              cutoff.millisecondsSinceEpoch,
+            ),
+          ))
+          .go();
 }
