@@ -38,42 +38,43 @@ class CustomApiService {
   }
 
   /// Fetches data and parses it based on 'type' field in JSON
-  Future<void> fetchCustomData(String url) async {
+  /// Returns the number of items imported, or throws exception on failure.
+  Future<int> fetchCustomData(String url) async {
     try {
       final uri = _getUri(url);
       debugPrint('[CustomApiService] Fetching from $uri...');
       final response = await http.get(uri);
 
       if (response.statusCode != 200) {
-        debugPrint(
-          '[CustomApiService] Failed with status: ${response.statusCode}',
-        );
-        return;
+        throw Exception('Failed with status: ${response.statusCode}');
       }
 
       final json = jsonDecode(response.body);
       final String type = json['type'] as String;
       final List data = json['data'] as List;
 
+      int count = 0;
       switch (type) {
         case 'exchange_rates':
-          await _parseExchangeRates(data);
+          count = await _parseExchangeRates(data);
           break;
         case 'inflation':
-          await _parseInflation(data);
+          count = await _parseInflation(data);
           break;
         case 'assets':
-          await _parseAssets(data);
+          count = await _parseAssets(data);
           break;
         default:
-          debugPrint('[CustomApiService] Unknown data type: $type');
+          throw Exception('Unknown data type: $type');
       }
+      return count;
     } catch (e) {
       debugPrint('[CustomApiService] Error fetching/parsing $url: $e');
+      rethrow; // Re-throw so the UI knows it failed
     }
   }
 
-  Future<void> _parseExchangeRates(List data) async {
+  Future<int> _parseExchangeRates(List data) async {
     final List<ExchangeRatesCompanion> companions = [];
     for (final item in data) {
       companions.add(
@@ -92,9 +93,10 @@ class CustomApiService {
         '[CustomApiService] Imported ${companions.length} exchange rates',
       );
     }
+    return companions.length;
   }
 
-  Future<void> _parseInflation(List data) async {
+  Future<int> _parseInflation(List data) async {
     for (final item in data) {
       await _inflationRatesDao.insertInflationRate(
         InflationRatesCompanion(
@@ -106,9 +108,10 @@ class CustomApiService {
       );
     }
     debugPrint('[CustomApiService] Imported ${data.length} inflation records');
+    return data.length;
   }
 
-  Future<void> _parseAssets(List data) async {
+  Future<int> _parseAssets(List data) async {
     for (final item in data) {
       final date = DateTime.parse(item['date']);
       final code = item['code'] as String;
@@ -130,5 +133,6 @@ class CustomApiService {
       );
     }
     debugPrint('[CustomApiService] Imported ${data.length} asset records');
+    return data.length;
   }
 }

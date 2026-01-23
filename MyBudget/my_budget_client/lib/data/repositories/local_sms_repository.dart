@@ -27,6 +27,7 @@ class LocalSmsRepository implements SmsRepository {
   }
 
   void _initSmsListener() {
+    if (!Platform.isAndroid) return;
     print('SMS_DEBUG: Wrapper listening to native stream');
     _smsChannel.receiveBroadcastStream().listen((dynamic event) {
       print('SMS_DEBUG: Wrapper received event: $event');

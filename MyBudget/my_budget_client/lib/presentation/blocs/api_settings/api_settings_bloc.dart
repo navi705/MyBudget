@@ -268,12 +268,11 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
       final currentState = state as ApiSettingsLoadSuccess;
       emit(currentState.copyWith(isOperationInProgress: true));
       try {
-        final result = await _customApiService.testConnection(event.url);
+        // User requested that "Test" also imports the data immediately.
+        // fetchCustomData throws an exception if it fails, so if we get here, it succeeded.
+        await _customApiService.fetchCustomData(event.url);
         emit(
-          currentState.copyWith(
-            isOperationInProgress: false,
-            testResult: result,
-          ),
+          currentState.copyWith(isOperationInProgress: false, testResult: true),
         );
       } catch (e) {
         emit(

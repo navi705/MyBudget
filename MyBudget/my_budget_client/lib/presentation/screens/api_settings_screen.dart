@@ -527,7 +527,6 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
   void _showAddSourceDialog(BuildContext context) {
     final nameCtrl = TextEditingController();
     final urlCtrl = TextEditingController();
-    final portCtrl = TextEditingController();
     int type = 0;
     String? errorText;
 
@@ -559,32 +558,14 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                     hintText: 'My Home Server',
                   ),
                 ),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: TextField(
-                        controller: urlCtrl,
-                        decoration: InputDecoration(
-                          labelText: 'URL / IP',
-                          hintText: '192.168.1.10',
-                          errorText: errorText,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 1,
-                      child: TextField(
-                        controller: portCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Port',
-                          hintText: '8080',
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 16),
+                TextField(
+                  controller: urlCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'URL / IP',
+                    hintText: '192.168.1.10:8080 or https://myserver.com',
+                    errorText: errorText,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
@@ -618,24 +599,14 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
               onPressed: () {
                 final url = urlCtrl.text.trim();
                 final name = nameCtrl.text.trim();
-                final port = portCtrl.text.trim();
 
                 if (name.isEmpty || url.isEmpty) {
                   setDialogState(() => errorText = 'Required');
                   return;
                 }
 
-                String finalUrl = url;
-                if (port.isNotEmpty) {
-                  finalUrl = '$url:$port';
-                }
-
                 context.read<ApiSettingsBloc>().add(
-                  AddCustomDataSource(
-                    name: name,
-                    url: finalUrl,
-                    dataType: type,
-                  ),
+                  AddCustomDataSource(name: name, url: url, dataType: type),
                 );
                 Navigator.pop(ctx);
               },
