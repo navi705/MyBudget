@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
@@ -556,7 +557,9 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                 _currentAssetPrice != null &&
                                     _assetCurrency != null
                                 ? l10n.currentPriceLabel(
-                                    _currentAssetPrice!.toString(),
+                                    NumberFormat('#,##0.00', 'en_US')
+                                        .format(_currentAssetPrice)
+                                        .replaceAll(',', ' '),
                                     _assetCurrency!,
                                   )
                                 : null,
@@ -630,7 +633,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                       '${asset.quantity} @ ${asset.value} ${asset.currency}',
                                     ),
                                     trailing: Text(
-                                      '${(asset.quantity * asset.value).toStringAsFixed(2)} ${asset.currency}',
+                                      '${NumberFormat('#,##0.00', 'en_US').format(asset.quantity * asset.value).replaceAll(',', ' ')} ${asset.currency}',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                       ),

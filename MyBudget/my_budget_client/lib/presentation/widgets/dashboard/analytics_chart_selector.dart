@@ -409,7 +409,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
                 return PieChartSectionData(
                   color: color,
                   value: e.value,
-                  title: isLarge ? '${percentage.toStringAsFixed(1)}%' : '',
+                  title: isLarge ? '${percentage.toStringAsFixed(2)}%' : '',
                   radius: 60,
                   titleStyle: TextStyle(
                     fontSize: 12,
@@ -448,7 +448,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '${e.key} ${percentage.toStringAsFixed(1)}%',
+                  '${e.key} ${percentage.toStringAsFixed(2)}% (${NumberFormat('#,##0.00', 'en_US').format(e.value).replaceAll(',', ' ')} ${widget.currencyCode})',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
@@ -478,9 +478,6 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
   }
 
   String _formatCurrency(double amount, String code) {
-    return NumberFormat.simpleCurrency(
-      name: code,
-      decimalDigits: 2,
-    ).format(amount);
+    return '${NumberFormat('#,##0.00', 'en_US').format(amount).replaceAll(',', ' ')} $code';
   }
 }

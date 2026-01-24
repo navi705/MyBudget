@@ -270,7 +270,7 @@ class CategoryPieChart extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                '${(percentage * 100).toStringAsFixed(1)}%',
+                '${(percentage * 100).toStringAsFixed(2)}%',
                 style: theme.textTheme.labelSmall,
               ),
             ],
@@ -348,10 +348,10 @@ class CategoryPieChart extends StatelessWidget {
 
       if (percentage > labelThreshold + 10) {
         // Large slice: Show everything
-        title = '${percentage.toStringAsFixed(1)}%\n$formattedValue';
+        title = '${percentage.toStringAsFixed(2)}%\n$formattedValue';
       } else if (percentage > labelThreshold) {
         // Medium slice: Show only percentage
-        title = '${percentage.toStringAsFixed(1)}%';
+        title = '${percentage.toStringAsFixed(2)}%';
       }
       // Small slice: Show nothing to prevent clutter
 

@@ -85,7 +85,7 @@ class AccountListItem extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final formatter = NumberFormat.decimalPattern();
+    final formatter = NumberFormat('#,##0.00', 'en_US');
     final diff = prevValue != null ? value - prevValue : 0.0;
 
     // Percentages
@@ -145,7 +145,7 @@ class AccountListItem extends StatelessWidget {
                       ),
                       TextSpan(
                         text:
-                            '${diff > 0 ? '+' : ''}${formatter.format(diff).replaceAll(',', ' ')} (${pct > 0 ? '+' : ''}${pct.toStringAsFixed(1)}%)',
+                            '${diff > 0 ? '+' : ''}${formatter.format(diff).replaceAll(',', ' ')} (${pct > 0 ? '+' : ''}${pct.toStringAsFixed(2)}%)',
                         style: TextStyle(
                           fontSize: 13,
                           color: diff > 0 ? Colors.green : Colors.red,

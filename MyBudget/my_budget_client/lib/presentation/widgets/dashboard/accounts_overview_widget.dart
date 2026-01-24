@@ -104,7 +104,7 @@ class AccountsOverviewWidget extends StatelessWidget {
                 return PieChartSectionData(
                   color: _getRandomColor(e.key.hashCode),
                   value: e.value,
-                  title: isLarge ? '${percentage.toStringAsFixed(1)}%' : '',
+                  title: isLarge ? '${percentage.toStringAsFixed(2)}%' : '',
                   radius: 50,
                   titleStyle: const TextStyle(
                     fontSize: 12,
@@ -135,7 +135,7 @@ class AccountsOverviewWidget extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  '${e.key} (${percentage.toStringAsFixed(1)}%)',
+                  '${e.key} (${percentage.toStringAsFixed(2)}%)',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],

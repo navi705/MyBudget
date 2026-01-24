@@ -68,7 +68,7 @@ class CategoryListItem extends StatelessWidget {
         final currencySymbol = designation?.value ?? mainCurrencyCode;
 
         final formattedTotal =
-            '${NumberFormat.decimalPattern().format(total).replaceAll(',', ' ')} $currencySymbol';
+            '${NumberFormat('#,##0.00', 'en_US').format(total).replaceAll(',', ' ')} $currencySymbol';
 
         final subtitleText = category.type == CategoryType.income
             ? 'Received: $formattedTotal'

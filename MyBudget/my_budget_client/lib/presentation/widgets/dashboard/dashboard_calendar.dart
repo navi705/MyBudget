@@ -203,13 +203,13 @@ class DashboardCalendar extends StatelessWidget {
                 if (income > 0)
                   _buildMiniStat(
                     context,
-                    '+${NumberFormat.compact().format(income)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
+                    '+${NumberFormat('#,##0.00', 'en_US').format(income).replaceAll(',', ' ')} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
                     Colors.green,
                   ),
                 if (expense > 0)
                   _buildMiniStat(
                     context,
-                    '-${NumberFormat.compact().format(expense)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
+                    '-${NumberFormat('#,##0.00', 'en_US').format(expense).replaceAll(',', ' ')} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
                     Colors.red,
                   ),
               ],
@@ -313,7 +313,7 @@ class DashboardCalendar extends StatelessWidget {
                   name: currencyCode,
                 ).currencySymbol;
                 return Text(
-                  '${net >= 0 ? '+' : ''}${NumberFormat.compact().format(net)}$currencySymbol',
+                  '${net >= 0 ? '+' : ''}${NumberFormat('#,##0.00', 'en_US').format(net).replaceAll(',', ' ')}$currencySymbol',
                   style: TextStyle(
                     color: color,
                     fontSize: 15,

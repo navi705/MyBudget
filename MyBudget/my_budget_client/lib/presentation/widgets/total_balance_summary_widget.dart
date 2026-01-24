@@ -241,6 +241,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                     realBalance,
                     prevRealBalance,
                     Colors.blue,
+                    currency.code,
                   ),
                   const SizedBox(width: 24),
                   _buildMetricColumn(
@@ -251,6 +252,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                     realIncome, // Restore Real Income
                     prevRealIncome,
                     Colors.green,
+                    currency.code,
                   ),
                   const SizedBox(width: 24),
                   _buildMetricColumn(
@@ -261,6 +263,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                     null, // Hide Real Expense
                     null,
                     Colors.red,
+                    currency.code, // Pass symbol/code
                   ),
                 ],
               ),
@@ -279,6 +282,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
     double? real,
     double? prevReal,
     Color color,
+    String symbol,
   ) {
     final l10n = context.l10n;
     if (nominal.abs() < 0.01 &&
@@ -287,7 +291,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
       if (label != "Balance") return const SizedBox.shrink();
     }
 
-    final formatter = NumberFormat.decimalPattern();
+    final formatter = NumberFormat('#,##0.00', 'en_US');
     final nominalDiff = nominal - prevNominal;
     final realDiff = (real != null && prevReal != null) ? real - prevReal : 0.0;
 
@@ -313,7 +317,8 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
             ),
             children: [
               TextSpan(
-                text: formatter.format(nominal).replaceAll(',', ' '),
+                text:
+                    '${formatter.format(nominal).replaceAll(',', ' ')} $symbol',
                 style: TextStyle(fontWeight: FontWeight.bold, color: color),
               ),
               if (nominalDiff.abs() >= 0.01) ...[
@@ -328,7 +333,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                 ),
                 TextSpan(
                   text:
-                      '${nominalDiff > 0 ? '+' : ''}${formatter.format(nominalDiff).replaceAll(',', ' ')} (${nominalPct > 0 ? '+' : ''}${nominalPct.toStringAsFixed(1)}%)',
+                      '${nominalDiff > 0 ? '+' : ''}${formatter.format(nominalDiff).replaceAll(',', ' ')} $symbol (${nominalPct > 0 ? '+' : ''}${nominalPct.toStringAsFixed(2)}%)',
                   style: TextStyle(
                     fontSize: 14,
                     color: nominalDiff > 0 ? Colors.green : Colors.red,
@@ -349,12 +354,15 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
               ),
               children: [
                 TextSpan(text: '${l10n.metricReal}: '),
-                TextSpan(text: formatter.format(real).replaceAll(',', ' ')),
+                TextSpan(
+                  text:
+                      '${formatter.format(real).replaceAll(',', ' ')} $symbol',
+                ),
                 if (realDiff.abs() >= 0.01) ...[
                   const TextSpan(text: ' '),
                   TextSpan(
                     text:
-                        '${realDiff > 0 ? '+' : ''}${formatter.format(realDiff).replaceAll(',', ' ')} (${realPct > 0 ? '+' : ''}${realPct.toStringAsFixed(1)}%)',
+                        '${realDiff > 0 ? '+' : ''}${formatter.format(realDiff).replaceAll(',', ' ')} $symbol (${realPct > 0 ? '+' : ''}${realPct.toStringAsFixed(2)}%)',
                     style: TextStyle(
                       fontSize: 12,
                       color: realDiff > 0 ? Colors.green : Colors.red,

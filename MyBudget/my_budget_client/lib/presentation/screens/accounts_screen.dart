@@ -686,7 +686,7 @@ class TotalBalanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final formatter = NumberFormat.decimalPattern();
+    final formatter = NumberFormat('#,##0.00', 'en_US');
     return Card(
       margin: const EdgeInsets.all(8.0),
       elevation: 4.0,
@@ -770,7 +770,7 @@ class TotalBalanceCard extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           SelectableText(
-                            '${currency.code}: ${formatter.format(total).replaceAll(',', ' ')}',
+                            '${currency.code}: ${formatter.format(total).replaceAll(',', ' ')} ${currency.code}',
                             style: TextStyle(
                               fontSize: 16,
                               color: balanceColor,
@@ -778,7 +778,7 @@ class TotalBalanceCard extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '${diff > 0 ? '+' : ''}${formatter.format(diff).replaceAll(',', ' ')} (${(diff / prevTotal * 100).toStringAsFixed(1)}%)',
+                            '${diff > 0 ? '+' : ''}${formatter.format(diff).replaceAll(',', ' ')} ${currency.code} (${(diff / prevTotal * 100).toStringAsFixed(2)}%)',
                             style: TextStyle(
                               fontSize: 14,
                               color: diff > 0 ? Colors.green : Colors.red,
@@ -791,14 +791,14 @@ class TotalBalanceCard extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Real: ${formatter.format(realTotal).replaceAll(',', ' ')} (-${lossPercent.toStringAsFixed(1)}%)',
+                              'Real: ${formatter.format(realTotal).replaceAll(',', ' ')} ${currency.code} (-${lossPercent.toStringAsFixed(2)}%)',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Theme.of(context).colorScheme.outline,
                               ),
                             ),
                             Text(
-                              '${realDiff > 0 ? '+' : ''}${formatter.format(realDiff).replaceAll(',', ' ')} (${(realDiff / prevRealTotal * 100).toStringAsFixed(1)}%)',
+                              '${realDiff > 0 ? '+' : ''}${formatter.format(realDiff).replaceAll(',', ' ')} (${(realDiff / prevRealTotal * 100).toStringAsFixed(2)}%)',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: realDiff > 0 ? Colors.green : Colors.red,

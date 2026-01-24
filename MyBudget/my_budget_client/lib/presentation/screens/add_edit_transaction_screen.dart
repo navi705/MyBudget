@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
@@ -1103,7 +1104,7 @@ class _ConvertedAmountDisplay extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  '$targetCurrency ${converted.toStringAsFixed(2)}',
+                  '$targetCurrency ${NumberFormat('#,##0.00', 'en_US').format(converted).replaceAll(',', ' ')}',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.onPrimaryContainer,
@@ -1235,7 +1236,13 @@ class _AssetPriceDisplay extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: Text(
-            context.l10n.currentPriceLabel(price.toString(), currency),
+            context.l10n.currentPriceLabel(
+              NumberFormat(
+                '#,##0.00',
+                'en_US',
+              ).format(price).replaceAll(',', ' '),
+              currency,
+            ),
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         );

@@ -315,7 +315,7 @@ class _DateHeader extends StatelessWidget {
     final currencySymbol = designation?.value ?? mainCurrencyCode;
 
     final formattedSum =
-        '${NumberFormat.decimalPattern().format(dailySum).replaceAll(',', ' ')} $currencySymbol';
+        '${NumberFormat('#,##0.00', 'en_US').format(dailySum).replaceAll(',', ' ')} $currencySymbol';
 
     return ListTile(
       title: Text(
@@ -435,7 +435,7 @@ class TransactionListItem extends StatelessWidget {
                           2,
                         ),
                       )
-                    : '${transactionCategory.transaction.amount.toStringAsFixed(2).replaceAll('.', ',').replaceAll(',', ' ')} $currencySymbol',
+                    : '${NumberFormat('#,##0.00', 'en_US').format(transactionCategory.transaction.amount).replaceAll(',', ' ')} $currencySymbol',
                 style: TextStyle(color: balanceColor, fontSize: 14),
               ),
               if (transactionCategory.linkedTransaction != null &&
@@ -462,7 +462,7 @@ class TransactionListItem extends StatelessWidget {
                           ? context.l10n.quantityLabel(
                               '${linkedTx.amount > 0 ? '+' : ''}${linkedTx.amount.toStringAsFixed(2)}',
                             )
-                          : '${linkedTx.amount > 0 ? '+' : ''}${linkedTx.amount.toStringAsFixed(2).replaceAll('.', ',').replaceAll(',', ' ')} $linkedSymbol',
+                          : '${linkedTx.amount > 0 ? '+' : ''}${NumberFormat('#,##0.00', 'en_US').format(linkedTx.amount).replaceAll(',', ' ')} $linkedSymbol',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 13,
