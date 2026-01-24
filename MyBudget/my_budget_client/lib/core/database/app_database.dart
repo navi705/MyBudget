@@ -1829,9 +1829,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
           CASE 
             WHEN t.currency_code = 'EUR' THEN 1.0
             ELSE COALESCE(
-              (SELECT rate FROM exchange_rates WHERE date = t.date AND from_currency_code = t.currency_code AND to_currency_code = 'EUR'),
-              CASE WHEN (SELECT rate FROM exchange_rates WHERE date = t.date AND from_currency_code = 'EUR' AND to_currency_code = t.currency_code) > 0 
-                   THEN 1.0 / (SELECT rate FROM exchange_rates WHERE date = t.date AND from_currency_code = 'EUR' AND to_currency_code = t.currency_code)
+              (SELECT rate FROM exchange_rates WHERE date(date/1000, 'unixepoch') = date(t.date/1000, 'unixepoch') AND from_currency_code = t.currency_code AND to_currency_code = 'EUR'),
+              CASE WHEN (SELECT rate FROM exchange_rates WHERE date(date/1000, 'unixepoch') = date(t.date/1000, 'unixepoch') AND from_currency_code = 'EUR' AND to_currency_code = t.currency_code) > 0 
+                   THEN 1.0 / (SELECT rate FROM exchange_rates WHERE date(date/1000, 'unixepoch') = date(t.date/1000, 'unixepoch') AND from_currency_code = 'EUR' AND to_currency_code = t.currency_code)
                    ELSE 1.0 END,
               1.0
             )
@@ -1840,9 +1840,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
           CASE 
             WHEN '$mainCurrencyCode' = 'EUR' THEN 1.0
             ELSE COALESCE(
-              (SELECT rate FROM exchange_rates WHERE date = t.date AND from_currency_code = 'EUR' AND to_currency_code = '$mainCurrencyCode'),
-              CASE WHEN (SELECT rate FROM exchange_rates WHERE date = t.date AND from_currency_code = '$mainCurrencyCode' AND to_currency_code = 'EUR') > 0
-                   THEN 1.0 / (SELECT rate FROM exchange_rates WHERE date = t.date AND from_currency_code = '$mainCurrencyCode' AND to_currency_code = 'EUR')
+              (SELECT rate FROM exchange_rates WHERE date(date/1000, 'unixepoch') = date(t.date/1000, 'unixepoch') AND from_currency_code = 'EUR' AND to_currency_code = '$mainCurrencyCode'),
+              CASE WHEN (SELECT rate FROM exchange_rates WHERE date(date/1000, 'unixepoch') = date(t.date/1000, 'unixepoch') AND from_currency_code = '$mainCurrencyCode' AND to_currency_code = 'EUR') > 0
+                   THEN 1.0 / (SELECT rate FROM exchange_rates WHERE date(date/1000, 'unixepoch') = date(t.date/1000, 'unixepoch') AND from_currency_code = '$mainCurrencyCode' AND to_currency_code = 'EUR')
                    ELSE 1.0 END,
               1.0
             )
