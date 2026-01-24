@@ -281,6 +281,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(title: const Text('Synchronization Settings')),
       body: ListView(
         padding: const EdgeInsets.all(16),

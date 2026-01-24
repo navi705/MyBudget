@@ -177,6 +177,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
           }
         },
         child: Scaffold(
+          resizeToAvoidBottomInset: false,
           appBar: AppBar(
             title: Text(l10n.editAccountTitle(_initialAccount.name)),
             actions: const [],

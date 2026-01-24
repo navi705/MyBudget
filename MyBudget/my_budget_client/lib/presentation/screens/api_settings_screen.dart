@@ -48,6 +48,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
             sl<ApiSettingsBloc>()..add(const LoadApiSettings()),
         child: Builder(
           builder: (context) => Scaffold(
+            resizeToAvoidBottomInset: false,
             appBar: AppBar(title: const Text('API Management')),
             body: Center(
               child: ConstrainedBox(

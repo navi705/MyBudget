@@ -76,10 +76,9 @@ class App extends StatelessWidget {
                 routerConfig: router,
                 debugShowCheckedModeBanner: false,
                 builder: (context, child) {
-                  // Calculate the full screen height (screen + keyboard) to keep background static
-                  final mediaQuery = MediaQuery.of(context);
-                  final fullHeight =
-                      mediaQuery.size.height + mediaQuery.viewInsets.bottom;
+                  // Optimization: use a fixed large height to prevent RepaintBoundary invalidation
+                  // during keyboard animations. Adding viewInsets would cause a repaint every frame.
+                  const staticBackgroundHeight = 2000.0;
 
                   return Container(
                     color: theme.backgroundColor.withValues(
@@ -88,14 +87,11 @@ class App extends StatelessWidget {
                     child: Stack(
                       children: [
                         // Optimized Background Layer
-                        // We use OverflowBox to force the background to stay at full device height
-                        // even when the keyboard pushes the view up. This allows RepaintBoundary
-                        // to actually cache the raster, as the child size doesn't change.
                         Positioned.fill(
                           child: RepaintBoundary(
                             child: OverflowBox(
-                              minHeight: fullHeight,
-                              maxHeight: fullHeight,
+                              minHeight: staticBackgroundHeight,
+                              maxHeight: staticBackgroundHeight,
                               alignment: Alignment.topCenter,
                               child: Stack(
                                 children: [

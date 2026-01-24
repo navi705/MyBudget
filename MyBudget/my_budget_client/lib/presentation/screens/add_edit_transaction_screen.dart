@@ -155,6 +155,7 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
           }
         },
         child: Scaffold(
+          resizeToAvoidBottomInset: false,
           appBar: AppBar(
             title: BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
               builder: (context, state) {
