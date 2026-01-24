@@ -81,6 +81,23 @@ class AddCustomDataSource extends ApiSettingsEvent {
   List<Object?> get props => [name, url, dataType];
 }
 
+class EditCustomDataSource extends ApiSettingsEvent {
+  final String id;
+  final String name;
+  final String url;
+  final int dataType;
+
+  const EditCustomDataSource({
+    required this.id,
+    required this.name,
+    required this.url,
+    required this.dataType,
+  });
+
+  @override
+  List<Object?> get props => [id, name, url, dataType];
+}
+
 class DeleteCustomDataSource extends ApiSettingsEvent {
   final String id;
   const DeleteCustomDataSource(this.id);
@@ -113,11 +130,12 @@ class ToggleStartupSync extends ApiSettingsEvent {
 }
 
 class TestCustomDataSource extends ApiSettingsEvent {
+  final String id;
   final String url;
-  const TestCustomDataSource(this.url);
+  const TestCustomDataSource({required this.id, required this.url});
 
   @override
-  List<Object?> get props => [url];
+  List<Object?> get props => [id, url];
 }
 
 class ToggleAllCustomSources extends ApiSettingsEvent {

@@ -3172,17 +3172,20 @@ class CustomDataSourcesDao extends DatabaseAccessor<AppDatabase>
     return result;
   }
 
-  Future<int> deleteDataSource(CustomDataSourcesCompanion dataSource) async {
+  Future<int> deleteDataSource(String id) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final updatedDataSource = dataSource.copyWith(
-      isDeleted: const Value(true),
-      modifiedAt: Value(now),
-    );
-    final result = await update(customDataSources).replace(updatedDataSource);
-    if (result) {
-      await _logChange(dataSource.id.value, 'delete');
+    final count =
+        await (update(customDataSources)..where((t) => t.id.equals(id))).write(
+          CustomDataSourcesCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(now),
+          ),
+        );
+
+    if (count > 0) {
+      await _logChange(id, 'delete');
     }
-    return result ? 1 : 0;
+    return count;
   }
 
   Future<void> _logChange(String recordId, String action) async {

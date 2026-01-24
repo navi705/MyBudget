@@ -45,6 +45,30 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
     on<TestCustomDataSource>(_onTestCustomDataSource);
     on<ToggleAllCustomSources>(_onToggleAllCustomSources);
     on<SaveSteamGame>(_onSaveSteamGame);
+    on<EditCustomDataSource>(_onEditCustomDataSource);
+  }
+
+  Future<void> _onEditCustomDataSource(
+    EditCustomDataSource event,
+    Emitter<ApiSettingsState> emit,
+  ) async {
+    if (state is ApiSettingsLoadSuccess) {
+      final currentState = state as ApiSettingsLoadSuccess;
+      try {
+        final existing = currentState.customDataSources.firstWhere(
+          (s) => s.id == event.id,
+        );
+        final updated = existing.copyWith(
+          name: event.name,
+          url: event.url,
+          dataType: ApiDataType.values[event.dataType],
+        );
+        await _customDataSourceRepository.saveDataSource(updated);
+        add(const LoadApiSettings(silent: true));
+      } catch (e) {
+        emit(currentState.copyWith(lastError: e.toString()));
+      }
+    }
   }
 
   Future<void> _onToggleAllCustomSources(
@@ -350,15 +374,39 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
         // User requested that "Test" also imports the data immediately.
         // fetchCustomData throws an exception if it fails, so if we get here, it succeeded.
         await _customApiService.fetchCustomData(event.url);
+
+        // Update lastFetchAt in database
+        final source = currentState.customDataSources.firstWhere(
+          (s) => s.id == event.id,
+        );
+        final updatedSource = source.copyWith(lastFetchAt: DateTime.now());
+        await _customDataSourceRepository.saveDataSource(updatedSource);
+
+        final newResults = Map<String, bool>.from(currentState.testResults);
+        newResults[event.url] = true;
+
+        // Note: we don't call LoadApiSettings here because we want to maintain the test result state immediately.
+        // But we should update the local list in the state too.
+        final newSources = currentState.customDataSources.map((s) {
+          return s.id == event.id ? updatedSource : s;
+        }).toList();
+
         emit(
-          currentState.copyWith(isOperationInProgress: false, testResult: true),
+          currentState.copyWith(
+            isOperationInProgress: false,
+            testResults: newResults,
+            customDataSources: newSources,
+          ),
         );
       } catch (e) {
+        final newResults = Map<String, bool>.from(currentState.testResults);
+        newResults[event.url] = false;
+
         emit(
           currentState.copyWith(
             isOperationInProgress: false,
             lastError: e.toString(),
-            testResult: false,
+            testResults: newResults,
           ),
         );
       }

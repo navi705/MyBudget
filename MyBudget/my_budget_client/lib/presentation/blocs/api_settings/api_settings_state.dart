@@ -22,7 +22,7 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
   final String? lastError;
   final bool isOperationInProgress;
   final bool startupSyncEnabled;
-  final bool? testResult;
+  final Map<String, bool> testResults;
 
   const ApiSettingsLoadSuccess({
     this.steamId,
@@ -32,7 +32,7 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
     this.lastError,
     this.isOperationInProgress = false,
     this.startupSyncEnabled = true,
-    this.testResult,
+    this.testResults = const {},
   });
 
   ApiSettingsLoadSuccess copyWith({
@@ -43,7 +43,7 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
     String? lastError,
     bool? isOperationInProgress,
     bool? startupSyncEnabled,
-    bool? testResult,
+    Map<String, bool>? testResults,
   }) {
     return ApiSettingsLoadSuccess(
       steamId: steamId ?? this.steamId,
@@ -54,7 +54,7 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
       isOperationInProgress:
           isOperationInProgress ?? this.isOperationInProgress,
       startupSyncEnabled: startupSyncEnabled ?? this.startupSyncEnabled,
-      testResult: testResult,
+      testResults: testResults ?? this.testResults,
     );
   }
 
@@ -67,7 +67,7 @@ class ApiSettingsLoadSuccess extends ApiSettingsState {
     lastError,
     isOperationInProgress,
     startupSyncEnabled,
-    testResult,
+    testResults,
   ];
 }
 

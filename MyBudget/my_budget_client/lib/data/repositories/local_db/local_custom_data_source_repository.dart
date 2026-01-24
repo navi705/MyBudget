@@ -40,9 +40,7 @@ class LocalCustomDataSourceRepository implements CustomDataSourceRepository {
   Future<void> deleteDataSource(String id) async {
     final source = await _customDataSourcesDao.getDataSourceById(id);
     if (source != null) {
-      await _customDataSourcesDao.deleteDataSource(
-        CustomDataSourcesCompanion(id: Value(id)),
-      );
+      await _customDataSourcesDao.deleteDataSource(id);
     }
   }
 

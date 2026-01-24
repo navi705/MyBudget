@@ -247,8 +247,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                       const Spacer(),
                       IconButton(
                         icon: const Icon(Icons.add, size: 20),
-                        tooltip: 'Add Source',
-                        onPressed: () => _showAddSourceDialog(
+                        onPressed: () => _showSourceDialog(
                           context,
                           preselectedType: dataType,
                         ),
@@ -470,83 +469,6 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
         fontWeight: FontWeight.bold,
         letterSpacing: 1.2,
         color: Theme.of(context).colorScheme.primary.withAlpha(200),
-      ),
-    );
-  }
-
-  Widget _buildCustomSourceCard(
-    BuildContext context,
-    CustomDataSourceDomain source,
-    ApiSettingsLoadSuccess state,
-  ) {
-    return Card(
-      key: ValueKey('custom_source_${source.id}'),
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: Theme.of(context).colorScheme.outline.withAlpha(50),
-        ),
-      ),
-      child: ExpansionTile(
-        key: ValueKey('exp_state_custom_${source.id}'),
-        title: Text(source.name),
-        subtitle: Text(source.url),
-        trailing: Switch(
-          value: source.enabled,
-          onChanged: state.startupSyncEnabled
-              ? (val) {
-                  context.read<ApiSettingsBloc>().add(
-                    UpdateCustomDataSource(id: source.id, enabled: val),
-                  );
-                }
-              : null,
-        ),
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                if (state.testResult != null) ...[
-                  Icon(
-                    state.testResult! ? Icons.check_circle : Icons.error,
-                    color: state.testResult! ? Colors.green : Colors.red,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    state.testResult! ? 'Connection OK' : 'Connection Failed',
-                    style: TextStyle(
-                      color: state.testResult! ? Colors.green : Colors.red,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const Spacer(),
-                ],
-                OutlinedButton.icon(
-                  onPressed: state.isOperationInProgress
-                      ? null
-                      : () {
-                          context.read<ApiSettingsBloc>().add(
-                            TestCustomDataSource(source.url),
-                          );
-                        },
-                  icon: state.isOperationInProgress
-                      ? const _MiniLoading()
-                      : const Icon(Icons.network_check, size: 18),
-                  label: const Text('Test Connection'),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.redAccent),
-                  onPressed: () => context.read<ApiSettingsBloc>().add(
-                    DeleteCustomDataSource(source.id),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -790,22 +712,117 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
     );
   }
 
-  void _showAddSourceDialog(
+  Widget _buildCustomSourceCard(
+    BuildContext context,
+    CustomDataSourceDomain source,
+    ApiSettingsLoadSuccess state,
+  ) {
+    return Card(
+      key: ValueKey('custom_source_${source.id}'),
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ExpansionTile(
+        key: ValueKey('exp_state_custom_${source.id}'),
+        title: Text(source.name),
+        subtitle: Text(source.url),
+        leading: Icon(_getApiIcon(source.dataType.name)),
+        trailing: Switch(
+          value: source.enabled,
+          onChanged: state.startupSyncEnabled
+              ? (val) {
+                  context.read<ApiSettingsBloc>().add(
+                    UpdateCustomDataSource(id: source.id, enabled: val),
+                  );
+                }
+              : null,
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                if (state.testResults.containsKey(source.url)) ...[
+                  Icon(
+                    state.testResults[source.url]!
+                        ? Icons.check_circle
+                        : Icons.error,
+                    color: state.testResults[source.url]!
+                        ? Colors.green
+                        : Colors.red,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    state.testResults[source.url]!
+                        ? 'Connection OK'
+                        : 'Connection Failed',
+                    style: TextStyle(
+                      color: state.testResults[source.url]!
+                          ? Colors.green
+                          : Colors.red,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const Spacer(),
+                ],
+                OutlinedButton.icon(
+                  onPressed: state.isOperationInProgress
+                      ? null
+                      : () {
+                          context.read<ApiSettingsBloc>().add(
+                            TestCustomDataSource(
+                              id: source.id,
+                              url: source.url,
+                            ),
+                          );
+                        },
+                  icon: state.isOperationInProgress
+                      ? const _MiniLoading()
+                      : const Icon(Icons.network_check, size: 18),
+                  label: const Text('Test Connection'),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.blueAccent),
+                  onPressed: () => _showSourceDialog(
+                    context,
+                    preselectedType: source.dataType,
+                    existingSource: source,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.redAccent),
+                  onPressed: () => context.read<ApiSettingsBloc>().add(
+                    DeleteCustomDataSource(source.id),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSourceDialog(
     BuildContext context, {
     ApiDataType? preselectedType,
+    CustomDataSourceDomain? existingSource,
   }) {
-    final nameCtrl = TextEditingController();
-    final urlCtrl = TextEditingController();
-    int type = preselectedType != null
-        ? ApiDataType.values.indexOf(preselectedType)
-        : 0;
+    final isEditing = existingSource != null;
+    final nameCtrl = TextEditingController(text: existingSource?.name ?? '');
+    final urlCtrl = TextEditingController(text: existingSource?.url ?? '');
+    int type = existingSource != null
+        ? ApiDataType.values.indexOf(existingSource.dataType)
+        : (preselectedType != null
+              ? ApiDataType.values.indexOf(preselectedType)
+              : 0);
     String? errorText;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Add Custom Source'),
+          title: Text(isEditing ? 'Edit Custom Source' : 'Add Custom Source'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -862,12 +879,23 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                   setDialogState(() => errorText = 'Required');
                   return;
                 }
-                context.read<ApiSettingsBloc>().add(
-                  AddCustomDataSource(name: name, url: url, dataType: type),
-                );
+                if (isEditing) {
+                  context.read<ApiSettingsBloc>().add(
+                    EditCustomDataSource(
+                      id: existingSource!.id,
+                      name: name,
+                      url: url,
+                      dataType: type,
+                    ),
+                  );
+                } else {
+                  context.read<ApiSettingsBloc>().add(
+                    AddCustomDataSource(name: name, url: url, dataType: type),
+                  );
+                }
                 Navigator.pop(ctx);
               },
-              child: const Text('Add'),
+              child: Text(isEditing ? 'Save' : 'Add'),
             ),
           ],
         ),

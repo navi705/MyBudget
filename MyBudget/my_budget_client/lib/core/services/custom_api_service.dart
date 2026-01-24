@@ -49,7 +49,19 @@ class CustomApiService {
         throw Exception('Failed with status: ${response.statusCode}');
       }
 
-      final json = jsonDecode(response.body);
+      final body = response.body.trim();
+      if (body.isEmpty) {
+        throw Exception('Empty response from server');
+      }
+
+      // Simple check to ensure response looks like JSON
+      if (!body.startsWith('{') && !body.startsWith('[')) {
+        // If it sends back plain text (like "MyBudget Custom API is running"), show that.
+        final preview = body.length > 50 ? '${body.substring(0, 50)}...' : body;
+        throw Exception('Invalid JSON response: "$preview"');
+      }
+
+      final json = jsonDecode(body);
       final String type = json['type'] as String;
       final List data = json['data'] as List;
 
