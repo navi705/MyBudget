@@ -113,19 +113,27 @@ class AccountListItem extends StatelessWidget {
                 TextSpan(
                   style: TextStyle(
                     color: Theme.of(context).textTheme.bodyMedium?.color,
-                    fontSize: 15, // Adjusted
+                    fontSize: 15,
                   ),
                   children: [
                     TextSpan(
                       text:
-                          '$symbol ${formatter.format(value).replaceAll(',', ' ')}',
+                          '${formatter.format(value).replaceAll(',', ' ')} $symbol',
                       style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     if (prevValue != null && diff.abs() >= 0.01) ...[
-                      const TextSpan(text: ' '),
+                      TextSpan(
+                        text:
+                            (Theme.of(context).platform ==
+                                    TargetPlatform.android ||
+                                Theme.of(context).platform ==
+                                    TargetPlatform.iOS)
+                            ? '\n'
+                            : ' ',
+                      ),
                       TextSpan(
                         text: 'Change: ',
                         style: TextStyle(
@@ -158,7 +166,7 @@ class AccountListItem extends StatelessWidget {
                       const TextSpan(text: 'Real: '),
                       TextSpan(
                         text:
-                            '$symbol ${formatter.format(realValue).replaceAll(',', ' ')}',
+                            '${formatter.format(realValue).replaceAll(',', ' ')} $symbol',
                       ),
                     ],
                   ),
