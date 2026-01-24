@@ -173,3 +173,17 @@ class AddEditTransactionDeletePreset extends AddEditTransactionEvent {
   @override
   List<Object> get props => [rate];
 }
+
+class _AddEditTransactionAccountsUpdated extends AddEditTransactionEvent {
+  final List<Account> accounts;
+  const _AddEditTransactionAccountsUpdated(this.accounts);
+  @override
+  List<Object> get props => [accounts];
+}
+
+class _AddEditTransactionCategoriesUpdated extends AddEditTransactionEvent {
+  final List<Category> categories;
+  const _AddEditTransactionCategoriesUpdated(this.categories);
+  @override
+  List<Object> get props => [categories];
+}

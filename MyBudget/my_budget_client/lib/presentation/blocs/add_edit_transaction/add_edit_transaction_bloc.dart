@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
@@ -28,6 +29,9 @@ class AddEditTransactionBloc
   final CurrencyRepository _currencyRepository;
   final SettingsRepository _settingsRepository;
   final AssetRepository _assetRepository; // Added
+
+  StreamSubscription<List<Account>>? _accountsSubscription;
+  StreamSubscription<List<Category>>? _categoriesUpdatedSubscription;
 
   AddEditTransactionBloc({
     required TransactionRepository transactionRepository,
@@ -65,6 +69,9 @@ class AddEditTransactionBloc
     on<AddEditTransactionDeletePreset>(_onDeletePreset); // Added
     on<AddEditTransactionToggleRateDirection>(_onToggleRateDirection); // Added
     on<AddEditTransactionSwapAccounts>(_onSwapAccounts); // Added
+
+    on<_AddEditTransactionAccountsUpdated>(_onAccountsUpdated);
+    on<_AddEditTransactionCategoriesUpdated>(_onCategoriesUpdated);
   }
 
   Future<void> _onLoad(
@@ -74,6 +81,22 @@ class AddEditTransactionBloc
     emit(state.copyWith(status: AddEditTransactionStatus.loading));
 
     try {
+      // 1. Setup Reactive Listeners
+      _accountsSubscription?.cancel();
+      _accountsSubscription = _accountRepository.watchAccounts().listen((
+        accounts,
+      ) {
+        add(_AddEditTransactionAccountsUpdated(accounts));
+      });
+
+      _categoriesUpdatedSubscription?.cancel();
+      _categoriesUpdatedSubscription = _categoryRepository
+          .watchCategories()
+          .listen((categories) {
+            add(_AddEditTransactionCategoriesUpdated(categories));
+          });
+
+      // 2. Initial Fetch (still needed for logic that depends on full data set available at start)
       final accounts = await _accountRepository.getAccounts();
       final categories = await _categoryRepository.getCategories();
       final currencies = await _currencyRepository.getCurrencies();
@@ -1419,5 +1442,71 @@ class AddEditTransactionBloc
     if (newCurrency != null && state.date != null) {
       await _fetchRates(emit, newCurrency, newFrom, state.date);
     }
+  }
+
+  Future<void> _onAccountsUpdated(
+    _AddEditTransactionAccountsUpdated event,
+    Emitter<AddEditTransactionState> emit,
+  ) async {
+    final currentSelectedAccount = state.selectedAccount;
+    Account? updatedSelectedAccount = currentSelectedAccount;
+
+    if (currentSelectedAccount != null) {
+      updatedSelectedAccount = event.accounts.firstWhereOrNull(
+        (a) => a.id == currentSelectedAccount.id,
+      );
+    }
+
+    // Similarly for linkedAccount
+    final currentLinkedAccount = state.linkedAccount;
+    Account? updatedLinkedAccount = currentLinkedAccount;
+    if (currentLinkedAccount != null) {
+      updatedLinkedAccount = event.accounts.firstWhereOrNull(
+        (a) => a.id == currentLinkedAccount.id,
+      );
+    }
+
+    emit(
+      state.copyWith(
+        accounts: event.accounts,
+        selectedAccount: updatedSelectedAccount,
+        linkedAccount: updatedLinkedAccount,
+      ),
+    );
+
+    // If selected account changed its properties (like assetId), refetch price
+    if (updatedSelectedAccount != null &&
+        updatedSelectedAccount != currentSelectedAccount &&
+        state.isAssetTransaction) {
+      await _fetchAssetDetails(emit, updatedSelectedAccount);
+    }
+  }
+
+  Future<void> _onCategoriesUpdated(
+    _AddEditTransactionCategoriesUpdated event,
+    Emitter<AddEditTransactionState> emit,
+  ) async {
+    final currentSelectedCategory = state.selectedCategory;
+    Category? updatedSelectedCategory = currentSelectedCategory;
+
+    if (currentSelectedCategory != null) {
+      updatedSelectedCategory = event.categories.firstWhereOrNull(
+        (c) => c.id == currentSelectedCategory.id,
+      );
+    }
+
+    emit(
+      state.copyWith(
+        categories: event.categories,
+        selectedCategory: updatedSelectedCategory,
+      ),
+    );
+  }
+
+  @override
+  Future<void> close() {
+    _accountsSubscription?.cancel();
+    _categoriesUpdatedSubscription?.cancel();
+    return super.close();
   }
 }
