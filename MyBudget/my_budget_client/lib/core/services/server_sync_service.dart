@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:http/http.dart' as http;
@@ -114,8 +115,62 @@ class ServerSyncService {
     }
   }
 
+  Timer? _debounceTimer;
+  StreamSubscription? _dbSubscription;
+
   void dispose() {
     _channel?.sink.close();
+    _dbSubscription?.cancel();
+    _debounceTimer?.cancel();
+  }
+
+  /// Initialize listeners for local database changes to trigger "Instant Push"
+  Future<void> initAutoSync() async {
+    if (!await _isEnabled()) return;
+
+    debugPrint('[ServerSync] Initializing DB Auto-Sync...');
+    await _dbSubscription?.cancel();
+
+    // Listen to all table updates
+    _dbSubscription = _database.tableUpdates().listen((updates) {
+      // 1. Loop Protection: If we are currently applying a Pull, ignore updates
+      if (_isSyncingInternal) return;
+
+      // 2. Filter: Only trigger for data tables (ignore logs/metadata if any)
+      final relevantTables = {
+        'transactions',
+        'accounts',
+        'categories',
+        'settings',
+        'styles',
+        'currencies',
+        'languages',
+        'account_types',
+        'asset_entries',
+        'custom_data_sources',
+        'sms_presets',
+        'api_settings_table',
+        'currency_designations',
+        'exchange_rates',
+        'inflation_rates',
+      };
+
+      final hasRelevantChanges = updates.any(
+        (u) => relevantTables.contains(u.table),
+      );
+
+      if (hasRelevantChanges) {
+        // 3. Debounce: Wait for 500ms of inactivity before syncing
+        // This groups batch inserts (like import) into one sync
+        if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+        _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+          debugPrint(
+            '[ServerSync] Auto-sync triggered by DB changes: ${updates.map((e) => e.table).join(', ')}',
+          );
+          sync();
+        });
+      }
+    });
   }
 
   Future<int> getPendingChangesCount() async {

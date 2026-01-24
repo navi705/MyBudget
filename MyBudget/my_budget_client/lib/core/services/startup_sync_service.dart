@@ -122,6 +122,8 @@ class StartupSyncService {
         debugPrint('[StartupSyncService] Starting Server Sync...');
         // Initialize WebSocket connection for the session
         await _serverSyncService.initWebSocket();
+        // Initialize DB Auto-Sync (Instant Push)
+        await _serverSyncService.initAutoSync();
         // Perform initial sync
         await _serverSyncService.sync();
       }
