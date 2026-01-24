@@ -45,6 +45,7 @@ abstract class TransactionRepository {
     DateTime? dateTo,
     required String mainCurrencyCode,
   });
+  Future<void> restoreTransactions(List<Transaction> transactions);
 }
 
 class GroupedTransactionTotal extends Equatable {

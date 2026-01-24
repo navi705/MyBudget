@@ -29,6 +29,8 @@ class TransactionsState extends Equatable {
   final Map<DateTime, double> dailyTotals;
   final String mainCurrencyCode;
 
+  final List<Transaction>? recentlyDeletedTransactions;
+
   TransactionsState({
     this.status = TransactionStatus.initial,
     this.transactions = const [],
@@ -50,6 +52,7 @@ class TransactionsState extends Equatable {
     this.currencyDesignations = const [],
     this.dailyTotals = const {},
     this.mainCurrencyCode = 'EUR',
+    this.recentlyDeletedTransactions,
   }) : activeDate = activeDate ?? DateTime.now();
 
   // Combined filters getter
@@ -115,6 +118,8 @@ class TransactionsState extends Equatable {
     List<CurrencyDesignation>? currencyDesignations,
     Map<DateTime, double>? dailyTotals,
     String? mainCurrencyCode,
+    List<Transaction>? recentlyDeletedTransactions,
+    bool clearRecentlyDeletedTransactions = false,
   }) {
     return TransactionsState(
       status: status ?? this.status,
@@ -141,6 +146,9 @@ class TransactionsState extends Equatable {
       currencyDesignations: currencyDesignations ?? this.currencyDesignations,
       dailyTotals: dailyTotals ?? this.dailyTotals,
       mainCurrencyCode: mainCurrencyCode ?? this.mainCurrencyCode,
+      recentlyDeletedTransactions: clearRecentlyDeletedTransactions
+          ? null
+          : (recentlyDeletedTransactions ?? this.recentlyDeletedTransactions),
     );
   }
 
@@ -166,5 +174,6 @@ class TransactionsState extends Equatable {
     currencyDesignations,
     dailyTotals,
     mainCurrencyCode,
+    recentlyDeletedTransactions,
   ];
 }

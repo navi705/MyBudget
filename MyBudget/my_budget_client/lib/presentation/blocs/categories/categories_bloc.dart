@@ -58,6 +58,8 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     on<UpdateCategoryTypeForMultipleCategories>(
       _onUpdateCategoryTypeForMultipleCategories,
     );
+    on<ClearRecentlyDeletedCategory>(_onClearRecentlyDeletedCategory);
+    on<UndoDeleteCategory>(_onUndoDeleteCategory);
   }
 
   void _onToggleSelectionMode(
@@ -120,6 +122,9 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
       try {
+        debugPrint(
+          '[CategoriesDebug] Deleting multiple categories: ${event.categoryIds}',
+        );
         for (final id in event.categoryIds) {
           await _categoryRepository.deleteCategory(id);
         }
@@ -442,6 +447,10 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         (c) => c.id == event.id,
       );
 
+      debugPrint(
+        '[CategoriesDebug] Deleting category: ${categoryToDelete.name} (ID: ${event.id})',
+      );
+
       // Check if category has transactions (ignoring date filters)
       final transactions = await _transactionRepository
           .getTransactionsWithFilters(
@@ -450,13 +459,22 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
           );
 
       if (transactions.isNotEmpty) {
+        debugPrint(
+          '[CategoriesDebug] Transactions found for ${categoryToDelete.name}. Emitting ConfirmationNeeded.',
+        );
         emit(
           CategoryDeletionConfirmationNeeded(
             categoryToDelete: categoryToDelete,
             allCategories: currentState.allCategories,
+            lastSuccessState: currentState,
           ),
         );
       } else {
+        // Soft delete for simple categories: Save to state first
+        debugPrint(
+          '[CategoriesDebug] No transactions. Performing Soft Delete for ${categoryToDelete.name}',
+        );
+        emit(currentState.copyWith(recentlyDeletedCategory: categoryToDelete));
         await _categoryRepository.deleteCategory(event.id);
         add(LoadCategories());
       }
@@ -467,6 +485,9 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     DeleteCategoryConfirmed event,
     Emitter<CategoriesState> emit,
   ) async {
+    debugPrint(
+      '[CategoriesDebug] DeleteCategoryConfirmed: deleteTransactions=${event.deleteTransactions}, newCategoryId=${event.newCategoryId}',
+    );
     if (event.deleteTransactions) {
       await _categoryRepository.deleteCategoryWithTransactions(
         event.categoryToDelete.id!,
@@ -491,6 +512,39 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       emit(
         currentState.copyWith(getSelectedTypeFilter: () => event.categoryType),
       );
+    }
+  }
+
+  void _onClearRecentlyDeletedCategory(
+    ClearRecentlyDeletedCategory event,
+    Emitter<CategoriesState> emit,
+  ) {
+    if (state is CategoriesLoadSuccess) {
+      emit(
+        (state as CategoriesLoadSuccess).copyWith(
+          clearRecentlyDeletedCategory: true,
+        ),
+      );
+    }
+  }
+
+  Future<void> _onUndoDeleteCategory(
+    UndoDeleteCategory event,
+    Emitter<CategoriesState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is CategoriesLoadSuccess &&
+        currentState.recentlyDeletedCategory != null) {
+      final category = currentState.recentlyDeletedCategory!;
+      // Clear flag immediately so UI hides snackbar
+      emit(currentState.copyWith(clearRecentlyDeletedCategory: true));
+      try {
+        await _categoryRepository.addCategory(category);
+        add(LoadCategories());
+      } catch (e) {
+        // If restore fails, maybe show error? For now just reload.
+        add(LoadCategories());
+      }
     }
   }
 }

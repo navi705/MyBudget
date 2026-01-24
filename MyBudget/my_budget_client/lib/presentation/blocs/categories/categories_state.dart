@@ -10,14 +10,16 @@ abstract class CategoriesState extends Equatable {
 class CategoryDeletionConfirmationNeeded extends CategoriesState {
   final Category categoryToDelete;
   final List<Category> allCategories;
+  final CategoriesLoadSuccess lastSuccessState;
 
   const CategoryDeletionConfirmationNeeded({
     required this.categoryToDelete,
     required this.allCategories,
+    required this.lastSuccessState,
   });
 
   @override
-  List<Object> get props => [categoryToDelete, allCategories];
+  List<Object> get props => [categoryToDelete, allCategories, lastSuccessState];
 }
 
 class CategoriesInitial extends CategoriesState {}
@@ -38,6 +40,7 @@ class CategoriesLoadSuccess extends CategoriesState {
   final List<CurrencyDesignation> currencyDesignations;
   final bool isSelectionModeActive;
   final Set<String> selectedCategoryIds;
+  final Category? recentlyDeletedCategory;
 
   const CategoriesLoadSuccess({
     this.categoriesWithTotals = const [],
@@ -53,6 +56,7 @@ class CategoriesLoadSuccess extends CategoriesState {
     this.currencyDesignations = const [],
     this.isSelectionModeActive = false,
     this.selectedCategoryIds = const {},
+    this.recentlyDeletedCategory,
   });
 
   CategoriesLoadSuccess copyWith({
@@ -69,6 +73,8 @@ class CategoriesLoadSuccess extends CategoriesState {
     List<CurrencyDesignation>? currencyDesignations,
     bool? isSelectionModeActive,
     Set<String>? selectedCategoryIds,
+    Category? recentlyDeletedCategory,
+    bool clearRecentlyDeletedCategory = false,
   }) {
     return CategoriesLoadSuccess(
       categoriesWithTotals: categoriesWithTotals ?? this.categoriesWithTotals,
@@ -87,6 +93,9 @@ class CategoriesLoadSuccess extends CategoriesState {
       isSelectionModeActive:
           isSelectionModeActive ?? this.isSelectionModeActive,
       selectedCategoryIds: selectedCategoryIds ?? this.selectedCategoryIds,
+      recentlyDeletedCategory: clearRecentlyDeletedCategory
+          ? null
+          : (recentlyDeletedCategory ?? this.recentlyDeletedCategory),
     );
   }
 
@@ -105,6 +114,7 @@ class CategoriesLoadSuccess extends CategoriesState {
     currencyDesignations,
     isSelectionModeActive,
     selectedCategoryIds,
+    recentlyDeletedCategory,
   ];
 }
 

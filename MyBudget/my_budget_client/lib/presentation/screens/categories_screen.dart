@@ -297,30 +297,89 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final bloc = context.read<CategoriesBloc>();
-    return BlocListener<CategoriesBloc, CategoriesState>(
-      listener: (context, state) {
-        if (state is CategoryDeletionConfirmationNeeded) {
-          DialogUtils.showAppDialog(
-            context: context,
-            resizeToAvoidBottomInset: false,
-            child: BlocProvider.value(
-              value: context.read<CategoriesBloc>(),
-              child: DeleteCategoryDialog(
-                categoryToDelete: state.categoryToDelete,
-                allCategories: state.allCategories,
-              ),
-            ),
-          );
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<CategoriesBloc, CategoriesState>(
+          listener: (context, state) {
+            if (state is CategoryDeletionConfirmationNeeded) {
+              DialogUtils.showAppDialog(
+                context: context,
+                resizeToAvoidBottomInset: false,
+                child: BlocProvider.value(
+                  value: context.read<CategoriesBloc>(),
+                  child: DeleteCategoryDialog(
+                    categoryToDelete: state.categoryToDelete,
+                    allCategories: state.allCategories,
+                  ),
+                ),
+              );
+            }
+          },
+        ),
+        BlocListener<CategoriesBloc, CategoriesState>(
+          listenWhen: (previous, current) {
+            final prevDelete = previous is CategoriesLoadSuccess
+                ? previous.recentlyDeletedCategory
+                : null;
+            final currDelete = current is CategoriesLoadSuccess
+                ? current.recentlyDeletedCategory
+                : null;
+            return prevDelete != currDelete && currDelete != null;
+          },
+          listener: (context, state) {
+            final recentlyDeleted = state is CategoriesLoadSuccess
+                ? state.recentlyDeletedCategory
+                : null;
+            if (recentlyDeleted != null) {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              scaffoldMessenger.removeCurrentSnackBar();
+
+              scaffoldMessenger
+                  .showSnackBar(
+                    SnackBar(
+                      showCloseIcon: true,
+                      closeIconColor: Colors.white,
+                      duration: const Duration(seconds: 4),
+                      content: Text(
+                        l10n.itemDeletedMessage(recentlyDeleted.name),
+                      ),
+                      action: SnackBarAction(
+                        label: l10n.undoButton,
+                        onPressed: () {
+                          context.read<CategoriesBloc>().add(
+                            const UndoDeleteCategory(),
+                          );
+                        },
+                      ),
+                    ),
+                  )
+                  .closed
+                  .then((reason) {
+                    if (context.mounted &&
+                        reason != SnackBarClosedReason.action) {
+                      context.read<CategoriesBloc>().add(
+                        const ClearRecentlyDeletedCategory(),
+                      );
+                    }
+                  });
+            }
+          },
+        ),
+      ],
       child: ScreenShortcuts(
         actions: {
           'add_action': () {
             final state = context.read<CategoriesBloc>().state;
+            CategoriesLoadSuccess? successState;
             if (state is CategoriesLoadSuccess) {
+              successState = state;
+            } else if (state is CategoryDeletionConfirmationNeeded) {
+              successState = state.lastSuccessState;
+            }
+            if (successState != null) {
               _showAddEditCategoryDialog(
                 context,
-                allCategories: state.allCategories,
+                allCategories: successState.allCategories,
               );
             }
           },
@@ -339,23 +398,30 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   ),
                   child: BlocBuilder<CategoriesBloc, CategoriesState>(
                     builder: (context, state) {
+                      CategoriesLoadSuccess? successState;
                       if (state is CategoriesLoadSuccess) {
-                        if (state.isSelectionModeActive) {
+                        successState = state;
+                      } else if (state is CategoryDeletionConfirmationNeeded) {
+                        successState = state.lastSuccessState;
+                      }
+
+                      if (successState != null) {
+                        if (successState.isSelectionModeActive) {
                           return _SelectionAppBar(
-                            state: state,
+                            state: successState,
                             onDelete: () => _showDeleteConfirmationDialog(
                               context,
                               bloc,
-                              state.selectedCategoryIds.toList(),
+                              successState!.selectedCategoryIds.toList(),
                             ),
                             onChangeType: () => _showChangeCategoryTypeDialog(
                               context,
                               bloc,
-                              state.selectedCategoryIds.toList(),
+                              successState!.selectedCategoryIds.toList(),
                             ),
                           );
                         }
-                        return _CategoriesDateAppBar(state: state);
+                        return _CategoriesDateAppBar(state: successState);
                       }
                       return AppBar(
                         title: Text(context.l10n.categoriesAppBarTitle),
@@ -364,119 +430,113 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   ),
                 )
               : null,
-          body: BlocListener<CategoriesBloc, CategoriesState>(
-            listener: (context, state) {
-              if (state is CategoryDeletionConfirmationNeeded) {
-                DialogUtils.showAppDialog(
-                  context: context,
-                  resizeToAvoidBottomInset: false,
-                  child: DeleteCategoryDialog(
-                    categoryToDelete: state.categoryToDelete,
-                    allCategories: state.allCategories,
-                  ),
-                );
+          body: BlocBuilder<CategoriesBloc, CategoriesState>(
+            builder: (context, state) {
+              if (state is CategoriesLoadInProgress) {
+                return const Center(child: CircularProgressIndicator());
               }
-            },
-            child: BlocBuilder<CategoriesBloc, CategoriesState>(
-              builder: (context, state) {
-                if (state is CategoriesLoadInProgress) {
-                  return const Center(child: CircularProgressIndicator());
+
+              final successState = state is CategoriesLoadSuccess
+                  ? state
+                  : (state is CategoryDeletionConfirmationNeeded
+                        ? state.lastSuccessState
+                        : null);
+
+              if (successState != null) {
+                if (successState.categoriesWithTotals.isEmpty) {
+                  return Center(child: Text(context.l10n.noCategoriesCreated));
                 }
-                if (state is CategoriesLoadSuccess) {
-                  if (state.categoriesWithTotals.isEmpty) {
-                    return Center(
-                      child: Text(context.l10n.noCategoriesCreated),
-                    );
-                  }
 
-                  final filteredCategories = state.filters.type == null
-                      ? state.categoriesWithTotals
-                      : state.categoriesWithTotals
-                            .where((c) => c.category.type == state.filters.type)
-                            .toList();
+                final filteredCategories = successState.filters.type == null
+                    ? successState.categoriesWithTotals
+                    : successState.categoriesWithTotals
+                          .where(
+                            (c) => c.category.type == successState.filters.type,
+                          )
+                          .toList();
 
-                  final topLevelCategories = filteredCategories
-                      .where((c) => c.category.parentId == null)
-                      .toList();
+                final topLevelCategories = filteredCategories
+                    .where((c) => c.category.parentId == null)
+                    .toList();
 
-                  return GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onSecondaryTapUp: (details) => _showEmptyAreaContextMenu(
-                      context,
-                      details.globalPosition,
-                    ),
-                    onLongPressStart: (details) => _showEmptyAreaContextMenu(
-                      context,
-                      details.globalPosition,
-                    ),
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      itemCount: state.hasReachedMax
-                          ? topLevelCategories.length
-                          : topLevelCategories.length + 1,
-                      itemBuilder: (context, index) {
-                        if (index >= topLevelCategories.length) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        final categoryWithTotal = topLevelCategories[index];
-                        final category = categoryWithTotal.category;
-                        final isSelected = state.selectedCategoryIds.contains(
-                          category.id,
-                        );
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onSecondaryTapUp: (details) => _showEmptyAreaContextMenu(
+                    context,
+                    details.globalPosition,
+                  ),
+                  onLongPressStart: (details) => _showEmptyAreaContextMenu(
+                    context,
+                    details.globalPosition,
+                  ),
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    itemCount: successState.hasReachedMax
+                        ? topLevelCategories.length
+                        : topLevelCategories.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index >= topLevelCategories.length) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final categoryWithTotal = topLevelCategories[index];
+                      final category = categoryWithTotal.category;
+                      final isSelected = successState.selectedCategoryIds
+                          .contains(category.id);
 
-                        return CategoryListItem(
-                          categoryWithTotal: categoryWithTotal,
-                          allCategoriesWithTotals: filteredCategories,
-                          isSelected: isSelected,
-                          onTap: (tappedCategory) {
-                            if (state.isSelectionModeActive) {
-                              bloc.add(
-                                ToggleCategorySelection(tappedCategory.id!),
-                              );
-                            } else {
-                              _navigateToAddTransaction(
-                                context,
-                                tappedCategory,
-                              );
-                            }
-                          },
-                          onLongPressStart: (details) {
-                            if (state.isSelectionModeActive) {
-                              bloc.add(ToggleCategorySelection(category.id!));
-                            } else {
-                              _showContextMenu(
-                                context,
-                                details.globalPosition,
-                                category,
-                                state,
-                              );
-                            }
-                          },
-                          onSecondaryTapUp: (details) {
+                      return CategoryListItem(
+                        key: ValueKey(category.id),
+                        categoryWithTotal: categoryWithTotal,
+                        allCategoriesWithTotals: filteredCategories,
+                        isSelected: isSelected,
+                        onTap: (tappedCategory) {
+                          if (successState.isSelectionModeActive) {
+                            bloc.add(
+                              ToggleCategorySelection(tappedCategory.id!),
+                            );
+                          } else {
+                            _navigateToAddTransaction(context, tappedCategory);
+                          }
+                        },
+                        onLongPressStart: (details) {
+                          if (successState.isSelectionModeActive) {
+                            bloc.add(ToggleCategorySelection(category.id!));
+                          } else {
                             _showContextMenu(
                               context,
                               details.globalPosition,
                               category,
-                              state,
+                              successState,
                             );
-                          },
-                          mainCurrencyCode: state.mainCurrencyCode,
-                          currencyDesignations: state.currencyDesignations,
-                        );
-                      },
-                    ),
-                  );
-                }
-                return Center(child: Text(context.l10n.accountsLoadFailure));
-              },
-            ),
+                          }
+                        },
+                        onSecondaryTapUp: (details) {
+                          _showContextMenu(
+                            context,
+                            details.globalPosition,
+                            category,
+                            successState,
+                          );
+                        },
+                        mainCurrencyCode: successState.mainCurrencyCode,
+                        currencyDesignations: successState.currencyDesignations,
+                      );
+                    },
+                  ),
+                );
+              }
+              return Center(child: Text(context.l10n.accountsLoadFailure));
+            },
           ),
           floatingActionButton: BlocBuilder<CategoriesBloc, CategoriesState>(
             builder: (context, state) {
-              if (state is CategoriesLoadSuccess &&
-                  state.isSelectionModeActive) {
+              CategoriesLoadSuccess? successState;
+              if (state is CategoriesLoadSuccess) {
+                successState = state;
+              } else if (state is CategoryDeletionConfirmationNeeded) {
+                successState = state.lastSuccessState;
+              }
+
+              if (successState != null && successState.isSelectionModeActive) {
                 return const SizedBox.shrink();
               }
               return MultiLevelTooltip(
@@ -486,10 +546,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 child: FloatingActionButton(
                   onPressed: () {
                     final state = context.read<CategoriesBloc>().state;
+                    CategoriesLoadSuccess? successState;
                     if (state is CategoriesLoadSuccess) {
+                      successState = state;
+                    } else if (state is CategoryDeletionConfirmationNeeded) {
+                      successState = state.lastSuccessState;
+                    }
+                    if (successState != null) {
                       _showAddEditCategoryDialog(
                         context,
-                        allCategories: state.allCategories,
+                        allCategories: successState.allCategories,
                       );
                     }
                   },

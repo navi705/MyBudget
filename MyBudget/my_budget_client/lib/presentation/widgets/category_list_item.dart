@@ -1,3 +1,4 @@
+import 'package:my_budget_client/core/constants/app_constants.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -97,7 +98,9 @@ class CategoryListItem extends StatelessWidget {
               child: IconUtils.getIconWidget(finalStyle),
             ),
             title: Text(
-              category.name,
+              category.name == AppConstants.systemTransferCategoryName
+                  ? 'Transfer'
+                  : category.name,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             subtitle: Text(
@@ -136,6 +139,7 @@ class CategoryListItem extends StatelessWidget {
                   (child) => Padding(
                     padding: const EdgeInsets.only(left: 16.0),
                     child: CategoryListItem(
+                      key: ValueKey(child.category.id),
                       categoryWithTotal: child,
                       allCategoriesWithTotals: allCategoriesWithTotals,
                       onTap: onTap,

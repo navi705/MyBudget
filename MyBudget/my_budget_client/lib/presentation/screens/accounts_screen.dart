@@ -370,37 +370,65 @@ class _AccountsScreenState extends State<AccountsScreen> {
         ),
 
         body: BlocListener<AccountsBloc, AccountsState>(
+          listenWhen: (previous, current) {
+            final changed =
+                previous.recentlyDeletedAccount !=
+                current.recentlyDeletedAccount;
+            final isNowNotNull = current.recentlyDeletedAccount != null;
+            debugPrint(
+              '[SnackBarDebug] Accounts listenWhen: changed=$changed, isNowNotNull=$isNowNotNull',
+            );
+            debugPrint(
+              '[SnackBarDebug] Prev: ${previous.recentlyDeletedAccount?.name}, Current: ${current.recentlyDeletedAccount?.name}',
+            );
+            return changed && isNowNotNull;
+          },
           listener: (context, state) {
-            if (state is AccountsLoadSuccess &&
-                state.recentlyDeletedAccount != null) {
-              ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      l10n.itemDeletedMessage(
-                        state.recentlyDeletedAccount!.name,
+            final recentlyDeleted = state.recentlyDeletedAccount;
+            debugPrint(
+              '[SnackBarDebug] Accounts listener triggered for: ${recentlyDeleted?.name}',
+            );
+            if (recentlyDeleted != null) {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              scaffoldMessenger.removeCurrentSnackBar();
+
+              scaffoldMessenger
+                  .showSnackBar(
+                    SnackBar(
+                      showCloseIcon: true,
+                      closeIconColor: Colors.white,
+                      duration: const Duration(seconds: 4),
+                      content: Text(
+                        l10n.itemDeletedMessage(recentlyDeleted.name),
+                      ),
+                      action: SnackBarAction(
+                        label: l10n.undoButton,
+                        onPressed: () {
+                          debugPrint(
+                            '[SnackBarDebug] Accounts Undo pressed for: ${recentlyDeleted.name}',
+                          );
+                          context.read<AccountsBloc>().add(UndoDeleteAccount());
+                        },
                       ),
                     ),
-
-                    action: SnackBarAction(
-                      label: l10n.undoButton,
-
-                      onPressed: () {
-                        context.read<AccountsBloc>().add(UndoDeleteAccount());
-                      },
-                    ),
-                  ),
-                );
+                  )
+                  .closed
+                  .then((reason) {
+                    debugPrint(
+                      '[SnackBarDebug] Accounts SnackBar closed. Reason: $reason, context.mounted: ${context.mounted}',
+                    );
+                    // Clear state on ANY reason except action (action clears it in Bloc itself)
+                    if (context.mounted &&
+                        reason != SnackBarClosedReason.action) {
+                      debugPrint(
+                        '[SnackBarDebug] Accounts clearing recentlyDeletedAccount from state',
+                      );
+                      context.read<AccountsBloc>().add(
+                        const ClearRecentlyDeletedAccount(),
+                      );
+                    }
+                  });
             }
-          },
-
-          listenWhen: (previous, current) {
-            return previous is AccountsLoadSuccess &&
-                current is AccountsLoadSuccess &&
-                previous.recentlyDeletedAccount !=
-                    current.recentlyDeletedAccount &&
-                current.recentlyDeletedAccount != null;
           },
 
           child: BlocListener<AccountsBloc, AccountsState>(

@@ -1,10 +1,33 @@
 part of 'accounts_bloc.dart';
 
 abstract class AccountsState extends Equatable {
-  const AccountsState();
+  final Account? recentlyDeletedAccount;
+  final DateTime activeDate;
+  final DateStep dateStep;
+  final AccountFilters filters;
+
+  const AccountsState({
+    this.recentlyDeletedAccount,
+    required this.activeDate,
+    this.dateStep = DateStep.month,
+    this.filters = const AccountFilters(sort: Sort.descending),
+  });
 
   @override
-  List<Object?> get props => [];
+  List<Object?> get props => [
+    recentlyDeletedAccount,
+    activeDate,
+    dateStep,
+    filters,
+  ];
+
+  AccountsState copyWith({
+    Account? recentlyDeletedAccount,
+    bool clearRecentlyDeletedAccount = false,
+    DateTime? activeDate,
+    DateStep? dateStep,
+    AccountFilters? filters,
+  });
 
   // Default values for properties that are common across states
   List<Account> get accounts => [];
@@ -14,36 +37,58 @@ abstract class AccountsState extends Equatable {
   int get totalCount => 0;
   bool get sortAscending => false;
   String get selectedAccountTypeId => 'all';
-  Account? get recentlyDeletedAccount => null;
   Map<String, double> get historicalBalances => {};
   Map<String, double> get realBalances => {};
   Map<String, double> get inflationLosses => {};
   bool get isHistorical => false;
   bool get isSelectionModeActive => false;
   Set<String> get selectedAccountIds => {};
-  DateStep get dateStep => DateStep.month;
-  DateTime get activeDate => DateTime.now();
-  AccountFilters get filters => const AccountFilters(sort: Sort.descending);
 }
 
-class AccountsInitial extends AccountsState {}
+class AccountsInitial extends AccountsState {
+  AccountsInitial() : super(activeDate: DateTime.now());
+
+  @override
+  AccountsInitial copyWith({
+    Account? recentlyDeletedAccount,
+    bool clearRecentlyDeletedAccount = false,
+    DateTime? activeDate,
+    DateStep? dateStep,
+    AccountFilters? filters,
+  }) {
+    // Initial state doesn't really change, but we implement for signature
+    return this;
+  }
+}
 
 class AccountsLoadInProgress extends AccountsState {
-  @override
-  final DateTime activeDate;
-  @override
-  final DateStep dateStep;
-  @override
-  final AccountFilters filters;
+  const AccountsLoadInProgress({
+    super.recentlyDeletedAccount,
+    required super.activeDate,
+    super.dateStep,
+    super.filters,
+  });
 
-  AccountsLoadInProgress({
+  @override
+  List<Object?> get props => [filters];
+
+  @override
+  AccountsLoadInProgress copyWith({
+    Account? recentlyDeletedAccount,
+    bool clearRecentlyDeletedAccount = false,
     DateTime? activeDate,
-    this.dateStep = DateStep.month,
-    this.filters = const AccountFilters(sort: Sort.descending),
-  }) : activeDate = activeDate ?? DateTime.now();
-
-  @override
-  List<Object?> get props => [activeDate, dateStep, filters];
+    DateStep? dateStep,
+    AccountFilters? filters,
+  }) {
+    return AccountsLoadInProgress(
+      recentlyDeletedAccount: clearRecentlyDeletedAccount
+          ? null
+          : (recentlyDeletedAccount ?? this.recentlyDeletedAccount),
+      activeDate: activeDate ?? this.activeDate,
+      dateStep: dateStep ?? this.dateStep,
+      filters: filters ?? this.filters,
+    );
+  }
 }
 
 class AccountsLoadSuccess extends AccountsState {
@@ -58,8 +103,6 @@ class AccountsLoadSuccess extends AccountsState {
   @override
   final bool sortAscending;
   @override
-  final Account? recentlyDeletedAccount;
-  @override
   final Map<String, double> historicalBalances;
   @override
   final bool isHistorical;
@@ -67,12 +110,6 @@ class AccountsLoadSuccess extends AccountsState {
   final bool isSelectionModeActive;
   @override
   final Set<String> selectedAccountIds;
-  @override
-  final DateStep dateStep;
-  @override
-  final DateTime activeDate;
-  @override
-  final AccountFilters filters;
   final List<ExchangeRateDomain> exchangeRates;
   @override
   final Map<String, double> realBalances;
@@ -105,14 +142,14 @@ class AccountsLoadSuccess extends AccountsState {
     required this.hasReachedMax,
     required this.totalCount,
     this.sortAscending = false,
-    this.recentlyDeletedAccount,
+    super.recentlyDeletedAccount,
     this.historicalBalances = const {},
     this.isHistorical = false,
     this.isSelectionModeActive = false,
     this.selectedAccountIds = const {},
-    this.dateStep = DateStep.month,
-    required this.activeDate,
-    this.filters = const AccountFilters(sort: Sort.descending),
+    super.dateStep = DateStep.month,
+    required super.activeDate,
+    super.filters = const AccountFilters(sort: Sort.descending),
     required this.exchangeRates,
     this.realBalances = const {},
     this.inflationLosses = const {},
@@ -133,6 +170,7 @@ class AccountsLoadSuccess extends AccountsState {
     this.expense = 0.0,
   });
 
+  @override
   AccountsLoadSuccess copyWith({
     List<Account>? accounts,
     List<AccountType>? accountTypes,
@@ -140,6 +178,7 @@ class AccountsLoadSuccess extends AccountsState {
     int? totalCount,
     bool? sortAscending,
     Account? recentlyDeletedAccount,
+    bool clearRecentlyDeletedAccount = false,
     Map<String, double>? historicalBalances,
     bool? isHistorical,
     bool? isSelectionModeActive,
@@ -172,8 +211,9 @@ class AccountsLoadSuccess extends AccountsState {
       hasReachedMax: hasReachedMax ?? this.hasReachedMax,
       totalCount: totalCount ?? this.totalCount,
       sortAscending: sortAscending ?? this.sortAscending,
-      recentlyDeletedAccount:
-          recentlyDeletedAccount ?? this.recentlyDeletedAccount,
+      recentlyDeletedAccount: clearRecentlyDeletedAccount
+          ? null
+          : (recentlyDeletedAccount ?? this.recentlyDeletedAccount),
       historicalBalances: historicalBalances ?? this.historicalBalances,
       isHistorical: isHistorical ?? this.isHistorical,
       isSelectionModeActive:
@@ -245,4 +285,29 @@ class AccountsLoadSuccess extends AccountsState {
   ];
 }
 
-class AccountsLoadFailure extends AccountsState {}
+class AccountsLoadFailure extends AccountsState {
+  const AccountsLoadFailure({
+    super.recentlyDeletedAccount,
+    required super.activeDate,
+    super.dateStep,
+    super.filters,
+  });
+
+  @override
+  AccountsLoadFailure copyWith({
+    Account? recentlyDeletedAccount,
+    bool clearRecentlyDeletedAccount = false,
+    DateTime? activeDate,
+    DateStep? dateStep,
+    AccountFilters? filters,
+  }) {
+    return AccountsLoadFailure(
+      recentlyDeletedAccount: clearRecentlyDeletedAccount
+          ? null
+          : (recentlyDeletedAccount ?? this.recentlyDeletedAccount),
+      activeDate: activeDate ?? this.activeDate,
+      dateStep: dateStep ?? this.dateStep,
+      filters: filters ?? this.filters,
+    );
+  }
+}

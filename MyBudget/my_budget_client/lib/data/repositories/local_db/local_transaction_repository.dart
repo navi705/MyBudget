@@ -303,4 +303,22 @@ class LocalTransactionRepository implements TransactionRepository {
         );
     return result;
   }
+
+  @override
+  Future<void> restoreTransactions(List<Transaction> transactions) async {
+    await database.transaction(() async {
+      final ids = transactions.map((t) => t.id!).toList();
+      await database.transactionsDao.restoreTransactions(ids);
+
+      final amountChanges = <String, double>{};
+      for (final transaction in transactions) {
+        amountChanges.update(
+          transaction.accountId,
+          (value) => value + transaction.amount,
+          ifAbsent: () => transaction.amount,
+        );
+      }
+      await database.accountsDao.batchUpdateBalances(amountChanges);
+    });
+  }
 }

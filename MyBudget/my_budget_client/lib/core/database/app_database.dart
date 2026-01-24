@@ -1433,6 +1433,19 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     ); // LOG
     return db.transaction(() async {
       final now = DateTime.now().millisecondsSinceEpoch;
+
+      // 1. Find all transactions for this account to get their IDs and linked IDs
+      final accountTxs = await (select(
+        db.transactions,
+      )..where((t) => t.accountId.equals(accountId))).get();
+
+      final txIds = accountTxs.map((t) => t.id).toList();
+      final linkedTxIds = accountTxs
+          .map((t) => t.linkedTransactionId)
+          .whereType<String>()
+          .toList();
+
+      // 2. Mark account transactions as deleted
       final txUpdate =
           await (update(
             db.transactions,
@@ -1444,6 +1457,23 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
           );
       debugPrint('[AccountsDao] Marked $txUpdate transactions as deleted.');
 
+      // 3. Mark linked transactions as deleted (Recursive Deletion of Transfers)
+      if (linkedTxIds.isNotEmpty) {
+        final linkedUpdate =
+            await (update(
+              db.transactions,
+            )..where((t) => t.id.isIn(linkedTxIds))).write(
+              TransactionsCompanion(
+                isDeleted: const Value(true),
+                modifiedAt: Value(now),
+              ),
+            );
+        debugPrint(
+          '[AccountsDao] Marked $linkedUpdate linked transactions as deleted.',
+        );
+      }
+
+      // 4. Mark account as deleted
       final accUpdate =
           await (update(accounts)..where((a) => a.id.equals(accountId))).write(
             AccountsCompanion(
@@ -1456,6 +1486,8 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       );
 
       await _logChange(accountId, 'delete');
+      if (txIds.isNotEmpty) await _logChanges(txIds, 'delete');
+      if (linkedTxIds.isNotEmpty) await _logChanges(linkedTxIds, 'delete');
     });
   }
 
@@ -1719,8 +1751,26 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     )..where((tbl) => tbl.id.isIn(ids) & tbl.isDeleted.equals(false))).get();
   }
 
-  Future<void> deleteMultipleTransactions(List<String> ids) {
-    return (delete(transactions)..where((tbl) => tbl.id.isIn(ids))).go();
+  Future<void> deleteMultipleTransactions(List<String> ids) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await (update(transactions)..where((tbl) => tbl.id.isIn(ids))).write(
+      TransactionsCompanion(
+        isDeleted: const Value(true),
+        modifiedAt: Value(now),
+      ),
+    );
+    await _logChanges(ids, 'delete');
+  }
+
+  Future<void> restoreTransactions(List<String> ids) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await (update(transactions)..where((tbl) => tbl.id.isIn(ids))).write(
+      TransactionsCompanion(
+        isDeleted: const Value(false),
+        modifiedAt: Value(now),
+      ),
+    );
+    await _logChanges(ids, 'upsert');
   }
 
   Future<void> updateDateForMultipleTransactions(

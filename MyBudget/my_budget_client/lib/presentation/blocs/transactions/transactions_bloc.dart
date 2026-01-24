@@ -309,6 +309,8 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     on<ToggleTransactionSelection>(_onToggleTransactionSelection);
     on<SelectAllTransactions>(_onSelectAllTransactions);
     on<ClearSelection>(_onClearSelection);
+    on<ClearRecentlyDeletedTransactions>(_onClearRecentlyDeletedTransactions);
+    on<UndoDeleteTransactions>(_onUndoDeleteTransactions);
   }
 
   // Helper method to fetch dependencies and run compute
@@ -483,7 +485,12 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) async {
     PerformanceLogger().start('Transactions Screen Initial Load');
-    emit(state.copyWith(status: TransactionStatus.loading));
+    emit(
+      state.copyWith(
+        status: TransactionStatus.loading,
+        recentlyDeletedTransactions: state.recentlyDeletedTransactions,
+      ),
+    );
     try {
       PerformanceLogger().start('Transactions: getSetting');
       final mainCurrencySetting = await _settingsRepository.getSetting(
@@ -548,6 +555,9 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           selectedTransactionIds: {},
         ),
       );
+      debugPrint(
+        '[SnackBarDebug] TransactionsBloc Emitting Success. Count: ${processResult.transactionsWithStyles.length}, recentlyDeleted: ${state.recentlyDeletedTransactions?.length ?? 0}',
+      );
       await PerformanceLogger().stop('Transactions: emit state');
 
       await PerformanceLogger().stop('Transactions Screen Initial Load');
@@ -563,7 +573,12 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   ) async {
     if (!state.hasMoreUp || state.status == TransactionStatus.loading) return;
     PerformanceLogger().start('Transactions Window Load Up');
-    emit(state.copyWith(status: TransactionStatus.loading));
+    emit(
+      state.copyWith(
+        status: TransactionStatus.loading,
+        recentlyDeletedTransactions: state.recentlyDeletedTransactions,
+      ),
+    );
 
     try {
       final mainCurrencySetting = await _settingsRepository.getSetting(
@@ -647,7 +662,12 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   ) async {
     if (!state.hasMoreDown || state.status == TransactionStatus.loading) return;
     PerformanceLogger().start('Transactions Window Load Down');
-    emit(state.copyWith(status: TransactionStatus.loading));
+    emit(
+      state.copyWith(
+        status: TransactionStatus.loading,
+        recentlyDeletedTransactions: state.recentlyDeletedTransactions,
+      ),
+    );
 
     try {
       final mainCurrencySetting = await _settingsRepository.getSetting(
@@ -761,6 +781,17 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) async {
     try {
+      final txToDelete = state.transactions
+          .firstWhereOrNull((t) => t.transaction.id == event.id)
+          ?.transaction;
+
+      if (txToDelete != null) {
+        debugPrint(
+          '[SnackBarDebug] TransactionsBloc: Setting recentlyDeletedTransactions (Single): ${txToDelete.description}',
+        );
+        emit(state.copyWith(recentlyDeletedTransactions: [txToDelete]));
+      }
+
       await _transactionRepository.deleteTransaction(event.id);
       add(const InitialLoadTransactions());
     } catch (e) {
@@ -773,6 +804,18 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     Emitter<TransactionsState> emit,
   ) async {
     try {
+      final txsToDelete = state.transactions
+          .where((t) => event.ids.contains(t.transaction.id))
+          .map((t) => t.transaction)
+          .toList();
+
+      if (txsToDelete.isNotEmpty) {
+        debugPrint(
+          '[SnackBarDebug] TransactionsBloc: Setting recentlyDeletedTransactions. Count: ${txsToDelete.length}',
+        );
+        emit(state.copyWith(recentlyDeletedTransactions: txsToDelete));
+      }
+
       await _transactionRepository.deleteMultipleTransactions(event.ids);
 
       emit(
@@ -786,6 +829,38 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     } catch (e) {
       emit(state.copyWith(status: TransactionStatus.failure));
     }
+  }
+
+  Future<void> _onUndoDeleteTransactions(
+    UndoDeleteTransactions event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    final txs = state.recentlyDeletedTransactions;
+    if (txs != null && txs.isNotEmpty) {
+      try {
+        debugPrint(
+          '[SnackBarDebug] TransactionsBloc: Undoing delete for ${txs.length} transactions',
+        );
+        await _transactionRepository.restoreTransactions(txs);
+        debugPrint(
+          '[SnackBarDebug] TransactionsBloc: Clearing recentlyDeletedTransactions (Undo Success)',
+        );
+        emit(state.copyWith(clearRecentlyDeletedTransactions: true));
+        add(const InitialLoadTransactions());
+      } catch (e) {
+        emit(state.copyWith(status: TransactionStatus.failure));
+      }
+    }
+  }
+
+  void _onClearRecentlyDeletedTransactions(
+    ClearRecentlyDeletedTransactions event,
+    Emitter<TransactionsState> emit,
+  ) {
+    debugPrint(
+      '[SnackBarDebug] TransactionsBloc: Clearing recentlyDeletedTransactions (Explicit Clear)',
+    );
+    emit(state.copyWith(clearRecentlyDeletedTransactions: true));
   }
 
   Future<void> _onUpdateDateForMultipleTransactions(

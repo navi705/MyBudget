@@ -8,6 +8,7 @@ import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/core/sync/sync_service.dart';
 import 'package:my_budget_client/core/services/server_sync_service.dart';
+import 'package:flutter/foundation.dart' as kIsWeb;
 
 /// Settings screen for P2P synchronization via Syncthing
 class SyncSettingsScreen extends StatefulWidget {
@@ -318,7 +319,11 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
+    if (kIsWeb.kIsWeb) {
+      return const Center(
+        child: Text('Synchronization is not available on Web'),
+      );
+    }
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(title: const Text('Synchronization Settings')),

@@ -12,6 +12,7 @@ import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart'; // Import IconUtils
 import 'package:my_budget_client/presentation/widgets/generic/grouped_paginated_list.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
+import 'package:my_budget_client/core/constants/app_constants.dart';
 import 'package:collection/collection.dart';
 
 class TransactionList extends StatefulWidget {
@@ -415,7 +416,10 @@ class TransactionListItem extends StatelessWidget {
             child: iconWidget,
           ),
           title: Text(
-            transactionCategory.category?.name ?? 'Uncategorized',
+            transactionCategory.category?.name ==
+                    AppConstants.systemTransferCategoryName
+                ? 'Transfer'
+                : (transactionCategory.category?.name ?? 'Uncategorized'),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           subtitle: Column(

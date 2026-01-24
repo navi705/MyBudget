@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/constants/app_constants.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
@@ -37,7 +38,12 @@ class CategoryPickerDialog extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final categoryWithTotal = state.categoriesWithTotals[index];
                   return ListTile(
-                    title: Text(categoryWithTotal.category.name),
+                    title: Text(
+                      categoryWithTotal.category.name ==
+                              AppConstants.systemTransferCategoryName
+                          ? 'Transfer'
+                          : categoryWithTotal.category.name,
+                    ),
                     onTap: () {
                       onCategorySelected(categoryWithTotal.category.id!);
                       Navigator.of(context).pop();

@@ -29,6 +29,12 @@ import 'package:my_budget_client/domain/services/finance_calculator.dart'; // Ad
 part 'accounts_event.dart';
 part 'accounts_state.dart';
 
+class ClearRecentlyDeletedAccount extends AccountsEvent {
+  const ClearRecentlyDeletedAccount();
+  @override
+  List<Object> get props => [];
+}
+
 class DeleteAccountWithTransactions extends AccountsEvent {
   final String accountId;
   const DeleteAccountWithTransactions(this.accountId);
@@ -97,6 +103,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     on<DatePeriodNavigated>(_onDatePeriodNavigated);
     on<DateStepChanged>(_onDateStepChanged);
     on<ActiveDateChanged>(_onActiveDateChanged);
+    on<ClearRecentlyDeletedAccount>(_onClearRecentlyDeletedAccount);
 
     _transactionsSubscription = _transactionRepository
         .watchTransactions()
@@ -217,6 +224,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     if (currentState is! AccountsLoadSuccess) {
       emit(
         AccountsLoadInProgress(
+          recentlyDeletedAccount: currentState.recentlyDeletedAccount,
           activeDate: currentState.activeDate,
           dateStep: currentState.dateStep,
           filters: currentState.filters,
@@ -470,6 +478,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       double income = currentStats.totalIncome;
       double expense = currentStats.totalExpense;
 
+      debugPrint(
+        '[SnackBarDebug] AccountsBloc Emitting Success. recentlyDeletedAccount: ${currentState is AccountsLoadSuccess ? currentState.recentlyDeletedAccount?.name : 'null'} -> ${currentState is AccountsLoadSuccess ? currentState.recentlyDeletedAccount?.name : 'null'}',
+      );
       emit(
         AccountsLoadSuccess(
           accounts: sortedAccounts,
@@ -499,15 +510,20 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           previousAccountRealExpenses: prevStats.realExpense,
           income: income,
           expense: expense,
-          recentlyDeletedAccount: currentState is AccountsLoadSuccess
-              ? currentState.recentlyDeletedAccount
-              : null,
+          recentlyDeletedAccount: state.recentlyDeletedAccount,
         ),
       );
       await PerformanceLogger().stop('Accounts Screen Load');
     } catch (e) {
       PerformanceLogger().stop('Accounts Screen Load');
-      emit(AccountsLoadFailure());
+      emit(
+        AccountsLoadFailure(
+          recentlyDeletedAccount: state.recentlyDeletedAccount,
+          activeDate: state.activeDate,
+          dateStep: state.dateStep,
+          filters: state.filters,
+        ),
+      );
     }
   }
 
@@ -529,7 +545,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         accountFilters: currentState.filters,
       );
       if (accounts.isEmpty) {
-        emit(currentState.copyWith(hasReachedMax: true));
+        if (state is AccountsLoadSuccess) {
+          emit((state as AccountsLoadSuccess).copyWith(hasReachedMax: true));
+        }
         PerformanceLogger().stop('Accounts Screen Load More');
       } else {
         // Fetch Assets early
@@ -744,7 +762,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         await PerformanceLogger().stop('Accounts Screen Load More');
 
         emit(
-          currentState.copyWith(
+          (state as AccountsLoadSuccess).copyWith(
             accounts: sortedAccounts,
             realBalances: updatedRealBalances,
             inflationLosses: updatedInflationLosses,
@@ -753,7 +771,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
             accountRealIncomes: updatedRealIncomes,
             accountRealExpenses: updatedRealExpenses,
             assetValues: updatedNominalBalances,
-            assetStats: updatedAssetStats, // Added
+            assetStats: updatedAssetStats,
             previousPeriodBalances: updatedPrevBalances,
             previousPeriodRealBalances: updatedPrevRealBalances,
             previousAccountIncomes: updatedPrevIncomes,
@@ -798,6 +816,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       try {
         final accountToDelete = currentState.accounts.firstWhere(
           (acc) => acc.id == event.id,
+        );
+        debugPrint(
+          '[SnackBarDebug] AccountsBloc: Setting recentlyDeletedAccount: ${accountToDelete.name}',
         );
         emit(currentState.copyWith(recentlyDeletedAccount: accountToDelete));
         await _accountRepository.deleteAccountWithTransactions(event.id);
@@ -859,11 +880,28 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     final currentState = state;
     if (currentState is AccountsLoadSuccess &&
         currentState.recentlyDeletedAccount != null) {
+      debugPrint(
+        '[SnackBarDebug] AccountsBloc: Undoing delete for: ${currentState.recentlyDeletedAccount!.name}',
+      );
       await _accountRepository.restoreAccount(
         currentState.recentlyDeletedAccount!,
       );
+      debugPrint(
+        '[SnackBarDebug] AccountsBloc: Clearing recentlyDeletedAccount (Undo Success)',
+      );
+      emit(currentState.copyWith(clearRecentlyDeletedAccount: true));
       add(LoadAccounts()); // Reload list
     }
+  }
+
+  void _onClearRecentlyDeletedAccount(
+    ClearRecentlyDeletedAccount event,
+    Emitter<AccountsState> emit,
+  ) {
+    debugPrint(
+      '[SnackBarDebug] AccountsBloc: Clearing recentlyDeletedAccount (Explicit Clear)',
+    );
+    emit(state.copyWith(clearRecentlyDeletedAccount: true));
   }
 
   void _onSortAccounts(SortAccounts event, Emitter<AccountsState> emit) {
@@ -1085,7 +1123,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       double expense = currentStats.totalExpense;
 
       emit(
-        currentState.copyWith(
+        (state as AccountsLoadSuccess).copyWith(
           accounts: sortedAccounts,
           realBalances: realBalances,
           inflationLosses: inflationLosses,
@@ -1094,7 +1132,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           accountRealIncomes: currentStats.realIncome,
           accountRealExpenses: currentStats.realExpense,
           assetValues: nominalBalances,
-          assetStats: assetStats, // Added
+          assetStats: assetStats,
           previousPeriodBalances: prevBalances,
           previousPeriodRealBalances: prevRealBalances,
           previousAccountIncomes: prevStats.income,
@@ -1104,9 +1142,8 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           income: income,
           expense: expense,
           categories: categories,
-          isHistorical: true, // Set to true when historical data is loaded
-          activeDate: event.date, // Set the active date to the historical date
-          recentlyDeletedAccount: currentState.recentlyDeletedAccount,
+          isHistorical: true,
+          activeDate: event.date,
         ),
       );
     } catch (e) {

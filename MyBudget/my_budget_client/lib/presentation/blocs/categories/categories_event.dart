@@ -165,3 +165,13 @@ class UpdateCategoryTypeForMultipleCategories extends CategoriesEvent {
   @override
   List<Object> get props => [categoryIds, newType];
 }
+
+// Added
+class ClearRecentlyDeletedCategory extends CategoriesEvent {
+  const ClearRecentlyDeletedCategory();
+}
+
+// Added
+class UndoDeleteCategory extends CategoriesEvent {
+  const UndoDeleteCategory();
+}

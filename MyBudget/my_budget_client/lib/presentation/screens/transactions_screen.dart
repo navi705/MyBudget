@@ -138,7 +138,71 @@ class TransactionsScreen extends StatelessWidget {
                   ),
                   child: const FilterDate(),
                 ),
-          body: const TransactionList(),
+          body: BlocListener<TransactionsBloc, TransactionsState>(
+            listenWhen: (previous, current) {
+              final changed =
+                  previous.recentlyDeletedTransactions !=
+                  current.recentlyDeletedTransactions;
+              final isNowNotEmpty =
+                  current.recentlyDeletedTransactions != null &&
+                  current.recentlyDeletedTransactions!.isNotEmpty;
+              debugPrint(
+                '[SnackBarDebug] Transactions listenWhen: changed=$changed, isNowNotEmpty=$isNowNotEmpty',
+              );
+              return changed && isNowNotEmpty;
+            },
+            listener: (context, state) {
+              final txs = state.recentlyDeletedTransactions!;
+              debugPrint(
+                '[SnackBarDebug] Transactions listener triggered. Count: ${txs.length}',
+              );
+              final name = txs.length == 1
+                  ? (txs.first.description.isNotEmpty
+                        ? txs.first.description
+                        : 'Transaction')
+                  : l10n.selectedCountLabel(txs.length.toString());
+
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              scaffoldMessenger.removeCurrentSnackBar();
+
+              scaffoldMessenger
+                  .showSnackBar(
+                    SnackBar(
+                      showCloseIcon: true,
+                      closeIconColor: Colors.white,
+                      duration: const Duration(seconds: 4),
+                      content: Text(l10n.itemDeletedMessage(name)),
+                      action: SnackBarAction(
+                        label: l10n.undoButton,
+                        onPressed: () {
+                          debugPrint(
+                            '[SnackBarDebug] Transactions Undo pressed',
+                          );
+                          context.read<TransactionsBloc>().add(
+                            const UndoDeleteTransactions(),
+                          );
+                        },
+                      ),
+                    ),
+                  )
+                  .closed
+                  .then((reason) {
+                    debugPrint(
+                      '[SnackBarDebug] Transactions SnackBar closed. Reason: $reason',
+                    );
+                    if (context.mounted &&
+                        reason != SnackBarClosedReason.action) {
+                      debugPrint(
+                        '[SnackBarDebug] Transactions clearing recentlyDeletedTransactions from state',
+                      );
+                      context.read<TransactionsBloc>().add(
+                        const ClearRecentlyDeletedTransactions(),
+                      );
+                    }
+                  });
+            },
+            child: const TransactionList(),
+          ),
           floatingActionButton: isSelectionMode
               ? null
               : MultiLevelTooltip(

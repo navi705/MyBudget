@@ -214,3 +214,11 @@ class TransactionTypeFilterChanged extends TransactionsEvent {
   @override
   List<Object?> get props => [transactionType];
 }
+
+class UndoDeleteTransactions extends TransactionsEvent {
+  const UndoDeleteTransactions();
+}
+
+class ClearRecentlyDeletedTransactions extends TransactionsEvent {
+  const ClearRecentlyDeletedTransactions();
+}
