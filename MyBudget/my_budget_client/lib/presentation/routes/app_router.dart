@@ -171,8 +171,9 @@ CustomTransitionPage _buildPage(Widget child) {
   return CustomTransitionPage(
     child: child,
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      return child;
+      return child; // No animation
     },
-    opaque: true, // Forces previous route to be hidden
+    transitionDuration: Duration.zero,
+    reverseTransitionDuration: Duration.zero,
   );
 }

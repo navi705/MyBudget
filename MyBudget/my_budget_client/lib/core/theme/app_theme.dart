@@ -141,6 +141,7 @@ class AppTheme {
           TargetPlatform.macOS: NoTransitionsBuilder(),
         },
       ),
+      splashFactory: NoSplash.splashFactory,
     );
   }
 

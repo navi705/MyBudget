@@ -6,26 +6,31 @@ final List<AccountTypesCompanion> defaultAccountTypes = [
     id: const Value('account_type_checking'),
     name: 'Checking',
     languageCode: 'en',
+    modifiedAt: const Value(1),
   ),
   AccountTypesCompanion.insert(
     id: const Value('account_type_savings'),
     name: 'Savings',
     languageCode: 'en',
+    modifiedAt: const Value(1),
   ),
   AccountTypesCompanion.insert(
     id: const Value('account_type_credit_card'),
     name: 'Credit Card',
     languageCode: 'en',
+    modifiedAt: const Value(1),
   ),
   AccountTypesCompanion.insert(
     id: const Value('account_type_cash'),
     name: 'Cash',
     languageCode: 'en',
+    modifiedAt: const Value(1),
   ),
   AccountTypesCompanion.insert(
     id: const Value('account_type_investment'),
     name: 'Investment',
     languageCode: 'en',
+    modifiedAt: const Value(1),
   ),
   AccountTypesCompanion.insert(
     id: const Value('account_type_loan'),

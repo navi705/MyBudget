@@ -76,32 +76,59 @@ class App extends StatelessWidget {
                 routerConfig: router,
                 debugShowCheckedModeBanner: false,
                 builder: (context, child) {
+                  // Calculate the full screen height (screen + keyboard) to keep background static
+                  final mediaQuery = MediaQuery.of(context);
+                  final fullHeight =
+                      mediaQuery.size.height + mediaQuery.viewInsets.bottom;
+
                   return Container(
                     color: theme.backgroundColor.withValues(
                       alpha: theme.effectOpacity,
                     ),
                     child: Stack(
                       children: [
-                        if (backgroundImage != null)
-                          Positioned.fill(
-                            child: Opacity(
-                              opacity: theme.backgroundImageOpacity,
-                              child: Image(
-                                image: backgroundImage,
-                                fit: BoxFit.cover,
+                        // Optimized Background Layer
+                        // We use OverflowBox to force the background to stay at full device height
+                        // even when the keyboard pushes the view up. This allows RepaintBoundary
+                        // to actually cache the raster, as the child size doesn't change.
+                        Positioned.fill(
+                          child: RepaintBoundary(
+                            child: OverflowBox(
+                              minHeight: fullHeight,
+                              maxHeight: fullHeight,
+                              alignment: Alignment.topCenter,
+                              child: Stack(
+                                children: [
+                                  if (backgroundImage != null)
+                                    Positioned.fill(
+                                      child: Opacity(
+                                        opacity: theme.backgroundImageOpacity,
+                                        child: theme.backgroundImageBlur > 0
+                                            ? ImageFiltered(
+                                                imageFilter: ImageFilter.blur(
+                                                  sigmaX:
+                                                      theme.backgroundImageBlur,
+                                                  sigmaY:
+                                                      theme.backgroundImageBlur,
+                                                ),
+                                                child: Image(
+                                                  image: backgroundImage,
+                                                  fit: BoxFit.cover,
+                                                  gaplessPlayback: true,
+                                                ),
+                                              )
+                                            : Image(
+                                                image: backgroundImage,
+                                                fit: BoxFit.cover,
+                                                gaplessPlayback: true,
+                                              ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                           ),
-                        if (theme.backgroundImageBlur > 0)
-                          Positioned.fill(
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(
-                                sigmaX: theme.backgroundImageBlur,
-                                sigmaY: theme.backgroundImageBlur,
-                              ),
-                              child: Container(color: Colors.transparent),
-                            ),
-                          ),
+                        ),
                         if (child != null) child,
                       ],
                     ),

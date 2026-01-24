@@ -80,6 +80,8 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
       builder: (context, constraints) {
         if (constraints.maxWidth < 600) {
           return Scaffold(
+            resizeToAvoidBottomInset:
+                false, // Prevent keyboard animation & layout thrashing
             body: widget.child,
             bottomNavigationBar: NavigationBarTheme(
               data: NavigationBarThemeData(
@@ -120,6 +122,8 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
           );
         } else {
           return Scaffold(
+            resizeToAvoidBottomInset:
+                false, // Prevent keyboard animation & layout thrashing
             body: Row(
               children: [
                 NavigationRail(
