@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/utils/chart_color_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
@@ -155,7 +156,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    "All Accounts",
+                    context.l10n.allLabel,
                     style: TextStyle(
                       color: colorScheme.onSurface,
                       fontWeight: FontWeight.w600,
@@ -180,7 +181,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
               DropdownMenuItem<String?>(
                 value: null,
                 child: Text(
-                  "All Accounts",
+                  context.l10n.allLabel,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: colorScheme.onSurface,
@@ -225,7 +226,9 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
       children: [
         const SizedBox(height: 8),
         Text(
-          isAllAccounts ? 'Total Net Worth Trend' : 'Account Balance Trend',
+          isAllAccounts
+              ? context.l10n.dashboardTotalNetWorthTrend
+              : context.l10n.dashboardAccountBalanceTrend,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w600,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -336,12 +339,20 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
 
   Widget _buildAccountDistribution(BuildContext context) {
     final data = _getAccountDistribution();
-    return _buildPieSection(context, 'Wealth Distribution', data);
+    return _buildPieSection(
+      context,
+      context.l10n.dashboardWealthDistribution,
+      data,
+    );
   }
 
   Widget _buildCurrencyDistribution(BuildContext context) {
     final data = _getCurrencyDistribution();
-    return _buildPieSection(context, 'Currency Breakdown', data);
+    return _buildPieSection(
+      context,
+      context.l10n.dashboardCurrencyBreakdown,
+      data,
+    );
   }
 
   Widget _buildPieSection(
@@ -366,7 +377,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
             height: 220,
             child: Center(
               child: Text(
-                'No data for this period',
+                context.l10n.noDataForPeriod,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.outline,
                 ),

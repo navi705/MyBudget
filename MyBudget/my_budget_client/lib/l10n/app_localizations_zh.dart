@@ -38,6 +38,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get addAccountDialogTitle => '添加新账户';
 
   @override
+  String get editAccountDialogTitle => '编辑账户';
+
+  @override
   String get accountNameHint => '账户名称';
 
   @override
@@ -63,6 +66,28 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get clearButton => '清除';
+
+  @override
+  String get selectButton => '选择';
+
+  @override
+  String get selectAllButton => '全选';
+
+  @override
+  String get deselectAllButton => '取消全选';
+
+  @override
+  String get deleteSelectedButton => '删除选中';
+
+  @override
+  String totalCountLabel(Object count) {
+    return '总计: $count';
+  }
+
+  @override
+  String selectedCountLabel(Object count) {
+    return '已选择 $count 个';
+  }
 
   @override
   String get formValidationPleaseEnterName => '请输入名称';
@@ -111,6 +136,30 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get currencyBreakdown => '货币明细';
+
+  @override
+  String get dashboardNetWorthTrend => '净资产趋势';
+
+  @override
+  String get dashboardWealthDistributionByAccount => '财富分布（按账户）';
+
+  @override
+  String get dashboardCurrencyExposure => '货币风险敞口';
+
+  @override
+  String get dashboardNoAccountsFound => '未找到账户';
+
+  @override
+  String get dashboardTotalNetWorthTrend => '总净资产趋势';
+
+  @override
+  String get dashboardAccountBalanceTrend => '账户余额趋势';
+
+  @override
+  String get dashboardWealthDistribution => '财富分布';
+
+  @override
+  String get dashboardCurrencyBreakdown => '货币明细';
 
   @override
   String get metricBalance => '余额';
@@ -255,20 +304,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sortOrderDescription => '按金额切换升序和降序';
 
   @override
-  String totalCountLabel(Object count) {
-    return '总计: $count';
-  }
-
-  @override
   String get closeSelectionTooltip => '关闭选择';
 
   @override
   String get exitSelectionDescription => '退出选择模式';
-
-  @override
-  String selectedCountLabel(Object count) {
-    return '已选择 $count 个';
-  }
 
   @override
   String get categoryNameLabel => '分类名称';
@@ -294,6 +333,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get exitTransactionsSelectionDescription => '退出交易选择模式';
+
+  @override
   String get changeDateTooltip => '更改日期';
 
   @override
@@ -312,33 +354,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deleteTransactionsDescription => '永久删除所有选中交易';
 
   @override
-  String get exitTransactionsSelectionDescription => '退出交易选择模式';
+  String get amountLabel => '金额';
 
   @override
   String quantityLabel(Object quantity) {
     return '数量: $quantity';
   }
-
-  @override
-  String get addTransactionTitle => '添加交易';
-
-  @override
-  String get editTransactionTitle => '编辑交易';
-
-  @override
-  String get newTransferTitle => '新转账';
-
-  @override
-  String get editTransferTitle => '编辑转账';
-
-  @override
-  String get descriptionLabel => '描述';
-
-  @override
-  String get descriptionOptionalLabel => '描述（可选）';
-
-  @override
-  String get amountLabel => '金额';
 
   @override
   String get quantityFormLabel => '数量';
@@ -369,6 +390,24 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get selectDateLabel => '选择日期';
+
+  @override
+  String get addTransactionTitle => '添加交易';
+
+  @override
+  String get editTransactionTitle => '编辑交易';
+
+  @override
+  String get newTransferTitle => '新建转账';
+
+  @override
+  String get editTransferTitle => '编辑转账';
+
+  @override
+  String get descriptionLabel => '描述';
+
+  @override
+  String get descriptionOptionalLabel => '描述（可选）';
 
   @override
   String get swapAccountsTooltip => '交换账户';
@@ -520,6 +559,95 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syncSettingsSubtitle => '通过 Syncthing 进行 P2P 同步';
 
   @override
+  String get themeSettingsTitle => '主题设置';
+
+  @override
+  String get appearanceSection => '外观';
+
+  @override
+  String get themeModeLabel => '主题模式';
+
+  @override
+  String get systemTheme => '系统默认';
+
+  @override
+  String get lightTheme => '浅色主题';
+
+  @override
+  String get darkTheme => '深色主题';
+
+  @override
+  String get colorCustomizationSection => '颜色自定义';
+
+  @override
+  String get primaryColorLabel => '主色';
+
+  @override
+  String get secondaryColorLabel => '辅色';
+
+  @override
+  String get surfaceColorLabel => '表面颜色';
+
+  @override
+  String get windowEffectsSection => '窗口效果（桌面端）';
+
+  @override
+  String get enableEffectsLabel => '启用窗口效果';
+
+  @override
+  String get windowEffectLabel => '窗口效果';
+
+  @override
+  String get backgroundLabel => '背景';
+
+  @override
+  String get removeBackgroundColor => '移除背景颜色';
+
+  @override
+  String get transparentSurfaceLabel => '透明表面（卡片）';
+
+  @override
+  String get fullyTransparentLabel => '完全透明';
+
+  @override
+  String get opaqueLabel => '不透明';
+
+  @override
+  String opacityLabel(Object value) {
+    return '透明度: $value%';
+  }
+
+  @override
+  String get backgroundSettingsSection => '背景设置';
+
+  @override
+  String get enableBackgroundImageLabel => '启用背景图片';
+
+  @override
+  String get backgroundBlurLabel => '背景模糊';
+
+  @override
+  String get surfaceGlassStyleTitle => '表面/玻璃样式';
+
+  @override
+  String get chooseImageButton => '选择图片';
+
+  @override
+  String get selectImageFileError => '请选择一个图片文件。';
+
+  @override
+  String get clearImageButton => '清除图片';
+
+  @override
+  String get saveThemePresetTitle => '保存主题预设';
+
+  @override
+  String get presetNameLabel => '预设名称';
+
+  @override
+  String get presetNameHint => '我的酷炫主题';
+
+  @override
   String get importDataLabel => '导入数据';
 
   @override
@@ -548,6 +676,190 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get debugMenuSubtitle => '内部开发者工具';
+
+  @override
+  String get apiManagementTitle => 'API 管理';
+
+  @override
+  String get apiCategoriesSection => 'API 类别';
+
+  @override
+  String get manualUtilitiesSection => '手动工具';
+
+  @override
+  String get startupDataSyncLabel => '启动时数据同步';
+
+  @override
+  String get startupDataSyncDescription => '控制应用启动时外部数据获取和服务器同步。';
+
+  @override
+  String get standardApiLabel => '标准 API';
+
+  @override
+  String get syncOnStartupDescription => '启动时同步';
+
+  @override
+  String get customSourcesLabel => '自定义来源';
+
+  @override
+  String syncCustomSourcesDescription(Object count) {
+    return '启动时同步所有 ($count) 个来源';
+  }
+
+  @override
+  String get individualCustomSourcesTitle => '单个自定义来源';
+
+  @override
+  String get noCustomSourcesAdded => '尚未添加自定义来源。';
+
+  @override
+  String get fetchTodaysRatesButton => '获取今日汇率';
+
+  @override
+  String get inflationConfigTitle => '通胀配置';
+
+  @override
+  String get countryCodeHint => '国家代码 (如 SRB)';
+
+  @override
+  String fetchDataForCountryButton(Object country) {
+    return '获取 $country 的数据';
+  }
+
+  @override
+  String get steamSettingsTitle => 'Steam 设置';
+
+  @override
+  String get steamIdLabel => 'Steam ID (64位)';
+
+  @override
+  String get preferredGameLabel => '首选游戏';
+
+  @override
+  String get fetchInventoryNowButton => '立即获取库存';
+
+  @override
+  String get manualExchangeRatesTitle => '手动获取汇率';
+
+  @override
+  String get selectStartDate => '选择开始日期';
+
+  @override
+  String startDateFrom(Object date) {
+    return '自: $date';
+  }
+
+  @override
+  String get selectEndDate => '选择结束日期';
+
+  @override
+  String endDateTo(Object date) {
+    return '至: $date';
+  }
+
+  @override
+  String get fetchRangeButton => '获取范围数据';
+
+  @override
+  String get manualSteamInventoryTitle => '手动获取 Steam 库存';
+
+  @override
+  String get selectGameHint => '选择游戏';
+
+  @override
+  String get fetchValueButton => '获取价值';
+
+  @override
+  String get manualInflationDataTitle => '手动获取通胀数据';
+
+  @override
+  String get selectStartYear => '选择开始年份';
+
+  @override
+  String startYearFrom(Object year) {
+    return '自: $year';
+  }
+
+  @override
+  String get selectEndYear => '选择结束年份';
+
+  @override
+  String endYearTo(Object year) {
+    return '至: $year';
+  }
+
+  @override
+  String get fetchDataButton => '获取数据';
+
+  @override
+  String get connectionOk => '连接正常';
+
+  @override
+  String get connectionFailed => '连接失败';
+
+  @override
+  String get testConnectionButton => '测试连接';
+
+  @override
+  String get editCustomSourceTitle => '编辑自定义来源';
+
+  @override
+  String get addCustomSourceTitle => '添加自定义来源';
+
+  @override
+  String get addressFormatsHelp => '地址格式：\n• 192.168.1.10 (IP)\n• localhost 或 api.my.com\n• http://myserver.com';
+
+  @override
+  String get urlIpLabel => 'URL / IP';
+
+  @override
+  String get urlIpHint => '192.168.1.10:8080';
+
+  @override
+  String get dataTypeLabel => '数据类型';
+
+  @override
+  String get apiTitleExchangeRates => '汇率';
+
+  @override
+  String get apiTitleInflation => '通胀';
+
+  @override
+  String get apiTitleAssetPrices => '资产价格';
+
+  @override
+  String get apiTitleSteamInventory => 'Steam 库存';
+
+  @override
+  String get transferLabel => '转账';
+
+  @override
+  String get uncategorizedLabel => '未分类';
+
+  @override
+  String get defaultLabel => '默认';
+
+  @override
+  String receivedTotalLabel(Object total) {
+    return '已收取：$total';
+  }
+
+  @override
+  String spentTotalLabel(Object total) {
+    return '已花费：$total';
+  }
+
+  @override
+  String get periodSummaryTitle => '期间摘要';
+
+  @override
+  String get incomeLabel => '收入';
+
+  @override
+  String get expenseLabel => '支出';
+
+  @override
+  String get netLabel => '净额';
 
   @override
   String get exportSuccessMessage => '导出成功完成';
@@ -778,16 +1090,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noCurrenciesSelected => '未选择货币。';
 
   @override
-  String get incomeLabel => '收入';
-
-  @override
-  String get expenseLabel => '支出';
-
-  @override
   String get failedToLoadDashboard => '加载仪表板失败';
 
   @override
   String get dashboardCalendarTab => '日历';
+
+  @override
+  String get dashboardTabCalendar => '日历';
 
   @override
   String get dashboardCalendarTooltip => '日历视图';
@@ -799,6 +1108,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dashboardCategoriesTab => '分类';
 
   @override
+  String get dashboardTabCategories => '分类';
+
+  @override
   String get dashboardCategoriesTooltip => '分类分析';
 
   @override
@@ -806,6 +1118,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dashboardBalanceTab => '余额';
+
+  @override
+  String get dashboardTabBalance => '余额';
 
   @override
   String get dashboardBalanceTooltip => '余额历史';
@@ -821,6 +1136,19 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get manageIconsTitle => '管理图标';
+
+  @override
+  String get manageStylesDeleteTitle => '删除图标';
+
+  @override
+  String manageStylesDeleteConfirm(Object count) {
+    return '您确定要删除选中的 $count 个图标吗？';
+  }
+
+  @override
+  String manageStylesDeleteConfirmWithTransfer(Object count) {
+    return '您确定要删除选中的 $count 个图标吗？（传输图标将被跳过）';
+  }
 
   @override
   String get noIconsCreated => '尚未创建任何图标。';
@@ -930,4 +1258,503 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get historyLabel => '历史';
+
+  @override
+  String get syncScreenTitle => '同步设置';
+
+  @override
+  String get syncP2PSection => 'P2P 同步 (Syncthing)';
+
+  @override
+  String get syncEnableP2P => '启用 P2P 同步';
+
+  @override
+  String get syncP2PSubtitle => '通过共享文件夹中的 .sync 文件进行同步';
+
+  @override
+  String get syncFolderLabel => '同步文件夹';
+
+  @override
+  String get syncFolderNotSelected => '未选择';
+
+  @override
+  String get syncBrowseButton => '浏览';
+
+  @override
+  String get syncClearFilesButton => '清除同步文件';
+
+  @override
+  String get syncServerSection => '云同步（服务器）';
+
+  @override
+  String get syncServerUrlLabel => '服务器 URL';
+
+  @override
+  String get syncApiTokenLabel => 'API 令牌';
+
+  @override
+  String get syncApiTokenHint => '输入您的安全令牌';
+
+  @override
+  String get syncApiTokenHelp => '此令牌是您的共享密钥。在所有设备上输入相同的值以授权同步。';
+
+  @override
+  String get syncTestConnectionButton => '测试连接';
+
+  @override
+  String get syncTestingLabel => '正在测试...';
+
+  @override
+  String get syncSaveServerSettingsButton => '保存服务器设置';
+
+  @override
+  String get syncEnableServer => '启用服务器同步';
+
+  @override
+  String get syncServerSubtitle => '与 MyBudget Server 实例同步';
+
+  @override
+  String get syncPendingLocalChanges => '待处理的本地更改：';
+
+  @override
+  String get syncSyncNowButton => '立即同步';
+
+  @override
+  String get syncSyncingLabel => '正在同步...';
+
+  @override
+  String get syncWebNotAvailable => '网页端不可用同步功能';
+
+  @override
+  String get syncPermissionRequired => '同步需要存储权限。请在设置中启用“访问所有文件”。';
+
+  @override
+  String get syncSelectFolderTitle => '选择 Syncthing 文件夹';
+
+  @override
+  String get syncClearFilesTitle => '清除同步文件';
+
+  @override
+  String get syncClearFilesConfirm => '这将删除选中文件夹中的所有 .sync 文件。此操作无法撤销。';
+
+  @override
+  String syncDeletedFilesCount(Object count) {
+    return '已删除 $count 个同步文件';
+  }
+
+  @override
+  String syncClearFilesError(Object error) {
+    return '清除文件失败: $error';
+  }
+
+  @override
+  String get syncSettingsSaved => '服务器设置已保存';
+
+  @override
+  String get syncConnectionSuccessful => '连接成功！';
+
+  @override
+  String get syncConnectionFailed => '连接失败。请检查 URL 和令牌。';
+
+  @override
+  String get syncCompleted => '同步成功完成';
+
+  @override
+  String syncFailed(Object error) {
+    return '同步失败: $error';
+  }
+
+  @override
+  String get smsRuleAddTitle => '添加规则';
+
+  @override
+  String get smsRuleEditTitle => '编辑规则';
+
+  @override
+  String get smsRuleTransactionType => '交易类型';
+
+  @override
+  String get smsRuleMatchPattern => '匹配模式 (Regex)';
+
+  @override
+  String get smsRuleMatchPatternHint => '例如，卡消费';
+
+  @override
+  String get smsRuleMatchPatternHelp => '用于识别此类短信的模式';
+
+  @override
+  String get smsRuleAmountPattern => '金额模式 (Regex)';
+
+  @override
+  String get smsRuleAmountPatternHint => '例如，金额\\s+([\\d,.]+)';
+
+  @override
+  String get smsRuleAmountPatternHelp => '捕获组 1 应对应金额';
+
+  @override
+  String get smsRuleCurrencyPattern => '货币模式 (Regex, 可选)';
+
+  @override
+  String get smsRuleCurrencyPatternHint => '例如，[\\d,.]+\\s*(\\w\\w\\w)';
+
+  @override
+  String get smsRuleCurrencyPatternHelp => '捕获组 1 应对应货币代码';
+
+  @override
+  String get smsRuleTestTitle => '测试规则';
+
+  @override
+  String get smsRuleTestSmsHint => '在此粘贴短信文本';
+
+  @override
+  String get smsRuleTestButton => '测试模式';
+
+  @override
+  String get smsRuleTestEnterSmsError => '请输入短信文本进行测试';
+
+  @override
+  String get smsRuleTestMatchError => '✗ 匹配模式未找到结果';
+
+  @override
+  String get smsRuleTestAmountError => '✗ 金额模式未找到结果';
+
+  @override
+  String smsRuleTestSuccess(Object amount, Object currency, Object type) {
+    return '✓ 找到匹配项！\n类型: $type\n金额: $amount\n货币: $currency';
+  }
+
+  @override
+  String smsRuleTestRegexError(Object error) {
+    return '✗ Regex 无效: $error';
+  }
+
+  @override
+  String get smsRuleRequiredError => '匹配模式和金额模式为必填项';
+
+  @override
+  String inflationError(Object error) {
+    return '错误: $error';
+  }
+
+  @override
+  String get inflationNoRatesFound => '未找到通胀率。';
+
+  @override
+  String get inflationAddRate => '添加通胀率';
+
+  @override
+  String get inflationDeleteConfirmTitle => '删除通胀率？';
+
+  @override
+  String inflationDeleteConfirmMessage(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 个通胀率',
+      one: '个通胀率',
+    );
+    return '您确定要删除这 $_temp0 吗？';
+  }
+
+  @override
+  String inflationSelectedCount(Object count) {
+    return '已选择 $count 个';
+  }
+
+  @override
+  String get inflationFiltersTitle => '通胀筛选';
+
+  @override
+  String get inflationCountries => '国家';
+
+  @override
+  String get inflationPresets => '预设';
+
+  @override
+  String deleteCategoryConfirmTitle(Object name) {
+    return '删除 $name？';
+  }
+
+  @override
+  String get deleteCategoryMessage => '此分类有关联交易。您希望怎么做？';
+
+  @override
+  String get deleteCategoryReassign => '将交易重新分配到另一个分类';
+
+  @override
+  String get deleteCategoryNewCategory => '新分类';
+
+  @override
+  String get deleteCategoryDeleteAll => '删除所有关联交易';
+
+  @override
+  String deleteAccountConfirmTitle(Object name) {
+    return '删除 $name？';
+  }
+
+  @override
+  String get deleteAccountMessage => '此账户可能有相关交易。您希望怎么做？';
+
+  @override
+  String get deleteAccountReassign => '将交易重新分配到另一个账户';
+
+  @override
+  String get deleteAccountNewAccount => '新账户';
+
+  @override
+  String get deleteAccountDeleteAll => '删除所有关联交易';
+
+  @override
+  String get confirmButton => '确认';
+
+  @override
+  String get okButton => '确定';
+
+  @override
+  String get noItemsFound => '未找到任何项。';
+
+  @override
+  String get noDataForPeriod => '此期间没有数据';
+
+  @override
+  String get noDataForRange => '此范围没有数据';
+
+  @override
+  String get noHistoryData => '无历史数据可用';
+
+  @override
+  String get disabledByGlobalSync => '由于全局同步已禁用';
+
+  @override
+  String dateCreatedLabel(Object date) {
+    return '创建日期：$date';
+  }
+
+  @override
+  String get anyLabel => '任意';
+
+  @override
+  String get balanceDisplayLabel => '显示余额';
+
+  @override
+  String currenciesActiveLabel(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 种活跃货币',
+      one: '1 种活跃货币',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get searchCountryLabel => '搜索国家';
+
+  @override
+  String get addNewIconLabel => '添加新图标';
+
+  @override
+  String get noIconsFoundLabel => '未找到图标';
+
+  @override
+  String get addNewStyleLabel => '添加新样式';
+
+  @override
+  String get styleNameLabel => '样式名称';
+
+  @override
+  String get pleaseEnterStyleName => '请输入样式名称';
+
+  @override
+  String get colorLabel => '颜色';
+
+  @override
+  String get netBalanceMetric => '净余额';
+
+  @override
+  String get investedMetric => '已投资';
+
+  @override
+  String get realizedMetric => '已实现';
+
+  @override
+  String get feesMetric => '费用';
+
+  @override
+  String get persistFiltersLabel => '保留筛选';
+
+  @override
+  String get searchByNameHint => '通过名称搜索...';
+
+  @override
+  String get searchDescriptionHint => '通过描述搜索...';
+
+  @override
+  String get advancedFiltersTitle => '高级筛选';
+
+  @override
+  String get transactionTypeLabel => '交易类型';
+
+  @override
+  String get assetFiltersTitle => '资产筛选';
+
+  @override
+  String get minValueLabel => '最小值';
+
+  @override
+  String get maxValueLabel => '最大值';
+
+  @override
+  String get assetTypesLabel => '资产类型';
+
+  @override
+  String get allLabel => '全部';
+
+  @override
+  String get currenciesLabel => '货币';
+
+  @override
+  String get sourcesLabel => '来源';
+
+  @override
+  String get presetsLabel => '预设';
+
+  @override
+  String get enterCategoryNameHint => '输入分类名称';
+
+  @override
+  String get selectTypeHint => '选择类型';
+
+  @override
+  String get hotKeysTitle => '快捷键';
+
+  @override
+  String get searchHotkeysHint => '搜索快捷键...';
+
+  @override
+  String get noMatchingHotkeys => '未找到匹配的快捷键。';
+
+  @override
+  String recordingHotkeyTitle(Object label) {
+    return '正在为“$label”录制快捷键';
+  }
+
+  @override
+  String get pressKeysHint => '按键...';
+
+  @override
+  String get pressAnyCombinationHint => '按任意组合键。';
+
+  @override
+  String get clearSaveButton => '清除/保存';
+
+  @override
+  String get duplicateHotkeyTooltip => '预设快捷键重复';
+
+  @override
+  String usedByLabel(Object action) {
+    return '用于 $action';
+  }
+
+  @override
+  String get hkCategoryNavigation => '导航';
+
+  @override
+  String get hkCategoryDashboardTabs => '仪表板标签 (Ctrl + 1/2/3)';
+
+  @override
+  String get hkCategoryDataTabs => '数据标签 (Ctrl + 1/2/3)';
+
+  @override
+  String get hkCategoryPeriodControl => '周期控制';
+
+  @override
+  String get hkCategoryActions => '操作';
+
+  @override
+  String get hkCategorySelectionMode => '选择模式';
+
+  @override
+  String get hkActionBack => '全局: 返回/退出';
+
+  @override
+  String get hkActionDashboard => '前往仪表板';
+
+  @override
+  String get hkActionAccounts => '前往账户';
+
+  @override
+  String get hkActionTransactions => '前往交易';
+
+  @override
+  String get hkActionCategories => '前往分类';
+
+  @override
+  String get hkActionData => '前往数据/汇率';
+
+  @override
+  String get hkActionSettings => '前往设置';
+
+  @override
+  String get hkActionDashboardTab1 => '日历标签页';
+
+  @override
+  String get hkActionDashboardTab2 => '分类标签页';
+
+  @override
+  String get hkActionDashboardTab3 => '余额标签页';
+
+  @override
+  String get hkActionDataTab1 => '汇率';
+
+  @override
+  String get hkActionDataTab2 => '通胀';
+
+  @override
+  String get hkActionDataTab3 => '资产';
+
+  @override
+  String get hkActionPrevPeriod => '上一周期';
+
+  @override
+  String get hkActionNextPeriod => '下一周期';
+
+  @override
+  String get hkActionAddAction => '通用添加操作';
+
+  @override
+  String get hkActionAccountsSelectionClose => '账户: 关闭';
+
+  @override
+  String get hkActionAccountsSelectionAll => '账户: 全选';
+
+  @override
+  String get hkActionAccountsSelectionDelete => '账户: 删除';
+
+  @override
+  String get hkActionAccountsSelectionChangeType => '账户: 更改类型';
+
+  @override
+  String get hkActionCategoriesSelectionClose => '分类: 关闭';
+
+  @override
+  String get hkActionCategoriesSelectionAll => '分类: 全选';
+
+  @override
+  String get hkActionCategoriesSelectionDelete => '分类: 删除';
+
+  @override
+  String get hkActionCategoriesSelectionChangeType => '分类: 更改类型';
+
+  @override
+  String get hkActionDataSelectionClose => '数据: 关闭';
+
+  @override
+  String get hkActionDataSelectionAll => '数据: 全选';
+
+  @override
+  String get hkActionDataSelectionDelete => '数据: 删除';
+
+  @override
+  String get hkActionDataSelectionChangePreset => '数据: 更改预设';
 }

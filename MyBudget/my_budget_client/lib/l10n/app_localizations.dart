@@ -165,6 +165,12 @@ abstract class AppLocalizations {
   /// **'Add a new account'**
   String get addAccountDialogTitle;
 
+  /// No description provided for @editAccountDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Account'**
+  String get editAccountDialogTitle;
+
   /// No description provided for @accountNameHint.
   ///
   /// In en, this message translates to:
@@ -218,6 +224,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Clear'**
   String get clearButton;
+
+  /// No description provided for @selectButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get selectButton;
+
+  /// No description provided for @selectAllButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Select All'**
+  String get selectAllButton;
+
+  /// No description provided for @deselectAllButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Deselect All'**
+  String get deselectAllButton;
+
+  /// No description provided for @deleteSelectedButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Selected'**
+  String get deleteSelectedButton;
+
+  /// No description provided for @totalCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Total: {count}'**
+  String totalCountLabel(Object count);
+
+  /// No description provided for @selectedCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String selectedCountLabel(Object count);
 
   /// No description provided for @formValidationPleaseEnterName.
   ///
@@ -314,6 +356,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Currency Breakdown'**
   String get currencyBreakdown;
+
+  /// No description provided for @dashboardNetWorthTrend.
+  ///
+  /// In en, this message translates to:
+  /// **'Net Worth Trend'**
+  String get dashboardNetWorthTrend;
+
+  /// No description provided for @dashboardWealthDistributionByAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Wealth Distribution (by Account)'**
+  String get dashboardWealthDistributionByAccount;
+
+  /// No description provided for @dashboardCurrencyExposure.
+  ///
+  /// In en, this message translates to:
+  /// **'Currency Exposure'**
+  String get dashboardCurrencyExposure;
+
+  /// No description provided for @dashboardNoAccountsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No accounts found'**
+  String get dashboardNoAccountsFound;
+
+  /// No description provided for @dashboardTotalNetWorthTrend.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Net Worth Trend'**
+  String get dashboardTotalNetWorthTrend;
+
+  /// No description provided for @dashboardAccountBalanceTrend.
+  ///
+  /// In en, this message translates to:
+  /// **'Account Balance Trend'**
+  String get dashboardAccountBalanceTrend;
+
+  /// No description provided for @dashboardWealthDistribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Wealth Distribution'**
+  String get dashboardWealthDistribution;
+
+  /// No description provided for @dashboardCurrencyBreakdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Currency Breakdown'**
+  String get dashboardCurrencyBreakdown;
 
   /// No description provided for @metricBalance.
   ///
@@ -579,12 +669,6 @@ abstract class AppLocalizations {
   /// **'Switch between ascending and descending amount order'**
   String get sortOrderDescription;
 
-  /// No description provided for @totalCountLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Total: {count}'**
-  String totalCountLabel(Object count);
-
   /// No description provided for @closeSelectionTooltip.
   ///
   /// In en, this message translates to:
@@ -596,12 +680,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Exit selection mode'**
   String get exitSelectionDescription;
-
-  /// No description provided for @selectedCountLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'{count} selected'**
-  String selectedCountLabel(Object count);
 
   /// No description provided for @categoryNameLabel.
   ///
@@ -645,6 +723,12 @@ abstract class AppLocalizations {
   /// **'Are you sure you want to delete {count} selected transactions?'**
   String deleteTransactionsConfirmationMessage(Object count);
 
+  /// No description provided for @exitTransactionsSelectionDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit transaction selection mode'**
+  String get exitTransactionsSelectionDescription;
+
   /// No description provided for @changeDateTooltip.
   ///
   /// In en, this message translates to:
@@ -681,59 +765,17 @@ abstract class AppLocalizations {
   /// **'Permanently delete all selected transactions'**
   String get deleteTransactionsDescription;
 
-  /// No description provided for @exitTransactionsSelectionDescription.
+  /// No description provided for @amountLabel.
   ///
   /// In en, this message translates to:
-  /// **'Exit transaction selection mode'**
-  String get exitTransactionsSelectionDescription;
+  /// **'Amount'**
+  String get amountLabel;
 
   /// No description provided for @quantityLabel.
   ///
   /// In en, this message translates to:
   /// **'Qty: {quantity}'**
   String quantityLabel(Object quantity);
-
-  /// No description provided for @addTransactionTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Add Transaction'**
-  String get addTransactionTitle;
-
-  /// No description provided for @editTransactionTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Edit Transaction'**
-  String get editTransactionTitle;
-
-  /// No description provided for @newTransferTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'New Transfer'**
-  String get newTransferTitle;
-
-  /// No description provided for @editTransferTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Edit Transfer'**
-  String get editTransferTitle;
-
-  /// No description provided for @descriptionLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Description'**
-  String get descriptionLabel;
-
-  /// No description provided for @descriptionOptionalLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Description (Optional)'**
-  String get descriptionOptionalLabel;
-
-  /// No description provided for @amountLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Amount'**
-  String get amountLabel;
 
   /// No description provided for @quantityFormLabel.
   ///
@@ -794,6 +836,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select Date'**
   String get selectDateLabel;
+
+  /// No description provided for @addTransactionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Transaction'**
+  String get addTransactionTitle;
+
+  /// No description provided for @editTransactionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Transaction'**
+  String get editTransactionTitle;
+
+  /// No description provided for @newTransferTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New Transfer'**
+  String get newTransferTitle;
+
+  /// No description provided for @editTransferTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Transfer'**
+  String get editTransferTitle;
+
+  /// No description provided for @descriptionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get descriptionLabel;
+
+  /// No description provided for @descriptionOptionalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Description (Optional)'**
+  String get descriptionOptionalLabel;
 
   /// No description provided for @swapAccountsTooltip.
   ///
@@ -1065,6 +1143,180 @@ abstract class AppLocalizations {
   /// **'P2P sync via Syncthing'**
   String get syncSettingsSubtitle;
 
+  /// No description provided for @themeSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme Settings'**
+  String get themeSettingsTitle;
+
+  /// No description provided for @appearanceSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get appearanceSection;
+
+  /// No description provided for @themeModeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme Mode'**
+  String get themeModeLabel;
+
+  /// No description provided for @systemTheme.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get systemTheme;
+
+  /// No description provided for @lightTheme.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get lightTheme;
+
+  /// No description provided for @darkTheme.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get darkTheme;
+
+  /// No description provided for @colorCustomizationSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Color Customization'**
+  String get colorCustomizationSection;
+
+  /// No description provided for @primaryColorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Primary Color'**
+  String get primaryColorLabel;
+
+  /// No description provided for @secondaryColorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Secondary Color'**
+  String get secondaryColorLabel;
+
+  /// No description provided for @surfaceColorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Surface Color'**
+  String get surfaceColorLabel;
+
+  /// No description provided for @windowEffectsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Window Effects (Desktop)'**
+  String get windowEffectsSection;
+
+  /// No description provided for @enableEffectsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Window Effects'**
+  String get enableEffectsLabel;
+
+  /// No description provided for @windowEffectLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Window Effect'**
+  String get windowEffectLabel;
+
+  /// No description provided for @backgroundLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Background'**
+  String get backgroundLabel;
+
+  /// No description provided for @removeBackgroundColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove background color'**
+  String get removeBackgroundColor;
+
+  /// No description provided for @transparentSurfaceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Transparent Surface (Cards)'**
+  String get transparentSurfaceLabel;
+
+  /// No description provided for @fullyTransparentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Fully Transparent'**
+  String get fullyTransparentLabel;
+
+  /// No description provided for @opaqueLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Opaque'**
+  String get opaqueLabel;
+
+  /// No description provided for @opacityLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Opacity: {value}%'**
+  String opacityLabel(Object value);
+
+  /// No description provided for @backgroundSettingsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Background Settings'**
+  String get backgroundSettingsSection;
+
+  /// No description provided for @enableBackgroundImageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Background Image'**
+  String get enableBackgroundImageLabel;
+
+  /// No description provided for @backgroundBlurLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Background Blur'**
+  String get backgroundBlurLabel;
+
+  /// No description provided for @surfaceGlassStyleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Surface/Glass Style'**
+  String get surfaceGlassStyleTitle;
+
+  /// No description provided for @chooseImageButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Image'**
+  String get chooseImageButton;
+
+  /// No description provided for @selectImageFileError.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select an image file.'**
+  String get selectImageFileError;
+
+  /// No description provided for @clearImageButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Image'**
+  String get clearImageButton;
+
+  /// No description provided for @saveThemePresetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Theme Preset'**
+  String get saveThemePresetTitle;
+
+  /// No description provided for @presetNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset Name'**
+  String get presetNameLabel;
+
+  /// No description provided for @presetNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'My Amazing Theme'**
+  String get presetNameHint;
+
   /// No description provided for @importDataLabel.
   ///
   /// In en, this message translates to:
@@ -1124,6 +1376,342 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Internal developer tools'**
   String get debugMenuSubtitle;
+
+  /// No description provided for @apiManagementTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'API Management'**
+  String get apiManagementTitle;
+
+  /// No description provided for @apiCategoriesSection.
+  ///
+  /// In en, this message translates to:
+  /// **'API Categories'**
+  String get apiCategoriesSection;
+
+  /// No description provided for @manualUtilitiesSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual Utilities'**
+  String get manualUtilitiesSection;
+
+  /// No description provided for @startupDataSyncLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Startup Data Sync'**
+  String get startupDataSyncLabel;
+
+  /// No description provided for @startupDataSyncDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Controls both external data fetching and server synchronization on application launch.'**
+  String get startupDataSyncDescription;
+
+  /// No description provided for @standardApiLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard API'**
+  String get standardApiLabel;
+
+  /// No description provided for @syncOnStartupDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync on startup'**
+  String get syncOnStartupDescription;
+
+  /// No description provided for @customSourcesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Sources'**
+  String get customSourcesLabel;
+
+  /// No description provided for @syncCustomSourcesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync all {count} on startup'**
+  String syncCustomSourcesDescription(Object count);
+
+  /// No description provided for @individualCustomSourcesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Individual Custom Sources'**
+  String get individualCustomSourcesTitle;
+
+  /// No description provided for @noCustomSourcesAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'No custom sources added.'**
+  String get noCustomSourcesAdded;
+
+  /// No description provided for @fetchTodaysRatesButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetch Today\'s Rates'**
+  String get fetchTodaysRatesButton;
+
+  /// No description provided for @inflationConfigTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Inflation Config'**
+  String get inflationConfigTitle;
+
+  /// No description provided for @countryCodeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Country Code (e.g. SRB)'**
+  String get countryCodeHint;
+
+  /// No description provided for @fetchDataForCountryButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetch Data for {country}'**
+  String fetchDataForCountryButton(Object country);
+
+  /// No description provided for @steamSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Steam Settings'**
+  String get steamSettingsTitle;
+
+  /// No description provided for @steamIdLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Steam ID (64-bit)'**
+  String get steamIdLabel;
+
+  /// No description provided for @preferredGameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred Game'**
+  String get preferredGameLabel;
+
+  /// No description provided for @fetchInventoryNowButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetch Inventory Now'**
+  String get fetchInventoryNowButton;
+
+  /// No description provided for @manualExchangeRatesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual Exchange Rates Fetch'**
+  String get manualExchangeRatesTitle;
+
+  /// No description provided for @selectStartDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Start Date'**
+  String get selectStartDate;
+
+  /// No description provided for @startDateFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'From: {date}'**
+  String startDateFrom(Object date);
+
+  /// No description provided for @selectEndDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Select End Date'**
+  String get selectEndDate;
+
+  /// No description provided for @endDateTo.
+  ///
+  /// In en, this message translates to:
+  /// **'To: {date}'**
+  String endDateTo(Object date);
+
+  /// No description provided for @fetchRangeButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetch Range'**
+  String get fetchRangeButton;
+
+  /// No description provided for @manualSteamInventoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual Steam Inventory'**
+  String get manualSteamInventoryTitle;
+
+  /// No description provided for @selectGameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Game'**
+  String get selectGameHint;
+
+  /// No description provided for @fetchValueButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetch Value'**
+  String get fetchValueButton;
+
+  /// No description provided for @manualInflationDataTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual Inflation Data'**
+  String get manualInflationDataTitle;
+
+  /// No description provided for @selectStartYear.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Start Year'**
+  String get selectStartYear;
+
+  /// No description provided for @startYearFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'From: {year}'**
+  String startYearFrom(Object year);
+
+  /// No description provided for @selectEndYear.
+  ///
+  /// In en, this message translates to:
+  /// **'Select End Year'**
+  String get selectEndYear;
+
+  /// No description provided for @endYearTo.
+  ///
+  /// In en, this message translates to:
+  /// **'To: {year}'**
+  String endYearTo(Object year);
+
+  /// No description provided for @fetchDataButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetch Data'**
+  String get fetchDataButton;
+
+  /// No description provided for @connectionOk.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection OK'**
+  String get connectionOk;
+
+  /// No description provided for @connectionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection Failed'**
+  String get connectionFailed;
+
+  /// No description provided for @testConnectionButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Test Connection'**
+  String get testConnectionButton;
+
+  /// No description provided for @editCustomSourceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Custom Source'**
+  String get editCustomSourceTitle;
+
+  /// No description provided for @addCustomSourceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Custom Source'**
+  String get addCustomSourceTitle;
+
+  /// No description provided for @addressFormatsHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Address Formats:\n• 192.168.1.10 (IP)\n• localhost or api.my.com\n• http://myserver.com'**
+  String get addressFormatsHelp;
+
+  /// No description provided for @urlIpLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'URL / IP'**
+  String get urlIpLabel;
+
+  /// No description provided for @urlIpHint.
+  ///
+  /// In en, this message translates to:
+  /// **'192.168.1.10:8080'**
+  String get urlIpHint;
+
+  /// No description provided for @dataTypeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Data Type'**
+  String get dataTypeLabel;
+
+  /// No description provided for @apiTitleExchangeRates.
+  ///
+  /// In en, this message translates to:
+  /// **'Exchange Rates'**
+  String get apiTitleExchangeRates;
+
+  /// No description provided for @apiTitleInflation.
+  ///
+  /// In en, this message translates to:
+  /// **'Inflation'**
+  String get apiTitleInflation;
+
+  /// No description provided for @apiTitleAssetPrices.
+  ///
+  /// In en, this message translates to:
+  /// **'Asset Prices'**
+  String get apiTitleAssetPrices;
+
+  /// No description provided for @apiTitleSteamInventory.
+  ///
+  /// In en, this message translates to:
+  /// **'Steam Inventory'**
+  String get apiTitleSteamInventory;
+
+  /// No description provided for @transferLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer'**
+  String get transferLabel;
+
+  /// No description provided for @uncategorizedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Uncategorized'**
+  String get uncategorizedLabel;
+
+  /// No description provided for @defaultLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get defaultLabel;
+
+  /// No description provided for @receivedTotalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Received: {total}'**
+  String receivedTotalLabel(Object total);
+
+  /// No description provided for @spentTotalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Spent: {total}'**
+  String spentTotalLabel(Object total);
+
+  /// No description provided for @periodSummaryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Period Summary'**
+  String get periodSummaryTitle;
+
+  /// No description provided for @incomeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Income'**
+  String get incomeLabel;
+
+  /// No description provided for @expenseLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense'**
+  String get expenseLabel;
+
+  /// No description provided for @netLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Net'**
+  String get netLabel;
 
   /// No description provided for @exportSuccessMessage.
   ///
@@ -1497,18 +2085,6 @@ abstract class AppLocalizations {
   /// **'No currencies selected.'**
   String get noCurrenciesSelected;
 
-  /// No description provided for @incomeLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Income'**
-  String get incomeLabel;
-
-  /// No description provided for @expenseLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Expense'**
-  String get expenseLabel;
-
   /// No description provided for @failedToLoadDashboard.
   ///
   /// In en, this message translates to:
@@ -1520,6 +2096,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Calendar'**
   String get dashboardCalendarTab;
+
+  /// No description provided for @dashboardTabCalendar.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar'**
+  String get dashboardTabCalendar;
 
   /// No description provided for @dashboardCalendarTooltip.
   ///
@@ -1539,6 +2121,12 @@ abstract class AppLocalizations {
   /// **'Categories'**
   String get dashboardCategoriesTab;
 
+  /// No description provided for @dashboardTabCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories'**
+  String get dashboardTabCategories;
+
   /// No description provided for @dashboardCategoriesTooltip.
   ///
   /// In en, this message translates to:
@@ -1556,6 +2144,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Balance'**
   String get dashboardBalanceTab;
+
+  /// No description provided for @dashboardTabBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Balance'**
+  String get dashboardTabBalance;
 
   /// No description provided for @dashboardBalanceTooltip.
   ///
@@ -1586,6 +2180,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Manage Icons'**
   String get manageIconsTitle;
+
+  /// No description provided for @manageStylesDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Icons'**
+  String get manageStylesDeleteTitle;
+
+  /// No description provided for @manageStylesDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete {count} selected icons?'**
+  String manageStylesDeleteConfirm(Object count);
+
+  /// No description provided for @manageStylesDeleteConfirmWithTransfer.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete {count} selected icons? (Transfer icon will be skipped)'**
+  String manageStylesDeleteConfirmWithTransfer(Object count);
 
   /// No description provided for @noIconsCreated.
   ///
@@ -1784,6 +2396,924 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'History'**
   String get historyLabel;
+
+  /// No description provided for @syncScreenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Synchronization Settings'**
+  String get syncScreenTitle;
+
+  /// No description provided for @syncP2PSection.
+  ///
+  /// In en, this message translates to:
+  /// **'P2P Synchronization (Syncthing)'**
+  String get syncP2PSection;
+
+  /// No description provided for @syncEnableP2P.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable P2P Sync'**
+  String get syncEnableP2P;
+
+  /// No description provided for @syncP2PSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync via .sync files in a shared folder'**
+  String get syncP2PSubtitle;
+
+  /// No description provided for @syncFolderLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Folder'**
+  String get syncFolderLabel;
+
+  /// No description provided for @syncFolderNotSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Not selected'**
+  String get syncFolderNotSelected;
+
+  /// No description provided for @syncBrowseButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse'**
+  String get syncBrowseButton;
+
+  /// No description provided for @syncClearFilesButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear sync files'**
+  String get syncClearFilesButton;
+
+  /// No description provided for @syncServerSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud Synchronization (Server)'**
+  String get syncServerSection;
+
+  /// No description provided for @syncServerUrlLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Server URL'**
+  String get syncServerUrlLabel;
+
+  /// No description provided for @syncApiTokenLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'API Token'**
+  String get syncApiTokenLabel;
+
+  /// No description provided for @syncApiTokenHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your security token'**
+  String get syncApiTokenHint;
+
+  /// No description provided for @syncApiTokenHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'This token is your shared secret. Enter the same value on all your devices to authorize synchronization.'**
+  String get syncApiTokenHelp;
+
+  /// No description provided for @syncTestConnectionButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Test Connection'**
+  String get syncTestConnectionButton;
+
+  /// No description provided for @syncTestingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Testing...'**
+  String get syncTestingLabel;
+
+  /// No description provided for @syncSaveServerSettingsButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Server Settings'**
+  String get syncSaveServerSettingsButton;
+
+  /// No description provided for @syncEnableServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Server Sync'**
+  String get syncEnableServer;
+
+  /// No description provided for @syncServerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync with a MyBudget Server instance'**
+  String get syncServerSubtitle;
+
+  /// No description provided for @syncPendingLocalChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending local changes:'**
+  String get syncPendingLocalChanges;
+
+  /// No description provided for @syncSyncNowButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Now'**
+  String get syncSyncNowButton;
+
+  /// No description provided for @syncSyncingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing...'**
+  String get syncSyncingLabel;
+
+  /// No description provided for @syncWebNotAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Synchronization is not available on Web'**
+  String get syncWebNotAvailable;
+
+  /// No description provided for @syncPermissionRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage permission required for sync. Please enable \"All files access\" in settings.'**
+  String get syncPermissionRequired;
+
+  /// No description provided for @syncSelectFolderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Syncthing Folder'**
+  String get syncSelectFolderTitle;
+
+  /// No description provided for @syncClearFilesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Sync Files'**
+  String get syncClearFilesTitle;
+
+  /// No description provided for @syncClearFilesConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'This will delete all .sync files from the selected folder. This action cannot be undone.'**
+  String get syncClearFilesConfirm;
+
+  /// No description provided for @syncDeletedFilesCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted {count} sync files'**
+  String syncDeletedFilesCount(Object count);
+
+  /// No description provided for @syncClearFilesError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error clearing files: {error}'**
+  String syncClearFilesError(Object error);
+
+  /// No description provided for @syncSettingsSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Server settings saved'**
+  String get syncSettingsSaved;
+
+  /// No description provided for @syncConnectionSuccessful.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection successful!'**
+  String get syncConnectionSuccessful;
+
+  /// No description provided for @syncConnectionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection failed. Check URL and Token.'**
+  String get syncConnectionFailed;
+
+  /// No description provided for @syncCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync completed successfully'**
+  String get syncCompleted;
+
+  /// No description provided for @syncFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync failed: {error}'**
+  String syncFailed(Object error);
+
+  /// No description provided for @smsRuleAddTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Rule'**
+  String get smsRuleAddTitle;
+
+  /// No description provided for @smsRuleEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Rule'**
+  String get smsRuleEditTitle;
+
+  /// No description provided for @smsRuleTransactionType.
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction Type'**
+  String get smsRuleTransactionType;
+
+  /// No description provided for @smsRuleMatchPattern.
+  ///
+  /// In en, this message translates to:
+  /// **'Match Pattern (Regex)'**
+  String get smsRuleMatchPattern;
+
+  /// No description provided for @smsRuleMatchPatternHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., Placanje.*karticom'**
+  String get smsRuleMatchPatternHint;
+
+  /// No description provided for @smsRuleMatchPatternHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Pattern to identify this SMS type'**
+  String get smsRuleMatchPatternHelp;
+
+  /// No description provided for @smsRuleAmountPattern.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount Pattern (Regex)'**
+  String get smsRuleAmountPattern;
+
+  /// No description provided for @smsRuleAmountPatternHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., iznos\\s+([\\d,.]+)'**
+  String get smsRuleAmountPatternHint;
+
+  /// No description provided for @smsRuleAmountPatternHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Group 1 should capture the amount'**
+  String get smsRuleAmountPatternHelp;
+
+  /// No description provided for @smsRuleCurrencyPattern.
+  ///
+  /// In en, this message translates to:
+  /// **'Currency Pattern (Regex, optional)'**
+  String get smsRuleCurrencyPattern;
+
+  /// No description provided for @smsRuleCurrencyPatternHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., [\\d,.]+\\s*(\\w\\w\\w)'**
+  String get smsRuleCurrencyPatternHint;
+
+  /// No description provided for @smsRuleCurrencyPatternHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Group 1 should capture currency code'**
+  String get smsRuleCurrencyPatternHelp;
+
+  /// No description provided for @smsRuleTestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Test Your Rule'**
+  String get smsRuleTestTitle;
+
+  /// No description provided for @smsRuleTestSmsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste SMS text here'**
+  String get smsRuleTestSmsHint;
+
+  /// No description provided for @smsRuleTestButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Test Pattern'**
+  String get smsRuleTestButton;
+
+  /// No description provided for @smsRuleTestEnterSmsError.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter SMS text to test'**
+  String get smsRuleTestEnterSmsError;
+
+  /// No description provided for @smsRuleTestMatchError.
+  ///
+  /// In en, this message translates to:
+  /// **'✗ Match pattern did not find a match'**
+  String get smsRuleTestMatchError;
+
+  /// No description provided for @smsRuleTestAmountError.
+  ///
+  /// In en, this message translates to:
+  /// **'✗ Amount pattern did not find a match'**
+  String get smsRuleTestAmountError;
+
+  /// No description provided for @smsRuleTestSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'✓ Match found!\nType: {type}\nAmount: {amount}\nCurrency: {currency}'**
+  String smsRuleTestSuccess(Object amount, Object currency, Object type);
+
+  /// No description provided for @smsRuleTestRegexError.
+  ///
+  /// In en, this message translates to:
+  /// **'✗ Invalid regex: {error}'**
+  String smsRuleTestRegexError(Object error);
+
+  /// No description provided for @smsRuleRequiredError.
+  ///
+  /// In en, this message translates to:
+  /// **'Match and Amount patterns are required'**
+  String get smsRuleRequiredError;
+
+  /// No description provided for @inflationError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String inflationError(Object error);
+
+  /// No description provided for @inflationNoRatesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No inflation rates found.'**
+  String get inflationNoRatesFound;
+
+  /// No description provided for @inflationAddRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Inflation Rate'**
+  String get inflationAddRate;
+
+  /// No description provided for @inflationDeleteConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Rates?'**
+  String get inflationDeleteConfirmTitle;
+
+  /// No description provided for @inflationDeleteConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete {count, plural, =1{this rate} other{{count} rates}}?'**
+  String inflationDeleteConfirmMessage(num count);
+
+  /// No description provided for @inflationSelectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String inflationSelectedCount(Object count);
+
+  /// No description provided for @inflationFiltersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Inflation Filters'**
+  String get inflationFiltersTitle;
+
+  /// No description provided for @inflationCountries.
+  ///
+  /// In en, this message translates to:
+  /// **'Countries'**
+  String get inflationCountries;
+
+  /// No description provided for @inflationPresets.
+  ///
+  /// In en, this message translates to:
+  /// **'Presets'**
+  String get inflationPresets;
+
+  /// No description provided for @deleteCategoryConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {name}?'**
+  String deleteCategoryConfirmTitle(Object name);
+
+  /// No description provided for @deleteCategoryMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This category has associated transactions. What would you like to do?'**
+  String get deleteCategoryMessage;
+
+  /// No description provided for @deleteCategoryReassign.
+  ///
+  /// In en, this message translates to:
+  /// **'Reassign transactions to another category'**
+  String get deleteCategoryReassign;
+
+  /// No description provided for @deleteCategoryNewCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'New Category'**
+  String get deleteCategoryNewCategory;
+
+  /// No description provided for @deleteCategoryDeleteAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete all associated transactions'**
+  String get deleteCategoryDeleteAll;
+
+  /// No description provided for @deleteAccountConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {name}?'**
+  String deleteAccountConfirmTitle(Object name);
+
+  /// No description provided for @deleteAccountMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This account may have associated transactions. What would you like to do?'**
+  String get deleteAccountMessage;
+
+  /// No description provided for @deleteAccountReassign.
+  ///
+  /// In en, this message translates to:
+  /// **'Reassign transactions to another account'**
+  String get deleteAccountReassign;
+
+  /// No description provided for @deleteAccountNewAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'New Account'**
+  String get deleteAccountNewAccount;
+
+  /// No description provided for @deleteAccountDeleteAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete all associated transactions'**
+  String get deleteAccountDeleteAll;
+
+  /// No description provided for @confirmButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get confirmButton;
+
+  /// No description provided for @okButton.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get okButton;
+
+  /// No description provided for @noItemsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No items found.'**
+  String get noItemsFound;
+
+  /// No description provided for @noDataForPeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'No data for this period'**
+  String get noDataForPeriod;
+
+  /// No description provided for @noDataForRange.
+  ///
+  /// In en, this message translates to:
+  /// **'No data for this range'**
+  String get noDataForRange;
+
+  /// No description provided for @noHistoryData.
+  ///
+  /// In en, this message translates to:
+  /// **'No history data available'**
+  String get noHistoryData;
+
+  /// No description provided for @disabledByGlobalSync.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled by Global Sync'**
+  String get disabledByGlobalSync;
+
+  /// No description provided for @dateCreatedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Date created: {date}'**
+  String dateCreatedLabel(Object date);
+
+  /// No description provided for @anyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Any'**
+  String get anyLabel;
+
+  /// No description provided for @balanceDisplayLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Balance Display'**
+  String get balanceDisplayLabel;
+
+  /// No description provided for @currenciesActiveLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 currency active} other{{count} currencies active}}'**
+  String currenciesActiveLabel(num count);
+
+  /// No description provided for @searchCountryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Country'**
+  String get searchCountryLabel;
+
+  /// No description provided for @addNewIconLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Add New Icon'**
+  String get addNewIconLabel;
+
+  /// No description provided for @noIconsFoundLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'No icons found'**
+  String get noIconsFoundLabel;
+
+  /// No description provided for @addNewStyleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Add New Style'**
+  String get addNewStyleLabel;
+
+  /// No description provided for @styleNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Style Name'**
+  String get styleNameLabel;
+
+  /// No description provided for @pleaseEnterStyleName.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a style name'**
+  String get pleaseEnterStyleName;
+
+  /// No description provided for @colorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get colorLabel;
+
+  /// No description provided for @netBalanceMetric.
+  ///
+  /// In en, this message translates to:
+  /// **'Net Bal.'**
+  String get netBalanceMetric;
+
+  /// No description provided for @investedMetric.
+  ///
+  /// In en, this message translates to:
+  /// **'Invested'**
+  String get investedMetric;
+
+  /// No description provided for @realizedMetric.
+  ///
+  /// In en, this message translates to:
+  /// **'Realized'**
+  String get realizedMetric;
+
+  /// No description provided for @feesMetric.
+  ///
+  /// In en, this message translates to:
+  /// **'Fees'**
+  String get feesMetric;
+
+  /// No description provided for @persistFiltersLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Persist Filters'**
+  String get persistFiltersLabel;
+
+  /// No description provided for @searchByNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by name...'**
+  String get searchByNameHint;
+
+  /// No description provided for @searchDescriptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search description...'**
+  String get searchDescriptionHint;
+
+  /// No description provided for @advancedFiltersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced Filters'**
+  String get advancedFiltersTitle;
+
+  /// No description provided for @transactionTypeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction Type'**
+  String get transactionTypeLabel;
+
+  /// No description provided for @assetFiltersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Asset Filters'**
+  String get assetFiltersTitle;
+
+  /// No description provided for @minValueLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Min Value'**
+  String get minValueLabel;
+
+  /// No description provided for @maxValueLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Max Value'**
+  String get maxValueLabel;
+
+  /// No description provided for @assetTypesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Asset Types'**
+  String get assetTypesLabel;
+
+  /// No description provided for @allLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get allLabel;
+
+  /// No description provided for @currenciesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Currencies'**
+  String get currenciesLabel;
+
+  /// No description provided for @sourcesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sources'**
+  String get sourcesLabel;
+
+  /// No description provided for @presetsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Presets'**
+  String get presetsLabel;
+
+  /// No description provided for @enterCategoryNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter category name'**
+  String get enterCategoryNameHint;
+
+  /// No description provided for @selectTypeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Type'**
+  String get selectTypeHint;
+
+  /// No description provided for @hotKeysTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Hot Keys'**
+  String get hotKeysTitle;
+
+  /// No description provided for @searchHotkeysHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search hotkeys...'**
+  String get searchHotkeysHint;
+
+  /// No description provided for @noMatchingHotkeys.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching hotkeys found.'**
+  String get noMatchingHotkeys;
+
+  /// No description provided for @recordingHotkeyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording Hotkey for \"{label}\"'**
+  String recordingHotkeyTitle(Object label);
+
+  /// No description provided for @pressKeysHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Press keys...'**
+  String get pressKeysHint;
+
+  /// No description provided for @pressAnyCombinationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Press any key combination.'**
+  String get pressAnyCombinationHint;
+
+  /// No description provided for @clearSaveButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear / Save'**
+  String get clearSaveButton;
+
+  /// No description provided for @duplicateHotkeyTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate Hotkey'**
+  String get duplicateHotkeyTooltip;
+
+  /// No description provided for @usedByLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Used by {action}'**
+  String usedByLabel(Object action);
+
+  /// No description provided for @hkCategoryNavigation.
+  ///
+  /// In en, this message translates to:
+  /// **'Navigation'**
+  String get hkCategoryNavigation;
+
+  /// No description provided for @hkCategoryDashboardTabs.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashboard Tabs (Ctrl + 1/2/3)'**
+  String get hkCategoryDashboardTabs;
+
+  /// No description provided for @hkCategoryDataTabs.
+  ///
+  /// In en, this message translates to:
+  /// **'Data Tabs (Ctrl + 1/2/3)'**
+  String get hkCategoryDataTabs;
+
+  /// No description provided for @hkCategoryPeriodControl.
+  ///
+  /// In en, this message translates to:
+  /// **'Period Control'**
+  String get hkCategoryPeriodControl;
+
+  /// No description provided for @hkCategoryActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Actions'**
+  String get hkCategoryActions;
+
+  /// No description provided for @hkCategorySelectionMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Selection Mode'**
+  String get hkCategorySelectionMode;
+
+  /// No description provided for @hkActionBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Global: Go Back / Exit'**
+  String get hkActionBack;
+
+  /// No description provided for @hkActionDashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Dashboard'**
+  String get hkActionDashboard;
+
+  /// No description provided for @hkActionAccounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Accounts'**
+  String get hkActionAccounts;
+
+  /// No description provided for @hkActionTransactions.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Transactions'**
+  String get hkActionTransactions;
+
+  /// No description provided for @hkActionCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Categories'**
+  String get hkActionCategories;
+
+  /// No description provided for @hkActionData.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Data / Exchange Rates'**
+  String get hkActionData;
+
+  /// No description provided for @hkActionSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Settings'**
+  String get hkActionSettings;
+
+  /// No description provided for @hkActionDashboardTab1.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar Tab'**
+  String get hkActionDashboardTab1;
+
+  /// No description provided for @hkActionDashboardTab2.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories Tab'**
+  String get hkActionDashboardTab2;
+
+  /// No description provided for @hkActionDashboardTab3.
+  ///
+  /// In en, this message translates to:
+  /// **'Balance Tab'**
+  String get hkActionDashboardTab3;
+
+  /// No description provided for @hkActionDataTab1.
+  ///
+  /// In en, this message translates to:
+  /// **'Exchange Rates'**
+  String get hkActionDataTab1;
+
+  /// No description provided for @hkActionDataTab2.
+  ///
+  /// In en, this message translates to:
+  /// **'Inflation'**
+  String get hkActionDataTab2;
+
+  /// No description provided for @hkActionDataTab3.
+  ///
+  /// In en, this message translates to:
+  /// **'Assets'**
+  String get hkActionDataTab3;
+
+  /// No description provided for @hkActionPrevPeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous Period'**
+  String get hkActionPrevPeriod;
+
+  /// No description provided for @hkActionNextPeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'Next Period'**
+  String get hkActionNextPeriod;
+
+  /// No description provided for @hkActionAddAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Generic Add Action'**
+  String get hkActionAddAction;
+
+  /// No description provided for @hkActionAccountsSelectionClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounts: Close'**
+  String get hkActionAccountsSelectionClose;
+
+  /// No description provided for @hkActionAccountsSelectionAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounts: Select All'**
+  String get hkActionAccountsSelectionAll;
+
+  /// No description provided for @hkActionAccountsSelectionDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounts: Delete'**
+  String get hkActionAccountsSelectionDelete;
+
+  /// No description provided for @hkActionAccountsSelectionChangeType.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounts: Change Type'**
+  String get hkActionAccountsSelectionChangeType;
+
+  /// No description provided for @hkActionCategoriesSelectionClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories: Close'**
+  String get hkActionCategoriesSelectionClose;
+
+  /// No description provided for @hkActionCategoriesSelectionAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories: Select All'**
+  String get hkActionCategoriesSelectionAll;
+
+  /// No description provided for @hkActionCategoriesSelectionDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories: Delete'**
+  String get hkActionCategoriesSelectionDelete;
+
+  /// No description provided for @hkActionCategoriesSelectionChangeType.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories: Change Type'**
+  String get hkActionCategoriesSelectionChangeType;
+
+  /// No description provided for @hkActionDataSelectionClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Data: Close'**
+  String get hkActionDataSelectionClose;
+
+  /// No description provided for @hkActionDataSelectionAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Data: Select All'**
+  String get hkActionDataSelectionAll;
+
+  /// No description provided for @hkActionDataSelectionDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Data: Delete'**
+  String get hkActionDataSelectionDelete;
+
+  /// No description provided for @hkActionDataSelectionChangePreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Data: Change Preset'**
+  String get hkActionDataSelectionChangePreset;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -30,7 +30,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
   Widget build(BuildContext context) {
     return EscapeBackHandler(
       child: Scaffold(
-        appBar: AppBar(title: const Text('Theme Customization')),
+        appBar: AppBar(title: Text(context.l10n.themeSettingsTitle)),
         body: BlocBuilder<ThemeBloc, ThemeState>(
           builder: (context, state) {
             if (!state.isLoaded || state.activeTheme == null) {
@@ -74,31 +74,31 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Theme Colors',
+              context.l10n.colorCustomizationSection,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
             _buildColorRow(
               context,
-              'Primary',
+              context.l10n.primaryColorLabel,
               theme.primaryColor,
               (c) => _update(context, primaryColor: c),
             ),
             _buildColorRow(
               context,
-              'Secondary',
+              context.l10n.secondaryColorLabel,
               theme.secondaryColor,
               (c) => _update(context, secondaryColor: c),
             ),
             _buildColorRow(
               context,
-              'Surface',
+              context.l10n.surfaceColorLabel,
               theme.surfaceColor,
               (c) => _update(context, surfaceColor: c),
             ),
             _buildColorRow(
               context,
-              'Background',
+              context.l10n.backgroundLabel,
               theme.backgroundColor,
               (c) => _update(context, backgroundColor: c),
             ),
@@ -157,7 +157,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Window Effects',
+              context.l10n.windowEffectsSection,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
@@ -175,9 +175,9 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                       .contains(theme.windowEffectType)
                   ? theme.windowEffectType
                   : WindowEffectType.none,
-              decoration: const InputDecoration(
-                labelText: 'Effect Type',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.l10n.windowEffectLabel,
+                border: const OutlineInputBorder(),
               ),
               items: WindowEffectType.values
                   .where((e) {
@@ -210,7 +210,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
               const SizedBox(height: 8),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Remove background color'),
+                title: Text(context.l10n.removeBackgroundColor),
                 value: theme.backgroundColor.a == 0,
                 onChanged: (v) {
                   if (v == true) {
@@ -223,7 +223,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
               ),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Transparent Surface (Cards)'),
+                title: Text(context.l10n.transparentSurfaceLabel),
                 value: theme.surfaceOpacity < 0.1,
                 onChanged: (v) {
                   _update(context, surfaceOpacity: v == true ? 0.0 : 1.0);
@@ -235,7 +235,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
               // WORKAROUND: For transparent mode, use buttons instead of slider
               // because Windows has parabolic transparency behavior
               if (theme.windowEffectType == WindowEffectType.transparent) ...[
-                const Text('Window Transparency:'),
+                Text('${context.l10n.windowEffectLabel}:'),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -251,7 +251,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                       ('75%', 0.35), // Between middle and edge
                       ('50%', 0.2), // Closer to edge = less transparent
                       ('25%', 0.1), // Very close to edge
-                      ('Opaque', 0.0), // Edge = fully opaque
+                      (context.l10n.opaqueLabel, 0.0), // Edge = fully opaque
                     ])
                       ChoiceChip(
                         label: Text(preset.$1),
@@ -274,7 +274,9 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
               ] else ...[
                 // For other modes, use slider as normal
                 Text(
-                  'Window Tint Opacity: ${(theme.effectOpacity * 100).round()}%',
+                  context.l10n.opacityLabel(
+                    (theme.effectOpacity * 100).round(),
+                  ),
                 ),
                 Slider(
                   value: _localEffectOpacity ?? theme.effectOpacity,
@@ -309,11 +311,13 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Surface/Glass Style',
+              context.l10n.surfaceGlassStyleTitle,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
-            Text('Surface Opacity: ${(theme.surfaceOpacity * 100).round()}%'),
+            Text(
+              context.l10n.opacityLabel((theme.surfaceOpacity * 100).round()),
+            ),
             Slider(
               value: _localSurfaceOpacity ?? theme.surfaceOpacity,
               onChanged: (v) {
@@ -340,7 +344,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Background Image',
+              context.l10n.backgroundSettingsSection,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
@@ -383,8 +387,10 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                         if (!isImage) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Please select an image file.'),
+                              SnackBar(
+                                content: Text(
+                                  context.l10n.selectImageFileError,
+                                ),
                               ),
                             );
                           }
@@ -397,7 +403,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                       }
                     },
                     icon: const Icon(Icons.add_photo_alternate),
-                    label: const Text('Change Image'),
+                    label: Text(context.l10n.chooseImageButton),
                   ),
                 ),
                 if (theme.backgroundImagePath != null) ...[
@@ -413,7 +419,9 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
             if (theme.backgroundImagePath != null) ...[
               const SizedBox(height: 16),
               Text(
-                'Image Intensity (Opacity): ${(theme.backgroundImageOpacity * 100).round()}%',
+                context.l10n.opacityLabel(
+                  (theme.backgroundImageOpacity * 100).round(),
+                ),
               ),
               Slider(
                 value: _localBgImageOpacity ?? theme.backgroundImageOpacity,
@@ -427,7 +435,9 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                 },
               ),
               const SizedBox(height: 8),
-              Text('Image Blur: ${theme.backgroundImageBlur.round()}px'),
+              Text(
+                '${context.l10n.backgroundBlurLabel}: ${theme.backgroundImageBlur.round()}px',
+              ),
               Slider(
                 value: _localBgImageBlur ?? theme.backgroundImageBlur,
                 min: 0,
@@ -450,21 +460,21 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
 
   Widget _buildModeSection(BuildContext context, CustomTheme theme) {
     return SegmentedButton<ThemeMode>(
-      segments: const [
+      segments: [
         ButtonSegment(
           value: ThemeMode.system,
-          label: Text('System'),
-          icon: Icon(Icons.settings),
+          label: Text(context.l10n.systemTheme),
+          icon: const Icon(Icons.settings),
         ),
         ButtonSegment(
           value: ThemeMode.light,
-          label: Text('Light'),
-          icon: Icon(Icons.light_mode),
+          label: Text(context.l10n.lightTheme),
+          icon: const Icon(Icons.light_mode),
         ),
         ButtonSegment(
           value: ThemeMode.dark,
-          label: Text('Dark'),
-          icon: Icon(Icons.dark_mode),
+          label: Text(context.l10n.darkTheme),
+          icon: const Icon(Icons.dark_mode),
         ),
       ],
       selected: {theme.themeMode},
@@ -669,7 +679,10 @@ class _PresetsSectionState extends State<_PresetsSection> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Presets', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              context.l10n.presetsLabel,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             TextButton.icon(
               onPressed: () {
                 // Find ancestor to show dialog
@@ -683,7 +696,7 @@ class _PresetsSectionState extends State<_PresetsSection> {
                 _showSavePresetDialog(context);
               },
               icon: const Icon(Icons.add),
-              label: const Text('Save Current'),
+              label: Text(context.l10n.saveButton),
             ),
           ],
         ),
@@ -810,12 +823,12 @@ class _PresetsSectionState extends State<_PresetsSection> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Save Theme Preset'),
+        title: Text(context.l10n.saveThemePresetTitle),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'Preset Name',
-            hintText: 'My Amazing Theme',
+          decoration: InputDecoration(
+            labelText: context.l10n.presetNameLabel,
+            hintText: context.l10n.presetNameHint,
           ),
           autofocus: true,
         ),
@@ -831,7 +844,7 @@ class _PresetsSectionState extends State<_PresetsSection> {
                 Navigator.pop(context);
               }
             },
-            child: const Text('Save'),
+            child: Text(context.l10n.saveButton),
           ),
         ],
       ),

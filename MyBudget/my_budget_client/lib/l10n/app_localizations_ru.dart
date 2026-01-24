@@ -38,6 +38,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get addAccountDialogTitle => 'Добавить новый счет';
 
   @override
+  String get editAccountDialogTitle => 'Редактировать счет';
+
+  @override
   String get accountNameHint => 'Название счета';
 
   @override
@@ -63,6 +66,28 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get clearButton => 'Очистить';
+
+  @override
+  String get selectButton => 'Выбрать';
+
+  @override
+  String get selectAllButton => 'Выбрать все';
+
+  @override
+  String get deselectAllButton => 'Снять выделение';
+
+  @override
+  String get deleteSelectedButton => 'Удалить выбранное';
+
+  @override
+  String totalCountLabel(Object count) {
+    return 'Всего: $count';
+  }
+
+  @override
+  String selectedCountLabel(Object count) {
+    return 'Выбрано: $count';
+  }
 
   @override
   String get formValidationPleaseEnterName => 'Пожалуйста, введите название';
@@ -111,6 +136,30 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get currencyBreakdown => 'Распределение по валютам';
+
+  @override
+  String get dashboardNetWorthTrend => 'Тренды чистого капитала';
+
+  @override
+  String get dashboardWealthDistributionByAccount => 'Распределение капитала (по счетам)';
+
+  @override
+  String get dashboardCurrencyExposure => 'Валютные риски';
+
+  @override
+  String get dashboardNoAccountsFound => 'Счета не найдены';
+
+  @override
+  String get dashboardTotalNetWorthTrend => 'Тренд общего капитала';
+
+  @override
+  String get dashboardAccountBalanceTrend => 'Тренд баланса счета';
+
+  @override
+  String get dashboardWealthDistribution => 'Распределение капитала';
+
+  @override
+  String get dashboardCurrencyBreakdown => 'Распределение по валютам';
 
   @override
   String get metricBalance => 'Баланс';
@@ -255,20 +304,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get sortOrderDescription => 'Переключение между возрастающим и убывающим порядком сумм';
 
   @override
-  String totalCountLabel(Object count) {
-    return 'Всего: $count';
-  }
-
-  @override
   String get closeSelectionTooltip => 'Закрыть выбор';
 
   @override
   String get exitSelectionDescription => 'Выйти из режима выбора';
-
-  @override
-  String selectedCountLabel(Object count) {
-    return 'Выбрано: $count';
-  }
 
   @override
   String get categoryNameLabel => 'Название категории';
@@ -294,6 +333,9 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get exitTransactionsSelectionDescription => 'Выйти из режима выбора транзакций';
+
+  @override
   String get changeDateTooltip => 'Изменить дату';
 
   @override
@@ -312,33 +354,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get deleteTransactionsDescription => 'Безвозвратно удалить все выбранные транзакции';
 
   @override
-  String get exitTransactionsSelectionDescription => 'Выйти из режима выбора транзакций';
+  String get amountLabel => 'Сумма';
 
   @override
   String quantityLabel(Object quantity) {
     return 'Кол-во: $quantity';
   }
-
-  @override
-  String get addTransactionTitle => 'Добавить транзакцию';
-
-  @override
-  String get editTransactionTitle => 'Редактировать транзакцию';
-
-  @override
-  String get newTransferTitle => 'Новый перевод';
-
-  @override
-  String get editTransferTitle => 'Редактировать перевод';
-
-  @override
-  String get descriptionLabel => 'Описание';
-
-  @override
-  String get descriptionOptionalLabel => 'Описание (необязательно)';
-
-  @override
-  String get amountLabel => 'Сумма';
 
   @override
   String get quantityFormLabel => 'Количество';
@@ -369,6 +390,24 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get selectDateLabel => 'Выберите дату';
+
+  @override
+  String get addTransactionTitle => 'Добавить транзакцию';
+
+  @override
+  String get editTransactionTitle => 'Редактировать транзакцию';
+
+  @override
+  String get newTransferTitle => 'Новый перевод';
+
+  @override
+  String get editTransferTitle => 'Редактировать перевод';
+
+  @override
+  String get descriptionLabel => 'Описание';
+
+  @override
+  String get descriptionOptionalLabel => 'Описание (необязательно)';
 
   @override
   String get swapAccountsTooltip => 'Поменять счета местами';
@@ -520,6 +559,95 @@ class AppLocalizationsRu extends AppLocalizations {
   String get syncSettingsSubtitle => 'P2P синхронизация через Syncthing';
 
   @override
+  String get themeSettingsTitle => 'Настройки темы';
+
+  @override
+  String get appearanceSection => 'Внешний вид';
+
+  @override
+  String get themeModeLabel => 'Режим темы';
+
+  @override
+  String get systemTheme => 'Системная';
+
+  @override
+  String get lightTheme => 'Светлая';
+
+  @override
+  String get darkTheme => 'Темная';
+
+  @override
+  String get colorCustomizationSection => 'Настройка цветов';
+
+  @override
+  String get primaryColorLabel => 'Основной цвет';
+
+  @override
+  String get secondaryColorLabel => 'Вторичный цвет';
+
+  @override
+  String get surfaceColorLabel => 'Цвет поверхности';
+
+  @override
+  String get windowEffectsSection => 'Эффекты окна (Desktop)';
+
+  @override
+  String get enableEffectsLabel => 'Включить эффекты окна';
+
+  @override
+  String get windowEffectLabel => 'Эффект окна';
+
+  @override
+  String get backgroundLabel => 'Фон';
+
+  @override
+  String get removeBackgroundColor => 'Удалить фоновый цвет';
+
+  @override
+  String get transparentSurfaceLabel => 'Прозрачная поверхность (карточки)';
+
+  @override
+  String get fullyTransparentLabel => 'Полная прозрачность';
+
+  @override
+  String get opaqueLabel => 'Непрозрачный';
+
+  @override
+  String opacityLabel(Object value) {
+    return 'Прозрачность: $value%';
+  }
+
+  @override
+  String get backgroundSettingsSection => 'Настройки фона';
+
+  @override
+  String get enableBackgroundImageLabel => 'Включить фоновое изображение';
+
+  @override
+  String get backgroundBlurLabel => 'Размытие фона';
+
+  @override
+  String get surfaceGlassStyleTitle => 'Стиль поверхности/стекла';
+
+  @override
+  String get chooseImageButton => 'Выбрать изображение';
+
+  @override
+  String get selectImageFileError => 'Пожалуйста, выберите файл изображения.';
+
+  @override
+  String get clearImageButton => 'Очистить изображение';
+
+  @override
+  String get saveThemePresetTitle => 'Сохранить пресет темы';
+
+  @override
+  String get presetNameLabel => 'Название пресета';
+
+  @override
+  String get presetNameHint => 'Моя крутая тема';
+
+  @override
   String get importDataLabel => 'Импорт данных';
 
   @override
@@ -548,6 +676,190 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get debugMenuSubtitle => 'Внутренние инструменты разработчика';
+
+  @override
+  String get apiManagementTitle => 'Управление API';
+
+  @override
+  String get apiCategoriesSection => 'Категории API';
+
+  @override
+  String get manualUtilitiesSection => 'Ручные утилиты';
+
+  @override
+  String get startupDataSyncLabel => 'Синхронизация данных при запуске';
+
+  @override
+  String get startupDataSyncDescription => 'Управляет как получением внешних данных, так и серверной синхронизацией при запуске приложения.';
+
+  @override
+  String get standardApiLabel => 'Стандартный API';
+
+  @override
+  String get syncOnStartupDescription => 'Синхронизация при запуске';
+
+  @override
+  String get customSourcesLabel => 'Пользовательские источники';
+
+  @override
+  String syncCustomSourcesDescription(Object count) {
+    return 'Синхронизировать все $count при запуске';
+  }
+
+  @override
+  String get individualCustomSourcesTitle => 'Индивидуальные пользовательские источники';
+
+  @override
+  String get noCustomSourcesAdded => 'Пользовательские источники не добавлены.';
+
+  @override
+  String get fetchTodaysRatesButton => 'Получить курсы за сегодня';
+
+  @override
+  String get inflationConfigTitle => 'Конфигурация инфляции';
+
+  @override
+  String get countryCodeHint => 'Код страны (напр. SRB)';
+
+  @override
+  String fetchDataForCountryButton(Object country) {
+    return 'Получить данные для $country';
+  }
+
+  @override
+  String get steamSettingsTitle => 'Настройки Steam';
+
+  @override
+  String get steamIdLabel => 'Steam ID (64-битный)';
+
+  @override
+  String get preferredGameLabel => 'Предпочитаемая игра';
+
+  @override
+  String get fetchInventoryNowButton => 'Получить инвентарь сейчас';
+
+  @override
+  String get manualExchangeRatesTitle => 'Ручное получение курсов валют';
+
+  @override
+  String get selectStartDate => 'Выбрать дату начала';
+
+  @override
+  String startDateFrom(Object date) {
+    return 'От: $date';
+  }
+
+  @override
+  String get selectEndDate => 'Выбрать дату окончания';
+
+  @override
+  String endDateTo(Object date) {
+    return 'До: $date';
+  }
+
+  @override
+  String get fetchRangeButton => 'Получить за диапазон';
+
+  @override
+  String get manualSteamInventoryTitle => 'Ручной инвентарь Steam';
+
+  @override
+  String get selectGameHint => 'Выбрать игру';
+
+  @override
+  String get fetchValueButton => 'Получить стоимость';
+
+  @override
+  String get manualInflationDataTitle => 'Ручные данные об инфляции';
+
+  @override
+  String get selectStartYear => 'Выбрать год начала';
+
+  @override
+  String startYearFrom(Object year) {
+    return 'От: $year';
+  }
+
+  @override
+  String get selectEndYear => 'Выбрать год окончания';
+
+  @override
+  String endYearTo(Object year) {
+    return 'До: $year';
+  }
+
+  @override
+  String get fetchDataButton => 'Получить данные';
+
+  @override
+  String get connectionOk => 'Соединение установлено';
+
+  @override
+  String get connectionFailed => 'Ошибка соединения';
+
+  @override
+  String get testConnectionButton => 'Проверить соединение';
+
+  @override
+  String get editCustomSourceTitle => 'Редактировать пользовательский источник';
+
+  @override
+  String get addCustomSourceTitle => 'Добавить пользовательский источник';
+
+  @override
+  String get addressFormatsHelp => 'Форматы адресов:\n• 192.168.1.10 (IP)\n• localhost или api.my.com\n• http://myserver.com';
+
+  @override
+  String get urlIpLabel => 'URL / IP';
+
+  @override
+  String get urlIpHint => '192.168.1.10:8080';
+
+  @override
+  String get dataTypeLabel => 'Тип данных';
+
+  @override
+  String get apiTitleExchangeRates => 'Курсы валют';
+
+  @override
+  String get apiTitleInflation => 'Инфляция';
+
+  @override
+  String get apiTitleAssetPrices => 'Цены на активы';
+
+  @override
+  String get apiTitleSteamInventory => 'Инвентарь Steam';
+
+  @override
+  String get transferLabel => 'Перевод';
+
+  @override
+  String get uncategorizedLabel => 'Без категории';
+
+  @override
+  String get defaultLabel => 'По умолчанию';
+
+  @override
+  String receivedTotalLabel(Object total) {
+    return 'Получено: $total';
+  }
+
+  @override
+  String spentTotalLabel(Object total) {
+    return 'Потрачено: $total';
+  }
+
+  @override
+  String get periodSummaryTitle => 'Итоги периода';
+
+  @override
+  String get incomeLabel => 'Доход';
+
+  @override
+  String get expenseLabel => 'Расход';
+
+  @override
+  String get netLabel => 'Итог';
 
   @override
   String get exportSuccessMessage => 'Экспорт успешно завершен';
@@ -778,16 +1090,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get noCurrenciesSelected => 'Валюты не выбраны.';
 
   @override
-  String get incomeLabel => 'Доход';
-
-  @override
-  String get expenseLabel => 'Расход';
-
-  @override
   String get failedToLoadDashboard => 'Не удалось загрузить панель управления';
 
   @override
   String get dashboardCalendarTab => 'Календарь';
+
+  @override
+  String get dashboardTabCalendar => 'Календарь';
 
   @override
   String get dashboardCalendarTooltip => 'Просмотр календаря';
@@ -799,6 +1108,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get dashboardCategoriesTab => 'Категории';
 
   @override
+  String get dashboardTabCategories => 'Категории';
+
+  @override
   String get dashboardCategoriesTooltip => 'Анализ категорий';
 
   @override
@@ -806,6 +1118,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get dashboardBalanceTab => 'Баланс';
+
+  @override
+  String get dashboardTabBalance => 'Баланс';
 
   @override
   String get dashboardBalanceTooltip => 'История баланса';
@@ -821,6 +1136,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get manageIconsTitle => 'Управление иконками';
+
+  @override
+  String get manageStylesDeleteTitle => 'Удалить иконки';
+
+  @override
+  String manageStylesDeleteConfirm(Object count) {
+    return 'Вы уверены, что хотите удалить $count выбранных иконок?';
+  }
+
+  @override
+  String manageStylesDeleteConfirmWithTransfer(Object count) {
+    return 'Вы уверены, что хотите удалить $count выбранных иконок? (Иконка перевода будет пропущена)';
+  }
 
   @override
   String get noIconsCreated => 'Иконки еще не созданы.';
@@ -930,4 +1258,505 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get historyLabel => 'История';
+
+  @override
+  String get syncScreenTitle => 'Настройки синхронизации';
+
+  @override
+  String get syncP2PSection => 'P2P синхронизация (Syncthing)';
+
+  @override
+  String get syncEnableP2P => 'Включить P2P синхронизацию';
+
+  @override
+  String get syncP2PSubtitle => 'Синхронизация через .sync файлы в общей папке';
+
+  @override
+  String get syncFolderLabel => 'Папка синхронизации';
+
+  @override
+  String get syncFolderNotSelected => 'Не выбрана';
+
+  @override
+  String get syncBrowseButton => 'Обзор';
+
+  @override
+  String get syncClearFilesButton => 'Очистить файлы синхронизации';
+
+  @override
+  String get syncServerSection => 'Облачная синхронизация (Сервер)';
+
+  @override
+  String get syncServerUrlLabel => 'URL сервера';
+
+  @override
+  String get syncApiTokenLabel => 'API токен';
+
+  @override
+  String get syncApiTokenHint => 'Введите ваш токен безопасности';
+
+  @override
+  String get syncApiTokenHelp => 'Этот токен — ваш общий секрет. Введите одно и то же значение на всех ваших устройствах для авторизации синхронизации.';
+
+  @override
+  String get syncTestConnectionButton => 'Проверить соединение';
+
+  @override
+  String get syncTestingLabel => 'Проверка...';
+
+  @override
+  String get syncSaveServerSettingsButton => 'Сохранить настройки сервера';
+
+  @override
+  String get syncEnableServer => 'Включить синхронизацию с сервером';
+
+  @override
+  String get syncServerSubtitle => 'Синхронизация с экземпляром MyBudget Server';
+
+  @override
+  String get syncPendingLocalChanges => 'Ожидающие локальные изменения:';
+
+  @override
+  String get syncSyncNowButton => 'Синхронизировать сейчас';
+
+  @override
+  String get syncSyncingLabel => 'Синхронизация...';
+
+  @override
+  String get syncWebNotAvailable => 'Синхронизация недоступна в веб-версии';
+
+  @override
+  String get syncPermissionRequired => 'Для синхронизации требуется разрешение на доступ к хранилищу. Пожалуйста, включите «Доступ ко всем файлам» в настройках.';
+
+  @override
+  String get syncSelectFolderTitle => 'Выберите папку Syncthing';
+
+  @override
+  String get syncClearFilesTitle => 'Очистить файлы синхронизации';
+
+  @override
+  String get syncClearFilesConfirm => 'Это удалит все .sync файлы из выбранной папки. Это действие нельзя отменить.';
+
+  @override
+  String syncDeletedFilesCount(Object count) {
+    return 'Удалено файлов синхронизации: $count';
+  }
+
+  @override
+  String syncClearFilesError(Object error) {
+    return 'Ошибка при очистке файлов: $error';
+  }
+
+  @override
+  String get syncSettingsSaved => 'Настройки сервера сохранены';
+
+  @override
+  String get syncConnectionSuccessful => 'Соединение успешно установлено!';
+
+  @override
+  String get syncConnectionFailed => 'Ошибка соединения. Проверьте URL и токен.';
+
+  @override
+  String get syncCompleted => 'Синхронизация успешно завершена';
+
+  @override
+  String syncFailed(Object error) {
+    return 'Синхронизация не удалась: $error';
+  }
+
+  @override
+  String get smsRuleAddTitle => 'Добавить правило';
+
+  @override
+  String get smsRuleEditTitle => 'Редактировать правило';
+
+  @override
+  String get smsRuleTransactionType => 'Тип транзакции';
+
+  @override
+  String get smsRuleMatchPattern => 'Шаблон соответствия (Regex)';
+
+  @override
+  String get smsRuleMatchPatternHint => 'напр., Placanje.*karticom';
+
+  @override
+  String get smsRuleMatchPatternHelp => 'Шаблон для идентификации типа SMS';
+
+  @override
+  String get smsRuleAmountPattern => 'Шаблон суммы (Regex)';
+
+  @override
+  String get smsRuleAmountPatternHint => 'напр., iznos\\s+([\\d,.]+)';
+
+  @override
+  String get smsRuleAmountPatternHelp => 'Группа 1 должна захватывать сумму';
+
+  @override
+  String get smsRuleCurrencyPattern => 'Шаблон валюты (Regex, необязательно)';
+
+  @override
+  String get smsRuleCurrencyPatternHint => 'напр., [\\d,.]+\\s*(\\w\\w\\w)';
+
+  @override
+  String get smsRuleCurrencyPatternHelp => 'Группа 1 должна захватывать код валюты';
+
+  @override
+  String get smsRuleTestTitle => 'Протестируйте ваше правило';
+
+  @override
+  String get smsRuleTestSmsHint => 'Вставьте текст SMS здесь';
+
+  @override
+  String get smsRuleTestButton => 'Проверить шаблон';
+
+  @override
+  String get smsRuleTestEnterSmsError => 'Введите текст SMS для проверки';
+
+  @override
+  String get smsRuleTestMatchError => '✗ Шаблон соответствия не найден';
+
+  @override
+  String get smsRuleTestAmountError => '✗ Шаблон суммы не найден';
+
+  @override
+  String smsRuleTestSuccess(Object amount, Object currency, Object type) {
+    return '✓ Соответствие найдено!\nТип: $type\nСумма: $amount\nВалюта: $currency';
+  }
+
+  @override
+  String smsRuleTestRegexError(Object error) {
+    return '✗ Некорректный regex: $error';
+  }
+
+  @override
+  String get smsRuleRequiredError => 'Требуются шаблоны соответствия и суммы';
+
+  @override
+  String inflationError(Object error) {
+    return 'Ошибка: $error';
+  }
+
+  @override
+  String get inflationNoRatesFound => 'Данные об инфляции не найдены.';
+
+  @override
+  String get inflationAddRate => 'Добавить уровень инфляции';
+
+  @override
+  String get inflationDeleteConfirmTitle => 'Удалить данные?';
+
+  @override
+  String inflationDeleteConfirmMessage(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count записей',
+      one: 'эту запись',
+    );
+    return 'Вы уверены, что хотите удалить $_temp0?';
+  }
+
+  @override
+  String inflationSelectedCount(Object count) {
+    return 'Выбрано: $count';
+  }
+
+  @override
+  String get inflationFiltersTitle => 'Фильтры инфляции';
+
+  @override
+  String get inflationCountries => 'Страны';
+
+  @override
+  String get inflationPresets => 'Пресеты';
+
+  @override
+  String deleteCategoryConfirmTitle(Object name) {
+    return 'Удалить $name?';
+  }
+
+  @override
+  String get deleteCategoryMessage => 'У этой категории есть связанные транзакции. Что вы хотите сделать?';
+
+  @override
+  String get deleteCategoryReassign => 'Переназначить транзакции другой категории';
+
+  @override
+  String get deleteCategoryNewCategory => 'Новая категория';
+
+  @override
+  String get deleteCategoryDeleteAll => 'Удалить все связанные транзакции';
+
+  @override
+  String deleteAccountConfirmTitle(Object name) {
+    return 'Удалить $name?';
+  }
+
+  @override
+  String get deleteAccountMessage => 'У этого счета могут быть связанные транзакции. Что вы хотите сделать?';
+
+  @override
+  String get deleteAccountReassign => 'Переназначить транзакции другому счету';
+
+  @override
+  String get deleteAccountNewAccount => 'Новый счет';
+
+  @override
+  String get deleteAccountDeleteAll => 'Удалить все связанные транзакции';
+
+  @override
+  String get confirmButton => 'Подтвердить';
+
+  @override
+  String get okButton => 'OK';
+
+  @override
+  String get noItemsFound => 'Элементы не найдены.';
+
+  @override
+  String get noDataForPeriod => 'Нет данных за этот период';
+
+  @override
+  String get noDataForRange => 'Нет данных за этот диапазон';
+
+  @override
+  String get noHistoryData => 'История данных отсутствует';
+
+  @override
+  String get disabledByGlobalSync => 'Отключено глобальной синхронизацией';
+
+  @override
+  String dateCreatedLabel(Object date) {
+    return 'Дата создания: $date';
+  }
+
+  @override
+  String get anyLabel => 'Любая';
+
+  @override
+  String get balanceDisplayLabel => 'Отображение баланса';
+
+  @override
+  String currenciesActiveLabel(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count активных валют',
+      many: '$count активных валют',
+      few: '$count активные валюты',
+      one: '$count активная валюта',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get searchCountryLabel => 'Поиск страны';
+
+  @override
+  String get addNewIconLabel => 'Добавить иконку';
+
+  @override
+  String get noIconsFoundLabel => 'Иконки не найдены';
+
+  @override
+  String get addNewStyleLabel => 'Добавить новый стиль';
+
+  @override
+  String get styleNameLabel => 'Название стиля';
+
+  @override
+  String get pleaseEnterStyleName => 'Пожалуйста, введите название стиля';
+
+  @override
+  String get colorLabel => 'Цвет';
+
+  @override
+  String get netBalanceMetric => 'Чистый бал.';
+
+  @override
+  String get investedMetric => 'Инвестировано';
+
+  @override
+  String get realizedMetric => 'Реализовано';
+
+  @override
+  String get feesMetric => 'Комиссии';
+
+  @override
+  String get persistFiltersLabel => 'Сохранять фильтры';
+
+  @override
+  String get searchByNameHint => 'Поиск по названию...';
+
+  @override
+  String get searchDescriptionHint => 'Поиск в описании...';
+
+  @override
+  String get advancedFiltersTitle => 'Расширенные фильтры';
+
+  @override
+  String get transactionTypeLabel => 'Тип транзакции';
+
+  @override
+  String get assetFiltersTitle => 'Фильтры активов';
+
+  @override
+  String get minValueLabel => 'Мин. значение';
+
+  @override
+  String get maxValueLabel => 'Макс. значение';
+
+  @override
+  String get assetTypesLabel => 'Типы активов';
+
+  @override
+  String get allLabel => 'Все';
+
+  @override
+  String get currenciesLabel => 'Валюты';
+
+  @override
+  String get sourcesLabel => 'Источники';
+
+  @override
+  String get presetsLabel => 'Пресеты';
+
+  @override
+  String get enterCategoryNameHint => 'Введите название категории';
+
+  @override
+  String get selectTypeHint => 'Выберите тип';
+
+  @override
+  String get hotKeysTitle => 'Горячие клавиши';
+
+  @override
+  String get searchHotkeysHint => 'Поиск горячих клавиш...';
+
+  @override
+  String get noMatchingHotkeys => 'Совпадений не найдено.';
+
+  @override
+  String recordingHotkeyTitle(Object label) {
+    return 'Запись клавиш для \"$label\"';
+  }
+
+  @override
+  String get pressKeysHint => 'Нажмите клавиши...';
+
+  @override
+  String get pressAnyCombinationHint => 'Нажмите любую комбинацию клавиш.';
+
+  @override
+  String get clearSaveButton => 'Очистить / Сохранить';
+
+  @override
+  String get duplicateHotkeyTooltip => 'Дубликат горячей клавиши';
+
+  @override
+  String usedByLabel(Object action) {
+    return 'Используется в: $action';
+  }
+
+  @override
+  String get hkCategoryNavigation => 'Навигация';
+
+  @override
+  String get hkCategoryDashboardTabs => 'Вкладки дашборда (Ctrl + 1/2/3)';
+
+  @override
+  String get hkCategoryDataTabs => 'Вкладки данных (Ctrl + 1/2/3)';
+
+  @override
+  String get hkCategoryPeriodControl => 'Управление периодом';
+
+  @override
+  String get hkCategoryActions => 'Действия';
+
+  @override
+  String get hkCategorySelectionMode => 'Режим выбора';
+
+  @override
+  String get hkActionBack => 'Глобально: Назад / Выход';
+
+  @override
+  String get hkActionDashboard => 'Перейти в Сводку';
+
+  @override
+  String get hkActionAccounts => 'Перейти в Счета';
+
+  @override
+  String get hkActionTransactions => 'Перейти в Транзакции';
+
+  @override
+  String get hkActionCategories => 'Перейти в Категории';
+
+  @override
+  String get hkActionData => 'Перейти в Данные / Курсы';
+
+  @override
+  String get hkActionSettings => 'Перейти в Настройки';
+
+  @override
+  String get hkActionDashboardTab1 => 'Календарь';
+
+  @override
+  String get hkActionDashboardTab2 => 'Категории';
+
+  @override
+  String get hkActionDashboardTab3 => 'Баланс';
+
+  @override
+  String get hkActionDataTab1 => 'Курсы валют';
+
+  @override
+  String get hkActionDataTab2 => 'Инфляция';
+
+  @override
+  String get hkActionDataTab3 => 'Активы';
+
+  @override
+  String get hkActionPrevPeriod => 'Предыдущий период';
+
+  @override
+  String get hkActionNextPeriod => 'Следующий период';
+
+  @override
+  String get hkActionAddAction => 'Общее добавить';
+
+  @override
+  String get hkActionAccountsSelectionClose => 'Счета: Закрыть';
+
+  @override
+  String get hkActionAccountsSelectionAll => 'Счета: Выбрать все';
+
+  @override
+  String get hkActionAccountsSelectionDelete => 'Счета: Удалить';
+
+  @override
+  String get hkActionAccountsSelectionChangeType => 'Счета: Изменить тип';
+
+  @override
+  String get hkActionCategoriesSelectionClose => 'Категории: Закрыть';
+
+  @override
+  String get hkActionCategoriesSelectionAll => 'Категории: Выбрать все';
+
+  @override
+  String get hkActionCategoriesSelectionDelete => 'Категории: Удалить';
+
+  @override
+  String get hkActionCategoriesSelectionChangeType => 'Категории: Изменить тип';
+
+  @override
+  String get hkActionDataSelectionClose => 'Данные: Закрыть';
+
+  @override
+  String get hkActionDataSelectionAll => 'Данные: Выбрать все';
+
+  @override
+  String get hkActionDataSelectionDelete => 'Данные: Удалить';
+
+  @override
+  String get hkActionDataSelectionChangePreset => 'Данные: Изменить пресет';
 }

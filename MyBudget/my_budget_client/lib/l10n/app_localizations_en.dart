@@ -38,6 +38,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addAccountDialogTitle => 'Add a new account';
 
   @override
+  String get editAccountDialogTitle => 'Edit Account';
+
+  @override
   String get accountNameHint => 'Account name';
 
   @override
@@ -63,6 +66,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get clearButton => 'Clear';
+
+  @override
+  String get selectButton => 'Select';
+
+  @override
+  String get selectAllButton => 'Select All';
+
+  @override
+  String get deselectAllButton => 'Deselect All';
+
+  @override
+  String get deleteSelectedButton => 'Delete Selected';
+
+  @override
+  String totalCountLabel(Object count) {
+    return 'Total: $count';
+  }
+
+  @override
+  String selectedCountLabel(Object count) {
+    return '$count selected';
+  }
 
   @override
   String get formValidationPleaseEnterName => 'Please enter a name';
@@ -111,6 +136,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get currencyBreakdown => 'Currency Breakdown';
+
+  @override
+  String get dashboardNetWorthTrend => 'Net Worth Trend';
+
+  @override
+  String get dashboardWealthDistributionByAccount => 'Wealth Distribution (by Account)';
+
+  @override
+  String get dashboardCurrencyExposure => 'Currency Exposure';
+
+  @override
+  String get dashboardNoAccountsFound => 'No accounts found';
+
+  @override
+  String get dashboardTotalNetWorthTrend => 'Total Net Worth Trend';
+
+  @override
+  String get dashboardAccountBalanceTrend => 'Account Balance Trend';
+
+  @override
+  String get dashboardWealthDistribution => 'Wealth Distribution';
+
+  @override
+  String get dashboardCurrencyBreakdown => 'Currency Breakdown';
 
   @override
   String get metricBalance => 'Balance';
@@ -255,20 +304,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sortOrderDescription => 'Switch between ascending and descending amount order';
 
   @override
-  String totalCountLabel(Object count) {
-    return 'Total: $count';
-  }
-
-  @override
   String get closeSelectionTooltip => 'Close Selection';
 
   @override
   String get exitSelectionDescription => 'Exit selection mode';
-
-  @override
-  String selectedCountLabel(Object count) {
-    return '$count selected';
-  }
 
   @override
   String get categoryNameLabel => 'Category Name';
@@ -294,6 +333,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get exitTransactionsSelectionDescription => 'Exit transaction selection mode';
+
+  @override
   String get changeDateTooltip => 'Change Date';
 
   @override
@@ -312,33 +354,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deleteTransactionsDescription => 'Permanently delete all selected transactions';
 
   @override
-  String get exitTransactionsSelectionDescription => 'Exit transaction selection mode';
+  String get amountLabel => 'Amount';
 
   @override
   String quantityLabel(Object quantity) {
     return 'Qty: $quantity';
   }
-
-  @override
-  String get addTransactionTitle => 'Add Transaction';
-
-  @override
-  String get editTransactionTitle => 'Edit Transaction';
-
-  @override
-  String get newTransferTitle => 'New Transfer';
-
-  @override
-  String get editTransferTitle => 'Edit Transfer';
-
-  @override
-  String get descriptionLabel => 'Description';
-
-  @override
-  String get descriptionOptionalLabel => 'Description (Optional)';
-
-  @override
-  String get amountLabel => 'Amount';
 
   @override
   String get quantityFormLabel => 'Quantity';
@@ -369,6 +390,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get selectDateLabel => 'Select Date';
+
+  @override
+  String get addTransactionTitle => 'Add Transaction';
+
+  @override
+  String get editTransactionTitle => 'Edit Transaction';
+
+  @override
+  String get newTransferTitle => 'New Transfer';
+
+  @override
+  String get editTransferTitle => 'Edit Transfer';
+
+  @override
+  String get descriptionLabel => 'Description';
+
+  @override
+  String get descriptionOptionalLabel => 'Description (Optional)';
 
   @override
   String get swapAccountsTooltip => 'Swap Accounts';
@@ -520,6 +559,95 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncSettingsSubtitle => 'P2P sync via Syncthing';
 
   @override
+  String get themeSettingsTitle => 'Theme Settings';
+
+  @override
+  String get appearanceSection => 'Appearance';
+
+  @override
+  String get themeModeLabel => 'Theme Mode';
+
+  @override
+  String get systemTheme => 'System';
+
+  @override
+  String get lightTheme => 'Light';
+
+  @override
+  String get darkTheme => 'Dark';
+
+  @override
+  String get colorCustomizationSection => 'Color Customization';
+
+  @override
+  String get primaryColorLabel => 'Primary Color';
+
+  @override
+  String get secondaryColorLabel => 'Secondary Color';
+
+  @override
+  String get surfaceColorLabel => 'Surface Color';
+
+  @override
+  String get windowEffectsSection => 'Window Effects (Desktop)';
+
+  @override
+  String get enableEffectsLabel => 'Enable Window Effects';
+
+  @override
+  String get windowEffectLabel => 'Window Effect';
+
+  @override
+  String get backgroundLabel => 'Background';
+
+  @override
+  String get removeBackgroundColor => 'Remove background color';
+
+  @override
+  String get transparentSurfaceLabel => 'Transparent Surface (Cards)';
+
+  @override
+  String get fullyTransparentLabel => 'Fully Transparent';
+
+  @override
+  String get opaqueLabel => 'Opaque';
+
+  @override
+  String opacityLabel(Object value) {
+    return 'Opacity: $value%';
+  }
+
+  @override
+  String get backgroundSettingsSection => 'Background Settings';
+
+  @override
+  String get enableBackgroundImageLabel => 'Enable Background Image';
+
+  @override
+  String get backgroundBlurLabel => 'Background Blur';
+
+  @override
+  String get surfaceGlassStyleTitle => 'Surface/Glass Style';
+
+  @override
+  String get chooseImageButton => 'Choose Image';
+
+  @override
+  String get selectImageFileError => 'Please select an image file.';
+
+  @override
+  String get clearImageButton => 'Clear Image';
+
+  @override
+  String get saveThemePresetTitle => 'Save Theme Preset';
+
+  @override
+  String get presetNameLabel => 'Preset Name';
+
+  @override
+  String get presetNameHint => 'My Amazing Theme';
+
+  @override
   String get importDataLabel => 'Import Data';
 
   @override
@@ -548,6 +676,190 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get debugMenuSubtitle => 'Internal developer tools';
+
+  @override
+  String get apiManagementTitle => 'API Management';
+
+  @override
+  String get apiCategoriesSection => 'API Categories';
+
+  @override
+  String get manualUtilitiesSection => 'Manual Utilities';
+
+  @override
+  String get startupDataSyncLabel => 'Startup Data Sync';
+
+  @override
+  String get startupDataSyncDescription => 'Controls both external data fetching and server synchronization on application launch.';
+
+  @override
+  String get standardApiLabel => 'Standard API';
+
+  @override
+  String get syncOnStartupDescription => 'Sync on startup';
+
+  @override
+  String get customSourcesLabel => 'Custom Sources';
+
+  @override
+  String syncCustomSourcesDescription(Object count) {
+    return 'Sync all $count on startup';
+  }
+
+  @override
+  String get individualCustomSourcesTitle => 'Individual Custom Sources';
+
+  @override
+  String get noCustomSourcesAdded => 'No custom sources added.';
+
+  @override
+  String get fetchTodaysRatesButton => 'Fetch Today\'s Rates';
+
+  @override
+  String get inflationConfigTitle => 'Inflation Config';
+
+  @override
+  String get countryCodeHint => 'Country Code (e.g. SRB)';
+
+  @override
+  String fetchDataForCountryButton(Object country) {
+    return 'Fetch Data for $country';
+  }
+
+  @override
+  String get steamSettingsTitle => 'Steam Settings';
+
+  @override
+  String get steamIdLabel => 'Steam ID (64-bit)';
+
+  @override
+  String get preferredGameLabel => 'Preferred Game';
+
+  @override
+  String get fetchInventoryNowButton => 'Fetch Inventory Now';
+
+  @override
+  String get manualExchangeRatesTitle => 'Manual Exchange Rates Fetch';
+
+  @override
+  String get selectStartDate => 'Select Start Date';
+
+  @override
+  String startDateFrom(Object date) {
+    return 'From: $date';
+  }
+
+  @override
+  String get selectEndDate => 'Select End Date';
+
+  @override
+  String endDateTo(Object date) {
+    return 'To: $date';
+  }
+
+  @override
+  String get fetchRangeButton => 'Fetch Range';
+
+  @override
+  String get manualSteamInventoryTitle => 'Manual Steam Inventory';
+
+  @override
+  String get selectGameHint => 'Select Game';
+
+  @override
+  String get fetchValueButton => 'Fetch Value';
+
+  @override
+  String get manualInflationDataTitle => 'Manual Inflation Data';
+
+  @override
+  String get selectStartYear => 'Select Start Year';
+
+  @override
+  String startYearFrom(Object year) {
+    return 'From: $year';
+  }
+
+  @override
+  String get selectEndYear => 'Select End Year';
+
+  @override
+  String endYearTo(Object year) {
+    return 'To: $year';
+  }
+
+  @override
+  String get fetchDataButton => 'Fetch Data';
+
+  @override
+  String get connectionOk => 'Connection OK';
+
+  @override
+  String get connectionFailed => 'Connection Failed';
+
+  @override
+  String get testConnectionButton => 'Test Connection';
+
+  @override
+  String get editCustomSourceTitle => 'Edit Custom Source';
+
+  @override
+  String get addCustomSourceTitle => 'Add Custom Source';
+
+  @override
+  String get addressFormatsHelp => 'Address Formats:\n• 192.168.1.10 (IP)\n• localhost or api.my.com\n• http://myserver.com';
+
+  @override
+  String get urlIpLabel => 'URL / IP';
+
+  @override
+  String get urlIpHint => '192.168.1.10:8080';
+
+  @override
+  String get dataTypeLabel => 'Data Type';
+
+  @override
+  String get apiTitleExchangeRates => 'Exchange Rates';
+
+  @override
+  String get apiTitleInflation => 'Inflation';
+
+  @override
+  String get apiTitleAssetPrices => 'Asset Prices';
+
+  @override
+  String get apiTitleSteamInventory => 'Steam Inventory';
+
+  @override
+  String get transferLabel => 'Transfer';
+
+  @override
+  String get uncategorizedLabel => 'Uncategorized';
+
+  @override
+  String get defaultLabel => 'Default';
+
+  @override
+  String receivedTotalLabel(Object total) {
+    return 'Received: $total';
+  }
+
+  @override
+  String spentTotalLabel(Object total) {
+    return 'Spent: $total';
+  }
+
+  @override
+  String get periodSummaryTitle => 'Period Summary';
+
+  @override
+  String get incomeLabel => 'Income';
+
+  @override
+  String get expenseLabel => 'Expense';
+
+  @override
+  String get netLabel => 'Net';
 
   @override
   String get exportSuccessMessage => 'Export completed successfully';
@@ -778,16 +1090,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noCurrenciesSelected => 'No currencies selected.';
 
   @override
-  String get incomeLabel => 'Income';
-
-  @override
-  String get expenseLabel => 'Expense';
-
-  @override
   String get failedToLoadDashboard => 'Failed to load dashboard';
 
   @override
   String get dashboardCalendarTab => 'Calendar';
+
+  @override
+  String get dashboardTabCalendar => 'Calendar';
 
   @override
   String get dashboardCalendarTooltip => 'Calendar View';
@@ -799,6 +1108,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardCategoriesTab => 'Categories';
 
   @override
+  String get dashboardTabCategories => 'Categories';
+
+  @override
   String get dashboardCategoriesTooltip => 'Category Analysis';
 
   @override
@@ -806,6 +1118,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dashboardBalanceTab => 'Balance';
+
+  @override
+  String get dashboardTabBalance => 'Balance';
 
   @override
   String get dashboardBalanceTooltip => 'Balance History';
@@ -821,6 +1136,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get manageIconsTitle => 'Manage Icons';
+
+  @override
+  String get manageStylesDeleteTitle => 'Delete Icons';
+
+  @override
+  String manageStylesDeleteConfirm(Object count) {
+    return 'Are you sure you want to delete $count selected icons?';
+  }
+
+  @override
+  String manageStylesDeleteConfirmWithTransfer(Object count) {
+    return 'Are you sure you want to delete $count selected icons? (Transfer icon will be skipped)';
+  }
 
   @override
   String get noIconsCreated => 'No icons created yet.';
@@ -930,4 +1258,503 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get historyLabel => 'History';
+
+  @override
+  String get syncScreenTitle => 'Synchronization Settings';
+
+  @override
+  String get syncP2PSection => 'P2P Synchronization (Syncthing)';
+
+  @override
+  String get syncEnableP2P => 'Enable P2P Sync';
+
+  @override
+  String get syncP2PSubtitle => 'Sync via .sync files in a shared folder';
+
+  @override
+  String get syncFolderLabel => 'Sync Folder';
+
+  @override
+  String get syncFolderNotSelected => 'Not selected';
+
+  @override
+  String get syncBrowseButton => 'Browse';
+
+  @override
+  String get syncClearFilesButton => 'Clear sync files';
+
+  @override
+  String get syncServerSection => 'Cloud Synchronization (Server)';
+
+  @override
+  String get syncServerUrlLabel => 'Server URL';
+
+  @override
+  String get syncApiTokenLabel => 'API Token';
+
+  @override
+  String get syncApiTokenHint => 'Enter your security token';
+
+  @override
+  String get syncApiTokenHelp => 'This token is your shared secret. Enter the same value on all your devices to authorize synchronization.';
+
+  @override
+  String get syncTestConnectionButton => 'Test Connection';
+
+  @override
+  String get syncTestingLabel => 'Testing...';
+
+  @override
+  String get syncSaveServerSettingsButton => 'Save Server Settings';
+
+  @override
+  String get syncEnableServer => 'Enable Server Sync';
+
+  @override
+  String get syncServerSubtitle => 'Sync with a MyBudget Server instance';
+
+  @override
+  String get syncPendingLocalChanges => 'Pending local changes:';
+
+  @override
+  String get syncSyncNowButton => 'Sync Now';
+
+  @override
+  String get syncSyncingLabel => 'Syncing...';
+
+  @override
+  String get syncWebNotAvailable => 'Synchronization is not available on Web';
+
+  @override
+  String get syncPermissionRequired => 'Storage permission required for sync. Please enable \"All files access\" in settings.';
+
+  @override
+  String get syncSelectFolderTitle => 'Select Syncthing Folder';
+
+  @override
+  String get syncClearFilesTitle => 'Clear Sync Files';
+
+  @override
+  String get syncClearFilesConfirm => 'This will delete all .sync files from the selected folder. This action cannot be undone.';
+
+  @override
+  String syncDeletedFilesCount(Object count) {
+    return 'Deleted $count sync files';
+  }
+
+  @override
+  String syncClearFilesError(Object error) {
+    return 'Error clearing files: $error';
+  }
+
+  @override
+  String get syncSettingsSaved => 'Server settings saved';
+
+  @override
+  String get syncConnectionSuccessful => 'Connection successful!';
+
+  @override
+  String get syncConnectionFailed => 'Connection failed. Check URL and Token.';
+
+  @override
+  String get syncCompleted => 'Sync completed successfully';
+
+  @override
+  String syncFailed(Object error) {
+    return 'Sync failed: $error';
+  }
+
+  @override
+  String get smsRuleAddTitle => 'Add Rule';
+
+  @override
+  String get smsRuleEditTitle => 'Edit Rule';
+
+  @override
+  String get smsRuleTransactionType => 'Transaction Type';
+
+  @override
+  String get smsRuleMatchPattern => 'Match Pattern (Regex)';
+
+  @override
+  String get smsRuleMatchPatternHint => 'e.g., Placanje.*karticom';
+
+  @override
+  String get smsRuleMatchPatternHelp => 'Pattern to identify this SMS type';
+
+  @override
+  String get smsRuleAmountPattern => 'Amount Pattern (Regex)';
+
+  @override
+  String get smsRuleAmountPatternHint => 'e.g., iznos\\s+([\\d,.]+)';
+
+  @override
+  String get smsRuleAmountPatternHelp => 'Group 1 should capture the amount';
+
+  @override
+  String get smsRuleCurrencyPattern => 'Currency Pattern (Regex, optional)';
+
+  @override
+  String get smsRuleCurrencyPatternHint => 'e.g., [\\d,.]+\\s*(\\w\\w\\w)';
+
+  @override
+  String get smsRuleCurrencyPatternHelp => 'Group 1 should capture currency code';
+
+  @override
+  String get smsRuleTestTitle => 'Test Your Rule';
+
+  @override
+  String get smsRuleTestSmsHint => 'Paste SMS text here';
+
+  @override
+  String get smsRuleTestButton => 'Test Pattern';
+
+  @override
+  String get smsRuleTestEnterSmsError => 'Enter SMS text to test';
+
+  @override
+  String get smsRuleTestMatchError => '✗ Match pattern did not find a match';
+
+  @override
+  String get smsRuleTestAmountError => '✗ Amount pattern did not find a match';
+
+  @override
+  String smsRuleTestSuccess(Object amount, Object currency, Object type) {
+    return '✓ Match found!\nType: $type\nAmount: $amount\nCurrency: $currency';
+  }
+
+  @override
+  String smsRuleTestRegexError(Object error) {
+    return '✗ Invalid regex: $error';
+  }
+
+  @override
+  String get smsRuleRequiredError => 'Match and Amount patterns are required';
+
+  @override
+  String inflationError(Object error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get inflationNoRatesFound => 'No inflation rates found.';
+
+  @override
+  String get inflationAddRate => 'Add Inflation Rate';
+
+  @override
+  String get inflationDeleteConfirmTitle => 'Delete Rates?';
+
+  @override
+  String inflationDeleteConfirmMessage(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count rates',
+      one: 'this rate',
+    );
+    return 'Are you sure you want to delete $_temp0?';
+  }
+
+  @override
+  String inflationSelectedCount(Object count) {
+    return '$count selected';
+  }
+
+  @override
+  String get inflationFiltersTitle => 'Inflation Filters';
+
+  @override
+  String get inflationCountries => 'Countries';
+
+  @override
+  String get inflationPresets => 'Presets';
+
+  @override
+  String deleteCategoryConfirmTitle(Object name) {
+    return 'Delete $name?';
+  }
+
+  @override
+  String get deleteCategoryMessage => 'This category has associated transactions. What would you like to do?';
+
+  @override
+  String get deleteCategoryReassign => 'Reassign transactions to another category';
+
+  @override
+  String get deleteCategoryNewCategory => 'New Category';
+
+  @override
+  String get deleteCategoryDeleteAll => 'Delete all associated transactions';
+
+  @override
+  String deleteAccountConfirmTitle(Object name) {
+    return 'Delete $name?';
+  }
+
+  @override
+  String get deleteAccountMessage => 'This account may have associated transactions. What would you like to do?';
+
+  @override
+  String get deleteAccountReassign => 'Reassign transactions to another account';
+
+  @override
+  String get deleteAccountNewAccount => 'New Account';
+
+  @override
+  String get deleteAccountDeleteAll => 'Delete all associated transactions';
+
+  @override
+  String get confirmButton => 'Confirm';
+
+  @override
+  String get okButton => 'OK';
+
+  @override
+  String get noItemsFound => 'No items found.';
+
+  @override
+  String get noDataForPeriod => 'No data for this period';
+
+  @override
+  String get noDataForRange => 'No data for this range';
+
+  @override
+  String get noHistoryData => 'No history data available';
+
+  @override
+  String get disabledByGlobalSync => 'Disabled by Global Sync';
+
+  @override
+  String dateCreatedLabel(Object date) {
+    return 'Date created: $date';
+  }
+
+  @override
+  String get anyLabel => 'Any';
+
+  @override
+  String get balanceDisplayLabel => 'Balance Display';
+
+  @override
+  String currenciesActiveLabel(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count currencies active',
+      one: '1 currency active',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get searchCountryLabel => 'Search Country';
+
+  @override
+  String get addNewIconLabel => 'Add New Icon';
+
+  @override
+  String get noIconsFoundLabel => 'No icons found';
+
+  @override
+  String get addNewStyleLabel => 'Add New Style';
+
+  @override
+  String get styleNameLabel => 'Style Name';
+
+  @override
+  String get pleaseEnterStyleName => 'Please enter a style name';
+
+  @override
+  String get colorLabel => 'Color';
+
+  @override
+  String get netBalanceMetric => 'Net Bal.';
+
+  @override
+  String get investedMetric => 'Invested';
+
+  @override
+  String get realizedMetric => 'Realized';
+
+  @override
+  String get feesMetric => 'Fees';
+
+  @override
+  String get persistFiltersLabel => 'Persist Filters';
+
+  @override
+  String get searchByNameHint => 'Search by name...';
+
+  @override
+  String get searchDescriptionHint => 'Search description...';
+
+  @override
+  String get advancedFiltersTitle => 'Advanced Filters';
+
+  @override
+  String get transactionTypeLabel => 'Transaction Type';
+
+  @override
+  String get assetFiltersTitle => 'Asset Filters';
+
+  @override
+  String get minValueLabel => 'Min Value';
+
+  @override
+  String get maxValueLabel => 'Max Value';
+
+  @override
+  String get assetTypesLabel => 'Asset Types';
+
+  @override
+  String get allLabel => 'All';
+
+  @override
+  String get currenciesLabel => 'Currencies';
+
+  @override
+  String get sourcesLabel => 'Sources';
+
+  @override
+  String get presetsLabel => 'Presets';
+
+  @override
+  String get enterCategoryNameHint => 'Enter category name';
+
+  @override
+  String get selectTypeHint => 'Select Type';
+
+  @override
+  String get hotKeysTitle => 'Hot Keys';
+
+  @override
+  String get searchHotkeysHint => 'Search hotkeys...';
+
+  @override
+  String get noMatchingHotkeys => 'No matching hotkeys found.';
+
+  @override
+  String recordingHotkeyTitle(Object label) {
+    return 'Recording Hotkey for \"$label\"';
+  }
+
+  @override
+  String get pressKeysHint => 'Press keys...';
+
+  @override
+  String get pressAnyCombinationHint => 'Press any key combination.';
+
+  @override
+  String get clearSaveButton => 'Clear / Save';
+
+  @override
+  String get duplicateHotkeyTooltip => 'Duplicate Hotkey';
+
+  @override
+  String usedByLabel(Object action) {
+    return 'Used by $action';
+  }
+
+  @override
+  String get hkCategoryNavigation => 'Navigation';
+
+  @override
+  String get hkCategoryDashboardTabs => 'Dashboard Tabs (Ctrl + 1/2/3)';
+
+  @override
+  String get hkCategoryDataTabs => 'Data Tabs (Ctrl + 1/2/3)';
+
+  @override
+  String get hkCategoryPeriodControl => 'Period Control';
+
+  @override
+  String get hkCategoryActions => 'Actions';
+
+  @override
+  String get hkCategorySelectionMode => 'Selection Mode';
+
+  @override
+  String get hkActionBack => 'Global: Go Back / Exit';
+
+  @override
+  String get hkActionDashboard => 'Go to Dashboard';
+
+  @override
+  String get hkActionAccounts => 'Go to Accounts';
+
+  @override
+  String get hkActionTransactions => 'Go to Transactions';
+
+  @override
+  String get hkActionCategories => 'Go to Categories';
+
+  @override
+  String get hkActionData => 'Go to Data / Exchange Rates';
+
+  @override
+  String get hkActionSettings => 'Go to Settings';
+
+  @override
+  String get hkActionDashboardTab1 => 'Calendar Tab';
+
+  @override
+  String get hkActionDashboardTab2 => 'Categories Tab';
+
+  @override
+  String get hkActionDashboardTab3 => 'Balance Tab';
+
+  @override
+  String get hkActionDataTab1 => 'Exchange Rates';
+
+  @override
+  String get hkActionDataTab2 => 'Inflation';
+
+  @override
+  String get hkActionDataTab3 => 'Assets';
+
+  @override
+  String get hkActionPrevPeriod => 'Previous Period';
+
+  @override
+  String get hkActionNextPeriod => 'Next Period';
+
+  @override
+  String get hkActionAddAction => 'Generic Add Action';
+
+  @override
+  String get hkActionAccountsSelectionClose => 'Accounts: Close';
+
+  @override
+  String get hkActionAccountsSelectionAll => 'Accounts: Select All';
+
+  @override
+  String get hkActionAccountsSelectionDelete => 'Accounts: Delete';
+
+  @override
+  String get hkActionAccountsSelectionChangeType => 'Accounts: Change Type';
+
+  @override
+  String get hkActionCategoriesSelectionClose => 'Categories: Close';
+
+  @override
+  String get hkActionCategoriesSelectionAll => 'Categories: Select All';
+
+  @override
+  String get hkActionCategoriesSelectionDelete => 'Categories: Delete';
+
+  @override
+  String get hkActionCategoriesSelectionChangeType => 'Categories: Change Type';
+
+  @override
+  String get hkActionDataSelectionClose => 'Data: Close';
+
+  @override
+  String get hkActionDataSelectionAll => 'Data: Select All';
+
+  @override
+  String get hkActionDataSelectionDelete => 'Data: Delete';
+
+  @override
+  String get hkActionDataSelectionChangePreset => 'Data: Change Preset';
 }

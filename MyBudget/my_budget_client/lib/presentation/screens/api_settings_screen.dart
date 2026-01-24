@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
 import 'package:my_budget_client/domain/entities/api_setting.dart';
 import 'package:my_budget_client/domain/entities/custom_data_source.dart';
@@ -49,7 +50,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
         child: Builder(
           builder: (context) => Scaffold(
             resizeToAvoidBottomInset: false,
-            appBar: AppBar(title: const Text('API Management')),
+            appBar: AppBar(title: Text(context.l10n.apiManagementTitle)),
             body: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 800),
@@ -134,15 +135,13 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SwitchListTile(
         title: Text(
-          'Startup Data Sync',
+          context.l10n.startupDataSyncLabel,
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: Theme.of(context).colorScheme.primary,
           ),
         ),
-        subtitle: const Text(
-          'Controls both external data fetching and server synchronization on application launch.',
-        ),
+        subtitle: Text(context.l10n.startupDataSyncDescription),
         value: state.startupSyncEnabled,
         onChanged: (val) {
           context.read<ApiSettingsBloc>().add(ToggleStartupSync(val));
@@ -160,10 +159,10 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
     ApiSettingDomain setting,
     ApiSettingsLoadSuccess state,
   ) {
-    final title = _getApiTitle(setting.id);
+    final title = _getApiTitle(context, setting.id);
     final lastFetch = setting.lastFetchAt != null
         ? DateFormat('yyyy-MM-dd HH:mm').format(setting.lastFetchAt!)
-        : 'Never';
+        : context.l10n.noneLabel;
 
     final dataType = _getApiDataType(setting.id);
     final customSourcesOfType = dataType != null
@@ -183,7 +182,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
         key: ValueKey('exp_state_tile_${setting.id}'),
         leading: Icon(_getApiIcon(setting.id)),
         title: Text(title),
-        subtitle: Text('Last: $lastFetch'),
+        subtitle: Text('${context.l10n.dateLabel}: $lastFetch'),
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(
@@ -195,8 +194,8 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
               children: [
                 _buildSwitchRow(
                   context: context,
-                  title: 'Standard API',
-                  subtitle: 'Sync on startup',
+                  title: context.l10n.standardApiLabel,
+                  subtitle: context.l10n.syncOnStartupDescription,
                   value: setting.enabled,
                   enabled: state.startupSyncEnabled,
                   key: ValueKey('api_switch_std_${setting.id}'),
@@ -209,9 +208,10 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 if (dataType != null)
                   _buildSwitchRow(
                     context: context,
-                    title: 'Custom Sources',
-                    subtitle:
-                        'Sync all ${customSourcesOfType.length} on startup',
+                    title: context.l10n.customSourcesLabel,
+                    subtitle: context.l10n.syncCustomSourcesDescription(
+                      customSourcesOfType.length,
+                    ),
                     value: anyCustomEnabled,
                     enabled: state.startupSyncEnabled,
                     key: ValueKey('api_switch_custom_${setting.id}'),
@@ -325,7 +325,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
             icon: state.isOperationInProgress
                 ? const _MiniLoading()
                 : const Icon(Icons.currency_exchange, size: 18),
-            label: const Text('Fetch Today\'s Rates'),
+            label: Text(context.l10n.fetchTodaysRatesButton),
           ),
         ),
         const SizedBox(height: 8),
@@ -340,14 +340,14 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSmallHeader(context, 'Inflation Config'),
+        _buildSmallHeader(context, context.l10n.inflationConfigTitle),
         const SizedBox(height: 8),
         TextField(
           key: const ValueKey('field_val_inflation_country'),
           controller: _countryCodeController,
-          decoration: const InputDecoration(
-            labelText: 'Country Code (e.g. SRB)',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: context.l10n.countryCodeHint,
+            border: const OutlineInputBorder(),
             isDense: true,
           ),
         ),
@@ -369,7 +369,11 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
             icon: state.isOperationInProgress
                 ? const _MiniLoading()
                 : const Icon(Icons.cloud_download, size: 18),
-            label: Text('Fetch Data for ${_countryCodeController.text}'),
+            label: Text(
+              context.l10n.fetchDataForCountryButton(
+                _countryCodeController.text,
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -393,15 +397,15 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSmallHeader(context, 'Steam Settings'),
+          _buildSmallHeader(context, context.l10n.steamSettingsTitle),
           const SizedBox(height: 12),
           TextField(
             key: const ValueKey('field_val_steam_id'),
             controller: _steamIdController,
-            decoration: const InputDecoration(
-              labelText: 'Steam ID (64-bit)',
+            decoration: InputDecoration(
+              labelText: context.l10n.steamIdLabel,
               hintText: 'e.g. 76561198085715972',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
             onChanged: (v) =>
@@ -411,9 +415,9 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
           DropdownButtonFormField<GameApiSteam>(
             key: const ValueKey('steam_game_dropdown'),
             value: state.steamGame ?? GameApiSteam.cs2,
-            decoration: const InputDecoration(
-              labelText: 'Preferred Game',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: context.l10n.preferredGameLabel,
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
             items: GameApiSteam.values
@@ -451,7 +455,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
               icon: state.isOperationInProgress
                   ? const _MiniLoading()
                   : const Icon(Icons.sync, size: 18),
-              label: const Text('Fetch Inventory Now'),
+              label: Text(context.l10n.fetchInventoryNowButton),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
@@ -482,14 +486,16 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
         key: const ValueKey('exp_state_manual_rates'),
-        title: const Text('Manual Exchange Rates Fetch'),
+        title: Text(context.l10n.manualExchangeRatesTitle),
         leading: const Icon(Icons.currency_exchange),
         children: [
           ListTile(
             title: Text(
               _startDate == null
-                  ? 'Select Start Date'
-                  : 'From: ${DateFormat('yyyy-MM-dd').format(_startDate!)}',
+                  ? context.l10n.selectStartDate
+                  : context.l10n.startDateFrom(
+                      DateFormat('yyyy-MM-dd').format(_startDate!),
+                    ),
             ),
             trailing: const Icon(Icons.calendar_today),
             onTap: () async {
@@ -505,8 +511,10 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
           ListTile(
             title: Text(
               _endDate == null
-                  ? 'Select End Date'
-                  : 'To: ${DateFormat('yyyy-MM-dd').format(_endDate!)}',
+                  ? context.l10n.selectEndDate
+                  : context.l10n.endDateTo(
+                      DateFormat('yyyy-MM-dd').format(_endDate!),
+                    ),
             ),
             trailing: const Icon(Icons.calendar_today),
             onTap: () async {
@@ -537,7 +545,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 icon: state.isOperationInProgress
                     ? const _MiniLoading()
                     : const Icon(Icons.download),
-                label: const Text('Fetch Range'),
+                label: Text(context.l10n.fetchRangeButton),
               ),
             ),
           ),
@@ -552,7 +560,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
         key: const ValueKey('exp_state_manual_steam'),
-        title: const Text('Manual Steam Inventory'),
+        title: Text(context.l10n.manualSteamInventoryTitle),
         leading: const Icon(Icons.games_outlined),
         children: [
           Padding(
@@ -561,9 +569,9 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
               children: [
                 TextField(
                   controller: _steamIdController,
-                  decoration: const InputDecoration(
-                    labelText: 'Steam ID',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.steamIdLabel,
+                    border: const OutlineInputBorder(),
                   ),
                   onChanged: (v) =>
                       context.read<ApiSettingsBloc>().add(SaveSteamId(v)),
@@ -625,7 +633,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
         key: const ValueKey('exp_state_manual_inflation'),
-        title: const Text('Manual Inflation Data'),
+        title: Text(context.l10n.manualInflationDataTitle),
         leading: const Icon(Icons.trending_up),
         children: [
           Padding(
@@ -634,9 +642,9 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
               children: [
                 TextField(
                   controller: _countryCodeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Country Code (e.g. SRB)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.countryCodeHint,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -644,8 +652,10 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: Text(
                     _startDate == null
-                        ? 'Select Start Year'
-                        : 'From: ${_startDate!.year}',
+                        ? context.l10n.selectStartYear
+                        : context.l10n.startYearFrom(
+                            _startDate!.year.toString(),
+                          ),
                   ),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () async {
@@ -663,8 +673,8 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: Text(
                     _endDate == null
-                        ? 'Select End Year'
-                        : 'To: ${_endDate!.year}',
+                        ? context.l10n.selectEndYear
+                        : context.l10n.endYearTo(_endDate!.year.toString()),
                   ),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () async {
@@ -701,7 +711,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                     icon: state.isOperationInProgress
                         ? const _MiniLoading()
                         : const Icon(Icons.cloud_download),
-                    label: const Text('Fetch Data'),
+                    label: Text(context.l10n.fetchDataButton),
                   ),
                 ),
               ],
@@ -822,14 +832,18 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(isEditing ? 'Edit Custom Source' : 'Add Custom Source'),
+          title: Text(
+            isEditing
+                ? context.l10n.editCustomSourceTitle
+                : context.l10n.addCustomSourceTitle,
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Address Formats:\n• 192.168.1.10 (IP)\n• localhost or api.my.com\n• http://myserver.com',
+                  context.l10n.addressFormatsHelp,
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(context).colorScheme.outline,
@@ -838,8 +852,8 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.categoryNameLabel,
                     hintText: 'My Home Server',
                   ),
                 ),
@@ -847,21 +861,32 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 TextField(
                   controller: urlCtrl,
                   decoration: InputDecoration(
-                    labelText: 'URL / IP',
-                    hintText: '192.168.1.10:8080',
+                    labelText: context.l10n.urlIpLabel,
+                    hintText: context.l10n.urlIpHint,
                     errorText: errorText,
                   ),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
                   value: type,
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text('Exchange Rates')),
-                    DropdownMenuItem(value: 1, child: Text('Inflation')),
-                    DropdownMenuItem(value: 2, child: Text('Assets')),
+                  items: [
+                    DropdownMenuItem(
+                      value: 0,
+                      child: Text(context.l10n.apiTitleExchangeRates),
+                    ),
+                    DropdownMenuItem(
+                      value: 1,
+                      child: Text(context.l10n.apiTitleInflation),
+                    ),
+                    DropdownMenuItem(
+                      value: 2,
+                      child: Text(context.l10n.apiTitleAssetPrices),
+                    ),
                   ],
-                  onChanged: (v) => setDialogState(() => type = v!),
-                  decoration: const InputDecoration(labelText: 'Data Type'),
+                  onChanged: (v) => setDialogState(() => type = v ?? 0),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.dataTypeLabel,
+                  ),
                 ),
               ],
             ),
@@ -869,14 +894,14 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: Text(context.l10n.cancelButton),
             ),
             FilledButton(
               onPressed: () {
                 final url = urlCtrl.text.trim();
                 final name = nameCtrl.text.trim();
                 if (name.isEmpty || url.isEmpty) {
-                  setDialogState(() => errorText = 'Required');
+                  setDialogState(() => errorText = context.l10n.requiredError);
                   return;
                 }
                 if (isEditing) {
@@ -895,7 +920,11 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 }
                 Navigator.pop(ctx);
               },
-              child: Text(isEditing ? 'Save' : 'Add'),
+              child: Text(
+                isEditing
+                    ? context.l10n.saveButton
+                    : context.l10n.addCustomSourceTitle,
+              ),
             ),
           ],
         ),
@@ -903,16 +932,16 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
     );
   }
 
-  String _getApiTitle(String id) {
+  String _getApiTitle(BuildContext context, String id) {
     switch (id) {
       case 'exchange_rates':
-        return 'Exchange Rates';
+        return context.l10n.apiTitleExchangeRates;
       case 'inflation':
-        return 'Inflation';
+        return context.l10n.apiTitleInflation;
       case 'assets':
-        return 'Asset Prices';
+        return context.l10n.apiTitleAssetPrices;
       case 'steam_inventory':
-        return 'Steam Inventory';
+        return context.l10n.apiTitleSteamInventory;
       default:
         return id.toUpperCase();
     }

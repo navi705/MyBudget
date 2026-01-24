@@ -10,6 +10,8 @@ import 'package:my_budget_client/core/sync/sync_service.dart';
 import 'package:my_budget_client/core/services/server_sync_service.dart';
 import 'package:flutter/foundation.dart' as kIsWeb;
 
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
+
 /// Settings screen for P2P synchronization via Syncthing
 class SyncSettingsScreen extends StatefulWidget {
   const SyncSettingsScreen({super.key});
@@ -95,6 +97,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   }
 
   Future<void> _pickFolder() async {
+    final l10n = context.l10n;
     if (Platform.isAndroid) {
       // Request Manage External Storage for Android 11+
       var status = await Permission.manageExternalStorage.status;
@@ -107,10 +110,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
         final storageStatus = await Permission.storage.request();
         if (!storageStatus.isGranted) {
           if (mounted) {
-            _showSnackbar(
-              'Storage permission required for sync. Please enable "All files access" in settings.',
-              isError: true,
-            );
+            _showSnackbar(l10n.syncPermissionRequired, isError: true);
           }
           return;
         }
@@ -118,7 +118,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     }
 
     final result = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Select Syncthing Folder',
+      dialogTitle: l10n.syncSelectFolderTitle,
     );
 
     if (result != null) {
@@ -129,22 +129,21 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
 
   Future<void> _clearSyncFolder() async {
     if (_syncFolderPath == null) return;
+    final l10n = context.l10n;
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear Sync Files'),
-        content: const Text(
-          'This will delete all .sync files from the selected folder. This action cannot be undone.',
-        ),
+        title: Text(l10n.syncClearFilesTitle),
+        content: Text(l10n.syncClearFilesConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancelButton),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Clear'),
+            child: Text(l10n.clearButton),
           ),
         ],
       ),
@@ -163,12 +162,12 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
           }
         }
         if (mounted) {
-          _showSnackbar('Deleted $deletedCount sync files');
+          _showSnackbar(l10n.syncDeletedFilesCount(deletedCount));
         }
       }
     } catch (e) {
       if (mounted) {
-        _showSnackbar('Error clearing files: $e', isError: true);
+        _showSnackbar(l10n.syncClearFilesError(e.toString()), isError: true);
       }
     }
   }
@@ -218,7 +217,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
       _serverTokenController.text,
     );
     if (mounted) {
-      _showSnackbar('Server settings saved');
+      _showSnackbar(context.l10n.syncSettingsSaved);
     }
   }
 
@@ -243,6 +242,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
 
   Future<void> _testConnection() async {
     setState(() => _isTestingConnection = true);
+    final l10n = context.l10n;
 
     // Unfocus keyboard
     FocusScope.of(context).unfocus();
@@ -255,17 +255,14 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
 
       if (mounted) {
         if (success) {
-          _showSnackbar('Connection successful!');
+          _showSnackbar(l10n.syncConnectionSuccessful);
         } else {
-          _showSnackbar(
-            'Connection failed. Check URL and Token.',
-            isError: true,
-          );
+          _showSnackbar(l10n.syncConnectionFailed, isError: true);
         }
       }
     } catch (e) {
       if (mounted) {
-        _showSnackbar('Error: $e', isError: true);
+        _showSnackbar(e.toString(), isError: true);
       }
     } finally {
       if (mounted) {
@@ -276,6 +273,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
 
   Future<void> _syncNow() async {
     if (_isSyncing) return;
+    final l10n = context.l10n;
 
     setState(() => _isSyncing = true);
 
@@ -302,12 +300,12 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
           _incomingChanges = incoming;
         });
 
-        _showSnackbar('Sync completed successfully');
+        _showSnackbar(l10n.syncCompleted);
       }
     } catch (e) {
       debugPrint('Manual sync error: $e');
       if (mounted) {
-        _showSnackbar('Sync failed: $e', isError: true);
+        _showSnackbar(l10n.syncFailed(e.toString()), isError: true);
       }
     } finally {
       if (mounted) {
@@ -319,14 +317,13 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     if (kIsWeb.kIsWeb) {
-      return const Center(
-        child: Text('Synchronization is not available on Web'),
-      );
+      return Center(child: Text(l10n.syncWebNotAvailable));
     }
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(title: const Text('Synchronization Settings')),
+      appBar: AppBar(title: Text(l10n.syncScreenTitle)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -334,7 +331,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: Text(
-              'P2P Synchronization (Syncthing)',
+              l10n.syncP2PSection,
               style: theme.textTheme.titleMedium?.copyWith(
                 color: theme.colorScheme.primary,
                 fontWeight: FontWeight.bold,
@@ -345,10 +342,8 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
             child: Column(
               children: [
                 SwitchListTile(
-                  title: const Text('Enable P2P Sync'),
-                  subtitle: const Text(
-                    'Sync via .sync files in a shared folder',
-                  ),
+                  title: Text(l10n.syncEnableP2P),
+                  subtitle: Text(l10n.syncP2PSubtitle),
                   value: _isP2PEnabled,
                   onChanged: _syncFolderPath != null ? _toggleP2P : null,
                 ),
@@ -360,13 +355,16 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                       children: [
                         const Divider(),
                         const SizedBox(height: 8),
-                        Text('Sync Folder', style: theme.textTheme.labelLarge),
+                        Text(
+                          l10n.syncFolderLabel,
+                          style: theme.textTheme.labelLarge,
+                        ),
                         const SizedBox(height: 4),
                         Row(
                           children: [
                             Expanded(
                               child: Text(
-                                _syncFolderPath ?? 'Not selected',
+                                _syncFolderPath ?? l10n.syncFolderNotSelected,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: _syncFolderPath == null
                                       ? theme.colorScheme.error
@@ -378,7 +376,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                             const SizedBox(width: 8),
                             FilledButton.tonal(
                               onPressed: _pickFolder,
-                              child: const Text('Browse'),
+                              child: Text(l10n.syncBrowseButton),
                             ),
                           ],
                         ),
@@ -387,7 +385,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                           OutlinedButton.icon(
                             onPressed: _clearSyncFolder,
                             icon: const Icon(Icons.delete_outline, size: 18),
-                            label: const Text('Clear sync files'),
+                            label: Text(l10n.syncClearFilesButton),
                           ),
                         ],
                       ],
@@ -403,7 +401,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: Text(
-              'Cloud Synchronization (Server)',
+              l10n.syncServerSection,
               style: theme.textTheme.titleMedium?.copyWith(
                 color: theme.colorScheme.primary,
                 fontWeight: FontWeight.bold,
@@ -420,19 +418,19 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                     children: [
                       TextField(
                         controller: _serverUrlController,
-                        decoration: const InputDecoration(
-                          labelText: 'Server URL',
+                        decoration: InputDecoration(
+                          labelText: l10n.syncServerUrlLabel,
                           hintText: 'http://localhost:58080',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.link),
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.link),
                         ),
                       ),
                       const SizedBox(height: 16),
                       TextField(
                         controller: _serverTokenController,
                         decoration: InputDecoration(
-                          labelText: 'API Token',
-                          hintText: 'Enter your security token',
+                          labelText: l10n.syncApiTokenLabel,
+                          hintText: l10n.syncApiTokenHint,
                           border: const OutlineInputBorder(),
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
@@ -452,7 +450,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'This token is your shared secret. Enter the same value on all your devices to authorize synchronization.',
+                        l10n.syncApiTokenHelp,
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontStyle: FontStyle.italic,
                           color: Colors.grey,
@@ -476,8 +474,8 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                               : const Icon(Icons.wifi_find_outlined),
                           label: Text(
                             _isTestingConnection
-                                ? 'Testing...'
-                                : 'Test Connection',
+                                ? l10n.syncTestingLabel
+                                : l10n.syncTestConnectionButton,
                           ),
                         ),
                       ),
@@ -487,7 +485,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                         child: FilledButton.icon(
                           onPressed: _saveServerSettings,
                           icon: const Icon(Icons.save_outlined),
-                          label: const Text('Save Server Settings'),
+                          label: Text(l10n.syncSaveServerSettingsButton),
                         ),
                       ),
                     ],
@@ -495,10 +493,8 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                   const SizedBox(height: 16),
                   const Divider(),
                   SwitchListTile(
-                    title: const Text('Enable Server Sync'),
-                    subtitle: const Text(
-                      'Sync with a MyBudget Server instance',
-                    ),
+                    title: Text(l10n.syncEnableServer),
+                    subtitle: Text(l10n.syncServerSubtitle),
                     value: _isServerEnabled,
                     onChanged: _toggleServer,
                     contentPadding: EdgeInsets.zero,
@@ -522,7 +518,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Pending local changes:'),
+                      Text(l10n.syncPendingLocalChanges),
                       Text(
                         '$_pendingChanges',
                         style: theme.textTheme.titleMedium?.copyWith(
@@ -565,7 +561,11 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                               ),
                             )
                           : const Icon(Icons.sync_alt),
-                      label: Text(_isSyncing ? 'Syncing...' : 'Sync Now'),
+                      label: Text(
+                        _isSyncing
+                            ? l10n.syncSyncingLabel
+                            : l10n.syncSyncNowButton,
+                      ),
                     ),
                   ),
                 ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 
 class PeriodSummaryWidget extends StatelessWidget {
@@ -64,7 +65,7 @@ class PeriodSummaryWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Period Summary',
+              context.l10n.periodSummaryTitle,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -75,7 +76,7 @@ class PeriodSummaryWidget extends StatelessWidget {
               children: [
                 _buildStat(
                   context,
-                  'Income',
+                  context.l10n.incomeLabel,
                   totalIncome,
                   Colors.green,
                   numberFormatter,
@@ -83,7 +84,7 @@ class PeriodSummaryWidget extends StatelessWidget {
                 ),
                 _buildStat(
                   context,
-                  'Expense',
+                  context.l10n.expenseLabel,
                   totalExpense,
                   Colors.red,
                   numberFormatter,
@@ -91,7 +92,7 @@ class PeriodSummaryWidget extends StatelessWidget {
                 ),
                 _buildStat(
                   context,
-                  'Net',
+                  context.l10n.netLabel,
                   net,
                   net >= 0 ? Colors.green : Colors.red,
                   numberFormatter,

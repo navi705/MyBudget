@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:my_budget_client/domain/entities/sms_preset.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
+
 /// Dialog for building SMS parsing rules
 class SmsRuleBuilderDialog extends StatefulWidget {
   final SmsParsingRule? existingRule;
@@ -49,8 +51,13 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AlertDialog(
-      title: Text(widget.existingRule == null ? 'Add Rule' : 'Edit Rule'),
+      title: Text(
+        widget.existingRule == null
+            ? l10n.smsRuleAddTitle
+            : l10n.smsRuleEditTitle,
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -58,21 +65,21 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
           children: [
             // Transaction Type
             Text(
-              'Transaction Type',
+              l10n.smsRuleTransactionType,
               style: Theme.of(context).textTheme.labelLarge,
             ),
             const SizedBox(height: 8),
             SegmentedButton<TransactionType>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: TransactionType.expense,
-                  label: Text('Expense'),
-                  icon: Icon(Icons.arrow_upward, color: Colors.red),
+                  label: Text(l10n.expenseLabel),
+                  icon: const Icon(Icons.arrow_upward, color: Colors.red),
                 ),
                 ButtonSegment(
                   value: TransactionType.income,
-                  label: Text('Income'),
-                  icon: Icon(Icons.arrow_downward, color: Colors.green),
+                  label: Text(l10n.incomeLabel),
+                  icon: const Icon(Icons.arrow_downward, color: Colors.green),
                 ),
               ],
               selected: {_type},
@@ -83,11 +90,11 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
             // Match Pattern
             TextField(
               controller: _matchController,
-              decoration: const InputDecoration(
-                labelText: 'Match Pattern (Regex)',
-                hintText: 'e.g., Placanje.*karticom',
-                helperText: 'Pattern to identify this SMS type',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.smsRuleMatchPattern,
+                hintText: l10n.smsRuleMatchPatternHint,
+                helperText: l10n.smsRuleMatchPatternHelp,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
@@ -95,11 +102,11 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
             // Amount Pattern
             TextField(
               controller: _amountController,
-              decoration: const InputDecoration(
-                labelText: 'Amount Pattern (Regex)',
-                hintText: r'e.g., iznos\s+([\d,.]+)',
-                helperText: 'Group 1 should capture the amount',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.smsRuleAmountPattern,
+                hintText: l10n.smsRuleAmountPatternHint,
+                helperText: l10n.smsRuleAmountPatternHelp,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
@@ -107,11 +114,11 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
             // Currency Pattern
             TextField(
               controller: _currencyController,
-              decoration: const InputDecoration(
-                labelText: 'Currency Pattern (Regex, optional)',
-                hintText: r'e.g., [\d,.]+\s*(\w{3})',
-                helperText: 'Group 1 should capture currency code',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.smsRuleCurrencyPattern,
+                hintText: l10n.smsRuleCurrencyPatternHint,
+                helperText: l10n.smsRuleCurrencyPatternHelp,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 24),
@@ -119,22 +126,22 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
             // Test Section
             const Divider(),
             Text(
-              'Test Your Rule',
+              l10n.smsRuleTestTitle,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _testSmsController,
-              decoration: const InputDecoration(
-                labelText: 'Paste SMS text here',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.smsRuleTestSmsHint,
+                border: const OutlineInputBorder(),
               ),
               maxLines: 3,
             ),
             const SizedBox(height: 8),
             FilledButton.tonal(
               onPressed: _testPattern,
-              child: const Text('Test Pattern'),
+              child: Text(l10n.smsRuleTestButton),
             ),
             if (_testResult != null) ...[
               const SizedBox(height: 8),
@@ -160,18 +167,19 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancelButton),
         ),
-        FilledButton(onPressed: _save, child: const Text('Save')),
+        FilledButton(onPressed: _save, child: Text(l10n.saveButton)),
       ],
     );
   }
 
   void _testPattern() {
+    final l10n = context.l10n;
     final sms = _testSmsController.text;
     if (sms.isEmpty) {
       setState(() {
-        _testResult = 'Enter SMS text to test';
+        _testResult = l10n.smsRuleTestEnterSmsError;
         _testSuccess = false;
       });
       return;
@@ -181,7 +189,7 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
       final matchRegex = RegExp(_matchController.text, caseSensitive: false);
       if (!matchRegex.hasMatch(sms)) {
         setState(() {
-          _testResult = '✗ Match pattern did not find a match';
+          _testResult = l10n.smsRuleTestMatchError;
           _testSuccess = false;
         });
         return;
@@ -191,7 +199,7 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
       final amountMatch = amountRegex.firstMatch(sms);
       if (amountMatch == null) {
         setState(() {
-          _testResult = '✗ Amount pattern did not find a match';
+          _testResult = l10n.smsRuleTestAmountError;
           _testSuccess = false;
         });
         return;
@@ -209,16 +217,16 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
       }
 
       setState(() {
-        _testResult =
-            '✓ Match found!\n'
-            'Type: ${_type.name}\n'
-            'Amount: $amountStr\n'
-            'Currency: ${currency ?? 'N/A'}';
+        _testResult = l10n.smsRuleTestSuccess(
+          _type.name,
+          amountStr ?? '?',
+          currency ?? 'N/A',
+        );
         _testSuccess = true;
       });
     } catch (e) {
       setState(() {
-        _testResult = '✗ Invalid regex: $e';
+        _testResult = l10n.smsRuleTestRegexError(e.toString());
         _testSuccess = false;
       });
     }
@@ -227,7 +235,7 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
   void _save() {
     if (_matchController.text.isEmpty || _amountController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Match and Amount patterns are required')),
+        SnackBar(content: Text(context.l10n.smsRuleRequiredError)),
       );
       return;
     }

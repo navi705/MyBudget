@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/utils/hotkey_utils.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
 class HotKeysScreen extends StatefulWidget {
@@ -27,7 +28,7 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
     return EscapeBackHandler(
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Hot Keys'),
+          title: Text(context.l10n.hotKeysTitle),
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(60),
             child: Padding(
@@ -54,77 +55,92 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
 
             // Define available actions categorized
             final categories = {
-              'Navigation': [
-                {'id': 'back', 'label': 'Global: Go Back / Exit'},
-                {'id': 'dashboard', 'label': 'Go to Dashboard'},
-                {'id': 'accounts', 'label': 'Go to Accounts'},
-                {'id': 'transactions', 'label': 'Go to Transactions'},
-                {'id': 'categories', 'label': 'Go to Categories'},
-                {'id': 'data', 'label': 'Go to Data / Exchange Rates'},
-                {'id': 'settings', 'label': 'Go to Settings'},
+              context.l10n.hkCategoryNavigation: [
+                {'id': 'back', 'label': context.l10n.hkActionBack},
+                {'id': 'dashboard', 'label': context.l10n.hkActionDashboard},
+                {'id': 'accounts', 'label': context.l10n.hkActionAccounts},
+                {
+                  'id': 'transactions',
+                  'label': context.l10n.hkActionTransactions,
+                },
+                {'id': 'categories', 'label': context.l10n.hkActionCategories},
+                {'id': 'data', 'label': context.l10n.hkActionData},
+                {'id': 'settings', 'label': context.l10n.hkActionSettings},
               ],
-              'Dashboard Tabs (Ctrl + 1/2/3)': [
-                {'id': 'dashboard_tab_1', 'label': 'Calendar Tab'},
-                {'id': 'dashboard_tab_2', 'label': 'Categories Tab'},
-                {'id': 'dashboard_tab_3', 'label': 'Balance Tab'},
+              context.l10n.hkCategoryDashboardTabs: [
+                {
+                  'id': 'dashboard_tab_1',
+                  'label': context.l10n.hkActionDashboardTab1,
+                },
+                {
+                  'id': 'dashboard_tab_2',
+                  'label': context.l10n.hkActionDashboardTab2,
+                },
+                {
+                  'id': 'dashboard_tab_3',
+                  'label': context.l10n.hkActionDashboardTab3,
+                },
               ],
-              'Data Tabs (Ctrl + 1/2/3)': [
-                {'id': 'data_tab_1', 'label': 'Exchange Rates'},
-                {'id': 'data_tab_2', 'label': 'Inflation'},
-                {'id': 'data_tab_3', 'label': 'Assets'},
+              context.l10n.hkCategoryDataTabs: [
+                {'id': 'data_tab_1', 'label': context.l10n.hkActionDataTab1},
+                {'id': 'data_tab_2', 'label': context.l10n.hkActionDataTab2},
+                {'id': 'data_tab_3', 'label': context.l10n.hkActionDataTab3},
               ],
-              'Period Control': [
-                {'id': 'prev_period', 'label': 'Previous Period'},
-                {'id': 'next_period', 'label': 'Next Period'},
+              context.l10n.hkCategoryPeriodControl: [
+                {'id': 'prev_period', 'label': context.l10n.hkActionPrevPeriod},
+                {'id': 'next_period', 'label': context.l10n.hkActionNextPeriod},
               ],
-              'Actions': [
-                {'id': 'add_action', 'label': 'Generic Add Action'},
+              context.l10n.hkCategoryActions: [
+                {'id': 'add_action', 'label': context.l10n.hkActionAddAction},
               ],
-              'Selection Mode': [
-                {'id': 'accounts_selection_close', 'label': 'Accounts: Close'},
+              context.l10n.hkCategorySelectionMode: [
+                {
+                  'id': 'accounts_selection_close',
+                  'label': context.l10n.hkActionAccountsSelectionClose,
+                },
                 {
                   'id': 'accounts_selection_all',
-                  'label': 'Accounts: Select All',
+                  'label': context.l10n.hkActionAccountsSelectionAll,
                 },
                 {
                   'id': 'accounts_selection_delete',
-                  'label': 'Accounts: Delete',
+                  'label': context.l10n.hkActionAccountsSelectionDelete,
                 },
                 {
                   'id': 'accounts_selection_change_type',
-                  'label': 'Accounts: Change Type',
+                  'label': context.l10n.hkActionAccountsSelectionChangeType,
                 },
                 {
                   'id': 'categories_selection_close',
-                  'label': 'Categories: Close',
+                  'label': context.l10n.hkActionCategoriesSelectionClose,
                 },
                 {
                   'id': 'categories_selection_all',
-                  'label': 'Categories: Select All',
+                  'label': context.l10n.hkActionCategoriesSelectionAll,
                 },
                 {
                   'id': 'categories_selection_delete',
-                  'label': 'Categories: Delete',
+                  'label': context.l10n.hkActionCategoriesSelectionDelete,
                 },
                 {
                   'id': 'categories_selection_change_type',
-                  'label': 'Categories: Change Type',
+                  'label': context.l10n.hkActionCategoriesSelectionChangeType,
                 },
                 {
                   'id': 'exchange_rates_selection_close',
-                  'label': 'Data: Close',
+                  'label': context.l10n.hkActionDataSelectionClose,
                 },
                 {
                   'id': 'exchange_rates_selection_all',
-                  'label': 'Data: Select All',
+                  'label': context.l10n.hkActionDataSelectionAll,
                 },
                 {
                   'id': 'exchange_rates_selection_delete',
-                  'label': 'Data: Delete',
+                  'label': context.l10n.hkActionDataSelectionDelete,
                 },
                 {
                   'id': 'exchange_rates_selection_change_preset',
-                  'label': 'Data: Change Preset',
+                  'label': context.l10n.hkActionDataSelectionChangePreset,
                 },
               ],
             };
@@ -160,7 +176,7 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
                   final label = action['label']!;
                   final currentKeyString = hotkeys[id] ?? '';
                   final displayString = currentKeyString.isEmpty
-                      ? 'None'
+                      ? context.l10n.noneLabel
                       : HotKeyUtils.getDisplayString(currentKeyString);
 
                   // Check for duplicates (informational)
@@ -181,9 +197,12 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
                         ),
                       ),
                       trailing: isDuplicate
-                          ? const Tooltip(
-                              message: 'Duplicate Hotkey',
-                              child: Icon(Icons.warning, color: Colors.orange),
+                          ? Tooltip(
+                              message: context.l10n.duplicateHotkeyTooltip,
+                              child: const Icon(
+                                Icons.warning,
+                                color: Colors.orange,
+                              ),
                             )
                           : const Icon(Icons.keyboard),
                       onTap: () {
@@ -205,7 +224,7 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
             });
 
             if (listItems.isEmpty) {
-              return const Center(child: Text('No matching hotkeys found.'));
+              return Center(child: Text(context.l10n.noMatchingHotkeys));
             }
 
             return ListView(children: listItems);
@@ -237,14 +256,19 @@ class HotKeyRecorderDialog extends StatefulWidget {
 class _HotKeyRecorderDialogState extends State<HotKeyRecorderDialog> {
   final FocusNode _focusNode = FocusNode();
   final Set<LogicalKeyboardKey> _pressedKeys = {};
-  String _tempKeyString = 'Press keys...';
+  String _tempKeyString = '';
 
   @override
   void initState() {
     super.initState();
     // Request focus immediately
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
+      if (mounted) {
+        setState(() {
+          _tempKeyString = context.l10n.pressKeysHint;
+        });
+        _focusNode.requestFocus();
+      }
     });
   }
 
@@ -302,7 +326,7 @@ class _HotKeyRecorderDialogState extends State<HotKeyRecorderDialog> {
 
   void _updateDisplay() {
     if (_pressedKeys.isEmpty) {
-      _tempKeyString = 'Press keys...';
+      _tempKeyString = context.l10n.pressKeysHint;
     } else {
       final serialized = HotKeyUtils.serializeKeys(_pressedKeys);
       final display = HotKeyUtils.getDisplayString(serialized);
@@ -314,7 +338,7 @@ class _HotKeyRecorderDialogState extends State<HotKeyRecorderDialog> {
           .firstOrNull;
 
       if (duplicateId != null) {
-        _tempKeyString = '$display\n(Used by $duplicateId)';
+        _tempKeyString = '$display\n(${context.l10n.usedByLabel(duplicateId)})';
       } else {
         _tempKeyString = display;
       }
@@ -335,7 +359,7 @@ class _HotKeyRecorderDialogState extends State<HotKeyRecorderDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Recording Hotkey for "${widget.actionLabel}"',
+              context.l10n.recordingHotkeyTitle(widget.actionLabel),
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 20),
@@ -354,9 +378,9 @@ class _HotKeyRecorderDialogState extends State<HotKeyRecorderDialog> {
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Press any key combination.',
-              style: TextStyle(color: Colors.grey),
+            Text(
+              context.l10n.pressAnyCombinationHint,
+              style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 10),
             Focus(
@@ -376,7 +400,7 @@ class _HotKeyRecorderDialogState extends State<HotKeyRecorderDialog> {
               children: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+                  child: Text(context.l10n.cancelButton),
                 ),
                 TextButton(
                   onPressed: () {
@@ -391,7 +415,7 @@ class _HotKeyRecorderDialogState extends State<HotKeyRecorderDialog> {
                       _saveAndClose('');
                     }
                   },
-                  child: const Text('Clear / Save'),
+                  child: Text(context.l10n.clearSaveButton),
                 ),
               ],
             ),

@@ -5,6 +5,8 @@ import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/generic/grouped_paginated_list.dart';
 
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
+
 class InflationView extends StatelessWidget {
   final Function(InflationRateDomain?) onEdit;
 
@@ -12,6 +14,7 @@ class InflationView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return BlocBuilder<InflationBloc, InflationState>(
       builder: (context, state) {
         if (state.status == InflationStatus.loading && state.rates.isEmpty) {
@@ -19,7 +22,9 @@ class InflationView extends StatelessWidget {
         }
 
         if (state.status == InflationStatus.failure && state.rates.isEmpty) {
-          return Center(child: Text('Error: ${state.errorMessage}'));
+          return Center(
+            child: Text(l10n.inflationError(state.errorMessage ?? 'Unknown')),
+          );
         }
 
         if (state.rates.isEmpty) {
@@ -29,7 +34,7 @@ class InflationView extends StatelessWidget {
                 _showEmptyAreaContextMenu(context, details.globalPosition),
             onLongPressStart: (details) =>
                 _showEmptyAreaContextMenu(context, details.globalPosition),
-            child: const Center(child: Text('No inflation rates found.')),
+            child: Center(child: Text(l10n.inflationNoRatesFound)),
           );
         }
 
@@ -95,6 +100,7 @@ class InflationView extends StatelessWidget {
   }
 
   void _showEmptyAreaContextMenu(BuildContext context, Offset position) async {
+    final l10n = context.l10n;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
 
@@ -105,13 +111,13 @@ class InflationView extends StatelessWidget {
         Offset.zero & overlay.size,
       ),
       items: <PopupMenuEntry<String>>[
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'add_inflation',
           child: Row(
             children: [
-              Icon(Icons.add),
-              SizedBox(width: 8),
-              Text('Add Inflation Rate'),
+              const Icon(Icons.add),
+              const SizedBox(width: 8),
+              Text(l10n.inflationAddRate),
             ],
           ),
         ),
@@ -133,6 +139,7 @@ class InflationView extends StatelessWidget {
     final bloc = context.read<InflationBloc>();
     final state = bloc.state;
     final isSelected = state.selectedRates.contains(item);
+    final l10n = context.l10n;
 
     showMenu(
       context: context,
@@ -154,7 +161,9 @@ class InflationView extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
               const SizedBox(width: 8),
-              Text(isSelected ? 'Deselect' : 'Select'),
+              Text(
+                isSelected ? l10n.contextMenuDeselect : l10n.contextMenuSelect,
+              ),
             ],
           ),
         ),
@@ -169,32 +178,15 @@ class InflationView extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
               const SizedBox(width: 8),
-              const Text('Select All'),
+              Text(l10n.contextMenuSelectAll),
             ],
           ),
         ),
         PopupMenuItem(
           onTap: () {
-            // Trigger delete confirmation
-            // Since we don't have direct access to _showDeleteConfirmation here easily without state passing or callback,
-            // we can just toggle selection if not selected, then let user click delete app bar.
-            // OR show dialog here.
-            // UX: Right click delete usually deletes generic item? Or selected?
-            // If item is not selected, selecting it + delete is safer.
-            // If item is selected, delete all selected.
-            // Let's mimic Accounts: 'Delete' option deletes THIS item (or selection if part of it).
-            // Logic:
             if (!isSelected) {
               bloc.add(ToggleInflationSelection(item));
             }
-            // Wait for state update is hard.
-            // Simpler: Just make 'Delete' select the item (if not selected) and then we want to trigger the Batch Delete dialog.
-            // But we can't trigger the AppBar dialog from here easily.
-            // Helper method for dialog?
-            // I'll define _showDeleteDialog here too or use a mixin? No, just duplicate code for now or implement direct delete event (with CONFIRMATION).
-            // Let's defer delete to AppBar for bulk. For single item right click delete?
-            // Context menu 'Delete' usually implies immediate action or dialog.
-            // I will show confirmation dialog here.
 
             Future.delayed(Duration.zero, () {
               if (context.mounted) {
@@ -206,11 +198,14 @@ class InflationView extends StatelessWidget {
               }
             });
           },
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.delete, color: Colors.red),
-              SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: Colors.red)),
+              const Icon(Icons.delete, color: Colors.red),
+              const SizedBox(width: 8),
+              Text(
+                l10n.contextMenuDelete,
+                style: const TextStyle(color: Colors.red),
+              ),
             ],
           ),
         ),
@@ -223,41 +218,26 @@ class InflationView extends StatelessWidget {
     InflationBloc bloc,
     int count,
   ) {
+    final l10n = context.l10n;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Rates?'),
-        content: Text(
-          'Are you sure you want to delete ${count > 1 ? '$count rates' : 'this rate'}?',
-        ),
+        title: Text(l10n.inflationDeleteConfirmTitle),
+        content: Text(l10n.inflationDeleteConfirmMessage(count)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
-              // If we are here from context menu, ensuring selection is synced is tricky if we want to delete "just this one" but keep others selected?
-              // Simpler: If "Delete" is clicked, we assume we want to delete the Selection (if item is in it) or just the item.
-              // For consistency with Selection Mode, we should probably ensure the item IS selected, then call DeleteSelected.
-              // If I added logic to Select it in onTap, it's async.
-              // Better: The context menu delete always acts on "Selection" if Selection Mode is active?
-              // Or acts on "Target" if no selection mode?
-              // Plan: "Delete" in context menu performs "DeleteSelected" logic.
-              // So I should ensure target is selected.
-              // But `bloc.add` is async.
-              // Hack: Dispatch Toggle then Delete? No.
-
-              // Alternative: context menu delete is ONLY for single item delete unless it's bulk context menu?
-              // Let's stick to: Context Menu > Delete -> triggers Delete events.
-
-              // Ideally:
-              bloc.add(
-                DeleteSelectedInflationRates(),
-              ); // Assumes selection is updated.
+              bloc.add(DeleteSelectedInflationRates());
               Navigator.pop(context);
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(
+              l10n.deleteButton,
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),

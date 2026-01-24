@@ -7,6 +7,8 @@ import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app
 import 'package:my_budget_client/presentation/widgets/inflation_filter_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
+
 class InflationTabAppBar extends StatelessWidget
     implements PreferredSizeWidget {
   final InflationState state;
@@ -54,7 +56,7 @@ class InflationTabAppBar extends StatelessWidget
 
   String _formatDate(BuildContext context) {
     if (state.filterMode == FilterMode.range) {
-      if (state.activeDateRange == null) return 'Select Range';
+      if (state.activeDateRange == null) return context.l10n.selectDateLabel;
       final start = MaterialLocalizations.of(
         context,
       ).formatShortDate(state.activeDateRange!.start);
@@ -96,15 +98,12 @@ class InflationTabAppBar extends StatelessWidget
   Widget build(BuildContext context) {
     final bloc = context.read<InflationBloc>();
     final onSurface = Theme.of(context).colorScheme.onSurface;
+    final l10n = context.l10n;
 
     if (state.isSelectionModeActive) {
       return _SelectionAppBar(
         selectionCount: state.selectedRates.length,
-        totalCount: state
-            .rates
-            .length, // Should ideally use loaded count for "Select All" logic if we want to limit to loaded, but "Select All" usually means "Select All Loaded" or "All in DB"?
-        // ExchangeRates implementation selects all in layout.
-        // selectAll event in Bloc selects state.rates.
+        totalCount: state.rates.length,
         onClearSelection: () => bloc.add(DeselectAllInflationRates()),
         onSelectAll: () {
           if (state.selectedRates.length == state.rates.length) {
@@ -126,9 +125,9 @@ class InflationTabAppBar extends StatelessWidget
       mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
       children: [
         MultiLevelTooltip(
-          message: 'Previous Period',
+          message: l10n.previousPeriodTooltip,
           actionId: 'prev_period',
-          description: 'Move back by one day, month, or year',
+          description: l10n.previousPeriodDescription,
           child: IconButton(
             icon: Icon(Icons.chevron_left, color: onSurface),
             onPressed: () => _navigate(bloc, -1),
@@ -149,9 +148,9 @@ class InflationTabAppBar extends StatelessWidget
         Expanded(
           flex: isMobile ? 1 : 0,
           child: MultiLevelTooltip(
-            message: 'Select Date',
+            message: l10n.selectDateTooltip,
             actionId: 'inflation_pick_date',
-            description: 'Change the active period or date range',
+            description: l10n.selectDateDescription,
             child: InkWell(
               onTap: () => _showCustomCalendar(context),
               child: Container(
@@ -173,9 +172,9 @@ class InflationTabAppBar extends StatelessWidget
           RotatedBox(
             quarterTurns: state.sort == Sort.ascending ? 2 : 0,
             child: MultiLevelTooltip(
-              message: 'Sort Order',
+              message: l10n.sortOrderTooltip,
               actionId: 'inflation_sort',
-              description: 'Toggle between ascending and descending order',
+              description: l10n.sortOrderDescription,
               child: IconButton(
                 icon: Icon(Icons.sort, color: onSurface),
                 onPressed: () {
@@ -195,9 +194,9 @@ class InflationTabAppBar extends StatelessWidget
           RotatedBox(
             quarterTurns: state.sort == Sort.ascending ? 2 : 0,
             child: MultiLevelTooltip(
-              message: 'Sort Order',
+              message: l10n.sortOrderTooltip,
               actionId: 'inflation_sort',
-              description: 'Toggle between ascending and descending order',
+              description: l10n.sortOrderDescription,
               child: IconButton(
                 icon: Icon(Icons.sort, color: onSurface),
                 onPressed: () {
@@ -212,9 +211,9 @@ class InflationTabAppBar extends StatelessWidget
           const SizedBox(width: 8),
         ],
         MultiLevelTooltip(
-          message: 'Next Period',
+          message: l10n.nextPeriodTooltip,
           actionId: 'next_period',
-          description: 'Move forward by one day, month, or year',
+          description: l10n.nextPeriodDescription,
           child: IconButton(
             icon: Icon(Icons.chevron_right, color: onSurface),
             onPressed: () => _navigate(bloc, 1),
@@ -225,29 +224,33 @@ class InflationTabAppBar extends StatelessWidget
 
     return GenericFilterAppBar(
       centerWidget: centerWidget,
-      totalCountText: 'Total: ${state.totalCount}',
+      totalCountText: l10n.totalCountLabel(state.totalCount),
     );
   }
 
   void _showDeleteConfirmation(BuildContext context, InflationBloc bloc) {
+    final l10n = context.l10n;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Selected Rates?'),
+        title: Text(l10n.inflationDeleteConfirmTitle),
         content: Text(
-          'Are you sure you want to delete ${state.selectedRates.length} rates?',
+          l10n.inflationDeleteConfirmMessage(state.selectedRates.length),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
               bloc.add(DeleteSelectedInflationRates());
               Navigator.pop(context);
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(
+              l10n.deleteButton,
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -272,6 +275,7 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final isAllSelected = selectionCount == totalCount && totalCount > 0;
 
     return AppBar(
@@ -279,14 +283,16 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
         icon: const Icon(Icons.close),
         onPressed: onClearSelection,
       ),
-      title: Text('$selectionCount selected'),
+      title: Text(l10n.selectedCountLabel(selectionCount)),
       actions: [
         MultiLevelTooltip(
-          message: isAllSelected ? 'Deselect All' : 'Select All',
+          message: isAllSelected
+              ? l10n.deselectAllButton
+              : l10n.selectAllButton,
           actionId: 'inflation_selection_all',
           description: isAllSelected
-              ? 'Clear all selections'
-              : 'Select all visible inflation rates',
+              ? l10n.contextMenuDeselectAll
+              : l10n.contextMenuSelectAll,
           child: IconButton(
             icon: Icon(
               isAllSelected
@@ -298,10 +304,9 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
         if (selectionCount > 0)
           MultiLevelTooltip(
-            message: 'Delete Selected',
+            message: l10n.deleteSelectedButton,
             actionId: 'inflation_selection_delete',
-            description:
-                'Remove the selected inflation rates from the database',
+            description: l10n.deleteTransactionsDescription,
             child: IconButton(
               icon: const Icon(Icons.delete),
               onPressed: onDelete,

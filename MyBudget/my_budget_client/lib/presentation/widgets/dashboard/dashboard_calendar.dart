@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_header.dart'; // Added
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_header.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 
 class DashboardCalendar extends StatelessWidget {
@@ -87,8 +88,16 @@ class DashboardCalendar extends StatelessWidget {
 
   Widget _buildWeekdayLabels(BuildContext context) {
     // Determine start of week (Monday)
-    // We can use a localized list or hardcode [Mon, Tue...]
-    final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    // We use localized weekdays from intl
+    final weekdays = [
+      DateFormat.E(context.l10n.localeName).format(DateTime(2024, 1, 1)), // Mon
+      DateFormat.E(context.l10n.localeName).format(DateTime(2024, 1, 2)), // Tue
+      DateFormat.E(context.l10n.localeName).format(DateTime(2024, 1, 3)), // Wed
+      DateFormat.E(context.l10n.localeName).format(DateTime(2024, 1, 4)), // Thu
+      DateFormat.E(context.l10n.localeName).format(DateTime(2024, 1, 5)), // Fri
+      DateFormat.E(context.l10n.localeName).format(DateTime(2024, 1, 6)), // Sat
+      DateFormat.E(context.l10n.localeName).format(DateTime(2024, 1, 7)), // Sun
+    ];
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: weekdays

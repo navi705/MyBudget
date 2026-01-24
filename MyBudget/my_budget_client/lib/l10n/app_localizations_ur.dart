@@ -38,6 +38,9 @@ class AppLocalizationsUr extends AppLocalizations {
   String get addAccountDialogTitle => 'نیا اکاؤنٹ شامل کریں';
 
   @override
+  String get editAccountDialogTitle => 'اکاؤنٹ میں ترمیم کریں';
+
+  @override
   String get accountNameHint => 'اکاؤنٹ کا نام';
 
   @override
@@ -63,6 +66,28 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get clearButton => 'صاف کریں';
+
+  @override
+  String get selectButton => 'منتخب کریں';
+
+  @override
+  String get selectAllButton => 'سب منتخب کریں';
+
+  @override
+  String get deselectAllButton => 'سب غیر منتخب کریں';
+
+  @override
+  String get deleteSelectedButton => 'منتخب حذف کریں';
+
+  @override
+  String totalCountLabel(Object count) {
+    return 'کل: $count';
+  }
+
+  @override
+  String selectedCountLabel(Object count) {
+    return '$count منتخب';
+  }
 
   @override
   String get formValidationPleaseEnterName => 'براہ کرم نام درج کریں';
@@ -111,6 +136,30 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get currencyBreakdown => 'کرنسی کی تفصیل';
+
+  @override
+  String get dashboardNetWorthTrend => 'خالص مالیت کا رجحان';
+
+  @override
+  String get dashboardWealthDistributionByAccount => 'دولت کی تقسیم (اکاؤنٹ کے لحاظ سے)';
+
+  @override
+  String get dashboardCurrencyExposure => 'کرنسی کی نمائش';
+
+  @override
+  String get dashboardNoAccountsFound => 'کوئی اکاؤنٹ نہیں ملا';
+
+  @override
+  String get dashboardTotalNetWorthTrend => 'کل خالص مالیت کا رجحان';
+
+  @override
+  String get dashboardAccountBalanceTrend => 'اکاؤنٹ بیلنس کا رجحان';
+
+  @override
+  String get dashboardWealthDistribution => 'دولت کی تقسیم';
+
+  @override
+  String get dashboardCurrencyBreakdown => 'کرنسی کی تفصیل';
 
   @override
   String get metricBalance => 'بیلنس';
@@ -255,20 +304,10 @@ class AppLocalizationsUr extends AppLocalizations {
   String get sortOrderDescription => 'رقم کے لحاظ سے صعودی اور نزولی ترتیب کے درمیان سوئچ کریں';
 
   @override
-  String totalCountLabel(Object count) {
-    return 'کل: $count';
-  }
-
-  @override
   String get closeSelectionTooltip => 'انتخاب بند کریں';
 
   @override
   String get exitSelectionDescription => 'انتخاب موڈ سے باہر نکلیں';
-
-  @override
-  String selectedCountLabel(Object count) {
-    return '$count منتخب';
-  }
 
   @override
   String get categoryNameLabel => 'زمرہ کا نام';
@@ -294,6 +333,9 @@ class AppLocalizationsUr extends AppLocalizations {
   }
 
   @override
+  String get exitTransactionsSelectionDescription => 'لین دین کے انتخاب کے موڈ سے باہر نکلیں';
+
+  @override
   String get changeDateTooltip => 'تاریخ تبدیل کریں';
 
   @override
@@ -312,33 +354,12 @@ class AppLocalizationsUr extends AppLocalizations {
   String get deleteTransactionsDescription => 'تمام منتخب لین دین کو مستقل طور پر حذف کریں';
 
   @override
-  String get exitTransactionsSelectionDescription => 'لین دین کے انتخاب موڈ سے باہر نکلیں';
+  String get amountLabel => 'رقم';
 
   @override
   String quantityLabel(Object quantity) {
     return 'مقدار: $quantity';
   }
-
-  @override
-  String get addTransactionTitle => 'لین دین شامل کریں';
-
-  @override
-  String get editTransactionTitle => 'لین دین میں ترمیم کریں';
-
-  @override
-  String get newTransferTitle => 'نئی منتقلی';
-
-  @override
-  String get editTransferTitle => 'منتقلی میں ترمیم کریں';
-
-  @override
-  String get descriptionLabel => 'تفصیل';
-
-  @override
-  String get descriptionOptionalLabel => 'تفصیل (اختیاری)';
-
-  @override
-  String get amountLabel => 'رقم';
 
   @override
   String get quantityFormLabel => 'مقدار';
@@ -369,6 +390,24 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get selectDateLabel => 'تاریخ منتخب کریں';
+
+  @override
+  String get addTransactionTitle => 'لین دین شامل کریں';
+
+  @override
+  String get editTransactionTitle => 'لین دین میں ترمیم کریں';
+
+  @override
+  String get newTransferTitle => 'نیا تبادلہ';
+
+  @override
+  String get editTransferTitle => 'تبادلے میں ترمیم کریں';
+
+  @override
+  String get descriptionLabel => 'تفصیل';
+
+  @override
+  String get descriptionOptionalLabel => 'تفصیل (اختیاری)';
 
   @override
   String get swapAccountsTooltip => 'اکاؤنٹس تبدیل کریں';
@@ -520,6 +559,95 @@ class AppLocalizationsUr extends AppLocalizations {
   String get syncSettingsSubtitle => 'Syncthing کے ذریعے P2P مطابقت پذیری';
 
   @override
+  String get themeSettingsTitle => 'تھیم کی ترتیبات';
+
+  @override
+  String get appearanceSection => 'ظاہری شکل';
+
+  @override
+  String get themeModeLabel => 'تھیم موڈ';
+
+  @override
+  String get systemTheme => 'سسٹم';
+
+  @override
+  String get lightTheme => 'ہلکا (Light)';
+
+  @override
+  String get darkTheme => 'تاریک (Dark)';
+
+  @override
+  String get colorCustomizationSection => 'رنگوں کی تخصیص';
+
+  @override
+  String get primaryColorLabel => 'بنیادی رنگ';
+
+  @override
+  String get secondaryColorLabel => 'ثانوی رنگ';
+
+  @override
+  String get surfaceColorLabel => 'سطحی رنگ';
+
+  @override
+  String get windowEffectsSection => 'ونڈو اثرات (ڈیسک ٹاپ)';
+
+  @override
+  String get enableEffectsLabel => 'ونڈو اثرات فعال کریں';
+
+  @override
+  String get windowEffectLabel => 'ونڈو اثر';
+
+  @override
+  String get backgroundLabel => 'پس منظر';
+
+  @override
+  String get removeBackgroundColor => 'پس منظر کا رنگ ہٹائیں';
+
+  @override
+  String get transparentSurfaceLabel => 'شفاف سطح (کارڈز)';
+
+  @override
+  String get fullyTransparentLabel => 'مکمل شفاف';
+
+  @override
+  String get opaqueLabel => 'غیر شفاف';
+
+  @override
+  String opacityLabel(Object value) {
+    return 'شفافیت: $value%';
+  }
+
+  @override
+  String get backgroundSettingsSection => 'پس منظر کی ترتیبات';
+
+  @override
+  String get enableBackgroundImageLabel => 'پس منظر کی تصویر فعال کریں';
+
+  @override
+  String get backgroundBlurLabel => 'پس منظر کا دھندلا پن';
+
+  @override
+  String get surfaceGlassStyleTitle => 'سطح/شیشے کا انداز';
+
+  @override
+  String get chooseImageButton => 'تصویر منتخب کریں';
+
+  @override
+  String get selectImageFileError => 'براہ کرم ایک تصویر فائل منتخب کریں۔';
+
+  @override
+  String get clearImageButton => 'تصویر صاف کریں';
+
+  @override
+  String get saveThemePresetTitle => 'تھیم پیش سیٹ محفوظ کریں';
+
+  @override
+  String get presetNameLabel => 'پیش سیٹ کا نام';
+
+  @override
+  String get presetNameHint => 'میرا زبردست تھیم';
+
+  @override
   String get importDataLabel => 'ڈیٹا درآمد کریں';
 
   @override
@@ -548,6 +676,190 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get debugMenuSubtitle => 'اندرونی ڈویلپر ٹولز';
+
+  @override
+  String get apiManagementTitle => 'API مینجمنٹ';
+
+  @override
+  String get apiCategoriesSection => 'API زمرہ جات';
+
+  @override
+  String get manualUtilitiesSection => 'دستی یوٹیلیٹیز';
+
+  @override
+  String get startupDataSyncLabel => 'اسٹارٹ اپ پر ڈیٹا کی مطابقت پذیری';
+
+  @override
+  String get startupDataSyncDescription => 'ایپ لانچ پر بیرونی ڈیٹا کی بازیافت اور سرور کی مطابقت پذیری دونوں کو کنٹرول کرتا ہے۔';
+
+  @override
+  String get standardApiLabel => 'معیاری API';
+
+  @override
+  String get syncOnStartupDescription => 'اسٹارٹ اپ پر مطابقت پذیری کریں';
+
+  @override
+  String get customSourcesLabel => 'حسب ضرورت ذرائع';
+
+  @override
+  String syncCustomSourcesDescription(Object count) {
+    return 'اسٹارٹ اپ پر تمام ($count) کی مطابقت پذیری کریں';
+  }
+
+  @override
+  String get individualCustomSourcesTitle => 'انفرادی حسب ضرورت ذرائع';
+
+  @override
+  String get noCustomSourcesAdded => 'کوئی حسب ضرورت ذریعہ شامل نہیں کیا گیا۔';
+
+  @override
+  String get fetchTodaysRatesButton => 'آج کی شرحیں حاصل کریں';
+
+  @override
+  String get inflationConfigTitle => 'افراط زر کی ترتیب';
+
+  @override
+  String get countryCodeHint => 'ملک کا کوڈ (مثلاً SRB)';
+
+  @override
+  String fetchDataForCountryButton(Object country) {
+    return '$country کے لیے ڈیٹا حاصل کریں';
+  }
+
+  @override
+  String get steamSettingsTitle => 'Steam ترتیبات';
+
+  @override
+  String get steamIdLabel => 'Steam ID (64-bit)';
+
+  @override
+  String get preferredGameLabel => 'پسندیدہ گیم';
+
+  @override
+  String get fetchInventoryNowButton => 'انوینٹری ابھی حاصل کریں';
+
+  @override
+  String get manualExchangeRatesTitle => 'شرح تبادلہ کی دستی بازیافت';
+
+  @override
+  String get selectStartDate => 'شروع کی تاریخ منتخب کریں';
+
+  @override
+  String startDateFrom(Object date) {
+    return 'سے: $date';
+  }
+
+  @override
+  String get selectEndDate => 'ختم ہونے کی تاریخ منتخب کریں';
+
+  @override
+  String endDateTo(Object date) {
+    return 'تک: $date';
+  }
+
+  @override
+  String get fetchRangeButton => 'رینج حاصل کریں';
+
+  @override
+  String get manualSteamInventoryTitle => 'دستی Steam انوینٹری';
+
+  @override
+  String get selectGameHint => 'گیم منتخب کریں';
+
+  @override
+  String get fetchValueButton => 'قدر حاصل کریں';
+
+  @override
+  String get manualInflationDataTitle => 'دستی افراط زر کا ڈیٹا';
+
+  @override
+  String get selectStartYear => 'شروع کا سال منتخب کریں';
+
+  @override
+  String startYearFrom(Object year) {
+    return 'سے: $year';
+  }
+
+  @override
+  String get selectEndYear => 'ختم ہونے کا سال منتخب کریں';
+
+  @override
+  String endYearTo(Object year) {
+    return 'تک: $year';
+  }
+
+  @override
+  String get fetchDataButton => 'ڈیٹا حاصل کریں';
+
+  @override
+  String get connectionOk => 'کنکشن ٹھیک ہے';
+
+  @override
+  String get connectionFailed => 'کنکشن ناکام ہوگیا';
+
+  @override
+  String get testConnectionButton => 'کنکشن ٹیسٹ کریں';
+
+  @override
+  String get editCustomSourceTitle => 'حسب ضرورت ذریعہ میں ترمیم کریں';
+
+  @override
+  String get addCustomSourceTitle => 'حسب ضرورت ذریعہ شامل کریں';
+
+  @override
+  String get addressFormatsHelp => 'ایڈریس فارمیٹ:\n• 192.168.1.10 (IP)\n• localhost یا api.my.com\n• http://myserver.com';
+
+  @override
+  String get urlIpLabel => 'URL / IP';
+
+  @override
+  String get urlIpHint => '192.168.1.10:8080';
+
+  @override
+  String get dataTypeLabel => 'ڈیٹا کی قسم';
+
+  @override
+  String get apiTitleExchangeRates => 'شرح تبادلہ';
+
+  @override
+  String get apiTitleInflation => 'افراط زر';
+
+  @override
+  String get apiTitleAssetPrices => 'اثاثوں کی قیمتیں';
+
+  @override
+  String get apiTitleSteamInventory => 'Steam انوینٹری';
+
+  @override
+  String get transferLabel => 'منتقلی';
+
+  @override
+  String get uncategorizedLabel => 'بغیر کسی زمرے کے';
+
+  @override
+  String get defaultLabel => 'ڈیفالٹ';
+
+  @override
+  String receivedTotalLabel(Object total) {
+    return 'وصول شدہ: $total';
+  }
+
+  @override
+  String spentTotalLabel(Object total) {
+    return 'خرچ شدہ: $total';
+  }
+
+  @override
+  String get periodSummaryTitle => 'مدت کا خلاصہ';
+
+  @override
+  String get incomeLabel => 'آمدنی';
+
+  @override
+  String get expenseLabel => 'اخراجات';
+
+  @override
+  String get netLabel => 'کل منافع/نقصان';
 
   @override
   String get exportSuccessMessage => 'برآمد کامیابی سے مکمل ہوئی۔';
@@ -778,16 +1090,13 @@ class AppLocalizationsUr extends AppLocalizations {
   String get noCurrenciesSelected => 'کوئی کرنسی منتخب نہیں کی گئی۔';
 
   @override
-  String get incomeLabel => 'آمدنی';
-
-  @override
-  String get expenseLabel => 'اخراجات';
-
-  @override
   String get failedToLoadDashboard => 'ڈیش بورڈ لوڈ کرنے میں ناکامی';
 
   @override
   String get dashboardCalendarTab => 'کیلنڈر';
+
+  @override
+  String get dashboardTabCalendar => 'کیلنڈر';
 
   @override
   String get dashboardCalendarTooltip => 'کیلنڈر ویو';
@@ -799,6 +1108,9 @@ class AppLocalizationsUr extends AppLocalizations {
   String get dashboardCategoriesTab => 'اقسام';
 
   @override
+  String get dashboardTabCategories => 'اقسام';
+
+  @override
   String get dashboardCategoriesTooltip => 'اقسام کا تجزیہ';
 
   @override
@@ -806,6 +1118,9 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get dashboardBalanceTab => 'بیلنس';
+
+  @override
+  String get dashboardTabBalance => 'بیلنس';
 
   @override
   String get dashboardBalanceTooltip => 'بیلنس کی تاریخ';
@@ -821,6 +1136,19 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get manageIconsTitle => 'آئیکنز کا انتظام کریں';
+
+  @override
+  String get manageStylesDeleteTitle => 'آئیکنز حذف کریں';
+
+  @override
+  String manageStylesDeleteConfirm(Object count) {
+    return 'کیا آپ واقعی $count منتخب کردہ آئیکنز حذف کرنا چاہتے ہیں؟';
+  }
+
+  @override
+  String manageStylesDeleteConfirmWithTransfer(Object count) {
+    return 'کیا آپ واقعی $count منتخب کردہ آئیکنز حذف کرنا چاہتے ہیں؟ (تبادلہ آئیکن کو چھوڑ دیا جائے گا)';
+  }
 
   @override
   String get noIconsCreated => 'ابھی تک کوئی آئیکن نہیں بنایا گیا۔';
@@ -930,4 +1258,503 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get historyLabel => 'تاریخ';
+
+  @override
+  String get syncScreenTitle => 'مطابقت پذیری کی ترتیبات';
+
+  @override
+  String get syncP2PSection => 'P2P مطابقت پذیری (Syncthing)';
+
+  @override
+  String get syncEnableP2P => 'P2P مطابقت پذیری فعال کریں';
+
+  @override
+  String get syncP2PSubtitle => 'مشترکہ فولڈر میں .sync فائلوں کے ذریعے مطابقت پذیری کریں';
+
+  @override
+  String get syncFolderLabel => 'مطابقت پذیری فولڈر';
+
+  @override
+  String get syncFolderNotSelected => 'منتخب نہیں کیا گیا';
+
+  @override
+  String get syncBrowseButton => 'براؤز کریں';
+
+  @override
+  String get syncClearFilesButton => 'مطابقت پذیری فائلیں صاف کریں';
+
+  @override
+  String get syncServerSection => 'کلاؤڈ مطابقت پذیری (سرور)';
+
+  @override
+  String get syncServerUrlLabel => 'سرور URL';
+
+  @override
+  String get syncApiTokenLabel => 'API ٹوکن';
+
+  @override
+  String get syncApiTokenHint => 'اپنا سیکیورٹی ٹوکن درج کریں';
+
+  @override
+  String get syncApiTokenHelp => 'یہ ٹوکن آپ کا مشترکہ راز ہے۔ مطابقت پذیری کی اجازت دینے کے لیے اپنے تمام آلات پر ایک ہی ویلیو درج کریں۔';
+
+  @override
+  String get syncTestConnectionButton => 'کنکشن ٹیسٹ کریں';
+
+  @override
+  String get syncTestingLabel => 'ٹیسٹنگ...';
+
+  @override
+  String get syncSaveServerSettingsButton => 'سرور کی ترتیبات محفوظ کریں';
+
+  @override
+  String get syncEnableServer => 'سرور کی مطابقت پذیری فعال کریں';
+
+  @override
+  String get syncServerSubtitle => 'MyBudget Server کے انسٹنس کے ساتھ مطابقت پذیری کریں';
+
+  @override
+  String get syncPendingLocalChanges => 'زیر التواء مقامی تبدیلیاں:';
+
+  @override
+  String get syncSyncNowButton => 'ابھی مطابقت پذیری کریں';
+
+  @override
+  String get syncSyncingLabel => 'مطابقت پذیری ہو رہی ہے...';
+
+  @override
+  String get syncWebNotAvailable => 'ویب پر مطابقت پذیری دستیاب نہیں ہے';
+
+  @override
+  String get syncPermissionRequired => 'مطابقت پذیری کے لیے اسٹوریج کی اجازت درکار ہے۔ براہ کرم ترتیبات میں \"تمام فائلوں تک رسائی\" کو فعال کریں۔';
+
+  @override
+  String get syncSelectFolderTitle => 'Syncthing فولڈر منتخب کریں';
+
+  @override
+  String get syncClearFilesTitle => 'مطابقت پذیری فائلیں صاف کریں';
+
+  @override
+  String get syncClearFilesConfirm => 'یہ منتخب کردہ فولڈر سے تمام .sync فائلیں حذف کر دے گا۔ اسے واپس نہیں لیا جا سکتا۔';
+
+  @override
+  String syncDeletedFilesCount(Object count) {
+    return '$count مطابقت پذیری فائلیں حذف کر دی گئیں';
+  }
+
+  @override
+  String syncClearFilesError(Object error) {
+    return 'فائلیں صاف کرنے میں خرابی: $error';
+  }
+
+  @override
+  String get syncSettingsSaved => 'سرور کی ترتیبات محفوظ ہو گئیں';
+
+  @override
+  String get syncConnectionSuccessful => 'کنکشن کامیاب رہا!';
+
+  @override
+  String get syncConnectionFailed => 'کنکشن ناکام ہوگیا۔ URL اور ٹوکن چیک کریں۔';
+
+  @override
+  String get syncCompleted => 'مطابقت پذیری کامیابی سے مکمل ہوگئی';
+
+  @override
+  String syncFailed(Object error) {
+    return 'مطابقت پذیری ناکام ہوگئی: $error';
+  }
+
+  @override
+  String get smsRuleAddTitle => 'اصول (Rule) شامل کریں';
+
+  @override
+  String get smsRuleEditTitle => 'اصول میں ترمیم کریں';
+
+  @override
+  String get smsRuleTransactionType => 'ٹرانزیکشن کی قسم';
+
+  @override
+  String get smsRuleMatchPattern => 'میچ پیٹرن (Regex)';
+
+  @override
+  String get smsRuleMatchPatternHint => 'مثلاً: کارڈ کے ذریعے ادائیگی';
+
+  @override
+  String get smsRuleMatchPatternHelp => 'اس قسم کے ایس ایم ایس کی شناخت کرنے کے لیے پیٹرن';
+
+  @override
+  String get smsRuleAmountPattern => 'رقم کا پیٹرن (Regex)';
+
+  @override
+  String get smsRuleAmountPatternHint => 'مثلاً: رقم\\s+([\\d,.]+)';
+
+  @override
+  String get smsRuleAmountPatternHelp => 'گروپ 1 کو رقم کو کیپچر کرنا چاہیے';
+
+  @override
+  String get smsRuleCurrencyPattern => 'کرنسی کا پیٹرن (Regex، اختیاری)';
+
+  @override
+  String get smsRuleCurrencyPatternHint => 'مثلاً: [\\d,.]+\\s*(\\w\\w\\w)';
+
+  @override
+  String get smsRuleCurrencyPatternHelp => 'گروپ 1 کو کرنسی کوڈ کو کیپچر کرنا چاہیے';
+
+  @override
+  String get smsRuleTestTitle => 'اپنے اصول کی جانچ کریں';
+
+  @override
+  String get smsRuleTestSmsHint => 'ایس ایم ایس ٹیکسٹ یہاں پیسٹ کریں';
+
+  @override
+  String get smsRuleTestButton => 'پیٹرن کی جانچ کریں';
+
+  @override
+  String get smsRuleTestEnterSmsError => 'ٹیسٹ کے لیے ایس ایم ایس ٹیکسٹ درج کریں';
+
+  @override
+  String get smsRuleTestMatchError => '✗ میچ پیٹرن کا کوئی نتیجہ نہیں ملا';
+
+  @override
+  String get smsRuleTestAmountError => '✗ رقم کے پیٹرن کا کوئی نتیجہ نہیں ملا';
+
+  @override
+  String smsRuleTestSuccess(Object amount, Object currency, Object type) {
+    return '✓ میچ مل گیا!\nقسم: $type\nرقم: $amount\nکرنسی: $currency';
+  }
+
+  @override
+  String smsRuleTestRegexError(Object error) {
+    return '✗ غلط Regex: $error';
+  }
+
+  @override
+  String get smsRuleRequiredError => 'میچ پیٹرن اور رقم کے پیٹرن درکار ہیں';
+
+  @override
+  String inflationError(Object error) {
+    return 'خرابی: $error';
+  }
+
+  @override
+  String get inflationNoRatesFound => 'افراط زر کی شرح نہیں ملی۔';
+
+  @override
+  String get inflationAddRate => 'افراط زر کی شرح شامل کریں';
+
+  @override
+  String get inflationDeleteConfirmTitle => 'شرحیں حذف کریں؟';
+
+  @override
+  String inflationDeleteConfirmMessage(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'ان $count شرحوں',
+      one: 'اس شرح',
+    );
+    return 'کیا آپ واقعی $_temp0 کو حذف کرنا چاہتے ہیں؟';
+  }
+
+  @override
+  String inflationSelectedCount(Object count) {
+    return '$count منتخب کردہ';
+  }
+
+  @override
+  String get inflationFiltersTitle => 'افراط زر کے فلٹرز';
+
+  @override
+  String get inflationCountries => 'ممالک';
+
+  @override
+  String get inflationPresets => 'پیش سیٹ';
+
+  @override
+  String deleteCategoryConfirmTitle(Object name) {
+    return '\"$name\" حذف کریں؟';
+  }
+
+  @override
+  String get deleteCategoryMessage => 'اس زمرے میں متعلقہ ترسیلات موجود ہیں۔ آپ کیا کرنا چاہیں گے؟';
+
+  @override
+  String get deleteCategoryReassign => 'ترسیلات دوسرے زمرے میں منتقل کریں';
+
+  @override
+  String get deleteCategoryNewCategory => 'نیا زمرہ';
+
+  @override
+  String get deleteCategoryDeleteAll => 'تمام متعلقہ ترسیلات حذف کریں';
+
+  @override
+  String deleteAccountConfirmTitle(Object name) {
+    return '\"$name\" حذف کریں؟';
+  }
+
+  @override
+  String get deleteAccountMessage => 'اس اکاؤنٹ میں متعلقہ ترسیلات موجود ہوسکتی ہیں۔ آپ کیا کرنا چاہیں گے؟';
+
+  @override
+  String get deleteAccountReassign => 'ترسیلات دوسرے اکاؤنٹ میں منتقل کریں';
+
+  @override
+  String get deleteAccountNewAccount => 'نیا اکاؤنٹ';
+
+  @override
+  String get deleteAccountDeleteAll => 'تمام متعلقہ ترسیلات حذف کریں';
+
+  @override
+  String get confirmButton => 'تصدیق کریں';
+
+  @override
+  String get okButton => 'ٹھیک ہے';
+
+  @override
+  String get noItemsFound => 'کوئی آئٹم نہیں ملا۔';
+
+  @override
+  String get noDataForPeriod => 'اس مدت کے لیے کوئی ڈیٹا نہیں ہے';
+
+  @override
+  String get noDataForRange => 'اس رینج کے لیے کوئی ڈیٹا نہیں ہے';
+
+  @override
+  String get noHistoryData => 'تاریخ کا کوئی ڈیٹا دستیاب نہیں ہے';
+
+  @override
+  String get disabledByGlobalSync => 'عالمی مطابقت پذیری کی وجہ سے معطل ہے';
+
+  @override
+  String dateCreatedLabel(Object date) {
+    return 'تخلیق کی تاریخ: $date';
+  }
+
+  @override
+  String get anyLabel => 'کوئی بھی';
+
+  @override
+  String get balanceDisplayLabel => 'بیلنس ڈسپلے';
+
+  @override
+  String currenciesActiveLabel(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count فعال کرنسیاں',
+      one: '1 فعال کرنسی',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get searchCountryLabel => 'ملک تلاش کریں';
+
+  @override
+  String get addNewIconLabel => 'نیا آئیکن شامل کریں';
+
+  @override
+  String get noIconsFoundLabel => 'کوئی آئیکن نہیں ملا';
+
+  @override
+  String get addNewStyleLabel => 'نیا اسٹائل شامل کریں';
+
+  @override
+  String get styleNameLabel => 'اسٹائل کا نام';
+
+  @override
+  String get pleaseEnterStyleName => 'براہ کرم اسٹائل کا نام درج کریں';
+
+  @override
+  String get colorLabel => 'رنگ';
+
+  @override
+  String get netBalanceMetric => 'خالص بیلنس';
+
+  @override
+  String get investedMetric => 'سرمایہ کاری';
+
+  @override
+  String get realizedMetric => 'حصول شدہ';
+
+  @override
+  String get feesMetric => 'فیس/ٹیکس';
+
+  @override
+  String get persistFiltersLabel => 'فلٹرز برقرار رکھیں';
+
+  @override
+  String get searchByNameHint => 'نام سے تلاش کریں...';
+
+  @override
+  String get searchDescriptionHint => 'تفصیل سے تلاش کریں...';
+
+  @override
+  String get advancedFiltersTitle => 'اعلی درجے کے فلٹرز';
+
+  @override
+  String get transactionTypeLabel => 'ترسیل کی قسم';
+
+  @override
+  String get assetFiltersTitle => 'اثاثہ کے فلٹرز';
+
+  @override
+  String get minValueLabel => 'کم از کم قیمت';
+
+  @override
+  String get maxValueLabel => 'زیادہ سے زیادہ قیمت';
+
+  @override
+  String get assetTypesLabel => 'اثاثہ کی اقسام';
+
+  @override
+  String get allLabel => 'تمام';
+
+  @override
+  String get currenciesLabel => 'کرنسیاں';
+
+  @override
+  String get sourcesLabel => 'ذرائع';
+
+  @override
+  String get presetsLabel => 'پیش سیٹ';
+
+  @override
+  String get enterCategoryNameHint => 'زمرہ کا نام درج کریں';
+
+  @override
+  String get selectTypeHint => 'قسم منتخب کریں';
+
+  @override
+  String get hotKeysTitle => 'ہاٹ کیز';
+
+  @override
+  String get searchHotkeysHint => 'ہاٹ کیز تلاش کریں...';
+
+  @override
+  String get noMatchingHotkeys => 'کوئی مماثل ہاٹ کی نہیں ملی۔';
+
+  @override
+  String recordingHotkeyTitle(Object label) {
+    return '录制 \"$label\" کے لیے ہاٹ کی ریکارڈ کی جا رہی ہے';
+  }
+
+  @override
+  String get pressKeysHint => 'کلیدیں دبائیں...';
+
+  @override
+  String get pressAnyCombinationHint => 'کسی بھی کلید کا مجموعہ دبائیں۔';
+
+  @override
+  String get clearSaveButton => 'صاف کریں / محفوظ کریں';
+
+  @override
+  String get duplicateHotkeyTooltip => 'ڈپلیکیٹ ہاٹ کی';
+
+  @override
+  String usedByLabel(Object action) {
+    return '$action کی طرف سے استعمال کیا جاتا ہے';
+  }
+
+  @override
+  String get hkCategoryNavigation => 'نیویگیشن';
+
+  @override
+  String get hkCategoryDashboardTabs => 'ڈیش بورڈ ٹیبز (Ctrl + 1/2/3)';
+
+  @override
+  String get hkCategoryDataTabs => 'ڈیٹا ٹیبز (Ctrl + 1/2/3)';
+
+  @override
+  String get hkCategoryPeriodControl => 'مدت کا کنٹرول';
+
+  @override
+  String get hkCategoryActions => 'اقدامات';
+
+  @override
+  String get hkCategorySelectionMode => 'سلیکشن موڈ';
+
+  @override
+  String get hkActionBack => 'عالمی: واپس / باہر نکلیں';
+
+  @override
+  String get hkActionDashboard => 'ڈیش بورڈ پر جائیں';
+
+  @override
+  String get hkActionAccounts => 'اکاؤنٹس پر جائیں';
+
+  @override
+  String get hkActionTransactions => 'ترسیلات پر جائیں';
+
+  @override
+  String get hkActionCategories => 'زمرہ جات پر جائیں';
+
+  @override
+  String get hkActionData => 'ڈیٹا / شرحوں پر جائیں';
+
+  @override
+  String get hkActionSettings => 'ترتیبات پر جائیں';
+
+  @override
+  String get hkActionDashboardTab1 => 'کیلنڈر ٹیب';
+
+  @override
+  String get hkActionDashboardTab2 => 'زمرہ جاب ٹیب';
+
+  @override
+  String get hkActionDashboardTab3 => 'بیلنس ٹیب';
+
+  @override
+  String get hkActionDataTab1 => 'شرح تبادلہ';
+
+  @override
+  String get hkActionDataTab2 => 'افراط زر';
+
+  @override
+  String get hkActionDataTab3 => 'اثاثے';
+
+  @override
+  String get hkActionPrevPeriod => 'پچھلی مدت';
+
+  @override
+  String get hkActionNextPeriod => 'اگلی مدت';
+
+  @override
+  String get hkActionAddAction => 'عام شامل کرنے کا عمل';
+
+  @override
+  String get hkActionAccountsSelectionClose => 'اکاؤنٹس: بند کریں';
+
+  @override
+  String get hkActionAccountsSelectionAll => 'اکاؤنٹس: سب منتخب کریں';
+
+  @override
+  String get hkActionAccountsSelectionDelete => 'اکاؤنٹس: حذف کریں';
+
+  @override
+  String get hkActionAccountsSelectionChangeType => 'اکاؤنٹس: قسم تبدیل کریں';
+
+  @override
+  String get hkActionCategoriesSelectionClose => 'زمرہ جات: بند کریں';
+
+  @override
+  String get hkActionCategoriesSelectionAll => 'زمرہ جات: سب منتخب کریں';
+
+  @override
+  String get hkActionCategoriesSelectionDelete => 'زمرہ جات: حذف کریں';
+
+  @override
+  String get hkActionCategoriesSelectionChangeType => 'زمرہ جات: قسم تبدیل کریں';
+
+  @override
+  String get hkActionDataSelectionClose => 'ڈیٹا: بند کریں';
+
+  @override
+  String get hkActionDataSelectionAll => 'ڈیٹا: سب منتخب کریں';
+
+  @override
+  String get hkActionDataSelectionDelete => 'ڈیٹا: حذف کریں';
+
+  @override
+  String get hkActionDataSelectionChangePreset => 'ڈیٹا: پیش سیٹ تبدیل کریں';
 }

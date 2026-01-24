@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/balance_line_chart.dart';
 
@@ -20,7 +21,7 @@ class AccountsOverviewWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (accounts.isEmpty) {
-      return const Center(child: Text('No accounts found'));
+      return Center(child: Text(context.l10n.dashboardNoAccountsFound));
     }
 
     return SingleChildScrollView(
@@ -30,7 +31,7 @@ class AccountsOverviewWidget extends StatelessWidget {
         children: [
           // 1. Balance History (Trends)
           Text(
-            'Net Worth Trend',
+            context.l10n.dashboardNetWorthTrend,
             style: Theme.of(
               context,
             ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
@@ -73,12 +74,20 @@ class AccountsOverviewWidget extends StatelessWidget {
 
   Widget _buildAccountDistribution(BuildContext context) {
     final data = _getAccountDistribution();
-    return _buildPieSection(context, 'Wealth Distribution (by Account)', data);
+    return _buildPieSection(
+      context,
+      context.l10n.dashboardWealthDistributionByAccount,
+      data,
+    );
   }
 
   Widget _buildCurrencyDistribution(BuildContext context) {
     final data = _getCurrencyDistribution();
-    return _buildPieSection(context, 'Currency Exposure', data);
+    return _buildPieSection(
+      context,
+      context.l10n.dashboardCurrencyExposure,
+      data,
+    );
   }
 
   Widget _buildPieSection(
