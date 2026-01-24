@@ -1,23 +1,41 @@
-# An official Dart image
+# Stage 1: Build
 FROM dart:stable AS build
 
-# Resolve app dependencies.
 WORKDIR /app
+
+# Install dart_frog_cli
+RUN dart pub global activate dart_frog_cli
+
+# Copy pubspec files for layer caching
 COPY pubspec.* ./
 RUN dart pub get
 
-# Copy app source code and AOT compile it.
+# Copy source code
 COPY . .
-# Ensure packages are still up-to-date if anything has changed
+
+# Generate the production build using dart_frog_cli
+# This creates the 'build' directory with the generated entry point
+RUN /root/.pub-cache/bin/dart_frog build
+
+# Change directory to the generated build folder
+WORKDIR /app/build
+
+# Resolve dependencies for the generated project
 RUN dart pub get --offline
-RUN dart compile exe bin/server.dart -o bin/server
 
-# Build minimal serving image from AOT-compiled `/server` and required system
-# libraries and configuration files stored in `/runtime/` from the build stage.
+# Compile the AOT executable
+RUN dart compile exe bin/server.dart -o server
+
+# Stage 2: Runtime
+# Using scratch for the smallest possible surface area
 FROM scratch
-COPY --from=build /runtime/ /
-COPY --from=build /app/bin/server /app/bin/
 
-# Start server.
+# Copy required runtime libraries from the build image
+COPY --from=build /runtime/ /
+
+# Copy the compiled binary
+COPY --from=build /app/build/server /app/server
+
+# Expose port and start
 EXPOSE 8080
-CMD ["/app/bin/server"]
+CMD ["/app/server"]

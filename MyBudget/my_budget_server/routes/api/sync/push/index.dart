@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dart_frog/dart_frog.dart';
 import 'package:my_budget_server/data/sync_repository.dart';
+import 'package:my_budget_server/ws/sync_controller.dart';
 
 Future<Response> onRequest(RequestContext context) async {
   if (context.request.method != HttpMethod.post) {
@@ -20,6 +21,9 @@ Future<Response> onRequest(RequestContext context) async {
     final repo = context.read<SyncRepository>();
     // Logic to process push data
     await repo.upsertBatch(body);
+
+    // Notify all connected clients that new data is available
+    SyncWebSocketController.notifySyncAvailable();
 
     return Response.json(body: {
       'success': true,

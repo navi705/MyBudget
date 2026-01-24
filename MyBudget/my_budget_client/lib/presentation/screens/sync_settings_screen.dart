@@ -32,6 +32,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   bool _isSyncing = false;
   int _pendingChanges = 0;
   int _incomingChanges = 0;
+  bool _obscureToken = true;
 
   @override
   void initState() {
@@ -60,18 +61,31 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
       'server_sync_token',
     );
 
-    final pending = await _db.syncLogDao.getPendingChanges();
     final incoming = await _syncService.getIncomingFileCount();
 
     setState(() {
       _syncFolderPath = folderSetting?.value;
       _isP2PEnabled = p2pEnabledSetting?.value == 'true';
       _isServerEnabled = serverEnabledSetting?.value == 'true';
+
+      // Enforce mutual exclusivity if both were stored as true
+      if (_isP2PEnabled && _isServerEnabled) {
+        _isServerEnabled = false;
+      }
+
       _serverUrlController.text =
-          serverUrlSetting?.value ?? 'http://localhost:8080';
+          serverUrlSetting?.value ?? 'http://localhost:58080';
       _serverTokenController.text = serverTokenSetting?.value ?? 'dev_token';
-      _pendingChanges = pending.length;
       _incomingChanges = incoming;
+    });
+
+    // Calculate pending CHANGES AFTER we know which mode is enabled
+    final pending = _isServerEnabled
+        ? await _serverSyncService.getPendingChangesCount()
+        : (await _db.syncLogDao.getPendingChanges()).length;
+
+    setState(() {
+      _pendingChanges = pending;
     });
 
     if (_isP2PEnabled && _syncFolderPath != null) {
@@ -217,7 +231,10 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   }
 
   Future<void> _syncNow() async {
+    if (_isSyncing) return;
+
     setState(() => _isSyncing = true);
+
     try {
       if (_isServerEnabled) {
         await _serverSyncService.sync();
@@ -229,26 +246,33 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
         await _syncService.importNow();
       }
 
-      final pending = await _db.syncLogDao.getPendingChanges();
+      // Refresh counts after sync
+      final pending = _isServerEnabled
+          ? await _serverSyncService.getPendingChangesCount()
+          : (await _db.syncLogDao.getPendingChanges()).length;
       final incoming = await _syncService.getIncomingFileCount();
-      setState(() {
-        _pendingChanges = pending.length;
-        _incomingChanges = incoming;
-      });
 
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Sync completed')));
+        setState(() {
+          _pendingChanges = pending;
+          _incomingChanges = incoming;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sync completed successfully')),
+        );
       }
     } catch (e) {
+      debugPrint('Manual sync error: $e');
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Sync failed: $e')));
       }
     } finally {
-      setState(() => _isSyncing = false);
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
     }
   }
 
@@ -342,55 +366,77 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
             ),
           ),
           Card(
-            child: Column(
-              children: [
-                SwitchListTile(
-                  title: const Text('Enable Server Sync'),
-                  subtitle: const Text('Sync with a MyBudget Server instance'),
-                  value: _isServerEnabled,
-                  onChanged: _toggleServer,
-                ),
-                if (_isServerEnabled)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Divider(),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _serverUrlController,
-                          decoration: const InputDecoration(
-                            labelText: 'Server URL',
-                            hintText: 'http://localhost:8080',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.link),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _serverUrlController,
+                        decoration: const InputDecoration(
+                          labelText: 'Server URL',
+                          hintText: 'http://localhost:58080',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.link),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _serverTokenController,
+                        decoration: InputDecoration(
+                          labelText: 'API Token',
+                          hintText: 'Enter your security token',
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureToken
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscureToken = !_obscureToken;
+                              });
+                            },
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _serverTokenController,
-                          decoration: const InputDecoration(
-                            labelText: 'API Token',
-                            hintText: 'Enter your security token',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.lock_outline),
-                          ),
-                          obscureText: true,
+                        obscureText: _obscureToken,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'This token is your shared secret. Enter the same value on all your devices to authorize synchronization.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey,
                         ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: _saveServerSettings,
-                            icon: const Icon(Icons.save_outlined),
-                            label: const Text('Save Server Settings'),
-                          ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: _saveServerSettings,
+                          icon: const Icon(Icons.save_outlined),
+                          label: const Text('Save Server Settings'),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-              ],
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  SwitchListTile(
+                    title: const Text('Enable Server Sync'),
+                    subtitle: const Text(
+                      'Sync with a MyBudget Server instance',
+                    ),
+                    value: _isServerEnabled,
+                    onChanged: _toggleServer,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
             ),
           ),
 

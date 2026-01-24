@@ -16,11 +16,14 @@ Future<Response> onRequest(RequestContext context) async {
   final repo = context.read<SyncRepository>();
 
   try {
-    final changes = await repo.getChanges(lastSync);
+    final limitStr = params['limit'];
+    final limit = limitStr != null ? int.tryParse(limitStr) ?? 5000 : 5000;
+
+    final result = await repo.getChanges(lastSync, limit: limit);
 
     return Response.json(body: {
-      'changes': changes,
-      'server_timestamp': DateTime.now().millisecondsSinceEpoch
+      'changes': result.changes,
+      'server_timestamp': result.lastTimestamp,
     });
   } catch (e) {
     return Response.json(

@@ -43,6 +43,10 @@ class Languages extends Table {
   TextColumn get language => text().withLength(min: 1, max: 50)();
   TextColumn get languageCode => text().withLength(min: 1, max: 50)();
 
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  TextColumn get deviceId => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {languageCode};
 }
@@ -69,6 +73,10 @@ class Currencies extends Table {
   IntColumn get type => integer()
       .map(const EnumIndexConverter(TypeCurrency.values))
       .withDefault(const Constant(6))();
+
+  // Sync fields
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  TextColumn get deviceId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {code};
@@ -2753,7 +2761,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -2829,6 +2837,12 @@ class AppDatabase extends _$AppDatabase {
 
         if (from < 4) {
           await m.createTable(syncProcessedFiles);
+        }
+
+        if (from < 5) {
+          // Force re-seeding to add any missing currencies or designations
+          // and to ensure static modifiedAt: 1 is applied everywhere.
+          await _seedData(this);
         }
       },
       beforeOpen: (details) async {

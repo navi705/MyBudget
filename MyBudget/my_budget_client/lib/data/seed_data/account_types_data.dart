@@ -31,5 +31,6 @@ final List<AccountTypesCompanion> defaultAccountTypes = [
     id: const Value('account_type_loan'),
     name: 'Loan',
     languageCode: 'en',
+    modifiedAt: const Value(1),
   ),
 ];

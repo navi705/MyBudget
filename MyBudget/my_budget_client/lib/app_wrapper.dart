@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/app.dart';
 import 'package:my_budget_client/core/sync/sync_service.dart';
+import 'package:my_budget_client/core/services/server_sync_service.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/intilization_data.dart';
@@ -42,8 +43,19 @@ class _AppWrapperState extends State<AppWrapper> {
 
   void _onAppPaused() {
     // Attempt to sync changes when app is closed or backgrounded
-    debugPrint('[SYNC_DEBUG] App paused/detached, triggering exportNow()');
-    sl<SyncService>().exportNow();
+    debugPrint('[SYNC_DEBUG] App paused/detached, triggering sync...');
+
+    // P2P Sync
+    if (sl.isRegistered<SyncService>()) {
+      sl<SyncService>().exportNow();
+    }
+
+    // Server Sync
+    if (sl.isRegistered<ServerSyncService>()) {
+      sl<ServerSyncService>().sync().catchError((e) {
+        debugPrint('[SYNC_DEBUG] Server sync on pause failed: $e');
+      });
+    }
   }
 
   Future<void> _initialize() async {
