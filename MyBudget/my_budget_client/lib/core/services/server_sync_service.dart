@@ -124,6 +124,32 @@ class ServerSyncService {
     _debounceTimer?.cancel();
   }
 
+  Future<bool> testConnection({String? url, String? token}) async {
+    try {
+      final baseUrl = url ?? await _getBaseUrl();
+      final authToken = token ?? await _getAuthToken();
+
+      // Use the pull endpoint with limit=1 to test connectivity and authentication
+      final uri = Uri.parse('$baseUrl/api/sync/pull?limit=1&last_sync=0');
+
+      final response = await http
+          .get(uri, headers: {'Authorization': 'Bearer $authToken'})
+          .timeout(const Duration(seconds: 10)); // Short timeout for testing
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        debugPrint(
+          '[ServerSync] Test connection failed: ${response.statusCode}',
+        );
+        return false;
+      }
+    } catch (e) {
+      debugPrint('[ServerSync] Test connection error: $e');
+      return false;
+    }
+  }
+
   /// Initialize listeners for local database changes to trigger "Instant Push"
   Future<void> initAutoSync() async {
     if (!await _isEnabled()) return;
@@ -160,14 +186,29 @@ class ServerSyncService {
       );
 
       if (hasRelevantChanges) {
-        // 3. Debounce: Wait for 500ms of inactivity before syncing
-        // This groups batch inserts (like import) into one sync
+        // 3. Debounce
         if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-        _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+        _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
           debugPrint(
             '[ServerSync] Auto-sync triggered by DB changes: ${updates.map((e) => e.table).join(', ')}',
           );
-          sync();
+          try {
+            await sync();
+          } catch (e) {
+            debugPrint(
+              '[ServerSync] Auto-sync failed: $e. Scheduling retry...',
+            );
+            // Simple retry mechanism: try again in 30 seconds if it failed
+            // We check _isEnabled again just in case the user disabled it in the meantime
+            if (await _isEnabled()) {
+              Timer(
+                const Duration(seconds: 30),
+                () => sync().catchError(
+                  (e) => debugPrint('[ServerSync] Retry failed: $e'),
+                ),
+              );
+            }
+          }
         });
       }
     });

@@ -106,12 +106,9 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
         final storageStatus = await Permission.storage.request();
         if (!storageStatus.isGranted) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Storage permission required for sync. Please enable "All files access" in settings.',
-                ),
-              ),
+            _showSnackbar(
+              'Storage permission required for sync. Please enable "All files access" in settings.',
+              isError: true,
             );
           }
           return;
@@ -165,16 +162,12 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
           }
         }
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Deleted $deletedCount sync files')),
-          );
+          _showSnackbar('Deleted $deletedCount sync files');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error clearing files: $e')));
+        _showSnackbar('Error clearing files: $e', isError: true);
       }
     }
   }
@@ -224,9 +217,59 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
       _serverTokenController.text,
     );
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Server settings saved')));
+      _showSnackbar('Server settings saved');
+    }
+  }
+
+  void _showSnackbar(String message, {bool isError = false}) {
+    // Prevent stacking by clearing any existing SnackBars
+    ScaffoldMessenger.of(context).clearSnackBars();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: isError ? Colors.red : Colors.green,
+        // Wrap content in GestureDetector to allow tap-to-dismiss
+        content: GestureDetector(
+          onTap: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+          behavior: HitTestBehavior.opaque, // Ensure tap is caught
+          child: Text(message),
+        ),
+      ),
+    );
+  }
+
+  bool _isTestingConnection = false;
+
+  Future<void> _testConnection() async {
+    setState(() => _isTestingConnection = true);
+
+    // Unfocus keyboard
+    FocusScope.of(context).unfocus();
+
+    try {
+      final success = await _serverSyncService.testConnection(
+        url: _serverUrlController.text,
+        token: _serverTokenController.text,
+      );
+
+      if (mounted) {
+        if (success) {
+          _showSnackbar('Connection successful!');
+        } else {
+          _showSnackbar(
+            'Connection failed. Check URL and Token.',
+            isError: true,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnackbar('Error: $e', isError: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isTestingConnection = false);
+      }
     }
   }
 
@@ -258,16 +301,12 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
           _incomingChanges = incoming;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sync completed successfully')),
-        );
+        _showSnackbar('Sync completed successfully');
       }
     } catch (e) {
       debugPrint('Manual sync error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Sync failed: $e')));
+        _showSnackbar('Sync failed: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -415,6 +454,29 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _isTestingConnection
+                              ? null
+                              : _testConnection,
+                          icon: _isTestingConnection
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.wifi_find_outlined),
+                          label: Text(
+                            _isTestingConnection
+                                ? 'Testing...'
+                                : 'Test Connection',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
