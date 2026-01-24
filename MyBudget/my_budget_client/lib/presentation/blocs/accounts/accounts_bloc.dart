@@ -4,6 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:rxdart/rxdart.dart';
 
 import 'package:equatable/equatable.dart';
 // import 'package:my_budget_client/core/utils/device_utils.dart';
@@ -99,6 +100,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
 
     _transactionsSubscription = _transactionRepository
         .watchTransactions()
+        .debounceTime(const Duration(milliseconds: 500))
         .listen((_) => add(LoadAccounts()));
   }
 
@@ -497,6 +499,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           previousAccountRealExpenses: prevStats.realExpense,
           income: income,
           expense: expense,
+          recentlyDeletedAccount: currentState is AccountsLoadSuccess
+              ? currentState.recentlyDeletedAccount
+              : null,
         ),
       );
       await PerformanceLogger().stop('Accounts Screen Load');
@@ -798,6 +803,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         await _accountRepository.deleteAccountWithTransactions(event.id);
         add(LoadAccounts());
       } catch (e) {
+        debugPrint('ERROR deleting account: $e');
         // Handle case where account is not found or other errors
       }
     }
@@ -813,8 +819,18 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         (acc) => acc.id == event.accountId,
       );
       emit(currentState.copyWith(recentlyDeletedAccount: accountToDelete));
-      await _accountRepository.deleteAccountWithTransactions(event.accountId);
-      add(LoadAccounts());
+      try {
+        debugPrint(
+          '[AccountsBloc] Deleting account ${event.accountId} (Repo Call)...',
+        );
+        await _accountRepository.deleteAccountWithTransactions(event.accountId);
+        debugPrint(
+          '[AccountsBloc] Deleting account ${event.accountId} SUCCESS. Reloading...',
+        );
+        add(LoadAccounts());
+      } catch (e) {
+        debugPrint('[AccountsBloc] ERROR deleting account: $e');
+      }
     }
   }
 
@@ -1090,6 +1106,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           categories: categories,
           isHistorical: true, // Set to true when historical data is loaded
           activeDate: event.date, // Set the active date to the historical date
+          recentlyDeletedAccount: currentState.recentlyDeletedAccount,
         ),
       );
     } catch (e) {

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/core/mappers/account_mapper.dart';
@@ -122,8 +123,14 @@ class LocalAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<void> deleteAccountWithTransactions(String accountId) {
-    return database.accountsDao.deleteAccountWithTransactions(accountId);
+  Future<void> deleteAccountWithTransactions(String accountId) async {
+    debugPrint(
+      '[LocalRepo] Requesting deleteAccountWithTransactions for $accountId',
+    );
+    await database.accountsDao.deleteAccountWithTransactions(accountId);
+    debugPrint(
+      '[LocalRepo] Finished deleteAccountWithTransactions for $accountId',
+    );
   }
 
   @override

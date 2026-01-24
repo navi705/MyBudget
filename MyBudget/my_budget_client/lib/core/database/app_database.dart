@@ -525,17 +525,20 @@ class CurrencyDesignationsDao extends DatabaseAccessor<AppDatabase>
     CurrencyDesignationsCompanion designation,
   ) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final updatedDesignation = designation.copyWith(
+    final updatedDesignation = CurrencyDesignationsCompanion(
       isDeleted: const Value(true),
       modifiedAt: Value(now),
     );
-    final result = await update(
-      currencyDesignations,
-    ).replace(updatedDesignation);
-    if (result) {
+
+    final count =
+        await (update(currencyDesignations)
+              ..where((t) => t.id.equals(designation.id.value)))
+            .write(updatedDesignation);
+
+    if (count > 0) {
       await _logChange(designation.id.value, 'delete');
     }
-    return result ? 1 : 0;
+    return count;
   }
 
   Future<void> _logChange(String recordId, String action) async {
@@ -714,15 +717,19 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> deleteCategory(CategoriesCompanion category) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final updatedCategory = category.copyWith(
+    final updatedCategory = CategoriesCompanion(
       isDeleted: const Value(true),
       modifiedAt: Value(now),
     );
-    final result = await update(categories).replace(updatedCategory);
-    if (result) {
+
+    final count = await (update(
+      categories,
+    )..where((t) => t.id.equals(category.id.value))).write(updatedCategory);
+
+    if (count > 0) {
       await _logChange(category.id.value, 'delete');
     }
-    return result ? 1 : 0;
+    return count;
   }
 
   /// Log a change for sync export
@@ -987,15 +994,19 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
 
   Future<int> deleteStyle(StylesCompanion style) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final updatedStyle = style.copyWith(
+    final updatedStyle = StylesCompanion(
       isDeleted: const Value(true),
       modifiedAt: Value(now),
     );
-    final result = await update(styles).replace(updatedStyle);
-    if (result) {
+
+    final count = await (update(
+      styles,
+    )..where((t) => t.id.equals(style.id.value))).write(updatedStyle);
+
+    if (count > 0) {
       await _logChange(style.id.value, 'delete');
     }
-    return result ? 1 : 0;
+    return count;
   }
 
   Future<void> _logChange(String recordId, String action) async {
@@ -1091,15 +1102,20 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> deleteAccountType(AccountTypesCompanion accountType) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final updatedAccountType = accountType.copyWith(
+    final updatedAccountType = AccountTypesCompanion(
       isDeleted: const Value(true),
       modifiedAt: Value(now),
     );
-    final result = await update(accountTypes).replace(updatedAccountType);
-    if (result) {
+
+    final count =
+        await (update(accountTypes)
+              ..where((t) => t.id.equals(accountType.id.value)))
+            .write(updatedAccountType);
+
+    if (count > 0) {
       await _logChange(accountType.id.value, 'delete');
     }
-    return result ? 1 : 0;
+    return count;
   }
 
   Future<void> _logChange(String recordId, String action) async {
@@ -1238,15 +1254,19 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> deleteAccount(AccountsCompanion account) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final updatedAccount = account.copyWith(
+    final updatedAccount = AccountsCompanion(
       isDeleted: const Value(true),
       modifiedAt: Value(now),
     );
-    final result = await update(accounts).replace(updatedAccount);
-    if (result) {
+
+    final count = await (update(
+      accounts,
+    )..where((t) => t.id.equals(account.id.value))).write(updatedAccount);
+
+    if (count > 0) {
       await _logChange(account.id.value, 'delete');
     }
-    return result ? 1 : 0;
+    return count;
   }
 
   /// Log a change for sync export
@@ -1344,7 +1364,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     List<String>? currenciesIds,
     List<String>? accountTypeIds,
   }) {
-    final query = select(accounts);
+    final query = select(accounts)..where((t) => t.isDeleted.equals(false));
 
     if (name != null && name.isNotEmpty) {
       query.where((tbl) => tbl.name.like('%$name%'));
@@ -1378,7 +1398,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<int> getCountWithFilters({List<String>? accountTypeIds}) async {
-    final query = selectOnly(accounts);
+    final query = selectOnly(accounts)..where(accounts.isDeleted.equals(false));
     if (accountTypeIds != null && accountTypeIds.isNotEmpty) {
       query.where(accounts.accountTypeId.isIn(accountTypeIds));
     }
@@ -1408,19 +1428,33 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> deleteAccountWithTransactions(String accountId) {
+    debugPrint(
+      '[AccountsDao] Deleting account $accountId with transactions...',
+    ); // LOG
     return db.transaction(() async {
       final now = DateTime.now().millisecondsSinceEpoch;
-      await (update(
-        db.transactions,
-      )..where((t) => t.accountId.equals(accountId))).write(
-        TransactionsCompanion(
-          isDeleted: const Value(true),
-          modifiedAt: Value(now),
-        ),
+      final txUpdate =
+          await (update(
+            db.transactions,
+          )..where((t) => t.accountId.equals(accountId))).write(
+            TransactionsCompanion(
+              isDeleted: const Value(true),
+              modifiedAt: Value(now),
+            ),
+          );
+      debugPrint('[AccountsDao] Marked $txUpdate transactions as deleted.');
+
+      final accUpdate =
+          await (update(accounts)..where((a) => a.id.equals(accountId))).write(
+            AccountsCompanion(
+              isDeleted: const Value(true),
+              modifiedAt: Value(now),
+            ),
+          );
+      debugPrint(
+        '[AccountsDao] Marked account as deleted (count: $accUpdate).',
       );
-      await (update(accounts)..where((a) => a.id.equals(accountId))).write(
-        AccountsCompanion(isDeleted: const Value(true), modifiedAt: Value(now)),
-      );
+
       await _logChange(accountId, 'delete');
     });
   }
@@ -1546,15 +1580,14 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> deleteTransaction(TransactionsCompanion transaction) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final updatedTransaction = transaction.copyWith(
+    final updatedTransaction = TransactionsCompanion(
       isDeleted: const Value(true),
       modifiedAt: Value(now),
     );
-    final result = await update(transactions).replace(updatedTransaction);
-    if (result) {
-      await _logChange(transaction.id.value, 'delete');
-    }
-    return result ? 1 : 0;
+
+    return (update(transactions)
+          ..where((t) => t.id.equals(transaction.id.value)))
+        .write(updatedTransaction);
   }
 
   Future<void> _logChange(String recordId, String action) async {
@@ -1583,7 +1616,7 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     List<String>? currencyCode,
     TransactionTypeFilter? transactionType,
   }) {
-    final query = select(transactions);
+    final query = select(transactions)..where((t) => t.isDeleted.equals(false));
 
     if (description != null) {
       query.where((tbl) => tbl.description.like('%$description%'));
@@ -1637,7 +1670,8 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     List<String>? currencyCode,
     TransactionTypeFilter? transactionType,
   }) async {
-    final query = selectOnly(transactions);
+    final query = selectOnly(transactions)
+      ..where(transactions.isDeleted.equals(false));
 
     if (description != null) {
       query.where(transactions.description.like('%$description%'));
@@ -1680,7 +1714,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<List<Transaction>> getTransactionsByIds(List<String> ids) {
-    return (select(transactions)..where((tbl) => tbl.id.isIn(ids))).get();
+    return (select(
+      transactions,
+    )..where((tbl) => tbl.id.isIn(ids) & tbl.isDeleted.equals(false))).get();
   }
 
   Future<void> deleteMultipleTransactions(List<String> ids) {
@@ -1709,7 +1745,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     // 1. Pick any column to count (e.g., 'id').
     final expression = transactions.id.count();
     // 2. Create a query that only gets the count.
-    final query = selectOnly(transactions)..addColumns([expression]);
+    final query = selectOnly(transactions)
+      ..addColumns([expression])
+      ..where(transactions.isDeleted.equals(false));
     // 3. Run the query and read the single integer value it returns.
     final count = await query
         .map((row) => row.read(expression))
@@ -1726,7 +1764,8 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     final query = selectOnly(transactions)
       ..where(
         transactions.accountId.equals(accountId) &
-            transactions.date.isBiggerThanValue(endOfDay),
+            transactions.date.isBiggerThanValue(endOfDay) &
+            transactions.isDeleted.equals(false),
       )
       ..addColumns([amountExp]);
 
@@ -1741,7 +1780,10 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     final amountExp = transactions.amount.sum();
     final query = selectOnly(transactions)
       ..addColumns([transactions.accountId, amountExp])
-      ..where(transactions.date.isBiggerThanValue(endOfDay))
+      ..where(
+        transactions.date.isBiggerThanValue(endOfDay) &
+            transactions.isDeleted.equals(false),
+      )
       ..groupBy([transactions.accountId]);
 
     final rows = await query.get();
@@ -1762,7 +1804,8 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
         transactions.currencyCode,
         transactions.date,
         amountExp,
-      ]);
+      ])
+      ..where(transactions.isDeleted.equals(false));
 
     if (dateFrom != null) {
       query.where(transactions.date.isBiggerOrEqualValue(dateFrom));
@@ -1810,6 +1853,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       whereConditions.add('t.date <= ?');
       variables.add(Variable(dateTo));
     }
+
+    // EXCLUDE SOFT DELETED TRANSACTIONS
+    whereConditions.add('t.is_deleted = 0');
 
     final whereClause = whereConditions.isNotEmpty
         ? 'WHERE ${whereConditions.join(' AND ')}'

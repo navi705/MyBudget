@@ -95,7 +95,7 @@ class _TransactionListState extends State<TransactionList> {
           content: Text(l10n.deleteTransactionsConfirmationMessage('1')),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
               child: Text(l10n.cancelButton),
             ),
             TextButton(
@@ -103,7 +103,7 @@ class _TransactionListState extends State<TransactionList> {
                 bloc.add(
                   DeleteTransaction(transactionCategory.transaction.id!),
                 );
-                Navigator.pop(context);
+                Navigator.of(context, rootNavigator: true).pop();
               },
               child: Text(l10n.deleteButton),
             ),

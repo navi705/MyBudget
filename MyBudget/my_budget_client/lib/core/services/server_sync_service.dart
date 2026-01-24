@@ -616,57 +616,71 @@ class ServerSyncService {
     await _database.customStatement('PRAGMA foreign_keys = OFF');
     try {
       debugPrint('[ServerSync] Entering database transaction for pull...');
-      await _database.transaction(() async {
-        if (changes.containsKey('languages')) {
+      if (changes.containsKey('languages')) {
+        await _database.transaction(() async {
           final list = changes['languages'] as List;
           debugPrint('[ServerSync] Applying ${list.length} languages...');
           for (final row in list) {
             await _upsertLanguage(row as Map<String, dynamic>);
           }
-        }
-        if (changes.containsKey('currencies')) {
+        });
+      }
+      if (changes.containsKey('currencies')) {
+        await _database.transaction(() async {
           final list = changes['currencies'] as List;
           debugPrint('[ServerSync] Applying ${list.length} currencies...');
           for (final row in list) {
             await _upsertCurrency(row as Map<String, dynamic>);
           }
-        }
-        if (changes.containsKey('settings')) {
+        });
+      }
+      if (changes.containsKey('settings')) {
+        await _database.transaction(() async {
           final list = changes['settings'] as List;
           debugPrint('[ServerSync] Applying ${list.length} settings...');
           for (final row in list) {
             await _upsertSetting(row as Map<String, dynamic>);
           }
-        }
-        if (changes.containsKey('api_settings')) {
+        });
+      }
+      if (changes.containsKey('api_settings')) {
+        await _database.transaction(() async {
           final list = changes['api_settings'] as List;
           debugPrint('[ServerSync] Applying ${list.length} api_settings...');
           for (final row in list) {
             await _upsertApiSetting(row as Map<String, dynamic>);
           }
-        }
-        if (changes.containsKey('styles')) {
+        });
+      }
+      if (changes.containsKey('styles')) {
+        await _database.transaction(() async {
           final list = changes['styles'] as List;
           debugPrint('[ServerSync] Applying ${list.length} styles...');
           for (final row in list) {
             await _upsertStyle(row as Map<String, dynamic>);
           }
-        }
-        if (changes.containsKey('custom_themes')) {
+        });
+      }
+      if (changes.containsKey('custom_themes')) {
+        await _database.transaction(() async {
           final list = changes['custom_themes'] as List;
           debugPrint('[ServerSync] Applying ${list.length} custom_themes...');
           for (final row in list) {
             await _upsertCustomTheme(row as Map<String, dynamic>);
           }
-        }
-        if (changes.containsKey('account_types')) {
+        });
+      }
+      if (changes.containsKey('account_types')) {
+        await _database.transaction(() async {
           final list = changes['account_types'] as List;
           debugPrint('[ServerSync] Applying ${list.length} account_types...');
           for (final row in list) {
             await _upsertAccountType(row as Map<String, dynamic>);
           }
-        }
-        if (changes.containsKey('currency_designations')) {
+        });
+      }
+      if (changes.containsKey('currency_designations')) {
+        await _database.transaction(() async {
           final list = changes['currency_designations'] as List;
           debugPrint(
             '[ServerSync] Applying ${list.length} currency_designations...',
@@ -674,29 +688,37 @@ class ServerSyncService {
           for (final row in list) {
             await _upsertCurrencyDesignation(row as Map<String, dynamic>);
           }
-        }
-        if (changes.containsKey('categories')) {
+        });
+      }
+      if (changes.containsKey('categories')) {
+        await _database.transaction(() async {
           final list = changes['categories'] as List;
           debugPrint('[ServerSync] Applying ${list.length} categories...');
           for (final row in list) {
             await _upsertCategory(row as Map<String, dynamic>);
           }
-        }
-        if (changes.containsKey('exchange_rates')) {
+        });
+      }
+      if (changes.containsKey('exchange_rates')) {
+        await _database.transaction(() async {
           final list = changes['exchange_rates'] as List;
           debugPrint('[ServerSync] Applying ${list.length} exchange_rates...');
           for (final row in list) {
             await _upsertExchangeRate(row as Map<String, dynamic>);
           }
-        }
-        if (changes.containsKey('inflation_rates')) {
+        });
+      }
+      if (changes.containsKey('inflation_rates')) {
+        await _database.transaction(() async {
           final list = changes['inflation_rates'] as List;
           debugPrint('[ServerSync] Applying ${list.length} inflation_rates...');
           for (final row in list) {
             await _upsertInflationRate(row as Map<String, dynamic>);
           }
-        }
-        if (changes.containsKey('custom_data_sources')) {
+        });
+      }
+      if (changes.containsKey('custom_data_sources')) {
+        await _database.transaction(() async {
           final list = changes['custom_data_sources'] as List;
           debugPrint(
             '[ServerSync] Applying ${list.length} custom_data_sources...',
@@ -704,40 +726,45 @@ class ServerSyncService {
           for (final row in list) {
             await _upsertCustomDataSource(row as Map<String, dynamic>);
           }
-        }
-        if (changes.containsKey('sms_presets')) {
+        });
+      }
+      if (changes.containsKey('sms_presets')) {
+        await _database.transaction(() async {
           final list = changes['sms_presets'] as List;
           debugPrint('[ServerSync] Applying ${list.length} sms_presets...');
           for (final row in list) {
             await _upsertSmsPreset(row as Map<String, dynamic>);
           }
-        }
-
-        // Dependent Tables (Accounts rely on Styles, Types, Currencies)
-        if (changes.containsKey('accounts')) {
+        });
+      }
+      // Dependent Tables
+      if (changes.containsKey('accounts')) {
+        await _database.transaction(() async {
           final list = changes['accounts'] as List;
           debugPrint('[ServerSync] Applying ${list.length} accounts...');
           for (final row in list) {
             await _upsertAccount(row as Map<String, dynamic>);
           }
-        }
-
-        // Highly Dependent Tables (Transactions/Assets rely on Accounts)
-        if (changes.containsKey('asset_entries')) {
+        });
+      }
+      if (changes.containsKey('asset_entries')) {
+        await _database.transaction(() async {
           final list = changes['asset_entries'] as List;
           debugPrint('[ServerSync] Applying ${list.length} asset_entries...');
           for (final row in list) {
             await _upsertAssetEntry(row as Map<String, dynamic>);
           }
-        }
-        if (changes.containsKey('transactions')) {
+        });
+      }
+      if (changes.containsKey('transactions')) {
+        await _database.transaction(() async {
           final list = changes['transactions'] as List;
           debugPrint('[ServerSync] Applying ${list.length} transactions...');
           for (final row in list) {
             await _upsertTransaction(row as Map<String, dynamic>);
           }
-        }
-      });
+        });
+      }
       debugPrint('[ServerSync] Pull committed successfully.');
     } finally {
       await _database.customStatement('PRAGMA foreign_keys = ON');

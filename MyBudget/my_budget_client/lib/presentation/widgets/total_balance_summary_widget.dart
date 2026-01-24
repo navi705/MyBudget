@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/currency_selection_dialog.dart';
 
 class TotalBalanceSummaryWidget extends StatelessWidget {
   final AccountsLoadSuccess accountsState;
@@ -61,6 +63,33 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.outline,
                   ),
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.settings_outlined, size: 18),
+                  onPressed: () async {
+                    final results = await showDialog<List<Currency>>(
+                      context: context,
+                      builder: (context) => CurrencySelectionDialog(
+                        allCurrencies: converterState.allCurrencies,
+                        selectedCurrencies: converterState.selectedCurrencies,
+                      ),
+                    );
+
+                    if (results != null && context.mounted) {
+                      final bloc = context.read<CurrencyConverterBloc>();
+                      final current = converterState.selectedCurrencies;
+                      for (final c in results) {
+                        if (!current.any((curr) => curr.code == c.code)) {
+                          bloc.add(AddSelectedCurrency(c));
+                        }
+                      }
+                      for (final c in current) {
+                        if (!results.any((curr) => curr.code == c.code)) {
+                          bloc.add(RemoveSelectedCurrency(c));
+                        }
+                      }
+                    }
+                  },
                 ),
                 children: [
                   const SizedBox(height: 8),

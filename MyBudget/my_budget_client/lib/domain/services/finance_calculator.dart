@@ -252,6 +252,11 @@ class FinanceCalculator {
       }
     }
 
+    // Optimization: Pre-sort inflation rates once
+    for (final rates in ratesByCountry.values) {
+      rates.sort((a, b) => a.date.compareTo(b.date));
+    }
+
     for (final accountId in balances.keys) {
       final balance = balances[accountId]!;
       final account = data.accounts.firstWhere((a) => a.id == accountId);
@@ -294,8 +299,7 @@ class FinanceCalculator {
     // debugPrint('  Calc Multiplier for $start to $end with ${rates.length} rates');
     double multiplier = 1.0;
 
-    // Sort rates by date (ascending) to process chronologically
-    rates.sort((a, b) => a.date.compareTo(b.date));
+    // Rates should be pre-sorted outside this method for performance
 
     for (final rate in rates) {
       // Logic: Treat 'rate' as Annual Inflation for the Calendar Year of rate.date
@@ -456,6 +460,10 @@ class FinanceCalculator {
       if (r.country != null) {
         ratesByCountry.putIfAbsent(r.country!, () => []).add(r);
       }
+    }
+    // Optimization: Pre-sort inflation rates once
+    for (final rates in ratesByCountry.values) {
+      rates.sort((a, b) => a.date.compareTo(b.date));
     }
 
     // Map Category types for quick lookup

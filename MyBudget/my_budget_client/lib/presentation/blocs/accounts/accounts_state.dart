@@ -173,7 +173,7 @@ class AccountsLoadSuccess extends AccountsState {
       totalCount: totalCount ?? this.totalCount,
       sortAscending: sortAscending ?? this.sortAscending,
       recentlyDeletedAccount:
-          recentlyDeletedAccount, // Always update, even if null
+          recentlyDeletedAccount ?? this.recentlyDeletedAccount,
       historicalBalances: historicalBalances ?? this.historicalBalances,
       isHistorical: isHistorical ?? this.isHistorical,
       isSelectionModeActive:
@@ -195,7 +195,7 @@ class AccountsLoadSuccess extends AccountsState {
       accountRealIncomes: accountRealIncomes ?? this.accountRealIncomes,
       accountRealExpenses: accountRealExpenses ?? this.accountRealExpenses,
       assetValues: assetValues ?? this.assetValues,
-      assetStats: assetStats ?? this.assetStats, // Added
+      assetStats: assetStats ?? this.assetStats,
       previousAccountIncomes:
           previousAccountIncomes ?? this.previousAccountIncomes,
       previousAccountExpenses:
