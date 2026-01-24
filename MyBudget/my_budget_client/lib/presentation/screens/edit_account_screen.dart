@@ -98,21 +98,24 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
 
   void _onSave() {
     if (_formKey.currentState!.validate()) {
-      final updatedAccount = _initialAccount.copyWith(
+      final updatedAccount = Account(
+        id: _initialAccount.id,
+        creationDate: _initialAccount.creationDate,
         name: _nameController.text,
         description: _descriptionController.text.isEmpty
             ? null
             : _descriptionController.text,
         balance: double.parse(_balanceController.text),
-        currencyCode: _selectedCurrencyCode,
-        currencyDesignationId: _selectedCurrencyDesignationId,
+        currencyCode: _selectedCurrencyCode!,
+        currencyDesignationId: _selectedCurrencyDesignationId!,
         styleId: _selectedStyleId,
-        accountTypeId: _selectedAccountTypeId,
-        assetId: _selectedAssetId,
+        accountTypeId: _selectedAccountTypeId!,
+        country: _initialAccount.country,
+        assetId: _selectedAssetId, // Correctly passes null if cleared
         assetQuantity: _selectedAssetId != null
             ? double.tryParse(_assetQuantityController.text) ?? 0.0
             : 0.0,
-        feeStructure: _feeStructureJson, // Added
+        feeStructure: _feeStructureJson,
       );
 
       // Only dispatch an update if the account has actually changed.
@@ -477,7 +480,12 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              GestureDetector(
+                              TextFormField(
+                                key: Key(_selectedAssetId ?? 'no_asset'),
+                                initialValue: _selectedAssetId != null
+                                    ? uniqueAssets[_selectedAssetId]?.name
+                                    : null,
+                                readOnly: true,
                                 onTap: () async {
                                   final selectedId =
                                       await showSingleSelectDialog<String>(
@@ -517,31 +525,23 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                     });
                                   }
                                 },
-                                child: AbsorbPointer(
-                                  child: TextFormField(
-                                    key: Key(_selectedAssetId ?? 'no_asset'),
-                                    initialValue: _selectedAssetId != null
-                                        ? uniqueAssets[_selectedAssetId]?.name
-                                        : null,
-                                    decoration: InputDecoration(
-                                      labelText: l10n.selectedAssetLabel,
-                                      helperText: _selectedAssetId != null
-                                          ? l10n.balanceAutoCalculatedLabel
-                                          : l10n.tapToBindAssetLabel,
-                                      suffixIcon: _selectedAssetId != null
-                                          ? IconButton(
-                                              icon: const Icon(Icons.clear),
-                                              onPressed: () {
-                                                setState(() {
-                                                  _selectedAssetId = null;
-                                                  _currentAssetPrice = null;
-                                                  _assetCurrency = null;
-                                                });
-                                              },
-                                            )
-                                          : null,
-                                    ),
-                                  ),
+                                decoration: InputDecoration(
+                                  labelText: l10n.selectedAssetLabel,
+                                  helperText: _selectedAssetId != null
+                                      ? l10n.balanceAutoCalculatedLabel
+                                      : l10n.tapToBindAssetLabel,
+                                  suffixIcon: _selectedAssetId != null
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear),
+                                          onPressed: () {
+                                            setState(() {
+                                              _selectedAssetId = null;
+                                              _currentAssetPrice = null;
+                                              _assetCurrency = null;
+                                            });
+                                          },
+                                        )
+                                      : null,
                                 ),
                               ),
                             ],
