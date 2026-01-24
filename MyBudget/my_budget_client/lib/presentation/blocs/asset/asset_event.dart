@@ -129,3 +129,10 @@ class SelectAllAssets extends AssetEvent {}
 class DeselectAllAssets extends AssetEvent {}
 
 class DeleteSelectedAssets extends AssetEvent {}
+
+class AssetDataUpdated extends AssetEvent {
+  final List<AssetDataDomain> data;
+  const AssetDataUpdated(this.data);
+  @override
+  List<Object?> get props => [data];
+}

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:bloc/bloc.dart';
 
 import 'package:my_budget_client/core/enums/filter_enums.dart';
@@ -12,6 +13,7 @@ import 'asset_state.dart';
 class AssetBloc extends Bloc<AssetEvent, AssetState> {
   final AssetRepository _assetRepository;
   final SettingsRepository _settingsRepository;
+  StreamSubscription? _assetSubscription;
 
   AssetBloc(this._assetRepository, this._settingsRepository)
     : super(
@@ -39,6 +41,62 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     on<SelectAllAssets>(_onSelectAll);
     on<DeselectAllAssets>(_onDeselectAll);
     on<DeleteSelectedAssets>(_onDeleteSelected);
+    on<AssetDataUpdated>(_onAssetDataUpdated);
+  }
+
+  Future<void> _subscribeToAssets() async {
+    final (dateFrom, dateTo) = _getDateRange(state);
+
+    _assetSubscription?.cancel();
+    _assetSubscription = _assetRepository
+        .watchAssetData(
+          limit: state.limit,
+          offset: 0,
+          startDate: dateFrom,
+          endDate: dateTo,
+          name: state.nameFilter,
+          assetTypes: state.assetTypeFilters,
+          description: state.descriptionFilter,
+          currencyCodes: state.currencyCodeFilters,
+          sources: state.sourceFilters,
+          presets: state.presetFilters,
+          minValue: state.minValueFilter,
+          maxValue: state.maxValueFilter,
+          sortAscending: state.sort == Sort.ascending,
+        )
+        .listen((data) {
+          add(AssetDataUpdated(data));
+        });
+  }
+
+  Future<void> _onAssetDataUpdated(
+    AssetDataUpdated event,
+    Emitter<AssetState> emit,
+  ) async {
+    final (dateFrom, dateTo) = _getDateRange(state);
+    final count = await _assetRepository.getAssetDataCount(
+      startDate: dateFrom,
+      endDate: dateTo,
+      name: state.nameFilter,
+      assetTypes: state.assetTypeFilters,
+      description: state.descriptionFilter,
+      currencyCodes: state.currencyCodeFilters,
+      sources: state.sourceFilters,
+      presets: state.presetFilters,
+      minValue: state.minValueFilter,
+      maxValue: state.maxValueFilter,
+    );
+
+    emit(
+      state.copyWith(
+        status: AssetStatus.success,
+        assetData: event.data,
+        offset: event.data.length,
+        hasMore: event.data.length == state.limit,
+        totalCount: count,
+        isLoadingMore: false,
+      ),
+    );
   }
 
   Future<void> _onLoadAssetData(
@@ -97,54 +155,14 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
         currentState = state;
       }
 
-      final (dateFrom, dateTo) = _getDateRange(currentState);
-
-      // Update selectedAssetId if provided in event
+      // Update selectedAssetId if provided
       if (event.assetId != null) {
         currentState = currentState.copyWith(selectedAssetId: event.assetId);
         emit(currentState);
       }
 
-      final count = await _assetRepository.getAssetDataCount(
-        assetId: currentState.selectedAssetId,
-        startDate: dateFrom,
-        endDate: dateTo,
-        name: currentState.nameFilter,
-        assetTypes: currentState.assetTypeFilters,
-        description: currentState.descriptionFilter,
-        currencyCodes: currentState.currencyCodeFilters,
-        sources: currentState.sourceFilters,
-        presets: currentState.presetFilters,
-        minValue: currentState.minValueFilter,
-        maxValue: currentState.maxValueFilter,
-      );
-
-      final data = await _assetRepository.getAssetData(
-        limit: currentState.limit,
-        offset: 0,
-        assetId: event.assetId ?? currentState.selectedAssetId,
-        startDate: dateFrom,
-        endDate: dateTo,
-        name: currentState.nameFilter,
-        assetTypes: currentState.assetTypeFilters,
-        description: currentState.descriptionFilter,
-        currencyCodes: currentState.currencyCodeFilters,
-        sources: currentState.sourceFilters,
-        presets: currentState.presetFilters,
-        minValue: currentState.minValueFilter,
-        maxValue: currentState.maxValueFilter,
-        sortAscending: currentState.sort == Sort.ascending,
-      );
-
-      emit(
-        currentState.copyWith(
-          status: AssetStatus.success,
-          assetData: data,
-          offset: data.length,
-          hasMore: data.length == currentState.limit,
-          totalCount: count,
-        ),
-      );
+      // Initial subscription
+      await _subscribeToAssets();
     } catch (e) {
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
@@ -158,44 +176,10 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
   ) async {
     if (state.isLoadingMore || !state.hasMore) return;
 
-    emit(state.copyWith(isLoadingMore: true));
-    try {
-      final (dateFrom, dateTo) = _getDateRange(state); // Explicitly pass state
-
-      final data = await _assetRepository.getAssetData(
-        limit: state.limit,
-        offset: state.offset,
-        assetId: event.assetId,
-        startDate: dateFrom,
-        endDate: dateTo,
-        name: state.nameFilter,
-        assetTypes: state.assetTypeFilters,
-        description: state.descriptionFilter,
-        currencyCodes: state.currencyCodeFilters,
-        sources: state.sourceFilters,
-        presets: state.presetFilters,
-        minValue: state.minValueFilter,
-        maxValue: state.maxValueFilter,
-        sortAscending: state.sort == Sort.ascending,
-      );
-
-      emit(
-        state.copyWith(
-          assetData: [...state.assetData, ...data],
-          offset: state.offset + data.length,
-          hasMore: data.length == state.limit,
-          isLoadingMore: false,
-        ),
-      );
-    } catch (e) {
-      emit(
-        state.copyWith(
-          status: AssetStatus.failure,
-          errorMessage: e.toString(),
-          isLoadingMore: false,
-        ),
-      );
-    }
+    // For simplicity with streams, "Load More" just increases the limit and resubscribes
+    // This maintains reactivity while showing more items
+    emit(state.copyWith(isLoadingMore: true, limit: state.limit + 50));
+    await _subscribeToAssets();
   }
 
   (DateTime?, DateTime?) _getDateRange([AssetState? stateOverride]) {
@@ -229,7 +213,9 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       'asset_date_step',
       event.dateStep.toString(),
     );
-    add(const LoadAssetData());
+    // Update state first then resubscribe
+    emit(state.copyWith(dateStep: event.dateStep));
+    await _subscribeToAssets();
   }
 
   Future<void> _onChangeFilterMode(
@@ -240,31 +226,38 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       'asset_filter_mode',
       event.filterMode.toString(),
     );
-    add(const LoadAssetData());
+    emit(state.copyWith(filterMode: event.filterMode));
+    await _subscribeToAssets();
   }
 
-  void _onChangeActiveDate(
+  Future<void> _onChangeActiveDate(
     ChangeAssetActiveDate event,
     Emitter<AssetState> emit,
-  ) {
+  ) async {
     emit(state.copyWith(activeDate: event.date));
-    add(const LoadAssetData());
+    await _subscribeToAssets();
   }
 
-  void _onChangeActiveDateRange(
+  Future<void> _onChangeActiveDateRange(
     ChangeAssetActiveDateRange event,
     Emitter<AssetState> emit,
-  ) {
+  ) async {
     emit(state.copyWith(activeDateRange: event.dateRange));
-    add(const LoadAssetData());
+    await _subscribeToAssets();
   }
 
-  void _onChangeSort(ChangeAssetSort event, Emitter<AssetState> emit) {
+  Future<void> _onChangeSort(
+    ChangeAssetSort event,
+    Emitter<AssetState> emit,
+  ) async {
     emit(state.copyWith(sort: event.sort));
-    add(const LoadAssetData());
+    await _subscribeToAssets();
   }
 
-  void _onChangeFilters(ChangeAssetFilters event, Emitter<AssetState> emit) {
+  Future<void> _onChangeFilters(
+    ChangeAssetFilters event,
+    Emitter<AssetState> emit,
+  ) async {
     emit(
       state.copyWith(
         selectedAssetId: event.assetId ?? state.selectedAssetId,
@@ -287,7 +280,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
         forceNullMaxValue: event.maxValue == null,
       ),
     );
-    add(const LoadAssetData());
+    await _subscribeToAssets();
   }
 
   Future<void> _onAddAssetData(
@@ -296,7 +289,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
   ) async {
     try {
       await _assetRepository.addAssetData(event.data);
-      add(LoadAssetData(assetId: event.data.assetId));
+      // add(LoadAssetData(assetId: event.data.assetId)); // No longer needed, stream handles it
     } catch (e) {
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
@@ -310,7 +303,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
   ) async {
     try {
       await _assetRepository.updateAssetData(event.data);
-      add(LoadAssetData(assetId: event.data.assetId));
+      // add(LoadAssetData(assetId: event.data.assetId)); // No longer needed, stream handles it
     } catch (e) {
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
@@ -324,7 +317,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
   ) async {
     try {
       await _assetRepository.deleteAssetData(event.id);
-      add(const LoadAssetData());
+      // add(const LoadAssetData()); // No longer needed, stream handles it
     } catch (e) {
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
@@ -375,11 +368,17 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
           .toList();
       await _assetRepository.deleteAssets(idsToDelete);
       emit(state.copyWith(selectedAssets: {}, isSelectionModeActive: false));
-      add(const LoadAssetData());
+      // add(const LoadAssetData()); // No longer needed, stream handles it
     } catch (e) {
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
       );
     }
+  }
+
+  @override
+  Future<void> close() {
+    _assetSubscription?.cancel();
+    return super.close();
   }
 }
