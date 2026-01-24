@@ -421,16 +421,16 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Incoming changes pending:'),
-                      Text(
-                        '$_incomingChanges',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: _incomingChanges > 0
-                              ? theme.colorScheme.primary
-                              : null,
-                        ),
-                      ),
+                      // const Text('Incoming changes pending:'),
+                      // Text(
+                      //   '$_incomingChanges',
+                      //   style: theme.textTheme.titleMedium?.copyWith(
+                      //     fontWeight: FontWeight.bold,
+                      //     color: _incomingChanges > 0
+                      //         ? theme.colorScheme.primary
+                      //         : null,
+                      //   ),
+                      // ),
                     ],
                   ),
                   const SizedBox(height: 16),
