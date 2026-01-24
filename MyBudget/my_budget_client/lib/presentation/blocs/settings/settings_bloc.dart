@@ -19,6 +19,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   final InflationRepository _inflationRepository;
   final InflationApiService _inflationApiService;
   StreamSubscription? _settingsSubscription;
+  StreamSubscription? _inflationSubscription;
 
   SettingsBloc({
     required SettingsRepository settingsRepository,
@@ -33,6 +34,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<UpdateThemeMode>(_onUpdateThemeMode);
     on<UpdateHotkey>(_onUpdateHotkey);
     on<_SettingsChanged>(_onSettingsChanged);
+    on<RefreshAvailableCountries>(_onRefreshAvailableCountries);
   }
 
   Future<void> _onLoadSettings(
@@ -46,6 +48,28 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     _settingsSubscription = _settingsRepository.watchAllSettings().listen(
       (settings) => add(_SettingsChanged(settings)),
     );
+
+    _inflationSubscription?.cancel();
+    _inflationSubscription = _inflationRepository
+        .watchInflationRatesFiltered(limit: 1, offset: 0)
+        .listen((_) => add(RefreshAvailableCountries()));
+  }
+
+  Future<void> _onRefreshAvailableCountries(
+    RefreshAvailableCountries event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final countries = await _inflationRepository.getAvailableCountries();
+    final Map<String, String> availableCountriesMap = {
+      for (var code in countries)
+        code: worldBankCountryCodes.entries
+            .firstWhere(
+              (e) => e.value == code,
+              orElse: () => MapEntry(code, code),
+            )
+            .key,
+    };
+    emit(state.copyWith(countries: availableCountriesMap));
   }
 
   Future<void> _onUpdateSetting(
@@ -238,6 +262,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   @override
   Future<void> close() {
     _settingsSubscription?.cancel();
+    _inflationSubscription?.cancel();
     return super.close();
   }
 }

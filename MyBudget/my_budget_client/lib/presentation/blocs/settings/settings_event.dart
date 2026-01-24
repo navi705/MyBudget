@@ -43,3 +43,5 @@ class _SettingsChanged extends SettingsEvent {
   @override
   List<Object> get props => [settings];
 }
+
+class RefreshAvailableCountries extends SettingsEvent {}

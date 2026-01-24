@@ -16,8 +16,6 @@ import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/icon_selection_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/delete_account_dialog.dart';
-import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
-import 'package:my_budget_client/presentation/blocs/asset/asset_state.dart';
 
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart'; // Added
@@ -450,11 +448,16 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                       const SizedBox(height: 8),
 
                       // --- ASSET BINDING SECTION ---
-                      BlocBuilder<AssetBloc, AssetState>(
-                        builder: (context, state) {
+                      // --- ASSET BINDING SECTION ---
+                      StreamBuilder<List<AssetDataDomain>>(
+                        stream: sl<AssetRepository>().watchAssetData(
+                          limit: 500,
+                        ),
+                        builder: (context, snapshot) {
+                          final assetData = snapshot.data ?? [];
                           // Get latest versions of unique assets by ID
                           final uniqueAssets = <String, AssetDataDomain>{};
-                          for (var asset in state.assetData) {
+                          for (var asset in assetData) {
                             if (!uniqueAssets.containsKey(asset.assetId) ||
                                 asset.date.isAfter(
                                   uniqueAssets[asset.assetId]!.date,
@@ -597,16 +600,18 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                       const Divider(),
 
                       // ASSET LIST Section
-                      FutureBuilder<List<AssetDataDomain>>(
-                        future: sl<AssetRepository>().getAssetData(
+                      StreamBuilder<List<AssetDataDomain>>(
+                        stream: sl<AssetRepository>().watchAssetData(
                           accountId: widget.account.id,
                         ),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
+                            if (!snapshot.hasData) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
                           }
                           final assets = snapshot.data ?? [];
                           if (assets.isEmpty) {

@@ -288,6 +288,7 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
           event.start,
           event.end,
         );
+        add(const LoadApiSettings(silent: true));
         emit(currentState.copyWith(isOperationInProgress: false));
       } catch (e) {
         emit(
@@ -312,6 +313,7 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
           event.accountId,
           event.game,
         );
+        add(const LoadApiSettings(silent: true));
         emit(currentState.copyWith(isOperationInProgress: false));
       } catch (e) {
         emit(
@@ -351,6 +353,7 @@ class ApiSettingsBloc extends Bloc<ApiSettingsEvent, ApiSettingsState> {
           event.countryCode,
           event.dateRange,
         );
+        add(const LoadApiSettings(silent: true));
         emit(currentState.copyWith(isOperationInProgress: false));
       } catch (e) {
         emit(
