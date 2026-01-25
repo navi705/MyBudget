@@ -1,1 +1,15 @@
 include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    avoid_print: ignore
+    deprecated_member_use: ignore
+    unused_field: ignore
+    unused_import: ignore
+    asset_does_not_exist: ignore
+    curly_braces_in_flow_control_structures: ignore
+
+linter:
+  rules:
+    - avoid_print
+    - curly_braces_in_flow_control_structures
