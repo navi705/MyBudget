@@ -2,9 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class AndroidFilePickerService {
-  static const _channel = MethodChannel(
-    'com.example.my_budget_client/file_picker',
-  );
+  static const _channel = MethodChannel('com.mybudget.app/file_picker');
 
   Future<List<String>?> pickFile({
     required String mimeType,

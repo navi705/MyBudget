@@ -16,10 +16,10 @@ import java.io.File
 import java.io.FileOutputStream
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.example.my_budget_client/file_picker"
+    private val CHANNEL = "com.mybudget.app/file_picker"
     private val PICK_FILE_REQUEST_CODE = 123
     private var pendingResult: MethodChannel.Result? = null
-    private val SMS_CHANNEL = "com.example.my_budget_client/sms_events"
+    private val SMS_CHANNEL = "com.mybudget.app/sms_events"
     private var smsEventSink: EventChannel.EventSink? = null
 
     private val smsReceiver = object : BroadcastReceiver() {

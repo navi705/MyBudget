@@ -12,9 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Local SMS repository implementation using flutter_sms_reader.
 class LocalSmsRepository implements SmsRepository {
-  static const _smsChannel = EventChannel(
-    'com.example.my_budget_client/sms_events',
-  );
+  static const _smsChannel = EventChannel('com.mybudget.app/sms_events');
   final StreamController<SmsMessage> _smsController =
       StreamController<SmsMessage>.broadcast();
 

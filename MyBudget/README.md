@@ -79,3 +79,16 @@ docker run -d \
 
 ### Android
 Download the latest `.apk` from the [GitHub Releases](https://github.com/navi705/MyBudget/releases).
+
+> **Android Installation (Bypass Play Protect)**:
+> Since the app is self-signed, Google Play Project might block the installation. If the "Install anyway" button is missing or doesn't work:
+> 1. Enable **Flight Mode** (disconnect all internet).
+> 2. Go to Google Play Store settings -> **Play Protect** and try to disable "Scan apps with Play Protect". It often toggles off more easily without an internet connection.
+> 3. Install the APK file while offline.
+> 4. Once installed, you can re-enable your internet and Play Protect settings.
+
+**SMS Import Support**:
+To use the transaction import feature from SMS, you must manually grant permissions in Android settings:
+1. Go to **Settings** -> **Apps** -> **MyBudget**.
+2. Open **Permissions** and allow **SMS** access.
+3. Some devices might also require enabling "Service SMS" or "Premium SMS" in special app access settings.
