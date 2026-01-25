@@ -98,9 +98,8 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
   Widget build(BuildContext context) {
     return EscapeBackHandler(
       child: BlocListener<AddEditTransactionBloc, AddEditTransactionState>(
-        listenWhen: (previous, current) =>
-            previous.isSaveSuccess != current.isSaveSuccess &&
-            current.isSaveSuccess,
+        // listener: (context, state) { ... }
+        // We remove listenWhen to allow real-time sync of text controllers
         listener: (context, state) {
           if (state.isSaveSuccess) {
             // Pop first to avoid UI lag
@@ -139,23 +138,20 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
           if (state.description != _descriptionController.text) {
             _descriptionController.text = state.description;
           }
-          if (state.amount != _amountController.text) {
+          final amountDouble = double.tryParse(state.amount) ?? -1.0;
+          final currentAmountDouble =
+              double.tryParse(_amountController.text) ?? -1.0;
+          if ((amountDouble - currentAmountDouble).abs() > 0.0000001) {
             _amountController.text = state.amount;
           }
           if (state.fee != _feeController.text) {
             _feeController.text = state.fee;
           }
           // Sync Total Value
-          if (state.totalValue != _totalValueController.text) {
-            // Avoid cursor jumps if user is typing?
-            // Simple equality check might fail if formatting differs.
-            // But here state.totalValue comes from Bloc which parses input.
-            // Best to only update if significantly different or if not focused?
-            // For bidirectional sync (Qty changes -> Total changes), we need to update.
-            // But if User changes Total -> Bloc updates Total -> Listener updates Total... loop?
-            // We can check if widget is focused?
-            // Simpler: Check if double values match?
-            // Or just equality check on string.
+          final totalDouble = double.tryParse(state.totalValue) ?? -1.0;
+          final currentTotalDouble =
+              double.tryParse(_totalValueController.text) ?? -1.0;
+          if ((totalDouble - currentTotalDouble).abs() > 0.0000001) {
             _totalValueController.text = state.totalValue;
           }
         },
@@ -356,10 +352,16 @@ class _AmountField extends StatelessWidget {
         // Default to red for expense or if no category selected (assume expense)
         final color = isIncome ? Colors.green : Colors.red;
 
+        final effectiveLabel = state.isAssetTransaction && label == null
+            ? context
+                  .l10n
+                  .assetQuantityLabel // We might need to add this to L10n or just use a string
+            : (label ?? context.l10n.amountLabel);
+
         return TextFormField(
           controller: controller,
           decoration: InputDecoration(
-            labelText: label ?? context.l10n.amountLabel,
+            labelText: effectiveLabel,
             border: const OutlineInputBorder(),
           ),
           style: TextStyle(color: color, fontWeight: FontWeight.bold),
@@ -741,8 +743,9 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
   late TextEditingController _rateController;
 
   String _getDisplayValue(AddEditTransactionState state) {
-    // SIMPLIFIED: Just return what user typed
-    // The label shows the direction, user types in that direction
+    debugPrint(
+      'DEBUG UI: _getDisplayValue manualExchangeRate=${state.manualExchangeRate}',
+    );
     return state.manualExchangeRate;
   }
 
@@ -769,6 +772,9 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
     // (Bloc updates state on onChanged).
 
     // For now, simple check:
+    debugPrint(
+      'DEBUG UI: didUpdateWidget controller="${_rateController.text}" expected="$expectedText"',
+    );
     if (_rateController.text != expectedText) {
       // Check fuzzy equality to avoid cursor jumping on precision diffs
       final currentVal = double.tryParse(_rateController.text);
@@ -780,6 +786,9 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
       }
 
       if (!isClose) {
+        debugPrint(
+          'DEBUG UI: didUpdateWidget UPDATING controller to $expectedText',
+        );
         _rateController.text = expectedText;
         // Fix cursor
         _rateController.selection = TextSelection.fromPosition(
@@ -797,267 +806,296 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
-      builder: (context, state) {
-        // Determine currencies based on mode
-        String fromCurrency;
-        String toCurrency;
+    return BlocListener<AddEditTransactionBloc, AddEditTransactionState>(
+      listener: (context, state) {
+        final expectedText = _getDisplayValue(state);
+        debugPrint(
+          'DEBUG UI: BlocListener controller="${_rateController.text}" expected="$expectedText"',
+        );
+        if (_rateController.text != expectedText) {
+          final currentVal = double.tryParse(_rateController.text);
+          final expectedVal = double.tryParse(expectedText);
+          bool isClose = false;
+          if (currentVal != null && expectedVal != null) {
+            if ((currentVal - expectedVal).abs() < 0.000001) isClose = true;
+          }
 
-        if (state.isTransferMode) {
-          // Transfer: From Account -> To Account (linkedAccount)
-          fromCurrency = state.selectedAccount?.currencyCode ?? '';
-          toCurrency =
-              state.linkedAccount?.currencyCode ?? state.mainCurrencyCode;
-        } else if (state.isAssetTransaction) {
-          // Asset: Asset Currency (From) -> Cash Currency (To)
-          fromCurrency = state.selectedAccount?.currencyCode ?? '';
-          toCurrency =
-              state.linkedAccount?.currencyCode ?? state.mainCurrencyCode;
-        } else {
-          // Standard: Transaction Currency -> Main Currency (for reporting)
-          // If transaction currency != account currency, use account currency as target
-          // Otherwise use main currency as target
-          fromCurrency = state.selectedCurrency?.code ?? '';
-          if (fromCurrency != (state.selectedAccount?.currencyCode ?? '')) {
-            toCurrency =
-                state.selectedAccount?.currencyCode ?? state.mainCurrencyCode;
-          } else {
-            toCurrency = state.mainCurrencyCode;
+          if (!isClose) {
+            debugPrint(
+              'DEBUG UI: BlocListener UPDATING controller to $expectedText',
+            );
+            _rateController.text = expectedText;
+            _rateController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _rateController.text.length),
+            );
           }
         }
-
-        // Rate direction label
-        final leftCurrency = state.isRateInputInverted
-            ? toCurrency
-            : fromCurrency;
-        final rightCurrency = state.isRateInputInverted
-            ? fromCurrency
-            : toCurrency;
-
-        return Card(
-          elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with title
-                Text(
-                  context.l10n.exchangeRateLabel,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Direction indicator with swap button - responsive design
-                Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Left currency
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '1 $leftCurrency',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onPrimaryContainer,
-                          ),
-                        ),
-                      ),
-
-                      // Swap button
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: IconButton.filled(
-                          icon: const Icon(Icons.swap_horiz),
-                          tooltip: context.l10n.swapDirectionTooltip,
-                          onPressed: () {
-                            context.read<AddEditTransactionBloc>().add(
-                              const AddEditTransactionToggleRateDirection(),
-                            );
-                          },
-                        ),
-                      ),
-
-                      // Right currency
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          rightCurrency,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSecondaryContainer,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (state.isLoadingRates)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                else ...[
-                  // Presets Chips
-                  if (state.availableExchangeRates.isNotEmpty) ...[
-                    Text(
-                      context.l10n.availablePresetsLabel,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 8.0,
-                      runSpacing: 4.0,
-                      children: state.availableExchangeRates.map((rate) {
-                        final isSelected = state.selectedExchangeRate == rate;
-                        return ChoiceChip(
-                          label: Text(
-                            'P${rate.preset}: ${rate.rate.toStringAsFixed(4)}',
-                          ),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            if (selected) {
-                              context.read<AddEditTransactionBloc>().add(
-                                AddEditTransactionRatePresetChanged(rate),
-                              );
-                            }
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-
-                  // Buttons: Add Preset (Implicit in logic? No, explicit button requested to manage)
-                  // User said: "I can add and delete presets".
-                  // So we need Add and Delete buttons.
-                  Row(
-                    children: [
-                      // Rate Input
-                      Expanded(
-                        child: TextFormField(
-                          // Removed Key to allow controller to manage text persistence smoothly
-                          controller: _rateController,
-                          decoration: InputDecoration(
-                            labelText:
-                                '${context.l10n.exchangeRateLabel} ($rightCurrency)',
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'[0-9.,]'),
-                            ),
-                            TextInputFormatter.withFunction((
-                              oldValue,
-                              newValue,
-                            ) {
-                              return newValue.copyWith(
-                                text: newValue.text.replaceAll(',', '.'),
-                              );
-                            }),
-                          ],
-                          onChanged: (value) => context
-                              .read<AddEditTransactionBloc>()
-                              .add(AddEditTransactionManualRateChanged(value)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      // Delete Preset (not for Preset 1)
-                      if (state.selectedExchangeRate != null &&
-                          state.selectedExchangeRate!.preset != 1)
-                        TextButton.icon(
-                          icon: const Icon(Icons.delete, size: 16),
-                          label: Text(context.l10n.deleteButton),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.red,
-                          ),
-                          onPressed: () {
-                            context.read<AddEditTransactionBloc>().add(
-                              AddEditTransactionDeletePreset(
-                                state.selectedExchangeRate!,
-                              ),
-                            );
-                          },
-                        ),
-
-                      // Update Preset (not for Preset 1)
-                      if (state.selectedExchangeRate != null &&
-                          state.selectedExchangeRate!.preset != 1)
-                        TextButton.icon(
-                          icon: const Icon(Icons.edit, size: 16),
-                          label: Text(context.l10n.updateButton),
-                          onPressed: () {
-                            context.read<AddEditTransactionBloc>().add(
-                              AddEditTransactionUpdatePreset(
-                                state.selectedExchangeRate!,
-                              ),
-                            );
-                          },
-                        ),
-
-                      const SizedBox(width: 8),
-                      TextButton.icon(
-                        icon: const Icon(Icons.add, size: 16),
-                        label: Text(context.l10n.newPresetButton),
-                        onPressed: () {
-                          context.read<AddEditTransactionBloc>().add(
-                            const AddEditTransactionAddNewRate(),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
       },
+      child: BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
+        builder: (context, state) {
+          // Determine currencies based on mode
+          String fromCurrency;
+          String toCurrency;
+
+          if (state.isTransferMode) {
+            // Transfer: From Account -> To Account (linkedAccount)
+            fromCurrency = state.selectedAccount?.currencyCode ?? '';
+            toCurrency =
+                state.linkedAccount?.currencyCode ?? state.mainCurrencyCode;
+          } else if (state.isAssetTransaction) {
+            // Asset: Asset Currency (From) -> Cash Currency (To)
+            fromCurrency = state.selectedAccount?.currencyCode ?? '';
+            toCurrency =
+                state.linkedAccount?.currencyCode ?? state.mainCurrencyCode;
+          } else {
+            // Standard: Transaction Currency -> Main Currency (for reporting)
+            // If transaction currency != account currency, use account currency as target
+            // Otherwise use main currency as target
+            fromCurrency = state.selectedCurrency?.code ?? '';
+            if (fromCurrency != (state.selectedAccount?.currencyCode ?? '')) {
+              toCurrency =
+                  state.selectedAccount?.currencyCode ?? state.mainCurrencyCode;
+            } else {
+              toCurrency = state.mainCurrencyCode;
+            }
+          }
+
+          // Rate direction label
+          final leftCurrency = state.isRateInputInverted
+              ? toCurrency
+              : fromCurrency;
+          final rightCurrency = state.isRateInputInverted
+              ? fromCurrency
+              : toCurrency;
+
+          return Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header with title
+                  Text(
+                    context.l10n.exchangeRateLabel,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Currency Row
+                  Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Left currency
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            leftCurrency,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+
+                        // Switch icon
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: IconButton(
+                            icon: const Icon(Icons.swap_horiz),
+                            onPressed: () {
+                              context.read<AddEditTransactionBloc>().add(
+                                const AddEditTransactionToggleRateDirection(),
+                              );
+                            },
+                          ),
+                        ),
+
+                        // Right currency
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.secondaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            rightCurrency,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSecondaryContainer,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (state.isLoadingRates)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  else ...[
+                    // Presets Chips
+                    if (state.availableExchangeRates.isNotEmpty) ...[
+                      Text(
+                        context.l10n.availablePresetsLabel,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 8.0,
+                        runSpacing: 4.0,
+                        children: state.availableExchangeRates.map((rate) {
+                          final isSelected = state.selectedExchangeRate == rate;
+                          return ChoiceChip(
+                            label: Text(
+                              'P${rate.preset}: ${rate.rate.toStringAsFixed(4)}',
+                            ),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              if (selected) {
+                                context.read<AddEditTransactionBloc>().add(
+                                  AddEditTransactionRatePresetChanged(rate),
+                                );
+                              }
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Buttons: Add Preset (Implicit in logic? No, explicit button requested to manage)
+                    // User said: "I can add and delete presets".
+                    // So we need Add and Delete buttons.
+                    Row(
+                      children: [
+                        // Rate Input
+                        Expanded(
+                          child: TextFormField(
+                            // Removed Key to allow controller to manage text persistence smoothly
+                            controller: _rateController,
+                            decoration: InputDecoration(
+                              labelText:
+                                  '${context.l10n.exchangeRateLabel} ($rightCurrency)',
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[0-9.,]'),
+                              ),
+                              TextInputFormatter.withFunction((
+                                oldValue,
+                                newValue,
+                              ) {
+                                return newValue.copyWith(
+                                  text: newValue.text.replaceAll(',', '.'),
+                                );
+                              }),
+                            ],
+                            onChanged: (value) =>
+                                context.read<AddEditTransactionBloc>().add(
+                                  AddEditTransactionManualRateChanged(value),
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        // Delete Preset (not for Preset 1)
+                        if (state.selectedExchangeRate != null &&
+                            state.selectedExchangeRate!.preset != 1)
+                          TextButton.icon(
+                            icon: const Icon(Icons.delete, size: 16),
+                            label: Text(context.l10n.deleteButton),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
+                            onPressed: () {
+                              context.read<AddEditTransactionBloc>().add(
+                                AddEditTransactionDeletePreset(
+                                  state.selectedExchangeRate!,
+                                ),
+                              );
+                            },
+                          ),
+
+                        // Update Preset (not for Preset 1)
+                        if (state.selectedExchangeRate != null &&
+                            state.selectedExchangeRate!.preset != 1)
+                          TextButton.icon(
+                            icon: const Icon(Icons.edit, size: 16),
+                            label: Text(context.l10n.updateButton),
+                            onPressed: () {
+                              context.read<AddEditTransactionBloc>().add(
+                                AddEditTransactionUpdatePreset(
+                                  state.selectedExchangeRate!,
+                                ),
+                              );
+                            },
+                          ),
+
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          icon: const Icon(Icons.bookmark_border, size: 16),
+                          label: Text(context.l10n.defaultLabel),
+                          onPressed: () {
+                            context.read<AddEditTransactionBloc>().add(
+                              const AddEditTransactionSaveRateAsDefault(),
+                            );
+                          },
+                        ),
+
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          icon: const Icon(Icons.add, size: 16),
+                          label: Text(context.l10n.newPresetButton),
+                          onPressed: () {
+                            context.read<AddEditTransactionBloc>().add(
+                              const AddEditTransactionAddNewRate(),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

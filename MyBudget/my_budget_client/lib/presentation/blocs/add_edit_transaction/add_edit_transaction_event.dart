@@ -105,6 +105,10 @@ class AddEditTransactionAddNewRate extends AddEditTransactionEvent {
   const AddEditTransactionAddNewRate();
 }
 
+class AddEditTransactionSaveRateAsDefault extends AddEditTransactionEvent {
+  const AddEditTransactionSaveRateAsDefault();
+}
+
 class AddEditTransactionUpdatePreset extends AddEditTransactionEvent {
   final ExchangeRateDomain rate;
   const AddEditTransactionUpdatePreset(this.rate);

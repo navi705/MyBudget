@@ -59,6 +59,7 @@ class AddEditTransactionBloc
     on<AddEditTransactionRatePresetChanged>(_onRatePresetChanged);
     on<AddEditTransactionManualRateChanged>(_onManualRateChanged);
     on<AddEditTransactionAddNewRate>(_onAddNewRate);
+    on<AddEditTransactionSaveRateAsDefault>(_onSaveRateAsDefault);
     on<AddEditTransactionUpdatePreset>(_onUpdatePreset);
     on<AddEditTransactionLinkedAccountChanged>(
       _onLinkedAccountChanged,
@@ -209,7 +210,7 @@ class AddEditTransactionBloc
       );
 
       // Trigger fetch if foreign currency
-      if (state.isForeignCurrency) {
+      if (selectedCurrency?.code != mainCurrencyCode) {
         await _fetchRates(emit, selectedCurrency, selectedAccount, state.date);
       }
 
@@ -363,15 +364,24 @@ class AddEditTransactionBloc
           newState = newState.copyWith(linkedAccount: linked);
         }
 
-        emit(newState); // Emit first with price/linked
+        // Also update selected currency to match asset currency
+        final assetCurrency = state.currencies.firstWhereOrNull(
+          (c) => c.code == asset.currency,
+        );
+        if (assetCurrency != null) {
+          newState = newState.copyWith(selectedCurrency: assetCurrency);
+        }
+
+        emit(newState); // Emit first with price/linked/currency
 
         // Fetch Rate Asset -> Cash
         if (linked != null) {
-          await _fetchAssetToCashRate(
+          await _fetchRates(
             emit,
-            assetCurrency: asset.currency,
-            cashCurrency: linked.currencyCode,
-            date: state.date,
+            newState.selectedCurrency,
+            account,
+            state.date,
+            forceSync: true,
           );
         }
       }
@@ -380,62 +390,15 @@ class AddEditTransactionBloc
     }
   }
 
-  Future<void> _fetchAssetToCashRate(
-    Emitter<AddEditTransactionState> emit, {
-    required String assetCurrency,
-    required String cashCurrency,
-    DateTime? date,
-  }) async {
-    emit(state.copyWith(isLoadingRates: true));
-    try {
-      List<ExchangeRateDomain> rates = [];
-      ExchangeRateDomain? selectedRate;
-      String manualRate = '1.0';
-
-      if (assetCurrency != cashCurrency) {
-        final rawRates = await _currencyRepository.getExchangeRatesFiltered(
-          fromCurrency: assetCurrency,
-          toCurrency: cashCurrency,
-          endDate: date ?? DateTime.now(),
-          limit:
-              100, // Fetch enough to cover recent history of multiple presets
-          sortAscending: false,
-        );
-
-        // Deduplicate: Keep latest per preset
-        final uniqueMap = <int, ExchangeRateDomain>{};
-        for (final rate in rawRates) {
-          if (!uniqueMap.containsKey(rate.preset)) {
-            uniqueMap[rate.preset] = rate;
-          }
-        }
-        rates = uniqueMap.values.toList()
-          ..sort((a, b) => a.preset.compareTo(b.preset));
-
-        selectedRate =
-            rates.firstWhereOrNull((r) => r.preset == 1) ?? rates.firstOrNull;
-        manualRate = selectedRate?.rate.toString() ?? '1.0';
+  double _getEffectiveRate(AddEditTransactionState state) {
+    if (state.manualExchangeRate.isNotEmpty) {
+      final val = double.tryParse(state.manualExchangeRate) ?? 1.0;
+      if (state.isRateInputInverted && val != 0) {
+        return 1.0 / val;
       }
-
-      var newState = state.copyWith(
-        availableExchangeRates: rates,
-        selectedExchangeRate: selectedRate,
-        manualExchangeRate: manualRate,
-        isLoadingRates: false,
-      );
-
-      // Recalculate Total Value if Quantity exists
-      if (state.amount.isNotEmpty && state.assetPrice != null) {
-        final qty = double.tryParse(state.amount) ?? 0.0;
-        final rate = double.tryParse(manualRate) ?? 1.0;
-        final total = qty * state.assetPrice! * rate;
-        newState = newState.copyWith(totalValue: total.toStringAsFixed(2));
-      }
-
-      emit(newState);
-    } catch (e) {
-      emit(state.copyWith(isLoadingRates: false));
+      return val;
     }
+    return state.selectedExchangeRate?.rate ?? 1.0;
   }
 
   void _onDescriptionChanged(
@@ -454,8 +417,7 @@ class AddEditTransactionBloc
     // If Asset Transaction, sync Total Value
     if (newState.isAssetTransaction && newState.assetPrice != null) {
       final qty = double.tryParse(event.amount) ?? 0.0;
-      // Total = Qty * Price * Rate
-      final rate = double.tryParse(newState.manualExchangeRate) ?? 1.0;
+      final rate = _getEffectiveRate(newState);
       final total = qty * newState.assetPrice! * rate;
       newState = newState.copyWith(totalValue: total.toStringAsFixed(2));
     }
@@ -478,12 +440,13 @@ class AddEditTransactionBloc
 
     // FIX: If in Transfer Mode, the 'Currency' field must be locked to the 'From Account'
     // So if the account changes, we MUST update the selectedCurrency to match.
-    if (state.isTransferMode) {
-      // Find the currency object matching the account's currency code
-      final accountCurrency = state.currencies.firstWhereOrNull(
+    if (newState.isTransferMode) {
+      final accCurrency = state.currencies.firstWhereOrNull(
         (c) => c.code == event.account.currencyCode,
       );
-      newState = newState.copyWith(selectedCurrency: accountCurrency);
+      if (accCurrency != null) {
+        newState = newState.copyWith(selectedCurrency: accCurrency);
+      }
     }
 
     // FIX: Clear Linked Account if it becomes invalid (same as Selected)
@@ -498,13 +461,15 @@ class AddEditTransactionBloc
       await _fetchAssetDetails(emit, event.account);
     }
 
-    // Check for foreign currency logic
-    if (state.selectedCurrency != null && state.date != null) {
+    // Refresh after potential changes in _fetchAssetDetails
+    final currentState = state;
+    if (currentState.selectedCurrency != null && currentState.date != null) {
       await _fetchRates(
         emit,
-        state.selectedCurrency,
-        event.account,
-        state.date,
+        currentState.selectedCurrency,
+        currentState.selectedAccount,
+        currentState.date,
+        forceSync: true,
       );
     }
   }
@@ -523,13 +488,13 @@ class AddEditTransactionBloc
     emit(state.copyWith(linkedAccount: event.account));
 
     // Fetch Rate Asset -> New Linked Account
-    if (state.selectedAccount != null &&
-        state.selectedAccount!.assetId != null) {
-      await _fetchAssetToCashRate(
+    if (state.selectedAccount?.assetId != null) {
+      await _fetchRates(
         emit,
-        assetCurrency: state.selectedAccount!.currencyCode,
-        cashCurrency: event.account.currencyCode,
-        date: state.date,
+        state.selectedCurrency,
+        state.selectedAccount,
+        state.date,
+        forceSync: true,
       );
     } else if (state.isTransferMode && state.selectedCurrency != null) {
       // Standard Transfer: Fetch Rates if Linked Account Changed (Target Currency Changed)
@@ -538,6 +503,7 @@ class AddEditTransactionBloc
         state.selectedCurrency,
         state.selectedAccount,
         state.date,
+        forceSync: true,
       );
     }
   }
@@ -559,7 +525,7 @@ class AddEditTransactionBloc
         newState.assetPrice != null &&
         newState.assetPrice! > 0) {
       final total = double.tryParse(event.value) ?? 0.0;
-      final rate = double.tryParse(newState.manualExchangeRate) ?? 1.0;
+      final rate = _getEffectiveRate(newState);
       // Qty = Total / (Price * Rate)
       if (rate > 0) {
         final qty = total / (newState.assetPrice! * rate);
@@ -934,6 +900,7 @@ class AddEditTransactionBloc
         event.currency,
         state.selectedAccount,
         state.date,
+        forceSync: true,
       );
     }
   }
@@ -974,13 +941,15 @@ class AddEditTransactionBloc
     Emitter<AddEditTransactionState> emit,
     Currency? fromCurrency,
     Account? toAccount,
-    DateTime? date,
-  ) async {
+    DateTime? date, {
+    bool forceSync = false,
+  }) async {
     if (fromCurrency == null || toAccount == null || date == null) return;
 
     String targetCurrencyCode;
-    // Fix for Transfer Mode: Use linked account currency if available
-    if (state.isTransferMode && state.linkedAccount != null) {
+    // Fix for Transfer/Asset Mode: Use linked account currency if available
+    if ((state.isTransferMode || state.isAssetTransaction) &&
+        state.linkedAccount != null) {
       targetCurrencyCode = state.linkedAccount!.currencyCode;
     } else {
       targetCurrencyCode = fromCurrency.code == toAccount.currencyCode
@@ -995,10 +964,14 @@ class AddEditTransactionBloc
     }
 
     final toCurrencyCode = targetCurrencyCode;
+    final normalizedDate = DateTime(date.year, date.month, date.day);
 
     emit(state.copyWith(isLoadingRates: true));
+    debugPrint(
+      'DEBUG RATES: Fetching for ${fromCurrency.code} -> $targetCurrencyCode at $normalizedDate',
+    );
     try {
-      final targetDate = date;
+      final targetDate = normalizedDate;
 
       // --- STRATEGY: Find Best "System" Rate (Virtual Preset 1) ---
       // We look for:
@@ -1061,67 +1034,155 @@ class AddEditTransactionBloc
       }
 
       // 3. Triangular Fetch (Base -> From, Base -> To)
-      // Only needed if neither Direct nor Inverse gave us a good rate (or to better match date?)
-      // AND if we are not involving the Base currency directly (optimization).
-      // If From or To IS Base, we already did Direct/Inverse.
-      if (fromCurrency.code != state.mainCurrencyCode &&
-          toCurrencyCode != state.mainCurrencyCode) {
-        // Fetch Base -> From
-        final baseToFrom = await _currencyRepository.getExchangeRatesFiltered(
-          fromCurrency: state.mainCurrencyCode,
+      // Helper to attempt triangular calculation via a pivot currency
+      Future<void> attemptTriangular(String pivotCode) async {
+        // If pivot is one of the currencies, it's just a direct rate (already checked)
+        if (fromCurrency.code == pivotCode || toCurrencyCode == pivotCode) {
+          return;
+        }
+
+        debugPrint(
+          'DEBUG RATES: Trying Triangular via $pivotCode. From=${fromCurrency.code}, To=$toCurrencyCode',
+        );
+
+        // -- Leg 1: Pivot <-> From --
+        double? ratePivotToFrom;
+        DateTime? datePivotToFrom;
+        int? presetPivotToFrom;
+
+        void updateLeg1(double r, DateTime d, int p) {
+          if (datePivotToFrom == null) {
+            ratePivotToFrom = r;
+            datePivotToFrom = d;
+            presetPivotToFrom = p;
+          } else {
+            // Prioritize Preset 1
+            final isCurrentP1 = presetPivotToFrom == 1;
+            final isNewP1 = p == 1;
+
+            if (isNewP1 && !isCurrentP1) {
+              ratePivotToFrom = r;
+              datePivotToFrom = d;
+              presetPivotToFrom = p;
+            } else if (isNewP1 == isCurrentP1) {
+              final distCurrent = datePivotToFrom!.difference(targetDate).abs();
+              final distNew = d.difference(targetDate).abs();
+              if (distNew < distCurrent) {
+                ratePivotToFrom = r;
+                datePivotToFrom = d;
+                presetPivotToFrom = p;
+              }
+            }
+          }
+        }
+
+        // Fetch Pivot -> From
+        final directLeg1 = await _currencyRepository.getExchangeRatesFiltered(
+          fromCurrency: pivotCode,
           toCurrency: fromCurrency.code,
           sortAscending: false,
+          limit: 1000,
         );
-        // Fetch Base -> To
-        final baseToTo = await _currencyRepository.getExchangeRatesFiltered(
-          fromCurrency: state.mainCurrencyCode,
+        for (var r in directLeg1) updateLeg1(r.rate, r.date, r.preset);
+
+        // Fetch From -> Pivot
+        final inverseLeg1 = await _currencyRepository.getExchangeRatesFiltered(
+          fromCurrency: fromCurrency.code,
+          toCurrency: pivotCode,
+          sortAscending: false,
+          limit: 1000,
+        );
+        for (var r in inverseLeg1) {
+          if (r.rate != 0) updateLeg1(1.0 / r.rate, r.date, r.preset);
+        }
+
+        // -- Leg 2: Pivot <-> To --
+        double? ratePivotToTo;
+        DateTime? datePivotToTo;
+        int? presetPivotToTo;
+
+        void updateLeg2(double r, DateTime d, int p) {
+          if (datePivotToTo == null) {
+            ratePivotToTo = r;
+            datePivotToTo = d;
+            presetPivotToTo = p;
+          } else {
+            final isCurrentP1 = presetPivotToTo == 1;
+            final isNewP1 = p == 1;
+
+            if (isNewP1 && !isCurrentP1) {
+              ratePivotToTo = r;
+              datePivotToTo = d;
+              presetPivotToTo = p;
+            } else if (isNewP1 == isCurrentP1) {
+              final distCurrent = datePivotToTo!.difference(targetDate).abs();
+              final distNew = d.difference(targetDate).abs();
+              if (distNew < distCurrent) {
+                ratePivotToTo = r;
+                datePivotToTo = d;
+                presetPivotToTo = p;
+              }
+            }
+          }
+        }
+
+        // Fetch Pivot -> To
+        final directLeg2 = await _currencyRepository.getExchangeRatesFiltered(
+          fromCurrency: pivotCode,
           toCurrency: toCurrencyCode,
           sortAscending: false,
+          limit: 1000,
         );
+        for (var r in directLeg2) updateLeg2(r.rate, r.date, r.preset);
 
-        // Find closest match for Base->From
-        ExchangeRateDomain? closestBaseToFrom;
-        Duration? minDistFrom;
-        for (var r in baseToFrom) {
-          if (r.preset == 1) {
-            final dist = r.date.difference(targetDate).abs();
-            if (minDistFrom == null || dist < minDistFrom) {
-              minDistFrom = dist;
-              closestBaseToFrom = r;
-            }
-          }
+        // Fetch To -> Pivot
+        final inverseLeg2 = await _currencyRepository.getExchangeRatesFiltered(
+          fromCurrency: toCurrencyCode,
+          toCurrency: pivotCode,
+          sortAscending: false,
+          limit: 1000,
+        );
+        for (var r in inverseLeg2) {
+          if (r.rate != 0) updateLeg2(1.0 / r.rate, r.date, r.preset);
         }
 
-        // Find closest match for Base->To
-        ExchangeRateDomain? closestBaseToTo;
-        Duration? minDistTo;
-        for (var r in baseToTo) {
-          if (r.preset == 1) {
-            final dist = r.date.difference(targetDate).abs();
-            if (minDistTo == null || dist < minDistTo) {
-              minDistTo = dist;
-              closestBaseToTo = r;
-            }
-          }
-        }
-
-        if (closestBaseToFrom != null && closestBaseToTo != null) {
-          // Rate = (Base->To) / (Base->From)
-          // valid if closestBaseToFrom.rate != 0
-          if (closestBaseToFrom.rate != 0) {
-            final calculatedRate =
-                closestBaseToTo.rate / closestBaseToFrom.rate;
-            // Use date that is "worst" (furthest) or "average"?
-            // Let's use the older of the two as the limiting factor?
-            // Or just targetDate since it's a derived calculation on demand?
-            // Let's use the date of the 'From' rate for reference.
-            tryUpdateBest(calculatedRate, closestBaseToFrom.date);
+        // Calculate
+        if (ratePivotToFrom != null && ratePivotToTo != null) {
+          // Rate = (Pivot->To) / (Pivot->From)
+          if (ratePivotToFrom != 0) {
+            final calculatedRate = ratePivotToTo! / ratePivotToFrom!;
+            final representativeDate = datePivotToFrom!.isBefore(datePivotToTo!)
+                ? datePivotToFrom!
+                : datePivotToTo!;
+            tryUpdateBest(calculatedRate, representativeDate);
+            debugPrint(
+              'DEBUG RATES: Triangular success via $pivotCode! Calculated $calculatedRate (L1=$ratePivotToFrom, L2=$ratePivotToTo)',
+            );
           }
         }
       }
 
+      // 1. Try Main Currency Payload
+      await attemptTriangular(state.mainCurrencyCode);
+
+      // 2. Try EUR (if not already tried)
+      if (bestDerivedRateValue == null && state.mainCurrencyCode != 'EUR') {
+        await attemptTriangular('EUR');
+      }
+
+      // 3. Try USD (if not already tried)
+      // 3. Try USD (if not already tried)
+      if (bestDerivedRateValue == null &&
+          state.mainCurrencyCode != 'USD' &&
+          state.mainCurrencyCode != 'EUR') {
+        await attemptTriangular('USD');
+      }
+
       // Create the Virtual Preset 1 if we have a derived value
       if (bestDerivedRateValue != null) {
+        debugPrint(
+          'DEBUG RATES: Found best derived rate: $bestDerivedRateValue (Date: $bestDerivedDate)',
+        );
         derivedPreset1 = ExchangeRateDomain(
           fromCurrencyCode: fromCurrency.code,
           toCurrencyCode: toCurrencyCode,
@@ -1130,6 +1191,9 @@ class AddEditTransactionBloc
           preset: 1,
         );
       } else {
+        debugPrint(
+          'DEBUG RATES: No derived rate found for ${fromCurrency.code} -> $toCurrencyCode',
+        );
         // Fallback if absolutely no history found: Default to 1.0 (or leave null?)
         // User hated "Default 1.0", so leave null if not found.
       }
@@ -1185,20 +1249,58 @@ class AddEditTransactionBloc
         selectedRate = finalRates.first;
       }
 
-      // Only set manualExchangeRate on initial load (when it's empty)
-      // This prevents overwriting user's typed value on rate refresh
-      final newManualRate = state.manualExchangeRate.isEmpty
-          ? (selectedRate?.rate.toString() ?? '')
-          : state.manualExchangeRate; // Keep current value
+      bool shouldUpdateManualRate =
+          state.manualExchangeRate.isEmpty || forceSync;
 
-      emit(
-        state.copyWith(
-          availableExchangeRates: finalRates,
-          selectedExchangeRate: selectedRate,
-          manualExchangeRate: newManualRate,
-          isLoadingRates: false,
-        ),
+      // If we found a Preset 1 (derived or real), and it's the selected one,
+      // we should probably sync manualRate if it's currently different.
+      if (!shouldUpdateManualRate &&
+          selectedRate?.preset == 1 &&
+          state.manualExchangeRate.isNotEmpty) {
+        final currentManual = double.tryParse(state.manualExchangeRate) ?? 0.0;
+        double effectiveRate = selectedRate!.rate;
+        if (state.isRateInputInverted && effectiveRate != 0) {
+          effectiveRate = 1 / effectiveRate;
+        }
+
+        if ((currentManual - effectiveRate).abs() > 0.000001) {
+          shouldUpdateManualRate = true;
+        }
+      }
+
+      var newManualRateStr = state.manualExchangeRate;
+      if (shouldUpdateManualRate && selectedRate != null) {
+        double rateToDisplay = selectedRate.rate;
+        if (state.isRateInputInverted && rateToDisplay != 0) {
+          rateToDisplay = 1 / rateToDisplay;
+        }
+        newManualRateStr = rateToDisplay.toString();
+        debugPrint(
+          'DEBUG RATES: Syncing manual rate to $newManualRateStr (inverted: ${state.isRateInputInverted})',
+        );
+      }
+
+      debugPrint(
+        'DEBUG RATES: finalRates count: ${finalRates.length}, selected: ${selectedRate?.preset}, manual: $newManualRateStr',
       );
+
+      var finalState = state.copyWith(
+        availableExchangeRates: finalRates,
+        selectedExchangeRate: selectedRate,
+        manualExchangeRate: newManualRateStr,
+        isLoadingRates: false,
+      );
+
+      // If Asset Transaction, recalculate totalValue based on new rate
+      // Use correct absolute rate for calculation
+      if (finalState.isAssetTransaction && finalState.assetPrice != null) {
+        final qty = double.tryParse(finalState.amount) ?? 0.0;
+        final absRate = _getEffectiveRate(finalState);
+        final total = qty * finalState.assetPrice! * absRate;
+        finalState = finalState.copyWith(totalValue: total.toStringAsFixed(2));
+      }
+
+      emit(finalState);
     } catch (e) {
       emit(state.copyWith(isLoadingRates: false));
     }
@@ -1208,10 +1310,14 @@ class AddEditTransactionBloc
     AddEditTransactionRatePresetChanged event,
     Emitter<AddEditTransactionState> emit,
   ) {
+    double? displayRate = event.rate?.rate;
+    if (displayRate != null && state.isRateInputInverted && displayRate != 0) {
+      displayRate = 1.0 / displayRate;
+    }
+
     var newState = state.copyWith(
       selectedExchangeRate: event.rate,
-      manualExchangeRate:
-          event.rate?.rate.toString() ?? state.manualExchangeRate,
+      manualExchangeRate: displayRate?.toString() ?? state.manualExchangeRate,
     );
 
     // Asset Sync: Recalculate Total Value
@@ -1219,7 +1325,7 @@ class AddEditTransactionBloc
         newState.assetPrice != null &&
         newState.amount.isNotEmpty) {
       final qty = double.tryParse(newState.amount) ?? 0.0;
-      final rate = double.tryParse(newState.manualExchangeRate) ?? 1.0;
+      final rate = _getEffectiveRate(newState);
       final total = qty * newState.assetPrice! * rate;
       newState = newState.copyWith(totalValue: total.toStringAsFixed(2));
     }
@@ -1231,8 +1337,6 @@ class AddEditTransactionBloc
     AddEditTransactionManualRateChanged event,
     Emitter<AddEditTransactionState> emit,
   ) {
-    // SIMPLIFIED: Store exactly what user types
-    // Inversion is applied only at SAVE time based on isRateInputInverted
     var newState = state.copyWith(
       manualExchangeRate: event.rate,
       selectedExchangeRate: null,
@@ -1243,7 +1347,7 @@ class AddEditTransactionBloc
         newState.assetPrice != null &&
         newState.amount.isNotEmpty) {
       final qty = double.tryParse(newState.amount) ?? 0.0;
-      final rate = double.tryParse(newState.manualExchangeRate) ?? 1.0;
+      final rate = _getEffectiveRate(newState);
       final total = qty * newState.assetPrice! * rate;
       newState = newState.copyWith(totalValue: total.toStringAsFixed(2));
     }
@@ -1255,13 +1359,97 @@ class AddEditTransactionBloc
     AddEditTransactionToggleRateDirection event,
     Emitter<AddEditTransactionState> emit,
   ) {
-    // SIMPLIFIED: Just toggle the flag
-    // manualExchangeRate stores user's raw input, interpretation changes based on flag
     final newValue = !state.isRateInputInverted;
-    debugPrint(
-      'DEBUG TOGGLE: isRateInputInverted changing from ${state.isRateInputInverted} to $newValue',
+
+    // Invert the manual rate string so the numerical value matches the new direction
+    var newManualRateStr = state.manualExchangeRate;
+    if (state.manualExchangeRate.isNotEmpty) {
+      final manualRate = double.tryParse(state.manualExchangeRate) ?? 0.0;
+      if (manualRate != 0) {
+        newManualRateStr = (1.0 / manualRate).toString();
+      }
+    }
+
+    var newState = state.copyWith(
+      isRateInputInverted: newValue,
+      manualExchangeRate: newManualRateStr,
     );
-    emit(state.copyWith(isRateInputInverted: newValue));
+
+    // Asset Sync: Recalculate Total Value if necessary
+    if (newState.isAssetTransaction &&
+        newState.assetPrice != null &&
+        newState.amount.isNotEmpty) {
+      final qty = double.tryParse(newState.amount) ?? 0.0;
+      final rate = _getEffectiveRate(newState);
+      final total = qty * newState.assetPrice! * rate;
+      newState = newState.copyWith(totalValue: total.toStringAsFixed(2));
+    }
+
+    emit(newState);
+  }
+
+  Future<void> _onSaveRateAsDefault(
+    AddEditTransactionSaveRateAsDefault event,
+    Emitter<AddEditTransactionState> emit,
+  ) async {
+    if (!state.isForeignCurrency || state.date == null) return;
+
+    emit(state.copyWith(isLoadingRates: true));
+    try {
+      var rateValue = _getEffectiveRate(state);
+      if (rateValue == 0) {
+        emit(state.copyWith(isLoadingRates: false));
+        return;
+      }
+
+      String fromCode = state.selectedCurrency!.code;
+      String toCode;
+
+      if (state.isAssetTransaction) {
+        fromCode = state.selectedAccount?.currencyCode ?? fromCode;
+        toCode = state.linkedAccount?.currencyCode ?? state.mainCurrencyCode;
+      } else if (state.isTransferMode) {
+        fromCode = state.selectedAccount?.currencyCode ?? fromCode;
+        toCode = state.linkedAccount?.currencyCode ?? state.mainCurrencyCode;
+      } else {
+        toCode =
+            state.selectedCurrency!.code == state.selectedAccount!.currencyCode
+            ? state.mainCurrencyCode
+            : state.selectedAccount!.currencyCode;
+      }
+
+      final normalizedDate = DateTime(
+        state.date!.year,
+        state.date!.month,
+        state.date!.day,
+      );
+      final newRate = ExchangeRateDomain(
+        fromCurrencyCode: fromCode,
+        toCurrencyCode: toCode,
+        rate: rateValue,
+        date: normalizedDate,
+        preset: 1, // Explicitly Preset 1
+      );
+
+      debugPrint(
+        'DEBUG DEFAULT: Saving rate $rateValue for $fromCode -> $toCode as Preset 1',
+      );
+      await _currencyRepository.addExchangeRate(newRate);
+      debugPrint('DEBUG DEFAULT: Save successful. Refreshing...');
+
+      // Refresh rates with LATEST state
+      await _fetchRates(
+        emit,
+        state.selectedCurrency,
+        state.selectedAccount,
+        state.date,
+        forceSync: true,
+      );
+      debugPrint('DEBUG DEFAULT: Refresh complete.');
+    } catch (e, stack) {
+      debugPrint('DEBUG DEFAULT ERROR: $e\n$stack');
+      emit(state.copyWith(isLoadingRates: false));
+    }
   }
 
   Future<void> _onAddNewRate(
@@ -1323,21 +1511,13 @@ class AddEditTransactionBloc
       await _currencyRepository.addExchangeRate(newRate);
 
       // Refresh
-      if (state.isAssetTransaction) {
-        await _fetchAssetToCashRate(
-          emit,
-          assetCurrency: fromCode,
-          cashCurrency: toCode,
-          date: state.date,
-        );
-      } else {
-        await _fetchRates(
-          emit,
-          state.selectedCurrency,
-          state.selectedAccount,
-          state.date,
-        );
-      }
+      await _fetchRates(
+        emit,
+        state.selectedCurrency,
+        state.selectedAccount,
+        state.date,
+        forceSync: true,
+      );
 
       // Auto-select the new rate (find by preset)
       final createdRate = state.availableExchangeRates.firstWhereOrNull(
