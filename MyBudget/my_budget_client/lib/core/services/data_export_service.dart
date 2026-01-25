@@ -29,13 +29,21 @@ class DataExportService {
     final accountTypes = await _db.accountTypesDao.getAllAccountTypes();
     final currencies = await _db.currenciesDao.getAllCurrencies();
     final designations = await _db.currencyDesignationsDao.getAllDesignations();
-    final rates = await _db.exchangeRatesDao
-        .getAllExchangeRates(); // This might be huge?
-    // Filtering rates? User said "rates". Let's include them.
+    final rates = await _db.exchangeRatesDao.getAllExchangeRates();
     final assetEntries = await _db.assetEntriesDao.getAllAssetEntries();
 
+    // Missing tables in previous version
+    final languages = await _db.languageDao.getAllLanguages();
+    final inflationRates = await _db.inflationRatesDao.getAllInflationRates();
+    final settings = await _db.settingsDao.getAllSettings();
+    final customThemes = await _db.customThemesDao.getAllThemes();
+    final customDataSources = await _db.customDataSourcesDao
+        .getAllDataSources();
+    final apiSettings = await _db.apiSettingsDao.getAllSettings();
+    final smsPresets = await _db.smsPresetsDao.getAllPresets();
+
     final data = {
-      'version': 1,
+      'version': 2, // Incremented version
       'timestamp': DateTime.now().toIso8601String(),
       'transactions': transactions.map((e) => e.toJson()).toList(),
       'categories': categories.map((e) => e.toJson()).toList(),
@@ -46,6 +54,13 @@ class DataExportService {
       'currency_designations': designations.map((e) => e.toJson()).toList(),
       'exchange_rates': rates.map((e) => e.toJson()).toList(),
       'asset_entries': assetEntries.map((e) => e.toJson()).toList(),
+      'languages': languages.map((e) => e.toJson()).toList(),
+      'inflation_rates': inflationRates.map((e) => e.toJson()).toList(),
+      'settings': settings.map((e) => e.toJson()).toList(),
+      'custom_themes': customThemes.map((e) => e.toJson()).toList(),
+      'custom_data_sources': customDataSources.map((e) => e.toJson()).toList(),
+      'api_settings': apiSettings.map((e) => e.toJson()).toList(),
+      'sms_presets': smsPresets.map((e) => e.toJson()).toList(),
     };
 
     final jsonString = const JsonEncoder.withIndent('  ').convert(data);
@@ -72,6 +87,9 @@ class DataExportService {
       'Category',
       'Account',
       'Type',
+      'Exchange Rate',
+      'Fee',
+      'Linked Transaction ID',
     ]);
 
     final dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
@@ -85,6 +103,9 @@ class DataExportService {
         categoryMap[t.categoryId] ?? t.categoryId,
         accountMap[t.accountId] ?? t.accountId,
         t.amount >= 0 ? 'Income' : 'Expense',
+        t.exchangeRate ?? '',
+        t.fee,
+        t.linkedTransactionId ?? '',
       ]);
     }
 

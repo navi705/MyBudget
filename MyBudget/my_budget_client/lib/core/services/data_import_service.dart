@@ -194,107 +194,217 @@ class DataImportService {
     // RESTORE STRATEGY: Wipe and Replace
     final data = jsonDecode(content) as Map<String, dynamic>;
 
-    await _db.transaction(() async {
-      // 1. Delete all existing data
-      // Delete in reverse order of dependencies usually, but here with drift we can just delete.
-      // Tables: Transactions, ExchangeRates, CurrencyDesignations, Currencies, AccountTypes, Styles, Accounts, Categories
-      await _db.delete(_db.transactions).go();
-      await _db.delete(_db.exchangeRates).go();
-      await _db.delete(_db.currencyDesignations).go();
-      await _db.delete(_db.accounts).go();
-      await _db.delete(_db.currencies).go();
-      await _db.delete(_db.categories).go();
-      await _db.delete(_db.accountTypes).go();
-      await _db.delete(_db.styles).go();
+    // Disable foreign key checks during import to avoid constraint issues during bulk replacement
+    await _db.customStatement('PRAGMA foreign_keys = OFF');
 
-      // 2. Insert new data
-      // Helpers to map list of json to inserts
-      if (data['styles'] != null) {
-        await _db.batch((batch) {
-          batch.insertAll(
-            _db.styles,
-            (data['styles'] as List).map((e) => Style.fromJson(e)).toList(),
-          );
-        });
-      }
+    try {
+      await _db.transaction(() async {
+        // 1. Delete all existing data (including technical tables)
+        // Business Tables
+        await _db.delete(_db.transactions).go();
+        await _db.delete(_db.accounts).go();
+        await _db.delete(_db.categories).go();
+        await _db.delete(_db.exchangeRates).go();
+        await _db.delete(_db.inflationRates).go();
+        await _db.delete(_db.assetEntries).go();
+        await _db.delete(_db.currencyDesignations).go();
+        await _db.delete(_db.currencies).go();
+        await _db.delete(_db.accountTypes).go();
+        await _db.delete(_db.styles).go();
+        await _db.delete(_db.languages).go();
 
-      if (data['account_types'] != null) {
-        await _db.batch((batch) {
-          batch.insertAll(
-            _db.accountTypes,
-            (data['account_types'] as List)
-                .map((e) => AccountType.fromJson(e))
-                .toList(),
-          );
-        });
-      }
+        // Technical/Other Tables
+        await _db.delete(_db.settings).go();
+        await _db.delete(_db.customThemes).go();
+        await _db.delete(_db.customDataSources).go();
+        await _db.delete(_db.apiSettingsTable).go();
+        await _db.delete(_db.smsPresets).go();
+        await _db.delete(_db.syncLog).go();
+        await _db.delete(_db.conflictHistory).go();
+        await _db.delete(_db.apiFetchStatuses).go();
+        await _db.delete(_db.syncProcessedFiles).go();
 
-      if (data['accounts'] != null) {
-        await _db.batch((batch) {
-          batch.insertAll(
-            _db.accounts,
-            (data['accounts'] as List)
-                .map((e) => DbAccount.fromJson(e))
-                .toList(),
-          );
-        });
-      }
+        // 2. Insert new data
+        // Order matters due to foreign key constraints
+        if (data['languages'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.languages,
+              (data['languages'] as List)
+                  .map((e) => Language.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
 
-      if (data['categories'] != null) {
-        await _db.batch((batch) {
-          batch.insertAll(
-            _db.categories,
-            (data['categories'] as List)
-                .map((e) => Category.fromJson(e))
-                .toList(),
-          );
-        });
-      }
+        if (data['styles'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.styles,
+              (data['styles'] as List).map((e) => Style.fromJson(e)).toList(),
+            );
+          });
+        }
 
-      if (data['currencies'] != null) {
-        await _db.batch((batch) {
-          batch.insertAll(
-            _db.currencies,
-            (data['currencies'] as List)
-                .map((e) => Currency.fromJson(e))
-                .toList(),
-          );
-        });
-      }
+        if (data['account_types'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.accountTypes,
+              (data['account_types'] as List)
+                  .map((e) => AccountType.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
 
-      if (data['currency_designations'] != null) {
-        await _db.batch((batch) {
-          batch.insertAll(
-            _db.currencyDesignations,
-            (data['currency_designations'] as List)
-                .map((e) => CurrencyDesignation.fromJson(e))
-                .toList(),
-          );
-        });
-      }
+        if (data['currencies'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.currencies,
+              (data['currencies'] as List)
+                  .map((e) => Currency.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
 
-      if (data['exchange_rates'] != null) {
-        await _db.batch((batch) {
-          batch.insertAll(
-            _db.exchangeRates,
-            (data['exchange_rates'] as List)
-                .map((e) => ExchangeRate.fromJson(e))
-                .toList(),
-          );
-        });
-      }
+        if (data['currency_designations'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.currencyDesignations,
+              (data['currency_designations'] as List)
+                  .map((e) => CurrencyDesignation.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
 
-      if (data['transactions'] != null) {
-        await _db.batch((batch) {
-          batch.insertAll(
-            _db.transactions,
-            (data['transactions'] as List)
-                .map((e) => Transaction.fromJson(e))
-                .toList(),
-          );
-        });
-      }
-    });
+        if (data['accounts'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.accounts,
+              (data['accounts'] as List)
+                  .map((e) => DbAccount.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
+
+        if (data['categories'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.categories,
+              (data['categories'] as List)
+                  .map((e) => Category.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
+
+        if (data['exchange_rates'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.exchangeRates,
+              (data['exchange_rates'] as List)
+                  .map((e) => ExchangeRate.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
+
+        if (data['inflation_rates'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.inflationRates,
+              (data['inflation_rates'] as List)
+                  .map((e) => InflationRate.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
+
+        if (data['asset_entries'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.assetEntries,
+              (data['asset_entries'] as List)
+                  .map((e) => AssetEntry.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
+
+        if (data['transactions'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.transactions,
+              (data['transactions'] as List)
+                  .map((e) => Transaction.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
+
+        // Technical Tables
+        if (data['settings'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.settings,
+              (data['settings'] as List)
+                  .map((e) => Setting.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
+
+        if (data['custom_themes'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.customThemes,
+              (data['custom_themes'] as List)
+                  .map((e) => DbCustomTheme.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
+
+        if (data['custom_data_sources'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.customDataSources,
+              (data['custom_data_sources'] as List)
+                  .map((e) => CustomDataSource.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
+
+        if (data['api_settings'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.apiSettingsTable,
+              (data['api_settings'] as List)
+                  .map((e) => ApiSettingsTableData.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
+
+        if (data['sms_presets'] != null) {
+          await _db.batch((batch) {
+            batch.insertAll(
+              _db.smsPresets,
+              (data['sms_presets'] as List)
+                  .map((e) => SmsPreset.fromJson(e))
+                  .toList(),
+            );
+          });
+        }
+      });
+    } finally {
+      // Re-enable foreign key checks
+      await _db.customStatement('PRAGMA foreign_keys = ON');
+    }
   }
 
   Future<void> _importCsv(String content) async {
