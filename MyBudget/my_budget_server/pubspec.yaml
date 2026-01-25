@@ -1,6 +1,6 @@
 name: my_budget_server
 description: A new Dart Frog application
-version: 1.0.0+1
+version: 0.1.0
 publish_to: none
 
 environment:

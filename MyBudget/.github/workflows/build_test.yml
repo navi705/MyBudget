@@ -1,0 +1,110 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  # checks: write # If needed for reporting
+
+jobs:
+  build-and-publish-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/my_budget_server
+          tags: |
+            type=raw,value=latest
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./my_budget_server
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  build-client-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+      
+      - name: Get Dependencies
+        run: |
+          cd my_budget_client
+          flutter pub get
+          
+      - name: Analyze (Lint)
+        run: |
+          cd my_budget_client
+          flutter analyze
+          
+      # Tests removed as requested
+
+      - name: Build APK
+        run: |
+          cd my_budget_client
+          flutter build apk --release
+          
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: my_budget_client/build/app/outputs/flutter-apk/app-release.apk
+
+  build-client-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+      
+      - name: Enable Windows
+        run: flutter config --enable-windows-desktop
+
+      - name: Get Dependencies
+        run: |
+          cd my_budget_client
+          flutter pub get
+          
+      - name: Build Windows Exe
+        run: |
+          cd my_budget_client
+          flutter build windows --release
+
+      - name: Build Windows Installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" my_budget_client\windows\installer\mybudget_setup.iss
+
+      - name: Upload Windows Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: my_budget_client/build/windows/x64/runner/Release/MyBudget-Setup.exe
