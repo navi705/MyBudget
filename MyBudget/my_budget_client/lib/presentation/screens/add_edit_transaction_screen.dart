@@ -98,24 +98,19 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
   Widget build(BuildContext context) {
     return EscapeBackHandler(
       child: BlocListener<AddEditTransactionBloc, AddEditTransactionState>(
-        // listener: (context, state) { ... }
-        // We remove listenWhen to allow real-time sync of text controllers
         listener: (context, state) {
           if (state.isSaveSuccess) {
-            // Pop first to avoid UI lag
             context.pop();
-            // Then refresh data (will run after pop)
+
             context.read<TransactionsBloc>().add(
               const InitialLoadTransactions(),
             );
             context.read<AccountsBloc>().add(LoadAccounts());
           }
 
-          // Show validation error if present
           if (state.validationError != null) {
             String error = state.validationError!;
-            // Map hardcoded Bloc errors to localized strings if they match exactly
-            // Ideally Bloc should return keys.
+
             final l10n = context.l10n;
             if (error == 'Please enter an amount') {
               error = l10n.emptyAmountError;
@@ -147,7 +142,7 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
           if (state.fee != _feeController.text) {
             _feeController.text = state.fee;
           }
-          // Sync Total Value
+
           final totalDouble = double.tryParse(state.totalValue) ?? -1.0;
           final currentTotalDouble =
               double.tryParse(_totalValueController.text) ?? -1.0;
@@ -253,7 +248,7 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                                         const _ExchangeRateSection(),
                                         const SizedBox(height: 16),
                                       ],
-                                      // Fee field hidden for standard transactions
+
                                       const _ConvertedAmountDisplay(),
                                       const SizedBox(height: 16),
                                       if (state.isTransferMode) ...[
@@ -334,7 +329,6 @@ class _DescriptionField extends StatelessWidget {
       onChanged: (value) => context.read<AddEditTransactionBloc>().add(
         AddEditTransactionDescriptionChanged(value),
       ),
-      // Validator removed as per user request
     );
   }
 }
@@ -349,13 +343,11 @@ class _AmountField extends StatelessWidget {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
       builder: (context, state) {
         final isIncome = state.selectedCategory?.type == CategoryType.income;
-        // Default to red for expense or if no category selected (assume expense)
+
         final color = isIncome ? Colors.green : Colors.red;
 
         final effectiveLabel = state.isAssetTransaction && label == null
-            ? context
-                  .l10n
-                  .assetQuantityLabel // We might need to add this to L10n or just use a string
+            ? context.l10n.assetQuantityLabel
             : (label ?? context.l10n.amountLabel);
 
         return TextFormField(
@@ -367,17 +359,13 @@ class _AmountField extends StatelessWidget {
           style: TextStyle(color: color, fontWeight: FontWeight.bold),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [
-            FilteringTextInputFormatter.allow(
-              RegExp(r'[0-9.,]'),
-            ), // Allow numbers, dot, and comma
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
             TextInputFormatter.withFunction((oldValue, newValue) {
               return newValue.copyWith(
                 text: newValue.text.replaceAll(',', '.'),
               );
             }),
-            FilteringTextInputFormatter.deny(
-              RegExp(r'-'),
-            ), // Deny negative sign
+            FilteringTextInputFormatter.deny(RegExp(r'-')),
           ],
           onChanged: (value) => context.read<AddEditTransactionBloc>().add(
             AddEditTransactionAmountChanged(value),
@@ -406,7 +394,6 @@ class _AccountField extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
       builder: (context, state) {
-        // In Transfer mode, filter out asset-linked accounts
         final availableAccounts = state.isTransferMode
             ? state.accounts.where((a) => a.assetId == null).toList()
             : state.accounts;
@@ -662,7 +649,6 @@ class _SaveButton extends StatelessWidget {
         final isValid = formKey.currentState?.validate() ?? false;
         debugPrint('DEBUG SAVE BUTTON: Form valid = $isValid');
 
-        // Always submit - bloc will validate and show errors
         context.read<AddEditTransactionBloc>().add(
           const AddEditTransactionSubmitted(),
         );
@@ -707,12 +693,12 @@ class _CurrencyField extends StatelessWidget {
                   }
                 },
           child: AbsorbPointer(
-            absorbing: true, // Always absorb, onTap handles it if enabled
+            absorbing: true,
             child: TextFormField(
               key: Key(state.selectedCurrency?.code ?? 'no_currency'),
               initialValue: state.selectedCurrency?.code,
               readOnly: true,
-              enabled: !isTransfer, // Visually disabled if transfer
+              enabled: !isTransfer,
               decoration: InputDecoration(
                 labelText: context.l10n.currencyLabel,
                 border: const OutlineInputBorder(),
@@ -758,19 +744,9 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
     super.didUpdateWidget(oldWidget);
     final state = context.read<AddEditTransactionBloc>().state;
 
-    // Determine what the text SHOULD be based on state
     final expectedText = _getDisplayValue(state);
 
-    // If the text in the controller doesn't match expected (allowing for active typing), update it.
-    // Issue: If I type "117.5" and Bloc converts to "0.0085106" and back to "117.500...",
-    // it might fight the user.
-    // Solution: If the current controller text parses to approx the same value as expected, don't touch it.
-    // Or simpler: Only update if the *Source of Change* wasn't the text field itself.
-    // (Bloc updates state on onChanged).
-
-    // For now, simple check:
     if (_rateController.text != expectedText) {
-      // Check fuzzy equality to avoid cursor jumping on precision diffs
       final currentVal = double.tryParse(_rateController.text);
       final expectedVal = double.tryParse(expectedText);
       bool isClose = false;
@@ -781,7 +757,7 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
 
       if (!isClose) {
         _rateController.text = expectedText;
-        // Fix cursor
+
         _rateController.selection = TextSelection.fromPosition(
           TextPosition(offset: _rateController.text.length),
         );
@@ -818,24 +794,18 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
       },
       child: BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
         builder: (context, state) {
-          // Determine currencies based on mode
           String fromCurrency;
           String toCurrency;
 
           if (state.isTransferMode) {
-            // Transfer: From Account -> To Account (linkedAccount)
             fromCurrency = state.selectedAccount?.currencyCode ?? '';
             toCurrency =
                 state.linkedAccount?.currencyCode ?? state.mainCurrencyCode;
           } else if (state.isAssetTransaction) {
-            // Asset: Asset Currency (From) -> Cash Currency (To)
             fromCurrency = state.selectedAccount?.currencyCode ?? '';
             toCurrency =
                 state.linkedAccount?.currencyCode ?? state.mainCurrencyCode;
           } else {
-            // Standard: Transaction Currency -> Main Currency (for reporting)
-            // If transaction currency != account currency, use account currency as target
-            // Otherwise use main currency as target
             fromCurrency = state.selectedCurrency?.code ?? '';
             if (fromCurrency != (state.selectedAccount?.currencyCode ?? '')) {
               toCurrency =
@@ -845,7 +815,6 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
             }
           }
 
-          // Rate direction label
           final leftCurrency = state.isRateInputInverted
               ? toCurrency
               : fromCurrency;
@@ -860,7 +829,6 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header with title
                   Text(
                     context.l10n.exchangeRateLabel,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -869,12 +837,10 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Currency Row
                   Center(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Left currency
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -897,7 +863,6 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                           ),
                         ),
 
-                        // Switch icon
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: IconButton(
@@ -910,7 +875,6 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                           ),
                         ),
 
-                        // Right currency
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -944,7 +908,6 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                       ),
                     )
                   else ...[
-                    // Presets Chips
                     if (state.availableExchangeRates.isNotEmpty) ...[
                       Text(
                         context.l10n.availablePresetsLabel,
@@ -974,15 +937,10 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                       const SizedBox(height: 12),
                     ],
 
-                    // Buttons: Add Preset (Implicit in logic? No, explicit button requested to manage)
-                    // User said: "I can add and delete presets".
-                    // So we need Add and Delete buttons.
                     Row(
                       children: [
-                        // Rate Input
                         Expanded(
                           child: TextFormField(
-                            // Removed Key to allow controller to manage text persistence smoothly
                             controller: _rateController,
                             decoration: InputDecoration(
                               labelText:
@@ -1018,7 +976,6 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        // Delete Preset (not for Preset 1)
                         if (state.selectedExchangeRate != null &&
                             state.selectedExchangeRate!.preset != 1)
                           TextButton.icon(
@@ -1036,7 +993,6 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                             },
                           ),
 
-                        // Update Preset (not for Preset 1)
                         if (state.selectedExchangeRate != null &&
                             state.selectedExchangeRate!.preset != 1)
                           TextButton.icon(
@@ -1286,7 +1242,6 @@ class _LinkedAccountField extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
       builder: (context, state) {
-        // Filter out asset-linked accounts from transfer selection
         final cashAccounts = state.accounts
             .where(
               (a) => a.id != state.selectedAccount?.id && a.assetId == null,
