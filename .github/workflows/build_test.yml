@@ -73,7 +73,7 @@ jobs:
       - name: Build APK
         run: |
           cd my_budget_client
-          flutter build apk --release
+          flutter build apk --release --no-tree-shake-icons
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -105,7 +105,7 @@ jobs:
       - name: Build Windows Exe
         run: |
           cd my_budget_client
-          flutter build windows --release
+          flutter build windows --release --no-tree-shake-icons
 
       - name: Build Windows Installer
         run: |
