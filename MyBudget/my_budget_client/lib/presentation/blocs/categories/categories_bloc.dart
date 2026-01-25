@@ -3,6 +3,8 @@ import 'package:bloc/bloc.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'package:rxdart/rxdart.dart';
+import 'package:my_budget_client/domain/entities/transaction.dart';
 // import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
@@ -24,6 +26,8 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   final SettingsRepository _settingsRepository;
   final TransactionRepository _transactionRepository;
   final CurrencyRepository _currencyRepository;
+
+  StreamSubscription<List<Transaction>>? _transactionsSubscription;
 
   CategoriesBloc({
     required CategoryRepository categoryRepository,
@@ -60,6 +64,17 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     );
     on<ClearRecentlyDeletedCategory>(_onClearRecentlyDeletedCategory);
     on<UndoDeleteCategory>(_onUndoDeleteCategory);
+
+    _transactionsSubscription = _transactionRepository
+        .watchTransactions()
+        .debounceTime(const Duration(milliseconds: 500))
+        .listen((_) => add(LoadCategories()));
+  }
+
+  @override
+  Future<void> close() {
+    _transactionsSubscription?.cancel();
+    return super.close();
   }
 
   void _onToggleSelectionMode(

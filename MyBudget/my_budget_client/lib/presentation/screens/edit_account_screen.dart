@@ -172,6 +172,12 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
 
     return EscapeBackHandler(
       child: BlocListener<AccountsBloc, AccountsState>(
+        listenWhen: (previous, current) =>
+            current is AccountsLoadSuccess &&
+            previous is AccountsLoadSuccess &&
+            previous.recentlyDeletedAccount?.id !=
+                current.recentlyDeletedAccount?.id &&
+            current.recentlyDeletedAccount?.id == widget.account.id,
         listener: (context, state) {
           if (state is AccountsLoadSuccess &&
               state.recentlyDeletedAccount?.id == widget.account.id) {

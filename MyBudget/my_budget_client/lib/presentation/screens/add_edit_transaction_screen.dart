@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
@@ -97,10 +98,13 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
   Widget build(BuildContext context) {
     return EscapeBackHandler(
       child: BlocListener<AddEditTransactionBloc, AddEditTransactionState>(
+        listenWhen: (previous, current) =>
+            previous.isSaveSuccess != current.isSaveSuccess &&
+            current.isSaveSuccess,
         listener: (context, state) {
           if (state.isSaveSuccess) {
             // Pop first to avoid UI lag
-            Navigator.of(context).pop();
+            context.pop();
             // Then refresh data (will run after pop)
             context.read<TransactionsBloc>().add(
               const InitialLoadTransactions(),
