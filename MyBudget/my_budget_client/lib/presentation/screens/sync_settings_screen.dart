@@ -65,6 +65,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     );
 
     final incoming = await _syncService.getIncomingFileCount();
+    if (!mounted) return;
 
     setState(() {
       _syncFolderPath = folderSetting?.value;
@@ -86,6 +87,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     final pending = _isServerEnabled
         ? await _serverSyncService.getPendingChangesCount()
         : (await _db.syncLogDao.getPendingChanges()).length;
+    if (!mounted) return;
 
     setState(() {
       _pendingChanges = pending;
@@ -122,6 +124,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     );
 
     if (result != null) {
+      if (!mounted) return;
       setState(() => _syncFolderPath = result);
       await _settingsRepository.saveSetting('sync_folder_path', result);
     }
@@ -294,14 +297,14 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
           : (await _db.syncLogDao.getPendingChanges()).length;
       final incoming = await _syncService.getIncomingFileCount();
 
-      if (mounted) {
-        setState(() {
-          _pendingChanges = pending;
-          _incomingChanges = incoming;
-        });
+      if (!mounted) return;
 
-        _showSnackbar(l10n.syncCompleted);
-      }
+      setState(() {
+        _pendingChanges = pending;
+        _incomingChanges = incoming;
+      });
+
+      _showSnackbar(l10n.syncCompleted);
     } catch (e) {
       debugPrint('Manual sync error: $e');
       if (mounted) {

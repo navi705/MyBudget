@@ -8,6 +8,7 @@ import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:uuid/uuid.dart';
 import 'package:my_budget_client/core/services/android_file_picker_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DataImportService {
   final AppDatabase _db;
@@ -193,6 +194,18 @@ class DataImportService {
   Future<void> _importJson(String content) async {
     // RESTORE STRATEGY: Wipe and Replace
     final data = jsonDecode(content) as Map<String, dynamic>;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    // Mark all imported records as new by updating their modified_at
+    data.forEach((key, value) {
+      if (value is List) {
+        for (var item in value) {
+          if (item is Map<String, dynamic>) {
+            item['modifiedAt'] = now;
+          }
+        }
+      }
+    });
 
     // Disable foreign key checks during import to avoid constraint issues during bulk replacement
     await _db.customStatement('PRAGMA foreign_keys = OFF');
@@ -401,6 +414,11 @@ class DataImportService {
           });
         }
       });
+
+      // Reset sync state
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('server_last_sync_timestamp', 0);
+      await prefs.setInt('server_last_push_timestamp', 0);
     } finally {
       // Re-enable foreign key checks
       await _db.customStatement('PRAGMA foreign_keys = ON');
