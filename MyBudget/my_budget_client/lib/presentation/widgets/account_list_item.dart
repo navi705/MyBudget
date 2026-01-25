@@ -75,23 +75,34 @@ class AccountListItem extends StatelessWidget {
     Color color,
     String symbol,
   ) {
-    // If bound to an asset, show even if 0 to indicate value state
-    // But for Invested/Realized we might want to hide if 0?
-    // Let's stick to showing if it's the main account item logic.
-    if (value.abs() < 0.01 &&
-        (realValue ?? 0).abs() < 0.01 &&
+    // If bound to an asset, show even if 0 to indicate value state.
+    // Relaxed hiding condition: only hide if effectively zero (< 0.0000001).
+    // User wants to see small balances (e.g. 0.009).
+    const epsilon = 0.000001;
+    if (value.abs() < epsilon &&
+        (realValue ?? 0).abs() < epsilon &&
         account.assetId == null &&
         assetStats == null) {
       return const SizedBox.shrink();
     }
 
-    final formatter = NumberFormat('#,##0.00', 'en_US');
+    // Dynamic formatting: If small value (< 0.01) and not zero, show up to 6 decimals.
+    // Otherwise standard 2 decimals.
+    final bool isSmallValue = value.abs() < 0.01 && value.abs() > epsilon;
+    final formatter = isSmallValue
+        ? NumberFormat('#,##0.00####', 'en_US')
+        : NumberFormat('#,##0.00', 'en_US');
+
     final diff = prevValue != null ? value - prevValue : 0.0;
 
     // Percentages
     final pct = (prevValue != null && prevValue != 0)
         ? (diff / prevValue.abs() * 100)
         : 0.0;
+
+    // For diffs, use same logic? Or kept standard?
+    // Let's use standard for diffs to avoid noise unless diff is also very small?
+    // For consistency, let's keep diff standard for now unless user asks.
 
     return Row(
       children: [
@@ -145,7 +156,7 @@ class AccountListItem extends StatelessWidget {
                       ),
                       TextSpan(
                         text:
-                            '${diff > 0 ? '+' : ''}${formatter.format(diff).replaceAll(',', ' ')} (${pct > 0 ? '+' : ''}${pct.toStringAsFixed(2)}%)',
+                            '${diff > 0 ? '+' : ''}${NumberFormat('#,##0.00', 'en_US').format(diff).replaceAll(',', ' ')} (${pct > 0 ? '+' : ''}${pct.toStringAsFixed(2)}%)',
                         style: TextStyle(
                           fontSize: 13,
                           color: diff > 0 ? Colors.green : Colors.red,

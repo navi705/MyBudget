@@ -821,7 +821,7 @@ class ServerSyncService {
     'id': e.id,
     'name': e.name,
     'description': e.description,
-    'balance': e.balance,
+    'balance': _round(e.balance),
     'currencyCode': e.currencyCode,
     'currencyDesignationId': e.currencyDesignationId,
     'styleId': e.styleId,
@@ -829,7 +829,7 @@ class ServerSyncService {
     'creationDate': e.creationDate.toIso8601String(),
     'country': e.country,
     'assetId': e.assetId,
-    'assetQuantity': e.assetQuantity,
+    'assetQuantity': _round(e.assetQuantity),
     'feeStructure': e.feeStructure,
     'modifiedAt': e.modifiedAt,
     'deviceId': e.deviceId,
@@ -839,14 +839,14 @@ class ServerSyncService {
   Map<String, dynamic> _transactionToJson(Transaction entry) => {
     'id': entry.id,
     'description': entry.description,
-    'amount': entry.amount,
+    'amount': _round(entry.amount),
     'date': entry.date.toIso8601String(),
     'accountId': entry.accountId,
     'categoryId': entry.categoryId,
     'currencyCode': entry.currencyCode,
     'exchangeRate': entry.exchangeRate,
     'exchangeRatePreset': entry.exchangeRatePreset,
-    'fee': entry.fee,
+    'fee': _round(entry.fee),
     'linkedTransactionId': entry.linkedTransactionId,
     'modifiedAt': entry.modifiedAt,
     'deviceId': entry.deviceId,
@@ -858,8 +858,8 @@ class ServerSyncService {
     'assetId': e.assetId,
     'name': e.name,
     'date': e.date.toIso8601String(),
-    'value': e.value,
-    'quantity': e.quantity,
+    'value': _round(e.value),
+    'quantity': _round(e.quantity),
     'assetType': e.assetType,
     'description': e.description,
     'currencyCode': e.currencyCode,
@@ -919,7 +919,7 @@ class ServerSyncService {
   Map<String, dynamic> _exchangeRateToJson(ExchangeRate e) => {
     'fromCurrencyCode': e.fromCurrencyCode,
     'toCurrencyCode': e.toCurrencyCode,
-    'rate': e.rate,
+    'rate': _round(e.rate),
     'preset': e.preset,
     'date': e.date.toIso8601String(),
     'modifiedAt': e.modifiedAt,
@@ -1112,7 +1112,9 @@ class ServerSyncService {
       id: drift_db.Value(id),
       name: drift_db.Value(json['name'] as String? ?? 'Untitled Account'),
       description: drift_db.Value(json['description'] as String?),
-      balance: drift_db.Value((json['balance'] as num?)?.toDouble() ?? 0.0),
+      balance: drift_db.Value(
+        _round((json['balance'] as num?)?.toDouble() ?? 0.0),
+      ),
       currencyCode: drift_db.Value(
         (currencyCode != null && currencyCode.isNotEmpty)
             ? currencyCode
@@ -1134,7 +1136,7 @@ class ServerSyncService {
       country: drift_db.Value(json['country'] as String?),
       assetId: drift_db.Value(json['assetId'] as String?),
       assetQuantity: drift_db.Value(
-        (json['assetQuantity'] as num?)?.toDouble() ?? 0.0,
+        _round((json['assetQuantity'] as num?)?.toDouble() ?? 0.0),
       ),
       feeStructure: drift_db.Value(json['feeStructure'] as String?),
       modifiedAt: drift_db.Value(modifiedAt),
@@ -1159,7 +1161,9 @@ class ServerSyncService {
     final companion = TransactionsCompanion(
       id: drift_db.Value(id),
       description: drift_db.Value(json['description'] as String? ?? ''),
-      amount: drift_db.Value((json['amount'] as num?)?.toDouble() ?? 0.0),
+      amount: drift_db.Value(
+        _round((json['amount'] as num?)?.toDouble() ?? 0.0),
+      ),
       date: drift_db.Value(
         DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
       ),
@@ -1174,7 +1178,7 @@ class ServerSyncService {
         (json['exchangeRate'] as num?)?.toDouble() ?? 1.0,
       ),
       exchangeRatePreset: drift_db.Value(json['exchangeRatePreset'] as int?),
-      fee: drift_db.Value((json['fee'] as num?)?.toDouble() ?? 0.0),
+      fee: drift_db.Value(_round((json['fee'] as num?)?.toDouble() ?? 0.0)),
       linkedTransactionId: drift_db.Value(
         json['linkedTransactionId'] as String?,
       ),
@@ -1204,8 +1208,10 @@ class ServerSyncService {
       date: drift_db.Value(
         DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
       ),
-      value: drift_db.Value((json['value'] as num?)?.toDouble() ?? 0.0),
-      quantity: drift_db.Value((json['quantity'] as num?)?.toDouble() ?? 1.0),
+      value: drift_db.Value(_round((json['value'] as num?)?.toDouble() ?? 0.0)),
+      quantity: drift_db.Value(
+        _round((json['quantity'] as num?)?.toDouble() ?? 1.0),
+      ),
       assetType: drift_db.Value(json['assetType'] as String?),
       description: drift_db.Value(json['description'] as String?),
       currencyCode: drift_db.Value(json['currencyCode'] as String? ?? 'USD'),
@@ -1344,7 +1350,7 @@ class ServerSyncService {
     final companion = ExchangeRatesCompanion(
       fromCurrencyCode: drift_db.Value(fromCurrencyCode),
       toCurrencyCode: drift_db.Value(toCurrencyCode),
-      rate: drift_db.Value((json['rate'] as num?)?.toDouble() ?? 1.0),
+      rate: drift_db.Value(_round((json['rate'] as num?)?.toDouble() ?? 1.0)),
       preset: drift_db.Value(preset),
       date: drift_db.Value(date),
       modifiedAt: drift_db.Value(modifiedAt),
@@ -1442,5 +1448,10 @@ class ServerSyncService {
     if (val is bool) return val;
     if (val is int) return val == 1;
     return false;
+  }
+
+  /// Helper to round double values to 8 decimal places to avoid floating point errors
+  double _round(double value) {
+    return double.parse(value.toStringAsFixed(8));
   }
 }

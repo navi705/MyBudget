@@ -314,13 +314,21 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
     String symbol,
   ) {
     final l10n = context.l10n;
-    if (nominal.abs() < 0.01 &&
-        (real == null || real.abs() < 0.01) &&
-        prevNominal.abs() < 0.01) {
+
+    // Relaxed hiding: allow small non-zero values
+    const epsilon = 0.000001;
+    if (nominal.abs() < epsilon &&
+        (real == null || real.abs() < epsilon) &&
+        prevNominal.abs() < epsilon) {
       if (label != "Balance") return const SizedBox.shrink();
     }
 
-    final formatter = NumberFormat('#,##0.00', 'en_US');
+    // Dynamic formatting
+    final bool isSmallValue = nominal.abs() < 0.01 && nominal.abs() > epsilon;
+    final formatter = isSmallValue
+        ? NumberFormat('#,##0.00####', 'en_US')
+        : NumberFormat('#,##0.00', 'en_US');
+
     final nominalDiff = nominal - prevNominal;
     final realDiff = (real != null && prevReal != null) ? real - prevReal : 0.0;
 
@@ -362,7 +370,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                 ),
                 TextSpan(
                   text:
-                      '${nominalDiff > 0 ? '+' : ''}${formatter.format(nominalDiff).replaceAll(',', ' ')} $symbol (${nominalPct > 0 ? '+' : ''}${nominalPct.toStringAsFixed(2)}%)',
+                      '${nominalDiff > 0 ? '+' : ''}${NumberFormat('#,##0.00', 'en_US').format(nominalDiff).replaceAll(',', ' ')} $symbol (${nominalPct > 0 ? '+' : ''}${nominalPct.toStringAsFixed(2)}%)',
                   style: TextStyle(
                     fontSize: 14,
                     color: nominalDiff > 0 ? Colors.green : Colors.red,

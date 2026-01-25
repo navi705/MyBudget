@@ -133,7 +133,7 @@ class SyncRepository {
             '(@fcc$suffix, @tcc$suffix, @rate$suffix, @preset$suffix, @date$suffix, @ma$suffix, @did$suffix, @sid$suffix)');
         params['fcc$suffix'] = row['fromCurrencyCode'];
         params['tcc$suffix'] = row['toCurrencyCode'];
-        params['rate$suffix'] = row['rate'];
+        params['rate$suffix'] = _round(row['rate']);
         params['preset$suffix'] = row['preset'];
         params['date$suffix'] = _parseDate(row['date']);
         params['ma$suffix'] = row['modifiedAt'];
@@ -174,7 +174,7 @@ class SyncRepository {
         buffer.write(
             '(@date$suffix, @pct$suffix, @cnt$suffix, @pre$suffix, @ma$suffix, @did$suffix, @sid$suffix)');
         params['date$suffix'] = _parseDate(row['date']);
-        params['pct$suffix'] = row['percent'];
+        params['pct$suffix'] = _round(row['percent']);
         params['cnt$suffix'] = row['country'];
         params['pre$suffix'] = row['preset'];
         params['ma$suffix'] = row['modifiedAt'];
@@ -293,14 +293,14 @@ class SyncRepository {
     await session.execute(Sql.named(sql), parameters: {
       'id': row['id'],
       'description': row['description'],
-      'amount': row['amount'],
+      'amount': _round(row['amount']),
       'date': _parseDate(row['date']),
       'accountId': row['accountId'],
       'categoryId': row['categoryId'],
       'currencyCode': row['currencyCode'],
-      'exchangeRate': row['exchangeRate'],
+      'exchangeRate': _round(row['exchangeRate']),
       'exchangeRatePreset': row['exchangeRatePreset'],
-      'fee': row['fee'],
+      'fee': _round(row['fee']),
       'linkedTransactionId': row['linkedTransactionId'],
       'modifiedAt': row['modifiedAt'],
       'deviceId': row['deviceId'],
@@ -336,7 +336,7 @@ class SyncRepository {
       'id': row['id'],
       'name': row['name'],
       'description': row['description'],
-      'balance': row['balance'],
+      'balance': _round(row['balance']),
       'currencyCode': row['currencyCode'],
       'currencyDesignationId': row['currencyDesignationId'],
       'styleId': row['styleId'],
@@ -344,7 +344,7 @@ class SyncRepository {
       'creationDate': _parseDate(row['creationDate']),
       'country': row['country'],
       'assetId': row['assetId'],
-      'assetQuantity': row['assetQuantity'],
+      'assetQuantity': _round(row['assetQuantity']),
       'feeStructure': row['feeStructure'],
       'modifiedAt': row['modifiedAt'],
       'deviceId': row['deviceId'],
@@ -410,8 +410,8 @@ class SyncRepository {
       'assetId': row['assetId'],
       'name': row['name'],
       'date': _parseDate(row['date']),
-      'value': row['value'],
-      'quantity': row['quantity'],
+      'value': _round(row['value']),
+      'quantity': _round(row['quantity']),
       'assetType': row['assetType'],
       'description': row['description'],
       'currencyCode': row['currencyCode'],
@@ -611,7 +611,7 @@ class SyncRepository {
     await session.execute(Sql.named(sql), parameters: {
       'fromCurrencyCode': row['fromCurrencyCode'],
       'toCurrencyCode': row['toCurrencyCode'],
-      'rate': row['rate'],
+      'rate': _round(row['rate']),
       'preset': row['preset'],
       'date': _parseDate(row['date']),
       'modifiedAt': row['modifiedAt'],
@@ -635,7 +635,7 @@ class SyncRepository {
 
     await session.execute(Sql.named(sql), parameters: {
       'date': _parseDate(row['date']),
-      'percent': row['percent'],
+      'percent': _round(row['percent']),
       'country': row['country'],
       'preset': row['preset'],
       'modifiedAt': row['modifiedAt'],
@@ -702,6 +702,12 @@ class SyncRepository {
       return DateTime.parse(val);
     }
     return DateTime.now();
+  }
+
+  double _round(dynamic value) {
+    if (value == null) return 0.0;
+    final numVal = value is num ? value : 0.0;
+    return double.parse(numVal.toStringAsFixed(8));
   }
 
   Future<({Map<String, List<Map<String, dynamic>>> changes, int lastTimestamp})>
