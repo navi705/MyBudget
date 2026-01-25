@@ -959,22 +959,40 @@ class ServerSyncService {
   };
 
   Future<void> _upsertLanguage(Map<String, dynamic> json) async {
+    final languageCode = json['languageCode'] as String? ?? 'en';
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final existing = await (_database.select(
+      _database.languages,
+    )..where((t) => t.languageCode.equals(languageCode))).getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
     final companion = LanguagesCompanion(
-      languageCode: drift_db.Value(json['languageCode'] as String? ?? 'en'),
+      languageCode: drift_db.Value(languageCode),
       language: drift_db.Value(json['language'] as String? ?? 'English'),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
     );
     await _database.into(_database.languages).insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertCurrency(Map<String, dynamic> json) async {
+    final code = json['code'] as String? ?? 'USD';
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final existing = await (_database.select(
+      _database.currencies,
+    )..where((t) => t.code.equals(code))).getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
     final companion = CurrenciesCompanion(
-      code: drift_db.Value(json['code'] as String? ?? 'USD'),
+      code: drift_db.Value(code),
       name: drift_db.Value(json['name'] as String? ?? 'US Dollar'),
       languageCode: drift_db.Value(json['languageCode'] as String? ?? 'en'),
       type: drift_db.Value(TypeCurrency.values[json['type'] as int? ?? 0]),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
     );
     await _database
@@ -983,13 +1001,22 @@ class ServerSyncService {
   }
 
   Future<void> _upsertStyle(Map<String, dynamic> json) async {
+    final id = json['id'] as String? ?? '';
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final existing = await (_database.select(
+      _database.styles,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
     final companion = StylesCompanion(
-      id: drift_db.Value(json['id'] as String? ?? ''),
+      id: drift_db.Value(id),
       name: drift_db.Value(json['name'] as String? ?? ''),
       colorHex: drift_db.Value(json['colorHex'] as String? ?? ''),
       iconName: drift_db.Value(json['iconName'] as String? ?? ''),
       iconType: drift_db.Value(IconType.values[json['iconType'] as int? ?? 0]),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
       isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
     );
@@ -997,11 +1024,20 @@ class ServerSyncService {
   }
 
   Future<void> _upsertAccountType(Map<String, dynamic> json) async {
+    final id = json['id'] as String? ?? '';
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final existing = await (_database.select(
+      _database.accountTypes,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
     final companion = AccountTypesCompanion(
-      id: drift_db.Value(json['id'] as String? ?? ''),
+      id: drift_db.Value(id),
       name: drift_db.Value(json['name'] as String? ?? ''),
       languageCode: drift_db.Value(json['languageCode'] as String? ?? 'en'),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
       isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
     );
@@ -1011,11 +1047,20 @@ class ServerSyncService {
   }
 
   Future<void> _upsertCurrencyDesignation(Map<String, dynamic> json) async {
+    final id = json['id'] as String? ?? '';
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final existing = await (_database.select(
+      _database.currencyDesignations,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
     final companion = CurrencyDesignationsCompanion(
-      id: drift_db.Value(json['id'] as String? ?? ''),
+      id: drift_db.Value(id),
       value: drift_db.Value(json['value'] as String? ?? ''),
       currencyCode: drift_db.Value(json['currencyCode'] as String? ?? 'USD'),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
       isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
     );
@@ -1025,13 +1070,22 @@ class ServerSyncService {
   }
 
   Future<void> _upsertCategory(Map<String, dynamic> json) async {
+    final id = json['id'] as String? ?? '';
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final existing = await (_database.select(
+      _database.categories,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
     final companion = CategoriesCompanion(
-      id: drift_db.Value(json['id'] as String? ?? ''),
+      id: drift_db.Value(id),
       name: drift_db.Value(json['name'] as String? ?? ''),
       parentId: drift_db.Value(json['parentId'] as String?),
       styleId: drift_db.Value(json['styleId'] as String?),
       type: drift_db.Value(CategoryType.values[json['type'] as int? ?? 0]),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
       isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
     );
@@ -1041,14 +1095,33 @@ class ServerSyncService {
   }
 
   Future<void> _upsertAccount(Map<String, dynamic> json) async {
+    final id = json['id'] as String? ?? '';
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final existing = await (_database.select(
+      _database.accounts,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
+    // Use existing values if incoming fields are null or empty to prevent corruption
+    final currencyCode = json['currencyCode'] as String?;
+    final currencyDesignationId = json['currencyDesignationId'] as String?;
+
     final companion = AccountsCompanion(
-      id: drift_db.Value(json['id'] as String? ?? ''),
+      id: drift_db.Value(id),
       name: drift_db.Value(json['name'] as String? ?? 'Untitled Account'),
       description: drift_db.Value(json['description'] as String?),
       balance: drift_db.Value((json['balance'] as num?)?.toDouble() ?? 0.0),
-      currencyCode: drift_db.Value(json['currencyCode'] as String? ?? 'USD'),
+      currencyCode: drift_db.Value(
+        (currencyCode != null && currencyCode.isNotEmpty)
+            ? currencyCode
+            : (existing?.currencyCode ?? 'USD'),
+      ),
       currencyDesignationId: drift_db.Value(
-        json['currencyDesignationId'] as String? ?? '',
+        (currencyDesignationId != null && currencyDesignationId.isNotEmpty)
+            ? currencyDesignationId
+            : (existing?.currencyDesignationId ?? ''),
       ),
       styleId: drift_db.Value(json['styleId'] as String?),
       accountTypeId: drift_db.Value(
@@ -1064,7 +1137,7 @@ class ServerSyncService {
         (json['assetQuantity'] as num?)?.toDouble() ?? 0.0,
       ),
       feeStructure: drift_db.Value(json['feeStructure'] as String?),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
       isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
     );
@@ -1072,8 +1145,19 @@ class ServerSyncService {
   }
 
   Future<void> _upsertTransaction(Map<String, dynamic> json) async {
+    final id = json['id'] as String? ?? '';
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final existing = await (_database.select(
+      _database.transactions,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
+    final currencyCode = json['currencyCode'] as String?;
+
     final companion = TransactionsCompanion(
-      id: drift_db.Value(json['id'] as String? ?? ''),
+      id: drift_db.Value(id),
       description: drift_db.Value(json['description'] as String? ?? ''),
       amount: drift_db.Value((json['amount'] as num?)?.toDouble() ?? 0.0),
       date: drift_db.Value(
@@ -1081,7 +1165,11 @@ class ServerSyncService {
       ),
       accountId: drift_db.Value(json['accountId'] as String? ?? ''),
       categoryId: drift_db.Value(json['categoryId'] as String? ?? ''),
-      currencyCode: drift_db.Value(json['currencyCode'] as String? ?? 'USD'),
+      currencyCode: drift_db.Value(
+        (currencyCode != null && currencyCode.isNotEmpty)
+            ? currencyCode
+            : (existing?.currencyCode ?? 'USD'),
+      ),
       exchangeRate: drift_db.Value(
         (json['exchangeRate'] as num?)?.toDouble() ?? 1.0,
       ),
@@ -1090,7 +1178,7 @@ class ServerSyncService {
       linkedTransactionId: drift_db.Value(
         json['linkedTransactionId'] as String?,
       ),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
       isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
     );
@@ -1100,8 +1188,17 @@ class ServerSyncService {
   }
 
   Future<void> _upsertAssetEntry(Map<String, dynamic> json) async {
+    final id = json['id'] as String? ?? '';
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final existing = await (_database.select(
+      _database.assetEntries,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
     final companion = AssetEntriesCompanion(
-      id: drift_db.Value(json['id'] as String? ?? ''),
+      id: drift_db.Value(id),
       assetId: drift_db.Value(json['assetId'] as String? ?? ''),
       name: drift_db.Value(json['name'] as String? ?? ''),
       date: drift_db.Value(
@@ -1115,7 +1212,7 @@ class ServerSyncService {
       accountId: drift_db.Value(json['accountId'] as String?),
       source: drift_db.Value(json['source'] as String? ?? 'manual'),
       preset: drift_db.Value(json['preset'] as int? ?? 1),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
       sourceId: drift_db.Value(json['sourceId'] as String?),
       isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
@@ -1126,15 +1223,24 @@ class ServerSyncService {
   }
 
   Future<void> _upsertCustomDataSource(Map<String, dynamic> json) async {
+    final id = json['id'] as String? ?? '';
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final existing = await (_database.select(
+      _database.customDataSources,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
     final companion = CustomDataSourcesCompanion(
-      id: drift_db.Value(json['id'] as String? ?? ''),
+      id: drift_db.Value(id),
       name: drift_db.Value(json['name'] as String? ?? ''),
       url: drift_db.Value(json['url'] as String? ?? ''),
       dataType: drift_db.Value(json['dataType'] as int? ?? 0),
       enabled: drift_db.Value(_parseBool(json['enabled'])),
       autoFetch: drift_db.Value(_parseBool(json['autoFetch'])),
       lastFetchAt: drift_db.Value(json['lastFetchAt'] as int?),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
       isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
     );
@@ -1144,12 +1250,21 @@ class ServerSyncService {
   }
 
   Future<void> _upsertApiSetting(Map<String, dynamic> json) async {
+    final id = json['id'] as String? ?? '';
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final existing = await (_database.select(
+      _database.apiSettingsTable,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
     final companion = ApiSettingsTableCompanion(
-      id: drift_db.Value(json['id'] as String? ?? ''),
+      id: drift_db.Value(id),
       enabled: drift_db.Value(_parseBool(json['enabled'])),
       autoFetch: drift_db.Value(_parseBool(json['autoFetch'])),
       lastFetchAt: drift_db.Value(json['lastFetchAt'] as int?),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
     );
     await _database
@@ -1158,8 +1273,17 @@ class ServerSyncService {
   }
 
   Future<void> _upsertSmsPreset(Map<String, dynamic> json) async {
+    final id = json['id'] as String? ?? '';
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final existing = await (_database.select(
+      _database.smsPresets,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
     final companion = SmsPresetsCompanion(
-      id: drift_db.Value(json['id'] as String? ?? ''),
+      id: drift_db.Value(id),
       name: drift_db.Value(json['name'] as String? ?? 'Untitled SMS Preset'),
       senderFilter: drift_db.Value(json['senderFilter'] as String? ?? ''),
       isBuiltIn: drift_db.Value(_parseBool(json['isBuiltIn'])),
@@ -1167,7 +1291,7 @@ class ServerSyncService {
       defaultAccountId: drift_db.Value(json['defaultAccountId'] as String?),
       defaultCategoryId: drift_db.Value(json['defaultCategoryId'] as String?),
       rulesJson: drift_db.Value(json['rulesJson'] as String? ?? '[]'),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
       isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
     );
@@ -1177,30 +1301,53 @@ class ServerSyncService {
   }
 
   Future<void> _upsertSetting(Map<String, dynamic> json) async {
+    final key = json['key'] as String? ?? '';
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final existing = await (_database.select(
+      _database.settings,
+    )..where((t) => t.key.equals(key))).getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
     final companion = SettingsCompanion(
-      key: drift_db.Value(json['key'] as String? ?? ''),
+      key: drift_db.Value(key),
       value: drift_db.Value(json['value'] as String? ?? ''),
       device: drift_db.Value(json['device'] as String?),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
     );
     await _database.into(_database.settings).insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertExchangeRate(Map<String, dynamic> json) async {
+    final fromCurrencyCode = json['fromCurrencyCode'] as String? ?? 'USD';
+    final toCurrencyCode = json['toCurrencyCode'] as String? ?? 'EUR';
+    final dateStr = json['date'] as String? ?? '';
+    final preset = json['preset'] as int? ?? 1;
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final date = DateTime.tryParse(dateStr) ?? DateTime.now();
+
+    final existing =
+        await (_database.select(_database.exchangeRates)..where(
+              (t) =>
+                  t.fromCurrencyCode.equals(fromCurrencyCode) &
+                  t.toCurrencyCode.equals(toCurrencyCode) &
+                  t.date.equals(date) &
+                  t.preset.equals(preset),
+            ))
+            .getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
     final companion = ExchangeRatesCompanion(
-      fromCurrencyCode: drift_db.Value(
-        json['fromCurrencyCode'] as String? ?? 'USD',
-      ),
-      toCurrencyCode: drift_db.Value(
-        json['toCurrencyCode'] as String? ?? 'EUR',
-      ),
+      fromCurrencyCode: drift_db.Value(fromCurrencyCode),
+      toCurrencyCode: drift_db.Value(toCurrencyCode),
       rate: drift_db.Value((json['rate'] as num?)?.toDouble() ?? 1.0),
-      preset: drift_db.Value(json['preset'] as int? ?? 1),
-      date: drift_db.Value(
-        DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
-      ),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      preset: drift_db.Value(preset),
+      date: drift_db.Value(date),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
       sourceId: drift_db.Value(json['sourceId'] as String?),
     );
@@ -1210,16 +1357,32 @@ class ServerSyncService {
   }
 
   Future<void> _upsertInflationRate(Map<String, dynamic> json) async {
+    final dateStr = json['date'] as String? ?? '';
+    final country = json['country'] as String?;
+    final preset = json['preset'] as int? ?? 1;
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final date = DateTime.tryParse(dateStr) ?? DateTime.now();
+
+    final existing =
+        await (_database.select(_database.inflationRates)..where(
+              (t) =>
+                  t.date.equals(date) &
+                  t.country.equalsNullable(country) &
+                  t.preset.equals(preset),
+            ))
+            .getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
     final companion = InflationRatesCompanion(
-      date: drift_db.Value(
-        DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
-      ),
+      date: drift_db.Value(date),
       percent: drift_db.Value((json['percent'] as num?)?.toDouble() ?? 0.0),
-      country: drift_db.Value(json['country']),
-      preset: drift_db.Value(json['preset']),
-      modifiedAt: drift_db.Value(json['modifiedAt']),
-      deviceId: drift_db.Value(json['deviceId']),
-      sourceId: drift_db.Value(json['sourceId']),
+      country: drift_db.Value(country),
+      preset: drift_db.Value(preset),
+      modifiedAt: drift_db.Value(modifiedAt),
+      deviceId: drift_db.Value(json['deviceId'] as String?),
+      sourceId: drift_db.Value(json['sourceId'] as String?),
     );
     await _database
         .into(_database.inflationRates)
@@ -1227,8 +1390,17 @@ class ServerSyncService {
   }
 
   Future<void> _upsertCustomTheme(Map<String, dynamic> json) async {
+    final id = json['id'] as String? ?? '';
+    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+
+    final existing = await (_database.select(
+      _database.customThemes,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    if (existing != null && existing.modifiedAt >= modifiedAt) return;
+
     final companion = CustomThemesCompanion(
-      id: drift_db.Value(json['id'] as String? ?? ''),
+      id: drift_db.Value(id),
       name: drift_db.Value(json['name'] as String? ?? 'Custom Theme'),
       primaryColorHex: drift_db.Value(json['primaryColorHex'] as String? ?? ''),
       secondaryColorHex: drift_db.Value(
@@ -1257,7 +1429,7 @@ class ServerSyncService {
       themeMode: drift_db.Value(json['themeMode'] as int? ?? 0),
       isPreset: drift_db.Value(_parseBool(json['isPreset'])),
       isActive: drift_db.Value(_parseBool(json['isActive'])),
-      modifiedAt: drift_db.Value(json['modifiedAt'] as int? ?? 1),
+      modifiedAt: drift_db.Value(modifiedAt),
       deviceId: drift_db.Value(json['deviceId'] as String?),
       isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
     );

@@ -730,6 +730,7 @@ class SyncRepository {
         'is_deleted': 'isDeleted'
       },
       'accounts': {
+        'currency_code': 'currencyCode',
         'currency_designation_id': 'currencyDesignationId',
         'account_type_id': 'accountTypeId',
         'style_id': 'styleId',
