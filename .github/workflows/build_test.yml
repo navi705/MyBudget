@@ -53,6 +53,11 @@ jobs:
         with:
           channel: 'stable'
       
+      - name: Create dummy .env
+        run: |
+          cd my_budget_client
+          touch .env
+          
       - name: Get Dependencies
         run: |
           cd my_budget_client
@@ -87,6 +92,11 @@ jobs:
       - name: Enable Windows
         run: flutter config --enable-windows-desktop
 
+      - name: Create dummy .env
+        run: |
+          cd my_budget_client
+          New-Item -Path .env -ItemType File -Force
+          
       - name: Get Dependencies
         run: |
           cd my_budget_client

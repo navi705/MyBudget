@@ -907,7 +907,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 if (isEditing) {
                   context.read<ApiSettingsBloc>().add(
                     EditCustomDataSource(
-                      id: existingSource!.id,
+                      id: existingSource.id,
                       name: name,
                       url: url,
                       dataType: type,

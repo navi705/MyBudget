@@ -8,7 +8,7 @@ import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/core/sync/sync_service.dart';
 import 'package:my_budget_client/core/services/server_sync_service.dart';
-import 'package:flutter/foundation.dart' as kIsWeb;
+import 'package:flutter/foundation.dart' as foundation;
 
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
@@ -321,7 +321,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    if (kIsWeb.kIsWeb) {
+    if (foundation.kIsWeb) {
       return Center(child: Text(l10n.syncWebNotAvailable));
     }
     return Scaffold(
