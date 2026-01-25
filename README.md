@@ -2,14 +2,13 @@
 
 MyBudget is a personal finance manager inspired by **OneMoney**. I created this project because the original app lacked certain features and flexibility that I needed for my daily financial tracking.
 
-| Dashboard | Transaction Editor | Theme Switch |
-|-----------|--------------------|--------------|
-| ![Dashboard](assets/media/dashboard.png) | ![Transaction](assets/media/transaction.png) | ![Theme](assets/media/theme.gif) |
+| Dashboard | Transaction Editor | Theme Switch | Android |
+|-----------|--------------------|--------------|---------|
+| ![Dashboard](assets/media/dashboard.png) | ![Transaction](assets/media/transaction.png) | ![Theme](assets/media/theme.gif) | ![Android](assets/media/andoird_dashboard.png)|
 
 | Accounts | Categories | Trends | Settings |
 |----------|------------|--------|----------|
 | ![Accounts](assets/media/accounts.png) | ![Categories](assets/media/categories.png) | ![Trend](assets/media/trend.png) | ![Settings](assets/media/settings.png) |
-
 ---
 
 ## Features
