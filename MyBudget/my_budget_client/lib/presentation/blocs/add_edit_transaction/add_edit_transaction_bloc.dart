@@ -1041,10 +1041,6 @@ class AddEditTransactionBloc
           return;
         }
 
-        debugPrint(
-          'DEBUG RATES: Trying Triangular via $pivotCode. From=${fromCurrency.code}, To=$toCurrencyCode',
-        );
-
         // -- Leg 1: Pivot <-> From --
         double? ratePivotToFrom;
         DateTime? datePivotToFrom;
@@ -1155,9 +1151,6 @@ class AddEditTransactionBloc
                 ? datePivotToFrom!
                 : datePivotToTo!;
             tryUpdateBest(calculatedRate, representativeDate);
-            debugPrint(
-              'DEBUG RATES: Triangular success via $pivotCode! Calculated $calculatedRate (L1=$ratePivotToFrom, L2=$ratePivotToTo)',
-            );
           }
         }
       }
@@ -1180,9 +1173,6 @@ class AddEditTransactionBloc
 
       // Create the Virtual Preset 1 if we have a derived value
       if (bestDerivedRateValue != null) {
-        debugPrint(
-          'DEBUG RATES: Found best derived rate: $bestDerivedRateValue (Date: $bestDerivedDate)',
-        );
         derivedPreset1 = ExchangeRateDomain(
           fromCurrencyCode: fromCurrency.code,
           toCurrencyCode: toCurrencyCode,
@@ -1191,9 +1181,6 @@ class AddEditTransactionBloc
           preset: 1,
         );
       } else {
-        debugPrint(
-          'DEBUG RATES: No derived rate found for ${fromCurrency.code} -> $toCurrencyCode',
-        );
         // Fallback if absolutely no history found: Default to 1.0 (or leave null?)
         // User hated "Default 1.0", so leave null if not found.
       }
@@ -1275,14 +1262,7 @@ class AddEditTransactionBloc
           rateToDisplay = 1 / rateToDisplay;
         }
         newManualRateStr = rateToDisplay.toString();
-        debugPrint(
-          'DEBUG RATES: Syncing manual rate to $newManualRateStr (inverted: ${state.isRateInputInverted})',
-        );
       }
-
-      debugPrint(
-        'DEBUG RATES: finalRates count: ${finalRates.length}, selected: ${selectedRate?.preset}, manual: $newManualRateStr',
-      );
 
       var finalState = state.copyWith(
         availableExchangeRates: finalRates,

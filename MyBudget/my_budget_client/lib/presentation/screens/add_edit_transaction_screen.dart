@@ -743,9 +743,6 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
   late TextEditingController _rateController;
 
   String _getDisplayValue(AddEditTransactionState state) {
-    debugPrint(
-      'DEBUG UI: _getDisplayValue manualExchangeRate=${state.manualExchangeRate}',
-    );
     return state.manualExchangeRate;
   }
 
@@ -772,9 +769,6 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
     // (Bloc updates state on onChanged).
 
     // For now, simple check:
-    debugPrint(
-      'DEBUG UI: didUpdateWidget controller="${_rateController.text}" expected="$expectedText"',
-    );
     if (_rateController.text != expectedText) {
       // Check fuzzy equality to avoid cursor jumping on precision diffs
       final currentVal = double.tryParse(_rateController.text);
@@ -786,9 +780,6 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
       }
 
       if (!isClose) {
-        debugPrint(
-          'DEBUG UI: didUpdateWidget UPDATING controller to $expectedText',
-        );
         _rateController.text = expectedText;
         // Fix cursor
         _rateController.selection = TextSelection.fromPosition(
@@ -809,9 +800,6 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
     return BlocListener<AddEditTransactionBloc, AddEditTransactionState>(
       listener: (context, state) {
         final expectedText = _getDisplayValue(state);
-        debugPrint(
-          'DEBUG UI: BlocListener controller="${_rateController.text}" expected="$expectedText"',
-        );
         if (_rateController.text != expectedText) {
           final currentVal = double.tryParse(_rateController.text);
           final expectedVal = double.tryParse(expectedText);
@@ -821,9 +809,6 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
           }
 
           if (!isClose) {
-            debugPrint(
-              'DEBUG UI: BlocListener UPDATING controller to $expectedText',
-            );
             _rateController.text = expectedText;
             _rateController.selection = TextSelection.fromPosition(
               TextPosition(offset: _rateController.text.length),
