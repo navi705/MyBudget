@@ -64,7 +64,7 @@ docker run -d \
   -p 58080:58080 \
   -e PORT=58080 \
   -v ./mybudget_data:/app/data \
-  ghcr.io/navi705/my_budget_server:latest
+  ghcr.io/navi705/mybudget/my_budget_server:latest
 ```
 
 
@@ -73,8 +73,8 @@ docker run -d \
 ## 💻 Get the App
 
 ### Windows
-- **Portable Version**: Extract the ZIP and run `my_budget_client.exe`.
-- **Regular Version**: Single-file `.exe` installer that adds the app to your Start menu.
+### Windows
+- **Installer**: Download and run `MyBudget-Setup.exe` to install the app.
 
 ### Android
 Download the latest `.apk` from the [GitHub Releases](https://github.com/navi705/MyBudget/releases).
