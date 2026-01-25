@@ -54,17 +54,50 @@ A lightweight centralized server that allows you to sync even if your devices ar
 
 The server is distributed as a Docker container for the easiest installation.
 
-### Installation
-Pull and run the official image from GitHub Container Registry:
+### Installation (Docker Compose)
+The server requires a PostgreSQL database to function. The easiest way to run both is using Docker Compose.
 
+1. **Create a `docker-compose.yml` file**:
+```yaml
+version: '3.8'
+
+services:
+  server:
+    image: ghcr.io/navi705/mybudget/my_budget_server:latest
+    restart: always
+    ports:
+      - '58080:8080'
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/my_budget
+      - DART_FROG_ENV=production
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: my_budget
+    ports:
+      - '5432:5432'
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d my_budget"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
+```
+
+2. **Start the server**:
 ```bash
-docker run -d \
-  --name my_budget_sync \
-  --restart always \
-  -p 58080:58080 \
-  -e PORT=58080 \
-  -v ./mybudget_data:/app/data \
-  ghcr.io/navi705/mybudget/my_budget_server:latest
+docker-compose up -d
 ```
 
 
@@ -72,7 +105,6 @@ docker run -d \
 
 ## 💻 Get the App
 
-### Windows
 ### Windows
 - **Installer**: Download and run `MyBudget-Setup.exe` to install the app.
 
