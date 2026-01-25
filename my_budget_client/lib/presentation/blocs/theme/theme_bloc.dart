@@ -1,3 +1,4 @@
+import 'dart:ui' show PlatformDispatcher;
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
@@ -47,10 +48,16 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
 
     // 3. Get active theme
     CustomTheme? activeTheme = await _themeRepository.getActiveTheme();
+    debugPrint(
+      '[THEME_DEBUG] Loaded activeTheme from repo: ${activeTheme?.id}',
+    );
 
     // 4. Fallback: Check old settings if no active theme found (Migration)
     if (activeTheme == null) {
       final activeId = await _settingsRepository.getSetting('active_theme_id');
+      debugPrint(
+        '[THEME_DEBUG] Fallback active_theme_id from settings: ${activeId?.value}',
+      );
       if (activeId != null) {
         activeTheme = themes.firstWhere(
           (t) => t.id == activeId.value,
@@ -89,10 +96,37 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
           );
           await _themeRepository.saveTheme(activeTheme);
         } else {
-          activeTheme = themes.first;
+          // New logic: Select default based on system theme
+          // We use PlatformDispatcher.instance as it works outside of the widget tree
+          final platformBrightness =
+              PlatformDispatcher.instance.platformBrightness;
+          debugPrint('[THEME_DEBUG] Entering default selection logic');
+          debugPrint(
+            '[THEME_DEBUG] Platform brightness detected: $platformBrightness',
+          );
+
+          if (platformBrightness == Brightness.dark) {
+            debugPrint('[THEME_DEBUG] System is DARK, selecting classic-blue');
+            activeTheme = themes.firstWhere(
+              (t) => t.id == 'classic-blue',
+              orElse: () => themes.first,
+            );
+          } else {
+            debugPrint('[THEME_DEBUG] System is LIGHT, selecting nordic-frost');
+            activeTheme = themes.firstWhere(
+              (t) => t.id == 'nordic-frost',
+              orElse: () => themes.first,
+            );
+          }
+          debugPrint('[THEME_DEBUG] Selected default theme: ${activeTheme.id}');
         }
       }
+      debugPrint(
+        '[THEME_DEBUG] Finalizing theme selection with ID: ${activeTheme.id}',
+      );
       await _themeRepository.setActiveTheme(activeTheme.id);
+      // Sync the mode as well to be sure
+      await _settingsRepository.setThemeMode(activeTheme.themeMode, 'all');
     }
 
     emit(

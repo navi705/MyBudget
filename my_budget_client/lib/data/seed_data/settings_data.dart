@@ -127,22 +127,9 @@ List<SettingsCompanion> getDefaultSettings(String deviceName) {
       value: '',
       device: Value(deviceName),
     ),
-    // Theme & Window Effects
-    SettingsCompanion.insert(
-      key: 'theme_color',
-      value: '#2196F3', // Default blue
-      device: Value(deviceName),
-    ),
-    SettingsCompanion.insert(
-      key: 'window_effect',
-      value: 'none', // none, acrylic, mica, transparent
-      device: Value(deviceName),
-    ),
-    SettingsCompanion.insert(
-      key: 'window_opacity',
-      value: '0.8',
-      device: Value(deviceName),
-    ),
+
+    // Theme & Window Effects are now managed via CustomTheme entities
+    // and default presets, so we no longer seed these deprecated individual settings.
     SettingsCompanion.insert(
       key: 'sync_enabled',
       value: 'false',
