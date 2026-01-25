@@ -93,7 +93,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
             child: const Text('Cancel'),
           ),
           TextButton(
@@ -107,7 +107,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
               // Wait, if I don't fix multiple, user will still crash on bulk delete.
               // I should probably update `DeleteMultipleAccounts` handler in Bloc to use `deleteAccountWithTransactions` for each ID.
               bloc.add(DeleteMultipleAccounts(accountIds));
-              Navigator.pop(context);
+              Navigator.of(context, rootNavigator: true).pop();
             },
             child: const Text('Delete All'),
           ),

@@ -76,13 +76,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         content: Text(l10n.deleteCategoriesConfirmationMessage),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
             child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
               bloc.add(DeleteMultipleCategories(categoryIds));
-              Navigator.pop(context);
+              Navigator.of(context, rootNavigator: true).pop();
             },
             child: Text(l10n.deleteButton),
           ),

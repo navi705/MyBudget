@@ -63,7 +63,10 @@ class TransactionsScreen extends StatelessWidget {
                               ),
                               actions: [
                                 TextButton(
-                                  onPressed: () => Navigator.pop(context),
+                                  onPressed: () => Navigator.of(
+                                    context,
+                                    rootNavigator: true,
+                                  ).pop(),
                                   child: Text(l10n.cancelButton),
                                 ),
                                 TextButton(
@@ -73,7 +76,10 @@ class TransactionsScreen extends StatelessWidget {
                                         state.selectedTransactionIds.toList(),
                                       ),
                                     );
-                                    Navigator.pop(context);
+                                    Navigator.of(
+                                      context,
+                                      rootNavigator: true,
+                                    ).pop();
                                   },
                                   child: Text(l10n.deleteButton),
                                 ),
