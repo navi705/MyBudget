@@ -18,6 +18,7 @@ abstract class TransactionRepository {
   });
   Future<List<Transaction>> getTransactionsByCategoryId(String categoryId);
   Future<Transaction?> getTransactionById(String id);
+  Future<List<Transaction>> getTransactionsByIds(List<String> ids);
   Future<void> addTransaction(Transaction transaction);
   Future<void> addTransactions(List<Transaction> transactions);
   Future<void> updateTransaction(Transaction transaction);

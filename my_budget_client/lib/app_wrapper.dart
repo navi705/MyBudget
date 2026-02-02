@@ -59,14 +59,18 @@ class _AppWrapperState extends State<AppWrapper> {
   }
 
   Future<void> _initialize() async {
+    debugPrint('[APP_WRAPPER_DEBUG] Starting initialization...');
     try {
       // 1. Critical initialization - MUST be fast
+      debugPrint('[APP_WRAPPER_DEBUG] Step 1: Verifying settings...');
       _updateProgress(0.1, 'Verifying settings...');
       await sl<SettingsRepository>().initializeDefaults();
+      debugPrint('[APP_WRAPPER_DEBUG] Step 1 complete: Settings initialized');
 
       // 2. Start Services
       // We start non-critical services in the background without awaiting them
       // to let the user enter the app as soon as possible.
+      debugPrint('[APP_WRAPPER_DEBUG] Step 2: Starting background services...');
       _updateProgress(0.6, 'Starting background services...');
       sl<SyncService>().init().catchError((e) {
         debugPrint('SyncService init error: $e');
@@ -85,13 +89,16 @@ class _AppWrapperState extends State<AppWrapper> {
       });
 
       // 3. Mark as initialized so the main App can be shown
+      debugPrint('[APP_WRAPPER_DEBUG] Step 3: Marking as initialized...');
       if (mounted) {
         setState(() {
           _isInitialized = true;
         });
       }
+      debugPrint('[APP_WRAPPER_DEBUG] Initialization complete! App ready.');
     } catch (e) {
-      debugPrint('Initialization error: $e');
+      debugPrint('[APP_WRAPPER_DEBUG] Initialization error: $e');
+      debugPrint('[APP_WRAPPER_DEBUG] Stack trace: ${StackTrace.current}');
       // Still proceed to app even if init fails to not block the user
       if (mounted) {
         setState(() {

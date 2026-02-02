@@ -340,33 +340,9 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     }
     await PerformanceLogger().stop('Transactions: fetch categories');
 
-    // 1.5. Fetch Missing Accounts (OPTIMIZED: bulk query instead of loop)
-    PerformanceLogger().start('Transactions: fetch accounts');
-    final accountIds = transactions
-        .map((t) => t.accountId)
-        .where((id) => !_accountCache.containsKey(id))
-        .toSet()
-        .toList();
-
-    if (accountIds.isNotEmpty) {
-      // OPTIMIZATION: Use bulk fetch instead of O(n) sequential calls
-      final newAccounts = await _accountRepository.getAccountsByIds(accountIds);
-      for (var account in newAccounts) {
-        if (account.id != null) {
-          _accountCache[account.id!] = account;
-        }
-      }
-    }
-    await PerformanceLogger().stop('Transactions: fetch accounts');
-
-    final categories = transactions
-        .map((t) => _categoryCache[t.categoryId])
-        .whereType<Category>()
-        .toList();
-
     // 2. Fetch Missing Styles
     PerformanceLogger().start('Transactions: fetch styles');
-    final stylesToFetchIds = categories
+    final stylesToFetchIds = _categoryCache.values
         .map((u) => u.styleId)
         .whereType<String>()
         .where((id) => !_styleCache.containsKey(id))
@@ -381,26 +357,21 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     }
     await PerformanceLogger().stop('Transactions: fetch styles');
 
-    final styles = _styleCache.values.toList();
-
-    // 3. Fetch Rates (OPTIMIZED: with caching)
+    // 3. Fetch Exchange Rates
     PerformanceLogger().start('Transactions: fetch exchange rates');
     final uniqueDates = transactions
         .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
         .toSet()
         .toList();
 
-    // Check cache for missing dates
     final missingDates = uniqueDates
         .where((d) => !_exchangeRateCache.containsKey(d))
         .toList();
 
-    List<ExchangeRateDomain> rates = [];
     if (missingDates.isNotEmpty) {
       final newRates = await _currencyRepository.getLatestExchangeRatesByList(
         missingDates,
       );
-      // Cache new rates by date
       for (final rate in newRates) {
         final dateKey = DateTime(
           rate.date.year,
@@ -410,9 +381,22 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         _exchangeRateCache.putIfAbsent(dateKey, () => []).add(rate);
       }
     }
-    // Collect all rates from cache
+
+    List<ExchangeRateDomain> rates = [];
     for (final date in uniqueDates) {
       rates.addAll(_exchangeRateCache[date] ?? []);
+    }
+
+    // FALLBACK: Baseline of most recent rates if none found for many dates
+    if (rates.isEmpty) {
+      PerformanceLogger().start('Transactions: fetch latest baseline rates');
+      final latestBaseline = await _currencyRepository.getLatestExchangeRates(
+        DateTime.now(),
+      );
+      rates.addAll(latestBaseline);
+      await PerformanceLogger().stop(
+        'Transactions: fetch latest baseline rates',
+      );
     }
     await PerformanceLogger().stop('Transactions: fetch exchange rates');
 
@@ -427,55 +411,45 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
 
     final linkedTransactionsMap = <String, Transaction>{};
     if (linkedIds.isNotEmpty) {
-      // Optimization: If repository supports multiple fetch, use it.
-      // Otherwise parallel singular fetch.
-      // We assume _transactionRepository is safe for parallel calls.
-      final futures = linkedIds
-          .map((id) => _transactionRepository.getTransactionById(id))
-          .toList();
-      final results = await Future.wait(futures);
-      for (var tx in results) {
-        if (tx != null) {
-          linkedTransactionsMap[tx.id!] = tx;
-        }
+      final linkedTransactions = await _transactionRepository
+          .getTransactionsByIds(linkedIds);
+      for (var tx in linkedTransactions) {
+        linkedTransactionsMap[tx.id!] = tx;
       }
     }
     await PerformanceLogger().stop('Transactions: fetch linked transactions');
 
-    // 4.5 Fetch Missing Accounts for Linked Transactions
-    if (linkedTransactionsMap.isNotEmpty) {
-      final linkedAccountIds = linkedTransactionsMap.values
-          .map((t) => t.accountId)
-          .where((id) => !_accountCache.containsKey(id))
-          .toSet()
-          .toList();
+    // 5. Fetch Missing Accounts (Main + Linked)
+    PerformanceLogger().start('Transactions: fetch accounts');
+    final accountIds = {
+      ...transactions.map((t) => t.accountId),
+      ...linkedTransactionsMap.values.map((t) => t.accountId),
+    }.where((id) => !_accountCache.containsKey(id)).toList();
 
-      if (linkedAccountIds.isNotEmpty) {
-        // OPTIMIZATION: Use bulk fetch instead of O(n) sequential calls
-        final newAccounts = await _accountRepository.getAccountsByIds(
-          linkedAccountIds,
-        );
-        for (var account in newAccounts) {
-          if (account.id != null) {
-            _accountCache[account.id!] = account;
-          }
+    if (accountIds.isNotEmpty) {
+      final newAccounts = await _accountRepository.getAccountsByIds(accountIds);
+      for (var account in newAccounts) {
+        if (account.id != null) {
+          _accountCache[account.id!] = account;
         }
       }
     }
+    await PerformanceLogger().stop('Transactions: fetch accounts');
 
-    PerformanceLogger().start('Transactions: compute processing');
+    // 6. Processing
+    PerformanceLogger().start('Transactions: processing data');
     final result = await _processTransactionsData(
       _ProcessDataParams(
         transactions: transactions,
         rates: rates,
-        categories: categories,
-        styles: styles,
         mainCurrencyCode: mainCurrencyCode,
+        categories: _categoryCache.values.toList(),
+        styles: _styleCache.values.toList(),
+        accounts: _accountCache,
         linkedTransactions: linkedTransactionsMap,
-        accounts: _accountCache, // Added
       ),
     );
-    await PerformanceLogger().stop('Transactions: compute processing');
+    await PerformanceLogger().stop('Transactions: processing data');
 
     return result;
   }

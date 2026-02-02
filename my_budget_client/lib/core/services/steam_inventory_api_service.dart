@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
+import 'package:my_budget_client/core/utils/platform/io_helper.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb, debugPrint;
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
@@ -25,19 +26,20 @@ class SteamInventoryApiService {
     final assetId = 'steam_${accountId}_${game.name}';
 
     // Check JSON file existence first
-    final file = File(_jsonPath);
-    if (await file.exists()) {
-      try {
-        final content = await file.readAsString();
-        final Map<String, dynamic> fullJson = jsonDecode(content);
-        // Also check if we have data for this date
-        if (fullJson.containsKey(dateKey) &&
-            fullJson[dateKey] is Map &&
-            (fullJson[dateKey] as Map).containsKey(game.name)) {
-          return;
+    if (!kIsWeb) {
+      if (await IoHelper.exists(_jsonPath)) {
+        try {
+          final content = await IoHelper.readAsString(_jsonPath);
+          final Map<String, dynamic> fullJson = jsonDecode(content);
+          // Also check if we have data for this date
+          if (fullJson.containsKey(dateKey) &&
+              fullJson[dateKey] is Map &&
+              (fullJson[dateKey] as Map).containsKey(game.name)) {
+            return;
+          }
+        } catch (e) {
+          debugPrint("Error checking JSON file: $e");
         }
-      } catch (e) {
-        debugPrint("Error checking JSON file: $e");
       }
     }
 
@@ -59,7 +61,7 @@ class SteamInventoryApiService {
       return;
     }
 
-    if (kDebugMode) {
+    if (kDebugMode && !kIsWeb) {
       await _handleDebugFetch(date, dateKey, accountId, game, assetId);
     } else {
       await _handleProdFetch(date, dateKey, accountId, game, assetId);
@@ -73,17 +75,17 @@ class SteamInventoryApiService {
     GameApiSteam game,
     String assetId,
   ) async {
-    final file = File(_jsonPath);
-    if (!await file.exists()) {
-      await file.create(recursive: true);
-      await file.writeAsString(
+    if (!await IoHelper.exists(_jsonPath)) {
+      await IoHelper.createParent(_jsonPath);
+      await IoHelper.writeAsString(
+        _jsonPath,
         jsonEncode({
           _metadataKey: {_attemptsKey: {}},
         }),
       );
     }
 
-    final content = await file.readAsString();
+    final content = await IoHelper.readAsString(_jsonPath);
     final Map<String, dynamic> fullJson = jsonDecode(content);
 
     final metadata = (fullJson[_metadataKey] as Map<String, dynamic>?) ?? {};
@@ -117,7 +119,8 @@ class SteamInventoryApiService {
         }
         fullJson[dateKey][game.name] = totalValue;
 
-        await file.writeAsString(
+        await IoHelper.writeAsString(
+          _jsonPath,
           const JsonEncoder.withIndent('  ').convert(fullJson),
         );
       }
@@ -125,7 +128,8 @@ class SteamInventoryApiService {
       attempts[attemptKey] = attemptCount + 1;
       metadata[_attemptsKey] = attempts;
       fullJson[_metadataKey] = metadata;
-      await file.writeAsString(
+      await IoHelper.writeAsString(
+        _jsonPath,
         const JsonEncoder.withIndent('  ').convert(fullJson),
       );
     }

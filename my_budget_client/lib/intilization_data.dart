@@ -1,10 +1,11 @@
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
+import 'package:my_budget_client/core/utils/platform/io_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:my_budget_client/core/services/startup_sync_service.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart';
 import 'package:my_budget_client/core/utils/import_utils.dart';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:my_budget_client/core/di/injection_container.dart' as di;
 import 'package:my_budget_client/core/di/injection_container.dart'; // for sl
@@ -26,7 +27,7 @@ Future<void> _fetchApiDataInIsolate(bool shouldInit) async {
   }
 
   // 2. Load Debug Steam Data (Local JSON)
-  if (kDebugMode) {
+  if (kDebugMode && !kIsWeb) {
     await _loadDebugSteamData();
   }
 
@@ -46,11 +47,11 @@ Future<void> _fetchApiDataInIsolate(bool shouldInit) async {
 
 Future<void> _loadDebugSteamData() async {
   try {
-    final file = File(
-      r'c:\Users\vrclu\Documents\NewFilePC\Programing\Projects\MyBudget\MyBudget\my_budget_client\lib\data\steam_inventory_history.json',
-    );
-    if (await file.exists()) {
-      final content = await file.readAsString();
+    const filePath =
+        r'c:\Users\vrclu\Documents\NewFilePC\Programing\Projects\MyBudget\MyBudget\my_budget_client\lib\data\steam_inventory_history.json';
+
+    if (await IoHelper.exists(filePath)) {
+      final content = await IoHelper.readAsString(filePath);
       if (content.isNotEmpty) {
         final Map<String, dynamic> json = jsonDecode(content);
         final assetRepo = sl<AssetRepository>();

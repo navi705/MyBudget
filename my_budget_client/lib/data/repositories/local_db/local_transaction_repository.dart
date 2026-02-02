@@ -165,6 +165,14 @@ class LocalTransactionRepository implements TransactionRepository {
   }
 
   @override
+  Future<List<Transaction>> getTransactionsByIds(List<String> ids) async {
+    final transactions = await database.transactionsDao.getTransactionsByIds(
+      ids,
+    );
+    return transactions.toDomainList();
+  }
+
+  @override
   Future<List<Transaction>> getTransactions() async {
     final transactions = await database.transactionsDao.getAllTransactions();
     return transactions.toDomainList();

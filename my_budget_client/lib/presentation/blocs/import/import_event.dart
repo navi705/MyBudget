@@ -8,7 +8,7 @@ abstract class ImportEvent extends Equatable {
 }
 
 class StartImportProcess extends ImportEvent {
-  final List<File> files;
+  final List<ImportFileData> files;
 
   const StartImportProcess(this.files);
 

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/presentation/widgets/navigation/navigation_tab_bar.dart';
@@ -55,18 +55,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
               body: SafeArea(
                 child: Column(
                   children: [
-                    if (Platform.isWindows ||
-                        Platform.isLinux ||
-                        Platform.isMacOS)
+                    if (AppPlatform.isWindows ||
+                        AppPlatform.isLinux ||
+                        AppPlatform.isMacOS)
                       const SizedBox(height: 10),
-                    if (!(Platform.isWindows ||
-                        Platform.isLinux ||
-                        Platform.isMacOS))
+                    if (!(AppPlatform.isWindows ||
+                        AppPlatform.isLinux ||
+                        AppPlatform.isMacOS))
                       _buildTabBar(context, state),
                     Expanded(child: _buildBody(state)),
-                    if (Platform.isWindows ||
-                        Platform.isLinux ||
-                        Platform.isMacOS)
+                    if (AppPlatform.isWindows ||
+                        AppPlatform.isLinux ||
+                        AppPlatform.isMacOS)
                       _buildTabBar(context, state),
                   ],
                 ),
@@ -208,7 +208,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
         16.0,
-        (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+        (AppPlatform.isWindows || AppPlatform.isLinux || AppPlatform.isMacOS)
             ? 0.0
             : 16.0,
         16.0,

@@ -7,7 +7,9 @@ import 'package:my_budget_client/core/theme/default_themes.dart';
 import 'package:my_budget_client/domain/entities/custom_theme.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/theme_repository.dart';
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
+import 'package:my_budget_client/core/utils/platform/io_helper.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
@@ -158,25 +160,23 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     String? bgPath = event.backgroundImagePath;
 
     // Logic to save image to app storage if it's new and not an asset
-    if (event.persist &&
+    if (!kIsWeb &&
+        event.persist &&
         bgPath != null &&
         !event.clearBackgroundImage &&
         !bgPath.startsWith('assets/')) {
       try {
-        final File file = File(bgPath);
-        if (await file.exists()) {
+        if (await IoHelper.exists(bgPath)) {
           final appDir = await getApplicationDocumentsDirectory();
           final fileName = p.basename(bgPath);
-          final savedDir = Directory(p.join(appDir.path, 'custom_backgrounds'));
-          if (!await savedDir.exists()) {
-            await savedDir.create(recursive: true);
-          }
-          final savedFile = File(p.join(savedDir.path, fileName));
+          final savedDir = p.join(appDir.path, 'custom_backgrounds');
+          await IoHelper.createDirectory(savedDir);
+          final savedFilePath = p.join(savedDir, fileName);
 
           // Copy only if paths are different (avoid error if user picks same file from app dir)
-          if (file.path != savedFile.path) {
-            await file.copy(savedFile.path);
-            bgPath = savedFile.path;
+          if (bgPath != savedFilePath) {
+            await IoHelper.copyFile(bgPath, savedFilePath);
+            bgPath = savedFilePath;
           }
         }
       } catch (e) {

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -17,6 +18,7 @@ class AccountListItem extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final Function(TapUpDetails)? onSecondaryTapUp;
+  final Function(TapUpDetails)? onMenuPressed;
   final double? realBalance;
   final double? inflationLoss;
   final double? income;
@@ -38,6 +40,7 @@ class AccountListItem extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.onSecondaryTapUp,
+    this.onMenuPressed,
     this.realBalance,
     this.inflationLoss,
     this.income,
@@ -384,6 +387,26 @@ class AccountListItem extends StatelessWidget {
                       ],
                     ],
                   ),
+                  trailing: onMenuPressed != null
+                      ? IconButton(
+                          icon: const Icon(Icons.more_vert),
+                          onPressed: () {
+                            // Find the position of the icon button to show the menu there
+                            final RenderBox renderBox =
+                                context.findRenderObject() as RenderBox;
+                            final offset = renderBox.localToGlobal(Offset.zero);
+                            onMenuPressed!(
+                              TapUpDetails(
+                                globalPosition: Offset(
+                                  offset.dx + renderBox.size.width - 40,
+                                  offset.dy + 20,
+                                ),
+                                kind: PointerDeviceKind.touch,
+                              ),
+                            );
+                          },
+                        )
+                      : null,
                 ),
               ),
             );

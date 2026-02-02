@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
+import 'package:my_budget_client/core/utils/platform/icon_helper.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -47,7 +48,9 @@ class App extends StatelessWidget {
                 if (theme.backgroundImagePath!.startsWith('assets/')) {
                   backgroundImage = AssetImage(theme.backgroundImagePath!);
                 } else {
-                  backgroundImage = FileImage(File(theme.backgroundImagePath!));
+                  backgroundImage = IconPlatformHelper.getImageFromFile(
+                    theme.backgroundImagePath!,
+                  );
                 }
               }
 

@@ -42,7 +42,7 @@ void main() async {
 
     debugPrint('Step 3: Writing Binary file to $binPath...');
     // We use the centralized CurrencyHistoryBinaryIO which handles GZip
-    await CurrencyHistoryBinaryIO.write(binFile, historyMap);
+    await CurrencyHistoryBinaryIO.write(binPath, historyMap);
 
     debugPrint('Success!');
     final finalBinSize = await binFile.length();
@@ -54,7 +54,7 @@ void main() async {
 
     // Verify Decoding
     debugPrint('Step 4: Verifying consistency...');
-    final decodedMap = await CurrencyHistoryBinaryIO.read(binFile);
+    final decodedMap = await CurrencyHistoryBinaryIO.read(binPath);
     if (decodedMap.keys.length == historyMap.keys.length) {
       debugPrint(
         'Verification Passed: Keys count matches (${decodedMap.keys.length}).',

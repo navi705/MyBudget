@@ -23,7 +23,7 @@ class LocalCustomDataSourceRepository implements CustomDataSourceRepository {
 
   @override
   Future<void> saveDataSource(CustomDataSourceDomain dataSource) async {
-    await _customDataSourcesDao.insertSyncedCustomDataSource(
+    await _customDataSourcesDao.insertDataSource(
       CustomDataSourcesCompanion(
         id: Value(dataSource.id),
         name: Value(dataSource.name),

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 
 import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
@@ -100,7 +100,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
 
   Future<void> _pickFolder() async {
     final l10n = context.l10n;
-    if (Platform.isAndroid) {
+    if (AppPlatform.isAndroid) {
       // Request Manage External Storage for Android 11+
       var status = await Permission.manageExternalStorage.status;
       if (!status.isGranted) {
@@ -155,18 +155,9 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     if (confirm != true) return;
 
     try {
-      final dir = Directory(_syncFolderPath!);
-      if (await dir.exists()) {
-        int deletedCount = 0;
-        await for (final entity in dir.list()) {
-          if (entity is File && entity.path.endsWith('.sync')) {
-            await entity.delete();
-            deletedCount++;
-          }
-        }
-        if (mounted) {
-          _showSnackbar(l10n.syncDeletedFilesCount(deletedCount));
-        }
+      final deletedCount = await _syncService.clearSyncFolder();
+      if (mounted) {
+        _showSnackbar(l10n.syncDeletedFilesCount(deletedCount));
       }
     } catch (e) {
       if (mounted) {

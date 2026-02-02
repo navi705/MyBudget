@@ -55,13 +55,7 @@ class InflationApiService {
     }
 
     if (companions.isNotEmpty) {
-      await _inflationRatesDao.batch((batch) {
-        batch.insertAll(
-          _inflationRatesDao.inflationRates,
-          companions,
-          mode: InsertMode.insertOrReplace,
-        );
-      });
+      await _inflationRatesDao.insertAllInflationRates(companions);
       debugPrint(
         '[InflationApiService] Saved ${companions.length} data points to DB.',
       );

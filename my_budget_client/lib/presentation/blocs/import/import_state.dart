@@ -16,7 +16,7 @@ enum ImportStep {
 
 class ImportState extends Equatable {
   final ImportStep step;
-  final List<File> files;
+  final List<ImportFileData> files;
   final List<OneMoneyRecord> parsedRecords;
   final List<AccountBalanceRecord> parsedBalances;
   final Set<String> unmappedAccounts;
@@ -60,7 +60,7 @@ class ImportState extends Equatable {
 
   ImportState copyWith({
     ImportStep? step,
-    List<File>? files,
+    List<ImportFileData>? files,
     List<OneMoneyRecord>? parsedRecords,
     List<AccountBalanceRecord>? parsedBalances,
     Set<String>? unmappedAccounts,

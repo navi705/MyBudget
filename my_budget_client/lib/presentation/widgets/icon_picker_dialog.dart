@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/io_helper.dart';
+import 'package:my_budget_client/core/utils/platform/icon_helper.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -54,16 +55,16 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
   }
 
   Future<void> _loadCustomIcons() async {
-    final manifestContent = await rootBundle.loadString('AssetManifest.json');
-    final Map<String, dynamic> manifestMap = json.decode(manifestContent);
-    final imagePaths = manifestMap.keys
+    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+    final imagePaths = manifest
+        .listAssets()
         .where((String key) => key.startsWith('lib/icons/'))
         .toList();
 
     final appDir = await getApplicationDocumentsDirectory();
-    final iconsDir = Directory(p.join(appDir.path, 'icons'));
-    if (await iconsDir.exists()) {
-      final userIcons = await iconsDir.list().map((file) => file.path).toList();
+    final iconsDirPath = p.join(appDir.path, 'icons');
+    if (await IoHelper.exists(iconsDirPath)) {
+      final userIcons = await IoHelper.listFiles(iconsDirPath);
       imagePaths.addAll(userIcons);
     }
 
@@ -79,28 +80,35 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
     );
 
     if (result != null && result.files.single.path != null) {
-      final file = File(result.files.single.path!);
-      final fileName = p.basename(file.path);
+      final filePath = result.files.single.path!;
+      final fileName = p.basename(filePath);
       final isSvg = fileName.toLowerCase().endsWith('.svg');
       final appDir = await getApplicationDocumentsDirectory();
-      final iconsDir = Directory(p.join(appDir.path, 'icons'));
-      if (!await iconsDir.exists()) {
-        await iconsDir.create(recursive: true);
+      // Using Directory directly here might be unsafe if web needs special directory handling,
+      // but path_provider and Directory are sometimes abstractable.
+      // However, to be strictly safe and avoid dart:io File mixups:
+
+      final iconsDirPath = p.join(appDir.path, 'icons');
+      if (!await IoHelper.exists(iconsDirPath)) {
+        // IoHelper doesn't have createDirectory but has createParent.
+        // We can use createParent on a dummy child.
+        await IoHelper.createParent(p.join(iconsDirPath, 'dummy'));
       }
-      final newIconPath = p.join(iconsDir.path, fileName);
-      final imageBytes = await file.readAsBytes();
-      await File(newIconPath).writeAsBytes(imageBytes);
+
+      final newIconPath = p.join(iconsDirPath, fileName);
+      final imageBytes = await IoHelper.readAsBytes(filePath);
+      await IoHelper.writeAsBytes(newIconPath, imageBytes);
 
       if (!isSvg) {
         final originalImage = img.decodeImage(imageBytes);
         if (originalImage != null) {
-          final thumbnailDir = Directory(p.join(iconsDir.path, '.thumbnails'));
-          if (!await thumbnailDir.exists()) {
-            await thumbnailDir.create(recursive: true);
+          final thumbnailDirPath = p.join(iconsDirPath, '.thumbnails');
+          if (!await IoHelper.exists(thumbnailDirPath)) {
+            await IoHelper.createParent(p.join(thumbnailDirPath, 'dummy'));
           }
-          final thumbnailPath = p.join(thumbnailDir.path, fileName);
+          final thumbnailPath = p.join(thumbnailDirPath, fileName);
           final thumbnail = img.copyResize(originalImage, width: 120);
-          await File(thumbnailPath).writeAsBytes(img.encodePng(thumbnail));
+          await IoHelper.writeAsBytes(thumbnailPath, img.encodePng(thumbnail));
         }
       }
 
@@ -233,8 +241,8 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
                   : Image.asset(iconPath, color: Colors.white);
             } else {
               if (isSvg) {
-                imageWidget = SvgPicture.file(
-                  File(iconPath),
+                imageWidget = IconPlatformHelper.buildSvgFromFile(
+                  iconPath,
                   colorFilter: const ColorFilter.mode(
                     Colors.white,
                     BlendMode.srcIn,
@@ -244,8 +252,8 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
                 final dir = p.dirname(iconPath);
                 final filename = p.basename(iconPath);
                 final displayPath = p.join(dir, '.thumbnails', filename);
-                imageWidget = Image.file(
-                  File(displayPath),
+                imageWidget = IconPlatformHelper.buildImageFromFile(
+                  displayPath,
                   color: Colors.white,
                 );
               }

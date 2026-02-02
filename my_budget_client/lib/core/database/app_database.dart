@@ -1,10 +1,9 @@
-import 'dart:io';
 import 'package:my_budget_client/core/utils/device_utils.dart' as dev_utils;
-
-import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
-
+import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:intl/intl.dart';
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:my_budget_client/core/database/connection/database_connection.dart';
 import 'package:my_budget_client/core/mappers/exchange_rate_mapper.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/core/utils/import_utils.dart';
@@ -12,8 +11,6 @@ import 'package:my_budget_client/data/seed_data/styles_data.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/transaction_type_filter.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/data/seed_data/currency_designations_data.dart';
 import 'package:my_budget_client/data/seed_data/currencies_data.dart';
@@ -2019,7 +2016,7 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
   Future<String> getDeviceName() => dev_utils.getDeviceName();
 }
 
-@DriftAccessor(tables: [ExchangeRates])
+@DriftAccessor(tables: [ExchangeRates, SyncLog])
 class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     with _$ExchangeRatesDaoMixin {
   ExchangeRatesDao(super.db);
@@ -2133,38 +2130,67 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
-  Future<void> addExchangeRate(ExchangeRatesCompanion rate) {
+  Future<void> addExchangeRate(ExchangeRatesCompanion rate) async {
     debugPrint('DAO: Adding exchange rate with preset: ${rate.preset.value}');
     final toInsert = rate.copyWith(
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
-    return into(
+    await into(
       exchangeRates,
     ).insert(toInsert, mode: InsertMode.insertOrReplace);
+
+    final from = toInsert.fromCurrencyCode.value;
+    final to = toInsert.toCurrencyCode.value;
+    final date = DateFormat('yyyy-MM-dd').format(toInsert.date.value);
+    final preset = toInsert.preset.value;
+    final recordId = '${from}_${to}_${date}_$preset';
+    await _logChange(recordId, 'upsert');
   }
 
   Future<void> insertSyncedExchangeRate(ExchangeRatesCompanion rate) =>
       into(exchangeRates).insert(rate, mode: InsertMode.insertOrReplace);
 
-  Future<void> updateExchangeRate(ExchangeRatesCompanion rate) {
+  Future<void> updateExchangeRate(ExchangeRatesCompanion rate) async {
     final updatedRate = rate.copyWith(
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
-    return update(exchangeRates).replace(updatedRate);
+    await update(exchangeRates).replace(updatedRate);
+
+    final from = updatedRate.fromCurrencyCode.value;
+    final to = updatedRate.toCurrencyCode.value;
+    final date = DateFormat('yyyy-MM-dd').format(updatedRate.date.value);
+    final preset = updatedRate.preset.value;
+    final recordId = '${from}_${to}_${date}_$preset';
+    await _logChange(recordId, 'upsert');
   }
 
-  Future<void> insertAllExchangeRates(List<ExchangeRatesCompanion> rates) {
-    return batch((batch) {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final ratesWithTimestamp = rates
-          .map((r) => r.copyWith(modifiedAt: Value(now)))
-          .toList();
-      batch.insertAll(
-        exchangeRates,
-        ratesWithTimestamp,
-        mode: InsertMode.insertOrReplace,
-      );
+  Future<void> insertAllExchangeRates(
+    List<ExchangeRatesCompanion> rates,
+  ) async {
+    final List<ExchangeRatesCompanion> ratesWithTimestamp = [];
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    await batch((batch) {
+      for (final r in rates) {
+        final withTs = r.copyWith(modifiedAt: Value(now));
+        ratesWithTimestamp.add(withTs);
+        batch.insert(exchangeRates, withTs, mode: InsertMode.insertOrReplace);
+      }
     });
+
+    // Log changes for sync (especially useful if fetched from custom API)
+    final List<String> recordIds = ratesWithTimestamp.map((r) {
+      // For exchange rates, the unique ID for sync log is a composite string
+      // but since record_id is a single text column, we use a stable format:
+      // from_to_date_preset
+      final from = r.fromCurrencyCode.value;
+      final to = r.toCurrencyCode.value;
+      final date = DateFormat('yyyy-MM-dd').format(r.date.value);
+      final preset = r.preset.value;
+      return '${from}_${to}_${date}_$preset';
+    }).toList();
+
+    await _logChanges(recordIds, 'upsert');
   }
 
   Future<void> deleteExchangeRates(List<ExchangeRateDomain> rates) {
@@ -2210,6 +2236,34 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
             modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
           ),
           mode: InsertMode.replace,
+        );
+      }
+    });
+  }
+
+  Future<void> _logChange(String recordId, String action) async {
+    await into(db.syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('exchange_rates'),
+        recordId: Value(recordId),
+        action: Value(action),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+      ),
+    );
+  }
+
+  Future<void> _logChanges(List<String> recordIds, String action) async {
+    final now = DateTime.now();
+    await batch((batch) {
+      for (final id in recordIds) {
+        batch.insert(
+          db.syncLog,
+          SyncLogCompanion(
+            changedTableName: const Value('exchange_rates'),
+            recordId: Value(id),
+            action: Value(action),
+            timestamp: Value(now.millisecondsSinceEpoch),
+          ),
         );
       }
     });
@@ -2306,7 +2360,7 @@ class CustomThemesDao extends DatabaseAccessor<AppDatabase>
   }
 }
 
-@DriftAccessor(tables: [InflationRates])
+@DriftAccessor(tables: [InflationRates, SyncLog])
 class InflationRatesDao extends DatabaseAccessor<AppDatabase>
     with _$InflationRatesDaoMixin {
   InflationRatesDao(super.db);
@@ -2374,13 +2428,42 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
     return query.watch();
   }
 
-  Future<void> insertInflationRate(InflationRatesCompanion rate) {
-    final toInsert = rate.copyWith(
-      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
-    );
-    return into(
+  Future<void> insertInflationRate(InflationRatesCompanion rate) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final toInsert = rate.copyWith(modifiedAt: Value(now));
+    await into(
       inflationRates,
     ).insert(toInsert, mode: InsertMode.insertOrReplace);
+
+    // Log change for sync
+    final date = DateFormat('yyyy-MM-dd').format(toInsert.date.value);
+    final country = toInsert.country.value ?? 'global';
+    final preset = toInsert.preset.value;
+    final recordId = '${date}_${country}_$preset';
+    await _logChange(recordId, 'upsert');
+  }
+
+  Future<void> insertAllInflationRates(
+    List<InflationRatesCompanion> rates,
+  ) async {
+    final List<String> recordIds = [];
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    await batch((batch) {
+      for (final r in rates) {
+        final withTs = r.copyWith(modifiedAt: Value(now));
+        batch.insert(inflationRates, withTs, mode: InsertMode.insertOrReplace);
+
+        final date = DateFormat('yyyy-MM-dd').format(withTs.date.value);
+        final country = withTs.country.value ?? 'global';
+        final preset = withTs.preset.value;
+        recordIds.add('${date}_${country}_$preset');
+      }
+    });
+
+    for (final id in recordIds) {
+      await _logChange(id, 'upsert');
+    }
   }
 
   Future<void> insertSyncedInflationRate(InflationRatesCompanion rate) =>
@@ -2471,6 +2554,16 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
         .map((row) => row.read(inflationRates.preset))
         .get();
     return results.whereType<int>().toList();
+  }
+
+  Future<void> _logChange(String recordId, String action) async {
+    await into(db.syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('inflation_rates'),
+        recordId: Value(recordId),
+        action: Value(action),
+      ),
+    );
   }
 }
 
@@ -2852,7 +2945,7 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase() : super(openConnection());
 
   AppDatabase.forTesting(super.connection);
 
@@ -3040,7 +3133,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> _seedCategories(AppDatabase db) async {
-    final languageCode = Platform.localeName.split('_').first;
+    final languageCode = Intl.systemLocale.split('_').first;
     await db.categoriesDao.insertAllCategories(
       getDefaultCategories(languageCode),
     );
@@ -3337,6 +3430,14 @@ class ApiSettingsDao extends DatabaseAccessor<AppDatabase>
     await _logChange(toInsert.id.value, 'upsert');
   }
 
+  Future<List<ApiSettingsTableData>> getSettingsByIds(List<String> ids) async {
+    final query = select(apiSettingsTable)..where((t) => t.id.isIn(ids));
+    return query.get();
+  }
+
+  Future<void> insertSyncedApiSetting(ApiSettingsTableCompanion setting) =>
+      into(apiSettingsTable).insert(setting, mode: InsertMode.replace);
+
   Future<void> _logChange(String recordId, String action) async {
     await into(db.syncLog).insert(
       SyncLogCompanion(
@@ -3348,28 +3449,6 @@ class ApiSettingsDao extends DatabaseAccessor<AppDatabase>
       ),
     );
   }
-}
-
-QueryExecutor _openConnection() {
-  // driftDatabase from drift_flutter automatically handles:
-  // - Native (Android/iOS/Desktop): SQLite via sqlite3_flutter_libs
-  // - Web: sqlite3.wasm (WASM) with IndexedDB persistence
-  return driftDatabase(
-    name: 'my_budget_db',
-    // In debug mode: store in documents for easy access (native only)
-    // In release mode: use default application support directory
-    native: DriftNativeOptions(
-      databasePath: () async {
-        final Directory dbFolder;
-        if (kDebugMode) {
-          dbFolder = await getApplicationDocumentsDirectory();
-        } else {
-          dbFolder = await getApplicationSupportDirectory();
-        }
-        return p.join(dbFolder.path, 'db.sqlite');
-      },
-    ),
-  );
 }
 
 @DataClassName('ApiFetchStatus')

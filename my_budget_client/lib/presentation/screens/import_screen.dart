@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
+import 'package:my_budget_client/core/utils/import_file_data.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -49,36 +50,47 @@ class _ImportView extends StatefulWidget {
 
 class _ImportViewState extends State<_ImportView> {
   Future<void> _startOneMoneyImport() async {
-    FilePickerResult? result;
-    List<String>? pickedPaths;
+    List<ImportFileData>? importFiles;
 
-    if (Platform.isAndroid) {
-      pickedPaths = await sl<AndroidFilePickerService>().pickFile(
+    if (AppPlatform.isAndroid) {
+      final pickedPaths = await sl<AndroidFilePickerService>().pickFile(
         mimeType: '*/*',
         title: context.l10n.filePickerChooserTitle,
         allowMultiple: true,
       );
+      if (pickedPaths != null) {
+        importFiles = pickedPaths
+            .map(
+              (path) => ImportFileData(
+                name: path.split(AppPlatform.pathSeparator).last,
+                path: path,
+              ),
+            )
+            .toList();
+      }
     } else {
-      result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv'],
         allowMultiple: true,
+        withData: true, // Needed for web
       );
       if (result != null) {
-        pickedPaths = result.paths.whereType<String>().toList();
+        importFiles = result.files.map((file) {
+          return ImportFileData(
+            name: file.name,
+            path: file.path,
+            bytes: file.bytes,
+          );
+        }).toList();
       }
     }
 
-    if (pickedPaths != null && pickedPaths.isNotEmpty) {
-      final csvFiles = pickedPaths.map((path) => File(path)).toList();
-
+    if (importFiles != null && importFiles.isNotEmpty) {
       // Basic validation: Check if file names look like OneMoney exports
-      // Typically: "OneMoney-2023-10-27.csv"
       bool allValid = true;
-      for (final file in csvFiles) {
-        final fileName = file.path.split(Platform.pathSeparator).last;
-        // Simple check: ends with .csv
-        if (!fileName.toLowerCase().endsWith('.csv')) {
+      for (final file in importFiles) {
+        if (!file.name.toLowerCase().endsWith('.csv')) {
           allValid = false;
           break;
         }
@@ -87,18 +99,14 @@ class _ImportViewState extends State<_ImportView> {
       if (!allValid) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                context.l10n.selectAccountError,
-              ), // Using selectAccountError as a fallback or I should add a specific one
-            ),
+            SnackBar(content: Text(context.l10n.selectAccountError)),
           );
         }
         return;
       }
 
       if (!mounted) return;
-      context.read<ImportBloc>().add(StartImportProcess(csvFiles));
+      context.read<ImportBloc>().add(StartImportProcess(importFiles));
     }
   }
 

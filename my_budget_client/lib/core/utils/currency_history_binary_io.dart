@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/io_helper.dart';
 import 'dart:typed_data';
 import 'package:archive/archive.dart';
 
@@ -10,7 +10,7 @@ class CurrencyHistoryBinaryIO {
 
   /// Writes the currency history map to a GZIP-compressed binary file.
   static Future<void> write(
-    File file,
+    String path,
     Map<String, Map<String, double>> history,
   ) async {
     final buffer = BytesBuilder();
@@ -55,12 +55,12 @@ class CurrencyHistoryBinaryIO {
       buffer.add(compressed);
     }
 
-    await file.writeAsBytes(buffer.toBytes());
+    await IoHelper.writeAsBytes(path, buffer.toBytes());
   }
 
   /// Reads and decompresses the currency history map from a File.
-  static Future<Map<String, Map<String, double>>> read(File file) async {
-    final bytes = await file.readAsBytes();
+  static Future<Map<String, Map<String, double>>> read(String path) async {
+    final bytes = await IoHelper.readAsBytes(path);
     return readFromBytes(bytes);
   }
 

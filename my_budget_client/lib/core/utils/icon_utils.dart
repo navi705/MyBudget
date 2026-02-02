@@ -1,10 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:material_symbols_icons/get.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:path/path.dart' as p;
+import 'package:my_budget_client/core/utils/platform/icon_helper.dart';
 
 class IconUtils {
   static Widget getIconWidget(Style icon, {double? size}) {
@@ -38,8 +38,8 @@ class IconUtils {
               );
       } else {
         if (isSvg) {
-          return SvgPicture.file(
-            File(iconPath),
+          return IconPlatformHelper.buildSvgFromFile(
+            iconPath,
             colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
             width: size,
             height: size,
@@ -49,8 +49,8 @@ class IconUtils {
           final dir = p.dirname(iconPath);
           final filename = p.basename(iconPath);
           final displayPath = p.join(dir, '.thumbnails', filename);
-          return Image.file(
-            File(displayPath),
+          return IconPlatformHelper.buildImageFromFile(
+            displayPath,
             color: Colors.white,
             width: size,
             height: size,

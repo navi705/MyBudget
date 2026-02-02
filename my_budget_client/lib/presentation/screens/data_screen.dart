@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/presentation/widgets/navigation/navigation_tab_bar.dart';
 import 'package:my_budget_client/presentation/screens/exchange_rates_screen.dart';
@@ -18,7 +18,7 @@ class _DataScreenState extends State<DataScreen> {
   @override
   Widget build(BuildContext context) {
     final isDesktop =
-        Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+        AppPlatform.isWindows || AppPlatform.isLinux || AppPlatform.isMacOS;
 
     return DefaultTabController(
       length: 3,

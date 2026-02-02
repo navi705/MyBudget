@@ -1,6 +1,6 @@
-import 'dart:io' show Platform;
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_acrylic/flutter_acrylic.dart';
+import 'package:my_budget_client/core/utils/window/window_effect_utils.dart';
 import 'package:my_budget_client/core/theme/app_theme.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/di/injection_container.dart' as di;
@@ -21,6 +21,7 @@ import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_event.dart';
 import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/sms/sms_bloc.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AppProviders extends StatelessWidget {
   final Widget child;
@@ -71,11 +72,11 @@ class AppProviders extends StatelessWidget {
             create: (context) =>
                 di.sl<InflationBloc>()..add(LoadInflationRates()),
           ),
-          if (Platform.isAndroid)
+          if (!kIsWeb && AppPlatform.isAndroid)
             BlocProvider(
               create: (context) => di.sl<SmsBloc>()..add(LoadSmsPresets()),
               lazy: false,
-            )
+            ),
         ],
         child: BlocListener<ThemeBloc, ThemeState>(
           listener: (context, state) {
@@ -94,41 +95,21 @@ class AppProviders extends StatelessWidget {
   }
 
   void _applyWindowEffect(BuildContext context, CustomTheme theme) {
-    if (!Platform.isWindows) return;
+    if (kIsWeb || !AppPlatform.isWindows) return;
 
     final brightness = Theme.of(context).brightness;
     final tintOpacity = 1.0 - theme.effectOpacity;
 
-    WindowEffect windowEffect;
-    switch (theme.windowEffectType) {
-      case WindowEffectType.none:
-        windowEffect = WindowEffect.disabled;
-        break;
-      case WindowEffectType.acrylic:
-        windowEffect = WindowEffect.acrylic;
-        break;
-      case WindowEffectType.mica:
-        windowEffect = WindowEffect.mica;
-        break;
-      case WindowEffectType.aero:
-        windowEffect = WindowEffect.aero;
-        break;
-      case WindowEffectType.vibrancy:
-        windowEffect = WindowEffect.disabled; // Not on Windows
-        break;
-      case WindowEffectType.transparent:
-        windowEffect = WindowEffect.transparent;
-        break;
-    }
-
-    Window.setEffect(
-      effect: windowEffect,
+    WindowEffectUtils.applyEffect(
+      context: context,
       color: AppTheme.getWindowTintColor(
         theme.backgroundColor,
         brightness,
         tintOpacity,
         theme.windowEffectType,
       ),
+      opacity: theme.effectOpacity,
+      type: theme.windowEffectType,
     );
   }
 }

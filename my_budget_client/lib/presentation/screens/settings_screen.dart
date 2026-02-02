@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import '../../core/utils/country_codes.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -152,7 +152,7 @@ class SettingsScreen extends StatelessWidget {
                   //     },
                   //   ),
                   // ),
-                  if (!Platform.isAndroid && !Platform.isIOS)
+                  if (!AppPlatform.isAndroid && !AppPlatform.isIOS)
                     ListTile(
                       leading: const Icon(Icons.keyboard),
                       title: Text(l10n.hotKeysLabel),
@@ -163,7 +163,7 @@ class SettingsScreen extends StatelessWidget {
                   const Divider(),
 
                   // Feature-specific & External Data
-                  if (Platform.isAndroid || Platform.isIOS)
+                  if (AppPlatform.isAndroid || AppPlatform.isIOS)
                     ListTile(
                       leading: const Icon(Icons.bar_chart),
                       title: Text(l10n.dataLabel),
@@ -171,7 +171,7 @@ class SettingsScreen extends StatelessWidget {
                         context.push(AppRoutes.exchangeRates);
                       },
                     ),
-                  if (Platform.isAndroid || Platform.isIOS)
+                  if (AppPlatform.isAndroid || AppPlatform.isIOS)
                     ListTile(
                       leading: const Icon(Icons.sms),
                       title: Text(l10n.smsImportLabel),
@@ -190,15 +190,15 @@ class SettingsScreen extends StatelessWidget {
                   const Divider(),
 
                   // Synchronization
-                  ListTile(
-                    leading: const Icon(Icons.sync),
-                    title: Text(l10n.syncSettingsLabel),
-                    subtitle: Text(l10n.syncSettingsSubtitle),
-                    onTap: () {
-                      context.push(AppRoutes.syncSettings);
-                    },
-                  ),
-                  const Divider(),
+                  if (!kIsWeb)
+                    ListTile(
+                      leading: const Icon(Icons.sync),
+                      title: Text(l10n.syncSettingsLabel),
+                      subtitle: Text(l10n.syncSettingsSubtitle),
+                      onTap: () {
+                        context.push(AppRoutes.syncSettings);
+                      },
+                    ),
 
                   // Data Operations (Import/Export)
                   ListTile(
@@ -258,7 +258,8 @@ class SettingsScreen extends StatelessWidget {
                     subtitle: Text(l10n.resetDataSubtitle),
                     onTap: () => _confirmResetData(context),
                   ),
-                  if (kDebugMode && (Platform.isAndroid || Platform.isIOS))
+                  if (kDebugMode &&
+                      (AppPlatform.isAndroid || AppPlatform.isIOS))
                     ListTile(
                       leading: const Icon(
                         Icons.bug_report,

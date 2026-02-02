@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
+import 'package:my_budget_client/core/utils/platform/io_helper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 
@@ -33,13 +34,17 @@ class PerformanceLogger {
 
   Future<void> _logResult(String label, int duration) async {
     try {
+      if (kIsWeb) {
+        debugPrint('[PERF] $label: ${duration}ms');
+        return;
+      }
       final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/performance_logs.txt');
+      final filePath = '${directory.path}/performance_logs.txt';
 
       final timestamp = DateTime.now().toLocal().toString().split('.')[0];
       final logEntry = '[$timestamp] $label: ${duration}ms\n';
 
-      await file.writeAsString(logEntry, mode: FileMode.append);
+      await IoHelper.appendAsString(filePath, logEntry);
       debugPrint('PERFORMANCE LOG: $logEntry');
     } catch (e) {
       debugPrint('Error logging performance: $e');

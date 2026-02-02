@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:flutter/material.dart';
 
 /// Utility for showing dialogs with platform-specific behavior
@@ -18,7 +18,7 @@ class DialogUtils {
   }) {
     // On Android, if we want to avoid shrinking, we wrap the dialog in a Scaffold
     // with resizeToAvoidBottomInset: false.
-    if (Platform.isAndroid && !resizeToAvoidBottomInset) {
+    if (AppPlatform.isAndroid && !resizeToAvoidBottomInset) {
       return showDialog<T>(
         context: context,
         barrierDismissible: barrierDismissible,

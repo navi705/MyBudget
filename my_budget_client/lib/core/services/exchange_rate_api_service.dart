@@ -1,12 +1,14 @@
 import 'dart:convert';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
+import 'package:my_budget_client/core/utils/platform/io_helper.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb, debugPrint;
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:my_budget_client/core/utils/currency_history_binary_io.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
 import 'package:drift/drift.dart';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:my_budget_client/core/utils/currency_history_binary_io.dart';
 
 class ExchangeRateApiService {
   final ExchangeRatesDao _exchangeRatesDao;
@@ -37,7 +39,7 @@ class ExchangeRateApiService {
       return;
     }
 
-    if (kDebugMode) {
+    if (kDebugMode && !kIsWeb) {
       await _handleDebugFetch(date, dateKey);
     } else {
       await _handleProdFetch(date, dateKey);
@@ -45,16 +47,17 @@ class ExchangeRateApiService {
   }
 
   Future<void> _handleDebugFetch(DateTime date, String dateKey) async {
-    final file = File(_jsonPath);
-    final metadataFile = File(_metadataJsonPath);
-
-    if (!await file.exists()) return;
+    if (!await IoHelper.exists(_jsonPath)) return;
+    final content = await IoHelper.readAsString(_jsonPath);
+    final Map<String, dynamic> fullJson = jsonDecode(content);
 
     // 1. Read Metadata
     Map<String, dynamic> metadataJson = {};
-    if (await metadataFile.exists()) {
+    if (await IoHelper.exists(_metadataJsonPath)) {
       try {
-        metadataJson = jsonDecode(await metadataFile.readAsString());
+        metadataJson = jsonDecode(
+          await IoHelper.readAsString(_metadataJsonPath),
+        );
       } catch (e) {
         debugPrint('Error reading metadata file: $e');
       }
@@ -68,14 +71,13 @@ class ExchangeRateApiService {
       return;
     }
 
-    // 2. Read Currency Data
-    final content = await file.readAsString();
-    final Map<String, dynamic> fullJson = jsonDecode(content);
+    // 2. Read Currency Data (Already read above)
 
     // Clean up old metadata from main file if present (migration step)
     if (fullJson.containsKey(_metadataKey)) {
       fullJson.remove(_metadataKey);
-      await file.writeAsString(
+      await IoHelper.writeAsString(
+        _jsonPath,
         const JsonEncoder.withIndent('  ').convert(fullJson),
       );
     }
@@ -97,7 +99,8 @@ class ExchangeRateApiService {
       if (apiRates.isNotEmpty) {
         await _saveRatesToDb(date, apiRates);
         fullJson[dateKey] = apiRates;
-        await file.writeAsString(
+        await IoHelper.writeAsString(
+          _jsonPath,
           const JsonEncoder.withIndent('  ').convert(fullJson),
         );
       }
@@ -105,7 +108,8 @@ class ExchangeRateApiService {
       // 4. Update Metadata on Failure
       attemptsMap[dateKey] = attemptCount + 1;
       metadataJson[_attemptsKey] = attemptsMap;
-      await metadataFile.writeAsString(
+      await IoHelper.writeAsString(
+        _metadataJsonPath,
         const JsonEncoder.withIndent('  ').convert(metadataJson),
       );
     }
@@ -197,12 +201,7 @@ class ExchangeRateApiService {
       return;
     }
 
-    await _exchangeRatesDao.batch((batch) {
-      batch.insertAllOnConflictUpdate(
-        _exchangeRatesDao.exchangeRates,
-        companions,
-      );
-    });
+    await _exchangeRatesDao.insertAllExchangeRates(companions);
   }
 
   Future<void> fetchRatesForRange(DateTime start, DateTime end) async {

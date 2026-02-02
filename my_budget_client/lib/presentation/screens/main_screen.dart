@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -18,7 +18,7 @@ class MainScreen extends StatelessWidget {
     final l10n = context.l10n;
     final destinations = [
       NavigationItem(
-        label: (Platform.isAndroid || Platform.isIOS)
+        label: (AppPlatform.isAndroid || AppPlatform.isIOS)
             ? l10n.homeLabel
             : l10n.dashboardLabel,
         icon: Icons.dashboard,
@@ -36,7 +36,7 @@ class MainScreen extends StatelessWidget {
         tooltipDescription: l10n.addAccountDescription, // Maybe generic desc?
       ),
       NavigationItem(
-        label: (Platform.isAndroid || Platform.isIOS)
+        label: (AppPlatform.isAndroid || AppPlatform.isIOS)
             ? l10n.historyLabel
             : l10n.transactionsAppBarTitle,
         icon: Icons.swap_horiz,
@@ -53,7 +53,7 @@ class MainScreen extends StatelessWidget {
         hotkeyId: 'categories',
         tooltipDescription: l10n.categoriesScreenBody,
       ),
-      if (!Platform.isAndroid && !Platform.isIOS)
+      if (!AppPlatform.isAndroid && !AppPlatform.isIOS)
         NavigationItem(
           label: l10n.dataLabel,
           icon: Icons.bar_chart,
@@ -72,7 +72,7 @@ class MainScreen extends StatelessWidget {
       ),
     ];
 
-    if (kDebugMode && !Platform.isAndroid && !Platform.isIOS) {
+    if (kDebugMode && !AppPlatform.isAndroid && !AppPlatform.isIOS) {
       destinations.add(
         const NavigationItem(
           label: 'Debug',

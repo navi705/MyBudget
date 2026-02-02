@@ -1,4 +1,6 @@
-import 'dart:io' show Platform, File;
+import 'package:flutter/foundation.dart';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
+import 'package:my_budget_client/core/utils/platform/icon_helper.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flex_color_picker/flex_color_picker.dart';
@@ -146,7 +148,10 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
   }
 
   Widget _buildWindowEffectsSection(BuildContext context, CustomTheme theme) {
-    if (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) {
+    if (kIsWeb ||
+        (!AppPlatform.isWindows &&
+            !AppPlatform.isMacOS &&
+            !AppPlatform.isLinux)) {
       return const SizedBox.shrink();
     }
 
@@ -165,7 +170,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
               initialValue:
                   WindowEffectType.values
                       .where((e) {
-                        if (Platform.isMacOS) return true;
+                        if (AppPlatform.isMacOS) return true;
                         if (e == WindowEffectType.vibrancy ||
                             e == WindowEffectType.aero) {
                           return false;
@@ -181,7 +186,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
               ),
               items: WindowEffectType.values
                   .where((e) {
-                    if (Platform.isMacOS) return true;
+                    if (AppPlatform.isMacOS) return true;
                     // Filter Check
                     if (e == WindowEffectType.vibrancy ||
                         e == WindowEffectType.aero) {
@@ -197,7 +202,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
               onChanged: (v) {
                 if (v != null) {
                   _update(context, windowEffectType: v);
-                  if (Platform.isWindows) {
+                  if (AppPlatform.isWindows && !kIsWeb) {
                     _applyWindowEffect(
                       context,
                       theme.copyWith(windowEffectType: v),
@@ -260,7 +265,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                         onSelected: (selected) {
                           if (selected) {
                             _update(context, effectOpacity: preset.$2);
-                            if (Platform.isWindows) {
+                            if (AppPlatform.isWindows) {
                               _applyWindowEffect(
                                 context,
                                 theme.copyWith(effectOpacity: preset.$2),
@@ -283,7 +288,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                   onChanged: (v) {
                     setState(() => _localEffectOpacity = v);
                     _update(context, effectOpacity: v, persist: false);
-                    if (Platform.isWindows) {
+                    if (AppPlatform.isWindows) {
                       _applyWindowEffect(
                         context,
                         theme.copyWith(effectOpacity: v),
@@ -337,6 +342,8 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
   }
 
   Widget _buildBackgroundImageSection(BuildContext context, CustomTheme theme) {
+    if (kIsWeb) return const SizedBox.shrink();
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -356,7 +363,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                       List<String>? pickedPaths;
                       FilePickerResult? result;
 
-                      if (Platform.isAndroid) {
+                      if (AppPlatform.isAndroid) {
                         pickedPaths = await GetIt.I<AndroidFilePickerService>()
                             .pickFile(
                               mimeType: 'image/*',
@@ -519,7 +526,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
   }
 
   void _applyWindowEffect(BuildContext context, CustomTheme theme) {
-    if (!Platform.isWindows) return;
+    if (kIsWeb || !AppPlatform.isWindows) return;
 
     final brightness = theme.themeMode == ThemeMode.system
         ? MediaQuery.platformBrightnessOf(context)
@@ -601,7 +608,7 @@ class _PresetsSectionState extends State<_PresetsSection> {
   }
 
   void _applyWindowEffect(BuildContext context, CustomTheme theme) {
-    if (!Platform.isWindows) return;
+    if (kIsWeb || !AppPlatform.isWindows) return;
 
     final brightness = theme.themeMode == ThemeMode.system
         ? MediaQuery.platformBrightnessOf(context)
@@ -725,7 +732,7 @@ class _PresetsSectionState extends State<_PresetsSection> {
                       context.read<ThemeBloc>().add(
                         SelectThemePreset(preset.id),
                       );
-                      if (Platform.isWindows) {
+                      if (AppPlatform.isWindows) {
                         _applyWindowEffect(context, preset);
                       }
                     },
@@ -750,8 +757,8 @@ class _PresetsSectionState extends State<_PresetsSection> {
                                     )
                                     ? AssetImage(preset.backgroundImagePath!)
                                           as ImageProvider
-                                    : FileImage(
-                                        File(preset.backgroundImagePath!),
+                                    : IconPlatformHelper.getImageFromFile(
+                                        preset.backgroundImagePath!,
                                       ),
                                 fit: BoxFit.cover,
                                 opacity: 0.6,

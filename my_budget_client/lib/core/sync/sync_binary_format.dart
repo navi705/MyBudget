@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
+import 'package:archive/archive.dart';
 import 'dart:typed_data';
 
 /// Table identifiers for binary sync format
@@ -119,13 +120,13 @@ class SyncBinaryFormat {
 
     // Compress with gzip
     final uncompressed = builder.takeBytes();
-    return Uint8List.fromList(gzip.encode(uncompressed));
+    return Uint8List.fromList(GZipEncoder().encode(uncompressed)!);
   }
 
   /// Decode binary format (gzip compressed)
   static SyncPacket decode(Uint8List data) {
     // Decompress
-    final decompressed = Uint8List.fromList(gzip.decode(data));
+    final decompressed = Uint8List.fromList(GZipDecoder().decodeBytes(data));
 
     int offset = 0;
 

@@ -109,8 +109,9 @@ class CustomApiService {
   }
 
   Future<int> _parseInflation(List data) async {
+    final List<InflationRatesCompanion> companions = [];
     for (final item in data) {
-      await _inflationRatesDao.insertInflationRate(
+      companions.add(
         InflationRatesCompanion(
           date: Value(DateTime.parse(item['date'])),
           country: Value(item['country'] as String),
@@ -119,8 +120,13 @@ class CustomApiService {
         ),
       );
     }
-    debugPrint('[CustomApiService] Imported ${data.length} inflation records');
-    return data.length;
+    if (companions.isNotEmpty) {
+      await _inflationRatesDao.insertAllInflationRates(companions);
+      debugPrint(
+        '[CustomApiService] Imported ${companions.length} inflation records',
+      );
+    }
+    return companions.length;
   }
 
   Future<int> _parseAssets(List data) async {

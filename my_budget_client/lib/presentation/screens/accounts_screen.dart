@@ -556,6 +556,14 @@ class _AccountsScreenState extends State<AccountsScreen> {
                                   state,
                                 );
                               },
+                              onMenuPressed: (details) {
+                                _showContextMenu(
+                                  context,
+                                  details.globalPosition,
+                                  account,
+                                  state,
+                                );
+                              },
                             );
                           },
                           childCount: state.hasReachedMax

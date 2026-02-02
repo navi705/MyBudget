@@ -1,5 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:my_budget_client/core/utils/import_file_data.dart';
+import 'package:path/path.dart' as p;
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
+import 'package:my_budget_client/core/utils/platform/io_helper.dart';
 import 'package:csv/csv.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
@@ -9,7 +12,6 @@ import 'package:my_budget_client/core/di/injection_container.dart' as di;
 import 'package:my_budget_client/core/utils/currency_history_binary_io.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:flutter/services.dart';
-// import 'dart:typed_data'; // Redundant - provided by foundation.dart
 
 class OneMoneyRecord {
   final DateTime date;
@@ -91,9 +93,14 @@ class ImportDataUtils {
     "NOTES",
   ];
 
-  static Future<ParsedCsvData> parseOneMoneyCsv(String filePath) async {
+  static Future<ParsedCsvData> parseOneMoneyCsv(ImportFileData file) async {
     try {
-      final fileContent = await File(filePath).readAsString();
+      final String fileContent;
+      if (file.bytes != null) {
+        fileContent = utf8.decode(file.bytes!);
+      } else {
+        fileContent = await IoHelper.readAsString(file.path!);
+      }
 
       const converter = CsvToListConverter(
         fieldDelimiter: ',',
@@ -284,12 +291,11 @@ class ImportDataUtils {
         debugPrint(
           "[INIT_DEBUG] Loading large currency history file (initial/major sync)...",
         );
-        final bool isDesktop = !Platform.isAndroid && !Platform.isIOS;
+        final bool isDesktop = !AppPlatform.isAndroid && !AppPlatform.isIOS;
 
         if (kDebugMode && isDesktop) {
-          File jsonFile = File(filePathCurrenciesRate);
-          if (await jsonFile.exists()) {
-            final content = await jsonFile.readAsString();
+          if (await IoHelper.exists(filePathCurrenciesRate)) {
+            final content = await IoHelper.readAsString(filePathCurrenciesRate);
             final jsonMap = jsonDecode(content);
             if (jsonMap is Map) {
               jsonMap.forEach((k, v) {
@@ -376,22 +382,28 @@ class ImportDataUtils {
 
       // 5. (DEBUG & PC ONLY) Save updated data back to binary/json if changed
       if (kDebugMode &&
-          !Platform.isAndroid &&
-          !Platform.isIOS &&
+          !AppPlatform.isAndroid &&
+          !AppPlatform.isIOS &&
           dataWasUpdated &&
           shouldLoadFile) {
         try {
-          final File localJsonFile = File(filePathCurrenciesRate);
-          if (!await localJsonFile.parent.exists()) {
-            await localJsonFile.parent.create(recursive: true);
-          }
+          // Ensure parent exists
+          // IoHelper doesn't expose get parent, but we can assume basic logical paths if strictly needed,
+          // OR iterate.
+          // For now, in web, this block is skipped. In desktop, we assume IoHelper works.
+          // If we need strict parent creation:
+          await IoHelper.createParent(filePathCurrenciesRate);
+
           final String jsonContent = const JsonEncoder.withIndent(
             '  ',
           ).convert(fileHistoryMap);
-          await localJsonFile.writeAsString(jsonContent);
+          await IoHelper.writeAsString(filePathCurrenciesRate, jsonContent);
 
-          final File localBinaryFile = File(filePathCurrenciesBinary);
-          await CurrencyHistoryBinaryIO.write(localBinaryFile, fileHistoryMap);
+          // Use string path
+          await CurrencyHistoryBinaryIO.write(
+            filePathCurrenciesBinary,
+            fileHistoryMap,
+          );
           debugPrint("[INIT_DEBUG] Updated local history files.");
         } catch (e) {
           debugPrint("Failed to save updated history files: $e");
@@ -404,18 +416,17 @@ class ImportDataUtils {
   }
 
   static Future<List<ExchangeRateDomain>> getCurrenciesRateToSeeder() async {
-    final bool isDesktop = !Platform.isAndroid && !Platform.isIOS;
+    final bool isDesktop = !AppPlatform.isAndroid && !AppPlatform.isIOS;
 
     if (kDebugMode && isDesktop) {
       // DEBUG (PC): Load from JSON File
-      final file = File(filePathCurrenciesRate);
-      if (!await file.exists()) {
+      if (!await IoHelper.exists(filePathCurrenciesRate)) {
         debugPrint(
           'Seeder: JSON file not found at $filePathCurrenciesRate, falling back to assets.',
         );
       } else {
         try {
-          final content = await file.readAsString();
+          final content = await IoHelper.readAsString(filePathCurrenciesRate);
           return compute(_parseCurrencyHistoryJson, content);
         } catch (e) {
           debugPrint(
@@ -483,8 +494,6 @@ class ImportDataUtils {
   }
 
   static Future<void> getCurrenciesInitialDebug() async {
-    final File file = File(filePathCurrenciesRate);
-
     DateTime startDate = DateTime(2024, 4, 1);
     DateTime endDate = DateTime.now();
     DateTime currentDate = startDate;
@@ -492,9 +501,11 @@ class ImportDataUtils {
 
     Map<String, Map<String, double>> fullHistory = {};
 
-    if (await file.exists()) {
+    if (await IoHelper.exists(filePathCurrenciesRate)) {
       try {
-        final String existingContent = await file.readAsString();
+        final String existingContent = await IoHelper.readAsString(
+          filePathCurrenciesRate,
+        );
         final Map<String, dynamic> jsonMap = jsonDecode(existingContent);
 
         jsonMap.forEach((key, value) {
@@ -510,8 +521,11 @@ class ImportDataUtils {
       } catch (e) {}
     }
 
-    if (!await file.parent.exists()) {
-      await file.parent.create(recursive: true);
+    if (!await IoHelper.exists(p.dirname(filePathCurrenciesRate))) {
+      // Note: File usage here is unsafe for web.
+      // But getCurrenciesInitialDebug calls File(path).parent.path
+      // We should use IoHelper.createParent(path)
+      await IoHelper.createParent(filePathCurrenciesRate);
     }
 
     while (!currentDate.isAfter(endDate)) {
@@ -527,7 +541,7 @@ class ImportDataUtils {
           final String jsonContent = const JsonEncoder.withIndent(
             '  ',
           ).convert(fullHistory);
-          await file.writeAsString(jsonContent);
+          await IoHelper.writeAsString(filePathCurrenciesRate, jsonContent);
           // ignore: empty_catches
         } catch (e) {}
         await Future.delayed(const Duration(milliseconds: 100));

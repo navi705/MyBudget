@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:collection/collection.dart';
@@ -23,7 +23,7 @@ class SmsSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Only available on Android
-    if (!Platform.isAndroid) {
+    if (!AppPlatform.isAndroid) {
       return Scaffold(
         appBar: AppBar(title: const Text('SMS Import')),
         body: const Center(

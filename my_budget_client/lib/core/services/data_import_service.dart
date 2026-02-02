@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:my_budget_client/core/utils/platform/io_helper.dart';
+import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 
 import 'package:csv/csv.dart';
 import 'package:drift/drift.dart';
@@ -21,7 +22,7 @@ class DataImportService {
     List<String>? pickedPaths;
     FilePickerResult? result;
 
-    if (Platform.isAndroid) {
+    if (AppPlatform.isAndroid) {
       pickedPaths = await _androidFilePicker.pickFile(
         mimeType: '*/*',
         title: title ?? (isCsv ? 'Select CSV' : 'Select JSON'),
@@ -36,18 +37,30 @@ class DataImportService {
       }
     }
 
-    if (pickedPaths != null && pickedPaths.isNotEmpty) {
-      final pickedPath = pickedPaths.first;
-      final file = File(pickedPath);
-      final extension = file.path.split('.').last.toLowerCase();
+    if ((pickedPaths != null && pickedPaths.isNotEmpty) ||
+        (result != null && result.files.isNotEmpty)) {
+      final String content;
+      final String extension;
+
+      if (result != null && result.files.isNotEmpty) {
+        final platformFile = result.files.first;
+        extension = platformFile.name.split('.').last.toLowerCase();
+        if (platformFile.bytes != null) {
+          content = utf8.decode(platformFile.bytes!);
+        } else {
+          content = await IoHelper.readAsString(platformFile.path!);
+        }
+      } else {
+        final pickedPath = pickedPaths!.first;
+        extension = pickedPath.split('.').last.toLowerCase();
+        content = await IoHelper.readAsString(pickedPath);
+      }
 
       if (extension != expectedExt) {
         throw Exception(
           'Invalid file type. Please select a .$expectedExt file.',
         );
       }
-
-      final content = await file.readAsString();
 
       if (content.trim().isEmpty) {
         throw Exception('The selected file is empty.');
@@ -67,7 +80,7 @@ class DataImportService {
     FilePickerResult? result;
     List<String>? pickedPaths;
 
-    if (Platform.isAndroid) {
+    if (AppPlatform.isAndroid) {
       pickedPaths = await _androidFilePicker.pickFile(
         mimeType: '*/*',
         title: title ?? 'Select CSV or JSON',
@@ -82,10 +95,24 @@ class DataImportService {
       }
     }
 
-    if (pickedPaths != null && pickedPaths.isNotEmpty) {
-      final pickedPath = pickedPaths.first;
-      final file = File(pickedPath);
-      final extension = file.path.split('.').last.toLowerCase();
+    if ((pickedPaths != null && pickedPaths.isNotEmpty) ||
+        (result != null && result.files.isNotEmpty)) {
+      final String content;
+      final String extension;
+
+      if (result != null && result.files.isNotEmpty) {
+        final platformFile = result.files.first;
+        extension = platformFile.name.split('.').last.toLowerCase();
+        if (platformFile.bytes != null) {
+          content = utf8.decode(platformFile.bytes!);
+        } else {
+          content = await IoHelper.readAsString(platformFile.path!);
+        }
+      } else {
+        final pickedPath = pickedPaths!.first;
+        extension = pickedPath.split('.').last.toLowerCase();
+        content = await IoHelper.readAsString(pickedPath);
+      }
 
       if (extension != 'csv' && extension != 'json') {
         throw Exception(
@@ -93,7 +120,6 @@ class DataImportService {
         );
       }
 
-      final content = await file.readAsString();
       final isCsv = extension == 'csv';
 
       if (isCsv) {
