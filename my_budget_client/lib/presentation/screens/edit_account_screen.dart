@@ -487,7 +487,10 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                               ),
                               const SizedBox(height: 8),
                               TextFormField(
-                                key: Key(_selectedAssetId ?? 'no_asset'),
+                                // Update key to force rebuild when data loads and name becomes available
+                                key: Key(
+                                  '${_selectedAssetId ?? "no_asset"}_${uniqueAssets[_selectedAssetId]?.name ?? ""}',
+                                ),
                                 initialValue: _selectedAssetId != null
                                     ? uniqueAssets[_selectedAssetId]?.name
                                     : null,

@@ -2,6 +2,8 @@
 
 MyBudget is a personal finance manager inspired by **OneMoney**. I created this project because the original app lacked certain features and flexibility that I needed for my daily financial tracking.
 
+🌐 **[Open MyBudget Web](https://navi705.github.io/MyBudget/)**
+
 | Dashboard | Transaction Editor | Theme Switch | Android |
 |-----------|--------------------|--------------|---------|
 | ![Dashboard](assets/media/dashboard.png) | ![Transaction](assets/media/transaction.png) | ![Theme](assets/media/theme.gif) | ![Android](assets/media/andoird_dashboard.png)|
@@ -105,6 +107,18 @@ docker-compose up -d
 
 ## 💻 Get the App
 
+### Web (Browser)
+The app is available as a **Progressive Web App** hosted on GitHub Pages:
+
+🌐 **[Open MyBudget Web](https://navi705.github.io/MyBudget/)**
+
+- **No installation required** — works directly in your browser
+- **Data stored locally** — all your data is saved in your browser's IndexedDB
+- **Private** — no data is sent to any server
+- **Limitations**: Sync features and SMS import are not available in the web version
+
+> **Note**: Each browser/device has its own separate local database. Data is not shared between different browsers or devices when using the web version.
+
 ### Windows
 - **Installer**: Download and run `MyBudget-Setup.exe` to install the app.
 
@@ -123,3 +137,4 @@ To use the transaction import feature from SMS, you must manually grant permissi
 1. Go to **Settings** -> **Apps** -> **MyBudget**.
 2. Open **Permissions** and allow **SMS** access.
 3. Some devices might also require enabling "Service SMS" or "Premium SMS" in special app access settings.
+
