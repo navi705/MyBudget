@@ -79,7 +79,7 @@ flutter:
   generate: true
 
   assets:
-    - .env
+
     - lib/icons/
     - lib/data/currency_history.bin
     - assets/icon/
