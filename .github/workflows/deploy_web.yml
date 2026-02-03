@@ -34,7 +34,7 @@ jobs:
       - name: Build Flutter Web
         working-directory: ./my_budget_client
         run: |
-          flutter build web --release --base-href "/${{ github.event.repository.name }}/"
+          flutter build web --release --no-tree-shake-icons --base-href "/${{ github.event.repository.name }}/"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
