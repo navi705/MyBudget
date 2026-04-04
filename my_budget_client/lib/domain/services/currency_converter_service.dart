@@ -1,10 +1,24 @@
+import 'dart:collection';
+
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 
 class CurrencyConverterService {
   final CurrencyRepository _currencyRepository;
 
+  // OPTIMIZATION: Simple LRU cache for exchange rate lookups.
+  // Key: "fromCode_toCode_YYYY-M-D_preset"
+  // Caches up to 50 entries to limit memory usage.
+  final _cache = LinkedHashMap<String, ExchangeRateDomain?>();
+  static const _maxCacheSize = 50;
+
   CurrencyConverterService(this._currencyRepository);
+
+  String _cacheKey(String from, String to, DateTime date, int preset) =>
+      '${from}_${to}_${date.year}-${date.month}-${date.day}_$preset';
+
+  /// Invalidates the in-memory cache. Call this when exchange rates are updated.
+  void invalidateCache() => _cache.clear();
 
   /// Finds the best exchange rate for a given pair and date using "Smart Search":
   /// 1. Direct Rate (From -> To)
@@ -25,6 +39,15 @@ class CurrencyConverterService {
         date: date,
         preset: preset,
       );
+    }
+
+    // OPTIMIZATION: Check in-memory cache before making DB queries
+    final key = _cacheKey(fromCurrencyCode, toCurrencyCode, date, preset);
+    if (_cache.containsKey(key)) {
+      // Move to end for LRU eviction order
+      final cached = _cache.remove(key);
+      _cache[key] = cached;
+      return cached;
     }
 
     final targetDate = date;
@@ -113,8 +136,10 @@ class CurrencyConverterService {
       }
     }
 
+    // Store result in cache (evict oldest entry if at capacity)
+    ExchangeRateDomain? result;
     if (bestRateValue != null) {
-      return ExchangeRateDomain(
+      result = ExchangeRateDomain(
         fromCurrencyCode: fromCurrencyCode,
         toCurrencyCode: toCurrencyCode,
         rate: bestRateValue!,
@@ -122,8 +147,11 @@ class CurrencyConverterService {
         preset: preset,
       );
     }
-
-    return null;
+    if (_cache.length >= _maxCacheSize) {
+      _cache.remove(_cache.keys.first);
+    }
+    _cache[key] = result;
+    return result;
   }
 
   /// Converts an amount from one currency to another using the best available rate.

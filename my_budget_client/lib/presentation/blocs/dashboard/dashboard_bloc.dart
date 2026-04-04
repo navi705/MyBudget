@@ -692,6 +692,26 @@ _DashboardComputeResults _calculateDashboardData(
   final financeCalc = FinanceCalculator();
   final hasAssetAccounts = params.accounts.any((a) => a.assetId != null);
 
+  // OPTIMIZATION: Pre-compute sets of dates with changes to enable skipping
+  // days where nothing changed (avoids expensive FinancialSnapshot creation).
+  // Logic: when walking backwards from D+1 to D, if D+1 had no transactions
+  // and no asset price changes, then calculateBalances(D) == calculateBalances(D+1).
+  final transactionDates = <DateTime>{};
+  for (final tx in params.transactions) {
+    transactionDates.add(DateTime(tx.date.year, tx.date.month, tx.date.day));
+  }
+
+  final assetDataDates = <DateTime>{};
+  if (hasAssetAccounts) {
+    for (final ad in params.assetData) {
+      assetDataDates.add(DateTime(ad.date.year, ad.date.month, ad.date.day));
+    }
+  }
+
+  // Cache for asset balances: reuse when no transactions or asset price changes occurred
+  Map<String, double>? cachedAssetBalances;
+  DateTime? prevIterDate; // The date of the previous (next-day) iteration
+
   // Normalize dateRangeEnd for breakdown calculation
   final dateRangeEndNormalized = DateTime(
     params.dateRangeEnd.year,
@@ -705,19 +725,35 @@ _DashboardComputeResults _calculateDashboardData(
     Map<String, double> balancesForDay;
 
     if (hasAssetAccounts) {
-      // Use FinanceCalculator for accurate asset-linked account values
-      final snapshot = FinancialSnapshot(
-        accounts: params.accounts,
-        transactions: params.transactions,
-        assetData: params.assetData,
-        categories: [],
-        exchangeRates: params.rates,
-        inflationRates: [],
-        date: iterDate,
-        dateStep: DateStep.day,
-        baseCurrency: params.mainCurrencyCode,
-      );
-      balancesForDay = financeCalc.calculateBalances(snapshot);
+      // OPTIMIZATION: Skip expensive FinancialSnapshot creation when nothing changed.
+      // calculateBalances(D) == calculateBalances(D+1) when D+1 had no transactions
+      // and no asset price entries (since both use the same latest price up to D).
+      final prevDayHadTransaction =
+          prevIterDate != null && transactionDates.contains(prevIterDate!);
+      final prevDayHadAssetPrice =
+          prevIterDate != null && assetDataDates.contains(prevIterDate!);
+
+      if (cachedAssetBalances != null &&
+          !prevDayHadTransaction &&
+          !prevDayHadAssetPrice) {
+        // Reuse cached balances — nothing changed between this day and the next
+        balancesForDay = Map.of(cachedAssetBalances!);
+      } else {
+        // Recompute balances using FinanceCalculator
+        final snapshot = FinancialSnapshot(
+          accounts: params.accounts,
+          transactions: params.transactions,
+          assetData: params.assetData,
+          categories: [],
+          exchangeRates: params.rates,
+          inflationRates: [],
+          date: iterDate,
+          dateStep: DateStep.day,
+          baseCurrency: params.mainCurrencyCode,
+        );
+        balancesForDay = financeCalc.calculateBalances(snapshot);
+        cachedAssetBalances = Map.of(balancesForDay);
+      }
     } else {
       // Use walk-back logic for standard accounts (faster)
       balancesForDay = Map.of(currentBalances);
@@ -800,6 +836,7 @@ _DashboardComputeResults _calculateDashboardData(
       }
     }
 
+    prevIterDate = iterDate; // Track for next iteration's skip optimization
     iterDate = iterDate.subtract(const Duration(days: 1));
     daysIterated++;
   }

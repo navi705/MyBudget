@@ -33,6 +33,11 @@ class AddEditTransactionBloc
   StreamSubscription<List<Account>>? _accountsSubscription;
   StreamSubscription<List<Category>>? _categoriesUpdatedSubscription;
 
+  // OPTIMIZATION: Cache for exchange rates to avoid redundant DB queries.
+  // Key: "fromCode_toCode_YYYY-M-D_mainCurrency"
+  // Cleared when exchange rates are modified (add/update/delete).
+  final Map<String, List<ExchangeRateDomain>> _ratesCache = {};
+
   AddEditTransactionBloc({
     required TransactionRepository transactionRepository,
     required AccountRepository accountRepository,
@@ -109,6 +114,9 @@ class AddEditTransactionBloc
 
       // NEW LOGIC: Check for "Cash Side" of Asset Transaction and SWAP context to Asset Side
       // This ensures we always open the "Asset Edit" UI (Qty/Value) even if clicking the Cash Tx.
+      // Also: For standard transfers, always load from the "From" (negative amount) perspective,
+      // so that selectedAccount = From account and linkedAccount = To account, regardless of
+      // which transaction the user tapped on. This fixes the Android From/To display issue.
       if (initialTransaction != null &&
           initialTransaction.linkedTransactionId != null) {
         try {
@@ -119,14 +127,22 @@ class AddEditTransactionBloc
             final linkedAcc = accounts.firstWhereOrNull(
               (a) => a.id == linkedTx.accountId,
             );
+            final currentAcc = accounts.firstWhereOrNull(
+              (a) => a.id == initialTransaction!.accountId,
+            );
             // If the LINKED account is an ASSET account, and CURRENT is CASH
             // We want to edit from the ASSET perspective.
-            if (linkedAcc?.assetId != null) {
-              final currentAcc = accounts.firstWhereOrNull(
-                (a) => a.id == initialTransaction!.accountId,
-              );
-              if (currentAcc?.assetId == null) {
-                // SWAP to Edit Asset Transaction
+            if (linkedAcc?.assetId != null && currentAcc?.assetId == null) {
+              // SWAP to Edit Asset Transaction
+              initialTransaction = linkedTx;
+            } else if (linkedAcc?.assetId == null &&
+                currentAcc?.assetId == null) {
+              // Standard Transfer: Always load from "From" (negative amount) perspective.
+              // If the current transaction is the "To" side (positive amount),
+              // swap to the linked transaction (the "From" side with negative amount).
+              // This ensures From/To accounts are always displayed correctly on all platforms.
+              if (initialTransaction!.amount > 0 && linkedTx.amount < 0) {
+                // Current is "To" side (positive), swap to "From" side (negative)
                 initialTransaction = linkedTx;
               }
             }
@@ -970,8 +986,24 @@ class AddEditTransactionBloc
     debugPrint(
       'DEBUG RATES: Fetching for ${fromCurrency.code} -> $targetCurrencyCode at $normalizedDate',
     );
+
+    // OPTIMIZATION: Cache key for this rate lookup.
+    // Includes from/to currencies, date, and main currency (used for triangular).
+    // Cache is cleared when exchange rates are modified (add/update/delete).
+    final cacheKey =
+        '${fromCurrency.code}_${toCurrencyCode}_${normalizedDate.year}-${normalizedDate.month}-${normalizedDate.day}_${state.mainCurrencyCode}';
+
     try {
       final targetDate = normalizedDate;
+
+      // Declare finalRates here so it's accessible in both cache-hit and cache-miss branches
+      List<ExchangeRateDomain> finalRates;
+
+      if (_ratesCache.containsKey(cacheKey)) {
+        // Cache hit: reuse previously computed rates, skip all DB queries
+        finalRates = _ratesCache[cacheKey]!;
+      } else {
+      // Cache miss: perform DB queries to find the best rate
 
       // --- STRATEGY: Find Best "System" Rate (Virtual Preset 1) ---
       // We look for:
@@ -1215,8 +1247,12 @@ class AddEditTransactionBloc
         validPresets[1] = derivedPreset1;
       }
 
-      List<ExchangeRateDomain> finalRates = validPresets.values.toList();
+      finalRates = validPresets.values.toList();
       finalRates.sort((a, b) => a.preset.compareTo(b.preset));
+
+      // Store in cache for future calls with the same parameters
+      _ratesCache[cacheKey] = finalRates;
+      } // end cache miss branch
 
       ExchangeRateDomain? selectedRate = state.selectedExchangeRate;
 
@@ -1418,6 +1454,8 @@ class AddEditTransactionBloc
       debugPrint('DEBUG DEFAULT: Save successful. Refreshing...');
 
       // Refresh rates with LATEST state
+      // Invalidate cache since exchange rates were modified
+      _ratesCache.clear();
       await _fetchRates(
         emit,
         state.selectedCurrency,
@@ -1491,6 +1529,8 @@ class AddEditTransactionBloc
       await _currencyRepository.addExchangeRate(newRate);
 
       // Refresh
+      // Invalidate cache since exchange rates were modified
+      _ratesCache.clear();
       await _fetchRates(
         emit,
         state.selectedCurrency,
@@ -1535,6 +1575,8 @@ class AddEditTransactionBloc
       final updatedRate = event.rate.copyWith(rate: rateValue);
       await _currencyRepository.updateExchangeRate(updatedRate);
 
+      // Invalidate cache since exchange rates were modified
+      _ratesCache.clear();
       await _fetchRates(
         emit,
         state.selectedCurrency,
@@ -1556,6 +1598,8 @@ class AddEditTransactionBloc
     emit(state.copyWith(isLoadingRates: true));
     try {
       await _currencyRepository.deleteExchangeRates([event.rate]);
+      // Invalidate cache since exchange rates were modified
+      _ratesCache.clear();
       await _fetchRates(
         emit,
         state.selectedCurrency,

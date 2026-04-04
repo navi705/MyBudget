@@ -116,12 +116,14 @@ class ServerSyncService {
   }
 
   Timer? _debounceTimer;
+  Timer? _periodicSyncTimer;
   StreamSubscription? _dbSubscription;
 
   void dispose() {
     _channel?.sink.close();
     _dbSubscription?.cancel();
     _debounceTimer?.cancel();
+    _periodicSyncTimer?.cancel();
   }
 
   Future<bool> testConnection({String? url, String? token}) async {
@@ -151,6 +153,7 @@ class ServerSyncService {
   }
 
   /// Initialize listeners for local database changes to trigger "Instant Push"
+  /// and a periodic fallback timer.
   Future<void> initAutoSync() async {
     if (!await _isEnabled()) return;
 
@@ -212,6 +215,22 @@ class ServerSyncService {
         });
       }
     });
+
+    // Periodic fallback timer: sync every 5 minutes regardless of DB changes or
+    // WebSocket notifications, to catch any missed updates.
+    _periodicSyncTimer?.cancel();
+    _periodicSyncTimer = Timer.periodic(
+      const Duration(minutes: 5),
+      (_) async {
+        debugPrint('[ServerSync] Periodic sync triggered (5-min fallback).');
+        try {
+          await sync();
+        } catch (e) {
+          debugPrint('[ServerSync] Periodic sync failed: $e');
+        }
+      },
+    );
+    debugPrint('[ServerSync] DB Auto-Sync and periodic timer initialized.');
   }
 
   Future<int> getPendingChangesCount() async {

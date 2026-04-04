@@ -196,7 +196,11 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     if (enabled) {
       await _settingsRepository.saveSetting('sync_enabled', 'false');
       await _syncService.stopSync();
-      // Optionally trigger initial sync
+      // Initialize WebSocket listener and DB auto-sync subscription so that
+      // background sync starts immediately without requiring an app restart.
+      await _serverSyncService.initWebSocket();
+      await _serverSyncService.initAutoSync();
+      // Trigger an initial sync to pull/push any pending changes right away.
       _syncNow();
     }
   }

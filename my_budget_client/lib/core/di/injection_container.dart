@@ -180,7 +180,7 @@ Future<void> init() async {
     () => InflationApiService(sl<AppDatabase>().inflationRatesDao),
   );
   sl.registerLazySingleton(() => AndroidFilePickerService());
-  sl.registerLazySingleton(() => SyncService(sl()));
+  sl.registerLazySingleton(() => SyncService(sl<AppDatabase>()));
 
   // Repositories
   sl.registerLazySingleton<AccountRepository>(

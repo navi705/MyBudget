@@ -34,7 +34,26 @@ class StartupSyncService {
   Future<void> executeStartupSync() async {
     debugPrint('[StartupSyncService] Checking startup sync settings...');
 
-    // 1. Check Global Master Switch
+    // 1. Initialize Server Sync — runs independently of startup_sync_enabled
+    // so that background sync works even when API auto-fetch is disabled.
+    try {
+      final serverEnabledSetting = await _settingsRepository.getSetting(
+        'server_sync_enabled',
+      );
+      if (serverEnabledSetting?.value == 'true') {
+        debugPrint('[StartupSyncService] Starting Server Sync...');
+        // Initialize WebSocket connection for the session
+        await _serverSyncService.initWebSocket();
+        // Initialize DB Auto-Sync (Instant Push) + periodic fallback timer
+        await _serverSyncService.initAutoSync();
+        // Perform initial sync
+        await _serverSyncService.sync();
+      }
+    } catch (e) {
+      debugPrint('[StartupSyncService] Server Sync failed: $e');
+    }
+
+    // 2. Check Global Master Switch for API auto-fetches
     final startupSyncEnabledRef = await _settingsRepository.getSetting(
       'startup_sync_enabled',
     );
@@ -42,14 +61,14 @@ class StartupSyncService {
 
     if (!isStartupSyncEnabled) {
       debugPrint(
-        '[StartupSyncService] Startup sync is DISABLED. Skipping all fetches.',
+        '[StartupSyncService] Startup sync is DISABLED. Skipping all API fetches.',
       );
       return;
     }
 
     final now = DateTime.now();
 
-    // 2. Detect region on first launch if not set
+    // 3. Detect region on first launch if not set
     final inflationCountryRef = await _settingsRepository.getSetting(
       'default_inflation_country',
     );
@@ -69,7 +88,7 @@ class StartupSyncService {
       }
     }
 
-    // 3. Process Built-in APIs
+    // 4. Process Built-in APIs
     final apiSettings = await _apiSettingsRepository.getAllSettings();
     for (final setting in apiSettings) {
       if (setting.enabled && setting.autoFetch) {
@@ -85,7 +104,7 @@ class StartupSyncService {
       }
     }
 
-    // 3. Process Custom Data Sources
+    // 5. Process Custom Data Sources
     final customSources = await _customDataSourceRepository.getAllDataSources();
     for (final source in customSources) {
       if (source.enabled && source.autoFetch) {
@@ -111,24 +130,6 @@ class StartupSyncService {
           );
         }
       }
-    }
-
-    // 4. Process Server Sync (New)
-    try {
-      final serverEnabledSetting = await _settingsRepository.getSetting(
-        'server_sync_enabled',
-      );
-      if (serverEnabledSetting?.value == 'true') {
-        debugPrint('[StartupSyncService] Starting Server Sync...');
-        // Initialize WebSocket connection for the session
-        await _serverSyncService.initWebSocket();
-        // Initialize DB Auto-Sync (Instant Push)
-        await _serverSyncService.initAutoSync();
-        // Perform initial sync
-        await _serverSyncService.sync();
-      }
-    } catch (e) {
-      debugPrint('[StartupSyncService] Server Sync failed: $e');
     }
 
     debugPrint('[StartupSyncService] Startup sync completed.');
