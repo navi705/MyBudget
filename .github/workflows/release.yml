@@ -159,38 +159,9 @@ jobs:
           retention-days: 7
 
   # ───────────────────────────────────────────────────────────────────────────
-  build-server:
-    name: Build & Push Server Docker Image
-    runs-on: ubuntu-latest
-    environment: production
-    permissions:
-      packages: write
-      contents: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./my_budget_server
-          push: true
-          tags: |
-            ghcr.io/navi705/mybudget/my_budget_server:${{ github.event.inputs.version }}
-            ghcr.io/navi705/mybudget/my_budget_server:latest
-
-  # ───────────────────────────────────────────────────────────────────────────
   release:
     name: Create GitHub Release
-    needs: [build-android, build-windows, build-server]
+    needs: [build-android, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write   # required to create tags and releases
