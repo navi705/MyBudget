@@ -71,6 +71,36 @@ class LocalSmsRepository implements SmsRepository {
         }
       }
 
+      // Migrate: copy default categoryKeywords to presets that have none.
+      // Matches by senderFilter (case-insensitive). Skips presets that already
+      // have user-configured keywords (non-empty list).
+      bool needsPersist = false;
+      for (int i = 0; i < result.length; i++) {
+        final preset = result[i];
+        if (preset.categoryKeywords.isEmpty) {
+          final matches = builtInPresets.where(
+            (b) =>
+                b.senderFilter.toLowerCase() ==
+                    preset.senderFilter.toLowerCase() &&
+                b.categoryKeywords.isNotEmpty,
+          );
+          if (matches.isNotEmpty) {
+            result[i] = preset.copyWith(
+              categoryKeywords: matches.first.categoryKeywords,
+            );
+            needsPersist = true;
+            debugPrint(
+              '[SmsRepository] Migrated categoryKeywords for preset '
+              '"${preset.name}" from built-in defaults '
+              '(senderFilter="${preset.senderFilter}")',
+            );
+          }
+        }
+      }
+      if (needsPersist) {
+        await _persistPresets(result);
+      }
+
       _cachedPresets = result;
       return _cachedPresets!;
     } catch (e) {
@@ -182,6 +212,10 @@ class LocalSmsRepository implements SmsRepository {
       'defaultAccountId': preset.defaultAccountId,
       'defaultCategoryId': preset.defaultCategoryId,
       'rules': preset.rules.map(_ruleToJson).toList(),
+      'categoryKeywords':
+          preset.categoryKeywords
+              .map((kw) => {'keyword': kw.keyword, 'categoryId': kw.categoryId})
+              .toList(),
     };
   }
 
@@ -193,6 +227,7 @@ class LocalSmsRepository implements SmsRepository {
       'amountPattern': rule.amountPattern,
       'currencyPattern': rule.currencyPattern,
       'datePattern': rule.datePattern,
+      'categoryId': rule.categoryId,
     };
   }
 
@@ -210,6 +245,17 @@ class LocalSmsRepository implements SmsRepository {
               ?.map((e) => _ruleFromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      categoryKeywords:
+          (json['categoryKeywords'] as List<dynamic>?)
+              ?.map((e) {
+                final m = e as Map<String, dynamic>;
+                return SmsCategoryKeyword(
+                  keyword: m['keyword'] as String,
+                  categoryId: m['categoryId'] as String,
+                );
+              })
+              .toList() ??
+          [],
     );
   }
 
@@ -224,6 +270,7 @@ class LocalSmsRepository implements SmsRepository {
       amountPattern: json['amountPattern'] as String,
       currencyPattern: json['currencyPattern'] as String?,
       datePattern: json['datePattern'] as String?,
+      categoryId: json['categoryId'] as String?,
     );
   }
 }

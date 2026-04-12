@@ -2,6 +2,18 @@ import 'package:equatable/equatable.dart';
 
 enum TransactionType { income, expense }
 
+/// Maps a keyword (substring) to a category ID.
+/// Used for automatic category assignment based on SMS body content.
+class SmsCategoryKeyword extends Equatable {
+  final String keyword;
+  final String categoryId;
+
+  const SmsCategoryKeyword({required this.keyword, required this.categoryId});
+
+  @override
+  List<Object?> get props => [keyword, categoryId];
+}
+
 class SmsPreset extends Equatable {
   final String id;
   final String name;
@@ -12,6 +24,10 @@ class SmsPreset extends Equatable {
   final String? defaultCategoryId;
   final List<SmsParsingRule> rules;
 
+  /// Keyword-based category rules applied after a rule matches.
+  /// First keyword found in SMS body (case-insensitive) wins.
+  final List<SmsCategoryKeyword> categoryKeywords;
+
   const SmsPreset({
     required this.id,
     required this.name,
@@ -21,6 +37,7 @@ class SmsPreset extends Equatable {
     this.defaultAccountId,
     this.defaultCategoryId,
     this.rules = const [],
+    this.categoryKeywords = const [],
   });
 
   SmsPreset copyWith({
@@ -32,6 +49,7 @@ class SmsPreset extends Equatable {
     String? defaultAccountId,
     String? defaultCategoryId,
     List<SmsParsingRule>? rules,
+    List<SmsCategoryKeyword>? categoryKeywords,
   }) {
     return SmsPreset(
       id: id ?? this.id,
@@ -42,6 +60,7 @@ class SmsPreset extends Equatable {
       defaultAccountId: defaultAccountId ?? this.defaultAccountId,
       defaultCategoryId: defaultCategoryId ?? this.defaultCategoryId,
       rules: rules ?? this.rules,
+      categoryKeywords: categoryKeywords ?? this.categoryKeywords,
     );
   }
 
@@ -55,6 +74,7 @@ class SmsPreset extends Equatable {
     defaultAccountId,
     defaultCategoryId,
     rules,
+    categoryKeywords,
   ];
 }
 
@@ -65,6 +85,7 @@ class SmsParsingRule extends Equatable {
   final String amountPattern; // Regex to extract amount
   final String? currencyPattern; // Regex to extract currency code
   final String? datePattern; // Regex to extract date
+  final String? categoryId; // Optional per-rule default category
 
   const SmsParsingRule({
     required this.id,
@@ -73,6 +94,7 @@ class SmsParsingRule extends Equatable {
     required this.amountPattern,
     this.currencyPattern,
     this.datePattern,
+    this.categoryId,
   });
 
   SmsParsingRule copyWith({
@@ -82,6 +104,7 @@ class SmsParsingRule extends Equatable {
     String? amountPattern,
     String? currencyPattern,
     String? datePattern,
+    String? categoryId,
   }) {
     return SmsParsingRule(
       id: id ?? this.id,
@@ -90,6 +113,7 @@ class SmsParsingRule extends Equatable {
       amountPattern: amountPattern ?? this.amountPattern,
       currencyPattern: currencyPattern ?? this.currencyPattern,
       datePattern: datePattern ?? this.datePattern,
+      categoryId: categoryId ?? this.categoryId,
     );
   }
 
@@ -101,5 +125,6 @@ class SmsParsingRule extends Equatable {
     amountPattern,
     currencyPattern,
     datePattern,
+    categoryId,
   ];
 }

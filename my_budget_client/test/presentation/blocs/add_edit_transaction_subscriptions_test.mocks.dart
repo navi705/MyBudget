@@ -420,9 +420,9 @@ class MockTransactionRepository extends _i1.Mock
   }
 
   @override
-  _i3.Stream<List<_i10.Transaction>> watchTransactions() =>
+  _i3.Stream<List<_i10.Transaction>> watchTransactions({DateTime? from}) =>
       (super.noSuchMethod(
-            Invocation.method(#watchTransactions, []),
+            Invocation.method(#watchTransactions, [], {#from: from}),
             returnValue: _i3.Stream<List<_i10.Transaction>>.empty(),
           )
           as _i3.Stream<List<_i10.Transaction>>);
@@ -492,6 +492,16 @@ class MockTransactionRepository extends _i1.Mock
             returnValue: _i3.Future<_i10.Transaction?>.value(),
           )
           as _i3.Future<_i10.Transaction?>);
+
+  @override
+  _i3.Future<List<_i10.Transaction>> getTransactionsByIds(List<String>? ids) =>
+      (super.noSuchMethod(
+            Invocation.method(#getTransactionsByIds, [ids]),
+            returnValue: _i3.Future<List<_i10.Transaction>>.value(
+              <_i10.Transaction>[],
+            ),
+          )
+          as _i3.Future<List<_i10.Transaction>>);
 
   @override
   _i3.Future<void> addTransaction(_i10.Transaction? transaction) =>

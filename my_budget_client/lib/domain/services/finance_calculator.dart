@@ -127,6 +127,14 @@ class FinanceCalculator {
     for (final entry in data.assetData) {
       assetDataMap.putIfAbsent(entry.assetId, () => []).add(entry);
     }
+    // Finding #4: Pre-sort each asset's entries once (ascending by date)
+    // instead of sorting inside the account loop on every calculateBalances call.
+    for (final entries in assetDataMap.values) {
+      entries.sort((a, b) => a.date.compareTo(b.date));
+    }
+
+    // Finding #2: Build exchange rate index once before the account loop.
+    final rateIndex = _buildRateIndex(data.exchangeRates);
 
     for (final account in data.accounts) {
       double balance = 0.0;
@@ -141,8 +149,7 @@ class FinanceCalculator {
           data.date.day,
         );
 
-        // Sort entries by date ascending
-        entries.sort((a, b) => a.date.compareTo(b.date));
+        // Entries are pre-sorted ascending by date (done before the loop)
 
         // Find the first entry date (earliestEntry)
         final earliestEntry = entries.isNotEmpty ? entries.first : null;
@@ -198,7 +205,7 @@ class FinanceCalculator {
                 final rate = _getExchangeRate(
                   bestEntry.currency,
                   account.currencyCode,
-                  data.exchangeRates,
+                  rateIndex,
                   data.date,
                 );
                 assetValue *= rate;
@@ -257,9 +264,15 @@ class FinanceCalculator {
       rates.sort((a, b) => a.date.compareTo(b.date));
     }
 
+    // Finding #3: Build account lookup map once for O(1) access
+    // instead of O(A) firstWhere scan inside the loop.
+    final accountMap = <String, Account>{
+      for (final a in data.accounts) if (a.id != null) a.id!: a,
+    };
+
     for (final accountId in balances.keys) {
       final balance = balances[accountId]!;
-      final account = data.accounts.firstWhere((a) => a.id == accountId);
+      final account = accountMap[accountId]!;
 
       // Determine country: Account's country > Default > null
       final country = account.country ?? defaultCountry;
@@ -341,14 +354,21 @@ class FinanceCalculator {
     final balances = calculateBalances(data);
     double total = 0.0;
 
+    // Finding #3: Build account lookup map once for O(1) access.
+    final accountMap = <String, Account>{
+      for (final a in data.accounts) if (a.id != null) a.id!: a,
+    };
+    // Finding #2: Build exchange rate index once for O(1) lookup.
+    final rateIndex = _buildRateIndex(data.exchangeRates);
+
     for (final accountId in balances.keys) {
       final balance = balances[accountId]!;
-      final account = data.accounts.firstWhere((a) => a.id == accountId);
+      final account = accountMap[accountId]!;
 
       final rate = _getExchangeRate(
         account.currencyCode,
         data.baseCurrency,
-        data.exchangeRates,
+        rateIndex,
         data.date,
       );
 
@@ -361,14 +381,21 @@ class FinanceCalculator {
     final balances = calculateBalances(data);
     final breakdown = <String, double>{};
 
+    // Finding #3: Build account lookup map once for O(1) access.
+    final accountMap = <String, Account>{
+      for (final a in data.accounts) if (a.id != null) a.id!: a,
+    };
+    // Finding #2: Build exchange rate index once for O(1) lookup.
+    final rateIndex = _buildRateIndex(data.exchangeRates);
+
     for (final accountId in balances.keys) {
       final balance = balances[accountId]!;
-      final account = data.accounts.firstWhere((a) => a.id == accountId);
+      final account = accountMap[accountId]!;
 
       final rate = _getExchangeRate(
         account.currencyCode,
         data.baseCurrency,
-        data.exchangeRates,
+        rateIndex,
         data.date,
       );
 
@@ -379,40 +406,52 @@ class FinanceCalculator {
     return breakdown;
   }
 
+  /// Finding #2: Builds a pre-grouped, pre-sorted exchange rate index.
+  /// Only includes rates with [ExchangeRateDomain.preset] == 1.
+  /// Each inner list is sorted descending by date (most recent first).
+  /// Call once per snapshot and pass the result to [_getExchangeRate].
+  Map<String, Map<String, List<ExchangeRateDomain>>> _buildRateIndex(
+    List<ExchangeRateDomain> rates,
+  ) {
+    final index = <String, Map<String, List<ExchangeRateDomain>>>{};
+    for (final rate in rates) {
+      if (rate.preset != 1) continue;
+      index
+          .putIfAbsent(rate.fromCurrencyCode, () => {})
+          .putIfAbsent(rate.toCurrencyCode, () => [])
+          .add(rate);
+    }
+    // Sort each list descending by date (most recent first) — done once.
+    for (final inner in index.values) {
+      for (final list in inner.values) {
+        list.sort((a, b) => b.date.compareTo(a.date));
+      }
+    }
+    return index;
+  }
+
   double _getExchangeRate(
     String from,
     String to,
-    List<ExchangeRateDomain> rates,
+    Map<String, Map<String, List<ExchangeRateDomain>>> rateIndex,
     DateTime date,
   ) {
     if (from == to) return 1.0;
 
-    // 1. Direct rate
-    // We strictly look for rate at 'date' (or closest before?)
-    // Usually we want the Latest Rate applicable to 'date'.
-    // Assumption: rates list is history.
-
-    // Sort rates by date desc to find latest before 'date'
-    final relevantRates = rates
-        .where(
-          (r) =>
-              r.preset == 1 &&
-              (r.date.isBefore(date) || r.date.isAtSameMomentAs(date)),
-        )
-        .toList();
-    relevantRates.sort((a, b) => b.date.compareTo(a.date));
-
-    // Try finding Direct From -> To
-    final direct = relevantRates.cast<ExchangeRateDomain?>().firstWhere(
-      (r) => r!.fromCurrencyCode == from && r.toCurrencyCode == to,
+    // Try finding Direct From -> To using pre-built index (O(1) map lookup,
+    // then a linear scan over a pre-sorted, already-filtered list).
+    final directCandidates = rateIndex[from]?[to] ?? [];
+    final direct = directCandidates.cast<ExchangeRateDomain?>().firstWhere(
+      (r) => !r!.date.isAfter(date),
       orElse: () => null,
     );
     if (direct != null) return direct.rate;
 
     // Try finding Indirect To -> From (ensure rate is invertible?)
     // Usually stored as 1 From = X To. So 1 To = 1/X From.
-    final inverse = relevantRates.cast<ExchangeRateDomain?>().firstWhere(
-      (r) => r!.fromCurrencyCode == to && r.toCurrencyCode == from,
+    final inverseCandidates = rateIndex[to]?[from] ?? [];
+    final inverse = inverseCandidates.cast<ExchangeRateDomain?>().firstWhere(
+      (r) => !r!.date.isAfter(date),
       orElse: () => null,
     );
     if (inverse != null && inverse.rate != 0) return 1.0 / inverse.rate;
@@ -476,6 +515,8 @@ class FinanceCalculator {
 
     // Map Accounts for O(1) lookup
     final accountMap = {for (var a in data.accounts) a.id: a};
+    // Finding #2: Build exchange rate index once for O(1) lookup.
+    final rateIndex = _buildRateIndex(data.exchangeRates);
 
     for (final tx in periodTx) {
       // Filter out Transfers
@@ -499,7 +540,7 @@ class FinanceCalculator {
       final toBaseRate = _getExchangeRate(
         tx.currencyCode,
         data.baseCurrency,
-        data.exchangeRates,
+        rateIndex,
         tx.date,
       );
       final amountInBase = amount * toBaseRate;
@@ -574,6 +615,9 @@ class FinanceCalculator {
         if (tx.id != null) tx.id!: tx,
     };
 
+    // Finding #2: Build exchange rate index once for O(1) lookup.
+    final rateIndex = _buildRateIndex(data.exchangeRates);
+
     for (final account in data.accounts) {
       if (account.assetId == null) continue;
 
@@ -612,7 +656,7 @@ class FinanceCalculator {
             final rate = _getExchangeRate(
               linkedTx.currencyCode,
               account.currencyCode,
-              data.exchangeRates,
+              rateIndex,
               data.date, // Use snapshot date or tx date? Usually Tx Date for historical accuracy.
               // But _getExchangeRate looks for rate relevant to 'date' provided.
               // For 'Invested' stats, we want historical cost basis -> Tx Date.

@@ -8,9 +8,9 @@ class CurrencyConverterService {
 
   // OPTIMIZATION: Simple LRU cache for exchange rate lookups.
   // Key: "fromCode_toCode_YYYY-M-D_preset"
-  // Caches up to 50 entries to limit memory usage.
+  // Caches up to 500 entries to limit memory usage while improving hit rate.
   final _cache = LinkedHashMap<String, ExchangeRateDomain?>();
-  static const _maxCacheSize = 50;
+  static const _maxCacheSize = 500;
 
   CurrencyConverterService(this._currencyRepository);
 
@@ -93,20 +93,26 @@ class CurrencyConverterService {
     }
 
     // 3. Triangular Fetch (Main -> From, Main -> To)
+    // OPTIMIZATION: Parallelize independent DB queries using Future.wait()
     if (fromCurrencyCode != mainCurrencyCode &&
         toCurrencyCode != mainCurrencyCode) {
-      final baseToFrom = await _currencyRepository.getExchangeRatesFiltered(
-        fromCurrency: mainCurrencyCode,
-        toCurrency: fromCurrencyCode,
-        presets: [preset],
-        sortAscending: false,
-      );
-      final baseToTo = await _currencyRepository.getExchangeRatesFiltered(
-        fromCurrency: mainCurrencyCode,
-        toCurrency: toCurrencyCode,
-        presets: [preset],
-        sortAscending: false,
-      );
+      final results = await Future.wait([
+        _currencyRepository.getExchangeRatesFiltered(
+          fromCurrency: mainCurrencyCode,
+          toCurrency: fromCurrencyCode,
+          presets: [preset],
+          sortAscending: false,
+        ),
+        _currencyRepository.getExchangeRatesFiltered(
+          fromCurrency: mainCurrencyCode,
+          toCurrency: toCurrencyCode,
+          presets: [preset],
+          sortAscending: false,
+        ),
+      ]);
+      
+      final baseToFrom = results[0];
+      final baseToTo = results[1];
 
       ExchangeRateDomain? closestBaseToFrom;
       Duration? minDistFrom;

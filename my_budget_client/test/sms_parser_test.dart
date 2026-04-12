@@ -92,6 +92,92 @@ void main() {
     });
   });
 
+  group('Category Keyword Matching', () {
+    test('LIDL → cat_groceries', () {
+      const sms =
+          'Placanje VISA karticom **3677: iznos 16.99RSD, '
+          'mesto LIDL 128 BEOGRA, dana 19.01.2026 u 12:52:35h. '
+          'Rasp.: RSD 100,145.83. Vasa ALTA banka';
+
+      final result = parser.parse(sms, altaBankPreset, DateTime.now());
+
+      expect(result.isMatch, isTrue);
+      expect(result.categoryId, 'cat_groceries');
+    });
+
+    test('C Market → cat_groceries (case-insensitive)', () {
+      const sms =
+          'Placanje VISA karticom **3677: iznos 850.00RSD, '
+          'mesto C MARKET NOVI SAD, dana 20.01.2026 u 10:00:00h. '
+          'Rasp.: RSD 99,000.00. Vasa ALTA banka';
+
+      final result = parser.parse(sms, altaBankPreset, DateTime.now());
+
+      expect(result.isMatch, isTrue);
+      expect(result.categoryId, 'cat_groceries');
+    });
+
+    test('epssnabdevan → cat_housing', () {
+      const sms =
+          'Placanje VISA karticom **3677: iznos 5000.00RSD, '
+          'mesto EPSSNABDEVAN, dana 21.01.2026 u 09:00:00h. '
+          'Rasp.: RSD 94,000.00. Vasa ALTA banka';
+
+      final result = parser.parse(sms, altaBankPreset, DateTime.now());
+
+      expect(result.isMatch, isTrue);
+      expect(result.categoryId, 'cat_housing');
+    });
+
+    test('mts → cat_housing', () {
+      const sms =
+          'Placanje VISA karticom **3677: iznos 1200.00RSD, '
+          'mesto MTS TELEKOM, dana 22.01.2026 u 08:00:00h. '
+          'Rasp.: RSD 92,800.00. Vasa ALTA banka';
+
+      final result = parser.parse(sms, altaBankPreset, DateTime.now());
+
+      expect(result.isMatch, isTrue);
+      expect(result.categoryId, 'cat_housing');
+    });
+
+    test('contabo → cat_housing', () {
+      const sms =
+          'Placanje VISA karticom **3677: iznos 7.50EUR, '
+          'mesto CONTABO GMBH, dana 23.01.2026 u 07:00:00h. '
+          'Rasp.: EUR 10.00. Vasa ALTA banka';
+
+      final result = parser.parse(sms, altaBankPreset, DateTime.now());
+
+      expect(result.isMatch, isTrue);
+      expect(result.categoryId, 'cat_housing');
+    });
+
+    test('priliv (transfer in) → cat_salary via rule.categoryId', () {
+      const sms =
+          'Proknjizen je priliv na vas racun 0001000477288 '
+          'u iznosu od 1,000.00 RSD, 07.01.2026';
+
+      final result = parser.parse(sms, altaBankPreset, DateTime.now());
+
+      expect(result.isMatch, isTrue);
+      expect(result.type, TransactionType.income);
+      expect(result.categoryId, 'cat_salary');
+    });
+
+    test('unknown merchant → no category (null)', () {
+      const sms =
+          'Placanje VISA karticom **3677: iznos 500.00RSD, '
+          'mesto RANDOM SHOP, dana 24.01.2026 u 11:00:00h. '
+          'Rasp.: RSD 91,000.00. Vasa ALTA banka';
+
+      final result = parser.parse(sms, altaBankPreset, DateTime.now());
+
+      expect(result.isMatch, isTrue);
+      expect(result.categoryId, isNull);
+    });
+  });
+
   group('Amount Parsing', () {
     test('parses European format with comma decimal', () {
       // Test internal method through a custom rule

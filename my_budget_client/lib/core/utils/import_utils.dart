@@ -416,37 +416,49 @@ class ImportDataUtils {
   }
 
   static Future<List<ExchangeRateDomain>> getCurrenciesRateToSeeder() async {
+    debugPrint('[IMPORT_UTILS] getCurrenciesRateToSeeder START');
     final bool isDesktop = !AppPlatform.isAndroid && !AppPlatform.isIOS;
+    debugPrint('[IMPORT_UTILS] getCurrenciesRateToSeeder: kDebugMode=$kDebugMode isDesktop=$isDesktop');
 
     if (kDebugMode && isDesktop) {
       // DEBUG (PC): Load from JSON File
+      debugPrint('[IMPORT_UTILS] getCurrenciesRateToSeeder: checking JSON file at $filePathCurrenciesRate...');
       if (!await IoHelper.exists(filePathCurrenciesRate)) {
         debugPrint(
-          'Seeder: JSON file not found at $filePathCurrenciesRate, falling back to assets.',
+          '[IMPORT_UTILS] Seeder: JSON file not found at $filePathCurrenciesRate, falling back to assets.',
         );
       } else {
         try {
+          debugPrint('[IMPORT_UTILS] getCurrenciesRateToSeeder: reading JSON file...');
           final content = await IoHelper.readAsString(filePathCurrenciesRate);
-          return compute(_parseCurrencyHistoryJson, content);
+          debugPrint('[IMPORT_UTILS] getCurrenciesRateToSeeder: JSON read (${content.length} chars), calling compute()...');
+          final result = await compute(_parseCurrencyHistoryJson, content);
+          debugPrint('[IMPORT_UTILS] getCurrenciesRateToSeeder: compute() done, ${result.length} rates from JSON');
+          return result;
         } catch (e) {
           debugPrint(
-            'Error reading/parsing currency history for seeder (JSON): $e',
+            '[IMPORT_UTILS] Error reading/parsing currency history for seeder (JSON): $e',
           );
         }
       }
     }
 
     // RELEASE or MOBILE: Load from Assets
+    debugPrint('[IMPORT_UTILS] getCurrenciesRateToSeeder: loading binary asset $filePathCurrenciesBinaryAsset...');
     try {
       final ByteData blob = await rootBundle.load(
         filePathCurrenciesBinaryAsset,
       );
+      debugPrint('[IMPORT_UTILS] getCurrenciesRateToSeeder: asset loaded (${blob.lengthInBytes} bytes), parsing...');
       final Uint8List bytes = blob.buffer.asUint8List();
       final historyMap = CurrencyHistoryBinaryIO.readFromBytes(bytes);
-      return convertCurreniesRateFromJson(historyMap);
+      debugPrint('[IMPORT_UTILS] getCurrenciesRateToSeeder: binary parsed, converting...');
+      final result = convertCurreniesRateFromJson(historyMap);
+      debugPrint('[IMPORT_UTILS] getCurrenciesRateToSeeder END: ${result.length} rates from binary asset');
+      return result;
     } catch (e) {
       debugPrint(
-        'Error reading/parsing currency history binary asset for seeder: $e',
+        '[IMPORT_UTILS] Error reading/parsing currency history binary asset for seeder: $e',
       );
       return [];
     }

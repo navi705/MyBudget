@@ -164,6 +164,11 @@ class Accounts extends Table {
 @TableIndex(name: 'idx_transactions_date', columns: {#date})
 @TableIndex(name: 'idx_transactions_account', columns: {#accountId})
 @TableIndex(name: 'idx_transactions_category', columns: {#categoryId})
+// Composite indexes for dashboard queries:
+// (date, category_id) — getTransactionTotalsGrouped groups by date+category
+// (account_id, date)  — watchTransactionsFrom filters by account+date
+@TableIndex(name: 'idx_transactions_date_category', columns: {#date, #categoryId})
+@TableIndex(name: 'idx_transactions_account_date', columns: {#accountId, #date})
 class Transactions extends Table {
   TextColumn get id => text().clientDefault(() => _uuid.v4())();
   TextColumn get description => text().withLength(min: 1, max: 100)();
@@ -1535,6 +1540,15 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   Stream<List<Transaction>> watchAllTransactions() =>
       (select(transactions)..where((t) => t.isDeleted.equals(false))).watch();
 
+  /// Watch transactions on or after [from]. Used by the dashboard to avoid
+  /// loading the entire transaction history on every stream update.
+  Stream<List<Transaction>> watchTransactionsFrom(DateTime from) =>
+      (select(transactions)..where(
+            (t) =>
+                t.isDeleted.equals(false) & t.date.isBiggerOrEqualValue(from),
+          ))
+          .watch();
+
   Future<void> insertTransaction(TransactionsCompanion transaction) async {
     var toInsert = transaction.id.present
         ? transaction
@@ -2785,6 +2799,21 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     await _logChange(toInsert.id.value, 'upsert');
   }
 
+  /// Upsert (insert or replace) an asset entry by its ID.
+  /// Used by custom_api imports with a deterministic ID to prevent duplicates.
+  Future<void> upsertAssetData(AssetEntriesCompanion data) async {
+    var toInsert = data.id.present
+        ? data
+        : data.copyWith(id: Value(_uuid.v4()));
+
+    toInsert = toInsert.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+
+    await into(assetEntries).insert(toInsert, mode: InsertMode.insertOrReplace);
+    await _logChange(toInsert.id.value, 'upsert');
+  }
+
   Future<void> insertSyncedAssetEntry(AssetEntriesCompanion entry) =>
       into(assetEntries).insert(entry, mode: InsertMode.insertOrReplace);
 
@@ -2950,17 +2979,32 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
+        debugPrint('[DB_MIGRATION] onCreate START');
+        debugPrint('[DB_MIGRATION] onCreate: calling m.createAll() (tables + @TableIndex indexes)...');
         await m.createAll();
+        debugPrint('[DB_MIGRATION] onCreate: m.createAll() done');
+        debugPrint('[DB_MIGRATION] onCreate: calling _seedData...');
         await _seedData(this);
+        debugPrint('[DB_MIGRATION] onCreate: _seedData done');
+        debugPrint('[DB_MIGRATION] onCreate: creating partial UNIQUE INDEX idx_asset_entries_custom_api_dedup...');
+        await customStatement(
+          'CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_entries_custom_api_dedup '
+          'ON asset_entries (asset_id, date, source) '
+          "WHERE source = 'custom_api'",
+        );
+        debugPrint('[DB_MIGRATION] onCreate END');
       },
       onUpgrade: (Migrator m, int from, int to) async {
+        debugPrint('[DB_MIGRATION] onUpgrade: from=$from to=$to');
+
         if (from < 2) {
+          debugPrint('[DB_MIGRATION] v1→v2: adding sync columns to styles/accountTypes/currencyDesignations...');
           await m.addColumn(styles, styles.modifiedAt);
           await m.addColumn(styles, styles.deviceId);
           await m.addColumn(styles, styles.isDeleted);
@@ -2979,11 +3023,13 @@ class AppDatabase extends _$AppDatabase {
             currencyDesignations,
             currencyDesignations.isDeleted,
           );
+          debugPrint('[DB_MIGRATION] v1→v2: migrating to stable IDs...');
           await _migrateToStableIds(this);
+          debugPrint('[DB_MIGRATION] v1→v2: complete');
         }
 
         if (from < 3) {
-          // Add sync columns to all other existing tables
+          debugPrint('[DB_MIGRATION] v2→v3: adding sync columns to all tables...');
           await m.addColumn(categories, categories.modifiedAt);
           await m.addColumn(categories, categories.deviceId);
           await m.addColumn(categories, categories.isDeleted);
@@ -3020,45 +3066,142 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(apiSettingsTable, apiSettingsTable.modifiedAt);
           await m.addColumn(apiSettingsTable, apiSettingsTable.deviceId);
 
-          // Create SmsPresets table if it doesn't exist
+          debugPrint('[DB_MIGRATION] v2→v3: creating smsPresets table...');
           await m.createTable(smsPresets);
+          debugPrint('[DB_MIGRATION] v2→v3: complete');
         }
 
         if (from < 4) {
+          debugPrint('[DB_MIGRATION] v3→v4: creating syncProcessedFiles table...');
           await m.createTable(syncProcessedFiles);
+          debugPrint('[DB_MIGRATION] v3→v4: complete');
         }
 
         if (from < 5) {
-          // Force re-seeding to add any missing currencies or designations
-          // and to ensure static modifiedAt: 1 is applied everywhere.
+          debugPrint('[DB_MIGRATION] v4→v5: re-seeding data...');
           await _seedData(this);
+          debugPrint('[DB_MIGRATION] v4→v5: complete');
         }
+
+        if (from < 6) {
+          debugPrint('[DB_MIGRATION] v5→v6: creating composite indexes on transactions...');
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_transactions_date_category '
+            'ON transactions (date, category_id)',
+          );
+          debugPrint('[DB_MIGRATION] v5→v6: idx_transactions_date_category created');
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_transactions_account_date '
+            'ON transactions (account_id, date)',
+          );
+          debugPrint('[DB_MIGRATION] v5→v6: idx_transactions_account_date created');
+          debugPrint('[DB_MIGRATION] v5→v6: complete');
+        }
+
+        if (from < 7) {
+          debugPrint('[DB_MIGRATION] v6→v7: deduplicating asset_entries for custom_api...');
+          try {
+            await customStatement(
+              '''DELETE FROM asset_entries
+                 WHERE source = 'custom_api'
+                 AND rowid NOT IN (
+                   SELECT MAX(rowid)
+                   FROM asset_entries
+                   WHERE source = 'custom_api'
+                   GROUP BY asset_id, date(date / 1000, 'unixepoch')
+                 )''',
+            );
+            debugPrint('[DB_MIGRATION] v6→v7: dedup DELETE complete');
+          } catch (e) {
+            debugPrint('[DB_MIGRATION] v6→v7: dedup DELETE error (non-fatal, continuing): $e');
+          }
+
+          debugPrint('[DB_MIGRATION] v6→v7: creating partial UNIQUE INDEX idx_asset_entries_custom_api_dedup...');
+          try {
+            await customStatement(
+              'CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_entries_custom_api_dedup '
+              'ON asset_entries (asset_id, date, source) '
+              "WHERE source = 'custom_api'",
+            );
+            debugPrint('[DB_MIGRATION] v6→v7: UNIQUE INDEX created');
+          } catch (e) {
+            debugPrint('[DB_MIGRATION] v6→v7: UNIQUE INDEX creation error: $e');
+            // If index creation fails due to remaining duplicates, force-delete them
+            // by keeping only the row with the MAX id (alphabetically) per (asset_id, date)
+            debugPrint('[DB_MIGRATION] v6→v7: retrying dedup with stricter DELETE...');
+            await customStatement(
+              '''DELETE FROM asset_entries
+                 WHERE source = 'custom_api'
+                 AND id NOT IN (
+                   SELECT MAX(id)
+                   FROM asset_entries
+                   WHERE source = 'custom_api'
+                   GROUP BY asset_id, date
+                 )''',
+            );
+            debugPrint('[DB_MIGRATION] v6→v7: strict dedup complete, retrying index...');
+            await customStatement(
+              'CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_entries_custom_api_dedup '
+              'ON asset_entries (asset_id, date, source) '
+              "WHERE source = 'custom_api'",
+            );
+            debugPrint('[DB_MIGRATION] v6→v7: UNIQUE INDEX created on retry');
+          }
+          debugPrint('[DB_MIGRATION] v6→v7: complete');
+        }
+
+        debugPrint('[DB_MIGRATION] onUpgrade complete: from=$from to=$to');
       },
       beforeOpen: (details) async {
+        debugPrint('[DB_MIGRATION] beforeOpen START: wasCreated=${details.wasCreated} versionBefore=${details.versionBefore} versionNow=${details.versionNow}');
+        debugPrint('[DB_MIGRATION] beforeOpen: executing PRAGMA foreign_keys = ON...');
         await customStatement('PRAGMA foreign_keys = ON');
+        debugPrint('[DB_MIGRATION] beforeOpen: PRAGMA foreign_keys = ON done');
 
         // Repair corrupted modifiedAt columns (fix for previous batchUpdateBalances bug)
         // Reset to current time to ensure they are treated as valid updates
         final now = DateTime.now().millisecondsSinceEpoch;
+        debugPrint('[DB_MIGRATION] beforeOpen: executing corrupted modified_at repair...');
         await customStatement(
           "UPDATE accounts SET modified_at = $now WHERE typeof(modified_at) = 'text'",
         );
+        debugPrint('[DB_MIGRATION] beforeOpen END: corrupted modified_at repaired');
       },
     );
   }
 
   Future<void> _seedData(AppDatabase db, {bool skipStaticData = false}) async {
+    debugPrint('[DB_SEED] _seedData START (skipStaticData=$skipStaticData)');
     if (!skipStaticData) {
+      debugPrint('[DB_SEED] _seedData: seeding languages...');
       await _seedLanguages(db);
+      debugPrint('[DB_SEED] _seedData: languages done');
+      debugPrint('[DB_SEED] _seedData: seeding currencies...');
       await _seedCurrencies(db);
+      debugPrint('[DB_SEED] _seedData: currencies done');
+      debugPrint('[DB_SEED] _seedData: seeding currencyDesignations...');
       await _seedCurrencyDesignations(db);
+      debugPrint('[DB_SEED] _seedData: currencyDesignations done');
+      debugPrint('[DB_SEED] _seedData: seeding accountTypes...');
       await _seedAccountTypes(db);
+      debugPrint('[DB_SEED] _seedData: accountTypes done');
     }
+    debugPrint('[DB_SEED] _seedData: seeding styles...');
     await _seedStyles(db);
+    debugPrint('[DB_SEED] _seedData: styles done');
+    debugPrint('[DB_SEED] _seedData: seeding categories...');
     await _seedCategories(db);
+    debugPrint('[DB_SEED] _seedData: categories done');
+    debugPrint('[DB_SEED] _seedData: seeding exchangeRates (may be slow)...');
     await _seedExchangeRates(db);
+    debugPrint('[DB_SEED] _seedData: exchangeRates done');
+    debugPrint('[DB_SEED] _seedData: seeding settings...');
     await _seedSettings(db);
+    debugPrint('[DB_SEED] _seedData: settings done');
+    debugPrint('[DB_SEED] _seedData: seeding apiSettings...');
     await _seedApiSettings(db);
+    debugPrint('[DB_SEED] _seedData: apiSettings done');
+    debugPrint('[DB_SEED] _seedData END');
   }
 
   // --- Seeding Methods ---
@@ -3140,9 +3283,12 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> _seedExchangeRates(AppDatabase db) async {
+    debugPrint('[DB_SEED] _seedExchangeRates: calling getCurrenciesRateToSeeder...');
     final List<ExchangeRateDomain> rates =
         await ImportDataUtils.getCurrenciesRateToSeeder();
+    debugPrint('[DB_SEED] _seedExchangeRates: got ${rates.length} rates, inserting...');
     await db.exchangeRatesDao.insertAllExchangeRates(rates.toCompanionList());
+    debugPrint('[DB_SEED] _seedExchangeRates: insert done');
   }
 
   /// Migration helper to convert old UUID-based IDs to new stable IDs
@@ -3316,7 +3462,10 @@ class CustomDataSourcesDao extends DatabaseAccessor<AppDatabase>
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
 
-    await into(customDataSources).insert(toInsert);
+    await into(customDataSources).insert(
+      toInsert,
+      mode: InsertMode.insertOrReplace,
+    );
     await _logChange(toInsert.id.value, 'upsert');
   }
 

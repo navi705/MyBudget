@@ -23,7 +23,19 @@ class BalanceLineChart extends StatelessWidget {
       return const Center(child: Text('No history data available'));
     }
 
-    final sortedDates = dailyNetWorth.keys.toList()..sort();
+    // Optimization: Check if data is already sorted to avoid redundant O(D log D) sort
+    final sortedDates = dailyNetWorth.keys.toList();
+    bool isSorted = true;
+    for (int i = 1; i < sortedDates.length; i++) {
+      if (sortedDates[i].isBefore(sortedDates[i - 1])) {
+        isSorted = false;
+        break;
+      }
+    }
+    if (!isSorted) {
+      sortedDates.sort();
+    }
+
     final spots = <FlSpot>[];
 
     double minY = double.infinity;

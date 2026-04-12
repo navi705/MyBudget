@@ -24,6 +24,7 @@ Future<Response> onRequest(RequestContext context) async {
     return Response.json(body: {
       'changes': result.changes,
       'server_timestamp': result.lastTimestamp,
+      'has_more': result.hasMore,
     });
   } catch (e) {
     return Response.json(

@@ -2,7 +2,10 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "MyBudget"
-#define MyAppVersion "0.1.0"
+; Version can be overridden from CLI: ISCC.exe mybudget_setup.iss /DMyAppVersion=1.2.0
+#ifndef MyAppVersion
+  #define MyAppVersion "0.1.2"
+#endif
 #define MyAppPublisher "navi705"
 #define MyAppURL "https://github.com/navi705/MyBudget"
 #define MyAppExeName "my_budget_client.exe"

@@ -4,7 +4,10 @@ import 'package:my_budget_client/domain/entities/transaction_type_filter.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 
 abstract class TransactionRepository {
-  Stream<List<Transaction>> watchTransactions();
+  /// Watch transactions. If [from] is provided, only transactions on or after
+  /// that date are included — use this for date-bounded views (e.g. dashboard)
+  /// to avoid loading the full history.
+  Stream<List<Transaction>> watchTransactions({DateTime? from});
   Future<List<Transaction>> getTransactions();
   Future<List<Transaction>> getTransactionsPaginated({
     int limit = 10,

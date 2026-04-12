@@ -23,7 +23,7 @@ class SmsPresetDefaults {
           amountPattern: r'iznos\s+([\d,.]+)\s*(\w{3})',
           currencyPattern: r'iznos\s+[\d,.]+\s*(\w{3})',
         ),
-        // Transfer in (income)
+        // Transfer in (income) — salary/incoming transfer
         // Example: "Proknjizen je priliv na vas racun... u iznosu od 10.00 EUR"
         const SmsParsingRule(
           id: 'alta_transfer_in',
@@ -31,6 +31,7 @@ class SmsPresetDefaults {
           matchPattern: r'priliv',
           amountPattern: r'iznosu od\s+([\d,.]+)\s*(\w{3})',
           currencyPattern: r'iznosu od\s+[\d,.]+\s*(\w{3})',
+          categoryId: 'cat_salary',
         ),
         // Transfer out (expense)
         // Example: "Odliv sa racuna:... u iznosu od: 280.00 RSD"
@@ -41,6 +42,19 @@ class SmsPresetDefaults {
           amountPattern: r'iznosu od:\s*([\d,.]+)\s*(\w{3})',
           currencyPattern: r'iznosu od:\s*[\d,.]+\s*(\w{3})',
         ),
+      ],
+      // Keyword-based category rules for card payments.
+      // Applied after a rule matches; first keyword found in SMS body wins.
+      // All comparisons are case-insensitive (toLowerCase in parser).
+      categoryKeywords: const [
+        // Grocery stores
+        SmsCategoryKeyword(keyword: 'c market', categoryId: 'cat_groceries'),
+        SmsCategoryKeyword(keyword: 'lidl', categoryId: 'cat_groceries'),
+        // Utilities / home services
+        SmsCategoryKeyword(keyword: 'epssnabdevan', categoryId: 'cat_housing'),
+        SmsCategoryKeyword(keyword: 'mts', categoryId: 'cat_housing'),
+        // VPS / subscriptions — mapped to Housing as closest available category
+        SmsCategoryKeyword(keyword: 'contabo', categoryId: 'cat_housing'),
       ],
     );
   }

@@ -145,6 +145,10 @@ Future<_ProcessDataResult> _processTransactionsData(
   final List<TransactionCategory> transactionsWithStyles = [];
   final Map<DateTime, Map<String, double>> totalsByDateAndCurrency = {};
 
+  // DIAG: count transfers included in dailyTotals
+  int _diagTransferCount = 0;
+  int _diagNonTransferCount = 0;
+
   for (var transaction in params.transactions) {
     final category = categoryMap[transaction.categoryId];
     Style? foundStyle;
@@ -181,6 +185,20 @@ Future<_ProcessDataResult> _processTransactionsData(
       transaction.date.month,
       transaction.date.day,
     );
+
+    // FIX: Exclude transfers from dailyTotals.
+    // Transfers are internal movements between accounts — including them
+    // causes the daily summary to show incorrect net amounts.
+    // Detection: linkedTransactionId is set for both sides of a transfer.
+    final isTransfer = transaction.linkedTransactionId != null &&
+        transaction.linkedTransactionId!.isNotEmpty;
+    if (isTransfer) {
+      _diagTransferCount++;
+      continue; // Skip transfers — don't include in daily totals
+    } else {
+      _diagNonTransferCount++;
+    }
+
     if (!totalsByDateAndCurrency.containsKey(date)) {
       totalsByDateAndCurrency[date] = {};
     }
@@ -190,12 +208,36 @@ Future<_ProcessDataResult> _processTransactionsData(
         currentSum + transaction.amount;
   }
 
+  debugPrint(
+    '[DIAG dailyTotals] Total: $_diagNonTransferCount non-transfers, '
+    '$_diagTransferCount transfers excluded from totals',
+  );
+
+  // Build global fallback: most recent rate for each currency pair across ALL dates.
+  // Root cause of the 0-EUR bug: ratesMapsByDate[date] can exist (so ratesMapEmpty=false)
+  // but be missing a specific pair (e.g., EUR_RSD) if that pair was only added to the DB
+  // after some transaction dates. The binary search only copies the whole map from the
+  // closest date — if that date also lacks the pair, conversion returns 0.
+  // Fix: merge all date maps in chronological order so the latest rate for each pair wins.
+  final globalFallback = <String, double>{};
+  {
+    final sortedRateDates = ratesMapsByDate.keys.toList()..sort();
+    for (final d in sortedRateDates) {
+      globalFallback.addAll(ratesMapsByDate[d]!);
+    }
+  }
+
   final Map<DateTime, double> finalDailyTotals = {};
 
   for (var date in totalsByDateAndCurrency.keys) {
     double totalForDayInMain = 0;
     final currencySubtotals = totalsByDateAndCurrency[date]!;
     final ratesMap = ratesMapsByDate[date] ?? {};
+
+    // DIAG: log if ratesMap is empty for this date
+    if (ratesMap.isEmpty) {
+      debugPrint('[DIAG dailyTotals] NO RATES for date=$date — total will be 0');
+    }
 
     for (var entry in currencySubtotals.entries) {
       final currencyCode = entry.key;
@@ -206,11 +248,16 @@ Future<_ProcessDataResult> _processTransactionsData(
       if (currencyCode == baseCurrency) {
         amountInBase = totalAmount;
       } else {
-        final toBase = ratesMap[getRateKey(currencyCode, baseCurrency)];
+        // FIX: Use globalFallback when the date's rates map lacks the pair.
+        // Scenario: EUR_RSD rate first appeared on Apr 10; Apr 9/8/6 maps exist
+        // (from partial DB records) but don't contain EUR_RSD → toBase/fromBase = null → 0.
+        final toBase = ratesMap[getRateKey(currencyCode, baseCurrency)] ??
+            globalFallback[getRateKey(currencyCode, baseCurrency)];
         if (toBase != null) {
           amountInBase = totalAmount * toBase;
         } else {
-          final fromBase = ratesMap[getRateKey(baseCurrency, currencyCode)];
+          final fromBase = ratesMap[getRateKey(baseCurrency, currencyCode)] ??
+              globalFallback[getRateKey(baseCurrency, currencyCode)];
           amountInBase = (fromBase != null && fromBase != 0)
               ? totalAmount / fromBase
               : 0;
@@ -222,12 +269,14 @@ Future<_ProcessDataResult> _processTransactionsData(
         amountInMain = amountInBase;
       } else {
         final toMain =
-            ratesMap[getRateKey(baseCurrency, params.mainCurrencyCode)];
+            ratesMap[getRateKey(baseCurrency, params.mainCurrencyCode)] ??
+            globalFallback[getRateKey(baseCurrency, params.mainCurrencyCode)];
         if (toMain != null) {
           amountInMain = amountInBase * toMain;
         } else {
           final fromMain =
-              ratesMap[getRateKey(params.mainCurrencyCode, baseCurrency)];
+              ratesMap[getRateKey(params.mainCurrencyCode, baseCurrency)] ??
+              globalFallback[getRateKey(params.mainCurrencyCode, baseCurrency)];
           amountInMain = (fromMain != null && fromMain != 0)
               ? amountInBase / fromMain
               : amountInBase;
@@ -235,6 +284,18 @@ Future<_ProcessDataResult> _processTransactionsData(
       }
       totalForDayInMain += amountInMain;
     }
+
+    // DIAG: log zero totals with extended info
+    if (totalForDayInMain == 0.0 && currencySubtotals.isNotEmpty) {
+      debugPrint(
+        '[DIAG dailyTotals] ZERO total for date=$date '
+        'rawSubtotals=$currencySubtotals ratesMapEmpty=${ratesMap.isEmpty} '
+        'ratesMapKeys=${ratesMap.keys.toList()} '
+        'globalFallbackHasEUR_RSD=${globalFallback.containsKey(getRateKey("EUR", "RSD"))} '
+        'globalFallbackEUR_RSD=${globalFallback[getRateKey("EUR", "RSD")]}',
+      );
+    }
+
     finalDailyTotals[date] = totalForDayInMain;
   }
 
@@ -372,13 +433,61 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       final newRates = await _currencyRepository.getLatestExchangeRatesByList(
         missingDates,
       );
+
+      // FIX: Store rates under the REQUESTED date, not the rate's actual date.
+      // Bug: DB returns rates dated e.g. 2026-04-10 for a request of 2026-04-12.
+      // Old code stored under 2026-04-10 → lookup by 2026-04-12 returned empty → total = 0.
+      //
+      // Group fetched rates by their actual date first
+      final ratesByActualDate = <DateTime, List<ExchangeRateDomain>>{};
       for (final rate in newRates) {
         final dateKey = DateTime(
           rate.date.year,
           rate.date.month,
           rate.date.day,
         );
-        _exchangeRateCache.putIfAbsent(dateKey, () => []).add(rate);
+        ratesByActualDate.putIfAbsent(dateKey, () => []).add(rate);
+      }
+
+      // For each requested date, find the closest available rate date
+      // and cache under the REQUESTED date
+      final sortedActualDates = ratesByActualDate.keys.toList()..sort();
+      for (final requestedDate in missingDates) {
+        if (ratesByActualDate.containsKey(requestedDate)) {
+          _exchangeRateCache[requestedDate] = ratesByActualDate[requestedDate]!;
+        } else if (sortedActualDates.isNotEmpty) {
+          // Binary search for closest actual date
+          int left = 0, right = sortedActualDates.length;
+          while (left < right) {
+            final mid = (left + right) ~/ 2;
+            if (sortedActualDates[mid].isBefore(requestedDate)) {
+              left = mid + 1;
+            } else {
+              right = mid;
+            }
+          }
+          DateTime? closestDate;
+          int minDiff = -1;
+          if (left < sortedActualDates.length) {
+            final diff =
+                sortedActualDates[left].difference(requestedDate).inDays.abs();
+            minDiff = diff;
+            closestDate = sortedActualDates[left];
+          }
+          if (left > 0) {
+            final diff = sortedActualDates[left - 1]
+                .difference(requestedDate)
+                .inDays
+                .abs();
+            if (minDiff == -1 || diff < minDiff) {
+              closestDate = sortedActualDates[left - 1];
+            }
+          }
+          if (closestDate != null) {
+            _exchangeRateCache[requestedDate] =
+                ratesByActualDate[closestDate]!;
+          }
+        }
       }
     }
 

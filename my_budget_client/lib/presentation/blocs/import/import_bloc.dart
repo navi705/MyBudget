@@ -337,6 +337,13 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
     try {
       final uuid = Uuid();
 
+      // --- OPTIMIZATION: Pre-group CSV records by account name (O(N) instead of O(N×M)) ---
+      final recordsByAccountName = <String, List<OneMoneyRecord>>{};
+      for (final record in state.parsedRecords) {
+        final accountKey = record.from.trim().toLowerCase();
+        recordsByAccountName.putIfAbsent(accountKey, () => []).add(record);
+      }
+
       // --- 1. CURRENCIES (No Changes) ---
       final newCurrencyCodes = state.currencyMappings.entries
           .where((e) => e.value == 'new')
@@ -388,11 +395,8 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
       );
 
       for (final name in newAccountNames) {
-        final accountRecords = state.parsedRecords
-            .where(
-              (r) => r.from.trim().toLowerCase() == name.trim().toLowerCase(),
-            )
-            .toList();
+        // Use pre-grouped records instead of filtering
+        final accountRecords = recordsByAccountName[name.trim().toLowerCase()] ?? [];
 
         if (accountRecords.isEmpty) continue;
 
@@ -640,10 +644,8 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
       for (final account in allDbAccounts) {
         final accountNameNormalized = account.name.trim().toLowerCase();
 
-        // Find relevant records for this account
-        final accountRecords = state.parsedRecords
-            .where((r) => r.from.trim().toLowerCase() == accountNameNormalized)
-            .toList();
+        // Use pre-grouped records instead of filtering
+        final accountRecords = recordsByAccountName[accountNameNormalized] ?? [];
 
         DateTime? newCreationDate;
         if (accountRecords.isNotEmpty) {

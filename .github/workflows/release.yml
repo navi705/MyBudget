@@ -1,0 +1,202 @@
+name: Release Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.2.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Required GitHub Secrets (Settings → Secrets → Actions):
+#
+#   ANDROID_KEYSTORE_BASE64  — base64-encoded .jks keystore file
+#                              Generate: base64 -w 0 my-release-key.jks
+#   ANDROID_KEY_ALIAS        — key alias inside the keystore
+#   ANDROID_KEY_PASSWORD     — key password
+#   ANDROID_STORE_PASSWORD   — keystore password
+#
+# If ANDROID_KEYSTORE_BASE64 is not set, APK will be signed with debug key.
+# ─────────────────────────────────────────────────────────────────────────────
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version info
+        run: flutter --version
+
+      - name: Flutter pub get
+        working-directory: my_budget_client
+        run: flutter pub get
+
+      # Creates key.properties + decodes keystore only when secrets are present.
+      # Without them build.gradle.kts falls back to debug signing config.
+      - name: Setup Android release signing
+        working-directory: my_budget_client/android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Configuring release signing..."
+            echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
+            cat > key.properties << EOF
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=$(pwd)/keystore.jks
+          EOF
+            echo "Release signing configured."
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 not set — APK will use debug signing."
+          fi
+
+      - name: Build Android APK (release)
+        working-directory: my_budget_client
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: |
+          mv my_budget_client/build/app/outputs/flutter-apk/app-release.apk \
+             my_budget_client/build/app/outputs/flutter-apk/MyBudget-${{ github.event.inputs.version }}.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: my_budget_client/build/app/outputs/flutter-apk/MyBudget-${{ github.event.inputs.version }}.apk
+          retention-days: 7
+
+  # ───────────────────────────────────────────────────────────────────────────
+  build-windows:
+    name: Build Windows Installer & Portable ZIP
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version info
+        run: flutter --version
+
+      - name: Flutter pub get
+        working-directory: my_budget_client
+        run: flutter pub get
+
+      - name: Build Windows (release)
+        working-directory: my_budget_client
+        run: flutter build windows --release --no-tree-shake-icons
+
+      # Inno Setup 6 is available via Chocolatey on windows-latest runners
+      - name: Install Inno Setup 6
+        run: choco install innosetup --yes --no-progress
+
+      # Strips leading 'v' so Inno Setup gets "1.2.0" not "v1.2.0"
+      - name: Build Inno Setup installer
+        working-directory: my_budget_client
+        shell: pwsh
+        run: |
+          $version = "${{ github.event.inputs.version }}" -replace '^v', ''
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          & $iscc "windows\installer\mybudget_setup.iss" "/DMyAppVersion=$version"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Create portable ZIP
+        working-directory: my_budget_client
+        shell: pwsh
+        run: |
+          $version = "${{ github.event.inputs.version }}"
+          $src  = "build\windows\x64\runner\Release"
+          $dest = "build\windows\installer_output\MyBudget-$version-Windows-Portable.zip"
+          Compress-Archive -Path "$src\*" -DestinationPath $dest
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: my_budget_client/build/windows/installer_output/MyBudget-Setup.exe
+          retention-days: 7
+
+      - name: Upload Windows portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable
+          path: my_budget_client/build/windows/installer_output/MyBudget-${{ github.event.inputs.version }}-Windows-Portable.zip
+          retention-days: 7
+
+  # ───────────────────────────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: [build-android, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # required to create tags and releases
+
+    steps:
+      - name: Download Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: artifacts/
+
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
+          path: artifacts/
+
+      - name: Download Windows portable
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-portable
+          path: artifacts/
+
+      - name: List release artifacts
+        run: ls -lh artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: MyBudget ${{ github.event.inputs.version }}
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease }}
+          generate_release_notes: true
+          files: |
+            artifacts/MyBudget-${{ github.event.inputs.version }}.apk
+            artifacts/MyBudget-Setup.exe
+            artifacts/MyBudget-${{ github.event.inputs.version }}-Windows-Portable.zip

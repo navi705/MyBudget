@@ -66,16 +66,16 @@ class CurrencyHistoryBinaryIO {
 
   /// Reads and decompresses the currency history map from raw bytes.
   static Map<String, Map<String, double>> readFromBytes(Uint8List bytes) {
-    final iterator = bytes.iterator;
+    int offset = 0;
 
-    // Helper to read N bytes
+    // Helper to read N bytes using offset
     Uint8List readBytes(int count) {
-      final list = Uint8List(count);
-      for (int i = 0; i < count; i++) {
-        if (!iterator.moveNext()) throw Exception('Unexpected end of file');
-        list[i] = iterator.current;
+      if (offset + count > bytes.length) {
+        throw Exception('Unexpected end of file');
       }
-      return list;
+      final result = bytes.sublist(offset, offset + count);
+      offset += count;
+      return result;
     }
 
     // 1. Check Header
@@ -92,24 +92,27 @@ class CurrencyHistoryBinaryIO {
     }
 
     // 3. Read Remaining (Compressed) Data
-    final compressedData = BytesBuilder();
-    while (iterator.moveNext()) {
-      compressedData.addByte(iterator.current);
-    }
+    final compressedData = bytes.sublist(offset);
 
     // 4. Decompress
     final decoder = GZipDecoder();
-    final decompressed = decoder.decodeBytes(compressedData.toBytes());
-    final dataIterator = decompressed.iterator;
+    final decompressed = decoder.decodeBytes(compressedData);
+    
+    // Optimization: Use ByteData with offset-based reading instead of iterator
+    final byteData = ByteData.sublistView(Uint8List.fromList(decompressed));
+    int dataOffset = 0;
 
-    // Helper for Decompressed Stream
+    // Helper for Decompressed Stream using ByteData
     Uint8List readData(int count) {
-      final list = Uint8List(count);
-      for (int i = 0; i < count; i++) {
-        if (!dataIterator.moveNext()) throw Exception('Unexpected end of data');
-        list[i] = dataIterator.current;
+      if (dataOffset + count > byteData.lengthInBytes) {
+        throw Exception('Unexpected end of data');
       }
-      return list;
+      final result = byteData.buffer.asUint8List(
+        byteData.offsetInBytes + dataOffset,
+        count,
+      );
+      dataOffset += count;
+      return result;
     }
 
     // 5. Parse Data

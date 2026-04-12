@@ -13,11 +13,12 @@ Future<Response> onRequest(RequestContext context) async {
 
   try {
     // 0 implies fetch everything from the beginning of time
-    final data = await repo.getChanges(0);
+    final result = await repo.getChanges(0);
 
     return Response.json(body: {
-      'data': data,
-      'server_timestamp': DateTime.now().millisecondsSinceEpoch
+      'changes': result.changes,
+      'server_timestamp': result.lastTimestamp,
+      'has_more': result.hasMore,
     });
   } catch (e) {
     return Response.json(

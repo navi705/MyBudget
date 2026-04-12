@@ -27,14 +27,22 @@ class SyncRepository {
       'transactions',
     ];
 
+    // Optimization: Use bulk upsert for tables with >50 rows to reduce N+1 queries
+    final bulkUpsertTables = {
+      'exchange_rates',
+      'inflation_rates',
+      'categories',
+      'transactions',
+      'accounts',
+    };
+
     await _dbClient.pool.run((session) async {
       for (final table in tablesList) {
         if (data.containsKey(table)) {
           final rows = data[table] as List;
 
-          if (rows.length > 50 &&
-              (table == 'exchange_rates' || table == 'inflation_rates')) {
-            // Use bulk upsert for large analytical tables
+          if (rows.length > 50 && bulkUpsertTables.contains(table)) {
+            // Use bulk upsert for large tables to reduce query count
             await _bulkUpsert(
                 session, table, rows.cast<Map<String, dynamic>>());
           } else {
@@ -109,6 +117,12 @@ class SyncRepository {
       await _bulkUpsertExchangeRates(session, rows);
     } else if (table == 'inflation_rates') {
       await _bulkUpsertInflationRates(session, rows);
+    } else if (table == 'categories') {
+      await _bulkUpsertCategories(session, rows);
+    } else if (table == 'transactions') {
+      await _bulkUpsertTransactions(session, rows);
+    } else if (table == 'accounts') {
+      await _bulkUpsertAccounts(session, rows);
     }
   }
 
@@ -189,6 +203,169 @@ class SyncRepository {
           device_id = EXCLUDED.device_id,
           source_id = EXCLUDED.source_id
         WHERE EXCLUDED.modified_at > inflation_rates.modified_at
+      ''');
+
+      await session.execute(Sql.named(buffer.toString()), parameters: params);
+    }
+  }
+
+  Future<void> _bulkUpsertCategories(
+      Session session, List<Map<String, dynamic>> rows) async {
+    const subBatchSize = 1000;
+    for (var i = 0; i < rows.length; i += subBatchSize) {
+      final end =
+          (i + subBatchSize < rows.length) ? i + subBatchSize : rows.length;
+      final chunk = rows.sublist(i, end);
+
+      final buffer = StringBuffer();
+      buffer.write(
+          'INSERT INTO categories (id, name, parent_id, style_id, type, modified_at, device_id, is_deleted) VALUES ');
+
+      final params = <String, dynamic>{};
+      for (var j = 0; j < chunk.length; j++) {
+        final row = chunk[j];
+        if (j > 0) buffer.write(', ');
+        final suffix = '_$j';
+        buffer.write(
+            '(@id$suffix, @name$suffix, @pid$suffix, @sid$suffix, @type$suffix, @ma$suffix, @did$suffix, @del$suffix)');
+        params['id$suffix'] = row['id'];
+        params['name$suffix'] = row['name'];
+        params['pid$suffix'] = row['parentId'];
+        params['sid$suffix'] = row['styleId'];
+        params['type$suffix'] = row['type'];
+        params['ma$suffix'] = row['modifiedAt'];
+        params['did$suffix'] = row['deviceId'];
+        params['del$suffix'] = row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1);
+      }
+
+      buffer.write('''
+        ON CONFLICT (id) DO UPDATE SET
+          name = EXCLUDED.name,
+          parent_id = EXCLUDED.parent_id,
+          style_id = EXCLUDED.style_id,
+          type = EXCLUDED.type,
+          modified_at = EXCLUDED.modified_at,
+          device_id = EXCLUDED.device_id,
+          is_deleted = EXCLUDED.is_deleted
+        WHERE EXCLUDED.modified_at > categories.modified_at
+      ''');
+
+      await session.execute(Sql.named(buffer.toString()), parameters: params);
+    }
+  }
+
+  Future<void> _bulkUpsertTransactions(
+      Session session, List<Map<String, dynamic>> rows) async {
+    const subBatchSize = 500;
+    for (var i = 0; i < rows.length; i += subBatchSize) {
+      final end =
+          (i + subBatchSize < rows.length) ? i + subBatchSize : rows.length;
+      final chunk = rows.sublist(i, end);
+
+      final buffer = StringBuffer();
+      buffer.write(
+          'INSERT INTO transactions (id, description, amount, date, account_id, category_id, currency_code, exchange_rate, exchange_rate_preset, fee, linked_transaction_id, modified_at, device_id, is_deleted) VALUES ');
+
+      final params = <String, dynamic>{};
+      for (var j = 0; j < chunk.length; j++) {
+        final row = chunk[j];
+        if (j > 0) buffer.write(', ');
+        final suffix = '_$j';
+        buffer.write(
+            '(@id$suffix, @desc$suffix, @amt$suffix, @date$suffix, @aid$suffix, @cid$suffix, @cc$suffix, @er$suffix, @erp$suffix, @fee$suffix, @lti$suffix, @ma$suffix, @did$suffix, @del$suffix)');
+        params['id$suffix'] = row['id'];
+        params['desc$suffix'] = row['description'];
+        params['amt$suffix'] = _round(row['amount']);
+        params['date$suffix'] = _parseDate(row['date']);
+        params['aid$suffix'] = row['accountId'];
+        params['cid$suffix'] = row['categoryId'];
+        params['cc$suffix'] = row['currencyCode'];
+        params['er$suffix'] = _round(row['exchangeRate']);
+        params['erp$suffix'] = row['exchangeRatePreset'];
+        params['fee$suffix'] = _round(row['fee']);
+        params['lti$suffix'] = row['linkedTransactionId'];
+        params['ma$suffix'] = row['modifiedAt'];
+        params['did$suffix'] = row['deviceId'];
+        params['del$suffix'] = row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1);
+      }
+
+      buffer.write('''
+        ON CONFLICT (id) DO UPDATE SET
+          description = EXCLUDED.description,
+          amount = EXCLUDED.amount,
+          date = EXCLUDED.date,
+          account_id = EXCLUDED.account_id,
+          category_id = EXCLUDED.category_id,
+          currency_code = EXCLUDED.currency_code,
+          exchange_rate = EXCLUDED.exchange_rate,
+          exchange_rate_preset = EXCLUDED.exchange_rate_preset,
+          fee = EXCLUDED.fee,
+          linked_transaction_id = EXCLUDED.linked_transaction_id,
+          modified_at = EXCLUDED.modified_at,
+          device_id = EXCLUDED.device_id,
+          is_deleted = EXCLUDED.is_deleted
+        WHERE EXCLUDED.modified_at > transactions.modified_at
+      ''');
+
+      await session.execute(Sql.named(buffer.toString()), parameters: params);
+    }
+  }
+
+  Future<void> _bulkUpsertAccounts(
+      Session session, List<Map<String, dynamic>> rows) async {
+    const subBatchSize = 500;
+    for (var i = 0; i < rows.length; i += subBatchSize) {
+      final end =
+          (i + subBatchSize < rows.length) ? i + subBatchSize : rows.length;
+      final chunk = rows.sublist(i, end);
+
+      final buffer = StringBuffer();
+      buffer.write(
+          'INSERT INTO accounts (id, name, description, balance, currency_code, currency_designation_id, style_id, account_type_id, creation_date, country, asset_id, asset_quantity, fee_structure, modified_at, device_id, is_deleted) VALUES ');
+
+      final params = <String, dynamic>{};
+      for (var j = 0; j < chunk.length; j++) {
+        final row = chunk[j];
+        if (j > 0) buffer.write(', ');
+        final suffix = '_$j';
+        buffer.write(
+            '(@id$suffix, @name$suffix, @desc$suffix, @bal$suffix, @cc$suffix, @cdi$suffix, @sid$suffix, @ati$suffix, @cd$suffix, @cnt$suffix, @aid$suffix, @aq$suffix, @fs$suffix, @ma$suffix, @did$suffix, @del$suffix)');
+        params['id$suffix'] = row['id'];
+        params['name$suffix'] = row['name'];
+        params['desc$suffix'] = row['description'];
+        params['bal$suffix'] = _round(row['balance']);
+        params['cc$suffix'] = row['currencyCode'];
+        params['cdi$suffix'] = row['currencyDesignationId'];
+        params['sid$suffix'] = row['styleId'];
+        params['ati$suffix'] = row['accountTypeId'];
+        params['cd$suffix'] = _parseDate(row['creationDate']);
+        params['cnt$suffix'] = row['country'];
+        params['aid$suffix'] = row['assetId'];
+        params['aq$suffix'] = _round(row['assetQuantity']);
+        params['fs$suffix'] = row['feeStructure'];
+        params['ma$suffix'] = row['modifiedAt'];
+        params['did$suffix'] = row['deviceId'];
+        params['del$suffix'] = row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1);
+      }
+
+      buffer.write('''
+        ON CONFLICT (id) DO UPDATE SET
+          name = EXCLUDED.name,
+          description = EXCLUDED.description,
+          balance = EXCLUDED.balance,
+          currency_code = EXCLUDED.currency_code,
+          currency_designation_id = EXCLUDED.currency_designation_id,
+          style_id = EXCLUDED.style_id,
+          account_type_id = EXCLUDED.account_type_id,
+          creation_date = EXCLUDED.creation_date,
+          country = EXCLUDED.country,
+          asset_id = EXCLUDED.asset_id,
+          asset_quantity = EXCLUDED.asset_quantity,
+          fee_structure = EXCLUDED.fee_structure,
+          modified_at = EXCLUDED.modified_at,
+          device_id = EXCLUDED.device_id,
+          is_deleted = EXCLUDED.is_deleted
+        WHERE EXCLUDED.modified_at > accounts.modified_at
       ''');
 
       await session.execute(Sql.named(buffer.toString()), parameters: params);
@@ -710,10 +887,9 @@ class SyncRepository {
     return double.parse(numVal.toStringAsFixed(8));
   }
 
-  Future<({Map<String, List<Map<String, dynamic>>> changes, int lastTimestamp})>
+  Future<({Map<String, List<Map<String, dynamic>>> changes, int lastTimestamp, bool hasMore})>
       getChanges(int lastSync, {int limit = 5000}) async {
     final changes = <String, List<Map<String, dynamic>>>{};
-    int totalCount = 0;
     int maxTimestamp = lastSync;
 
     final tableConfigsMap = {
@@ -851,26 +1027,38 @@ class SyncRepository {
 
     final tableConfigs = tableConfigsMap.entries.toList();
 
-    for (final entry in tableConfigs) {
-      if (totalCount >= limit) break;
-
+    // Optimization: Parallelize independent DB queries using Future.wait
+    final queryFutures = tableConfigs.map((entry) async {
       final tableName = entry.key;
       final columnMap = entry.value;
 
-      final remainingLimit = limit - totalCount;
       final result = await _dbClient.pool.execute(
         Sql.named(
           'SELECT * FROM $tableName WHERE modified_at > @lastSync ORDER BY modified_at ASC LIMIT @limit',
         ),
-        parameters: {'lastSync': lastSync, 'limit': remainingLimit},
+        parameters: {'lastSync': lastSync, 'limit': limit},
       );
 
       final rows = _mapResult(result, columnMap);
-      if (rows.isNotEmpty) {
-        changes[tableName] = rows;
-        totalCount += rows.length;
+      return (tableName: tableName, rows: rows);
+    }).toList();
 
-        // Update maxTimestamp from the last row in this table
+    final results = await Future.wait(queryFutures);
+
+    // Aggregate results and track max timestamp
+    // NOTE: No early break — all tables must be included regardless of count.
+    // Breaking early causes tables with lower modifiedAt to be permanently skipped
+    // once a high-volume table (e.g. exchange_rates) consumes the entire limit.
+    bool hasMore = false;
+    for (final result in results) {
+      final rows = result.rows;
+      if (rows.isNotEmpty) {
+        changes[result.tableName] = rows;
+
+        // If any table returned exactly limit rows, more data may exist
+        if (rows.length >= limit) hasMore = true;
+
+        // Update maxTimestamp from the rows
         for (final row in rows) {
           final ts = row['modifiedAt'] as int;
           if (ts > maxTimestamp) maxTimestamp = ts;
@@ -878,7 +1066,7 @@ class SyncRepository {
       }
     }
 
-    return (changes: changes, lastTimestamp: maxTimestamp);
+    return (changes: changes, lastTimestamp: maxTimestamp, hasMore: hasMore);
   }
 
   // Helper to map DB row (snake_case) to JSON (camelCase or whatever client expects)

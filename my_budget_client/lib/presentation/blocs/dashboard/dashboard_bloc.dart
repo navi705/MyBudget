@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:my_budget_client/core/enums/filter_enums.dart'; // Added
 import 'package:my_budget_client/core/utils/currency_converter.dart'; // Added
 import 'package:my_budget_client/core/utils/performance_logger.dart';
@@ -59,6 +59,25 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   List<Currency>? _cachedCurrencies;
   CurrencyConverter? _cachedConverter;
 
+  // OPTIMIZATION: Cache for settings and currency designations
+  // These rarely change — fetched once per session, not on every stream update
+  Map<String, String>? _cachedSettings;
+  List<CurrencyDesignation>? _cachedCurrencyDesignations;
+
+  // OPTIMIZATION: Styles and categories cached outside the reactive stream.
+  // Previously in combineLatest6 — every style/category change triggered a full
+  // dashboard recompute. Now loaded once at init, updated via separate subscriptions.
+  List<Style> _cachedStyles = [];
+  List<Category> _cachedCategories = [];
+  StreamSubscription<List<Style>>? _stylesSubscription;
+  StreamSubscription<List<Category>>? _categoriesSubscription;
+
+  // OPTIMIZATION: Memoize _calculateDashboardData results.
+  // The walk-back loop is the bottleneck (~27ms). When only UI params change
+  // (tab, isIncomeView) but data lists are identical objects, skip recompute.
+  _DashboardComputeParams? _lastComputeParams;
+  _DashboardComputeResults? _lastComputeResults;
+
   DashboardBloc({
     required AccountRepository accountRepository,
     required TransactionRepository transactionRepository,
@@ -91,28 +110,81 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     PerformanceLogger().start('Dashboard Screen Load');
     emit(DashboardLoadInProgress());
 
+    // Invalidate all caches on reload (e.g., after restore backup).
+    // Without this, stale cached data (settings, rates, currencies) would be
+    // used on the first visit after restore, showing incorrect dashboard data.
+    // _cachedStyles/_cachedCategories are re-fetched below — clear the rest here.
+    _cachedSettings = null;
+    _cachedCurrencyDesignations = null;
+    _cachedExchangeRates = null;
+    _cachedCurrencies = null;
+    _cachedConverter = null;
+    _cachedDates = {};
+    _lastComputeParams = null;
+    _lastComputeResults = null;
+
+    // OPTIMIZATION: Load styles and categories once at init.
+    // They change rarely — subscribing them to combineLatest caused unnecessary
+    // full recomputes on every style/category DB change.
+    _cachedStyles = await _styleRepository.watchAllStyles().first;
+    _cachedCategories = await _categoryRepository.getCategories();
+
+    // Subscribe to style/category changes separately.
+    // When they change, update the cache and trigger a recompute via _paramsSubject
+    // (by incrementing dataVersion). The debounce(50ms) batches rapid changes.
+    _stylesSubscription?.cancel();
+    _stylesSubscription = _styleRepository.watchAllStyles().skip(1).listen((
+      styles,
+    ) {
+      _cachedStyles = styles;
+      _paramsSubject.add(
+        _paramsSubject.value.copyWith(
+          dataVersion: _paramsSubject.value.dataVersion + 1,
+        ),
+      );
+    });
+
+    _categoriesSubscription?.cancel();
+    _categoriesSubscription = _categoryRepository
+        .watchCategories()
+        .skip(1)
+        .listen((categories) {
+          _cachedCategories = categories;
+          _paramsSubject.add(
+            _paramsSubject.value.copyWith(
+              dataVersion: _paramsSubject.value.dataVersion + 1,
+            ),
+          );
+        });
+
+    // OPTIMIZATION: Filtered transaction stream — re-subscribes only when
+    // dateRangeStart changes (not on tab/currency/etc. changes).
+    // This avoids loading the full transaction history on every stream update.
+    final transactionStream = _paramsSubject.stream
+        .map((p) => p.dateRangeStart)
+        .distinct()
+        .switchMap(
+          (from) => _transactionRepository.watchTransactions(from: from),
+        );
+
+    // OPTIMIZATION: Reduced from combineLatest6 to combineLatest4.
+    // Styles and categories removed — now cached and updated via separate subscriptions.
     final stream =
-        Rx.combineLatest6(
+        Rx.combineLatest4(
           _accountRepository.watchAccounts(),
-          _transactionRepository.watchTransactions(),
-          _categoryRepository.watchCategories(),
-          _styleRepository.watchAllStyles(),
-          _assetRepository.watchAssetData(limit: 10000), // Added
+          transactionStream,
+          _assetRepository.watchAssetData(limit: 10000),
           _paramsSubject.stream,
           (
             List<Account> accounts,
             List<Transaction> transactions,
-            List<Category> categories,
-            List<Style> styles,
-            List<AssetDataDomain> assetData, // Added
+            List<AssetDataDomain> assetData,
             _DashboardParams params,
           ) {
             return _DashboardStreamData(
               accounts: accounts,
               transactions: transactions,
-              categories: categories,
-              styles: styles,
-              assetData: assetData, // Added
+              assetData: assetData,
               params: params,
             );
           },
@@ -121,12 +193,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         ).debounceTime(const Duration(milliseconds: 50)).asyncMap((data) async {
           final accounts = data.accounts;
           final transactions = data.transactions;
-          final categories = data.categories;
-          final styles = data.styles;
+          final categories = _cachedCategories; // Use cached (not from stream)
+          final styles = _cachedStyles; // Use cached (not from stream)
           final params = data.params;
 
-          // GUARD: Skip computation if categories haven't loaded yet
-          // This prevents transfers from being counted as income/expense
           // GUARD: Skip computation if categories haven't loaded yet
           // This prevents transfers from being counted as income/expense
           // if (categories.isEmpty) {
@@ -137,22 +207,24 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           // OPTIMIZATION: Run DB queries in parallel
           PerformanceLogger().start('Dashboard: balances, totals, settings');
 
-          final parallelDbResults = await Future.wait([
-            _accountRepository.getBalancesAtDate(params.selectedDay),
-            _transactionRepository.getTransactionTotalsGrouped(
-              dateFrom: params.dateRangeStart,
-              dateTo: params.dateRangeEnd,
-            ),
-            _settingsRepository.getAllSettings(),
-            _currencyRepository.getAllCurrencyDesignations(),
-          ]);
+          // OPTIMIZATION: Settings and currency designations are cached after
+          // the first fetch — they rarely change during a session.
+          // Invalidate by calling _cachedSettings = null externally if needed.
+          _cachedSettings ??= await _settingsRepository.getAllSettings();
+          _cachedCurrencyDesignations ??=
+              await _currencyRepository.getAllCurrencyDesignations();
 
-          // final rawDayBalances = parallelDbResults[0] as Map<String, double>; // Removed unused
+          // OPTIMIZATION: Removed getBalancesAtDate from Future.wait.
+          // The result (rawDayBalances) was never used — dayBalances is computed
+          // directly by the walk-back in _calculateDashboardData.
           final categoryTotals =
-              parallelDbResults[1] as List<GroupedTransactionTotal>;
-          final settingsMap = parallelDbResults[2] as Map<String, String>;
-          final currencyDesignationsList =
-              parallelDbResults[3] as List<CurrencyDesignation>;
+              await _transactionRepository.getTransactionTotalsGrouped(
+                dateFrom: params.dateRangeStart,
+                dateTo: params.dateRangeEnd,
+              );
+
+          final settingsMap = _cachedSettings!;
+          final currencyDesignationsList = _cachedCurrencyDesignations!;
           final assetData = data.assetData; // From stream
 
           final currencyDesignations = {
@@ -265,6 +337,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             categoryTypeMap: categoryTypeMap,
             converter: _cachedConverter!, // Pass cached converter
             assetData: assetData, // Added for asset-linked accounts
+            dateStep: params.dateStep, // OPTIMIZATION: for yearly granularity
           );
 
           // Converted balances are now computed in _calculateDashboardData to match historical state exactly
@@ -285,10 +358,44 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             );
           }
 
-          // OPTIMIZATION: Run on main thread instead of compute() isolate
-          // Reason: Actual work is only ~27ms, but compute() overhead is ~350ms
-          // 27ms won't block the UI, so isolate is not justified
-          final computeResults = _calculateDashboardData(computeParams);
+          // OPTIMIZATION: Memoize walk-back results.
+          // Uses identical() to check if list objects are the same reference —
+          // Drift streams reuse the same list object when only params change
+          // (e.g. tab switch, currency change). In those cases, skip the ~27ms
+          // walk-back and return the cached result.
+          _DashboardComputeResults computeResults;
+          if (_lastComputeParams != null &&
+              _lastComputeResults != null &&
+              _lastComputeParams!.mainCurrencyCode ==
+                  computeParams.mainCurrencyCode &&
+              _lastComputeParams!.dateRangeStart ==
+                  computeParams.dateRangeStart &&
+              _lastComputeParams!.dateRangeEnd == computeParams.dateRangeEnd &&
+              _lastComputeParams!.selectedDay == computeParams.selectedDay &&
+              _lastComputeParams!.dateStep == computeParams.dateStep &&
+              identical(
+                _lastComputeParams!.transactions,
+                computeParams.transactions,
+              ) &&
+              identical(
+                _lastComputeParams!.accounts,
+                computeParams.accounts,
+              ) &&
+              identical(
+                _lastComputeParams!.assetData,
+                computeParams.assetData,
+              ) &&
+              identical(_lastComputeParams!.rates, computeParams.rates)) {
+            debugPrint('COMPUTE: Cache hit — reusing previous walk-back results');
+            computeResults = _lastComputeResults!;
+          } else {
+            // OPTIMIZATION: Run on main thread instead of compute() isolate
+            // Reason: Actual work is only ~27ms, but compute() overhead is ~350ms
+            // 27ms won't block the UI, so isolate is not justified
+            computeResults = _calculateDashboardData(computeParams);
+            _lastComputeParams = computeParams;
+            _lastComputeResults = computeResults;
+          }
 
           await PerformanceLogger().stop('Dashboard: compute');
 
@@ -412,6 +519,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
   @override
   Future<void> close() {
+    _stylesSubscription?.cancel();
+    _categoriesSubscription?.cancel();
     _paramsSubject.close();
     return super.close();
   }
@@ -425,6 +534,9 @@ class _DashboardParams {
   final DateStep dateStep;
   final String selectedCurrency; // Added
   final bool isIncomeView;
+  // OPTIMIZATION: Increments when styles/categories change to trigger recompute
+  // via _paramsSubject without including them in combineLatest.
+  final int dataVersion;
 
   _DashboardParams({
     required this.activeTabIndex,
@@ -434,6 +546,7 @@ class _DashboardParams {
     required this.dateStep,
     required this.selectedCurrency, // Added
     required this.isIncomeView,
+    this.dataVersion = 0,
   });
 
   _DashboardParams copyWith({
@@ -444,6 +557,7 @@ class _DashboardParams {
     DateStep? dateStep,
     String? selectedCurrency, // Added
     bool? isIncomeView,
+    int? dataVersion,
   }) {
     return _DashboardParams(
       activeTabIndex: activeTabIndex ?? this.activeTabIndex,
@@ -453,23 +567,22 @@ class _DashboardParams {
       dateStep: dateStep ?? this.dateStep,
       selectedCurrency: selectedCurrency ?? this.selectedCurrency, // Added
       isIncomeView: isIncomeView ?? this.isIncomeView,
+      dataVersion: dataVersion ?? this.dataVersion,
     );
   }
 }
 
+// OPTIMIZATION: Removed categories and styles fields — now cached in the bloc.
+// combineLatest4 instead of combineLatest6.
 class _DashboardStreamData {
   final List<Account> accounts;
   final List<Transaction> transactions;
-  final List<Category> categories;
-  final List<Style> styles;
   final List<AssetDataDomain> assetData; // Added
   final _DashboardParams params;
 
   _DashboardStreamData({
     required this.accounts,
     required this.transactions,
-    required this.categories,
-    required this.styles,
     required this.assetData, // Added
     required this.params,
   });
@@ -486,6 +599,7 @@ class _DashboardComputeParams {
   final Map<String, CategoryType> categoryTypeMap;
   final CurrencyConverter converter; // OPTIMIZATION: Pre-built converter
   final List<AssetDataDomain> assetData; // Added for asset-linked accounts
+  final DateStep dateStep; // OPTIMIZATION: for yearly granularity
 
   _DashboardComputeParams({
     required this.accounts,
@@ -498,6 +612,7 @@ class _DashboardComputeParams {
     required this.categoryTypeMap,
     required this.converter,
     required this.assetData, // Added for asset-linked accounts
+    required this.dateStep, // OPTIMIZATION: for yearly granularity
   });
 }
 
@@ -556,10 +671,12 @@ _DashboardComputeResults _calculateDashboardData(
 
   // Section 2: Calculate daily data and net worth history
   sectionStopwatch.start();
-  debugPrint(
-    'DEBUG: Calc Data. Range: ${params.dateRangeStart} - ${params.dateRangeEnd}',
-  );
-  debugPrint('DEBUG: Transactions: ${params.transactions.length}');
+  if (kDebugMode) {
+    debugPrint(
+      'DEBUG: Calc Data. Range: ${params.dateRangeStart} - ${params.dateRangeEnd}',
+    );
+    debugPrint('DEBUG: Transactions: ${params.transactions.length}');
+  }
 
   for (final transaction in params.transactions) {
     final date = DateTime(
@@ -575,15 +692,18 @@ _DashboardComputeResults _calculateDashboardData(
     // This ensures ALL transfer transactions are excluded, regardless of how they were created
     final categoryType = params.categoryTypeMap[transaction.categoryId];
 
-    // DEBUG: Log transfer detection
     if (categoryType == CategoryType.transfer ||
         (transaction.linkedTransactionId != null &&
             transaction.linkedTransactionId!.isNotEmpty)) {
-      debugPrint(
-        'DEBUG TRANSFER EXCLUDED: ${transaction.description}, '
-        'categoryType=$categoryType, linkedTransactionId=${transaction.linkedTransactionId}, '
-        'amount=${transaction.amount}',
-      );
+      // DEBUG: Log transfer detection — wrapped in kDebugMode to avoid
+      // 1000+ debugPrint calls in hot path with many transfer transactions
+      if (kDebugMode) {
+        debugPrint(
+          'DEBUG TRANSFER EXCLUDED: ${transaction.description}, '
+          'categoryType=$categoryType, linkedTransactionId=${transaction.linkedTransactionId}, '
+          'amount=${transaction.amount}',
+        );
+      }
       continue;
     }
 
@@ -692,6 +812,23 @@ _DashboardComputeResults _calculateDashboardData(
   final financeCalc = FinanceCalculator();
   final hasAssetAccounts = params.accounts.any((a) => a.assetId != null);
 
+  // OPTIMIZATION: Pre-build a single FinancialSnapshot for asset accounts.
+  // Inside the loop, use copyWith(date: iterDate) to avoid re-allocating
+  // all the same list references on every iteration that needs a recompute.
+  final baseSnapshot = hasAssetAccounts
+      ? FinancialSnapshot(
+          accounts: params.accounts,
+          transactions: params.transactions,
+          assetData: params.assetData,
+          categories: [],
+          exchangeRates: params.rates,
+          inflationRates: [],
+          date: DateTime.now(), // Placeholder; overridden per-iteration via copyWith
+          dateStep: DateStep.day,
+          baseCurrency: params.mainCurrencyCode,
+        )
+      : null;
+
   // OPTIMIZATION: Pre-compute sets of dates with changes to enable skipping
   // days where nothing changed (avoids expensive FinancialSnapshot creation).
   // Logic: when walking backwards from D+1 to D, if D+1 had no transactions
@@ -729,28 +866,19 @@ _DashboardComputeResults _calculateDashboardData(
       // calculateBalances(D) == calculateBalances(D+1) when D+1 had no transactions
       // and no asset price entries (since both use the same latest price up to D).
       final prevDayHadTransaction =
-          prevIterDate != null && transactionDates.contains(prevIterDate!);
+          prevIterDate != null && transactionDates.contains(prevIterDate);
       final prevDayHadAssetPrice =
-          prevIterDate != null && assetDataDates.contains(prevIterDate!);
+          prevIterDate != null && assetDataDates.contains(prevIterDate);
 
       if (cachedAssetBalances != null &&
           !prevDayHadTransaction &&
           !prevDayHadAssetPrice) {
         // Reuse cached balances — nothing changed between this day and the next
-        balancesForDay = Map.of(cachedAssetBalances!);
+        balancesForDay = Map.of(cachedAssetBalances);
       } else {
-        // Recompute balances using FinanceCalculator
-        final snapshot = FinancialSnapshot(
-          accounts: params.accounts,
-          transactions: params.transactions,
-          assetData: params.assetData,
-          categories: [],
-          exchangeRates: params.rates,
-          inflationRates: [],
-          date: iterDate,
-          dateStep: DateStep.day,
-          baseCurrency: params.mainCurrencyCode,
-        );
+        // OPTIMIZATION: Reuse pre-built snapshot; only override the date.
+        // This avoids re-allocating all the same list references on every iteration.
+        final snapshot = baseSnapshot!.copyWith(date: iterDate);
         balancesForDay = financeCalc.calculateBalances(snapshot);
         cachedAssetBalances = Map.of(balancesForDay);
       }
@@ -784,13 +912,28 @@ _DashboardComputeResults _calculateDashboardData(
       );
     }
 
-    dailyNetWorth[iterDate] = totalNetWorth;
-    dailyAccountBalances[iterDate] = balancesForDay;
-
-    // Capture balances and breakdowns for the selectedDay (for DayBalanceDetails)
-    if (iterDate.year == params.selectedDay.year &&
+    // OPTIMIZATION: For yearly view, only store monthly data points (last day of each month).
+    // Walk-back still iterates daily for balance accuracy, but chart only needs 12 points.
+    // Always store: selectedDay, dateRangeEnd, and last day of each month (for yearly).
+    final isSelectedDay = iterDate.year == params.selectedDay.year &&
         iterDate.month == params.selectedDay.month &&
-        iterDate.day == params.selectedDay.day) {
+        iterDate.day == params.selectedDay.day;
+    final isDateRangeEnd = iterDate.isAtSameMomentAs(dateRangeEndNormalized);
+    final isLastDayOfMonth =
+        iterDate.add(const Duration(days: 1)).day == 1;
+    final shouldStoreChartPoint = params.dateStep != DateStep.year ||
+        isLastDayOfMonth ||
+        isSelectedDay ||
+        isDateRangeEnd ||
+        iterDate.isAtSameMomentAs(historyLimit);
+
+    if (shouldStoreChartPoint) {
+      dailyNetWorth[iterDate] = totalNetWorth;
+      dailyAccountBalances[iterDate] = balancesForDay;
+    }
+
+    // Capture balances for the selectedDay (for DayBalanceDetails)
+    if (isSelectedDay) {
       dayBalances = Map.of(balancesForDay);
     }
 

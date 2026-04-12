@@ -67,12 +67,14 @@ mixin _$ExchangeRatesDaoMixin on DatabaseAccessor<AppDatabase> {
   $LanguagesTable get languages => attachedDatabase.languages;
   $CurrenciesTable get currencies => attachedDatabase.currencies;
   $ExchangeRatesTable get exchangeRates => attachedDatabase.exchangeRates;
+  $SyncLogTable get syncLog => attachedDatabase.syncLog;
 }
 mixin _$CustomThemesDaoMixin on DatabaseAccessor<AppDatabase> {
   $CustomThemesTable get customThemes => attachedDatabase.customThemes;
 }
 mixin _$InflationRatesDaoMixin on DatabaseAccessor<AppDatabase> {
   $InflationRatesTable get inflationRates => attachedDatabase.inflationRates;
+  $SyncLogTable get syncLog => attachedDatabase.syncLog;
 }
 mixin _$AssetEntriesDaoMixin on DatabaseAccessor<AppDatabase> {
   $LanguagesTable get languages => attachedDatabase.languages;
@@ -11044,6 +11046,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'idx_transactions_category',
     'CREATE INDEX idx_transactions_category ON transactions (category_id)',
   );
+  late final Index idxTransactionsDateCategory = Index(
+    'idx_transactions_date_category',
+    'CREATE INDEX idx_transactions_date_category ON transactions (date, category_id)',
+  );
+  late final Index idxTransactionsAccountDate = Index(
+    'idx_transactions_account_date',
+    'CREATE INDEX idx_transactions_account_date ON transactions (account_id, date)',
+  );
   late final Index idxExchangeRatesDate = Index(
     'idx_exchange_rates_date',
     'CREATE INDEX idx_exchange_rates_date ON exchange_rates (date)',
@@ -11122,6 +11132,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     idxTransactionsDate,
     idxTransactionsAccount,
     idxTransactionsCategory,
+    idxTransactionsDateCategory,
+    idxTransactionsAccountDate,
     idxExchangeRatesDate,
     idxExchangeRatesComposite,
   ];

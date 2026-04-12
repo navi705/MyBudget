@@ -78,9 +78,12 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
 
     final currencies = await _currencyRepository.getCurrencies();
 
+    // OPTIMIZATION: Compute toLowerCase() once before the loop
+    final senderLower = msg.sender.toLowerCase();
+    
     // Iterate presets to find a match
     for (final preset in enabledPresets) {
-      if (msg.sender.toLowerCase().contains(
+      if (senderLower.contains(
         preset.senderFilter.toLowerCase(),
       )) {
         print('SMS_DEBUG: Matched sender filter for preset: ${preset.name}');
@@ -251,8 +254,10 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
 
     for (var i = 0; i < messages.length; i++) {
       final msg = messages[i];
+      // OPTIMIZATION: Compute toLowerCase() once before the inner loop
+      final senderLower = msg.sender.toLowerCase();
       for (final preset in presets) {
-        if (msg.sender.toLowerCase().contains(
+        if (senderLower.contains(
           preset.senderFilter.toLowerCase(),
         )) {
           final result = _parser.parse(msg.body, preset, msg.date);
@@ -330,7 +335,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
       currencyCode: finalCurrency,
       date: result.date ?? DateTime.now(),
       description: preset.name,
-      categoryId: preset.defaultCategoryId ?? 'other',
+      categoryId: result.categoryId ?? preset.defaultCategoryId ?? 'other',
       accountId: accountId,
       exchangeRate: finalExchangeRate,
       exchangeRatePreset: finalExchangeRate != null ? 1 : null,

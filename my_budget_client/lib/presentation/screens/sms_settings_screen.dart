@@ -354,6 +354,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _senderController;
   late List<SmsParsingRule> _rules;
+  late List<SmsCategoryKeyword> _categoryKeywords;
   String? _selectedAccountId;
   String? _selectedCategoryId;
 
@@ -368,6 +369,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
       text: widget.preset?.senderFilter ?? '',
     );
     _rules = List.from(widget.preset?.rules ?? []);
+    _categoryKeywords = List.from(widget.preset?.categoryKeywords ?? []);
     _selectedAccountId = widget.preset?.defaultAccountId;
     _selectedCategoryId = widget.preset?.defaultCategoryId;
   }
@@ -423,6 +425,8 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
           _buildDefaultsSection(),
           const SizedBox(height: 24),
           _buildRulesSection(),
+          const SizedBox(height: 24),
+          _buildCategoryKeywordsSection(),
           const SizedBox(height: 24),
           if (isEditing) ...[_buildImportSection(), const SizedBox(height: 24)],
         ],
@@ -594,8 +598,8 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
   }
 
   Widget _buildImportSection() {
-    final bool canImport =
-        _selectedAccountId != null && _selectedCategoryId != null;
+    // Category has a fallback ('other') in the bloc, so only account is required.
+    final bool canImport = _selectedAccountId != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -721,26 +725,53 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
             itemBuilder: (context, index) {
               final rule = _rules[index];
               return Card(
-                child: ListTile(
-                  leading: Icon(
-                    rule.type == TransactionType.income
-                        ? Icons.arrow_downward
-                        : Icons.arrow_upward,
-                    color: rule.type == TransactionType.income
-                        ? Colors.green
-                        : Colors.red,
-                  ),
-                  title: Text(rule.type.name.toUpperCase()),
-                  subtitle: Text('Match: ${rule.matchPattern}'),
-                  trailing: isBuiltIn
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () {
-                            setState(() => _rules.removeAt(index));
-                            if (isEditing) _savePreset(pop: false);
-                          },
-                        ),
+                child: BlocBuilder<CategoriesBloc, CategoriesState>(
+                  builder: (context, catState) {
+                    final categories = catState is CategoriesLoadSuccess
+                        ? catState.allCategories
+                        : <Category>[];
+                    final ruleCategory = rule.categoryId != null
+                        ? categories.firstWhereOrNull(
+                            (c) => c.id == rule.categoryId,
+                          )
+                        : null;
+                    return ListTile(
+                      leading: Icon(
+                        rule.type == TransactionType.income
+                            ? Icons.arrow_downward
+                            : Icons.arrow_upward,
+                        color: rule.type == TransactionType.income
+                            ? Colors.green
+                            : Colors.red,
+                      ),
+                      title: Row(
+                        children: [
+                          Text(rule.type.name.toUpperCase()),
+                          if (ruleCategory != null) ...[
+                            const Text(' • ',
+                                style: TextStyle(color: Colors.grey)),
+                            Text(
+                              ruleCategory.name,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: Colors.grey),
+                            ),
+                          ],
+                        ],
+                      ),
+                      subtitle: Text('Match: ${rule.matchPattern}'),
+                      trailing: isBuiltIn
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: () {
+                                setState(() => _rules.removeAt(index));
+                                if (isEditing) _savePreset(pop: false);
+                              },
+                            ),
+                    );
+                  },
                 ),
               );
             },
@@ -750,10 +781,15 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
   }
 
   void _addRule() async {
+    final categoriesState = context.read<CategoriesBloc>().state;
+    final categories = categoriesState is CategoriesLoadSuccess
+        ? categoriesState.allCategories
+        : <Category>[];
+
     final rule = await DialogUtils.showAppDialog<SmsParsingRule>(
       context: context,
       resizeToAvoidBottomInset: false,
-      child: const SmsRuleBuilderDialog(),
+      child: SmsRuleBuilderDialog(categories: categories),
     );
     if (rule != null) {
       setState(() => _rules.add(rule));
@@ -780,9 +816,180 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
       defaultAccountId: _selectedAccountId,
       defaultCategoryId: _selectedCategoryId,
       rules: _rules,
+      // Preserve categoryKeywords — without this they are lost from the
+      // in-memory cache on every save, breaking keyword-based categorisation.
+      categoryKeywords: _categoryKeywords,
     );
 
     context.read<SmsBloc>().add(SaveSmsPreset(preset));
     if (pop) Navigator.pop(context);
+  }
+
+  Widget _buildCategoryKeywordsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Category Keywords',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: _showAddKeywordDialog,
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Map keywords in SMS body to categories',
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: Colors.grey),
+        ),
+        const SizedBox(height: 8),
+        if (_categoryKeywords.isEmpty)
+          const Text('No keyword rules. Tap + to add one.')
+        else
+          BlocBuilder<CategoriesBloc, CategoriesState>(
+            builder: (context, catState) {
+              final categories = catState is CategoriesLoadSuccess
+                  ? catState.allCategories
+                  : <Category>[];
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _categoryKeywords.length,
+                itemBuilder: (context, index) {
+                  final kw = _categoryKeywords[index];
+                  final category = categories.firstWhereOrNull(
+                    (c) => c.id == kw.categoryId,
+                  );
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.label_outline),
+                      title: Text(
+                        '"${kw.keyword}"',
+                        style: const TextStyle(fontStyle: FontStyle.italic),
+                      ),
+                      subtitle: Text(
+                        category?.name ?? kw.categoryId,
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () {
+                          setState(() => _categoryKeywords.removeAt(index));
+                          if (isEditing) _savePreset(pop: false);
+                        },
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  void _showAddKeywordDialog() async {
+    final catState = context.read<CategoriesBloc>().state;
+    final categories = catState is CategoriesLoadSuccess
+        ? catState.allCategories
+        : <Category>[];
+
+    final result = await DialogUtils.showAppDialog<SmsCategoryKeyword>(
+      context: context,
+      resizeToAvoidBottomInset: true,
+      child: _KeywordRuleDialog(categories: categories),
+    );
+
+    if (result != null) {
+      setState(() => _categoryKeywords.add(result));
+      if (isEditing) _savePreset(pop: false);
+    }
+  }
+}
+
+class _KeywordRuleDialog extends StatefulWidget {
+  final List<Category> categories;
+
+  const _KeywordRuleDialog({required this.categories});
+
+  @override
+  State<_KeywordRuleDialog> createState() => _KeywordRuleDialogState();
+}
+
+class _KeywordRuleDialogState extends State<_KeywordRuleDialog> {
+  final _keywordController = TextEditingController();
+  String? _selectedCategoryId;
+
+  @override
+  void dispose() {
+    _keywordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Keyword Rule'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _keywordController,
+            decoration: const InputDecoration(
+              labelText: 'Keyword',
+              hintText: 'e.g., Grocery, Netflix',
+              helperText: 'Case-insensitive substring to match in SMS body',
+            ),
+            autofocus: true,
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _selectedCategoryId,
+            decoration: const InputDecoration(
+              labelText: 'Category',
+              border: OutlineInputBorder(),
+            ),
+            hint: const Text('Select category'),
+            items: widget.categories
+                .map(
+                  (c) => DropdownMenuItem(
+                    value: c.id,
+                    child: Text(c.name),
+                  ),
+                )
+                .toList(),
+            onChanged: (v) => setState(() => _selectedCategoryId = v),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _selectedCategoryId == null ||
+                  _keywordController.text.trim().isEmpty
+              ? null
+              : () {
+                  Navigator.pop(
+                    context,
+                    SmsCategoryKeyword(
+                      keyword: _keywordController.text.trim(),
+                      categoryId: _selectedCategoryId!,
+                    ),
+                  );
+                },
+          child: const Text('Save'),
+        ),
+      ],
+    );
   }
 }

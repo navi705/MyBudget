@@ -32,7 +32,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return BlocBuilder<DashboardBloc, DashboardState>(
       builder: (context, state) {
-        if (state is DashboardLoadInProgress) {
+        if (state is DashboardInitial || state is DashboardLoadInProgress) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );

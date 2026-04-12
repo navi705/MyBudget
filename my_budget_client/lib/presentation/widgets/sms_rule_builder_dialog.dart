@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/sms_preset.dart';
 import 'package:uuid/uuid.dart';
 
@@ -8,7 +9,14 @@ import 'package:my_budget_client/core/extensions/context_extensions.dart';
 class SmsRuleBuilderDialog extends StatefulWidget {
   final SmsParsingRule? existingRule;
 
-  const SmsRuleBuilderDialog({super.key, this.existingRule});
+  /// Available categories for the optional category dropdown.
+  final List<Category> categories;
+
+  const SmsRuleBuilderDialog({
+    super.key,
+    this.existingRule,
+    this.categories = const [],
+  });
 
   @override
   State<SmsRuleBuilderDialog> createState() => _SmsRuleBuilderDialogState();
@@ -20,6 +28,7 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
   late final TextEditingController _amountController;
   late final TextEditingController _currencyController;
   late final TextEditingController _testSmsController;
+  String? _selectedCategoryId;
 
   String? _testResult;
   bool _testSuccess = false;
@@ -28,6 +37,7 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
   void initState() {
     super.initState();
     _type = widget.existingRule?.type ?? TransactionType.expense;
+    _selectedCategoryId = widget.existingRule?.categoryId;
     _matchController = TextEditingController(
       text: widget.existingRule?.matchPattern ?? '',
     );
@@ -121,7 +131,34 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
                 border: const OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+
+            // Category (optional)
+            if (widget.categories.isNotEmpty) ...[
+              DropdownButtonFormField<String?>(
+                value: _selectedCategoryId,
+                decoration: const InputDecoration(
+                  labelText: 'Category (optional)',
+                  helperText: 'Override category for this rule',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('— None —'),
+                  ),
+                  ...widget.categories.map(
+                    (cat) => DropdownMenuItem<String?>(
+                      value: cat.id,
+                      child: Text(cat.name),
+                    ),
+                  ),
+                ],
+                onChanged: (val) => setState(() => _selectedCategoryId = val),
+              ),
+              const SizedBox(height: 24),
+            ] else
+              const SizedBox(height: 24),
 
             // Test Section
             const Divider(),
@@ -248,6 +285,7 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
       currencyPattern: _currencyController.text.isEmpty
           ? null
           : _currencyController.text,
+      categoryId: _selectedCategoryId,
     );
 
     Navigator.pop(context, rule);

@@ -108,14 +108,21 @@ class LocalSettingsRepository implements SettingsRepository {
 
   @override
   Future<void> initializeDefaults() async {
+    debugPrint('[SETTINGS_REPO] initializeDefaults START');
     // Optimization: Check if we already have settings to avoid redundant DB writes on every startup
+    debugPrint('[SETTINGS_REPO] initializeDefaults: calling getAllSettings (first DB touch)...');
     final existingSettings = await _database.settingsDao.getAllSettings();
+    debugPrint('[SETTINGS_REPO] initializeDefaults: getAllSettings returned ${existingSettings.length} rows');
     if (existingSettings.isNotEmpty) {
+      debugPrint('[SETTINGS_REPO] initializeDefaults: settings exist, skipping seed');
       return;
     }
 
+    debugPrint('[SETTINGS_REPO] initializeDefaults: no settings found, seeding defaults...');
     final deviceName = await getDeviceName();
+    debugPrint('[SETTINGS_REPO] initializeDefaults: deviceName=$deviceName');
     final defaults = getDefaultSettings(deviceName);
+    debugPrint('[SETTINGS_REPO] initializeDefaults: inserting ${defaults.length} default settings...');
 
     await _database.batch((batch) {
       for (final setting in defaults) {
@@ -126,5 +133,7 @@ class LocalSettingsRepository implements SettingsRepository {
         );
       }
     });
+    debugPrint('[SETTINGS_REPO] initializeDefaults DONE');
   }
+
 }

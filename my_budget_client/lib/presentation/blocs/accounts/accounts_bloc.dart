@@ -51,16 +51,20 @@ class DeleteAccountAndReassign extends AccountsEvent {
 }
 
 class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
-  final AccountRepository _accountRepository;
-  final SettingsRepository _settingsRepository;
-  final CurrencyRepository _currencyRepository;
-  final InflationRepository _inflationRepository;
-  final TransactionRepository _transactionRepository;
-  final AssetRepository _assetRepository;
-  final CategoryRepository _categoryRepository; // Added
-  final FinanceCalculator _financeCalculator; // Added
+   final AccountRepository _accountRepository;
+   final SettingsRepository _settingsRepository;
+   final CurrencyRepository _currencyRepository;
+   final InflationRepository _inflationRepository;
+   final TransactionRepository _transactionRepository;
+   final AssetRepository _assetRepository;
+   final CategoryRepository _categoryRepository; // Added
+   final FinanceCalculator _financeCalculator; // Added
 
-  StreamSubscription<List<Transaction>>? _transactionsSubscription;
+   StreamSubscription<List<Transaction>>? _transactionsSubscription;
+   
+   // Optimization: Cache rate map to avoid rebuilding on every sort
+   Map<String, double>? _cachedRateMap;
+   List<ExchangeRateDomain>? _cachedRates;
 
   AccountsBloc({
     required AccountRepository accountRepository,
@@ -271,28 +275,29 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       // However, we can optimize by only fetching if standard account logic triggers.
       // But FinanceCalculator expects the full snapshot.
 
-      final sortedAccountsTemp = _sortAccounts(
-        accounts,
-        exchangeRates,
-        filters.sort == Sort.ascending,
-      );
-
-      final accountIds = sortedAccountsTemp
+      // OPTIMIZATION: Skip redundant pre-sort — account IDs are order-independent
+      // for the transaction fetch. The sort is applied later on accountsWithBalances.
+      final accountIds = accounts
           .map((e) => e.id)
           .whereType<String>()
           .toList();
 
-      PerformanceLogger().start('Accounts: getTransactionsWithFilters');
-      final allTransactions = await _transactionRepository
-          .getTransactionsWithFilters(
-            filters: TransactionFilters(accountId: accountIds),
-            limit: 1000000,
-          );
-      await PerformanceLogger().stop('Accounts: getTransactionsWithFilters');
-
-      final defaultCountrySetting = await _settingsRepository.getSetting(
+      // OPTIMIZATION: Start both futures in parallel to overlap I/O wait times.
+      // getSetting is a cheap DB call that can run concurrently with the heavier
+      // transaction fetch.
+      final txFuture = _transactionRepository.getTransactionsWithFilters(
+        filters: TransactionFilters(accountId: accountIds),
+        limit: 1000000,
+      );
+      final settingFuture = _settingsRepository.getSetting(
         'default_inflation_country',
       );
+
+      PerformanceLogger().start('Accounts: getTransactionsWithFilters');
+      final allTransactions = await txFuture;
+      await PerformanceLogger().stop('Accounts: getTransactionsWithFilters');
+
+      final defaultCountrySetting = await settingFuture;
       final defaultCountry =
           defaultCountrySetting?.value ?? 'SRB'; // Default to Serbia
 
@@ -310,6 +315,17 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       );
 
       PerformanceLogger().start('FinanceCalculator: Calculations');
+
+      // NOTE: Finding #5 Optimization Limitation
+      // The following calls to FinanceCalculator have internal redundancy:
+      // - calculateRealBalances() internally calls calculateBalances() again
+      // - calculateAssetStats() internally calls calculateBalances() again
+      // This results in calculateBalances() being called 3 times for the same snapshot.
+      // To eliminate this redundancy would require modifying FinanceCalculator to accept
+      // pre-computed balances as parameters. For now, the snapshot is built once and
+      // reused across all calls, which is the minimum safe optimization.
+      // The snapshot itself is cheap to create (just references), but calculateBalances()
+      // does O(A×T) work each time it's called.
 
       // 1. Calculate Nominal Balances (handles Asset Binding)
       final nominalBalances = _financeCalculator.calculateBalances(snapshot);
@@ -977,27 +993,27 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final categories = results[4] as List<Category>; // Added
 
       // Fetch ALL transactions (FinanceCalculator needs history)
-      final sortedAccountsTemp = _sortAccounts(
-        accounts,
-        exchangeRates,
-        currentState.filters.sort == Sort.ascending,
-      );
-      final accountIds = sortedAccountsTemp
+      // OPTIMIZATION: Skip redundant pre-sort — account IDs are order-independent
+      // for the transaction fetch. The sort is applied later on accountsWithBalances.
+      final accountIds = accounts
           .map((e) => e.id)
           .whereType<String>()
           .toList();
 
-      PerformanceLogger().start('Accounts: getTransactionsWithFilters');
-      final allTransactions = await _transactionRepository
-          .getTransactionsWithFilters(
-            filters: TransactionFilters(accountId: accountIds),
-            limit: 1000000,
-          );
-      await PerformanceLogger().stop('Accounts: getTransactionsWithFilters');
-
-      final defaultCountrySetting = await _settingsRepository.getSetting(
+      // OPTIMIZATION: Start both futures in parallel to overlap I/O wait times.
+      final txFuture = _transactionRepository.getTransactionsWithFilters(
+        filters: TransactionFilters(accountId: accountIds),
+        limit: 1000000,
+      );
+      final settingFuture = _settingsRepository.getSetting(
         'default_inflation_country',
       );
+
+      PerformanceLogger().start('Accounts: getTransactionsWithFilters');
+      final allTransactions = await txFuture;
+      await PerformanceLogger().stop('Accounts: getTransactionsWithFilters');
+
+      final defaultCountrySetting = await settingFuture;
       final defaultCountry = defaultCountrySetting?.value ?? 'SRB';
 
       // 2. Construct Snapshot at Target Date
@@ -1014,6 +1030,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       );
 
       PerformanceLogger().start('FinanceCalculator: Calculations');
+
+      // NOTE: Same redundancy as in _onLoadAccounts (see comment there).
+      // calculateRealBalances and calculateAssetStats internally call calculateBalances.
 
       // 1. Nominal Balances
       final nominalBalances = _financeCalculator.calculateBalances(snapshot);
@@ -1252,10 +1271,16 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     List<ExchangeRateDomain> rates,
     bool ascending,
   ) {
-    final Map<String, double> rateMap = {
-      for (var r in rates) r.toCurrencyCode: r.rate,
-    };
-    rateMap['EUR'] = 1.0;
+    // Optimization: Only rebuild rate map if rates have changed
+    if (_cachedRates != rates || _cachedRateMap == null) {
+      _cachedRateMap = {
+        for (var r in rates) r.toCurrencyCode: r.rate,
+      };
+      _cachedRateMap!['EUR'] = 1.0;
+      _cachedRates = rates;
+    }
+
+    final rateMap = _cachedRateMap!;
 
     accounts.sort((a, b) {
       final aRate = rateMap[a.currencyCode];

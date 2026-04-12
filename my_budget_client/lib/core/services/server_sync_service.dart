@@ -5,9 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:drift/drift.dart' as drift_db;
 import 'package:my_budget_client/core/database/app_database.dart';
-import 'package:my_budget_client/domain/entities/category_type.dart';
-import 'package:my_budget_client/domain/entities/currency.dart';
-import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 
@@ -15,7 +12,13 @@ class ServerSyncService {
   final AppDatabase _database;
   final SettingsRepository _settingsRepository;
   WebSocketChannel? _channel;
+  StreamSubscription? _wsSubscription;
+  Timer? _pingTimer;
+  bool _reconnectScheduled = false;
+  bool _isDisposed = false;
+  bool _isConnecting = false;
   bool _isSyncingInternal = false;
+  bool _autoSyncInitialized = false;
 
   ServerSyncService({
     required AppDatabase database,
@@ -44,6 +47,7 @@ class ServerSyncService {
   Future<void> sync() async {
     if (!await _isEnabled()) {
       debugPrint('[ServerSync] Server sync is disabled. Skipping.');
+      debugPrint('[DIAG][ServerSync] server_sync_enabled=false — asset_entries will NOT sync between devices!');
       return;
     }
 
@@ -66,53 +70,107 @@ class ServerSyncService {
     }
   }
 
-  /// Initialize real-time updates via WebSocket with auto-reconnect
+  /// Initialize real-time updates via WebSocket with auto-reconnect.
+  /// Safe to call multiple times — skips if already connected or connecting.
   Future<void> initWebSocket() async {
     if (!await _isEnabled()) return;
+    if (_channel != null || _isConnecting) {
+      debugPrint('[WS_CLIENT] Already connected/connecting — skipping initWebSocket()');
+      return;
+    }
     _connectWebSocket();
   }
 
   Future<void> _connectWebSocket() async {
+    if (_isDisposed || _isConnecting) return;
+    _isConnecting = true;
     try {
       final baseUrl = await _getBaseUrl();
       // Ensure ws:// or wss:// scheme
       final wsParams = baseUrl.replaceFirst(RegExp(r'^http'), 'ws');
       final wsUrl = '$wsParams/ws/sync';
 
-      debugPrint('[ServerSync] Connecting to WebSocket: $wsUrl');
+      debugPrint('[WS_CLIENT] Connecting to: $wsUrl');
+
+      // Cancel ping timer
+      _pingTimer?.cancel();
+      _pingTimer = null;
+
+      // Cancel subscription BEFORE closing channel to prevent spurious onDone
+      // (which would trigger _scheduleReconnect while we're already reconnecting)
+      if (_wsSubscription != null) {
+        debugPrint('[WS_CLIENT] Cancelling previous subscription...');
+        await _wsSubscription?.cancel();
+        _wsSubscription = null;
+      }
 
       // Close existing channel if any
-      await _channel?.sink.close();
+      if (_channel != null) {
+        debugPrint('[WS_CLIENT] Closing previous channel...');
+        await _channel?.sink.close();
+        _channel = null;
+        debugPrint('[WS_CLIENT] Previous channel closed');
+      }
 
+      if (_isDisposed) return;
+
+      debugPrint('[WS_CLIENT] Creating WebSocketChannel...');
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      debugPrint('[WS_CLIENT] Channel object created (handshake pending)');
 
-      _channel!.stream.listen(
+      // Ping every 30 s to keep the connection alive through idle-timeout proxies
+      _pingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+        try {
+          _channel?.sink.add('ping');
+        } catch (e) {
+          debugPrint('[WS_CLIENT] Ping failed: $e');
+        }
+      });
+
+      _wsSubscription = _channel!.stream.listen(
         (message) {
-          debugPrint('[ServerSync] WS Message: $message');
+          debugPrint('[WS_CLIENT] Message received: $message');
+          if (message == 'pong') return; // heartbeat reply — ignore
           if (message == 'sync_available') {
             sync();
           }
         },
         onDone: () {
-          debugPrint(
-            '[ServerSync] WebSocket disconnected. Reconnecting in 10s...',
-          );
-          Future.delayed(const Duration(seconds: 10), _connectWebSocket);
+          debugPrint('[WS_CLIENT] onDone called — connection closed');
+          _wsSubscription = null;
+          _pingTimer?.cancel();
+          _pingTimer = null;
+          _scheduleReconnect();
         },
-        onError: (e) {
-          debugPrint(
-            '[ServerSync] WebSocket error: $e. Reconnecting in 10s...',
-          );
-          Future.delayed(const Duration(seconds: 10), _connectWebSocket);
+        onError: (Object e) {
+          debugPrint('[WS_CLIENT] onError: $e');
+          _wsSubscription = null;
+          _pingTimer?.cancel();
+          _pingTimer = null;
+          _scheduleReconnect();
         },
         cancelOnError: true,
       );
+
+      debugPrint('[WS_CLIENT] Stream listener registered, connection active');
     } catch (e) {
-      debugPrint(
-        '[ServerSync] WebSocket connection setup failed: $e. Retrying in 10s...',
-      );
-      Future.delayed(const Duration(seconds: 10), _connectWebSocket);
+      _pingTimer?.cancel();
+      _pingTimer = null;
+      debugPrint('[WS_CLIENT] Connection setup failed: $e. Retrying in 10s...');
+      _scheduleReconnect();
+    } finally {
+      _isConnecting = false;
     }
+  }
+
+  /// Schedules a single reconnect attempt, ignoring duplicate calls.
+  void _scheduleReconnect() {
+    if (_isDisposed || _reconnectScheduled) return;
+    _reconnectScheduled = true;
+    Future.delayed(const Duration(seconds: 10), () {
+      _reconnectScheduled = false;
+      _connectWebSocket();
+    });
   }
 
   Timer? _debounceTimer;
@@ -120,7 +178,17 @@ class ServerSyncService {
   StreamSubscription? _dbSubscription;
 
   void dispose() {
+    _isDisposed = true;
+    _autoSyncInitialized = false;
+    _reconnectScheduled = false;
+    _isConnecting = false;
+    _pingTimer?.cancel();
+    _pingTimer = null;
+    // Cancel subscription first to prevent onDone from firing during dispose
+    _wsSubscription?.cancel();
+    _wsSubscription = null;
     _channel?.sink.close();
+    _channel = null;
     _dbSubscription?.cancel();
     _debounceTimer?.cancel();
     _periodicSyncTimer?.cancel();
@@ -155,7 +223,12 @@ class ServerSyncService {
   /// Initialize listeners for local database changes to trigger "Instant Push"
   /// and a periodic fallback timer.
   Future<void> initAutoSync() async {
+    if (_autoSyncInitialized) {
+      debugPrint('[ServerSync] Auto-sync already initialized. Skipping.');
+      return;
+    }
     if (!await _isEnabled()) return;
+    _autoSyncInitialized = true;
 
     debugPrint('[ServerSync] Initializing DB Auto-Sync...');
     await _dbSubscription?.cancel();
@@ -287,16 +360,29 @@ class ServerSyncService {
     final totalPullStopwatch = Stopwatch()..start();
     int totalDownloaded = 0;
 
+    // Hard cap on iterations — prevents infinite loop if server always returns hasMore=true
+    // or if timestamp stops advancing due to data anomalies.
+    const int maxIterations = 200;
+    int iteration = 0;
+
     debugPrint('[ServerSync] Starting batched pull...');
 
     while (true) {
+      if (iteration >= maxIterations) {
+        debugPrint(
+          '[ServerSync] WARNING: Max pull iterations ($maxIterations) reached. Stopping pull loop to prevent infinite loop.',
+        );
+        break;
+      }
+      iteration++;
+
       final batchStopwatch = Stopwatch()..start();
       final lastSync = prefs.getInt(lastSyncKey) ?? 0;
       final url = Uri.parse(
         '$baseUrl/api/sync/pull?last_sync=$lastSync&limit=20000',
       );
 
-      debugPrint('[ServerSync] Pulling batch since $lastSync...');
+      debugPrint('[ServerSync] Pulling batch since $lastSync (iteration $iteration)...');
 
       final fetchStopwatch = Stopwatch()..start();
       final response = await http
@@ -308,6 +394,8 @@ class ServerSyncService {
         final body = jsonDecode(response.body);
         final changesMap = body['changes'] as Map<String, dynamic>;
         final serverTimestamp = (body['server_timestamp'] as num).toInt();
+        // has_more: server signals that at least one table hit the query limit
+        final hasMore = body['has_more'] as bool? ?? false;
 
         // Check if we received any real changes
         bool hasChanges = false;
@@ -324,7 +412,7 @@ class ServerSyncService {
         }
 
         debugPrint(
-          '[ServerSync] Applying batch with ${changesMap.length} tables (high mark: $serverTimestamp)...',
+          '[ServerSync] Applying batch with ${changesMap.length} tables (high mark: $serverTimestamp, hasMore: $hasMore)...',
         );
 
         final applyStopwatch = Stopwatch()..start();
@@ -337,13 +425,18 @@ class ServerSyncService {
           '[PERF] Pull Batch: Fetch ${fetchStopwatch.elapsedMilliseconds}ms, DB Apply ${applyStopwatch.elapsedMilliseconds}ms, Total ${batchStopwatch.elapsedMilliseconds}ms',
         );
 
-        // Infinite loop protection
+        // Primary infinite-loop guard: stop if timestamp did not advance.
+        // This catches the case where all rows share the same modifiedAt and
+        // the next query with modified_at > serverTimestamp returns nothing.
         if (serverTimestamp <= lastSync) {
           debugPrint(
             '[ServerSync] WARNING: Server timestamp did not advance. Stopping pull loop.',
           );
           break;
         }
+
+        // Secondary stop: server explicitly says no more data
+        if (!hasMore) break;
       } else {
         debugPrint('[ServerSync] Pull failed body: ${response.body}');
         throw Exception('Pull failed: ${response.statusCode} ${response.body}');
@@ -351,7 +444,7 @@ class ServerSyncService {
     }
     totalPullStopwatch.stop();
     debugPrint(
-      '[PERF] Total Pull: ${totalPullStopwatch.elapsedMilliseconds}ms ($totalDownloaded items)',
+      '[PERF] Total Pull: ${totalPullStopwatch.elapsedMilliseconds}ms ($totalDownloaded items, $iteration iterations)',
     );
   }
 
@@ -770,10 +863,13 @@ class ServerSyncService {
         await _database.transaction(() async {
           final list = changes['asset_entries'] as List;
           debugPrint('[ServerSync] Applying ${list.length} asset_entries...');
+          debugPrint('[DIAG][ServerSync] PULL: received ${list.length} asset_entries from server. IDs: ${list.take(5).map((r) => (r as Map)['id']).join(', ')}${list.length > 5 ? '...' : ''}');
           for (final row in list) {
             await _upsertAssetEntry(row as Map<String, dynamic>);
           }
         });
+      } else {
+        debugPrint('[DIAG][ServerSync] PULL: no asset_entries in server response — either no new data or server has nothing newer than lastSync');
       }
       if (changes.containsKey('transactions')) {
         await _database.transaction(() async {
@@ -977,490 +1073,510 @@ class ServerSyncService {
     'isDeleted': e.isDeleted,
   };
 
+  // ---------------------------------------------------------------------------
+  // _upsert* methods — optimised: no pre-SELECT, single SQL statement with
+  // ON CONFLICT DO UPDATE SET ... WHERE EXCLUDED.modified_at > table.modified_at
+  // This eliminates the N+1 SELECT+INSERT pattern (was 2×N DB ops, now N ops).
+  // ---------------------------------------------------------------------------
+
   Future<void> _upsertLanguage(Map<String, dynamic> json) async {
-    final languageCode = json['languageCode'] as String? ?? 'en';
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
-
-    final existing = await (_database.select(
-      _database.languages,
-    )..where((t) => t.languageCode.equals(languageCode))).getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    final companion = LanguagesCompanion(
-      languageCode: drift_db.Value(languageCode),
-      language: drift_db.Value(json['language'] as String? ?? 'English'),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
+    await _database.customInsert(
+      '''INSERT INTO languages (language_code, language, modified_at, device_id)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT (language_code) DO UPDATE SET
+        language = EXCLUDED.language,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id
+      WHERE EXCLUDED.modified_at > languages.modified_at''',
+      variables: [
+        drift_db.Variable.withString(json['languageCode'] as String? ?? 'en'),
+        drift_db.Variable.withString(json['language'] as String? ?? 'English'),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+      ],
     );
-    await _database.into(_database.languages).insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertCurrency(Map<String, dynamic> json) async {
-    final code = json['code'] as String? ?? 'USD';
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
-
-    final existing = await (_database.select(
-      _database.currencies,
-    )..where((t) => t.code.equals(code))).getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    final companion = CurrenciesCompanion(
-      code: drift_db.Value(code),
-      name: drift_db.Value(json['name'] as String? ?? 'US Dollar'),
-      languageCode: drift_db.Value(json['languageCode'] as String? ?? 'en'),
-      type: drift_db.Value(TypeCurrency.values[json['type'] as int? ?? 0]),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
+    await _database.customInsert(
+      '''INSERT INTO currencies (code, name, language_code, type, modified_at, device_id)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT (code) DO UPDATE SET
+        name = EXCLUDED.name,
+        language_code = EXCLUDED.language_code,
+        type = EXCLUDED.type,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id
+      WHERE EXCLUDED.modified_at > currencies.modified_at''',
+      variables: [
+        drift_db.Variable.withString(json['code'] as String? ?? 'USD'),
+        drift_db.Variable.withString(json['name'] as String? ?? 'US Dollar'),
+        drift_db.Variable.withString(json['languageCode'] as String? ?? 'en'),
+        drift_db.Variable.withInt(json['type'] as int? ?? 0),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+      ],
     );
-    await _database
-        .into(_database.currencies)
-        .insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertStyle(Map<String, dynamic> json) async {
-    final id = json['id'] as String? ?? '';
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
-
-    final existing = await (_database.select(
-      _database.styles,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    final companion = StylesCompanion(
-      id: drift_db.Value(id),
-      name: drift_db.Value(json['name'] as String? ?? ''),
-      colorHex: drift_db.Value(json['colorHex'] as String? ?? ''),
-      iconName: drift_db.Value(json['iconName'] as String? ?? ''),
-      iconType: drift_db.Value(IconType.values[json['iconType'] as int? ?? 0]),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
-      isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
+    await _database.customInsert(
+      '''INSERT INTO styles (id, name, color_hex, icon_name, icon_type, modified_at, device_id, is_deleted)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        color_hex = EXCLUDED.color_hex,
+        icon_name = EXCLUDED.icon_name,
+        icon_type = EXCLUDED.icon_type,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id,
+        is_deleted = EXCLUDED.is_deleted
+      WHERE EXCLUDED.modified_at > styles.modified_at''',
+      variables: [
+        drift_db.Variable.withString(json['id'] as String? ?? ''),
+        drift_db.Variable.withString(json['name'] as String? ?? ''),
+        drift_db.Variable.withString(json['colorHex'] as String? ?? ''),
+        drift_db.Variable.withString(json['iconName'] as String? ?? ''),
+        drift_db.Variable.withInt(json['iconType'] as int? ?? 0),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+      ],
     );
-    await _database.into(_database.styles).insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertAccountType(Map<String, dynamic> json) async {
-    final id = json['id'] as String? ?? '';
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
-
-    final existing = await (_database.select(
-      _database.accountTypes,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    final companion = AccountTypesCompanion(
-      id: drift_db.Value(id),
-      name: drift_db.Value(json['name'] as String? ?? ''),
-      languageCode: drift_db.Value(json['languageCode'] as String? ?? 'en'),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
-      isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
+    await _database.customInsert(
+      '''INSERT INTO account_types (id, name, language_code, modified_at, device_id, is_deleted)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        language_code = EXCLUDED.language_code,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id,
+        is_deleted = EXCLUDED.is_deleted
+      WHERE EXCLUDED.modified_at > account_types.modified_at''',
+      variables: [
+        drift_db.Variable.withString(json['id'] as String? ?? ''),
+        drift_db.Variable.withString(json['name'] as String? ?? ''),
+        drift_db.Variable.withString(json['languageCode'] as String? ?? 'en'),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+      ],
     );
-    await _database
-        .into(_database.accountTypes)
-        .insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertCurrencyDesignation(Map<String, dynamic> json) async {
-    final id = json['id'] as String? ?? '';
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
-
-    final existing = await (_database.select(
-      _database.currencyDesignations,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    final companion = CurrencyDesignationsCompanion(
-      id: drift_db.Value(id),
-      value: drift_db.Value(json['value'] as String? ?? ''),
-      currencyCode: drift_db.Value(json['currencyCode'] as String? ?? 'USD'),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
-      isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
+    await _database.customInsert(
+      '''INSERT INTO currency_designations (id, value, currency_code, modified_at, device_id, is_deleted)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT (id) DO UPDATE SET
+        value = EXCLUDED.value,
+        currency_code = EXCLUDED.currency_code,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id,
+        is_deleted = EXCLUDED.is_deleted
+      WHERE EXCLUDED.modified_at > currency_designations.modified_at''',
+      variables: [
+        drift_db.Variable.withString(json['id'] as String? ?? ''),
+        drift_db.Variable.withString(json['value'] as String? ?? ''),
+        drift_db.Variable.withString(json['currencyCode'] as String? ?? 'USD'),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+      ],
     );
-    await _database
-        .into(_database.currencyDesignations)
-        .insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertCategory(Map<String, dynamic> json) async {
-    final id = json['id'] as String? ?? '';
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
-
-    final existing = await (_database.select(
-      _database.categories,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    final companion = CategoriesCompanion(
-      id: drift_db.Value(id),
-      name: drift_db.Value(json['name'] as String? ?? ''),
-      parentId: drift_db.Value(json['parentId'] as String?),
-      styleId: drift_db.Value(json['styleId'] as String?),
-      type: drift_db.Value(CategoryType.values[json['type'] as int? ?? 0]),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
-      isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
+    await _database.customInsert(
+      '''INSERT INTO categories (id, name, parent_id, style_id, type, modified_at, device_id, is_deleted)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        parent_id = EXCLUDED.parent_id,
+        style_id = EXCLUDED.style_id,
+        type = EXCLUDED.type,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id,
+        is_deleted = EXCLUDED.is_deleted
+      WHERE EXCLUDED.modified_at > categories.modified_at''',
+      variables: [
+        drift_db.Variable.withString(json['id'] as String? ?? ''),
+        drift_db.Variable.withString(json['name'] as String? ?? ''),
+        drift_db.Variable(json['parentId'] as String?),
+        drift_db.Variable(json['styleId'] as String?),
+        drift_db.Variable.withInt(json['type'] as int? ?? 0),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+      ],
     );
-    await _database
-        .into(_database.categories)
-        .insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertAccount(Map<String, dynamic> json) async {
-    final id = json['id'] as String? ?? '';
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
-
-    final existing = await (_database.select(
-      _database.accounts,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    // Use existing values if incoming fields are null or empty to prevent corruption
     final currencyCode = json['currencyCode'] as String?;
     final currencyDesignationId = json['currencyDesignationId'] as String?;
-
-    final companion = AccountsCompanion(
-      id: drift_db.Value(id),
-      name: drift_db.Value(json['name'] as String? ?? 'Untitled Account'),
-      description: drift_db.Value(json['description'] as String?),
-      balance: drift_db.Value(
-        _round((json['balance'] as num?)?.toDouble() ?? 0.0),
-      ),
-      currencyCode: drift_db.Value(
-        (currencyCode != null && currencyCode.isNotEmpty)
-            ? currencyCode
-            : (existing?.currencyCode ?? 'USD'),
-      ),
-      currencyDesignationId: drift_db.Value(
+    // Fallback values are embedded in VALUES(...) so ON CONFLICT UPDATE can
+    // safely use EXCLUDED.* — the correct value is already in EXCLUDED.
+    final resolvedCurrencyCode =
+        (currencyCode != null && currencyCode.isNotEmpty) ? currencyCode : 'USD';
+    final resolvedCurrencyDesignationId =
         (currencyDesignationId != null && currencyDesignationId.isNotEmpty)
             ? currencyDesignationId
-            : (existing?.currencyDesignationId ?? ''),
-      ),
-      styleId: drift_db.Value(json['styleId'] as String?),
-      accountTypeId: drift_db.Value(
-        json['accountTypeId'] as String? ?? 'account_type_checking',
-      ),
-      creationDate: drift_db.Value(
-        DateTime.tryParse(json['creationDate'] as String? ?? '') ??
-            DateTime.now(),
-      ),
-      country: drift_db.Value(json['country'] as String?),
-      assetId: drift_db.Value(json['assetId'] as String?),
-      assetQuantity: drift_db.Value(
-        _round((json['assetQuantity'] as num?)?.toDouble() ?? 0.0),
-      ),
-      feeStructure: drift_db.Value(json['feeStructure'] as String?),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
-      isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
+            : '';
+
+    await _database.customInsert(
+      '''INSERT INTO accounts (id, name, description, balance, currency_code, currency_designation_id, style_id, account_type_id, creation_date, country, asset_id, asset_quantity, fee_structure, modified_at, device_id, is_deleted)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        description = EXCLUDED.description,
+        balance = EXCLUDED.balance,
+        currency_code = EXCLUDED.currency_code,
+        currency_designation_id = EXCLUDED.currency_designation_id,
+        style_id = EXCLUDED.style_id,
+        account_type_id = EXCLUDED.account_type_id,
+        creation_date = EXCLUDED.creation_date,
+        country = EXCLUDED.country,
+        asset_id = EXCLUDED.asset_id,
+        asset_quantity = EXCLUDED.asset_quantity,
+        fee_structure = EXCLUDED.fee_structure,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id,
+        is_deleted = EXCLUDED.is_deleted
+      WHERE EXCLUDED.modified_at > accounts.modified_at''',
+      variables: [
+        drift_db.Variable.withString(json['id'] as String? ?? ''),
+        drift_db.Variable.withString(json['name'] as String? ?? 'Untitled Account'),
+        drift_db.Variable(json['description'] as String?),
+        drift_db.Variable.withReal(_round((json['balance'] as num?)?.toDouble() ?? 0.0)),
+        drift_db.Variable.withString(resolvedCurrencyCode),
+        drift_db.Variable.withString(resolvedCurrencyDesignationId),
+        drift_db.Variable(json['styleId'] as String?),
+        drift_db.Variable.withString(json['accountTypeId'] as String? ?? 'account_type_checking'),
+        drift_db.Variable.withDateTime(
+          DateTime.tryParse(json['creationDate'] as String? ?? '') ?? DateTime.now(),
+        ),
+        drift_db.Variable(json['country'] as String?),
+        drift_db.Variable(json['assetId'] as String?),
+        drift_db.Variable.withReal(_round((json['assetQuantity'] as num?)?.toDouble() ?? 0.0)),
+        drift_db.Variable(json['feeStructure'] as String?),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+      ],
     );
-    await _database.into(_database.accounts).insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertTransaction(Map<String, dynamic> json) async {
-    final id = json['id'] as String? ?? '';
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
-
-    final existing = await (_database.select(
-      _database.transactions,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
     final currencyCode = json['currencyCode'] as String?;
+    final resolvedCurrencyCode =
+        (currencyCode != null && currencyCode.isNotEmpty) ? currencyCode : 'USD';
 
-    final companion = TransactionsCompanion(
-      id: drift_db.Value(id),
-      description: drift_db.Value(json['description'] as String? ?? ''),
-      amount: drift_db.Value(
-        _round((json['amount'] as num?)?.toDouble() ?? 0.0),
-      ),
-      date: drift_db.Value(
-        DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
-      ),
-      accountId: drift_db.Value(json['accountId'] as String? ?? ''),
-      categoryId: drift_db.Value(json['categoryId'] as String? ?? ''),
-      currencyCode: drift_db.Value(
-        (currencyCode != null && currencyCode.isNotEmpty)
-            ? currencyCode
-            : (existing?.currencyCode ?? 'USD'),
-      ),
-      exchangeRate: drift_db.Value(
-        (json['exchangeRate'] as num?)?.toDouble() ?? 1.0,
-      ),
-      exchangeRatePreset: drift_db.Value(json['exchangeRatePreset'] as int?),
-      fee: drift_db.Value(_round((json['fee'] as num?)?.toDouble() ?? 0.0)),
-      linkedTransactionId: drift_db.Value(
-        json['linkedTransactionId'] as String?,
-      ),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
-      isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
+    await _database.customInsert(
+      '''INSERT INTO transactions (id, description, amount, date, account_id, category_id, currency_code, exchange_rate, exchange_rate_preset, fee, linked_transaction_id, modified_at, device_id, is_deleted)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (id) DO UPDATE SET
+        description = EXCLUDED.description,
+        amount = EXCLUDED.amount,
+        date = EXCLUDED.date,
+        account_id = EXCLUDED.account_id,
+        category_id = EXCLUDED.category_id,
+        currency_code = EXCLUDED.currency_code,
+        exchange_rate = EXCLUDED.exchange_rate,
+        exchange_rate_preset = EXCLUDED.exchange_rate_preset,
+        fee = EXCLUDED.fee,
+        linked_transaction_id = EXCLUDED.linked_transaction_id,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id,
+        is_deleted = EXCLUDED.is_deleted
+      WHERE EXCLUDED.modified_at > transactions.modified_at''',
+      variables: [
+        drift_db.Variable.withString(json['id'] as String? ?? ''),
+        drift_db.Variable.withString(json['description'] as String? ?? ''),
+        drift_db.Variable.withReal(_round((json['amount'] as num?)?.toDouble() ?? 0.0)),
+        drift_db.Variable.withDateTime(
+          DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
+        ),
+        drift_db.Variable.withString(json['accountId'] as String? ?? ''),
+        drift_db.Variable.withString(json['categoryId'] as String? ?? ''),
+        drift_db.Variable.withString(resolvedCurrencyCode),
+        drift_db.Variable.withReal((json['exchangeRate'] as num?)?.toDouble() ?? 1.0),
+        drift_db.Variable(json['exchangeRatePreset'] as int?),
+        drift_db.Variable.withReal(_round((json['fee'] as num?)?.toDouble() ?? 0.0)),
+        drift_db.Variable(json['linkedTransactionId'] as String?),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+      ],
     );
-    await _database
-        .into(_database.transactions)
-        .insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertAssetEntry(Map<String, dynamic> json) async {
+    final source = json['source'] as String? ?? 'manual';
     final id = json['id'] as String? ?? '';
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+    final date = DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now();
 
-    final existing = await (_database.select(
-      _database.assetEntries,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
+    // For custom_api entries: remove any existing row with a different ID but
+    // the same (asset_id, date) — these are pre-fix duplicates that would
+    // violate the partial UNIQUE INDEX added in schema v7.
+    if (source == 'custom_api' && id.isNotEmpty) {
+      final assetId = json['assetId'] as String? ?? '';
+      await _database.customUpdate(
+        'DELETE FROM asset_entries '
+        'WHERE source = ? AND asset_id = ? AND date = ? AND id != ?',
+        variables: [
+          drift_db.Variable.withString(source),
+          drift_db.Variable.withString(assetId),
+          drift_db.Variable.withDateTime(date),
+          drift_db.Variable.withString(id),
+        ],
+        updates: {_database.assetEntries},
+        updateKind: drift_db.UpdateKind.delete,
+      );
+    }
 
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    final companion = AssetEntriesCompanion(
-      id: drift_db.Value(id),
-      assetId: drift_db.Value(json['assetId'] as String? ?? ''),
-      name: drift_db.Value(json['name'] as String? ?? ''),
-      date: drift_db.Value(
-        DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
-      ),
-      value: drift_db.Value(_round((json['value'] as num?)?.toDouble() ?? 0.0)),
-      quantity: drift_db.Value(
-        _round((json['quantity'] as num?)?.toDouble() ?? 1.0),
-      ),
-      assetType: drift_db.Value(json['assetType'] as String?),
-      description: drift_db.Value(json['description'] as String?),
-      currencyCode: drift_db.Value(json['currencyCode'] as String? ?? 'USD'),
-      accountId: drift_db.Value(json['accountId'] as String?),
-      source: drift_db.Value(json['source'] as String? ?? 'manual'),
-      preset: drift_db.Value(json['preset'] as int? ?? 1),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
-      sourceId: drift_db.Value(json['sourceId'] as String?),
-      isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
+    await _database.customInsert(
+      '''INSERT INTO asset_entries (id, asset_id, name, date, value, quantity, asset_type, description, currency_code, account_id, source, preset, modified_at, device_id, source_id, is_deleted)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (id) DO UPDATE SET
+        asset_id = EXCLUDED.asset_id,
+        name = EXCLUDED.name,
+        date = EXCLUDED.date,
+        value = EXCLUDED.value,
+        quantity = EXCLUDED.quantity,
+        asset_type = EXCLUDED.asset_type,
+        description = EXCLUDED.description,
+        currency_code = EXCLUDED.currency_code,
+        account_id = EXCLUDED.account_id,
+        source = EXCLUDED.source,
+        preset = EXCLUDED.preset,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id,
+        source_id = EXCLUDED.source_id,
+        is_deleted = EXCLUDED.is_deleted
+      WHERE EXCLUDED.modified_at > asset_entries.modified_at''',
+      variables: [
+        drift_db.Variable.withString(id),
+        drift_db.Variable.withString(json['assetId'] as String? ?? ''),
+        drift_db.Variable.withString(json['name'] as String? ?? ''),
+        drift_db.Variable.withDateTime(date),
+        drift_db.Variable.withReal(_round((json['value'] as num?)?.toDouble() ?? 0.0)),
+        drift_db.Variable.withReal(_round((json['quantity'] as num?)?.toDouble() ?? 1.0)),
+        drift_db.Variable(json['assetType'] as String?),
+        drift_db.Variable(json['description'] as String?),
+        drift_db.Variable.withString(json['currencyCode'] as String? ?? 'USD'),
+        drift_db.Variable(json['accountId'] as String?),
+        drift_db.Variable.withString(source),
+        drift_db.Variable.withInt(json['preset'] as int? ?? 1),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+        drift_db.Variable(json['sourceId'] as String?),
+        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+      ],
     );
-    await _database
-        .into(_database.assetEntries)
-        .insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertCustomDataSource(Map<String, dynamic> json) async {
-    final id = json['id'] as String? ?? '';
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
-
-    final existing = await (_database.select(
-      _database.customDataSources,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    final companion = CustomDataSourcesCompanion(
-      id: drift_db.Value(id),
-      name: drift_db.Value(json['name'] as String? ?? ''),
-      url: drift_db.Value(json['url'] as String? ?? ''),
-      dataType: drift_db.Value(json['dataType'] as int? ?? 0),
-      enabled: drift_db.Value(_parseBool(json['enabled'])),
-      autoFetch: drift_db.Value(_parseBool(json['autoFetch'])),
-      lastFetchAt: drift_db.Value(json['lastFetchAt'] as int?),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
-      isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
+    await _database.customInsert(
+      '''INSERT INTO custom_data_sources (id, name, url, data_type, enabled, auto_fetch, last_fetch_at, modified_at, device_id, is_deleted)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        url = EXCLUDED.url,
+        data_type = EXCLUDED.data_type,
+        enabled = EXCLUDED.enabled,
+        auto_fetch = EXCLUDED.auto_fetch,
+        last_fetch_at = EXCLUDED.last_fetch_at,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id,
+        is_deleted = EXCLUDED.is_deleted
+      WHERE EXCLUDED.modified_at > custom_data_sources.modified_at''',
+      variables: [
+        drift_db.Variable.withString(json['id'] as String? ?? ''),
+        drift_db.Variable.withString(json['name'] as String? ?? ''),
+        drift_db.Variable.withString(json['url'] as String? ?? ''),
+        drift_db.Variable.withInt(json['dataType'] as int? ?? 0),
+        drift_db.Variable.withInt(_parseBool(json['enabled']) ? 1 : 0),
+        drift_db.Variable.withInt(_parseBool(json['autoFetch']) ? 1 : 0),
+        drift_db.Variable(json['lastFetchAt'] as int?),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+      ],
     );
-    await _database
-        .into(_database.customDataSources)
-        .insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertApiSetting(Map<String, dynamic> json) async {
-    final id = json['id'] as String? ?? '';
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
-
-    final existing = await (_database.select(
-      _database.apiSettingsTable,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    final companion = ApiSettingsTableCompanion(
-      id: drift_db.Value(id),
-      enabled: drift_db.Value(_parseBool(json['enabled'])),
-      autoFetch: drift_db.Value(_parseBool(json['autoFetch'])),
-      lastFetchAt: drift_db.Value(json['lastFetchAt'] as int?),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
+    await _database.customInsert(
+      '''INSERT INTO api_settings_table (id, enabled, auto_fetch, last_fetch_at, modified_at, device_id)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT (id) DO UPDATE SET
+        enabled = EXCLUDED.enabled,
+        auto_fetch = EXCLUDED.auto_fetch,
+        last_fetch_at = EXCLUDED.last_fetch_at,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id
+      WHERE EXCLUDED.modified_at > api_settings_table.modified_at''',
+      variables: [
+        drift_db.Variable.withString(json['id'] as String? ?? ''),
+        drift_db.Variable.withInt(_parseBool(json['enabled']) ? 1 : 0),
+        drift_db.Variable.withInt(_parseBool(json['autoFetch']) ? 1 : 0),
+        drift_db.Variable(json['lastFetchAt'] as int?),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+      ],
     );
-    await _database
-        .into(_database.apiSettingsTable)
-        .insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertSmsPreset(Map<String, dynamic> json) async {
-    final id = json['id'] as String? ?? '';
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
-
-    final existing = await (_database.select(
-      _database.smsPresets,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    final companion = SmsPresetsCompanion(
-      id: drift_db.Value(id),
-      name: drift_db.Value(json['name'] as String? ?? 'Untitled SMS Preset'),
-      senderFilter: drift_db.Value(json['senderFilter'] as String? ?? ''),
-      isBuiltIn: drift_db.Value(_parseBool(json['isBuiltIn'])),
-      isEnabled: drift_db.Value(_parseBool(json['isEnabled'])),
-      defaultAccountId: drift_db.Value(json['defaultAccountId'] as String?),
-      defaultCategoryId: drift_db.Value(json['defaultCategoryId'] as String?),
-      rulesJson: drift_db.Value(json['rulesJson'] as String? ?? '[]'),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
-      isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
+    await _database.customInsert(
+      '''INSERT INTO sms_presets (id, name, sender_filter, is_built_in, is_enabled, default_account_id, default_category_id, rules_json, modified_at, device_id, is_deleted)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        sender_filter = EXCLUDED.sender_filter,
+        is_built_in = EXCLUDED.is_built_in,
+        is_enabled = EXCLUDED.is_enabled,
+        default_account_id = EXCLUDED.default_account_id,
+        default_category_id = EXCLUDED.default_category_id,
+        rules_json = EXCLUDED.rules_json,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id,
+        is_deleted = EXCLUDED.is_deleted
+      WHERE EXCLUDED.modified_at > sms_presets.modified_at''',
+      variables: [
+        drift_db.Variable.withString(json['id'] as String? ?? ''),
+        drift_db.Variable.withString(json['name'] as String? ?? 'Untitled SMS Preset'),
+        drift_db.Variable.withString(json['senderFilter'] as String? ?? ''),
+        drift_db.Variable.withInt(_parseBool(json['isBuiltIn']) ? 1 : 0),
+        drift_db.Variable.withInt(_parseBool(json['isEnabled']) ? 1 : 0),
+        drift_db.Variable(json['defaultAccountId'] as String?),
+        drift_db.Variable(json['defaultCategoryId'] as String?),
+        drift_db.Variable.withString(json['rulesJson'] as String? ?? '[]'),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+      ],
     );
-    await _database
-        .into(_database.smsPresets)
-        .insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertSetting(Map<String, dynamic> json) async {
-    final key = json['key'] as String? ?? '';
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
-
-    final existing = await (_database.select(
-      _database.settings,
-    )..where((t) => t.key.equals(key))).getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    final companion = SettingsCompanion(
-      key: drift_db.Value(key),
-      value: drift_db.Value(json['value'] as String? ?? ''),
-      device: drift_db.Value(json['device'] as String?),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
+    await _database.customInsert(
+      '''INSERT INTO settings (key, value, device, modified_at, device_id)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT (key) DO UPDATE SET
+        value = EXCLUDED.value,
+        device = EXCLUDED.device,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id
+      WHERE EXCLUDED.modified_at > settings.modified_at''',
+      variables: [
+        drift_db.Variable.withString(json['key'] as String? ?? ''),
+        drift_db.Variable.withString(json['value'] as String? ?? ''),
+        drift_db.Variable(json['device'] as String?),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+      ],
     );
-    await _database.into(_database.settings).insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertExchangeRate(Map<String, dynamic> json) async {
-    final fromCurrencyCode = json['fromCurrencyCode'] as String? ?? 'USD';
-    final toCurrencyCode = json['toCurrencyCode'] as String? ?? 'EUR';
-    final dateStr = json['date'] as String? ?? '';
-    final preset = json['preset'] as int? ?? 1;
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
+    final date = DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now();
 
-    final date = DateTime.tryParse(dateStr) ?? DateTime.now();
-
-    final existing =
-        await (_database.select(_database.exchangeRates)..where(
-              (t) =>
-                  t.fromCurrencyCode.equals(fromCurrencyCode) &
-                  t.toCurrencyCode.equals(toCurrencyCode) &
-                  t.date.equals(date) &
-                  t.preset.equals(preset),
-            ))
-            .getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    final companion = ExchangeRatesCompanion(
-      fromCurrencyCode: drift_db.Value(fromCurrencyCode),
-      toCurrencyCode: drift_db.Value(toCurrencyCode),
-      rate: drift_db.Value(_round((json['rate'] as num?)?.toDouble() ?? 1.0)),
-      preset: drift_db.Value(preset),
-      date: drift_db.Value(date),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
-      sourceId: drift_db.Value(json['sourceId'] as String?),
+    await _database.customInsert(
+      '''INSERT INTO exchange_rates (from_currency_code, to_currency_code, rate, preset, date, modified_at, device_id, source_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (from_currency_code, to_currency_code, date, preset) DO UPDATE SET
+        rate = EXCLUDED.rate,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id,
+        source_id = EXCLUDED.source_id
+      WHERE EXCLUDED.modified_at > exchange_rates.modified_at''',
+      variables: [
+        drift_db.Variable.withString(json['fromCurrencyCode'] as String? ?? 'USD'),
+        drift_db.Variable.withString(json['toCurrencyCode'] as String? ?? 'EUR'),
+        drift_db.Variable.withReal(_round((json['rate'] as num?)?.toDouble() ?? 1.0)),
+        drift_db.Variable.withInt(json['preset'] as int? ?? 1),
+        drift_db.Variable.withDateTime(date),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+        drift_db.Variable(json['sourceId'] as String?),
+      ],
     );
-    await _database
-        .into(_database.exchangeRates)
-        .insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertInflationRate(Map<String, dynamic> json) async {
-    final dateStr = json['date'] as String? ?? '';
+    final date = DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now();
     final country = json['country'] as String?;
-    final preset = json['preset'] as int? ?? 1;
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
 
-    final date = DateTime.tryParse(dateStr) ?? DateTime.now();
-
-    final existing =
-        await (_database.select(_database.inflationRates)..where(
-              (t) =>
-                  t.date.equals(date) &
-                  t.country.equalsNullable(country) &
-                  t.preset.equals(preset),
-            ))
-            .getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    final companion = InflationRatesCompanion(
-      date: drift_db.Value(date),
-      percent: drift_db.Value((json['percent'] as num?)?.toDouble() ?? 0.0),
-      country: drift_db.Value(country),
-      preset: drift_db.Value(preset),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
-      sourceId: drift_db.Value(json['sourceId'] as String?),
+    await _database.customInsert(
+      '''INSERT INTO inflation_rates (date, percent, country, preset, modified_at, device_id, source_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (date, country, preset) DO UPDATE SET
+        percent = EXCLUDED.percent,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id,
+        source_id = EXCLUDED.source_id
+      WHERE EXCLUDED.modified_at > inflation_rates.modified_at''',
+      variables: [
+        drift_db.Variable.withDateTime(date),
+        drift_db.Variable.withReal((json['percent'] as num?)?.toDouble() ?? 0.0),
+        drift_db.Variable(country),
+        drift_db.Variable.withInt(json['preset'] as int? ?? 1),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+        drift_db.Variable(json['sourceId'] as String?),
+      ],
     );
-    await _database
-        .into(_database.inflationRates)
-        .insertOnConflictUpdate(companion);
   }
 
   Future<void> _upsertCustomTheme(Map<String, dynamic> json) async {
-    final id = json['id'] as String? ?? '';
-    final modifiedAt = json['modifiedAt'] as int? ?? 1;
-
-    final existing = await (_database.select(
-      _database.customThemes,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
-
-    if (existing != null && existing.modifiedAt >= modifiedAt) return;
-
-    final companion = CustomThemesCompanion(
-      id: drift_db.Value(id),
-      name: drift_db.Value(json['name'] as String? ?? 'Custom Theme'),
-      primaryColorHex: drift_db.Value(json['primaryColorHex'] as String? ?? ''),
-      secondaryColorHex: drift_db.Value(
-        json['secondaryColorHex'] as String? ?? '',
-      ),
-      surfaceColorHex: drift_db.Value(json['surfaceColorHex'] as String? ?? ''),
-      backgroundColorHex: drift_db.Value(
-        json['backgroundColorHex'] as String? ?? '',
-      ),
-      backgroundImagePath: drift_db.Value(
-        json['backgroundImagePath'] as String?,
-      ),
-      backgroundImageOpacity: drift_db.Value(
-        (json['backgroundImageOpacity'] as num?)?.toDouble() ?? 1.0,
-      ),
-      backgroundImageBlur: drift_db.Value(
-        (json['backgroundImageBlur'] as num?)?.toDouble() ?? 0.0,
-      ),
-      windowEffectType: drift_db.Value(json['windowEffectType'] as int? ?? 0),
-      effectOpacity: drift_db.Value(
-        (json['effectOpacity'] as num?)?.toDouble() ?? 1.0,
-      ),
-      surfaceOpacity: drift_db.Value(
-        (json['surfaceOpacity'] as num?)?.toDouble() ?? 1.0,
-      ),
-      themeMode: drift_db.Value(json['themeMode'] as int? ?? 0),
-      isPreset: drift_db.Value(_parseBool(json['isPreset'])),
-      isActive: drift_db.Value(_parseBool(json['isActive'])),
-      modifiedAt: drift_db.Value(modifiedAt),
-      deviceId: drift_db.Value(json['deviceId'] as String?),
-      isDeleted: drift_db.Value(_parseBool(json['isDeleted'])),
+    await _database.customInsert(
+      '''INSERT INTO custom_themes (id, name, primary_color_hex, secondary_color_hex, surface_color_hex, background_color_hex, background_image_path, background_image_opacity, background_image_blur, window_effect_type, effect_opacity, surface_opacity, theme_mode, is_preset, is_active, modified_at, device_id, is_deleted)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        primary_color_hex = EXCLUDED.primary_color_hex,
+        secondary_color_hex = EXCLUDED.secondary_color_hex,
+        surface_color_hex = EXCLUDED.surface_color_hex,
+        background_color_hex = EXCLUDED.background_color_hex,
+        background_image_path = EXCLUDED.background_image_path,
+        background_image_opacity = EXCLUDED.background_image_opacity,
+        background_image_blur = EXCLUDED.background_image_blur,
+        window_effect_type = EXCLUDED.window_effect_type,
+        effect_opacity = EXCLUDED.effect_opacity,
+        surface_opacity = EXCLUDED.surface_opacity,
+        theme_mode = EXCLUDED.theme_mode,
+        is_preset = EXCLUDED.is_preset,
+        is_active = EXCLUDED.is_active,
+        modified_at = EXCLUDED.modified_at,
+        device_id = EXCLUDED.device_id,
+        is_deleted = EXCLUDED.is_deleted
+      WHERE EXCLUDED.modified_at > custom_themes.modified_at''',
+      variables: [
+        drift_db.Variable.withString(json['id'] as String? ?? ''),
+        drift_db.Variable.withString(json['name'] as String? ?? 'Custom Theme'),
+        drift_db.Variable.withString(json['primaryColorHex'] as String? ?? ''),
+        drift_db.Variable.withString(json['secondaryColorHex'] as String? ?? ''),
+        drift_db.Variable.withString(json['surfaceColorHex'] as String? ?? ''),
+        drift_db.Variable.withString(json['backgroundColorHex'] as String? ?? ''),
+        drift_db.Variable(json['backgroundImagePath'] as String?),
+        drift_db.Variable.withReal((json['backgroundImageOpacity'] as num?)?.toDouble() ?? 1.0),
+        drift_db.Variable.withReal((json['backgroundImageBlur'] as num?)?.toDouble() ?? 0.0),
+        drift_db.Variable.withInt(json['windowEffectType'] as int? ?? 0),
+        drift_db.Variable.withReal((json['effectOpacity'] as num?)?.toDouble() ?? 1.0),
+        drift_db.Variable.withReal((json['surfaceOpacity'] as num?)?.toDouble() ?? 1.0),
+        drift_db.Variable.withInt(json['themeMode'] as int? ?? 0),
+        drift_db.Variable.withInt(_parseBool(json['isPreset']) ? 1 : 0),
+        drift_db.Variable.withInt(_parseBool(json['isActive']) ? 1 : 0),
+        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+        drift_db.Variable(json['deviceId'] as String?),
+        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+      ],
     );
-    await _database
-        .into(_database.customThemes)
-        .insertOnConflictUpdate(companion);
   }
 
   bool _parseBool(dynamic val) {

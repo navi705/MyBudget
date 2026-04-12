@@ -1,8 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
+
+const _uuid = Uuid();
 
 class CustomApiService {
   final ExchangeRatesDao _exchangeRatesDao;
@@ -130,16 +134,23 @@ class CustomApiService {
   }
 
   Future<int> _parseAssets(List data) async {
+    debugPrint('[CustomApiService] _parseAssets called with ${data.length} items');
+    int upserted = 0;
     for (final item in data) {
       final date = DateTime.parse(item['date']);
       final code = item['code'] as String;
       final value = (item['value'] as num).toDouble();
-
       final currency = item['currency'] as String? ?? 'EUR';
       final name = item['name'] as String? ?? code;
 
-      await _assetEntriesDao.addAssetData(
+      // Deterministic ID based on (assetId, date, source) — prevents duplicates
+      // on repeated fetches. Same (code, date, 'custom_api') always yields same UUID.
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      final deterministicId = _uuid.v5(Uuid.NAMESPACE_URL, '$code|$dateStr|custom_api');
+
+      await _assetEntriesDao.upsertAssetData(
         AssetEntriesCompanion(
+          id: Value(deterministicId),
           assetId: Value(code),
           name: Value(name),
           date: Value(date),
@@ -149,8 +160,9 @@ class CustomApiService {
           preset: const Value(2),
         ),
       );
+      upserted++;
     }
-    debugPrint('[CustomApiService] Imported ${data.length} asset records');
-    return data.length;
+    debugPrint('[CustomApiService] Upserted $upserted asset records (dedup via deterministic ID)');
+    return upserted;
   }
 }

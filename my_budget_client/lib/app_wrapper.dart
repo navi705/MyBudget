@@ -59,26 +59,55 @@ class _AppWrapperState extends State<AppWrapper> {
   }
 
   Future<void> _initialize() async {
-    debugPrint('[APP_WRAPPER_DEBUG] Starting initialization...');
+    debugPrint('[APP_WRAPPER_DEBUG] ========== INIT START ==========');
     try {
       // 1. Critical initialization - MUST be fast
-      debugPrint('[APP_WRAPPER_DEBUG] Step 1: Verifying settings...');
+      debugPrint('[APP_WRAPPER_DEBUG] Step 1: Calling initializeDefaults...');
       _updateProgress(0.1, 'Verifying settings...');
-      await sl<SettingsRepository>().initializeDefaults();
-      debugPrint('[APP_WRAPPER_DEBUG] Step 1 complete: Settings initialized');
+      try {
+        await sl<SettingsRepository>().initializeDefaults();
+        debugPrint('[APP_WRAPPER_DEBUG] Step 1 OK: initializeDefaults complete');
+      } catch (e, st) {
+        debugPrint('[APP_WRAPPER_DEBUG] Step 1 FAILED: $e');
+        debugPrint('[APP_WRAPPER_DEBUG] Step 1 stack: $st');
+        rethrow;
+      }
+
+      // 1b. Initialize server sync listeners EARLY — before the app is shown
+      // so auto-sync is ready before the user can make any changes.
+      // initAutoSync() sets up DB table-update listeners (fast, local).
+      // initWebSocket() fires the WS connection attempt in the background.
+      debugPrint('[APP_WRAPPER_DEBUG] Step 1b: Checking ServerSyncService registration...');
+      if (sl.isRegistered<ServerSyncService>()) {
+        debugPrint('[APP_WRAPPER_DEBUG] Step 1b: ServerSyncService registered, calling initAutoSync...');
+        final serverSync = sl<ServerSyncService>();
+        try {
+          await serverSync.initAutoSync();
+          debugPrint('[APP_WRAPPER_DEBUG] Step 1b: initAutoSync OK');
+          await serverSync.initWebSocket();
+          debugPrint('[APP_WRAPPER_DEBUG] Step 1b: initWebSocket OK');
+        } catch (e, st) {
+          debugPrint('[APP_WRAPPER_DEBUG] Step 1b FAILED (non-fatal): $e');
+          debugPrint('[APP_WRAPPER_DEBUG] Step 1b stack: $st');
+        }
+      } else {
+        debugPrint('[APP_WRAPPER_DEBUG] Step 1b: ServerSyncService NOT registered, skipping');
+      }
 
       // 2. Start Services
       // We start non-critical services in the background without awaiting them
       // to let the user enter the app as soon as possible.
-      debugPrint('[APP_WRAPPER_DEBUG] Step 2: Starting background services...');
+      debugPrint('[APP_WRAPPER_DEBUG] Step 2: Starting SyncService...');
       _updateProgress(0.6, 'Starting background services...');
       sl<SyncService>().init().catchError((e) {
-        debugPrint('SyncService init error: $e');
+        debugPrint('[APP_WRAPPER_DEBUG] SyncService init error: $e');
       });
+      debugPrint('[APP_WRAPPER_DEBUG] Step 2: SyncService.init() fired (background)');
 
       // Non-critical background tasks (asynchronous launch)
       // Note: On Windows, compute() can crash, so we run in the main isolate
       // but without 'await' to achieve background effect.
+      debugPrint('[APP_WRAPPER_DEBUG] Step 2b: Firing fetchApiDataInBackground...');
       IntilizationData.fetchApiDataInBackground();
 
       // Setup 24h periodic sync timer
@@ -87,6 +116,7 @@ class _AppWrapperState extends State<AppWrapper> {
         debugPrint('[SYNC_DEBUG] 24h timer triggered, starting sync...');
         IntilizationData.fetchApiDataInBackground();
       });
+      debugPrint('[APP_WRAPPER_DEBUG] Step 2c: 24h sync timer set up');
 
       // 3. Mark as initialized so the main App can be shown
       debugPrint('[APP_WRAPPER_DEBUG] Step 3: Marking as initialized...');
@@ -95,10 +125,11 @@ class _AppWrapperState extends State<AppWrapper> {
           _isInitialized = true;
         });
       }
-      debugPrint('[APP_WRAPPER_DEBUG] Initialization complete! App ready.');
-    } catch (e) {
-      debugPrint('[APP_WRAPPER_DEBUG] Initialization error: $e');
-      debugPrint('[APP_WRAPPER_DEBUG] Stack trace: ${StackTrace.current}');
+      debugPrint('[APP_WRAPPER_DEBUG] ========== INIT COMPLETE ==========');
+    } catch (e, st) {
+      debugPrint('[APP_WRAPPER_DEBUG] ========== INIT FAILED ==========');
+      debugPrint('[APP_WRAPPER_DEBUG] Error: $e');
+      debugPrint('[APP_WRAPPER_DEBUG] Stack trace: $st');
       // Still proceed to app even if init fails to not block the user
       if (mounted) {
         setState(() {

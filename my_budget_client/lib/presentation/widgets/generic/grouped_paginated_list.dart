@@ -72,9 +72,34 @@ class _GroupedPaginatedListState<T, K>
   @override
   void didUpdateWidget(covariant GroupedPaginatedList<T, K> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.items != oldWidget.items) {
-      _recalculateGroups();
+    
+    // OPTIMIZATION: Deep equality check to avoid O(N) regrouping on reference changes
+    // Quick check: same reference = no change
+    if (identical(widget.items, oldWidget.items)) {
+      if (widget.jumpToItemId != null && widget.jumpToAlignment != null) {
+        // The jumping logic will be handled by the parent widget,
+        // as it needs to calculate the index based on the final list items.
+      }
+      return;
     }
+    
+    // Length check: different length = definitely changed
+    if (widget.items.length != oldWidget.items.length) {
+      _recalculateGroups();
+    } else {
+      // Deep check: compare elements (only if T has proper == operator)
+      bool changed = false;
+      for (int i = 0; i < widget.items.length; i++) {
+        if (widget.items[i] != oldWidget.items[i]) {
+          changed = true;
+          break;
+        }
+      }
+      if (changed) {
+        _recalculateGroups();
+      }
+    }
+    
     if (widget.jumpToItemId != null && widget.jumpToAlignment != null) {
       // The jumping logic will be handled by the parent widget,
       // as it needs to calculate the index based on the final list items.

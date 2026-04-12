@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:my_budget_client/core/utils/platform/io_helper.dart';
 import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 
@@ -218,9 +219,21 @@ class DataImportService {
   }
 
   Future<void> _importJson(String content) async {
+    debugPrint('[RESTORE] _importJson: parsing JSON...');
     // RESTORE STRATEGY: Wipe and Replace
     final data = jsonDecode(content) as Map<String, dynamic>;
     final now = DateTime.now().millisecondsSinceEpoch;
+    debugPrint('[RESTORE] backup version: ${data['version']}, timestamp: ${data['timestamp']}');
+
+    // Deduplicate asset_entries BEFORE modifiedAt update so original timestamps are used for dedup
+    // Partial UNIQUE INDEX: (asset_id, date, source) WHERE source = 'custom_api'
+    // Old backups may contain duplicates created before the index existed.
+    if (data['asset_entries'] != null) {
+      final rawEntries = data['asset_entries'] as List;
+      final deduped = _deduplicateAssetEntries(rawEntries);
+      debugPrint('[RESTORE] asset_entries: ${rawEntries.length} raw → ${deduped.length} after dedup');
+      data['asset_entries'] = deduped;
+    }
 
     // Mark all imported records as new by updating their modified_at
     data.forEach((key, value) {
@@ -233,12 +246,13 @@ class DataImportService {
       }
     });
 
-    // Disable foreign key checks during import to avoid constraint issues during bulk replacement
+    // PRAGMA foreign_keys must be set outside transaction in SQLite
     await _db.customStatement('PRAGMA foreign_keys = OFF');
 
     try {
       await _db.transaction(() async {
         // 1. Delete all existing data (including technical tables)
+        debugPrint('[RESTORE] Deleting existing data...');
         // Business Tables
         await _db.delete(_db.transactions).go();
         await _db.delete(_db.accounts).go();
@@ -262,193 +276,262 @@ class DataImportService {
         await _db.delete(_db.conflictHistory).go();
         await _db.delete(_db.apiFetchStatuses).go();
         await _db.delete(_db.syncProcessedFiles).go();
+        debugPrint('[RESTORE] Existing data deleted.');
 
         // 2. Insert new data
         // Order matters due to foreign key constraints
         if (data['languages'] != null) {
+          final list = data['languages'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} languages...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.languages,
-              (data['languages'] as List)
-                  .map((e) => Language.fromJson(e))
-                  .toList(),
+              list.map((e) => Language.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
         }
 
         if (data['styles'] != null) {
+          final list = data['styles'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} styles...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.styles,
-              (data['styles'] as List).map((e) => Style.fromJson(e)).toList(),
+              list.map((e) => Style.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
         }
 
         if (data['account_types'] != null) {
+          final list = data['account_types'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} account_types...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.accountTypes,
-              (data['account_types'] as List)
-                  .map((e) => AccountType.fromJson(e))
-                  .toList(),
+              list.map((e) => AccountType.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
         }
 
         if (data['currencies'] != null) {
+          final list = data['currencies'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} currencies...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.currencies,
-              (data['currencies'] as List)
-                  .map((e) => Currency.fromJson(e))
-                  .toList(),
+              list.map((e) => Currency.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
         }
 
         if (data['currency_designations'] != null) {
+          final list = data['currency_designations'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} currency_designations...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.currencyDesignations,
-              (data['currency_designations'] as List)
-                  .map((e) => CurrencyDesignation.fromJson(e))
-                  .toList(),
+              list.map((e) => CurrencyDesignation.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
         }
 
         if (data['accounts'] != null) {
+          final list = data['accounts'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} accounts...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.accounts,
-              (data['accounts'] as List)
-                  .map((e) => DbAccount.fromJson(e))
-                  .toList(),
+              list.map((e) => DbAccount.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
         }
 
         if (data['categories'] != null) {
+          final list = data['categories'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} categories...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.categories,
-              (data['categories'] as List)
-                  .map((e) => Category.fromJson(e))
-                  .toList(),
+              list.map((e) => Category.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
         }
 
         if (data['exchange_rates'] != null) {
+          final list = data['exchange_rates'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} exchange_rates...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.exchangeRates,
-              (data['exchange_rates'] as List)
-                  .map((e) => ExchangeRate.fromJson(e))
-                  .toList(),
+              list.map((e) => ExchangeRate.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
         }
 
         if (data['inflation_rates'] != null) {
+          final list = data['inflation_rates'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} inflation_rates...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.inflationRates,
-              (data['inflation_rates'] as List)
-                  .map((e) => InflationRate.fromJson(e))
-                  .toList(),
+              list.map((e) => InflationRate.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
         }
 
         if (data['asset_entries'] != null) {
+          final list = data['asset_entries'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} asset_entries...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.assetEntries,
-              (data['asset_entries'] as List)
-                  .map((e) => AssetEntry.fromJson(e))
-                  .toList(),
+              list.map((e) => AssetEntry.fromJson(e as Map<String, dynamic>)).toList(),
+              // insertOrIgnore: skip duplicates that violate partial UNIQUE INDEX
+              mode: InsertMode.insertOrIgnore,
             );
           });
+          debugPrint('[RESTORE] asset_entries inserted.');
         }
 
         if (data['transactions'] != null) {
+          final list = data['transactions'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} transactions...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.transactions,
-              (data['transactions'] as List)
-                  .map((e) => Transaction.fromJson(e))
-                  .toList(),
+              list.map((e) => Transaction.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
+          debugPrint('[RESTORE] transactions inserted.');
         }
 
         // Technical Tables
         if (data['settings'] != null) {
+          final list = data['settings'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} settings...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.settings,
-              (data['settings'] as List)
-                  .map((e) => Setting.fromJson(e))
-                  .toList(),
+              list.map((e) => Setting.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
         }
 
         if (data['custom_themes'] != null) {
+          final list = data['custom_themes'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} custom_themes...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.customThemes,
-              (data['custom_themes'] as List)
-                  .map((e) => DbCustomTheme.fromJson(e))
-                  .toList(),
+              list.map((e) => DbCustomTheme.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
         }
 
         if (data['custom_data_sources'] != null) {
+          final list = data['custom_data_sources'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} custom_data_sources...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.customDataSources,
-              (data['custom_data_sources'] as List)
-                  .map((e) => CustomDataSource.fromJson(e))
-                  .toList(),
+              list.map((e) => CustomDataSource.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
         }
 
         if (data['api_settings'] != null) {
+          final list = data['api_settings'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} api_settings...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.apiSettingsTable,
-              (data['api_settings'] as List)
-                  .map((e) => ApiSettingsTableData.fromJson(e))
-                  .toList(),
+              list.map((e) => ApiSettingsTableData.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
         }
 
         if (data['sms_presets'] != null) {
+          final list = data['sms_presets'] as List;
+          debugPrint('[RESTORE] Inserting ${list.length} sms_presets...');
           await _db.batch((batch) {
             batch.insertAll(
               _db.smsPresets,
-              (data['sms_presets'] as List)
-                  .map((e) => SmsPreset.fromJson(e))
-                  .toList(),
+              list.map((e) => SmsPreset.fromJson(e as Map<String, dynamic>)).toList(),
+              mode: InsertMode.insertOrIgnore,
             );
           });
         }
+
+        debugPrint('[RESTORE] All tables inserted successfully.');
       });
 
       // Reset sync state
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('server_last_sync_timestamp', 0);
       await prefs.setInt('server_last_push_timestamp', 0);
+      debugPrint('[RESTORE] Sync state reset. Restore complete.');
+    } catch (e, stack) {
+      debugPrint('[RESTORE] ERROR: $e');
+      debugPrint('[RESTORE] Stack: $stack');
+      rethrow;
     } finally {
       // Re-enable foreign key checks
       await _db.customStatement('PRAGMA foreign_keys = ON');
     }
+  }
+
+  /// Deduplicate asset_entries from backup.
+  /// Partial UNIQUE INDEX: (asset_id, date, source) WHERE source = 'custom_api'
+  /// Old backups may contain duplicates created before the index existed.
+  /// Keep the entry with the highest modifiedAt for each (assetId, date, source) group.
+  List<Map<String, dynamic>> _deduplicateAssetEntries(List<dynamic> raw) {
+    final seen = <String, Map<String, dynamic>>{};
+
+    for (final item in raw) {
+      if (item is! Map<String, dynamic>) continue;
+      final source = item['source'] as String? ?? '';
+      if (source == 'custom_api') {
+        final assetId = item['assetId'] as String? ?? '';
+        final date = item['date']?.toString() ?? '';
+        final key = '$assetId|$date|$source';
+        final existing = seen[key];
+        if (existing == null) {
+          seen[key] = item;
+        } else {
+          // Keep the one with higher modifiedAt
+          final existingModified = (existing['modifiedAt'] as num?)?.toInt() ?? 0;
+          final itemModified = (item['modifiedAt'] as num?)?.toInt() ?? 0;
+          if (itemModified > existingModified) {
+            seen[key] = item;
+          }
+        }
+      } else {
+        // Non-custom_api entries: deduplicate by id only
+        final id = item['id'] as String? ?? '';
+        if (id.isNotEmpty && !seen.containsKey('id:$id')) {
+          seen['id:$id'] = item;
+        } else if (id.isEmpty) {
+          // No id — keep as-is (shouldn't happen)
+          seen['noid:${seen.length}'] = item;
+        }
+      }
+    }
+
+    return seen.values.toList();
   }
 
   Future<void> _importCsv(String content) async {
