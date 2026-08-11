@@ -2802,6 +2802,28 @@ class $AccountsTable extends Accounts
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _openingBalanceMeta = const VerificationMeta(
+    'openingBalance',
+  );
+  @override
+  late final GeneratedColumn<double> openingBalance = GeneratedColumn<double>(
+    'opening_balance',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _openingBalanceMinorMeta =
+      const VerificationMeta('openingBalanceMinor');
+  @override
+  late final GeneratedColumn<int> openingBalanceMinor = GeneratedColumn<int>(
+    'opening_balance_minor',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _currencyCodeMeta = const VerificationMeta(
     'currencyCode',
   );
@@ -2960,6 +2982,8 @@ class $AccountsTable extends Accounts
     description,
     balance,
     balanceMinor,
+    openingBalance,
+    openingBalanceMinor,
     currencyCode,
     currencyDesignationId,
     styleId,
@@ -3019,6 +3043,24 @@ class $AccountsTable extends Accounts
         balanceMinor.isAcceptableOrUnknown(
           data['balance_minor']!,
           _balanceMinorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('opening_balance')) {
+      context.handle(
+        _openingBalanceMeta,
+        openingBalance.isAcceptableOrUnknown(
+          data['opening_balance']!,
+          _openingBalanceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('opening_balance_minor')) {
+      context.handle(
+        _openingBalanceMinorMeta,
+        openingBalanceMinor.isAcceptableOrUnknown(
+          data['opening_balance_minor']!,
+          _openingBalanceMinorMeta,
         ),
       );
     }
@@ -3147,6 +3189,14 @@ class $AccountsTable extends Accounts
         DriftSqlType.int,
         data['${effectivePrefix}balance_minor'],
       ),
+      openingBalance: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}opening_balance'],
+      )!,
+      openingBalanceMinor: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}opening_balance_minor'],
+      ),
       currencyCode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}currency_code'],
@@ -3210,6 +3260,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
   final String? description;
   final double balance;
   final int? balanceMinor;
+  final double openingBalance;
+  final int? openingBalanceMinor;
   final String currencyCode;
   final String currencyDesignationId;
   final String? styleId;
@@ -3228,6 +3280,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     this.description,
     required this.balance,
     this.balanceMinor,
+    required this.openingBalance,
+    this.openingBalanceMinor,
     required this.currencyCode,
     required this.currencyDesignationId,
     this.styleId,
@@ -3252,6 +3306,10 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     map['balance'] = Variable<double>(balance);
     if (!nullToAbsent || balanceMinor != null) {
       map['balance_minor'] = Variable<int>(balanceMinor);
+    }
+    map['opening_balance'] = Variable<double>(openingBalance);
+    if (!nullToAbsent || openingBalanceMinor != null) {
+      map['opening_balance_minor'] = Variable<int>(openingBalanceMinor);
     }
     map['currency_code'] = Variable<String>(currencyCode);
     map['currency_designation_id'] = Variable<String>(currencyDesignationId);
@@ -3289,6 +3347,10 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
       balanceMinor: balanceMinor == null && nullToAbsent
           ? const Value.absent()
           : Value(balanceMinor),
+      openingBalance: Value(openingBalance),
+      openingBalanceMinor: openingBalanceMinor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(openingBalanceMinor),
       currencyCode: Value(currencyCode),
       currencyDesignationId: Value(currencyDesignationId),
       styleId: styleId == null && nullToAbsent
@@ -3325,6 +3387,10 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
       description: serializer.fromJson<String?>(json['description']),
       balance: serializer.fromJson<double>(json['balance']),
       balanceMinor: serializer.fromJson<int?>(json['balanceMinor']),
+      openingBalance: serializer.fromJson<double>(json['openingBalance']),
+      openingBalanceMinor: serializer.fromJson<int?>(
+        json['openingBalanceMinor'],
+      ),
       currencyCode: serializer.fromJson<String>(json['currencyCode']),
       currencyDesignationId: serializer.fromJson<String>(
         json['currencyDesignationId'],
@@ -3350,6 +3416,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
       'description': serializer.toJson<String?>(description),
       'balance': serializer.toJson<double>(balance),
       'balanceMinor': serializer.toJson<int?>(balanceMinor),
+      'openingBalance': serializer.toJson<double>(openingBalance),
+      'openingBalanceMinor': serializer.toJson<int?>(openingBalanceMinor),
       'currencyCode': serializer.toJson<String>(currencyCode),
       'currencyDesignationId': serializer.toJson<String>(currencyDesignationId),
       'styleId': serializer.toJson<String?>(styleId),
@@ -3371,6 +3439,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     Value<String?> description = const Value.absent(),
     double? balance,
     Value<int?> balanceMinor = const Value.absent(),
+    double? openingBalance,
+    Value<int?> openingBalanceMinor = const Value.absent(),
     String? currencyCode,
     String? currencyDesignationId,
     Value<String?> styleId = const Value.absent(),
@@ -3389,6 +3459,10 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     description: description.present ? description.value : this.description,
     balance: balance ?? this.balance,
     balanceMinor: balanceMinor.present ? balanceMinor.value : this.balanceMinor,
+    openingBalance: openingBalance ?? this.openingBalance,
+    openingBalanceMinor: openingBalanceMinor.present
+        ? openingBalanceMinor.value
+        : this.openingBalanceMinor,
     currencyCode: currencyCode ?? this.currencyCode,
     currencyDesignationId: currencyDesignationId ?? this.currencyDesignationId,
     styleId: styleId.present ? styleId.value : this.styleId,
@@ -3413,6 +3487,12 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
       balanceMinor: data.balanceMinor.present
           ? data.balanceMinor.value
           : this.balanceMinor,
+      openingBalance: data.openingBalance.present
+          ? data.openingBalance.value
+          : this.openingBalance,
+      openingBalanceMinor: data.openingBalanceMinor.present
+          ? data.openingBalanceMinor.value
+          : this.openingBalanceMinor,
       currencyCode: data.currencyCode.present
           ? data.currencyCode.value
           : this.currencyCode,
@@ -3450,6 +3530,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
           ..write('description: $description, ')
           ..write('balance: $balance, ')
           ..write('balanceMinor: $balanceMinor, ')
+          ..write('openingBalance: $openingBalance, ')
+          ..write('openingBalanceMinor: $openingBalanceMinor, ')
           ..write('currencyCode: $currencyCode, ')
           ..write('currencyDesignationId: $currencyDesignationId, ')
           ..write('styleId: $styleId, ')
@@ -3473,6 +3555,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
     description,
     balance,
     balanceMinor,
+    openingBalance,
+    openingBalanceMinor,
     currencyCode,
     currencyDesignationId,
     styleId,
@@ -3495,6 +3579,8 @@ class DbAccount extends DataClass implements Insertable<DbAccount> {
           other.description == this.description &&
           other.balance == this.balance &&
           other.balanceMinor == this.balanceMinor &&
+          other.openingBalance == this.openingBalance &&
+          other.openingBalanceMinor == this.openingBalanceMinor &&
           other.currencyCode == this.currencyCode &&
           other.currencyDesignationId == this.currencyDesignationId &&
           other.styleId == this.styleId &&
@@ -3515,6 +3601,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
   final Value<String?> description;
   final Value<double> balance;
   final Value<int?> balanceMinor;
+  final Value<double> openingBalance;
+  final Value<int?> openingBalanceMinor;
   final Value<String> currencyCode;
   final Value<String> currencyDesignationId;
   final Value<String?> styleId;
@@ -3534,6 +3622,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     this.description = const Value.absent(),
     this.balance = const Value.absent(),
     this.balanceMinor = const Value.absent(),
+    this.openingBalance = const Value.absent(),
+    this.openingBalanceMinor = const Value.absent(),
     this.currencyCode = const Value.absent(),
     this.currencyDesignationId = const Value.absent(),
     this.styleId = const Value.absent(),
@@ -3554,6 +3644,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     this.description = const Value.absent(),
     required double balance,
     this.balanceMinor = const Value.absent(),
+    this.openingBalance = const Value.absent(),
+    this.openingBalanceMinor = const Value.absent(),
     required String currencyCode,
     required String currencyDesignationId,
     this.styleId = const Value.absent(),
@@ -3578,6 +3670,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     Expression<String>? description,
     Expression<double>? balance,
     Expression<int>? balanceMinor,
+    Expression<double>? openingBalance,
+    Expression<int>? openingBalanceMinor,
     Expression<String>? currencyCode,
     Expression<String>? currencyDesignationId,
     Expression<String>? styleId,
@@ -3598,6 +3692,9 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
       if (description != null) 'description': description,
       if (balance != null) 'balance': balance,
       if (balanceMinor != null) 'balance_minor': balanceMinor,
+      if (openingBalance != null) 'opening_balance': openingBalance,
+      if (openingBalanceMinor != null)
+        'opening_balance_minor': openingBalanceMinor,
       if (currencyCode != null) 'currency_code': currencyCode,
       if (currencyDesignationId != null)
         'currency_designation_id': currencyDesignationId,
@@ -3621,6 +3718,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     Value<String?>? description,
     Value<double>? balance,
     Value<int?>? balanceMinor,
+    Value<double>? openingBalance,
+    Value<int?>? openingBalanceMinor,
     Value<String>? currencyCode,
     Value<String>? currencyDesignationId,
     Value<String?>? styleId,
@@ -3641,6 +3740,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
       description: description ?? this.description,
       balance: balance ?? this.balance,
       balanceMinor: balanceMinor ?? this.balanceMinor,
+      openingBalance: openingBalance ?? this.openingBalance,
+      openingBalanceMinor: openingBalanceMinor ?? this.openingBalanceMinor,
       currencyCode: currencyCode ?? this.currencyCode,
       currencyDesignationId:
           currencyDesignationId ?? this.currencyDesignationId,
@@ -3675,6 +3776,12 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
     }
     if (balanceMinor.present) {
       map['balance_minor'] = Variable<int>(balanceMinor.value);
+    }
+    if (openingBalance.present) {
+      map['opening_balance'] = Variable<double>(openingBalance.value);
+    }
+    if (openingBalanceMinor.present) {
+      map['opening_balance_minor'] = Variable<int>(openingBalanceMinor.value);
     }
     if (currencyCode.present) {
       map['currency_code'] = Variable<String>(currencyCode.value);
@@ -3728,6 +3835,8 @@ class AccountsCompanion extends UpdateCompanion<DbAccount> {
           ..write('description: $description, ')
           ..write('balance: $balance, ')
           ..write('balanceMinor: $balanceMinor, ')
+          ..write('openingBalance: $openingBalance, ')
+          ..write('openingBalanceMinor: $openingBalanceMinor, ')
           ..write('currencyCode: $currencyCode, ')
           ..write('currencyDesignationId: $currencyDesignationId, ')
           ..write('styleId: $styleId, ')
@@ -14553,6 +14662,8 @@ typedef $$AccountsTableCreateCompanionBuilder =
       Value<String?> description,
       required double balance,
       Value<int?> balanceMinor,
+      Value<double> openingBalance,
+      Value<int?> openingBalanceMinor,
       required String currencyCode,
       required String currencyDesignationId,
       Value<String?> styleId,
@@ -14574,6 +14685,8 @@ typedef $$AccountsTableUpdateCompanionBuilder =
       Value<String?> description,
       Value<double> balance,
       Value<int?> balanceMinor,
+      Value<double> openingBalance,
+      Value<int?> openingBalanceMinor,
       Value<String> currencyCode,
       Value<String> currencyDesignationId,
       Value<String?> styleId,
@@ -14742,6 +14855,16 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<int> get balanceMinor => $composableBuilder(
     column: $table.balanceMinor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get openingBalance => $composableBuilder(
+    column: $table.openingBalance,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get openingBalanceMinor => $composableBuilder(
+    column: $table.openingBalanceMinor,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14962,6 +15085,16 @@ class $$AccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get openingBalance => $composableBuilder(
+    column: $table.openingBalance,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get openingBalanceMinor => $composableBuilder(
+    column: $table.openingBalanceMinor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get creationDate => $composableBuilder(
     column: $table.creationDate,
     builder: (column) => ColumnOrderings(column),
@@ -15121,6 +15254,16 @@ class $$AccountsTableAnnotationComposer
 
   GeneratedColumn<int> get balanceMinor => $composableBuilder(
     column: $table.balanceMinor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get openingBalance => $composableBuilder(
+    column: $table.openingBalance,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get openingBalanceMinor => $composableBuilder(
+    column: $table.openingBalanceMinor,
     builder: (column) => column,
   );
 
@@ -15340,6 +15483,8 @@ class $$AccountsTableTableManager
                 Value<String?> description = const Value.absent(),
                 Value<double> balance = const Value.absent(),
                 Value<int?> balanceMinor = const Value.absent(),
+                Value<double> openingBalance = const Value.absent(),
+                Value<int?> openingBalanceMinor = const Value.absent(),
                 Value<String> currencyCode = const Value.absent(),
                 Value<String> currencyDesignationId = const Value.absent(),
                 Value<String?> styleId = const Value.absent(),
@@ -15359,6 +15504,8 @@ class $$AccountsTableTableManager
                 description: description,
                 balance: balance,
                 balanceMinor: balanceMinor,
+                openingBalance: openingBalance,
+                openingBalanceMinor: openingBalanceMinor,
                 currencyCode: currencyCode,
                 currencyDesignationId: currencyDesignationId,
                 styleId: styleId,
@@ -15380,6 +15527,8 @@ class $$AccountsTableTableManager
                 Value<String?> description = const Value.absent(),
                 required double balance,
                 Value<int?> balanceMinor = const Value.absent(),
+                Value<double> openingBalance = const Value.absent(),
+                Value<int?> openingBalanceMinor = const Value.absent(),
                 required String currencyCode,
                 required String currencyDesignationId,
                 Value<String?> styleId = const Value.absent(),
@@ -15399,6 +15548,8 @@ class $$AccountsTableTableManager
                 description: description,
                 balance: balance,
                 balanceMinor: balanceMinor,
+                openingBalance: openingBalance,
+                openingBalanceMinor: openingBalanceMinor,
                 currencyCode: currencyCode,
                 currencyDesignationId: currencyDesignationId,
                 styleId: styleId,

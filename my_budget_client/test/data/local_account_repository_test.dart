@@ -98,7 +98,7 @@ void main() {
             linkedTransactionId: Value(linkedTransactionId),
           ),
         );
-    await db.accountsDao.adjustBalance(accountId, amount);
+    await db.accountsDao.adjustBalance(accountId, amount, currencyCode: 'EUR');
   }
 
   group('soft delete is honoured by every read path', () {

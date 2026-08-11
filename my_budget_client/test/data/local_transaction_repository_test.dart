@@ -48,6 +48,7 @@ void main() {
     double amount, {
     String accountId = 'a',
     String? linkedTransactionId,
+    String currencyCode = 'EUR',
   }) => domain.Transaction(
     id: id,
     description: id,
@@ -55,7 +56,7 @@ void main() {
     date: DateTime(2024, 1, 1),
     accountId: accountId,
     categoryId: categoryId,
-    currencyCode: 'EUR',
+    currencyCode: currencyCode,
     linkedTransactionId: linkedTransactionId,
   );
 
@@ -162,6 +163,84 @@ void main() {
 
       expect((await account('a')).balanceMinor, 10000);
       expect(await repo.getTransactionById('ghost'), isNull);
+    });
+  });
+
+  group('a transaction denominated in a currency the account does not hold', () {
+    // The write paths keep a transaction in its own currency whenever no
+    // exchange rate is on file, so this is an ordinary state, not a corrupt
+    // one. What must never happen is the foreign digits being added to the
+    // balance as though they were euros.
+    test('does not move the balance by its raw foreign amount', () async {
+      await repo.addTransaction(tx('usd', 100, currencyCode: 'USD'));
+
+      expect((await account('a')).balanceMinor, 0);
+      expect(
+        await repo.getTransactionById('usd'),
+        isNotNull,
+        reason: 'the transaction itself is still recorded — only the balance '
+            'waits for a rate',
+      );
+    });
+
+    test('is left out of a rebuild too, so both paths agree', () async {
+      await repo.addTransaction(tx('usd', 100, currencyCode: 'USD'));
+      await repo.addTransaction(tx('eur', 40));
+
+      await db.accountsDao.recomputeBalances(['a']);
+
+      expect((await account('a')).balanceMinor, 4000);
+    });
+
+    test('joins the balance once it is restated in the account currency',
+        () async {
+      await repo.addTransaction(tx('usd', 100, currencyCode: 'USD'));
+      expect((await account('a')).balanceMinor, 0);
+
+      // What happens when the rate finally arrives and the amount is converted.
+      await repo.updateTransaction(tx('usd', 117.5));
+
+      expect((await account('a')).balanceMinor, 11750);
+    });
+
+    test('leaves the balance alone again when it is taken back out', () async {
+      await repo.addTransaction(tx('usd', 100, currencyCode: 'USD'));
+      await repo.deleteTransaction('usd');
+
+      // Reverting a delta that was never applied would push the account
+      // 100 euros into the red on a delete.
+      expect((await account('a')).balanceMinor, 0);
+    });
+
+    test('a batch keeps each currency to its own account', () async {
+      await repo.addTransactions([
+        tx('t1', 10),
+        tx('usd', 100, currencyCode: 'USD'),
+        tx('t2', 7, accountId: 'b'),
+      ]);
+
+      expect((await account('a')).balanceMinor, 1000);
+      expect((await account('b')).balanceMinor, 700);
+    });
+  });
+
+  group('rebuilding a balance from the opening-balance anchor', () {
+    test('counts a fiat transaction that arrived without minor units',
+        () async {
+      await repo.addTransaction(tx('t1', 10));
+      // A peer or an importer that predates the minor-unit columns sends only
+      // the double. The incremental path works off that double and counts the
+      // row, so a rebuild that skipped it would quietly disagree with the
+      // running balance by the whole transaction.
+      await db.customStatement(
+        'UPDATE transactions SET amount_minor = NULL WHERE id = ?',
+        ['t1'],
+      );
+
+      await db.accountsDao.recomputeBalances(['a']);
+
+      expect((await account('a')).balanceMinor, 1000);
+      expect((await account('a')).balance, closeTo(10.0, 1e-9));
     });
   });
 

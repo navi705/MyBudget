@@ -1109,14 +1109,47 @@ class ServerSyncService {
     try {
       debugPrint('[ServerSync] Entering database transaction for pull...');
       await _database.transaction(() async {
+        // An incoming transaction can move to another account, and the account
+        // it is leaving has to be rebuilt too — nothing in the batch mentions
+        // it, so its id has to be read before the move overwrites it.
+        final touchedAccounts = <String>{
+          ...await _accountIdsOfTransactions(changes),
+        };
+        final anchorlessAccounts = <String>{};
+
         for (final table in _pullTableOrder) {
           final list = changes[table.key] as List?;
           if (list == null || list.isEmpty) continue;
           debugPrint('[ServerSync] Applying ${list.length} ${table.key}...');
           for (final row in list) {
-            await table.upsert(row as Map<String, dynamic>);
+            final json = row as Map<String, dynamic>;
+            await table.upsert(json);
+            if (table.key == 'accounts') {
+              final id = json['id'] as String?;
+              if (id != null && id.isNotEmpty) {
+                touchedAccounts.add(id);
+                if (json['openingBalance'] == null) {
+                  anchorlessAccounts.add(id);
+                }
+              }
+            } else if (table.key == 'transactions') {
+              final accountId = json['accountId'] as String?;
+              if (accountId != null && accountId.isNotEmpty) {
+                touchedAccounts.add(accountId);
+              }
+            }
           }
         }
+
+        await _database.accountsDao.anchorOpeningBalances(anchorlessAccounts);
+        // The stored balance that came down the wire is deliberately thrown
+        // away in favour of one rebuilt here. Balances merge as scalars while
+        // transactions merge as a set, so accepting the pulled number leaves
+        // whichever device pushed last dictating a balance that the merged set
+        // of transactions does not add up to, for good. Rebuilding costs a
+        // balance that can lag by one unconverted transaction; that resolves
+        // itself, a balance nobody can reconcile does not.
+        await _database.accountsDao.recomputeBalances(touchedAccounts);
       });
       debugPrint('[ServerSync] Pull committed successfully.');
     } finally {
@@ -1126,6 +1159,44 @@ class ServerSyncService {
       _isApplyingRemoteChanges = false;
       await _database.customStatement('PRAGMA foreign_keys = ON');
     }
+  }
+
+  /// The accounts the pulled transactions belong to *locally*, read before the
+  /// batch is applied. Anything that changes account here would otherwise leave
+  /// the account it left behind holding a balance that still counts it.
+  Future<Set<String>> _accountIdsOfTransactions(
+    Map<String, dynamic> changes,
+  ) async {
+    final list = changes['transactions'] as List?;
+    if (list == null || list.isEmpty) return {};
+
+    final ids = <String>[
+      for (final row in list)
+        if ((row as Map<String, dynamic>)['id'] case final String id
+            when id.isNotEmpty)
+          id,
+    ];
+
+    final accountIds = <String>{};
+    for (var start = 0; start < ids.length; start += 500) {
+      final chunk = ids.sublist(
+        start,
+        start + 500 > ids.length ? ids.length : start + 500,
+      );
+      final rows = await _database
+          .customSelect(
+            'SELECT DISTINCT account_id FROM transactions '
+            'WHERE id IN (${List.filled(chunk.length, '?').join(', ')})',
+            variables: [
+              for (final id in chunk) drift_db.Variable.withString(id),
+            ],
+          )
+          .get();
+      for (final row in rows) {
+        accountIds.add(row.read<String>('account_id'));
+      }
+    }
+    return accountIds;
   }
 
   // Helpers to gather data (needs DB access)
@@ -1183,6 +1254,11 @@ class ServerSyncService {
     // double above is the source of truth. Never _round()ed and never coerced
     // to 0 — a 0 here would mean "this account holds nothing".
     'balanceMinor': e.balanceMinor,
+    // The anchor the receiver rebuilds the balance from. Unlike the balance it
+    // only moves when the user edits the account, so the last writer of these
+    // two really is the last person who changed them.
+    'openingBalance': _round(e.openingBalance),
+    'openingBalanceMinor': e.openingBalanceMinor,
     'currencyCode': e.currencyCode,
     'currencyDesignationId': e.currencyDesignationId,
     'styleId': e.styleId,
@@ -1476,14 +1552,26 @@ class ServerSyncService {
             ? currencyDesignationId
             : '';
 
+    final balance = _round((json['balance'] as num?)?.toDouble() ?? 0.0);
+    final balanceMinor = (json['balanceMinor'] as num?)?.toInt();
+    // A sender that predates the anchor sends the balance and nothing else, so
+    // the balance stands in for the anchor here and _applyChanges re-derives
+    // the real anchor once the batch's transactions are in. Defaulting to zero
+    // instead would hand such an account a balance made of its transactions
+    // alone, with the money it opened with quietly gone.
+    final openingBalance = (json['openingBalance'] as num?)?.toDouble();
+    final openingBalanceMinor = (json['openingBalanceMinor'] as num?)?.toInt();
+
     await _database.customInsert(
-      '''INSERT INTO accounts (id, name, description, balance, balance_minor, currency_code, currency_designation_id, style_id, account_type_id, creation_date, country, asset_id, asset_quantity, fee_structure, modified_at, device_id, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      '''INSERT INTO accounts (id, name, description, balance, balance_minor, opening_balance, opening_balance_minor, currency_code, currency_designation_id, style_id, account_type_id, creation_date, country, asset_id, asset_quantity, fee_structure, modified_at, device_id, is_deleted)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
         description = EXCLUDED.description,
         balance = EXCLUDED.balance,
         balance_minor = EXCLUDED.balance_minor,
+        opening_balance = EXCLUDED.opening_balance,
+        opening_balance_minor = EXCLUDED.opening_balance_minor,
         currency_code = EXCLUDED.currency_code,
         currency_designation_id = EXCLUDED.currency_designation_id,
         style_id = EXCLUDED.style_id,
@@ -1501,10 +1589,14 @@ class ServerSyncService {
         drift_db.Variable.withString(json['id'] as String? ?? ''),
         drift_db.Variable.withString(json['name'] as String? ?? 'Untitled Account'),
         drift_db.Variable(json['description'] as String?),
-        drift_db.Variable.withReal(_round((json['balance'] as num?)?.toDouble() ?? 0.0)),
+        drift_db.Variable.withReal(balance),
         // Nullable on purpose: NULL means "not a fiat account, use the double".
         // A peer or server that predates this column simply sends nothing.
-        drift_db.Variable((json['balanceMinor'] as num?)?.toInt()),
+        drift_db.Variable(balanceMinor),
+        drift_db.Variable.withReal(openingBalance ?? balance),
+        drift_db.Variable(
+          openingBalance == null ? balanceMinor : openingBalanceMinor,
+        ),
         drift_db.Variable.withString(resolvedCurrencyCode),
         drift_db.Variable.withString(resolvedCurrencyDesignationId),
         drift_db.Variable(json['styleId'] as String?),

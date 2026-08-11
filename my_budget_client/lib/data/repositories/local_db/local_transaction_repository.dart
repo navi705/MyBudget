@@ -36,7 +36,11 @@ class LocalTransactionRepository implements TransactionRepository {
       await database.transactionsDao.insertTransaction(
         transaction.toCompanion(),
       );
-      await _updateAccountBalance(transaction.accountId, transaction.amount);
+      await _updateAccountBalance(
+        transaction.accountId,
+        transaction.amount,
+        transaction.currencyCode,
+      );
     });
   }
 
@@ -48,11 +52,14 @@ class LocalTransactionRepository implements TransactionRepository {
         transactions.toCompanionList(),
       );
 
-      // 2. Aggregate amounts by account ID
-      final amountChanges = <String, double>{};
+      // 2. Aggregate amounts by account ID and the currency they are stated in
+      final amountChanges = <db.BalanceDeltaKey, double>{};
       for (final transaction in transactions) {
         amountChanges.update(
-          transaction.accountId,
+          (
+            accountId: transaction.accountId,
+            currencyCode: transaction.currencyCode,
+          ),
           (value) => value + transaction.amount,
           ifAbsent: () => transaction.amount,
         );
@@ -76,7 +83,11 @@ class LocalTransactionRepository implements TransactionRepository {
       await database.transactionsDao.deleteTransaction(
         db.TransactionsCompanion(id: Value(id)),
       );
-      await _updateAccountBalance(transaction.accountId, -transaction.amount);
+      await _updateAccountBalance(
+        transaction.accountId,
+        -transaction.amount,
+        transaction.currencyCode,
+      );
 
       if (transaction.linkedTransactionId != null &&
           transaction.linkedTransactionId!.isNotEmpty) {
@@ -118,10 +129,13 @@ class LocalTransactionRepository implements TransactionRepository {
       // 2. Adjust Balances
       final transactionsToDelete = await database.transactionsDao
           .getTransactionsByIds(finalIdsList);
-      final amountChanges = <String, double>{};
+      final amountChanges = <db.BalanceDeltaKey, double>{};
       for (final transaction in transactionsToDelete) {
         amountChanges.update(
-          transaction.accountId,
+          (
+            accountId: transaction.accountId,
+            currencyCode: transaction.currencyCode,
+          ),
           (value) => value - transaction.amount,
           ifAbsent: () => -transaction.amount,
         );
@@ -213,25 +227,37 @@ class LocalTransactionRepository implements TransactionRepository {
         transaction.toCompanion(),
       );
 
-      // Check if the account has changed
-      if (oldTransaction.accountId != transaction.accountId) {
-        // Revert the amount from the old account
-        await _updateAccountBalance(
-          oldTransaction.accountId,
-          -oldTransaction.amount,
-        );
-        // Apply the new amount to the new account
-        await _updateAccountBalance(transaction.accountId, transaction.amount);
-      } else {
-        // If the account is the same, just update with the difference
-        final amountDifference = transaction.amount - oldTransaction.amount;
-        await _updateAccountBalance(transaction.accountId, amountDifference);
-      }
+      // Both legs are applied separately even when the account has not changed.
+      // The two versions can be denominated in different currencies — an edit
+      // that supplies the exchange rate the app was missing restates the amount
+      // in the account's currency — and subtracting one currency from another
+      // to get a single delta produces a number that is money in neither. Two
+      // adjustments let each side be checked against the account it lands on,
+      // so a version in a foreign currency is simply not counted while the one
+      // in the account's currency is.
+      await _updateAccountBalance(
+        oldTransaction.accountId,
+        -oldTransaction.amount,
+        oldTransaction.currencyCode,
+      );
+      await _updateAccountBalance(
+        transaction.accountId,
+        transaction.amount,
+        transaction.currencyCode,
+      );
     });
   }
 
-  Future<void> _updateAccountBalance(String accountId, double amount) async {
-    await database.accountsDao.adjustBalance(accountId, amount);
+  Future<void> _updateAccountBalance(
+    String accountId,
+    double amount,
+    String currencyCode,
+  ) async {
+    await database.accountsDao.adjustBalance(
+      accountId,
+      amount,
+      currencyCode: currencyCode,
+    );
   }
 
   @override
@@ -332,10 +358,13 @@ class LocalTransactionRepository implements TransactionRepository {
       final ids = transactions.map((t) => t.id!).toList();
       await database.transactionsDao.restoreTransactions(ids);
 
-      final amountChanges = <String, double>{};
+      final amountChanges = <db.BalanceDeltaKey, double>{};
       for (final transaction in transactions) {
         amountChanges.update(
-          transaction.accountId,
+          (
+            accountId: transaction.accountId,
+            currencyCode: transaction.currencyCode,
+          ),
           (value) => value + transaction.amount,
           ifAbsent: () => transaction.amount,
         );

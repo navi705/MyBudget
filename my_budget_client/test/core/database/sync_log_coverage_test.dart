@@ -270,7 +270,11 @@ void main() {
             accountTypeId: accountTypeId,
           ),
         );
-        await db.accountsDao.adjustBalance('sl_acc_bal', 25.5);
+        await db.accountsDao.adjustBalance(
+          'sl_acc_bal',
+          25.5,
+          currencyCode: eurCode,
+        );
         final logs = await logsFor('accounts', 'sl_acc_bal');
         // 1 from insertAccount + 1 from adjustBalance.
         expect(logs.where((l) => l.action == 'upsert').length, 2);

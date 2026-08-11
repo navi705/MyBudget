@@ -404,4 +404,138 @@ void main() {
       expect(cat!.name, 'My Custom Category');
     });
   });
+
+  group('v10 -> v11 migration (adds the opening-balance anchor)', () {
+    // v10 == the current schema minus the two opening-balance columns: the v9
+    // fixture above with `inflation_rates.country` already NOT NULL, which is
+    // all the v9->v10 step changes.
+    const createV10Sql = '''
+      CREATE TABLE "languages" ("language" TEXT NOT NULL, "language_code" TEXT NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("language_code"));
+      CREATE TABLE "currencies" ("name" TEXT NOT NULL UNIQUE, "code" TEXT NOT NULL, "language_code" TEXT NOT NULL REFERENCES languages (language_code), "type" INTEGER NOT NULL DEFAULT 6, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("code"));
+      CREATE TABLE "currency_designations" ("id" TEXT NOT NULL, "value" TEXT NOT NULL, "currency_code" TEXT NOT NULL REFERENCES currencies (code), "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "account_types" ("id" TEXT NOT NULL, "name" TEXT NOT NULL UNIQUE, "language_code" TEXT NOT NULL REFERENCES languages (language_code), "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "styles" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "icon_name" TEXT NOT NULL, "color_hex" TEXT NOT NULL, "icon_type" INTEGER NOT NULL DEFAULT 0, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "categories" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "parent_id" TEXT NULL REFERENCES categories (id), "style_id" TEXT NULL REFERENCES styles (id), "type" INTEGER NOT NULL DEFAULT 0, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "accounts" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "description" TEXT NULL, "balance" REAL NOT NULL, "balance_minor" INTEGER NULL, "currency_code" TEXT NOT NULL REFERENCES currencies (code), "currency_designation_id" TEXT NOT NULL REFERENCES currency_designations (id), "style_id" TEXT NULL REFERENCES styles (id), "account_type_id" TEXT NOT NULL REFERENCES account_types (id), "creation_date" INTEGER NOT NULL, "country" TEXT NULL, "asset_id" TEXT NULL, "asset_quantity" REAL NOT NULL DEFAULT 0.0, "fee_structure" TEXT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "transactions" ("id" TEXT NOT NULL, "description" TEXT NOT NULL, "amount" REAL NOT NULL, "amount_minor" INTEGER NULL, "date" INTEGER NOT NULL, "account_id" TEXT NOT NULL REFERENCES accounts (id), "category_id" TEXT NOT NULL REFERENCES categories (id), "currency_code" TEXT NOT NULL REFERENCES currencies (code), "exchange_rate" REAL NULL, "exchange_rate_preset" INTEGER NULL, "fee" REAL NOT NULL DEFAULT 0.0, "fee_minor" INTEGER NULL, "linked_transaction_id" TEXT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "exchange_rates" ("from_currency_code" TEXT NOT NULL REFERENCES currencies (code), "to_currency_code" TEXT NOT NULL REFERENCES currencies (code), "rate" REAL NOT NULL, "preset" INTEGER NOT NULL, "date" INTEGER NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "source_id" TEXT NULL, PRIMARY KEY ("from_currency_code", "to_currency_code", "date", "preset"));
+      CREATE TABLE "inflation_rates" ("date" INTEGER NOT NULL, "percent" REAL NOT NULL, "country" TEXT NOT NULL DEFAULT 'global', "preset" INTEGER NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "source_id" TEXT NULL, PRIMARY KEY ("date", "country", "preset"));
+      CREATE TABLE "asset_entries" ("id" TEXT NOT NULL, "asset_id" TEXT NOT NULL, "name" TEXT NOT NULL, "date" INTEGER NOT NULL, "value" REAL NOT NULL, "quantity" REAL NOT NULL DEFAULT 1.0, "asset_type" TEXT NULL, "description" TEXT NULL, "currency_code" TEXT NOT NULL REFERENCES currencies (code), "account_id" TEXT NULL REFERENCES accounts (id), "source" TEXT NOT NULL, "preset" INTEGER NOT NULL DEFAULT 1, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "source_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "settings" ("key" TEXT NOT NULL, "value" TEXT NOT NULL, "device" TEXT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("key"));
+      CREATE TABLE "custom_themes" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "primary_color_hex" TEXT NOT NULL, "secondary_color_hex" TEXT NOT NULL, "surface_color_hex" TEXT NOT NULL, "background_color_hex" TEXT NOT NULL, "background_image_path" TEXT NULL, "background_image_opacity" REAL NOT NULL DEFAULT 1.0, "background_image_blur" REAL NOT NULL DEFAULT 0.0, "window_effect_type" INTEGER NOT NULL, "effect_opacity" REAL NOT NULL DEFAULT 1.0, "surface_opacity" REAL NOT NULL DEFAULT 1.0, "theme_mode" INTEGER NOT NULL, "is_preset" INTEGER NOT NULL DEFAULT 0, "is_active" INTEGER NOT NULL DEFAULT 0, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "sync_log" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "changed_table_name" TEXT NOT NULL, "record_id" TEXT NOT NULL, "action" TEXT NOT NULL, "timestamp" INTEGER NOT NULL, "exported" INTEGER NOT NULL DEFAULT 0);
+      CREATE TABLE "conflict_history" ("id" TEXT NOT NULL, "changed_table_name" TEXT NOT NULL, "record_id" TEXT NOT NULL, "rejected_data" TEXT NOT NULL, "rejected_at" INTEGER NOT NULL, "rejected_device" TEXT NULL, PRIMARY KEY ("id"));
+      CREATE TABLE "custom_data_sources" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "url" TEXT NOT NULL, "data_type" INTEGER NOT NULL, "enabled" INTEGER NOT NULL DEFAULT 1, "auto_fetch" INTEGER NOT NULL DEFAULT 0, "last_fetch_at" INTEGER NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "api_settings_table" ("id" TEXT NOT NULL, "enabled" INTEGER NOT NULL DEFAULT 1, "auto_fetch" INTEGER NOT NULL DEFAULT 0, "last_fetch_at" INTEGER NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("id"));
+      CREATE TABLE "api_fetch_statuses" ("id" TEXT NOT NULL, "attempts" INTEGER NOT NULL DEFAULT 0, "last_attempt" INTEGER NULL, "status" TEXT NOT NULL DEFAULT 'pending', PRIMARY KEY ("id"));
+      CREATE TABLE "sms_presets" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "sender_filter" TEXT NOT NULL, "is_built_in" INTEGER NOT NULL DEFAULT 0, "is_enabled" INTEGER NOT NULL DEFAULT 1, "default_account_id" TEXT NULL, "default_category_id" TEXT NULL, "rules_json" TEXT NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "sync_processed_files" ("file_name" TEXT NOT NULL, "processed_at" INTEGER NOT NULL, "device_id" TEXT NOT NULL, PRIMARY KEY ("file_name"));
+    ''';
+
+    // A user's database on the day of the upgrade. The euro account's stored
+    // balance is what the running total had reached: the opening 1200.00, plus
+    // 34.56 of euro transactions, plus a soft-deleted euro transaction that was
+    // already reverted when it was deleted, and NOT the 100 USD row, which the
+    // account was never converted into.
+    const seedSql = '''
+      INSERT INTO languages (language, language_code) VALUES ('English','en');
+      INSERT INTO currencies (name, code, language_code, type) VALUES ('Euro','EUR','en',0);
+      INSERT INTO currencies (name, code, language_code, type) VALUES ('Dollar','USD','en',0);
+      INSERT INTO currencies (name, code, language_code, type) VALUES ('Yen','JPY','en',0);
+      INSERT INTO currencies (name, code, language_code, type) VALUES ('Bitcoin','BTC','en',1);
+      INSERT INTO currency_designations (id, value, currency_code) VALUES ('d1','€','EUR');
+      INSERT INTO account_types (id, name, language_code) VALUES ('at1','Checking','en');
+      INSERT INTO categories (id, name) VALUES ('c1','Groceries');
+      INSERT INTO accounts (id, name, balance, balance_minor, currency_code, currency_designation_id, account_type_id, creation_date)
+        VALUES ('accEur', 'Eur Wallet', 1234.56, 123456, 'EUR', 'd1', 'at1', 0);
+      INSERT INTO accounts (id, name, balance, balance_minor, currency_code, currency_designation_id, account_type_id, creation_date)
+        VALUES ('accJpy', 'Yen Wallet', 15000.0, 15000, 'JPY', 'd1', 'at1', 0);
+      INSERT INTO accounts (id, name, balance, balance_minor, currency_code, currency_designation_id, account_type_id, creation_date)
+        VALUES ('accBtc', 'Btc Wallet', 0.5, NULL, 'BTC', 'd1', 'at1', 0);
+      INSERT INTO transactions (id, description, amount, amount_minor, date, account_id, category_id, currency_code)
+        VALUES ('t1', 'Weekly shop', 10.10, 1010, 0, 'accEur', 'c1', 'EUR');
+      INSERT INTO transactions (id, description, amount, amount_minor, date, account_id, category_id, currency_code)
+        VALUES ('t2', 'Refund', 24.46, 2446, 0, 'accEur', 'c1', 'EUR');
+      INSERT INTO transactions (id, description, amount, amount_minor, date, account_id, category_id, currency_code, is_deleted)
+        VALUES ('t3', 'Cancelled', 500.00, 50000, 0, 'accEur', 'c1', 'EUR', 1);
+      INSERT INTO transactions (id, description, amount, amount_minor, date, account_id, category_id, currency_code)
+        VALUES ('t4', 'Hotel in dollars', 100.0, 10000, 0, 'accEur', 'c1', 'USD');
+      INSERT INTO transactions (id, description, amount, amount_minor, date, account_id, category_id, currency_code)
+        VALUES ('t5', 'Lunch', 500.0, 500, 0, 'accJpy', 'c1', 'JPY');
+      INSERT INTO transactions (id, description, amount, amount_minor, date, account_id, category_id, currency_code)
+        VALUES ('t6', 'Sats', 0.25, NULL, 0, 'accBtc', 'c1', 'BTC');
+    ''';
+
+    late AppDatabase db;
+
+    setUp(() async {
+      final file = File('${tempDir.path}/v10.sqlite');
+      final raw = sqlite3.sqlite3.open(file.path);
+      raw.execute(createV10Sql);
+      raw.execute(seedSql);
+      raw.execute('PRAGMA user_version = 10;');
+      raw.dispose();
+
+      db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+    });
+
+    tearDown(() async => db.close());
+
+    Future<DbAccount> account(String id) =>
+        (db.select(db.accounts)..where((a) => a.id.equals(id))).getSingle();
+
+    test('nobody\'s balance moves', () async {
+      expect((await account('accEur')).balance, 1234.56);
+      expect((await account('accEur')).balanceMinor, 123456);
+      expect((await account('accJpy')).balanceMinor, 15000);
+      expect((await account('accBtc')).balance, 0.5);
+    });
+
+    test('the first rebuild reproduces the balance the user had, exactly',
+        () async {
+      // The whole point of the anchor: it is only worth having if rebuilding
+      // from it is a no-op on the day it is introduced. If this drifts, every
+      // upgraded device silently restates its owner's money.
+      await db.accountsDao.recomputeBalances([
+        'accEur',
+        'accJpy',
+        'accBtc',
+      ]);
+
+      expect((await account('accEur')).balanceMinor, 123456);
+      expect((await account('accEur')).balance, 1234.56);
+      expect((await account('accJpy')).balanceMinor, 15000);
+      expect((await account('accBtc')).balance, closeTo(0.5, 1e-12));
+    });
+
+    test('the anchor is the balance minus the transactions that built it',
+        () async {
+      final eur = await account('accEur');
+      // 123456 minus t1 and t2; the soft-deleted t3 was already taken out of
+      // the balance when it was deleted, and the dollar row never went in.
+      expect(eur.openingBalanceMinor, 120000);
+      expect(eur.openingBalance, 1200.0);
+    });
+
+    test('a zero-decimal currency is not assumed to have cents', () async {
+      final jpy = await account('accJpy');
+      expect(jpy.openingBalanceMinor, 14500);
+      expect(jpy.openingBalance, 14500.0);
+    });
+
+    test('a crypto account keeps NULL minor units and anchors on the double',
+        () async {
+      final btc = await account('accBtc');
+      expect(btc.openingBalanceMinor, isNull);
+      expect(btc.openingBalance, closeTo(0.25, 1e-12));
+    });
+
+    test('adds the anchor without dropping any other column', () async {
+      final cols = await db.customSelect("PRAGMA table_info('accounts')").get();
+      final names = cols.map((r) => r.data['name'] as String).toSet();
+      expect(names, containsAll(['opening_balance', 'opening_balance_minor']));
+      expect(names, containsAll(['balance', 'balance_minor', 'is_deleted']));
+    });
+  });
 }

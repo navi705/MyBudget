@@ -154,6 +154,16 @@ class Accounts extends Table {
   // CurrencyPrecision). NULL for crypto/commodity accounts, which stay on the
   // [balance] double. Kept in sync with [balance] by the balance-adjust DAO.
   IntColumn get balanceMinor => integer().nullable()();
+  // What the account was worth before any of its transactions existed, and the
+  // anchor [balance] is rebuilt from. [balance] is materialised, so two devices
+  // that each add a transaction offline both send a whole balance and one of
+  // them is simply overwritten, leaving a number that no set of transactions
+  // explains. This one moves only when the user edits the account, so the
+  // last writer really is the one who meant it.
+  RealColumn get openingBalance => real().withDefault(const Constant(0.0))();
+  // Exact integer minor units of [openingBalance], following [balanceMinor]:
+  // NULL for crypto/commodity accounts, which stay on the double.
+  IntColumn get openingBalanceMinor => integer().nullable()();
   TextColumn get currencyCode => text().references(Currencies, #code)();
   TextColumn get currencyDesignationId =>
       text().references(CurrencyDesignations, #id)();
@@ -1273,16 +1283,65 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
   }
 }
 
-/// SQL CASE yielding 10^decimals (the minor-unit scale) for a `currency_code`
-/// column, mirroring CurrencyPrecision: 0 for JPY/…, 3 for KWD/…, else 2.
-/// Shared by the v7->v8 backfill and the balance-adjust statements so exact
-/// minor-unit balances are maintained without threading a delta through Dart.
-const String kMinorScaleCase = '''
+/// SQL CASE yielding 10^decimals (the minor-unit scale) for the currency named
+/// by [column], mirroring CurrencyPrecision: 0 for JPY/…, 3 for KWD/…, else 2.
+/// Takes the column rather than assuming a bare `currency_code`, because a
+/// statement that joins accounts to transactions has two of them and picking
+/// the wrong one scales the money by a factor of ten or a hundred.
+String minorScaleCaseFor(String column) =>
+    '''
       CASE
-        WHEN currency_code IN ('BIF','CLP','DJF','GNF','ISK','JPY','KMF','KRW','PYG','RWF','UGX','VND','VUV','XAF','XOF','XPF') THEN 1
-        WHEN currency_code IN ('BHD','IQD','JOD','KWD','LYD','OMR','TND') THEN 1000
+        WHEN $column IN ('BIF','CLP','DJF','GNF','ISK','JPY','KMF','KRW','PYG','RWF','UGX','VND','VUV','XAF','XOF','XPF') THEN 1
+        WHEN $column IN ('BHD','IQD','JOD','KWD','LYD','OMR','TND') THEN 1000
         ELSE 100
       END''';
+
+/// The same CASE for a statement with only one `currency_code` in scope.
+/// Shared by the v7->v8 backfill and the balance-adjust statements so exact
+/// minor-unit balances are maintained without threading a delta through Dart.
+final String kMinorScaleCase = minorScaleCaseFor('currency_code');
+
+/// Correlated sum of the transactions that count toward an account's balance,
+/// for use inside a statement whose target table is aliased `accounts`.
+///
+/// Only the account's own live rows in the account's own currency count. When
+/// no exchange rate is on file the write paths deliberately keep a transaction
+/// in the currency it was made in, and adding those digits to the balance as
+/// if they were the account's own is wrong by the whole exchange rate — 100 USD
+/// would move an RSD balance by 100 instead of about 11,700. Leaving such a row
+/// out understates the balance by one transaction, which a rebuild puts right
+/// the moment the rate arrives and the amount is restated in the account's
+/// currency; a balance that has been scaled by a wrong factor is indistinguish-
+/// able from money the user actually has, and nothing can put that right later.
+String _ownTransactionsSum(String column) =>
+    _ownTransactionsSumOf('COALESCE(t.$column, 0)');
+
+/// The same sum in exact minor units, falling back to the double when a row
+/// carries no integer amount.
+///
+/// A fiat row is supposed to arrive with its minor units filled in, but a peer
+/// or an importer that predates them can send only the double, and dropping
+/// such a row from the rebuild while [AccountsDao.adjustBalance] — which works
+/// off the double — still counts it would leave the incremental and rebuilt
+/// balances disagreeing by that transaction. The row is filtered to the
+/// account's own currency, so scaling it by its own currency and by the
+/// account's is the same thing.
+String _ownTransactionsMinorSum(String minorColumn, String doubleColumn) =>
+    _ownTransactionsSumOf(
+      'COALESCE(t.$minorColumn, CAST(ROUND(COALESCE(t.$doubleColumn, 0) * '
+      '(${minorScaleCaseFor('t.currency_code')})) AS INTEGER))',
+    );
+
+String _ownTransactionsSumOf(String valueExpression) =>
+    '''COALESCE((SELECT SUM($valueExpression) FROM transactions t
+          WHERE t.account_id = accounts.id
+            AND t.is_deleted = 0
+            AND t.currency_code = accounts.currency_code), 0)''';
+
+/// Key of a batched balance delta. A delta is only ever applied to an account
+/// whose currency matches the money it came from, so the currency travels with
+/// the account id rather than being assumed.
+typedef BalanceDeltaKey = ({String accountId, String currencyCode});
 
 @DriftAccessor(tables: [Accounts, Transactions, SyncLog])
 class AccountsDao extends DatabaseAccessor<AppDatabase>
@@ -1327,12 +1386,25 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     );
 
     await into(accounts).insert(toInsert);
+    // A new account's starting balance has no transaction behind it, so it is
+    // the opening balance; anchoring here is what lets the balance be rebuilt
+    // later instead of merely overwritten.
+    await anchorOpeningBalances([toInsert.id.value]);
     // Log change for sync
     await _logChange(toInsert.id.value, 'upsert');
   }
 
-  Future<void> insertSyncedAccount(AccountsCompanion account) =>
-      into(accounts).insert(account, mode: InsertMode.insertOrReplace);
+  Future<void> insertSyncedAccount(AccountsCompanion account) async {
+    await into(accounts).insert(account, mode: InsertMode.insertOrReplace);
+    // The replace writes every column, so a sender that says nothing about the
+    // anchor would leave a zero behind and the next rebuild would erase the
+    // money the account opened with. Taking the balance the sender did compute
+    // and working the anchor back out of it keeps that sender's arithmetic
+    // intact while still leaving the row rebuildable.
+    if (!account.openingBalance.present && account.id.present) {
+      await anchorOpeningBalances([account.id.value]);
+    }
+  }
 
   Future<void> insertAllAccounts(List<AccountsCompanion> accounts) async {
     final List<AccountsCompanion> accountsWithIds = accounts.map((a) {
@@ -1353,6 +1425,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     });
     // Log changes for sync
     final ids = accountsWithIds.map((a) => a.id.value).toList();
+    await anchorOpeningBalances(ids);
     await _logChanges(ids, 'upsert');
   }
 
@@ -1376,11 +1449,15 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
-  Future<void> restoreAccount(AccountsCompanion account) {
+  Future<void> restoreAccount(AccountsCompanion account) async {
     final toInsert = account.copyWith(
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
-    return into(accounts).insert(toInsert, mode: InsertMode.insertOrReplace);
+    await into(accounts).insert(toInsert, mode: InsertMode.insertOrReplace);
+    // The replace writes every column from a companion built out of the domain
+    // entity, which carries the balance but not the anchor, so the anchor has
+    // to be re-derived from the balance being restored.
+    await anchorOpeningBalances([toInsert.id.value]);
   }
 
   Future<bool> updateAccount(AccountsCompanion account) async {
@@ -1388,6 +1465,10 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
     final result = await update(accounts).replace(updatedAccount);
+    // The user edits the balance, but the balance is derived; folding the edit
+    // into the anchor is what keeps the edit and the transactions behind it
+    // consistent, and puts the change on the column that survives a merge.
+    await anchorOpeningBalances([account.id.value]);
     // Log change for sync
     await _logChange(account.id.value, 'upsert');
     return result;
@@ -1423,7 +1504,21 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
-  Future<void> adjustBalance(String accountId, double amount) async {
+  /// Moves [accountId]'s balance by [amount], which must be money denominated
+  /// in [currencyCode].
+  ///
+  /// The currency is checked in SQL rather than trusted: a transaction the app
+  /// could not convert for want of an exchange rate is stored in its own
+  /// currency, and its raw digits added to an account in another currency are
+  /// off by the exchange rate. A mismatch here matches no row and moves
+  /// nothing, which leaves the balance one transaction short until a rebuild
+  /// picks the row up in the account's currency. See [_ownTransactionsSum] for
+  /// why understating is the recoverable failure.
+  Future<void> adjustBalance(
+    String accountId,
+    double amount, {
+    required String currencyCode,
+  }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     // Also maintain the exact integer balance_minor: scale the delta by the
     // account's own currency and round. Crypto rows have balance_minor NULL, so
@@ -1431,12 +1526,13 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     await customUpdate(
       'UPDATE accounts SET balance = balance + ?, '
       'balance_minor = balance_minor + CAST(ROUND(? * ($kMinorScaleCase)) AS INTEGER), '
-      'modified_at = ? WHERE id = ?',
+      'modified_at = ? WHERE id = ? AND currency_code = ?',
       variables: [
         Variable(amount),
         Variable(amount),
         Variable(now),
         Variable(accountId),
+        Variable(currencyCode),
       ],
       updates: {accounts},
     );
@@ -1447,51 +1543,162 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     await _logChange(accountId, 'upsert');
   }
 
-  Future<void> batchUpdateBalances(Map<String, double> amountChanges) async {
+  /// Applies many balance deltas at once. Each delta is keyed by the account it
+  /// belongs to *and* the currency it is denominated in, and one statement is
+  /// issued per currency so that the same guard [adjustBalance] applies can be
+  /// expressed set-wise: a delta only lands on an account whose currency
+  /// matches. A single account can appear under more than one currency when a
+  /// batch mixes converted and unconverted transactions, which is why the map
+  /// cannot be keyed on the account alone.
+  Future<void> batchUpdateBalances(
+    Map<BalanceDeltaKey, double> amountChanges,
+  ) async {
     if (amountChanges.isEmpty) {
       return;
     }
 
-    final accountIds = amountChanges.keys.toList();
-    final caseClauses = <String>[];
-    for (final _ in accountIds) {
-      caseClauses.add('WHEN ? THEN ?');
+    final byCurrency = <String, Map<String, double>>{};
+    for (final entry in amountChanges.entries) {
+      byCurrency.putIfAbsent(
+        entry.key.currencyCode,
+        () => <String, double>{},
+      )[entry.key.accountId] = entry.value;
     }
-    final deltaCase = 'CASE id ${caseClauses.join(' ')} END';
 
-    final variables = <Variable>[];
-    // The delta CASE appears twice (balance + balance_minor), so its id/delta
-    // variables are bound twice in the same order.
-    for (var pass = 0; pass < 2; pass++) {
+    for (final group in byCurrency.entries) {
+      final currencyCode = group.key;
+      final accountIds = group.value.keys.toList();
+      final caseClauses = <String>[];
+      for (final _ in accountIds) {
+        caseClauses.add('WHEN ? THEN ?');
+      }
+      final deltaCase = 'CASE id ${caseClauses.join(' ')} END';
+
+      final variables = <Variable>[];
+      // The delta CASE appears twice (balance + balance_minor), so its id/delta
+      // variables are bound twice in the same order.
+      for (var pass = 0; pass < 2; pass++) {
+        for (final accountId in accountIds) {
+          variables.add(Variable(accountId));
+          variables.add(Variable(group.value[accountId]!));
+        }
+      }
+
+      final idsInClause = List.filled(accountIds.length, '?').join(', ');
+      final now = DateTime.now().millisecondsSinceEpoch;
+      variables.add(Variable(now));
+
       for (final accountId in accountIds) {
         variables.add(Variable(accountId));
-        variables.add(Variable(amountChanges[accountId]!));
       }
-    }
+      variables.add(Variable(currencyCode));
 
-    final idsInClause = List.filled(accountIds.length, '?').join(', ');
-    final now = DateTime.now().millisecondsSinceEpoch;
-    variables.add(Variable(now));
-
-    for (final accountId in accountIds) {
-      variables.add(Variable(accountId));
-    }
-
-    // balance_minor scales the same delta by the account's currency and rounds;
-    // crypto rows keep NULL (NULL + x == NULL) and stay on the double.
-    final sql =
-        '''
+      // balance_minor scales the same delta by the account's currency and
+      // rounds; crypto rows keep NULL (NULL + x == NULL) and stay on the double.
+      final sql =
+          '''
       UPDATE accounts
       SET balance = balance + ($deltaCase),
           balance_minor = balance_minor + CAST(ROUND(($deltaCase) * ($kMinorScaleCase)) AS INTEGER),
           modified_at = ?
-      WHERE id IN ($idsInClause)
+      WHERE id IN ($idsInClause) AND currency_code = ?
     ''';
 
-    await customUpdate(sql, variables: variables, updates: {accounts});
+      await customUpdate(sql, variables: variables, updates: {accounts});
+    }
+
     // Same reason as adjustBalance: peers cannot derive the new balance.
-    for (final accountId in accountIds) {
+    for (final accountId in amountChanges.keys.map((k) => k.accountId).toSet()) {
       await _logChange(accountId, 'upsert');
+    }
+  }
+
+  /// Rebuilds [accountIds]' balances from the opening-balance anchor plus the
+  /// transactions that belong to them, discarding whatever the stored balance
+  /// happened to be.
+  ///
+  /// This is what makes a balance survive two devices editing it at once.
+  /// Transactions merge as a set, so once the balance is a function of the
+  /// transactions plus an anchor that only the user moves, every device that
+  /// has seen the same rows arrives at the same number instead of keeping
+  /// whichever scalar was written last.
+  ///
+  /// Fiat is rebuilt in integer minor units and divided by the currency scale
+  /// exactly once, so no floating-point error accumulates and the stored double
+  /// stays a faithful rendering of the integer. Accounts with no minor units
+  /// are crypto or commodity holdings whose double is the source of truth, and
+  /// they are rebuilt on the double. An account carrying minor units but no
+  /// integer anchor — one written by a peer that has never heard of the anchor —
+  /// derives the anchor from its double so it still lands on the integer path.
+  ///
+  /// Neither `modified_at` nor the sync log is touched. Every peer can derive
+  /// this number for itself from rows it already has, so stamping it would push
+  /// a change nobody made and start the cycle again.
+  Future<void> recomputeBalances(Iterable<String> accountIds) async {
+    final ids = accountIds.toSet().toList();
+    if (ids.isEmpty) {
+      return;
+    }
+
+    final openingMinor =
+        'COALESCE(opening_balance_minor, CAST(ROUND(opening_balance * ($kMinorScaleCase)) AS INTEGER))';
+    final rebuiltMinor =
+        '$openingMinor + ${_ownTransactionsMinorSum('amount_minor', 'amount')}';
+
+    for (final chunk in _sqlChunks(ids)) {
+      final idsInClause = List.filled(chunk.length, '?').join(', ');
+      await customUpdate(
+        '''
+      UPDATE accounts
+      SET balance_minor = CASE WHEN balance_minor IS NULL THEN NULL ELSE $rebuiltMinor END,
+          balance = CASE
+            WHEN balance_minor IS NULL THEN opening_balance + ${_ownTransactionsSum('amount')}
+            ELSE CAST($rebuiltMinor AS REAL) / ($kMinorScaleCase)
+          END
+      WHERE id IN ($idsInClause)
+    ''',
+        variables: [for (final id in chunk) Variable(id)],
+        updates: {accounts},
+      );
+    }
+  }
+
+  /// Re-derives the opening balance of [accountIds] from the balance they carry
+  /// right now, so that a rebuild reproduces exactly that balance.
+  ///
+  /// The user only ever sees and edits the running balance; this turns such an
+  /// edit into an edit of the anchor, which is the half of the pair that syncs
+  /// safely. For a new account there are no transactions yet and it degenerates
+  /// to "the opening balance is the balance", which is what the starting
+  /// balance typed into the new-account form has always meant.
+  ///
+  /// It is also how a row from a peer that knows nothing about the anchor is
+  /// taken in: whatever balance that peer computed is accepted as given, and
+  /// the anchor is worked out from it, so a later rebuild returns that same
+  /// balance rather than a number the peer never agreed to.
+  Future<void> anchorOpeningBalances(Iterable<String> accountIds) async {
+    final ids = accountIds.where((id) => id.isNotEmpty).toSet().toList();
+    if (ids.isEmpty) {
+      return;
+    }
+
+    final anchorMinor =
+        'balance_minor - ${_ownTransactionsMinorSum('amount_minor', 'amount')}';
+    for (final chunk in _sqlChunks(ids)) {
+      final idsInClause = List.filled(chunk.length, '?').join(', ');
+      await customUpdate(
+        '''
+      UPDATE accounts
+      SET opening_balance_minor = CASE WHEN balance_minor IS NULL THEN NULL ELSE $anchorMinor END,
+          opening_balance = CASE
+            WHEN balance_minor IS NULL THEN balance - ${_ownTransactionsSum('amount')}
+            ELSE CAST($anchorMinor AS REAL) / ($kMinorScaleCase)
+          END
+      WHERE id IN ($idsInClause)
+    ''',
+        variables: [for (final id in chunk) Variable(id)],
+        updates: {accounts},
+      );
     }
   }
 
@@ -3385,7 +3592,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration {
@@ -3625,6 +3832,15 @@ class AppDatabase extends _$AppDatabase {
           debugPrint('[DB_MIGRATION] v9→v10: complete');
         }
 
+        if (from < 11) {
+          debugPrint('[DB_MIGRATION] v10→v11: adding the opening-balance anchor...');
+          await m.addColumn(accounts, accounts.openingBalance);
+          await m.addColumn(accounts, accounts.openingBalanceMinor);
+          debugPrint('[DB_MIGRATION] v10→v11: deriving opening balances from stored balances...');
+          await backfillOpeningBalances();
+          debugPrint('[DB_MIGRATION] v10→v11: complete');
+        }
+
         debugPrint('[DB_MIGRATION] onUpgrade complete: from=$from to=$to');
       },
       beforeOpen: (details) async {
@@ -3673,6 +3889,32 @@ class AppDatabase extends _$AppDatabase {
       'UPDATE accounts SET balance_minor = '
       'CAST(ROUND(balance * ($scaleCase)) AS INTEGER) WHERE $fiatFilter',
     );
+  }
+
+  /// Derive every account's opening balance from the balance it carries right
+  /// now, by subtracting exactly what a rebuild would add back.
+  ///
+  /// The point is that nobody's money moves: whatever balance the user is
+  /// looking at today is what the first rebuild produces. That only holds if
+  /// this subtracts the same set of transactions the rebuild sums, which is why
+  /// it goes through the same helpers, with the same currency filter, rather
+  /// than summing every row on the account. A balance built before this existed did
+  /// add unconverted foreign amounts as if they were the account's own, and the
+  /// difference lands in the anchor instead of changing the balance. That is
+  /// deliberate: there is no way to tell from the row which historic amounts
+  /// were converted, and a migration is the wrong place to guess at money.
+  @visibleForTesting
+  Future<void> backfillOpeningBalances() async {
+    final anchorMinor =
+        'balance_minor - ${_ownTransactionsMinorSum('amount_minor', 'amount')}';
+    await customStatement('''
+      UPDATE accounts
+      SET opening_balance_minor = CASE WHEN balance_minor IS NULL THEN NULL ELSE $anchorMinor END,
+          opening_balance = CASE
+            WHEN balance_minor IS NULL THEN balance - ${_ownTransactionsSum('amount')}
+            ELSE CAST($anchorMinor AS REAL) / ($kMinorScaleCase)
+          END
+    ''');
   }
 
   Future<void> _seedData(AppDatabase db, {bool skipStaticData = false}) async {

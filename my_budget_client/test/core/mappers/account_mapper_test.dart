@@ -40,6 +40,9 @@ void main() {
     description: c.description.value,
     balance: c.balance.value,
     balanceMinor: c.balanceMinor.value,
+    // The companion the mapper builds carries no anchor: the DAO derives it
+    // from the balance after the write, so the mapper has nothing to say here.
+    openingBalance: 0.0,
     currencyCode: c.currencyCode.value,
     currencyDesignationId: c.currencyDesignationId.value,
     styleId: c.styleId.value,
@@ -170,6 +173,7 @@ void main() {
       name: 'X',
       balance: 1.0,
       balanceMinor: 42, // deliberately inconsistent with balance
+      openingBalance: 1.0,
       currencyCode: 'EUR',
       currencyDesignationId: 'code',
       accountTypeId: 'general',

@@ -651,11 +651,14 @@ void main() {
       }
     });
 
-    test('completes v9->v10 and lands on schemaVersion 10', () async {
+    test('completes v9->v10 and lands on the current schemaVersion', () async {
+      // Compared against what the app declares rather than a literal, so that
+      // adding a later step keeps testing that this chain runs to the end
+      // instead of failing on the number it stops at.
       final versionRow = await migrated
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(versionRow.data['user_version'], 10);
+      expect(versionRow.data['user_version'], migrated.schemaVersion);
     });
 
     test('country ends up NOT NULL with the global default', () async {
