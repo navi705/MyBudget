@@ -4,8 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
-import 'package:my_budget_client/core/database/app_database.dart'
-    hide Category, Currency, Style;
 import 'package:my_budget_client/core/services/data_import_service.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
@@ -279,9 +277,7 @@ class _ImportViewState extends State<_ImportView> {
     }
 
     try {
-      final db = sl<AppDatabase>();
-      final androidPicker = sl<AndroidFilePickerService>();
-      final service = DataImportService(db, androidPicker);
+      final service = sl<DataImportService>();
       final title = l10n.filePickerChooserTitle;
       final success = await service.importData(isCsv, title: title);
 

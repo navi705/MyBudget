@@ -38,6 +38,8 @@ import 'package:my_budget_client/data/repositories/local_db/local_api_settings_r
 import 'package:my_budget_client/domain/repositories/custom_data_source_repository.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_custom_data_source_repository.dart';
 import 'package:my_budget_client/core/services/android_file_picker_service.dart';
+import 'package:my_budget_client/core/services/data_export_service.dart';
+import 'package:my_budget_client/core/services/data_import_service.dart';
 import 'package:my_budget_client/core/sync/sync_service.dart';
 import 'package:my_budget_client/domain/services/currency_converter_service.dart';
 
@@ -181,6 +183,14 @@ Future<void> init() async {
   );
   sl.registerLazySingleton(() => AndroidFilePickerService());
   sl.registerLazySingleton(() => SyncService(sl<AppDatabase>()));
+  // Both services hold nothing but a final AppDatabase (and, for import, an
+  // AndroidFilePickerService) reference — no stream subscriptions, no mutable
+  // state between calls — so a shared lazy singleton is safe and matches how
+  // the other thin DAO/DB-wrapping services above are registered.
+  sl.registerLazySingleton(() => DataExportService(sl<AppDatabase>()));
+  sl.registerLazySingleton(
+    () => DataImportService(sl<AppDatabase>(), sl<AndroidFilePickerService>()),
+  );
 
   // Repositories
   sl.registerLazySingleton<AccountRepository>(

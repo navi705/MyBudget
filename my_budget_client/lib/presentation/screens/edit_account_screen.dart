@@ -52,6 +52,15 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
 
   bool _isSaving = false;
 
+  // Created once in initState rather than inline in build(): the widget
+  // rebuilds on every setState in this form (name/description/fee edits
+  // etc.), and StreamBuilder resubscribes whenever it sees a new Stream
+  // instance. Calling watchAssetData() from build() handed it a fresh
+  // stream on every keystroke, tearing down and recreating the drift watch
+  // query and flashing the asset picker/list back to their loading state.
+  late final Stream<List<AssetDataDomain>> _bindableAssetDataStream;
+  late final Stream<List<AssetDataDomain>> _accountAssetDataStream;
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +85,13 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     // Trigger initial balance calculation/update if asset is selected?
     // For now, just load state.
     _feeStructureJson = _initialAccount.feeStructure;
+
+    _bindableAssetDataStream = sl<AssetRepository>().watchAssetData(
+      limit: 500,
+    );
+    _accountAssetDataStream = sl<AssetRepository>().watchAssetData(
+      accountId: widget.account.id,
+    );
   }
 
   @override
@@ -447,9 +463,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                       // --- ASSET BINDING SECTION ---
                       // --- ASSET BINDING SECTION ---
                       StreamBuilder<List<AssetDataDomain>>(
-                        stream: sl<AssetRepository>().watchAssetData(
-                          limit: 500,
-                        ),
+                        stream: _bindableAssetDataStream,
                         builder: (context, snapshot) {
                           final assetData = snapshot.data ?? [];
                           // Get latest versions of unique assets by ID
@@ -599,9 +613,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
 
                       // ASSET LIST Section
                       StreamBuilder<List<AssetDataDomain>>(
-                        stream: sl<AssetRepository>().watchAssetData(
-                          accountId: widget.account.id,
-                        ),
+                        stream: _accountAssetDataStream,
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {

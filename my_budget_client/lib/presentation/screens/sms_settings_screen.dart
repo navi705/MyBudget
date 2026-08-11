@@ -2,7 +2,6 @@ import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:collection/collection.dart';
-import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/sms_preset.dart';
@@ -32,8 +31,15 @@ class SmsSettingsScreen extends StatelessWidget {
       );
     }
 
-    return BlocProvider(
-      create: (context) => sl<SmsBloc>()..add(LoadSmsPresets()),
+    // SmsBloc is already provided at the app root with lazy: false (it owns
+    // the live SMS listener subscription and must run for the app's whole
+    // lifetime, not just while this screen is open). Minting a second one
+    // here via sl<SmsBloc>() used to open a second listenForSms() subscription
+    // for as long as this screen stayed mounted, so every incoming SMS was
+    // handled twice — e.g. a matching message could create two transactions
+    // instead of one. Reusing the root instance keeps exactly one listener.
+    return BlocProvider.value(
+      value: context.read<SmsBloc>(),
       child: const _SmsSettingsContent(),
     );
   }
@@ -119,15 +125,19 @@ class _SmsSettingsContent extends StatelessWidget {
       );
     }
 
+    // AccountsBloc/CategoriesBloc/StylesBloc already live at the app root
+    // (AppProviders wraps the whole router). Re-creating them here via sl<>()
+    // used to open a second live subscription to the same drift streams
+    // alongside the root instances — every account/category/style write
+    // processed twice, and this screen-local instance never closed, since
+    // BlocProvider only ever calls the single-arg factory constructor and has
+    // no way to know an identical bloc already exists above it. `.value`
+    // reuses the existing instance instead of minting a new one.
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-          create: (context) => sl<AccountsBloc>()..add(LoadAccounts()),
-        ),
-        BlocProvider(
-          create: (context) => sl<CategoriesBloc>()..add(LoadCategories()),
-        ),
-        BlocProvider(create: (context) => sl<StylesBloc>()..add(LoadStyles())),
+        BlocProvider.value(value: context.read<AccountsBloc>()),
+        BlocProvider.value(value: context.read<CategoriesBloc>()),
+        BlocProvider.value(value: context.read<StylesBloc>()),
       ],
       child: ListView.builder(
         itemCount: state.presets.length,
@@ -183,21 +193,19 @@ class _SmsSettingsContent extends StatelessWidget {
   }
 
   void _showPresetEditor(BuildContext context, SmsPreset? preset) {
+    // Same reuse as _buildPresetList above: pass the existing root
+    // Accounts/Categories/Styles blocs down into the pushed route instead of
+    // spinning up yet another set (this would have been a third live copy,
+    // on top of the one _buildPresetList already reused).
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (routeContext) => MultiBlocProvider(
           providers: [
             BlocProvider.value(value: context.read<SmsBloc>()),
-            BlocProvider(
-              create: (context) => sl<AccountsBloc>()..add(LoadAccounts()),
-            ),
-            BlocProvider(
-              create: (context) => sl<CategoriesBloc>()..add(LoadCategories()),
-            ),
-            BlocProvider(
-              create: (context) => sl<StylesBloc>()..add(LoadStyles()),
-            ),
+            BlocProvider.value(value: context.read<AccountsBloc>()),
+            BlocProvider.value(value: context.read<CategoriesBloc>()),
+            BlocProvider.value(value: context.read<StylesBloc>()),
           ],
           child: SmsPresetEditorScreen(preset: preset),
         ),

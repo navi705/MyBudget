@@ -7,10 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:get_it/get_it.dart';
-import 'package:my_budget_client/core/database/app_database.dart';
+import 'package:my_budget_client/data/repositories/db_repository.dart';
 import 'package:my_budget_client/core/services/data_export_service.dart';
 import 'package:my_budget_client/core/services/data_import_service.dart';
-import 'package:my_budget_client/core/services/android_file_picker_service.dart';
 import 'package:my_budget_client/domain/repositories/sms_repository.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/widgets/currency_picker_dialog.dart';
@@ -287,8 +286,7 @@ class SettingsScreen extends StatelessWidget {
 
   void _exportData(BuildContext context, {required bool isCsv}) async {
     try {
-      final db = GetIt.I<AppDatabase>();
-      final service = DataExportService(db);
+      final service = GetIt.I<DataExportService>();
       final success = await service.exportData(isCsv);
       if (!context.mounted) return;
       final l10n = context.l10n;
@@ -317,9 +315,7 @@ class SettingsScreen extends StatelessWidget {
 
   void _importExchangeRates(BuildContext context) async {
     try {
-      final db = GetIt.I<AppDatabase>();
-      final androidPicker = GetIt.I<AndroidFilePickerService>();
-      final service = DataImportService(db, androidPicker);
+      final service = GetIt.I<DataImportService>();
       // We pass a localized title if available, otherwise default string
       final title = context.l10n.filePickerChooserTitle;
       await service.importExchangeRates(title: title);
@@ -367,8 +363,10 @@ class SettingsScreen extends StatelessWidget {
 
   Future<void> _performReset(BuildContext context) async {
     try {
-      final db = GetIt.I<AppDatabase>();
-      await db.clearAllData();
+      // Routed through DbRepository (already registered in DI and used the
+      // same way by DebugDataSeeder) instead of calling AppDatabase.clearAllData()
+      // straight from the screen.
+      await GetIt.I<DbRepository>().clearAllDatabase();
       await GetIt.I<SmsRepository>().clearData();
 
       if (context.mounted) {

@@ -17,9 +17,6 @@ import 'package:my_budget_client/presentation/blocs/transactions/transactions_bl
 import 'package:my_budget_client/domain/repositories/asset_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
-import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
-import 'package:my_budget_client/presentation/blocs/asset/asset_event.dart';
-import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/sms/sms_bloc.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -65,13 +62,17 @@ class AppProviders extends StatelessWidget {
             create: (context) =>
                 di.sl<ThemeBloc>()..add(const LoadThemeSettings()),
           ),
-          BlocProvider(
-            create: (context) => di.sl<AssetBloc>()..add(const LoadAssetData()),
-          ),
-          BlocProvider(
-            create: (context) =>
-                di.sl<InflationBloc>()..add(LoadInflationRates()),
-          ),
+          // AssetBloc/InflationBloc are deliberately NOT provided here.
+          // AssetTab/InflationTab each create their own instance via
+          // sl<...Bloc>() in a local BlocProvider, and every consumer
+          // (asset_view, asset_tab_app_bar, asset_filter_dialog, and the
+          // Inflation equivalents) reads that nearer provider. A root entry
+          // would sit unread most of the time — BlocProvider is lazy by
+          // default, so it wouldn't even build — until something above the
+          // tab happened to call context.read<AssetBloc>(), at which point
+          // it would spin up a second live bloc watching the same drift
+          // stream as the tab's own instance: every write processed twice,
+          // and this app-lifetime instance never closed.
           if (!kIsWeb && AppPlatform.isAndroid)
             BlocProvider(
               create: (context) => di.sl<SmsBloc>()..add(LoadSmsPresets()),
