@@ -1,6 +1,15 @@
 import 'package:postgres/postgres.dart';
 import 'package:my_budget_server/data/database_client.dart';
 
+/// One table's slice of a pull page, before the slices are merged into the
+/// single cursor the client stores.
+typedef _TablePage = ({
+  String tableName,
+  List<Map<String, dynamic>> rows,
+  int cursor,
+  bool hitLimit,
+});
+
 class SyncRepository {
   final DatabaseClient _dbClient;
 
@@ -1165,44 +1174,61 @@ class SyncRepository {
 
     final tableConfigs = tableConfigsMap.entries.toList();
 
-    // Optimization: Parallelize independent DB queries using Future.wait
-    final queryFutures = tableConfigs.map((entry) async {
-      final tableName = entry.key;
-      // Carried through the mapping so the cursor can be read off the rows;
-      // stripped again before they are handed to the client.
-      final columnMap = {...entry.value, 'server_seq': 'serverSeq'};
-
-      // `server_seq` is unique across every table, so it is already a total
-      // order - no primary-key tiebreaker is needed to keep paging stable, and
-      // no page can end mid-way through a group of rows sharing a value.
-      final result = await _dbClient.pool.execute(
-        Sql.named(
-          'SELECT * FROM $tableName WHERE server_seq > @lastSync '
-          'ORDER BY server_seq ASC LIMIT @limit',
-        ),
-        parameters: {'lastSync': lastSync, 'limit': limit},
+    // All sixteen reads in one transaction, holding the push lock in shared
+    // mode.
+    //
+    // Run independently, each query saw a different instant. A row written into
+    // a table that had already been read took a sequence below the maximum this
+    // page reports, so the client's cursor moved past it and it was never
+    // handed out again - the same permanent skip in a different disguise. A
+    // shared lock keeps pushes out for the duration (they take it exclusively)
+    // while letting concurrent pulls run together, so a page is always a prefix
+    // of this server's write order.
+    final results = await _dbClient.pool.runTx((session) async {
+      await session.execute(
+        Sql.named('SELECT pg_advisory_xact_lock_shared(@lockId)'),
+        parameters: {'lockId': _pushLockId},
       );
 
-      final rows = _mapResult(result, columnMap);
-      final hitLimit = rows.isNotEmpty && rows.length >= limit;
+      final pages = <_TablePage>[];
+      for (final entry in tableConfigs) {
+        final tableName = entry.key;
+        // Carried through the mapping so the cursor can be read off the rows;
+        // stripped again before they are handed to the client.
+        final columnMap = {...entry.value, 'server_seq': 'serverSeq'};
 
-      // Cursor for THIS table alone. It is never advanced past a row this table
-      // has not returned yet; the caller then takes the minimum over the
-      // truncated tables so no table can be skipped by another table's data.
-      var cursor = lastSync;
-      if (rows.isNotEmpty) {
-        cursor = rows.last['serverSeq'] as int;
+        // `server_seq` is unique across every table, so it is already a total
+        // order - no primary-key tiebreaker is needed to keep paging stable,
+        // and no page can end mid-way through a group of rows sharing a value.
+        final result = await session.execute(
+          Sql.named(
+            'SELECT * FROM $tableName WHERE server_seq > @lastSync '
+            'ORDER BY server_seq ASC LIMIT @limit',
+          ),
+          parameters: {'lastSync': lastSync, 'limit': limit},
+        );
+
+        final rows = _mapResult(result, columnMap);
+        final hitLimit = rows.isNotEmpty && rows.length >= limit;
+
+        // Cursor for THIS table alone. It is never advanced past a row this
+        // table has not returned yet; the caller then takes the minimum over
+        // the truncated tables so no table can be skipped by another table's
+        // data.
+        var cursor = lastSync;
+        if (rows.isNotEmpty) {
+          cursor = rows.last['serverSeq'] as int;
+        }
+
+        pages.add((
+          tableName: tableName,
+          rows: rows,
+          cursor: cursor,
+          hitLimit: hitLimit
+        ));
       }
-
-      return (
-        tableName: tableName,
-        rows: rows,
-        cursor: cursor,
-        hitLimit: hitLimit
-      );
-    }).toList();
-
-    final results = await Future.wait(queryFutures);
+      return pages;
+    });
 
     // Aggregate results and compute the next cursor.
     // NOTE: No early break — all tables must be included regardless of count.

@@ -4,6 +4,17 @@ import 'package:mocktail/mocktail.dart';
 import 'package:postgres/postgres.dart';
 import 'package:test/test.dart';
 
+/// The shape `getChanges` returns from its transaction body. Records are
+/// structural, so this matches the repository's own private typedef and lets
+/// the `runTx` stub be written with the exact type argument mocktail matches
+/// on.
+typedef _TablePage = ({
+  String tableName,
+  List<Map<String, dynamic>> rows,
+  int cursor,
+  bool hitLimit,
+});
+
 class _MockDatabaseClient extends Mock implements DatabaseClient {}
 
 class _MockPool extends Mock implements Pool<dynamic> {}
@@ -106,6 +117,16 @@ void main() {
       await body(session);
       return null;
     });
+    // The pull half. It reads every table inside one transaction, so it comes
+    // through `runTx` too - with a different type argument, which mocktail
+    // treats as a different call.
+    when(() => pool.runTx<List<_TablePage>>(any())).thenAnswer(
+      (invocation) async {
+        final body = invocation.positionalArguments.first
+            as Future<List<_TablePage>> Function(TxSession);
+        return body(session);
+      },
+    );
   });
 
   /// A transaction row as the client actually sends it: camelCase JSON keys,
@@ -314,12 +335,19 @@ void main() {
     void answerPages(List<List<Map<String, dynamic>>> pages) {
       var next = 0;
       when(
-        () => pool.execute(
+        () => session.execute(
           any<Object>(),
           parameters: any(named: 'parameters'),
         ),
-      ).thenAnswer((_) async {
-        final rows = next < pages.length ? pages[next] : const [];
+      ).thenAnswer((invocation) async {
+        // The lock the transaction opens with is not a table query, so it must
+        // not consume a queued page.
+        final params = invocation.namedArguments[#parameters];
+        if (params is Map && params.containsKey('lockId')) {
+          return _FakeResult(const []);
+        }
+        final rows =
+            next < pages.length ? pages[next] : const <Map<String, dynamic>>[];
         next++;
         return _FakeResult(
           [for (final r in rows) _FakeRow(r)],
@@ -396,13 +424,43 @@ void main() {
       await repository.getChanges(55, limit: 12);
 
       final captured = verify(
-        () => pool.execute(
+        () => session.execute(
           any<Object>(),
           parameters: captureAny(named: 'parameters'),
         ),
-      ).captured.first as Map<String, dynamic>;
-      expect(captured['lastSync'], 55);
-      expect(captured['limit'], 12);
+      ).captured.cast<Map<String, dynamic>>();
+      final query = captured.firstWhere((c) => c.containsKey('lastSync'));
+      expect(query['lastSync'], 55);
+      expect(query['limit'], 12);
+    });
+
+    test('every table is read inside one locked transaction', () async {
+      // Read outside a transaction, the sixteen queries each saw a different
+      // instant, and a row written into a table that had already been read fell
+      // below the cursor this page reports - gone for good. Holding the push
+      // lock for all of them is what makes a page a prefix of the write order.
+      //
+      // Shared versus exclusive is not observable here: `Sql.named` exposes no
+      // accessor for its text, so the lock id is the only assertable evidence,
+      // and it is the same id the push takes.
+      answerPages([
+        [row(7, 'c1')],
+      ]);
+
+      await repository.getChanges(0, limit: 100);
+
+      final captured = verify(
+        () => session.execute(
+          any<Object>(),
+          parameters: captureAny(named: 'parameters'),
+        ),
+      ).captured.cast<Map<String, dynamic>>();
+      expect(captured.first.containsKey('lockId'), isTrue);
+      expect(
+        captured.where((c) => c.containsKey('lastSync')).length,
+        greaterThan(1),
+        reason: 'all tables are read on the same session, after the lock',
+      );
     });
   });
 }

@@ -26,6 +26,14 @@ class DatabaseClient {
       ],
       settings: PoolSettings(
         sslMode: SslMode.disable, // internal docker net usually safe/plain
+        // The pool defaults to a single connection. A pull holds one for the
+        // whole of its sixteen-table transaction, so with the default a second
+        // device syncing at the same time waits out the first one and can hit
+        // the acquire timeout instead of syncing.
+        maxConnectionCount: int.tryParse(
+              Platform.environment['DB_MAX_CONNECTIONS'] ?? '',
+            ) ??
+            8,
       ),
     );
   }
