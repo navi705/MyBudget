@@ -33,10 +33,68 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     on<UpdateThemeProperty>(_onUpdateThemeProperty);
   }
 
+  /// The built-in theme to paint with when the saved one cannot be read.
+  ///
+  /// Mirrors the first-run choice further down, so a user whose theme fails to
+  /// load sees the same defaults a fresh install would rather than an
+  /// arbitrary preset.
+  CustomTheme get _fallbackTheme {
+    final wantsDark =
+        PlatformDispatcher.instance.platformBrightness == Brightness.dark;
+    return defaultThemePresets.firstWhere(
+      (t) => t.id == (wantsDark ? 'classic-blue' : 'nordic-frost'),
+      orElse: () => defaultThemePresets.first,
+    );
+  }
+
+  /// A theme from [themes] to hand the app in place of [excludedId],
+  /// preferring a built-in preset over one the user made.
+  ///
+  /// Returns null only when nothing at all is left.
+  static CustomTheme? _firstSurviving(
+    List<CustomTheme> themes,
+    String excludedId,
+  ) {
+    CustomTheme? custom;
+    for (final theme in themes) {
+      if (theme.id == excludedId) continue;
+      if (theme.isPreset) return theme;
+      custom ??= theme;
+    }
+    return custom;
+  }
+
   Future<void> _onLoadThemeSettings(
     LoadThemeSettings event,
     Emitter<ThemeState> emit,
   ) async {
+    ThemeState result;
+    try {
+      result = await _loadThemeSettings();
+    } catch (e) {
+      // A theme the database cannot answer for used to take the entire app
+      // down with it: this handler had no catch, ThemeState had no way to say
+      // "failed", and the app shell renders nothing but a spinner until
+      // `isLoaded` turns true. LoadThemeSettings is dispatched exactly once at
+      // startup, so there was no second chance either - two rows carrying
+      // is_active (which a sync can produce, and which getActiveTheme's
+      // getSingleOrNull rejects) meant an app that never came back, with no
+      // message and nothing to press.
+      //
+      // Painting with a built-in preset keeps every screen reachable; the
+      // failure rides along in state so the shell can say so and offer a retry.
+      debugPrint('[THEME_DEBUG] Theme load failed: $e');
+      result = state.copyWith(
+        activeTheme: state.activeTheme ?? _fallbackTheme,
+        presets: state.presets.isEmpty ? defaultThemePresets : state.presets,
+        isLoaded: true,
+        loadError: e.toString(),
+      );
+    }
+    emit(result);
+  }
+
+  Future<ThemeState> _loadThemeSettings() async {
     // 1. Check if we have any themes
     List<CustomTheme> themes = await _themeRepository.getAllThemes();
 
@@ -131,8 +189,11 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
       await _settingsRepository.setThemeMode(activeTheme.themeMode, 'all');
     }
 
-    emit(
-      state.copyWith(activeTheme: activeTheme, presets: themes, isLoaded: true),
+    return state.copyWith(
+      activeTheme: activeTheme,
+      presets: themes,
+      isLoaded: true,
+      clearLoadError: true,
     );
   }
 
@@ -201,11 +262,18 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
       themeMode: event.themeMode,
     );
 
-    // If it was a preset, we create a NEW "Custom" theme or update the existing "Custom" theme
+    // Customising a built-in preset writes a copy instead of the preset
+    // itself, and that copy is keyed to the preset it came from. Every preset
+    // used to land on the one id 'custom-theme', and saving is an
+    // insert-or-replace: a user who had built a look on top of one preset lost
+    // it the moment they nudged a single colour on another, with no prompt and
+    // nothing to undo it with. The name follows the source too, so the picker
+    // does not end up with a row of tiles that all read "Custom Theme".
+    final source = state.activeTheme!;
     if (updatedTheme.isPreset) {
       updatedTheme = updatedTheme.copyWith(
-        id: 'custom-theme',
-        name: 'Custom Theme',
+        id: 'custom-${source.id}',
+        name: '${source.name} (Custom)',
         isPreset: false,
         isActive: true,
       );
@@ -248,14 +316,34 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     Emitter<ThemeState> emit,
   ) async {
     if (event.presetId == state.activeTheme?.id) {
-      // Cannot delete active theme, or switch to default first
-      final defaultTheme = state.presets.firstWhere((t) => t.isPreset);
-      await _themeRepository.setActiveTheme(defaultTheme.id);
+      // The theme in use has to be handed over before it is removed. This
+      // `firstWhere` carried no orElse, so once a sync soft-deleted the
+      // built-in presets - leaving only themes the user made - deleting a theme
+      // stopped being a deletion and became an unhandled StateError. Any
+      // surviving theme is a better answer than that.
+      final replacement = _firstSurviving(state.presets, event.presetId);
+      if (replacement != null) {
+        await _themeRepository.setActiveTheme(replacement.id);
+      }
     }
 
     await _themeRepository.deleteTheme(event.presetId);
     final themes = await _themeRepository.getAllThemes();
-    final activeTheme = await _themeRepository.getActiveTheme();
+    var activeTheme = await _themeRepository.getActiveTheme();
+
+    if (activeTheme == null) {
+      // The repository answers null when the row that was active is the row we
+      // just deleted. ThemeState.copyWith reads a null as "leave it alone", so
+      // the deleted theme stayed painted on screen and the picker still ticked
+      // it as current. Adopting a survivor - and recording it, so the next
+      // launch agrees - is the only outcome that leaves the app in a state the
+      // user can see and change.
+      final survivor = _firstSurviving(themes, event.presetId);
+      if (survivor != null) {
+        await _themeRepository.setActiveTheme(survivor.id);
+      }
+      activeTheme = survivor ?? _fallbackTheme;
+    }
 
     emit(state.copyWith(activeTheme: activeTheme, presets: themes));
   }
