@@ -337,13 +337,27 @@ class DataImportService {
         );
       }
 
-      final isCsv = extension == 'csv';
+      await importExchangeRatesContent(content, isCsv: extension == 'csv');
+    }
+  }
 
-      if (isCsv) {
-        await _importExchangeRatesCsv(content);
-      } else {
-        await _importExchangeRatesJson(content);
-      }
+  /// Imports an already-read exchange-rate file body.
+  ///
+  /// This is everything [importExchangeRates] does once the native picker has
+  /// handed back a file, split out so the formats can be driven without one.
+  @visibleForTesting
+  Future<void> importExchangeRatesContent(
+    String content, {
+    required bool isCsv,
+  }) async {
+    if (content.trim().isEmpty) {
+      throw Exception('The selected file is empty.');
+    }
+
+    if (isCsv) {
+      await _importExchangeRatesCsv(content);
+    } else {
+      await _importExchangeRatesJson(content);
     }
   }
 
@@ -408,13 +422,35 @@ class DataImportService {
     }
   }
 
+  /// Reads a `Date,From,To,Rate` file, or refuses it by line number.
+  ///
+  /// Every column here is money: the rate is what every conversion multiplies
+  /// by, and the pair and the date are what selects it. The reader coerced all
+  /// of them instead — a short row was `continue`d, an unparseable date became
+  /// `DateTime.now()` and an unparseable rate became `1.0` — so a mangled file,
+  /// or a file in some other tool's format, imported as a set of today-dated
+  /// rates of 1 that converted every foreign amount at par, and the user was
+  /// told the import had succeeded. It now refuses, naming the line and the
+  /// text it could not read, the same treatment the transaction CSV import got.
+  ///
+  /// The whole file is read before anything is written, so a refused file
+  /// leaves the existing rates exactly as they were.
   Future<void> _importExchangeRatesCsv(String content) async {
     final rows = _csvConverter.convert(content);
-    if (rows.isEmpty) return;
+    if (rows.isEmpty) {
+      throw Exception('The selected file is empty.');
+    }
 
     final header = rows.first
         .map((e) => e.toString().trim().toLowerCase())
         .toList();
+    // Excel and most exporters write a UTF-8 BOM, which the decoder leaves at
+    // the head of the very first cell: a perfectly good file whose first
+    // header cell reads U+FEFF followed by 'date' was refused as "missing
+    // Date", with nothing in the file to see.
+    if (header.isNotEmpty) {
+      header[0] = header.first.replaceFirst('\u{FEFF}', '');
+    }
     rows.removeAt(0);
 
     final dateIdx = header.indexOf('date');
@@ -426,13 +462,78 @@ class DataImportService {
       throw Exception('Invalid CSV format. Missing Date, From, To, or Rate.');
     }
 
+    // The two code columns are foreign keys into `currencies`, so an unknown
+    // code cannot be imported at all — it used to reach SQLite as-is and fail
+    // the whole batch with "FOREIGN KEY constraint failed", which names neither
+    // the line nor the code.
+    final knownCodes = {
+      for (final currency in await _db.select(_db.currencies).get())
+        currency.code.toUpperCase(),
+    };
+
     final List<ExchangeRatesCompanion> rates = [];
-    for (var row in rows) {
-      if (row.length < header.length) continue;
-      final date = DateTime.tryParse(row[dateIdx].toString()) ?? DateTime.now();
-      final from = row[fromIdx].toString().toUpperCase();
-      final to = row[toIdx].toString().toUpperCase();
-      final rate = double.tryParse(row[rateIdx].toString()) ?? 1.0;
+    // Every (pair, date) already read, so a file that contradicts itself is
+    // caught here rather than resolved by insert order.
+    final seen = <String, ({int line, double rate})>{};
+
+    for (var i = 0; i < rows.length; i++) {
+      final row = rows[i];
+      // The header is line 1, so the first data row is line 2.
+      final line = i + 2;
+
+      if (row.every((c) => c == null || c.toString().trim().isEmpty)) {
+        continue; // Blank separator line, not data.
+      }
+
+      if (row.length < header.length) {
+        throw Exception(
+          'Invalid CSV: line $line has ${row.length} columns, '
+          'but the header declares ${header.length}.',
+        );
+      }
+
+      final dateStr = row[dateIdx].toString().trim();
+      final date = DateTime.tryParse(dateStr);
+      if (date == null) {
+        throw Exception(
+          'Invalid CSV: line $line has no valid date ("$dateStr").',
+        );
+      }
+
+      final rateStr = row[rateIdx].toString().trim();
+      final rate = double.tryParse(rateStr);
+      if (rate == null) {
+        throw Exception(
+          'Invalid CSV: line $line has no valid rate ("$rateStr").',
+        );
+      }
+      // `double.tryParse` also accepts 'NaN' and 'Infinity', and 0 and negative
+      // numbers parse fine. None of them is an exchange rate: they turn every
+      // converted amount into NaN, infinity or zero rather than into a merely
+      // wrong number, and nothing downstream re-checks them.
+      if (!rate.isFinite || rate <= 0) {
+        throw Exception(
+          'Invalid CSV: line $line has a rate that is not a positive '
+          'number ("$rateStr").',
+        );
+      }
+
+      final from = _rateCurrencyCode(row[fromIdx], line, 'From', knownCodes);
+      final to = _rateCurrencyCode(row[toIdx], line, 'To', knownCodes);
+
+      // Rates are keyed by (from, to, date, preset) and inserted with
+      // insertOrReplace, so two lines claiming different rates for the same
+      // pair on the same date silently left whichever came last.
+      final key = '$from>$to@${date.toIso8601String()}';
+      final earlier = seen[key];
+      if (earlier != null && earlier.rate != rate) {
+        throw Exception(
+          'Invalid CSV: line $line gives $from→$to on $dateStr a rate of '
+          '$rateStr, but line ${earlier.line} already gave it '
+          '${earlier.rate}.',
+        );
+      }
+      seen[key] = (line: line, rate: rate);
 
       rates.add(
         ExchangeRatesCompanion.insert(
@@ -445,6 +546,12 @@ class DataImportService {
       );
     }
 
+    // A file that carries a header and nothing else imported as success while
+    // changing nothing, which reads as "your rates are up to date".
+    if (rates.isEmpty) {
+      throw Exception('Invalid CSV: the file has a header but no rates.');
+    }
+
     await _db.batch((batch) {
       batch.insertAll(
         _db.exchangeRates,
@@ -452,6 +559,30 @@ class DataImportService {
         mode: InsertMode.insertOrReplace,
       );
     });
+  }
+
+  /// The currency code in [cell], or a refusal naming [line] and [column].
+  ///
+  /// Trimmed and upper-cased, because ' eur ' is the user's spacing rather than
+  /// a different currency — untrimmed it reached the foreign key as ' EUR ' and
+  /// failed there, looking correct in the file the whole time.
+  String _rateCurrencyCode(
+    dynamic cell,
+    int line,
+    String column,
+    Set<String> knownCodes,
+  ) {
+    final code = cell.toString().trim().toUpperCase();
+    if (code.isEmpty) {
+      throw Exception('Invalid CSV: line $line has an empty $column currency.');
+    }
+    if (!knownCodes.contains(code)) {
+      throw Exception(
+        'Invalid CSV: line $line names a currency this app does not '
+        'know ("$code" in $column).',
+      );
+    }
+    return code;
   }
 
   Future<void> _importJson(String content) async {
