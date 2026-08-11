@@ -5,10 +5,17 @@ import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+// Both bloc libraries export ToggleSelectionMode, ClearSelection,
+// ActiveDateChanged and DatePeriodNavigated, and every use of those names on
+// this screen belongs to the accounts bloc.
+import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart'
+    show CategoriesBloc, CategoriesLoadSuccess, CategoriesState;
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
+import 'package:my_budget_client/presentation/screens/categories_screen.dart'
+    show AddEditCategoryDialog;
 import 'package:my_budget_client/presentation/widgets/account_filter_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/account_list_item.dart';
 import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
@@ -170,6 +177,105 @@ class _AccountsScreenState extends State<AccountsScreen> {
     );
   }
 
+  /// Account creation, reached from the button, the hotkey, the empty-area menu
+  /// and from any entry point refused for want of an account.
+  ///
+  /// The dialog goes onto the root navigator, so it is a sibling of this screen
+  /// rather than a descendant: it has to be handed the blocs itself.
+  void _showAddAccountDialog(BuildContext context) {
+    DialogUtils.showAppDialog(
+      context: context,
+      resizeToAvoidBottomInset: false,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: context.read<AccountsBloc>()),
+          BlocProvider.value(value: context.read<CurrencyBloc>()),
+          BlocProvider.value(value: context.read<StylesBloc>()),
+        ],
+        child: const AddAccountDialog(),
+      ),
+    );
+  }
+
+  /// The accounts a transfer can actually use.
+  ///
+  /// Both account fields on the transfer form drop asset accounts, so a wallet
+  /// plus a gold holding is still only one usable account and the form's second
+  /// picker would have nothing in it.
+  static int _transferableAccountCount(AccountsLoadSuccess state) =>
+      state.accounts.where((a) => a.assetId == null).length;
+
+  /// True once the categories have actually loaded and there are none.
+  ///
+  /// Read from the categories bloc rather than from the account state's own
+  /// snapshot so that a category created from the refusal below is visible
+  /// immediately; every state other than [CategoriesLoadSuccess] reports an
+  /// empty list while still loading, and refusing on those would refuse a tap
+  /// the app simply has no answer for yet.
+  static bool _hasNoCategories(CategoriesState state) =>
+      state is CategoriesLoadSuccess && state.allCategories.isEmpty;
+
+  /// Says a transfer needs another account, and offers to create it.
+  void _refuseWithoutSecondAccount(BuildContext context) {
+    final l10n = context.l10n;
+
+    ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.addAccountBeforeTransactionDescription),
+          action: SnackBarAction(
+            label: l10n.accountsAddTooltip,
+            // The SnackBar outlives the row whose menu was used, so the screen's
+            // own context is what opens the dialog.
+            onPressed: () {
+              if (!mounted) return;
+              _showAddAccountDialog(this.context);
+            },
+          ),
+        ),
+      );
+  }
+
+  /// Says an income or expense needs a category, and offers to create one.
+  ///
+  /// Category is required on the non-transfer form and its picker reads the
+  /// same empty list, so the form would open and never save.
+  void _refuseWithoutCategory(BuildContext context) {
+    final l10n = context.l10n;
+
+    ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.noCategoriesCreated),
+          action: SnackBarAction(
+            label: l10n.addCategoryTooltip,
+            onPressed: () {
+              // The SnackBar outlives the row whose menu was used, so the
+              // screen's own context is what opens the dialog.
+              if (!mounted) return;
+              DialogUtils.showAppDialog(
+                context: this.context,
+                resizeToAvoidBottomInset: false,
+                child: MultiBlocProvider(
+                  providers: [
+                    BlocProvider.value(
+                      value: this.context.read<CategoriesBloc>(),
+                    ),
+                    BlocProvider.value(value: this.context.read<StylesBloc>()),
+                  ],
+                  // Nothing to parent onto: this only runs when the list of
+                  // categories is empty.
+                  child: const AddEditCategoryDialog(allCategories: []),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+  }
+
   void _showContextMenu(
     BuildContext context,
     Offset position,
@@ -235,11 +341,24 @@ class _AccountsScreenState extends State<AccountsScreen> {
     } else if (value == 'deselect_all') {
       bloc.add(ClearSelection());
     } else if (value == 'add_transaction') {
+      // The account comes from the row that was right-clicked, but an income or
+      // an expense also needs a category to be saved.
+      if (_hasNoCategories(context.read<CategoriesBloc>().state)) {
+        _refuseWithoutCategory(context);
+        return;
+      }
       context.push(
         AppRoutes.addEditTransaction,
         extra: {'accountId': account.id},
       );
     } else if (value == 'transfer') {
+      // A transfer moves money between two accounts. With only this one the
+      // form's second picker is empty and the required field can never be
+      // filled, so the form opens and Back is the only way out.
+      if (_transferableAccountCount(state) < 2) {
+        _refuseWithoutSecondAccount(context);
+        return;
+      }
       context.push(
         AppRoutes.addEditTransaction,
         extra: {'accountId': account.id, 'isTransfer': true},
@@ -290,18 +409,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
     if (!context.mounted || value == null) return;
 
     if (value == 'add_account') {
-      DialogUtils.showAppDialog(
-        context: context,
-        resizeToAvoidBottomInset: false,
-        child: MultiBlocProvider(
-          providers: [
-            BlocProvider.value(value: context.read<AccountsBloc>()),
-            BlocProvider.value(value: context.read<CurrencyBloc>()),
-            BlocProvider.value(value: context.read<StylesBloc>()),
-          ],
-          child: const AddAccountDialog(),
-        ),
-      );
+      _showAddAccountDialog(context);
     }
   }
 
@@ -313,20 +421,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
     return ScreenShortcuts(
       actions: {
-        'add_action': () {
-          DialogUtils.showAppDialog(
-            context: context,
-            resizeToAvoidBottomInset: false,
-            child: MultiBlocProvider(
-              providers: [
-                BlocProvider.value(value: context.read<AccountsBloc>()),
-                BlocProvider.value(value: context.read<CurrencyBloc>()),
-                BlocProvider.value(value: context.read<StylesBloc>()),
-              ],
-              child: const AddAccountDialog(),
-            ),
-          );
-        },
+        'add_action': () => _showAddAccountDialog(context),
         'prev_period': () =>
             context.read<AccountsBloc>().add(const DatePeriodNavigated(-1)),
         'next_period': () =>
@@ -606,20 +701,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
           actionId: 'add_action',
           description: l10n.addAccountDescription,
           child: FloatingActionButton(
-            onPressed: () {
-              DialogUtils.showAppDialog(
-                context: context,
-                resizeToAvoidBottomInset: false,
-                child: MultiBlocProvider(
-                  providers: [
-                    BlocProvider.value(value: context.read<AccountsBloc>()),
-                    BlocProvider.value(value: context.read<CurrencyBloc>()),
-                    BlocProvider.value(value: context.read<StylesBloc>()),
-                  ],
-                  child: const AddAccountDialog(),
-                ),
-              );
-            },
+            onPressed: () => _showAddAccountDialog(context),
             child: const Icon(Icons.add),
           ),
         ),

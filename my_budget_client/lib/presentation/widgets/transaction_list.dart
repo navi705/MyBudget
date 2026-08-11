@@ -5,10 +5,20 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
+import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/entities/transaction_category.dart'; // Import TransactionCategory
+// Both bloc libraries export ToggleSelectionMode and ClearSelection, and every
+// use of those names in this file belongs to the transactions bloc.
+import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart'
+    show AccountsBloc, AccountsLoadSuccess, AccountsState;
+import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart'
+    show CurrencyBloc;
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart'
+    show StylesBloc;
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
+import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart'; // Import IconUtils
 import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/presentation/widgets/generic/grouped_paginated_list.dart';
@@ -29,6 +39,70 @@ class _TransactionListState extends State<TransactionList> {
   void initState() {
     context.read<TransactionsBloc>().add(const InitialLoadTransactions());
     super.initState();
+  }
+
+  /// True once the accounts have actually loaded and there are none.
+  ///
+  /// Every other [AccountsState] reports an empty list while the load is still
+  /// running, so treating "empty" as "no accounts" everywhere would refuse taps
+  /// on the first frame of a normal launch.
+  static bool _hasNoAccounts(AccountsState state) =>
+      state is AccountsLoadSuccess && state.accounts.isEmpty;
+
+  /// The single door to the transaction form for this list.
+  ///
+  /// Account is required on that form and its picker is fed from the same
+  /// account list, so with none the form opens and can never be saved - Back is
+  /// the only exit. Refuse instead, and say what is missing.
+  void _openTransactionForm(BuildContext context, {Transaction? transaction}) {
+    if (_hasNoAccounts(context.read<AccountsBloc>().state)) {
+      _refuseWithoutAccount(context);
+      return;
+    }
+
+    context.push(
+      AppRoutes.addEditTransaction,
+      extra: transaction == null ? null : {'transaction': transaction},
+    );
+  }
+
+  /// Names the missing prerequisite and offers to create it.
+  void _refuseWithoutAccount(BuildContext context) {
+    final l10n = context.l10n;
+
+    ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.addAccountBeforeTransactionDescription),
+          action: SnackBarAction(
+            label: l10n.accountsAddTooltip,
+            // The SnackBar outlives the row that was tapped, so this widget's
+            // own context is what opens the dialog.
+            onPressed: () {
+              if (!mounted) return;
+              _showAddAccountDialog(this.context);
+            },
+          ),
+        ),
+      );
+  }
+
+  /// Account creation, on the root navigator: the dialog is a sibling of this
+  /// list rather than a descendant, so it has to be handed the blocs itself.
+  void _showAddAccountDialog(BuildContext context) {
+    DialogUtils.showAppDialog(
+      context: context,
+      resizeToAvoidBottomInset: false,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: context.read<AccountsBloc>()),
+          BlocProvider.value(value: context.read<CurrencyBloc>()),
+          BlocProvider.value(value: context.read<StylesBloc>()),
+        ],
+        child: const AddAccountDialog(),
+      ),
+    );
   }
 
   void _showContextMenu(
@@ -85,9 +159,9 @@ class _TransactionListState extends State<TransactionList> {
     } else if (value == 'deselect_all') {
       bloc.add(const ClearSelection());
     } else if (value == 'edit') {
-      context.push(
-        AppRoutes.addEditTransaction,
-        extra: {'transaction': transactionCategory.transaction},
+      _openTransactionForm(
+        context,
+        transaction: transactionCategory.transaction,
       );
     } else if (value == 'delete') {
       DialogUtils.showAppDialog(
@@ -144,7 +218,7 @@ class _TransactionListState extends State<TransactionList> {
     if (!context.mounted || value == null) return;
 
     if (value == 'add_transaction') {
-      context.push(AppRoutes.addEditTransaction);
+      _openTransactionForm(context);
     }
   }
 
@@ -168,7 +242,9 @@ class _TransactionListState extends State<TransactionList> {
             return const AppStateView.loading();
           }
           if (state.status == TransactionStatus.failure) {
-            return AppStateView.error(message: context.l10n.accountsLoadFailure);
+            return AppStateView.error(
+              message: context.l10n.accountsLoadFailure,
+            );
           }
           if (state.status == TransactionStatus.success &&
               state.transactions.isEmpty) {
@@ -221,9 +297,9 @@ class _TransactionListState extends State<TransactionList> {
                               ToggleTransactionSelection(item.transaction.id!),
                             );
                           } else {
-                            context.push(
-                              AppRoutes.addEditTransaction,
-                              extra: {'transaction': item.transaction},
+                            _openTransactionForm(
+                              context,
+                              transaction: item.transaction,
                             );
                           }
                         },

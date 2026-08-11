@@ -8,7 +8,15 @@ import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:collection/collection.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
+// Both bloc libraries export ToggleSelectionMode, ClearSelection,
+// ActiveDateChanged and DatePeriodNavigated, and every use of those names on
+// this screen belongs to the categories bloc.
+import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart'
+    show AccountsBloc, AccountsLoadSuccess, AccountsState;
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart'
+    show CurrencyBloc;
+import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/category_list_item.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
@@ -153,7 +161,65 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
+  /// True once the accounts have actually loaded and there are none.
+  ///
+  /// Every other [AccountsState] reports an empty list while the load is still
+  /// running, so treating "empty" as "no accounts" everywhere would refuse the
+  /// first taps of a normal launch.
+  static bool _hasNoAccounts(AccountsState state) =>
+      state is AccountsLoadSuccess && state.accounts.isEmpty;
+
+  /// Says which prerequisite is missing and offers to create it.
+  ///
+  /// The alternative is what this screen used to do: push a form whose required
+  /// Account picker reads the same empty list, so it can be opened but never
+  /// saved and Back is the only exit.
+  void _refuseWithoutAccount(BuildContext context) {
+    final l10n = context.l10n;
+
+    ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.addAccountBeforeTransactionDescription),
+          action: SnackBarAction(
+            label: l10n.accountsAddTooltip,
+            // The SnackBar outlives the row that was tapped, so the screen's own
+            // context is what opens the dialog.
+            onPressed: () {
+              if (!mounted) return;
+              _showAddAccountDialog(this.context);
+            },
+          ),
+        ),
+      );
+  }
+
+  /// Account creation, on the root navigator: the dialog is a sibling of this
+  /// screen rather than a descendant, so it has to be handed the blocs itself.
+  void _showAddAccountDialog(BuildContext context) {
+    DialogUtils.showAppDialog(
+      context: context,
+      resizeToAvoidBottomInset: false,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: context.read<AccountsBloc>()),
+          BlocProvider.value(value: context.read<CurrencyBloc>()),
+          BlocProvider.value(value: context.read<StylesBloc>()),
+        ],
+        child: const AddAccountDialog(),
+      ),
+    );
+  }
+
   void _navigateToAddTransaction(BuildContext context, Category category) {
+    // The category is the one that was tapped, but a transaction also needs an
+    // account and nothing seeds one.
+    if (_hasNoAccounts(context.read<AccountsBloc>().state)) {
+      _refuseWithoutAccount(context);
+      return;
+    }
+
     final state = context.read<CategoriesBloc>().state;
     DateTime date = DateTime.now();
     String currencyCode = 'EUR';
