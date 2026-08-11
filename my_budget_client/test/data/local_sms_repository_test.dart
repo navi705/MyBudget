@@ -156,19 +156,11 @@ void main() {
       expect(preset.rules.single.type, TransactionType.expense);
     });
 
-    test('CHARACTERIZATION: an edit to a built-in preset\'s name or rules is '
-        'thrown away on the next load', () async {
-      // BUG. `LocalSmsRepository.getAllPresets` rebuilds every built-in from
-      // `SmsPresetDefaults` and copies only isEnabled, defaultAccountId and
-      // defaultCategoryId off the stored copy. Everything else the user edited
-      // - name, senderFilter, rules, categoryKeywords - is discarded, silently
-      // and only after a restart, so the preset screen shows the edit as saved
-      // until the app is reopened. Trigger: edit the Alta_Bank preset's
-      // matchPattern because the bank changed its SMS wording, restart, and it
-      // is back to the old pattern with the transactions no longer matching.
-      // Correct behaviour: merge on top of the stored preset (using the
-      // built-in only for fields the stored copy does not have), or mark
-      // user-edited built-ins as custom.
+    test('an edit to a built-in preset\'s name, rules and keywords survives a '
+        'restart', () async {
+      // A built-in is a starting point, not a lock: when the bank changes its
+      // SMS wording the only repair the user has is editing the preset, and an
+      // edit that is dropped on the next load takes the transactions with it.
       final edited = builtIn().copyWith(
         name: 'Renamed',
         rules: [
@@ -179,6 +171,9 @@ void main() {
             amountPattern: r'([\d.]+)',
           ),
         ],
+        categoryKeywords: const [
+          SmsCategoryKeyword(keyword: 'aldi', categoryId: 'cat_groceries'),
+        ],
       );
       await LocalSmsRepository().savePreset(edited);
 
@@ -186,15 +181,63 @@ void main() {
         (p) => p.id == 'alta_bank',
       );
 
-      expect(reloaded.name, 'Alta_Bank');
-      expect(reloaded.rules.first.id, isNot('edited'));
+      expect(reloaded.name, 'Renamed');
+      expect(reloaded.rules.single.id, 'edited');
+      expect(reloaded.rules.single.matchPattern, 'new wording');
+      expect(reloaded.categoryKeywords.single.keyword, 'aldi');
+      expect(reloaded.isBuiltIn, isTrue);
+    });
+
+    test('a built-in the stored data has never seen is added from the '
+        'template', () async {
+      // How a built-in shipped by a new app version reaches an install that
+      // already has presets of its own, without a reinstall.
+      SharedPreferences.setMockInitialValues({
+        'sms_presets': jsonEncode([
+          {
+            'id': 'custom-1',
+            'name': 'My bank',
+            'senderFilter': 'MYBANK',
+            'isBuiltIn': false,
+            'isEnabled': true,
+          },
+        ]),
+      });
+
+      final presets = await LocalSmsRepository().getAllPresets();
+
+      expect(presets.map((p) => p.id), containsAll(['alta_bank', 'custom-1']));
+      expect(presets.firstWhere((p) => p.id == 'alta_bank'), builtIn());
+    });
+
+    test('a field missing from a stored built-in is filled in from the '
+        'template', () async {
+      // The other half of shipping updates: a row written before a field
+      // existed reads back empty, and the template is what fills it. Only
+      // empty counts - anything the user put there is an edit, not a gap.
+      SharedPreferences.setMockInitialValues({
+        'sms_presets': jsonEncode([
+          {
+            'id': 'alta_bank',
+            'name': 'Alta_Bank',
+            'senderFilter': 'ALTA',
+            'isBuiltIn': true,
+            'isEnabled': true,
+          },
+        ]),
+      });
+
+      final reloaded = (await LocalSmsRepository().getAllPresets()).single;
+
+      expect(reloaded.rules, builtIn().rules);
+      expect(reloaded.categoryKeywords, builtIn().categoryKeywords);
+      expect(reloaded.isEnabled, isTrue);
     });
 
     test('the default account and category chosen for a built-in preset do '
         'survive a restart', () async {
-      // The counterpart to the characterization above: these three fields are
-      // the ones getAllPresets carries over, and the import flow depends on
-      // them.
+      // Pinned separately from the edit above because the import flow reads
+      // these two straight off the preset.
       await LocalSmsRepository().savePreset(
         builtIn().copyWith(
           isEnabled: true,
@@ -252,12 +295,24 @@ void main() {
       );
     });
 
-    test('deletePreset refuses to remove a built-in preset', () async {
-      // Built-ins are recreated from code on every load, so "deleting" one
-      // would only make it come back - the repository keeps it instead.
+    test('a deleted built-in preset stays deleted across a restart', () async {
+      // Built-ins are recreated from code on every load, so the deletion has
+      // to be remembered on its own - otherwise it silently undoes itself the
+      // next time the app opens.
       final repo = LocalSmsRepository();
 
       await repo.deletePreset('alta_bank');
+
+      expect(await repo.getAllPresets(), isEmpty);
+      expect(await LocalSmsRepository().getAllPresets(), isEmpty);
+    });
+
+    test('clearData brings a deleted built-in back, so the user is not stuck '
+        'without it', () async {
+      final repo = LocalSmsRepository();
+      await repo.deletePreset('alta_bank');
+
+      await repo.clearData();
 
       expect((await repo.getAllPresets()).map((p) => p.id), ['alta_bank']);
     });

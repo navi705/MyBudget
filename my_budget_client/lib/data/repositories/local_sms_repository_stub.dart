@@ -17,6 +17,7 @@ class LocalSmsRepository implements SmsRepository {
 
   static const String _presetsKey = 'sms_presets';
   static const String _lastSyncKey = 'sms_last_sync';
+  static const String _deletedBuiltInsKey = 'sms_deleted_presets';
 
   LocalSmsRepository() {
     debugPrint('SMS_DEBUG: LocalSmsRepository (Stub) initialized');
@@ -37,9 +38,16 @@ class LocalSmsRepository implements SmsRepository {
     final storedJson = prefs.getString(_presetsKey);
 
     final builtInPresets = SmsPresetDefaults.getBuiltInPresets();
+    // Built-ins live in code, so a deletion only sticks if the id is
+    // remembered - otherwise the next load recreates what the user removed.
+    final deletedBuiltInIds =
+        prefs.getStringList(_deletedBuiltInsKey) ?? const <String>[];
+    final liveBuiltIns = builtInPresets
+        .where((p) => !deletedBuiltInIds.contains(p.id))
+        .toList();
 
     if (storedJson == null) {
-      _cachedPresets = builtInPresets;
+      _cachedPresets = liveBuiltIns;
       return _cachedPresets!;
     }
 
@@ -51,17 +59,15 @@ class LocalSmsRepository implements SmsRepository {
 
       final result = <SmsPreset>[];
 
-      for (final builtIn in builtInPresets) {
-        final stored = customPresets.firstWhere(
-          (p) => p.id == builtIn.id,
-          orElse: () => builtIn,
-        );
+      // A built-in with no stored row has never reached this install - a fresh
+      // profile, or one shipped by an app version newer than the stored data -
+      // so it comes straight from the template.
+      for (final builtIn in liveBuiltIns) {
+        final storedIndex = customPresets.indexWhere((p) => p.id == builtIn.id);
         result.add(
-          builtIn.copyWith(
-            isEnabled: stored.isEnabled,
-            defaultAccountId: stored.defaultAccountId,
-            defaultCategoryId: stored.defaultCategoryId,
-          ),
+          storedIndex < 0
+              ? builtIn
+              : _mergeBuiltIn(customPresets[storedIndex], builtIn),
         );
       }
 
@@ -104,9 +110,24 @@ class LocalSmsRepository implements SmsRepository {
       _cachedPresets = result;
       return _cachedPresets!;
     } catch (e) {
-      _cachedPresets = builtInPresets;
+      _cachedPresets = liveBuiltIns;
       return _cachedPresets!;
     }
+  }
+
+  /// The stored copy is what the user has edited and wins field by field; the
+  /// template only supplies what that copy cannot carry - fields introduced by
+  /// an app version newer than the row on disk.
+  SmsPreset _mergeBuiltIn(SmsPreset stored, SmsPreset builtIn) {
+    return stored.copyWith(
+      // The id is what makes a preset built-in; rows written before the flag
+      // existed decode as custom and would become editable and deletable.
+      isBuiltIn: true,
+      rules: stored.rules.isEmpty ? builtIn.rules : null,
+      categoryKeywords: stored.categoryKeywords.isEmpty
+          ? builtIn.categoryKeywords
+          : null,
+    );
   }
 
   @override
@@ -133,9 +154,23 @@ class LocalSmsRepository implements SmsRepository {
   @override
   Future<void> deletePreset(String presetId) async {
     final presets = await getAllPresets();
-    presets.removeWhere((p) => p.id == presetId && !p.isBuiltIn);
+    final index = presets.indexWhere((p) => p.id == presetId);
+    if (index < 0) return;
+
+    final removed = presets.removeAt(index);
+    if (removed.isBuiltIn) {
+      await _rememberDeletedBuiltIn(presetId);
+    }
     _cachedPresets = presets;
     await _persistPresets(presets);
+  }
+
+  Future<void> _rememberDeletedBuiltIn(String presetId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final deleted =
+        prefs.getStringList(_deletedBuiltInsKey) ?? const <String>[];
+    if (deleted.contains(presetId)) return;
+    await prefs.setStringList(_deletedBuiltInsKey, [...deleted, presetId]);
   }
 
   @override
@@ -197,6 +232,7 @@ class LocalSmsRepository implements SmsRepository {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_presetsKey);
     await prefs.remove(_lastSyncKey);
+    await prefs.remove(_deletedBuiltInsKey);
     _cachedPresets = null;
     debugPrint('SMS_DEBUG: LocalSmsRepository data cleared');
   }
