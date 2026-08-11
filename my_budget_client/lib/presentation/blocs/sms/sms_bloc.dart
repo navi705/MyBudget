@@ -15,6 +15,8 @@ import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/services/currency_converter_service.dart';
 import 'package:uuid/uuid.dart';
 
+import '../bloc_lifecycle.dart';
+
 part 'sms_event.dart';
 part 'sms_state.dart';
 
@@ -30,7 +32,8 @@ void _smsLog(String message) {
   if (kDebugMode) debugPrint('SMS_DEBUG: $message');
 }
 
-class SmsBloc extends Bloc<SmsEvent, SmsState> {
+class SmsBloc extends Bloc<SmsEvent, SmsState>
+    with BlocShutdownGuard<SmsEvent, SmsState> {
   final SmsRepository _smsRepository;
   final TransactionRepository _transactionRepository;
   final CurrencyRepository _currencyRepository;
@@ -75,6 +78,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
 
   @override
   Future<void> close() async {
+    markClosing();
     // Awaited: the listener above calls add(), and adding to a closed bloc
     // throws. Cancelling without awaiting leaves a window where an SMS already
     // in flight lands after super.close() has shut the event controller.
@@ -117,8 +121,9 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
           await _smsRepository.setLastSyncTimestamp(DateTime.now());
 
           // The user can pop the settings screen at any point during those
-          // awaits; emitting into a closed bloc throws.
-          if (isClosed) return;
+          // awaits; isClosed alone isn't enough (see bloc_lifecycle.dart) so
+          // the shutdown guard covers the window close() leaves open too.
+          if (isShuttingDown) return;
           emit(
             state.copyWith(
               lastSyncTimestamp: DateTime.now(),
@@ -152,7 +157,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     final presets = await _smsRepository.getAllPresets();
     _smsLog('Permissions: $hasPermission, Presets: ${presets.length}');
 
-    if (isClosed) return;
+    if (isShuttingDown) return;
     emit(
       state.copyWith(
         isLoading: false,
@@ -169,7 +174,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
       _smsLog('Last sync: $lastSync');
       if (lastSync != null) {
         _smsLog('Triggering catch-up import since $lastSync');
-        if (isClosed) return;
+        if (isShuttingDown) return;
         add(ImportSmsMessages(since: lastSync));
       } else {
         // First run? Mark 'now' as the sync point so we don't import past messages unless asked.
@@ -184,7 +189,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     Emitter<SmsState> emit,
   ) async {
     await _smsRepository.togglePreset(event.presetId, event.isEnabled);
-    if (isClosed) return;
+    if (isShuttingDown) return;
     add(LoadSmsPresets());
   }
 
@@ -193,7 +198,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     Emitter<SmsState> emit,
   ) async {
     await _smsRepository.savePreset(event.preset);
-    if (isClosed) return;
+    if (isShuttingDown) return;
     add(LoadSmsPresets());
   }
 
@@ -202,7 +207,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     Emitter<SmsState> emit,
   ) async {
     await _smsRepository.deletePreset(event.presetId);
-    if (isClosed) return;
+    if (isShuttingDown) return;
     add(LoadSmsPresets());
   }
 
@@ -213,7 +218,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     emit(state.copyWith(isImporting: true, importProgress: 0));
 
     final enabledPresets = await _smsRepository.getEnabledPresets();
-    if (isClosed) return;
+    if (isShuttingDown) return;
     if (enabledPresets.isEmpty) {
       emit(
         state.copyWith(isImporting: false, importError: 'No presets enabled'),
@@ -228,7 +233,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
       emit: emit,
     );
 
-    if (isClosed) return;
+    if (isShuttingDown) return;
     emit(
       state.copyWith(
         isImporting: false,
@@ -261,7 +266,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
       emit: emit,
     );
 
-    if (isClosed) return;
+    if (isShuttingDown) return;
     emit(
       state.copyWith(
         isImporting: false,
@@ -328,7 +333,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
       // importing: the sync timestamp below is written either way, so bailing
       // out here would mark the remaining messages as synced without ever
       // having created them.
-      if (!isClosed) {
+      if (!isShuttingDown) {
         emit(state.copyWith(importProgress: (i + 1) / messages.length));
       }
     }
@@ -437,7 +442,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     Emitter<SmsState> emit,
   ) async {
     final granted = await _smsRepository.requestSmsPermission();
-    if (isClosed) return;
+    if (isShuttingDown) return;
     emit(state.copyWith(hasPermission: granted));
     if (granted) {
       add(LoadSmsPresets());

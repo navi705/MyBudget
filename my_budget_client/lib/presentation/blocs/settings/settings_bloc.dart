@@ -44,12 +44,14 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     final deviceName = await dev_utils.getDeviceName();
     emit(state.copyWith(deviceName: deviceName));
 
-    _settingsSubscription?.cancel();
+    // Awaited: an unawaited cancel lets the old subscription keep calling
+    // add() alongside the newly-assigned one.
+    await _settingsSubscription?.cancel();
     _settingsSubscription = _settingsRepository.watchAllSettings().listen(
       (settings) => add(_SettingsChanged(settings)),
     );
 
-    _inflationSubscription?.cancel();
+    await _inflationSubscription?.cancel();
     _inflationSubscription = _inflationRepository
         .watchInflationRatesFiltered(limit: 1, offset: 0)
         .listen((_) => add(RefreshAvailableCountries()));
@@ -260,9 +262,12 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   }
 
   @override
-  Future<void> close() {
-    _settingsSubscription?.cancel();
-    _inflationSubscription?.cancel();
+  Future<void> close() async {
+    // Awaited: leaving these unawaited lets the subscriptions outlive the
+    // bloc, so a late-arriving event calls add() after the event controller
+    // is closed and throws.
+    await _settingsSubscription?.cancel();
+    await _inflationSubscription?.cancel();
     return super.close();
   }
 }

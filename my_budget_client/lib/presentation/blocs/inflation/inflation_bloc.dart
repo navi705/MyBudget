@@ -9,24 +9,16 @@ import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 // import 'package:my_budget_client/domain/entities/settings.dart';
 // import 'package:my_budget_client/core/utils/device_utils.dart'; // Added import
+import '../bloc_lifecycle.dart';
 
 part 'inflation_event.dart';
 part 'inflation_state.dart';
 
-class InflationBloc extends Bloc<InflationEvent, InflationState> {
+class InflationBloc extends Bloc<InflationEvent, InflationState>
+    with BlocShutdownGuard<InflationEvent, InflationState> {
   final InflationRepository _inflationRepository;
   final SettingsRepository _settingsRepository;
   StreamSubscription? _ratesSubscription;
-
-  /// Set synchronously as the first statement of [close], before any await.
-  bool _closeRequested = false;
-
-  /// Guard for anything that resumes after an `await`. `isClosed` on its own is
-  /// not enough: Bloc.close() closes the event controller first and only flips
-  /// `isClosed` at the very end, and it does not wait for in-flight handlers -
-  /// so a handler resuming in that window sees `isClosed == false` while add()
-  /// already throws "Cannot add new events after calling close".
-  bool get _isShuttingDown => _closeRequested || isClosed;
 
   InflationBloc({
     required InflationRepository inflationRepository,
@@ -63,7 +55,7 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
 
   @override
   Future<void> close() async {
-    _closeRequested = true;
+    markClosing();
     // Awaited: the subscription callback calls add(), and an add() that lands
     // after close() throws. Cancelling unawaited left that window open.
     await _ratesSubscription?.cancel();
@@ -109,7 +101,7 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
         'inflation_filter_mode',
       );
       // The screen can be popped while the settings reads are in flight.
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
 
       DateStep dateStep = state.dateStep;
       if (dateStepSetting != null && wasInitial) {
@@ -160,7 +152,7 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
       // Re-checked here: the settings reads above are awaits, so the bloc may
       // have started closing since - installing a fresh stream now would
       // outlive it.
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
 
       // Switch to real-time subscription
       await _ratesSubscription?.cancel();
@@ -175,12 +167,12 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
             sortAscending: state.sort == Sort.ascending,
           )
           .listen((rates) {
-            if (_isShuttingDown) return;
+            if (isShuttingDown) return;
             add(InflationRatesUpdated(rates, rates.length));
           });
       // We don't emit success here, the event will do it.
     } catch (e) {
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       emit(
         state.copyWith(
           status: InflationStatus.failure,
@@ -209,7 +201,7 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
         presets: state.presetFilters,
         sortAscending: state.sort == Sort.ascending,
       );
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
 
       emit(
         state.copyWith(
@@ -220,7 +212,7 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
         ),
       );
     } catch (e) {
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       emit(
         state.copyWith(
           status: InflationStatus.failure,
@@ -262,7 +254,7 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
       'inflation_date_step',
       event.dateStep.toString(),
     );
-    if (_isShuttingDown) return;
+    if (isShuttingDown) return;
     // The reload below only restores the persisted value on the FIRST load, so
     // the new step has to be put into state here - saving alone left the change
     // with no visible effect at all.
@@ -278,7 +270,7 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
       'inflation_filter_mode',
       event.filterMode.toString(),
     );
-    if (_isShuttingDown) return;
+    if (isShuttingDown) return;
     // Same as the date step above: the reload ignores persisted settings once
     // the first load has happened, so emit the new mode explicitly.
     emit(state.copyWith(filterMode: event.filterMode));
@@ -327,10 +319,10 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
   ) async {
     try {
       await _inflationRepository.addInflationRate(event.rate);
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       add(LoadInflationRates());
     } catch (e) {
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       emit(
         state.copyWith(
           status: InflationStatus.failure,
@@ -346,10 +338,10 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
   ) async {
     try {
       await _inflationRepository.updateInflationRate(event.rate);
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       add(LoadInflationRates());
     } catch (e) {
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       emit(
         state.copyWith(
           status: InflationStatus.failure,
@@ -369,10 +361,10 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
         event.country,
         event.preset,
       );
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       add(LoadInflationRates());
     } catch (e) {
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       emit(
         state.copyWith(
           status: InflationStatus.failure,
@@ -427,11 +419,11 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     try {
       final ratesToDelete = state.selectedRates.toList();
       await _inflationRepository.deleteInflationRates(ratesToDelete);
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       emit(state.copyWith(selectedRates: {}, isSelectionModeActive: false));
       add(LoadInflationRates());
     } catch (e) {
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       emit(
         state.copyWith(
           status: InflationStatus.failure,

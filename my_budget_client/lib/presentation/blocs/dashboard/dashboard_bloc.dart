@@ -132,7 +132,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     // Subscribe to style/category changes separately.
     // When they change, update the cache and trigger a recompute via _paramsSubject
     // (by incrementing dataVersion). The debounce(50ms) batches rapid changes.
-    _stylesSubscription?.cancel();
+    // Awaited: an unawaited cancel leaves the old subscription able to fire
+    // into the params subject at the same time as the new one.
+    await _stylesSubscription?.cancel();
     _stylesSubscription = _styleRepository.watchAllStyles().skip(1).listen((
       styles,
     ) {
@@ -144,7 +146,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       );
     });
 
-    _categoriesSubscription?.cancel();
+    await _categoriesSubscription?.cancel();
     _categoriesSubscription = _categoryRepository
         .watchCategories()
         .skip(1)
@@ -518,10 +520,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   }
 
   @override
-  Future<void> close() {
-    _stylesSubscription?.cancel();
-    _categoriesSubscription?.cancel();
-    _paramsSubject.close();
+  Future<void> close() async {
+    // Awaited, and in this order: both listeners below call
+    // _paramsSubject.add(). Closing the subject first while a subscription
+    // is still delivering makes that add() throw "Cannot add event after
+    // calling close" on the subject.
+    await _stylesSubscription?.cancel();
+    await _categoriesSubscription?.cancel();
+    await _paramsSubject.close();
     return super.close();
   }
 }

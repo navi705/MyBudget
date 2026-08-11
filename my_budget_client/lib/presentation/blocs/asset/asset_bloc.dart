@@ -8,23 +8,15 @@ import 'package:my_budget_client/domain/repositories/asset_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 // import 'package:my_budget_client/domain/entities/settings.dart'; // Added entity import
 // import 'package:my_budget_client/core/utils/device_utils.dart';
+import '../bloc_lifecycle.dart';
 import 'asset_event.dart';
 import 'asset_state.dart';
 
-class AssetBloc extends Bloc<AssetEvent, AssetState> {
+class AssetBloc extends Bloc<AssetEvent, AssetState>
+    with BlocShutdownGuard<AssetEvent, AssetState> {
   final AssetRepository _assetRepository;
   final SettingsRepository _settingsRepository;
   StreamSubscription? _assetSubscription;
-
-  /// Set synchronously as the first statement of [close], before any await.
-  bool _closeRequested = false;
-
-  /// Guard for anything that resumes after an `await`. `isClosed` on its own is
-  /// not enough: Bloc.close() closes the event controller first and only flips
-  /// `isClosed` at the very end, and it does not wait for in-flight handlers -
-  /// so a handler resuming in that window sees `isClosed == false` while add()
-  /// already throws "Cannot add new events after calling close".
-  bool get _isShuttingDown => _closeRequested || isClosed;
 
   AssetBloc(this._assetRepository, this._settingsRepository)
     : super(
@@ -58,7 +50,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
   Future<void> _subscribeToAssets() async {
     // Every caller reaches here after an await, so the bloc may already be on
     // its way out - installing a fresh stream now would outlive it.
-    if (_isShuttingDown) return;
+    if (isShuttingDown) return;
 
     final (dateFrom, dateTo) = _getDateRange(state);
 
@@ -84,7 +76,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
           sortAscending: state.sort == Sort.ascending,
         )
         .listen((data) {
-          if (_isShuttingDown) return;
+          if (isShuttingDown) return;
           add(AssetDataUpdated(data));
         });
   }
@@ -109,7 +101,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
 
     // The screen can be popped while the count query is in flight; emitting
     // into a closed bloc throws.
-    if (_isShuttingDown) return;
+    if (isShuttingDown) return;
 
     emit(
       state.copyWith(
@@ -150,7 +142,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
         'asset_filter_mode',
       );
       // The screen can be popped while the settings reads are in flight.
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
 
       DateStep dateStep = state.dateStep;
       if (dateStepSetting != null && wasInitial) {
@@ -204,7 +196,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       // Initial subscription
       await _subscribeToAssets();
     } catch (e) {
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
       );
@@ -254,7 +246,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       'asset_date_step',
       event.dateStep.toString(),
     );
-    if (_isShuttingDown) return;
+    if (isShuttingDown) return;
     // Update state first then resubscribe
     emit(state.copyWith(dateStep: event.dateStep));
     await _subscribeToAssets();
@@ -268,7 +260,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       'asset_filter_mode',
       event.filterMode.toString(),
     );
-    if (_isShuttingDown) return;
+    if (isShuttingDown) return;
     emit(state.copyWith(filterMode: event.filterMode));
     await _subscribeToAssets();
   }
@@ -334,7 +326,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       await _assetRepository.addAssetData(event.data);
       // add(LoadAssetData(assetId: event.data.assetId)); // No longer needed, stream handles it
     } catch (e) {
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
       );
@@ -349,7 +341,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       await _assetRepository.updateAssetData(event.data);
       // add(LoadAssetData(assetId: event.data.assetId)); // No longer needed, stream handles it
     } catch (e) {
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
       );
@@ -364,7 +356,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       await _assetRepository.deleteAssetData(event.id);
       // add(const LoadAssetData()); // No longer needed, stream handles it
     } catch (e) {
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
       );
@@ -413,11 +405,11 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
           .whereType<String>()
           .toList();
       await _assetRepository.deleteAssets(idsToDelete);
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       emit(state.copyWith(selectedAssets: {}, isSelectionModeActive: false));
       // add(const LoadAssetData()); // No longer needed, stream handles it
     } catch (e) {
-      if (_isShuttingDown) return;
+      if (isShuttingDown) return;
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
       );
@@ -426,7 +418,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
 
   @override
   Future<void> close() async {
-    _closeRequested = true;
+    markClosing();
     // Awaited: the subscription callback calls add(), and an add() that lands
     // after close() throws. Cancelling synchronously-but-unawaited left exactly
     // that window open.

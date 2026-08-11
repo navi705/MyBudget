@@ -27,6 +27,8 @@ import 'package:my_budget_client/domain/entities/category.dart'; // Added
 import 'package:my_budget_client/domain/services/finance_calculator.dart'; // Added
 import 'package:my_budget_client/domain/value_objects/currency_precision.dart';
 
+import '../bloc_lifecycle.dart';
+
 part 'accounts_event.dart';
 part 'accounts_state.dart';
 
@@ -51,7 +53,8 @@ class DeleteAccountAndReassign extends AccountsEvent {
   List<Object> get props => [accountId, newAccountId];
 }
 
-class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
+class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
+    with BlocShutdownGuard<AccountsEvent, AccountsState> {
    final AccountRepository _accountRepository;
    final SettingsRepository _settingsRepository;
    final CurrencyRepository _currencyRepository;
@@ -117,8 +120,12 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   }
 
   @override
-  Future<void> close() {
-    _transactionsSubscription?.cancel();
+  Future<void> close() async {
+    markClosing();
+    // Awaited: the listener above calls add(), and adding after the event
+    // controller is closed throws. Cancelling without awaiting leaves that
+    // race open on every screen dismissal.
+    await _transactionsSubscription?.cancel();
     return super.close();
   }
 
@@ -885,6 +892,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     Emitter<AccountsState> emit,
   ) async {
     await _accountRepository.addAccount(event.account);
+    if (isShuttingDown) return;
     add(LoadAccounts()); // Reload list
   }
 
@@ -893,6 +901,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     Emitter<AccountsState> emit,
   ) async {
     await _accountRepository.updateAccount(event.account);
+    if (isShuttingDown) return;
     add(LoadAccounts()); // Reload list
   }
 
@@ -911,6 +920,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         );
         emit(currentState.copyWith(recentlyDeletedAccount: accountToDelete));
         await _accountRepository.deleteAccountWithTransactions(event.id);
+        if (isShuttingDown) return;
         add(LoadAccounts());
       } catch (e) {
         debugPrint('ERROR deleting account: $e');
@@ -937,6 +947,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         debugPrint(
           '[AccountsBloc] Deleting account ${event.accountId} SUCCESS. Reloading...',
         );
+        if (isShuttingDown) return;
         add(LoadAccounts());
       } catch (e) {
         debugPrint('[AccountsBloc] ERROR deleting account: $e');
@@ -958,6 +969,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         event.accountId,
         event.newAccountId,
       );
+      if (isShuttingDown) return;
       add(LoadAccounts());
     }
   }
@@ -978,6 +990,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       debugPrint(
         '[SnackBarDebug] AccountsBloc: Clearing recentlyDeletedAccount (Undo Success)',
       );
+      if (isShuttingDown) return;
       emit(currentState.copyWith(clearRecentlyDeletedAccount: true));
       add(LoadAccounts()); // Reload list
     }
@@ -1027,6 +1040,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         'account_filters',
         event.filters.toJsonString(),
       );
+      if (isShuttingDown) return;
       emit(currentState.copyWith(filters: event.filters));
       add(LoadAccounts());
     }
@@ -1318,6 +1332,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     }
     // Note: We aren't setting recentlyDeletedAccount for bulk delete because UI doesn't usually undo bulk.
     // Undo only supports single account for now based on state model.
+    if (isShuttingDown) return;
     emit(
       (state as AccountsLoadSuccess).copyWith(
         selectedAccountIds: {},
@@ -1335,6 +1350,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       event.accountIds,
       event.accountTypeId,
     );
+    if (isShuttingDown) return;
     emit(
       (state as AccountsLoadSuccess).copyWith(
         selectedAccountIds: {},

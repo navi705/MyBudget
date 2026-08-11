@@ -88,14 +88,17 @@ class AddEditTransactionBloc
 
     try {
       // 1. Setup Reactive Listeners
-      _accountsSubscription?.cancel();
+      // Awaited: an unawaited cancel lets the old subscription keep
+      // delivering into the new one's callback race window, and either
+      // stray delivery can call add() after the bloc has moved on.
+      await _accountsSubscription?.cancel();
       _accountsSubscription = _accountRepository.watchAccounts().listen((
         accounts,
       ) {
         add(_AddEditTransactionAccountsUpdated(accounts));
       });
 
-      _categoriesUpdatedSubscription?.cancel();
+      await _categoriesUpdatedSubscription?.cancel();
       _categoriesUpdatedSubscription = _categoryRepository
           .watchCategories()
           .listen((categories) {
@@ -1708,9 +1711,13 @@ class AddEditTransactionBloc
   }
 
   @override
-  Future<void> close() {
-    _accountsSubscription?.cancel();
-    _categoriesUpdatedSubscription?.cancel();
+  Future<void> close() async {
+    // Awaited: leaving these unawaited lets the subscriptions outlive the
+    // bloc, so late-arriving data calls add() after the event controller is
+    // closed and throws "Bad state: Cannot add new events after calling
+    // close".
+    await _accountsSubscription?.cancel();
+    await _categoriesUpdatedSubscription?.cancel();
     return super.close();
   }
 }

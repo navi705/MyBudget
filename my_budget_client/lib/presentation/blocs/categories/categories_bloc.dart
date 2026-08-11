@@ -18,10 +18,13 @@ import 'package:my_budget_client/domain/repositories/transaction_repository.dart
 
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 
+import '../bloc_lifecycle.dart';
+
 part 'categories_event.dart';
 part 'categories_state.dart';
 
-class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
+class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
+    with BlocShutdownGuard<CategoriesEvent, CategoriesState> {
   final CategoryRepository _categoryRepository;
   final SettingsRepository _settingsRepository;
   final TransactionRepository _transactionRepository;
@@ -72,8 +75,12 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   }
 
   @override
-  Future<void> close() {
-    _transactionsSubscription?.cancel();
+  Future<void> close() async {
+    markClosing();
+    // Awaited: the listener above calls add(), and adding after the event
+    // controller is closed throws. Cancelling without awaiting leaves that
+    // race open on every screen dismissal.
+    await _transactionsSubscription?.cancel();
     return super.close();
   }
 
@@ -143,6 +150,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         for (final id in event.categoryIds) {
           await _categoryRepository.deleteCategory(id);
         }
+        if (isShuttingDown) return;
         emit(
           currentState.copyWith(
             selectedCategoryIds: {},
@@ -172,6 +180,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
             category.copyWith(type: event.newType),
           );
         }
+        if (isShuttingDown) return;
         emit(
           currentState.copyWith(
             selectedCategoryIds: {},
@@ -277,6 +286,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         'category_filters',
         event.filters.toJsonString(),
       );
+      if (isShuttingDown) return;
       emit(currentState.copyWith(filters: event.filters));
       add(LoadCategories());
     }
@@ -441,6 +451,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     Emitter<CategoriesState> emit,
   ) async {
     await _categoryRepository.addCategory(event.category);
+    if (isShuttingDown) return;
     add(LoadCategories());
   }
 
@@ -449,6 +460,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     Emitter<CategoriesState> emit,
   ) async {
     await _categoryRepository.updateCategory(event.category);
+    if (isShuttingDown) return;
     add(LoadCategories());
   }
 
@@ -491,6 +503,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
         );
         emit(currentState.copyWith(recentlyDeletedCategory: categoryToDelete));
         await _categoryRepository.deleteCategory(event.id);
+        if (isShuttingDown) return;
         add(LoadCategories());
       }
     }
@@ -515,6 +528,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     } else {
       await _categoryRepository.deleteCategory(event.categoryToDelete.id!);
     }
+    if (isShuttingDown) return;
     add(LoadCategories());
   }
 
@@ -555,9 +569,11 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       emit(currentState.copyWith(clearRecentlyDeletedCategory: true));
       try {
         await _categoryRepository.addCategory(category);
+        if (isShuttingDown) return;
         add(LoadCategories());
       } catch (e) {
         // If restore fails, maybe show error? For now just reload.
+        if (isShuttingDown) return;
         add(LoadCategories());
       }
     }
