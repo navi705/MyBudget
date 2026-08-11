@@ -62,6 +62,10 @@ class _AssetTabContent extends StatelessWidget {
 
     if (!context.mounted) return;
 
+    String? nameError;
+    String? assetIdError;
+    String? valueError;
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -77,20 +81,27 @@ class _AssetTabContent extends StatelessWidget {
                   children: [
                     TextField(
                       controller: nameController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Asset Name (e.g. Apple Stock)',
+                        // Save used to be a bare `if (...)` with no else, so
+                        // any of these three left blank or unparseable made
+                        // the button do nothing at all and the dialog just
+                        // sat there with nothing marked.
+                        errorText: nameError,
                       ),
                     ),
                     TextField(
                       controller: assetIdController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Asset ID (e.g. AAPL)',
+                        errorText: assetIdError,
                       ),
                     ),
                     TextField(
                       controller: valueController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Value (Price per unit)',
+                        errorText: valueError,
                       ),
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
@@ -173,7 +184,17 @@ class _AssetTabContent extends StatelessWidget {
                 final name = nameController.text;
                 final assetId = assetIdController.text;
 
-                if (value != null && name.isNotEmpty && assetId.isNotEmpty) {
+                if (value == null || name.isEmpty || assetId.isEmpty) {
+                  setState(() {
+                    nameError = name.isEmpty ? 'Give the asset a name' : null;
+                    assetIdError = assetId.isEmpty
+                        ? 'Give the asset an ID, for example AAPL'
+                        : null;
+                    valueError = value == null
+                        ? 'Enter a number, for example 150.25'
+                        : null;
+                  });
+                } else {
                   final newAsset = AssetDataDomain(
                     id: asset?.id ?? const Uuid().v4(),
                     assetId: assetId,

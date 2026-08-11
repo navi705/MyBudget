@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
+import 'package:my_budget_client/core/utils/country_codes.dart';
 import 'package:my_budget_client/domain/entities/inflation_rate.dart';
+import 'package:my_budget_client/presentation/widgets/country_picker_dialog.dart';
 import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
 import 'package:my_budget_client/presentation/widgets/inflation_tab_app_bar.dart';
@@ -32,7 +34,8 @@ class _InflationTabContent extends StatelessWidget {
     final percentController = TextEditingController(
       text: rate?.percent.toString() ?? '',
     );
-    final countryController = TextEditingController(text: rate?.country ?? '');
+    String? selectedCountry = rate?.country;
+    String? percentError;
     final presetController = TextEditingController(
       text: rate?.preset.toString() ?? '1',
     );
@@ -55,20 +58,52 @@ class _InflationTabContent extends StatelessWidget {
                   children: [
                     TextField(
                       controller: percentController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Inflation Percent (%)',
                         hintText: 'e.g. 2.5',
+                        // Save used to be a bare `if (percent != null)` with
+                        // no else, so a blank or unparseable percent made the
+                        // button do nothing at all and the dialog just sat
+                        // there.
+                        errorText: percentError,
                       ),
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
                     ),
-                    TextField(
-                      controller: countryController,
-                      decoration: const InputDecoration(
-                        labelText: 'Country (Optional)',
-                        hintText: 'Leave empty for Global',
+                    // Free text used to be accepted here, but
+                    // FinanceCalculator looks a rate up by exact World Bank
+                    // code - so "Serbia" or "RS" was stored, listed, and then
+                    // silently never applied to any balance. The only way to
+                    // name a country the calculator can find is to pick one.
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        selectedCountry == null
+                            ? 'Country: Global'
+                            : 'Country: '
+                                  '${getLocalizedCountryName(selectedCountry!, Localizations.localeOf(context).toString())}',
                       ),
+                      trailing: selectedCountry == null
+                          ? const Icon(Icons.public)
+                          : IconButton(
+                              icon: const Icon(Icons.clear),
+                              tooltip: 'Use the worldwide rate',
+                              onPressed: () =>
+                                  setState(() => selectedCountry = null),
+                            ),
+                      onTap: () async {
+                        final code = await showDialog<String>(
+                          context: context,
+                          builder: (context) => CountryPickerDialog(
+                            allCountries: worldBankCountryCodes,
+                            selectedCountryCode: selectedCountry,
+                          ),
+                        );
+                        if (code != null) {
+                          setState(() => selectedCountry = code);
+                        }
+                      },
                     ),
                     TextField(
                       controller: presetController,
@@ -110,12 +145,14 @@ class _InflationTabContent extends StatelessWidget {
               onPressed: () {
                 final percent = double.tryParse(percentController.text);
                 final preset = int.tryParse(presetController.text) ?? 1;
-                if (percent != null) {
+                if (percent == null) {
+                  setState(
+                    () => percentError = 'Enter a number, for example 2.5',
+                  );
+                } else {
                   final newRate = InflationRateDomain(
                     percent: percent,
-                    country: countryController.text.isEmpty
-                        ? null
-                        : countryController.text,
+                    country: selectedCountry,
                     date: DateTime(selectedDate.year, selectedDate.month),
                     preset: preset,
                   );
