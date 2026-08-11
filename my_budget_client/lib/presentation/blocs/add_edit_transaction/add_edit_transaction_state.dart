@@ -105,6 +105,10 @@ class AddEditTransactionState extends Equatable {
     Currency? selectedCurrency,
     List<ExchangeRateDomain>? availableExchangeRates,
     ExchangeRateDomain? selectedExchangeRate,
+    // Same reason as clearLinkedAccount/clearValidationError: `null` is a
+    // meaningful value here - "no preset chip is selected" - and a bare
+    // `selectedExchangeRate ?? this.selectedExchangeRate` cannot express it.
+    bool clearSelectedExchangeRate = false,
     String? manualExchangeRate,
     DateTime? date,
     bool? isTransferMode,
@@ -136,7 +140,9 @@ class AddEditTransactionState extends Equatable {
       selectedCurrency: selectedCurrency ?? this.selectedCurrency,
       availableExchangeRates:
           availableExchangeRates ?? this.availableExchangeRates,
-      selectedExchangeRate: selectedExchangeRate ?? this.selectedExchangeRate,
+      selectedExchangeRate: clearSelectedExchangeRate
+          ? null
+          : (selectedExchangeRate ?? this.selectedExchangeRate),
       manualExchangeRate: manualExchangeRate ?? this.manualExchangeRate,
       date: date ?? this.date,
       isTransferMode: isTransferMode ?? this.isTransferMode,

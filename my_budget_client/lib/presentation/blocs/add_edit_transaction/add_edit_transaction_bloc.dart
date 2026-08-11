@@ -1341,6 +1341,10 @@ class AddEditTransactionBloc
 
     var newState = state.copyWith(
       selectedExchangeRate: event.rate,
+      // The event's rate is nullable, and a null one means "no preset": without
+      // this the deselection would be dropped exactly as the manual-rate one
+      // was. No caller passes null today; this keeps the event honest.
+      clearSelectedExchangeRate: event.rate == null,
       manualExchangeRate: displayRate?.toString() ?? state.manualExchangeRate,
     );
 
@@ -1361,9 +1365,14 @@ class AddEditTransactionBloc
     AddEditTransactionManualRateChanged event,
     Emitter<AddEditTransactionState> emit,
   ) {
+    // Typing a rate by hand is what the conversion will use, so the preset
+    // chip must stop claiming otherwise. Passing `selectedExchangeRate: null`
+    // used to be swallowed by copyWith's `??`, leaving a chip highlighted that
+    // named a rate the transaction was no longer converted at - and the saved
+    // row still carried that preset number (see _onSubmitted).
     var newState = state.copyWith(
       manualExchangeRate: event.rate,
-      selectedExchangeRate: null,
+      clearSelectedExchangeRate: true,
     );
 
     // Asset Sync: Recalculate Total Value
