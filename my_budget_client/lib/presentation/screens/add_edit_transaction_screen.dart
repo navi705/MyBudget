@@ -78,6 +78,9 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
   late final TextEditingController _feeController;
   late final TextEditingController _totalValueController;
 
+  /// The message currently on screen, so one failure is reported once.
+  String? _shownValidationError;
+
   @override
   void initState() {
     super.initState();
@@ -111,26 +114,39 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
             context.read<AccountsBloc>().add(LoadAccounts());
           }
 
-          if (state.validationError != null) {
-            String error = state.validationError!;
-
+          // The listener has to run on every state to keep the controllers in
+          // step, so the SnackBar is gated here instead: without this, one
+          // failed validation queued a fresh red SnackBar for every keystroke
+          // that followed, because `validationError` stays set in state.
+          final validationError = state.validationError;
+          if (validationError != null &&
+              validationError != _shownValidationError) {
             final l10n = context.l10n;
-            if (error == 'Please enter an amount') {
-              error = l10n.emptyAmountError;
-            }
-            if (error == 'Please select an account') {
-              error = l10n.selectAccountError;
-            }
-            if (error == 'Please select a date') {
-              error = l10n.selectDateError;
-            }
-            if (error == 'Please select a category') {
-              error = l10n.selectCategoryError;
-            }
+            final localized = <String, String>{
+              'Please enter an amount': l10n.emptyAmountError,
+              'Please select an account': l10n.selectAccountError,
+              'Please select a date': l10n.selectDateError,
+              'Please select a category': l10n.selectCategoryError,
+              'Please enter a valid number': l10n.invalidAmountError,
+            };
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(error), backgroundColor: Colors.red),
-            );
+            _shownValidationError = validationError;
+            ScaffoldMessenger.of(context)
+              ..removeCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  // Anything else is a repository exception, which no lookup
+                  // can translate - the frame around it is localized so the
+                  // user at least reads it as an error and not as a result.
+                  content: Text(
+                    localized[validationError] ??
+                        l10n.importErrorLabel(validationError),
+                  ),
+                  backgroundColor: Colors.red,
+                ),
+              );
+          } else if (validationError == null) {
+            _shownValidationError = null;
           }
 
           if (state.description != _descriptionController.text) {

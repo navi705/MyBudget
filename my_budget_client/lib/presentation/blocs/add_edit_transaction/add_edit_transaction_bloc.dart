@@ -902,9 +902,10 @@ class AddEditTransactionBloc
     } catch (e, stackTrace) {
       debugPrint('DEBUG SAVE ERROR: $e');
       debugPrint('DEBUG SAVE STACKTRACE: $stackTrace');
-      emit(
-        state.copyWith(isSaving: false, validationError: 'Error saving: $e'),
-      );
+      // The exception alone: the screen puts a localized "Error: {…}" around
+      // anything it does not recognise, and an English prefix here would only
+      // be shown twice over.
+      emit(state.copyWith(isSaving: false, validationError: '$e'));
     }
   }
 
@@ -1321,7 +1322,11 @@ class AddEditTransactionBloc
 
       emit(finalState);
     } catch (e) {
-      emit(state.copyWith(isLoadingRates: false));
+      // A failed refresh used to leave the previous rate list on screen with
+      // the spinner gone, so a rate that could not be read looked like a rate
+      // that had not changed - and the transaction was converted at the stale
+      // one.
+      _emitRateFailure(emit, e);
     }
   }
 
@@ -1407,17 +1412,46 @@ class AddEditTransactionBloc
     emit(newState);
   }
 
+  /// Reports a rate operation that did not happen.
+  ///
+  /// The four rate handlers below used to catch into a bare
+  /// `isLoadingRates: false`: the spinner stopped and nothing else changed, so
+  /// a failed "save as default" looked exactly like a successful one and the
+  /// next transaction converted at the rate the user thought they had
+  /// replaced.
+  ///
+  /// The message is the raw exception; the screen wraps whatever it does not
+  /// recognise in a localized frame.
+  void _emitRateFailure(Emitter<AddEditTransactionState> emit, Object error) {
+    emit(state.copyWith(isLoadingRates: false, validationError: '$error'));
+  }
+
+  /// The rate the user typed cannot be read as a number.
+  ///
+  /// Sentinel string, matched by name in the screen's lookup - the bloc has no
+  /// localizations of its own, and the existing validation messages here work
+  /// the same way.
+  static const _invalidRateMessage = 'Please enter a valid number';
+
   Future<void> _onSaveRateAsDefault(
     AddEditTransactionSaveRateAsDefault event,
     Emitter<AddEditTransactionState> emit,
   ) async {
     if (!state.isForeignCurrency || state.date == null) return;
 
-    emit(state.copyWith(isLoadingRates: true));
+    // Clearing first is what lets the same failure be reported twice: the
+    // screen shows a message once per occurrence, and two identical strings in
+    // a row are indistinguishable without a null in between.
+    emit(state.copyWith(isLoadingRates: true, clearValidationError: true));
     try {
       var rateValue = _getEffectiveRate(state);
       if (rateValue == 0) {
-        emit(state.copyWith(isLoadingRates: false));
+        emit(
+          state.copyWith(
+            isLoadingRates: false,
+            validationError: _invalidRateMessage,
+          ),
+        );
         return;
       }
 
@@ -1469,7 +1503,7 @@ class AddEditTransactionBloc
       debugPrint('DEBUG DEFAULT: Refresh complete.');
     } catch (e, stack) {
       debugPrint('DEBUG DEFAULT ERROR: $e\n$stack');
-      emit(state.copyWith(isLoadingRates: false));
+      _emitRateFailure(emit, e);
     }
   }
 
@@ -1479,7 +1513,7 @@ class AddEditTransactionBloc
   ) async {
     if (!state.isForeignCurrency || state.date == null) return;
 
-    emit(state.copyWith(isLoadingRates: true));
+    emit(state.copyWith(isLoadingRates: true, clearValidationError: true));
     try {
       // Calc next preset
       final currentPresets = state.availableExchangeRates
@@ -1492,7 +1526,12 @@ class AddEditTransactionBloc
 
       var rateValue = double.tryParse(state.manualExchangeRate);
       if (rateValue == null) {
-        emit(state.copyWith(isLoadingRates: false));
+        emit(
+          state.copyWith(
+            isLoadingRates: false,
+            validationError: _invalidRateMessage,
+          ),
+        );
         return;
       }
 
@@ -1552,7 +1591,7 @@ class AddEditTransactionBloc
       // If Asset, manually trigger calculation update too (normally _fetchAssetToCashRate does it but logic is conditional)
       // Actually _fetchAssetToCashRate updates state.
     } catch (e) {
-      emit(state.copyWith(isLoadingRates: false));
+      _emitRateFailure(emit, e);
     }
   }
 
@@ -1563,14 +1602,17 @@ class AddEditTransactionBloc
     if (!state.isForeignCurrency || state.date == null) return;
 
     var rateValue = double.tryParse(state.manualExchangeRate);
-    if (rateValue == null) return;
+    if (rateValue == null) {
+      emit(state.copyWith(validationError: _invalidRateMessage));
+      return;
+    }
 
     // Apply inversion if toggled (same as save logic)
     if (rateValue != 0 && state.isRateInputInverted) {
       rateValue = 1 / rateValue;
     }
 
-    emit(state.copyWith(isLoadingRates: true));
+    emit(state.copyWith(isLoadingRates: true, clearValidationError: true));
     try {
       debugPrint(
         'DEBUG UPDATE PRESET: Updating preset ${event.rate.preset} with rate $rateValue',
@@ -1590,7 +1632,7 @@ class AddEditTransactionBloc
       // Re-select the updated rate, keep direction preference
       emit(state.copyWith(selectedExchangeRate: updatedRate));
     } catch (e) {
-      emit(state.copyWith(isLoadingRates: false));
+      _emitRateFailure(emit, e);
     }
   }
 
@@ -1598,7 +1640,7 @@ class AddEditTransactionBloc
     AddEditTransactionDeletePreset event,
     Emitter<AddEditTransactionState> emit,
   ) async {
-    emit(state.copyWith(isLoadingRates: true));
+    emit(state.copyWith(isLoadingRates: true, clearValidationError: true));
     try {
       await _currencyRepository.deleteExchangeRates([event.rate]);
       // Invalidate cache since exchange rates were modified
@@ -1609,8 +1651,8 @@ class AddEditTransactionBloc
         state.selectedAccount,
         state.date,
       );
-    } catch (_) {
-      emit(state.copyWith(isLoadingRates: false));
+    } catch (e) {
+      _emitRateFailure(emit, e);
     }
   }
 
