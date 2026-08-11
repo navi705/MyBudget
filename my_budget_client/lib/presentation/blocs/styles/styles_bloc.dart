@@ -20,6 +20,7 @@ class StylesBloc extends Bloc<StylesEvent, StylesState> {
     on<UpdateStyle>(_onUpdateStyle);
     on<DeleteStyle>(_onDeleteStyle);
     on<_StylesUpdated>(_onStylesUpdated);
+    on<_StylesLoadFailed>(_onStylesLoadFailed);
     on<ToggleStyleSelectionMode>(_onToggleStyleSelectionMode);
     on<ToggleStyleSelection>(_onToggleStyleSelection);
     on<SelectAllStyles>(_onSelectAllStyles);
@@ -27,13 +28,28 @@ class StylesBloc extends Bloc<StylesEvent, StylesState> {
     on<DeleteMultipleStyles>(_onDeleteMultipleStyles);
   }
 
-  void _onLoadStyles(LoadStyles event, Emitter<StylesState> emit) {
+  Future<void> _onLoadStyles(
+    LoadStyles event,
+    Emitter<StylesState> emit,
+  ) async {
     emit(StylesLoadInProgress());
-    _stylesSubscription?.cancel();
+    // Awaited: an un-awaited cancel lets the outgoing stream deliver one last
+    // list after the new subscription is already live, so a stale style set can
+    // land on top of the fresh one.
+    await _stylesSubscription?.cancel();
     _stylesSubscription = _styleRepository.watchAllStyles().listen(
       (styles) => add(_StylesUpdated(styles)),
-      onError: (_) => emit(StylesLoadFailure()),
+      // Routed as an event rather than emitted here: a stream error arrives
+      // long after this handler has returned, and by then this Emitter is
+      // completed — emitting on it threw "Emitter is already completed" and
+      // StylesLoadFailure was never reachable. The event handler below owns a
+      // live Emitter when the failure actually happens.
+      onError: (_) => add(const _StylesLoadFailed()),
     );
+  }
+
+  void _onStylesLoadFailed(_StylesLoadFailed event, Emitter<StylesState> emit) {
+    emit(StylesLoadFailure());
   }
 
   Future<void> _onAddStyle(AddStyle event, Emitter<StylesState> emit) async {
@@ -149,8 +165,11 @@ class StylesBloc extends Bloc<StylesEvent, StylesState> {
   }
 
   @override
-  Future<void> close() {
-    _stylesSubscription?.cancel();
+  Future<void> close() async {
+    // Awaited: the listener above calls add(), and adding after the event
+    // controller is closed throws. Cancelling without awaiting leaves that race
+    // open on every screen dismissal.
+    await _stylesSubscription?.cancel();
     return super.close();
   }
 }

@@ -11,6 +11,11 @@ class SmsState extends Equatable {
   final DateTime? lastSyncTimestamp;
   final int createdTransactionsCount;
 
+  /// Messages that matched a preset but whose transaction never reached the
+  /// repository. Counted apart from [createdTransactionsCount] so a failing
+  /// write can no longer be reported to the user as a successful import.
+  final int failedTransactionsCount;
+
   const SmsState({
     this.isLoading = false,
     this.hasPermission = false,
@@ -21,6 +26,7 @@ class SmsState extends Equatable {
     this.importedResults = const [],
     this.lastSyncTimestamp,
     this.createdTransactionsCount = 0,
+    this.failedTransactionsCount = 0,
   });
 
   SmsState copyWith({
@@ -33,6 +39,7 @@ class SmsState extends Equatable {
     List<SmsParseResult>? importedResults,
     DateTime? lastSyncTimestamp,
     int? createdTransactionsCount,
+    int? failedTransactionsCount,
   }) {
     return SmsState(
       isLoading: isLoading ?? this.isLoading,
@@ -45,6 +52,8 @@ class SmsState extends Equatable {
       lastSyncTimestamp: lastSyncTimestamp ?? this.lastSyncTimestamp,
       createdTransactionsCount:
           createdTransactionsCount ?? this.createdTransactionsCount,
+      failedTransactionsCount:
+          failedTransactionsCount ?? this.failedTransactionsCount,
     );
   }
 
@@ -59,5 +68,6 @@ class SmsState extends Equatable {
     importedResults,
     lastSyncTimestamp,
     createdTransactionsCount,
+    failedTransactionsCount,
   ];
 }

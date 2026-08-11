@@ -45,6 +45,13 @@ class _StylesUpdated extends StylesEvent {
   List<Object> get props => [styles];
 }
 
+/// Carries a styles-stream error back into the bloc. The error surfaces after
+/// the LoadStyles handler has already returned, so the failure state can only
+/// be emitted from a handler that is live at that moment — hence an event.
+class _StylesLoadFailed extends StylesEvent {
+  const _StylesLoadFailed();
+}
+
 class ToggleStyleSelectionMode extends StylesEvent {
   final bool isActive;
 

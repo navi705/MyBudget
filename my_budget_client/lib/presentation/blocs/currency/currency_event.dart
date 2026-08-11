@@ -18,3 +18,10 @@ class _CurrenciesAndDesignationsUpdated extends CurrencyEvent {
   @override
   List<Object> get props => [currencies, designations];
 }
+
+/// Carries a currency-stream error back into the bloc. The error surfaces after
+/// the LoadCurrencies handler has already returned, so the failure state can
+/// only be emitted from a handler that is live at that moment — hence an event.
+class _CurrencyLoadFailed extends CurrencyEvent {
+  const _CurrencyLoadFailed();
+}

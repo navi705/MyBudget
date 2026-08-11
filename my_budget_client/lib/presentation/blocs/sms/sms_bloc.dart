@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:my_budget_client/core/utils/sms_parser.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/sms_preset.dart';
@@ -16,6 +17,18 @@ import 'package:uuid/uuid.dart';
 
 part 'sms_event.dart';
 part 'sms_state.dart';
+
+/// Debug-only tracing for the SMS pipeline.
+///
+/// Everything this bloc handles is the user's bank traffic and it runs
+/// unattended on OS message delivery, so a release build must not leave any of
+/// it in the device log — that log is readable by tooling the user never chose.
+/// Message bodies and amounts are dropped from the text entirely rather than
+/// merely gated, because they are the parts actually worth stealing and the
+/// gate is one build flag away from being wrong.
+void _smsLog(String message) {
+  if (kDebugMode) debugPrint('SMS_DEBUG: $message');
+}
 
 class SmsBloc extends Bloc<SmsEvent, SmsState> {
   final SmsRepository _smsRepository;
@@ -52,27 +65,30 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
 
     // Listen for incoming SMS messages
     _smsSubscription = _smsRepository.listenForSms().listen((msg) {
-      print('SMS_DEBUG: Bloc received real-time SMS from ${msg.sender}');
+      _smsLog('Bloc received real-time SMS from ${msg.sender}');
       // Direct processing to avoid database race conditions
       add(SmsReceived(msg));
     });
 
-    print('SMS_DEBUG: SmsBloc initialized & listening');
+    _smsLog('SmsBloc initialized & listening');
   }
 
   @override
-  Future<void> close() {
-    _smsSubscription?.cancel();
+  Future<void> close() async {
+    // Awaited: the listener above calls add(), and adding to a closed bloc
+    // throws. Cancelling without awaiting leaves a window where an SMS already
+    // in flight lands after super.close() has shut the event controller.
+    await _smsSubscription?.cancel();
     return super.close();
   }
 
   Future<void> _onSmsReceived(SmsReceived event, Emitter<SmsState> emit) async {
     final msg = event.message;
-    print('SMS_DEBUG: Processing received message directly: ${msg.body}');
+    _smsLog('Processing received message from ${msg.sender}');
 
     final enabledPresets = await _smsRepository.getEnabledPresets();
     if (enabledPresets.isEmpty) {
-      print('SMS_DEBUG: No enabled presets found during real-time processing.');
+      _smsLog('No enabled presets found during real-time processing.');
       return;
     }
 
@@ -80,48 +96,63 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
 
     // OPTIMIZATION: Compute toLowerCase() once before the loop
     final senderLower = msg.sender.toLowerCase();
-    
+
     // Iterate presets to find a match
     for (final preset in enabledPresets) {
       if (senderLower.contains(
         preset.senderFilter.toLowerCase(),
       )) {
-        print('SMS_DEBUG: Matched sender filter for preset: ${preset.name}');
+        _smsLog('Matched sender filter for preset: ${preset.name}');
         final result = _parser.parse(msg.body, preset, msg.date);
 
         if (result.isMatch && result.amount != null) {
-          print('SMS_DEBUG: Parser matched! Amount: ${result.amount}');
-          await _createTransactionFromResult(result, preset, currencies);
+          _smsLog('Parser matched for preset: ${preset.name}');
+          final created = await _createTransactionFromResult(
+            result,
+            preset,
+            currencies,
+          );
 
           // Update default sync timestamp to avoid re-importing this later
           await _smsRepository.setLastSyncTimestamp(DateTime.now());
 
+          // The user can pop the settings screen at any point during those
+          // awaits; emitting into a closed bloc throws.
+          if (isClosed) return;
           emit(
             state.copyWith(
               lastSyncTimestamp: DateTime.now(),
-              createdTransactionsCount: state.createdTransactionsCount + 1,
+              // Only a transaction that actually reached the repository counts.
+              createdTransactionsCount: created
+                  ? state.createdTransactionsCount + 1
+                  : state.createdTransactionsCount,
+              failedTransactionsCount: created
+                  ? state.failedTransactionsCount
+                  : state.failedTransactionsCount + 1,
+              importError: created ? null : _importErrorFor(1),
             ),
           );
           return; // Stop after first match
         } else {
-          print('SMS_DEBUG: Parser did NOT match for preset: ${preset.name}');
+          _smsLog('Parser did NOT match for preset: ${preset.name}');
         }
       }
     }
-    print('SMS_DEBUG: No matching preset found for message.');
+    _smsLog('No matching preset found for message.');
   }
 
   Future<void> _onLoadPresets(
     LoadSmsPresets event,
     Emitter<SmsState> emit,
   ) async {
-    print('SMS_DEBUG: Bloc _onLoadPresets called');
+    _smsLog('Bloc _onLoadPresets called');
     emit(state.copyWith(isLoading: true));
 
     final hasPermission = await _smsRepository.hasSmsPermission();
     final presets = await _smsRepository.getAllPresets();
-    print('SMS_DEBUG: Permissions: $hasPermission, Presets: ${presets.length}');
+    _smsLog('Permissions: $hasPermission, Presets: ${presets.length}');
 
+    if (isClosed) return;
     emit(
       state.copyWith(
         isLoading: false,
@@ -135,13 +166,14 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     // This prevents importing ALL history on fresh install.
     if (hasPermission && presets.any((p) => p.isEnabled)) {
       final lastSync = await _smsRepository.getLastSyncTimestamp();
-      print('SMS_DEBUG: Last sync: $lastSync');
+      _smsLog('Last sync: $lastSync');
       if (lastSync != null) {
-        print('SMS_DEBUG: Triggering catch-up import since $lastSync');
+        _smsLog('Triggering catch-up import since $lastSync');
+        if (isClosed) return;
         add(ImportSmsMessages(since: lastSync));
       } else {
         // First run? Mark 'now' as the sync point so we don't import past messages unless asked.
-        print('SMS_DEBUG: No last sync found. Setting sync point to NOW.');
+        _smsLog('No last sync found. Setting sync point to NOW.');
         await _smsRepository.setLastSyncTimestamp(DateTime.now());
       }
     }
@@ -152,6 +184,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     Emitter<SmsState> emit,
   ) async {
     await _smsRepository.togglePreset(event.presetId, event.isEnabled);
+    if (isClosed) return;
     add(LoadSmsPresets());
   }
 
@@ -160,6 +193,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     Emitter<SmsState> emit,
   ) async {
     await _smsRepository.savePreset(event.preset);
+    if (isClosed) return;
     add(LoadSmsPresets());
   }
 
@@ -168,6 +202,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     Emitter<SmsState> emit,
   ) async {
     await _smsRepository.deletePreset(event.presetId);
+    if (isClosed) return;
     add(LoadSmsPresets());
   }
 
@@ -178,6 +213,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     emit(state.copyWith(isImporting: true, importProgress: 0));
 
     final enabledPresets = await _smsRepository.getEnabledPresets();
+    if (isClosed) return;
     if (enabledPresets.isEmpty) {
       emit(
         state.copyWith(isImporting: false, importError: 'No presets enabled'),
@@ -185,17 +221,20 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
       return;
     }
 
-    final int created = await _processImport(
+    final (created, failed) = await _processImport(
       presets: enabledPresets,
       since: event.since,
       until: event.until,
       emit: emit,
     );
 
+    if (isClosed) return;
     emit(
       state.copyWith(
         isImporting: false,
         createdTransactionsCount: created,
+        failedTransactionsCount: failed,
+        importError: _importErrorFor(failed),
         lastSyncTimestamp: DateTime.now(),
       ),
     );
@@ -215,23 +254,35 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
       return;
     }
 
-    final int created = await _processImport(
+    final (created, failed) = await _processImport(
       presets: [preset],
       since: event.since,
       until: event.until,
       emit: emit,
     );
 
+    if (isClosed) return;
     emit(
       state.copyWith(
         isImporting: false,
         createdTransactionsCount: created,
+        failedTransactionsCount: failed,
+        importError: _importErrorFor(failed),
         lastSyncTimestamp: DateTime.now(),
       ),
     );
   }
 
-  Future<int> _processImport({
+  /// Free-form (non-localised) summary, matching the other importError strings
+  /// produced here. Returns null when nothing failed so the field clears.
+  String? _importErrorFor(int failed) => failed == 0
+      ? null
+      : '$failed message(s) matched but could not be saved';
+
+  /// Returns how many transactions were actually written and how many matched
+  /// a preset but failed to write — the two must be reported separately, or a
+  /// failing repository is indistinguishable from a successful import.
+  Future<(int created, int failed)> _processImport({
     required List<SmsPreset> presets,
     required Emitter<SmsState> emit,
     DateTime? since,
@@ -247,9 +298,10 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
       messages = messages.where((msg) => msg.date.isBefore(until)).toList();
     }
 
-    if (messages.isEmpty) return 0;
+    if (messages.isEmpty) return (0, 0);
 
     int created = 0;
+    int failed = 0;
     final currencies = await _currencyRepository.getCurrencies(); // Fetch once
 
     for (var i = 0; i < messages.length; i++) {
@@ -263,20 +315,30 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
           final result = _parser.parse(msg.body, preset, msg.date);
           if (result.isMatch && result.amount != null) {
             // Immediate creation
-            await _createTransactionFromResult(result, preset, currencies);
-            created++;
+            if (await _createTransactionFromResult(result, preset, currencies)) {
+              created++;
+            } else {
+              failed++;
+            }
             break;
           }
         }
       }
-      emit(state.copyWith(importProgress: (i + 1) / messages.length));
+      // If the screen was popped mid-import we skip the progress emit but keep
+      // importing: the sync timestamp below is written either way, so bailing
+      // out here would mark the remaining messages as synced without ever
+      // having created them.
+      if (!isClosed) {
+        emit(state.copyWith(importProgress: (i + 1) / messages.length));
+      }
     }
 
     await _smsRepository.setLastSyncTimestamp(DateTime.now());
-    return created;
+    return (created, failed);
   }
 
-  Future<void> _createTransactionFromResult(
+  /// Returns true only if the transaction reached the repository.
+  Future<bool> _createTransactionFromResult(
     SmsParseResult result,
     SmsPreset preset,
     List<Currency> currencies,
@@ -285,16 +347,18 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     final account = await _accountRepository.getAccountById(accountId);
     final accountCurrency = account?.currencyCode ?? 'RSD';
 
-    // Find currency by code from SMS result
-    String? smsCurrencyCode = result.currencyCode;
-    if (smsCurrencyCode != null) {
-      final found = currencies.any(
-        (c) => c.code.toUpperCase() == smsCurrencyCode!.toUpperCase(),
-      );
-      if (!found) {
-        smsCurrencyCode = null; // Use default
-      }
-    }
+    // Find currency by code from SMS result. Resolve it to the CANONICAL
+    // spelling held in the currency table — the parser upper-cases whatever
+    // the SMS happened to contain, and every rate lookup downstream matches on
+    // the table's spelling.
+    final smsCurrencyCode = result.currencyCode == null
+        ? null
+        : currencies
+              .firstWhereOrNull(
+                (c) =>
+                    c.code.toUpperCase() == result.currencyCode!.toUpperCase(),
+              )
+              ?.code; // null => unknown code, fall back to the account's
 
     final finalSmsCurrency = smsCurrencyCode ?? accountCurrency;
     final isIncome = result.type == TransactionType.income;
@@ -302,7 +366,13 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
 
     double finalAmount = rawAmount;
     double? finalExchangeRate;
-    String finalCurrency = accountCurrency;
+    // The label must describe the amount actually being stored, so it starts
+    // as the SMS currency and only becomes the account currency once a rate has
+    // genuinely been applied below. It used to be pinned to accountCurrency
+    // unconditionally: with no rate on file a 100 USD SMS on an RSD account was
+    // written as "100 RSD" — silent, unrecoverable corruption on a path (OS SMS
+    // delivery) the user never sees happen.
+    String finalCurrency = finalSmsCurrency;
 
     // Trigger conversion if SMS currency differs from Account currency
     if (finalSmsCurrency.toUpperCase() != accountCurrency.toUpperCase()) {
@@ -322,11 +392,20 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
       if (rate != null) {
         finalAmount = rawAmount * rate.rate;
         finalExchangeRate = rate.rate;
+        finalCurrency = accountCurrency;
       }
+      // No rate on file: keep the raw amount under its true currency instead of
+      // dropping the transaction. This is what the manual path already does
+      // (AddEditTransactionBloc._onSave leaves the foreign code in place when
+      // no rate is available), so the record stays truthful and converts
+      // correctly the day the missing rate is imported. Discarding it instead
+      // would lose a transaction the user has no other copy of — the SMS is
+      // processed once and never revisited.
     }
 
-    print(
-      'SMS_DEBUG: Creating transaction for preset ${preset.name}, raw amount: $rawAmount $finalSmsCurrency, converted: $finalAmount $finalCurrency, rate: $finalExchangeRate, date: ${result.date}',
+    _smsLog(
+      'Creating transaction for preset ${preset.name} in $finalCurrency, '
+      'rate: ${finalExchangeRate != null}, date: ${result.date}',
     );
 
     final transaction = Transaction(
@@ -343,9 +422,13 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
 
     try {
       await _transactionRepository.addTransaction(transaction);
-      print('SMS_DEBUG: Transaction added successfully via repository');
+      _smsLog('Transaction added successfully via repository');
+      return true;
     } catch (e) {
-      print('SMS_DEBUG: Transaction addition FAILED: $e');
+      // Reported, not swallowed: the caller counts this as a failure so the
+      // "N transactions created" banner cannot claim writes that never landed.
+      _smsLog('Transaction addition FAILED: $e');
+      return false;
     }
   }
 
@@ -354,6 +437,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState> {
     Emitter<SmsState> emit,
   ) async {
     final granted = await _smsRepository.requestSmsPermission();
+    if (isClosed) return;
     emit(state.copyWith(hasPermission: granted));
     if (granted) {
       add(LoadSmsPresets());
