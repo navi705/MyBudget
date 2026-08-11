@@ -6,11 +6,19 @@ abstract class AccountsState extends Equatable {
   final DateStep dateStep;
   final AccountFilters filters;
 
+  /// Why the last add, update, delete or undo did not happen.
+  ///
+  /// Those handlers used to swallow their exception into a `debugPrint`, so a
+  /// failed save closed its screen and a failed delete still offered an Undo -
+  /// with nothing anywhere telling the user the account had not changed.
+  final String? error;
+
   const AccountsState({
     this.recentlyDeletedAccount,
     required this.activeDate,
     this.dateStep = DateStep.month,
     this.filters = const AccountFilters(sort: Sort.descending),
+    this.error,
   });
 
   @override
@@ -19,6 +27,7 @@ abstract class AccountsState extends Equatable {
     activeDate,
     dateStep,
     filters,
+    error,
   ];
 
   AccountsState copyWith({
@@ -27,6 +36,8 @@ abstract class AccountsState extends Equatable {
     DateTime? activeDate,
     DateStep? dateStep,
     AccountFilters? filters,
+    String? error,
+    bool clearError = false,
   });
 
   // Default values for properties that are common across states
@@ -55,6 +66,8 @@ class AccountsInitial extends AccountsState {
     DateTime? activeDate,
     DateStep? dateStep,
     AccountFilters? filters,
+    String? error,
+    bool clearError = false,
   }) {
     // Initial state doesn't really change, but we implement for signature
     return this;
@@ -67,10 +80,11 @@ class AccountsLoadInProgress extends AccountsState {
     required super.activeDate,
     super.dateStep,
     super.filters,
+    super.error,
   });
 
   @override
-  List<Object?> get props => [filters];
+  List<Object?> get props => [filters, error];
 
   @override
   AccountsLoadInProgress copyWith({
@@ -79,6 +93,8 @@ class AccountsLoadInProgress extends AccountsState {
     DateTime? activeDate,
     DateStep? dateStep,
     AccountFilters? filters,
+    String? error,
+    bool clearError = false,
   }) {
     return AccountsLoadInProgress(
       recentlyDeletedAccount: clearRecentlyDeletedAccount
@@ -87,6 +103,7 @@ class AccountsLoadInProgress extends AccountsState {
       activeDate: activeDate ?? this.activeDate,
       dateStep: dateStep ?? this.dateStep,
       filters: filters ?? this.filters,
+      error: clearError ? null : (error ?? this.error),
     );
   }
 }
@@ -168,6 +185,7 @@ class AccountsLoadSuccess extends AccountsState {
     this.previousAccountRealExpenses = const {},
     this.income = 0.0,
     this.expense = 0.0,
+    super.error,
   });
 
   @override
@@ -204,6 +222,8 @@ class AccountsLoadSuccess extends AccountsState {
     Map<String, double>? previousAccountRealExpenses,
     double? income,
     double? expense,
+    String? error,
+    bool clearError = false,
   }) {
     return AccountsLoadSuccess(
       accounts: accounts ?? this.accounts,
@@ -246,6 +266,7 @@ class AccountsLoadSuccess extends AccountsState {
           previousAccountRealExpenses ?? this.previousAccountRealExpenses,
       income: income ?? this.income,
       expense: expense ?? this.expense,
+      error: clearError ? null : (error ?? this.error),
     );
   }
 
@@ -282,6 +303,9 @@ class AccountsLoadSuccess extends AccountsState {
     previousAccountRealExpenses,
     income,
     expense,
+    // Without this the second failed save in a row emits an equal state and
+    // bloc drops it, so the SnackBar never comes back.
+    error,
   ];
 }
 
@@ -291,6 +315,7 @@ class AccountsLoadFailure extends AccountsState {
     required super.activeDate,
     super.dateStep,
     super.filters,
+    super.error,
   });
 
   @override
@@ -300,6 +325,8 @@ class AccountsLoadFailure extends AccountsState {
     DateTime? activeDate,
     DateStep? dateStep,
     AccountFilters? filters,
+    String? error,
+    bool clearError = false,
   }) {
     return AccountsLoadFailure(
       recentlyDeletedAccount: clearRecentlyDeletedAccount
@@ -308,6 +335,7 @@ class AccountsLoadFailure extends AccountsState {
       activeDate: activeDate ?? this.activeDate,
       dateStep: dateStep ?? this.dateStep,
       filters: filters ?? this.filters,
+      error: clearError ? null : (error ?? this.error),
     );
   }
 }

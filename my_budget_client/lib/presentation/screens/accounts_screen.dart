@@ -369,6 +369,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
         body: BlocListener<AccountsBloc, AccountsState>(
           listenWhen: (previous, current) {
+            // A failed add, edit, delete or undo used to be a `debugPrint` and
+            // nothing else: the dialog closed, the list came back unchanged,
+            // and the screen looked exactly like a success.
+            if (current.error != null && current.error != previous.error) {
+              return true;
+            }
             final changed =
                 previous.recentlyDeletedAccount !=
                 current.recentlyDeletedAccount;
@@ -376,6 +382,15 @@ class _AccountsScreenState extends State<AccountsScreen> {
             return changed && isNowNotNull;
           },
           listener: (context, state) {
+            final error = state.error;
+            if (error != null) {
+              ScaffoldMessenger.of(context)
+                ..removeCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(content: Text(l10n.importErrorLabel(error))),
+                );
+              return;
+            }
             final recentlyDeleted = state.recentlyDeletedAccount;
             if (recentlyDeleted != null) {
               final scaffoldMessenger = ScaffoldMessenger.of(context);

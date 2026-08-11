@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:collection/collection.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -887,12 +888,41 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
     }
   }
 
+  /// Deletes that reported nothing when they failed are the reason every
+  /// handler below now emits [AccountsState.error]: the account stayed on
+  /// screen, the "deleted / Undo" SnackBar was shown anyway, and the only
+  /// trace was a `debugPrint` nobody reads in a release build.
+  ///
+  /// [base] is the state the mutation started from, so a failure never keeps
+  /// half-applied optimistic changes.
+  void _emitFailure(
+    Emitter<AccountsState> emit,
+    AccountsState base,
+    Object error,
+  ) {
+    final message = error.toString();
+    // Retrying and failing the same way emits an equal state, which bloc drops
+    // - the message would appear once and never again. Clear it first so the
+    // second attempt is just as visible as the first.
+    if (base.error == message) {
+      emit(base.copyWith(clearError: true));
+    }
+    emit(base.copyWith(error: message));
+  }
+
   Future<void> _onAddAccount(
     AddAccount event,
     Emitter<AccountsState> emit,
   ) async {
-    await _accountRepository.addAccount(event.account);
+    try {
+      await _accountRepository.addAccount(event.account);
+    } catch (e) {
+      if (isShuttingDown) return;
+      _emitFailure(emit, state, e);
+      return;
+    }
     if (isShuttingDown) return;
+    emit(state.copyWith(clearError: true));
     add(LoadAccounts()); // Reload list
   }
 
@@ -900,8 +930,15 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
     UpdateAccount event,
     Emitter<AccountsState> emit,
   ) async {
-    await _accountRepository.updateAccount(event.account);
+    try {
+      await _accountRepository.updateAccount(event.account);
+    } catch (e) {
+      if (isShuttingDown) return;
+      _emitFailure(emit, state, e);
+      return;
+    }
     if (isShuttingDown) return;
+    emit(state.copyWith(clearError: true));
     add(LoadAccounts()); // Reload list
   }
 
@@ -910,23 +947,31 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
     Emitter<AccountsState> emit,
   ) async {
     final currentState = state;
-    if (currentState is AccountsLoadSuccess) {
-      try {
-        final accountToDelete = currentState.accounts.firstWhere(
-          (acc) => acc.id == event.id,
-        );
-        debugPrint(
-          '[SnackBarDebug] AccountsBloc: Setting recentlyDeletedAccount: ${accountToDelete.name}',
-        );
-        emit(currentState.copyWith(recentlyDeletedAccount: accountToDelete));
-        await _accountRepository.deleteAccountWithTransactions(event.id);
-        if (isShuttingDown) return;
-        add(LoadAccounts());
-      } catch (e) {
-        debugPrint('ERROR deleting account: $e');
-        // Handle case where account is not found or other errors
-      }
+    if (currentState is! AccountsLoadSuccess) return;
+
+    // Look the row up while it is still loaded, but announce nothing until the
+    // repository confirms it is gone - `firstWhereOrNull` because an account
+    // outside the loaded page is a miss, not a crash.
+    final accountToDelete = currentState.accounts.firstWhereOrNull(
+      (acc) => acc.id == event.id,
+    );
+    try {
+      await _accountRepository.deleteAccountWithTransactions(event.id);
+    } catch (e) {
+      debugPrint('ERROR deleting account: $e');
+      if (isShuttingDown) return;
+      _emitFailure(emit, currentState, e);
+      return;
     }
+    if (isShuttingDown) return;
+    emit(
+      currentState.copyWith(
+        recentlyDeletedAccount: accountToDelete,
+        clearRecentlyDeletedAccount: accountToDelete == null,
+        clearError: true,
+      ),
+    );
+    add(LoadAccounts());
   }
 
   Future<void> _onDeleteAccountWithTransactions(
@@ -934,25 +979,28 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
     Emitter<AccountsState> emit,
   ) async {
     final currentState = state;
-    if (currentState is AccountsLoadSuccess) {
-      final accountToDelete = currentState.accounts.firstWhere(
-        (acc) => acc.id == event.accountId,
-      );
-      emit(currentState.copyWith(recentlyDeletedAccount: accountToDelete));
-      try {
-        debugPrint(
-          '[AccountsBloc] Deleting account ${event.accountId} (Repo Call)...',
-        );
-        await _accountRepository.deleteAccountWithTransactions(event.accountId);
-        debugPrint(
-          '[AccountsBloc] Deleting account ${event.accountId} SUCCESS. Reloading...',
-        );
-        if (isShuttingDown) return;
-        add(LoadAccounts());
-      } catch (e) {
-        debugPrint('[AccountsBloc] ERROR deleting account: $e');
-      }
+    if (currentState is! AccountsLoadSuccess) return;
+
+    final accountToDelete = currentState.accounts.firstWhereOrNull(
+      (acc) => acc.id == event.accountId,
+    );
+    try {
+      await _accountRepository.deleteAccountWithTransactions(event.accountId);
+    } catch (e) {
+      debugPrint('[AccountsBloc] ERROR deleting account: $e');
+      if (isShuttingDown) return;
+      _emitFailure(emit, currentState, e);
+      return;
     }
+    if (isShuttingDown) return;
+    emit(
+      currentState.copyWith(
+        recentlyDeletedAccount: accountToDelete,
+        clearRecentlyDeletedAccount: accountToDelete == null,
+        clearError: true,
+      ),
+    );
+    add(LoadAccounts());
   }
 
   Future<void> _onDeleteAccountAndReassign(
@@ -960,18 +1008,31 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
     Emitter<AccountsState> emit,
   ) async {
     final currentState = state;
-    if (currentState is AccountsLoadSuccess) {
-      final accountToDelete = currentState.accounts.firstWhere(
-        (acc) => acc.id == event.accountId,
-      );
-      emit(currentState.copyWith(recentlyDeletedAccount: accountToDelete));
+    if (currentState is! AccountsLoadSuccess) return;
+
+    final accountToDelete = currentState.accounts.firstWhereOrNull(
+      (acc) => acc.id == event.accountId,
+    );
+    try {
       await _accountRepository.deleteAccountAndReassignTransactions(
         event.accountId,
         event.newAccountId,
       );
+    } catch (e) {
+      debugPrint('[AccountsBloc] ERROR reassigning and deleting account: $e');
       if (isShuttingDown) return;
-      add(LoadAccounts());
+      _emitFailure(emit, currentState, e);
+      return;
     }
+    if (isShuttingDown) return;
+    emit(
+      currentState.copyWith(
+        recentlyDeletedAccount: accountToDelete,
+        clearRecentlyDeletedAccount: accountToDelete == null,
+        clearError: true,
+      ),
+    );
+    add(LoadAccounts());
   }
 
   Future<void> _onUndoDeleteAccount(
@@ -979,21 +1040,29 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
     Emitter<AccountsState> emit,
   ) async {
     final currentState = state;
-    if (currentState is AccountsLoadSuccess &&
-        currentState.recentlyDeletedAccount != null) {
-      debugPrint(
-        '[SnackBarDebug] AccountsBloc: Undoing delete for: ${currentState.recentlyDeletedAccount!.name}',
-      );
+    if (currentState is! AccountsLoadSuccess ||
+        currentState.recentlyDeletedAccount == null) {
+      return;
+    }
+    try {
       await _accountRepository.restoreAccount(
         currentState.recentlyDeletedAccount!,
       );
-      debugPrint(
-        '[SnackBarDebug] AccountsBloc: Clearing recentlyDeletedAccount (Undo Success)',
-      );
+    } catch (e) {
+      debugPrint('[AccountsBloc] ERROR restoring account: $e');
       if (isShuttingDown) return;
-      emit(currentState.copyWith(clearRecentlyDeletedAccount: true));
-      add(LoadAccounts()); // Reload list
+      // The account is kept in state: a failed Undo is one the user may retry.
+      _emitFailure(emit, currentState, e);
+      return;
     }
+    if (isShuttingDown) return;
+    emit(
+      currentState.copyWith(
+        clearRecentlyDeletedAccount: true,
+        clearError: true,
+      ),
+    );
+    add(LoadAccounts()); // Reload list
   }
 
   void _onClearRecentlyDeletedAccount(
