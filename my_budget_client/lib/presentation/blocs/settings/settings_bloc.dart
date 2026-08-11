@@ -191,6 +191,12 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       }
     }
 
+    // Escape has always closed a screen - EscapeBackHandler falls back to it
+    // when nothing is bound. Without an entry here the Hot Keys screen showed
+    // Back as "None", so the one shortcut every user already relies on looked
+    // like it did not exist.
+    addIfMissing('back', {LogicalKeyboardKey.escape});
+
     // Navigation (Sidebar)
     addIfMissing('dashboard', {
       LogicalKeyboardKey.alt,

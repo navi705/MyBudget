@@ -145,6 +145,13 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
               ],
             };
 
+            // The recorder reports a conflict by name, and the names live
+            // here.
+            final actionLabels = {
+              for (final actions in categories.values)
+                for (final action in actions) action['id']!: action['label']!,
+            };
+
             final listItems = <Widget>[];
 
             categories.forEach((categoryName, actions) {
@@ -213,6 +220,7 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
                             actionLabel: label,
                             currentKey: currentKeyString,
                             allHotkeys: hotkeys,
+                            actionLabels: actionLabels,
                           ),
                         );
                       },
@@ -241,11 +249,19 @@ class HotKeyRecorderDialog extends StatefulWidget {
   final String currentKey;
   final Map<String, String> allHotkeys;
 
+  /// Action id to the name the user sees in the list.
+  ///
+  /// The conflict warning used to print the raw id, so it named something
+  /// like `accounts_selection_change_type` - a string that appears nowhere in
+  /// the interface the user is looking at.
+  final Map<String, String> actionLabels;
+
   const HotKeyRecorderDialog({
     required this.actionId,
     required this.actionLabel,
     required this.currentKey,
     required this.allHotkeys,
+    this.actionLabels = const {},
     super.key,
   });
 
@@ -256,6 +272,9 @@ class HotKeyRecorderDialog extends StatefulWidget {
 class _HotKeyRecorderDialogState extends State<HotKeyRecorderDialog> {
   final FocusNode _focusNode = FocusNode();
   final Set<LogicalKeyboardKey> _pressedKeys = {};
+
+  /// The widest combination held at once, which is what gets recorded.
+  final Set<LogicalKeyboardKey> _peakKeys = {};
   String _tempKeyString = '';
 
   @override
@@ -283,14 +302,18 @@ class _HotKeyRecorderDialogState extends State<HotKeyRecorderDialog> {
       if (!_pressedKeys.contains(event.logicalKey)) {
         setState(() {
           _pressedKeys.add(event.logicalKey);
+          _rememberPeak();
           _updateDisplay();
         });
       }
     } else if (event is KeyUpEvent) {
       // Logic: If a non-modifier key is released, we consider the combination complete.
       if (!_isModifier(event.logicalKey)) {
-        // Construct final string
-        final finalString = HotKeyUtils.serializeKeys(_pressedKeys);
+        // The combination recorded is the widest one held at once, not the
+        // keys still down at this instant: releasing Ctrl a moment before the
+        // letter used to record the bare letter and close immediately, and the
+        // user found out only when it started firing while they typed.
+        final finalString = HotKeyUtils.serializeKeys(_peakKeys);
         if (finalString.isNotEmpty) {
           _saveAndClose(finalString);
         }
@@ -298,6 +321,9 @@ class _HotKeyRecorderDialogState extends State<HotKeyRecorderDialog> {
 
       setState(() {
         _pressedKeys.remove(event.logicalKey);
+        // Hands off the keyboard entirely: the next attempt starts from
+        // nothing rather than inheriting the previous one's widest set.
+        if (_pressedKeys.isEmpty) _peakKeys.clear();
         _updateDisplay();
       });
     } else if (event is KeyRepeatEvent) {
@@ -306,6 +332,20 @@ class _HotKeyRecorderDialogState extends State<HotKeyRecorderDialog> {
         _pressedKeys.add(event.logicalKey);
         _updateDisplay();
       }
+    }
+  }
+
+  /// Keeps the largest set seen while a non-modifier is down.
+  ///
+  /// A set with only modifiers in it is not a shortcut yet, so it never
+  /// becomes the peak - otherwise holding Ctrl+Shift and then pressing a
+  /// letter would record the modifiers alone.
+  void _rememberPeak() {
+    if (_pressedKeys.any((k) => !_isModifier(k)) &&
+        _pressedKeys.length > _peakKeys.length) {
+      _peakKeys
+        ..clear()
+        ..addAll(_pressedKeys);
     }
   }
 
@@ -338,7 +378,9 @@ class _HotKeyRecorderDialogState extends State<HotKeyRecorderDialog> {
           .firstOrNull;
 
       if (duplicateId != null) {
-        _tempKeyString = '$display\n(${context.l10n.usedByLabel(duplicateId)})';
+        final duplicateLabel = widget.actionLabels[duplicateId] ?? duplicateId;
+        _tempKeyString =
+            '$display\n(${context.l10n.usedByLabel(duplicateLabel)})';
       } else {
         _tempKeyString = display;
       }
