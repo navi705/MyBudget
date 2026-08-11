@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
@@ -14,6 +15,16 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
   final AssetRepository _assetRepository;
   final SettingsRepository _settingsRepository;
   StreamSubscription? _assetSubscription;
+
+  /// Set synchronously as the first statement of [close], before any await.
+  bool _closeRequested = false;
+
+  /// Guard for anything that resumes after an `await`. `isClosed` on its own is
+  /// not enough: Bloc.close() closes the event controller first and only flips
+  /// `isClosed` at the very end, and it does not wait for in-flight handlers -
+  /// so a handler resuming in that window sees `isClosed == false` while add()
+  /// already throws "Cannot add new events after calling close".
+  bool get _isShuttingDown => _closeRequested || isClosed;
 
   AssetBloc(this._assetRepository, this._settingsRepository)
     : super(
@@ -45,9 +56,17 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
   }
 
   Future<void> _subscribeToAssets() async {
+    // Every caller reaches here after an await, so the bloc may already be on
+    // its way out - installing a fresh stream now would outlive it.
+    if (_isShuttingDown) return;
+
     final (dateFrom, dateTo) = _getDateRange(state);
 
-    _assetSubscription?.cancel();
+    // Awaited: cancel() only completes asynchronously, so without the await the
+    // old drift stream can still deliver one final page into
+    // add(AssetDataUpdated) *after* the new subscription is live - a stale page
+    // then overwrites the fresh one.
+    await _assetSubscription?.cancel();
     _assetSubscription = _assetRepository
         .watchAssetData(
           limit: state.limit,
@@ -65,6 +84,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
           sortAscending: state.sort == Sort.ascending,
         )
         .listen((data) {
+          if (_isShuttingDown) return;
           add(AssetDataUpdated(data));
         });
   }
@@ -87,6 +107,10 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       maxValue: state.maxValueFilter,
     );
 
+    // The screen can be popped while the count query is in flight; emitting
+    // into a closed bloc throws.
+    if (_isShuttingDown) return;
+
     emit(
       state.copyWith(
         status: AssetStatus.success,
@@ -103,6 +127,12 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
     LoadAssetData event,
     Emitter<AssetState> emit,
   ) async {
+    // Captured BEFORE the loading emit below. That emit moves status off
+    // 'initial', so re-reading state.status further down can never report a
+    // first load - which is why the persisted view settings used to be read
+    // from the database and then thrown away on every single load.
+    final wasInitial = state.status == AssetStatus.initial;
+
     emit(
       state.copyWith(
         status: AssetStatus.loading,
@@ -119,40 +149,50 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       final filterModeSetting = await _settingsRepository.getSetting(
         'asset_filter_mode',
       );
+      // The screen can be popped while the settings reads are in flight.
+      if (_isShuttingDown) return;
 
       DateStep dateStep = state.dateStep;
-      if (dateStepSetting != null && state.status == AssetStatus.initial) {
+      if (dateStepSetting != null && wasInitial) {
         try {
           dateStep = DateStep.values.firstWhere(
             (e) => e.toString() == dateStepSetting.value,
           );
-        } catch (_) {}
+        } catch (_) {
+          // Falling back to the default is intentional, but log the offending
+          // value: a corrupted setting is indistinguishable from "the app
+          // ignores my preference" unless it leaves a trace.
+          debugPrint(
+            '[AssetBloc] Unparseable asset_date_step '
+            '"${dateStepSetting.value}", keeping $dateStep',
+          );
+        }
       }
 
       FilterMode filterMode = state.filterMode;
-      if (filterModeSetting != null && state.status == AssetStatus.initial) {
+      if (filterModeSetting != null && wasInitial) {
         try {
           filterMode = FilterMode.values.firstWhere(
             (e) => e.toString() == filterModeSetting.value,
           );
-        } catch (_) {}
+        } catch (_) {
+          debugPrint(
+            '[AssetBloc] Unparseable asset_filter_mode '
+            '"${filterModeSetting.value}", keeping $filterMode',
+          );
+        }
       }
 
-      // We don't emit the restored settings immediately to avoid flickering or double loads
-      // We use them in the state.copyWith below or just update local vars?
-      // Better to update state so subsequent logic uses correct values.
-      var currentState = state.copyWith(
-        dateStep: dateStep,
-        filterMode: filterMode,
-      );
-      // But we can't emit yet if we are in 'try' block and want to emit success later?
-      // Actually we can emit partial state.
+      // Only the very first load restores persisted settings; a later reload
+      // must keep whatever the user picked during this session.
+      var currentState = wasInitial
+          ? state.copyWith(dateStep: dateStep, filterMode: filterMode)
+          : state;
 
-      if (state.status == AssetStatus.initial) {
+      // Emitted before subscribing so _subscribeToAssets() reads the restored
+      // dateStep/filterMode off state when it computes the date range.
+      if (wasInitial) {
         emit(currentState);
-      } else {
-        // If not initial, we keep the existing dateStep/filterMode from state and ignore loaded ones
-        currentState = state;
       }
 
       // Update selectedAssetId if provided
@@ -164,6 +204,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       // Initial subscription
       await _subscribeToAssets();
     } catch (e) {
+      if (_isShuttingDown) return;
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
       );
@@ -213,6 +254,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       'asset_date_step',
       event.dateStep.toString(),
     );
+    if (_isShuttingDown) return;
     // Update state first then resubscribe
     emit(state.copyWith(dateStep: event.dateStep));
     await _subscribeToAssets();
@@ -226,6 +268,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       'asset_filter_mode',
       event.filterMode.toString(),
     );
+    if (_isShuttingDown) return;
     emit(state.copyWith(filterMode: event.filterMode));
     await _subscribeToAssets();
   }
@@ -291,6 +334,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       await _assetRepository.addAssetData(event.data);
       // add(LoadAssetData(assetId: event.data.assetId)); // No longer needed, stream handles it
     } catch (e) {
+      if (_isShuttingDown) return;
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
       );
@@ -305,6 +349,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       await _assetRepository.updateAssetData(event.data);
       // add(LoadAssetData(assetId: event.data.assetId)); // No longer needed, stream handles it
     } catch (e) {
+      if (_isShuttingDown) return;
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
       );
@@ -319,6 +364,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
       await _assetRepository.deleteAssetData(event.id);
       // add(const LoadAssetData()); // No longer needed, stream handles it
     } catch (e) {
+      if (_isShuttingDown) return;
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
       );
@@ -367,9 +413,11 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
           .whereType<String>()
           .toList();
       await _assetRepository.deleteAssets(idsToDelete);
+      if (_isShuttingDown) return;
       emit(state.copyWith(selectedAssets: {}, isSelectionModeActive: false));
       // add(const LoadAssetData()); // No longer needed, stream handles it
     } catch (e) {
+      if (_isShuttingDown) return;
       emit(
         state.copyWith(status: AssetStatus.failure, errorMessage: e.toString()),
       );
@@ -377,8 +425,12 @@ class AssetBloc extends Bloc<AssetEvent, AssetState> {
   }
 
   @override
-  Future<void> close() {
-    _assetSubscription?.cancel();
+  Future<void> close() async {
+    _closeRequested = true;
+    // Awaited: the subscription callback calls add(), and an add() that lands
+    // after close() throws. Cancelling synchronously-but-unawaited left exactly
+    // that window open.
+    await _assetSubscription?.cancel();
     return super.close();
   }
 }

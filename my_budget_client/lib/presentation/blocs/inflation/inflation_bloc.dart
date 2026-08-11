@@ -18,6 +18,16 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
   final SettingsRepository _settingsRepository;
   StreamSubscription? _ratesSubscription;
 
+  /// Set synchronously as the first statement of [close], before any await.
+  bool _closeRequested = false;
+
+  /// Guard for anything that resumes after an `await`. `isClosed` on its own is
+  /// not enough: Bloc.close() closes the event controller first and only flips
+  /// `isClosed` at the very end, and it does not wait for in-flight handlers -
+  /// so a handler resuming in that window sees `isClosed == false` while add()
+  /// already throws "Cannot add new events after calling close".
+  bool get _isShuttingDown => _closeRequested || isClosed;
+
   InflationBloc({
     required InflationRepository inflationRepository,
     required SettingsRepository settingsRepository,
@@ -52,8 +62,11 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
   }
 
   @override
-  Future<void> close() {
-    _ratesSubscription?.cancel();
+  Future<void> close() async {
+    _closeRequested = true;
+    // Awaited: the subscription callback calls add(), and an add() that lands
+    // after close() throws. Cancelling unawaited left that window open.
+    await _ratesSubscription?.cancel();
     return super.close();
   }
 
@@ -76,8 +89,13 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     LoadInflationRates event,
     Emitter<InflationState> emit,
   ) async {
-    if (state.status == InflationStatus.initial ||
-        state.status == InflationStatus.failure) {
+    // Captured BEFORE the loading emit below. That emit moves status off
+    // 'initial', so re-reading state.status further down can never report a
+    // first load - which is why the persisted view settings used to be read
+    // from the database and then thrown away on every single load.
+    final wasInitial = state.status == InflationStatus.initial;
+
+    if (wasInitial || state.status == InflationStatus.failure) {
       emit(
         state.copyWith(status: InflationStatus.loading, offset: 0, rates: []),
       );
@@ -90,42 +108,59 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
       final filterModeSetting = await _settingsRepository.getSetting(
         'inflation_filter_mode',
       );
+      // The screen can be popped while the settings reads are in flight.
+      if (_isShuttingDown) return;
 
       DateStep dateStep = state.dateStep;
-      if (dateStepSetting != null && state.status == InflationStatus.initial) {
+      if (dateStepSetting != null && wasInitial) {
         // Simple enum parsing by name or index
         try {
           dateStep = DateStep.values.firstWhere(
             (e) => e.toString() == dateStepSetting.value,
           );
-        } catch (_) {}
+        } catch (_) {
+          // Falling back to the default is intentional, but log the offending
+          // value: a corrupted setting is indistinguishable from "the app
+          // ignores my preference" unless it leaves a trace.
+          debugPrint(
+            '[InflationBloc] Unparseable inflation_date_step '
+            '"${dateStepSetting.value}", keeping $dateStep',
+          );
+        }
       }
 
       FilterMode filterMode = state.filterMode;
-      if (filterModeSetting != null &&
-          state.status == InflationStatus.initial) {
+      if (filterModeSetting != null && wasInitial) {
         try {
           filterMode = FilterMode.values.firstWhere(
             (e) => e.toString() == filterModeSetting.value,
           );
-        } catch (_) {}
+        } catch (_) {
+          debugPrint(
+            '[InflationBloc] Unparseable inflation_filter_mode '
+            '"${filterModeSetting.value}", keeping $filterMode',
+          );
+        }
       }
 
-      // Restore settings first
-      // Actually, we should construct the state we expect to be used.
-      var currentState = state.copyWith(
-        dateStep: dateStep,
-        filterMode: filterMode,
-      );
+      // Only the very first load restores persisted settings; a later reload
+      // must keep whatever the user picked during this session.
+      final currentState = wasInitial
+          ? state.copyWith(dateStep: dateStep, filterMode: filterMode)
+          : state;
 
-      if (state.status == InflationStatus.initial) {
+      // Emitted before the query so the restored view is on screen while the
+      // rates are still being fetched.
+      if (wasInitial) {
         emit(currentState);
-      } else {
-        // If not initial, we keep the existing dateStep/filterMode from state and ignore loaded ones
-        currentState = state;
       }
 
       final (dateFrom, dateTo) = _getDateRange(currentState);
+
+      // Re-checked here: the settings reads above are awaits, so the bloc may
+      // have started closing since - installing a fresh stream now would
+      // outlive it.
+      if (_isShuttingDown) return;
 
       // Switch to real-time subscription
       await _ratesSubscription?.cancel();
@@ -140,10 +175,12 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
             sortAscending: state.sort == Sort.ascending,
           )
           .listen((rates) {
+            if (_isShuttingDown) return;
             add(InflationRatesUpdated(rates, rates.length));
           });
       // We don't emit success here, the event will do it.
     } catch (e) {
+      if (_isShuttingDown) return;
       emit(
         state.copyWith(
           status: InflationStatus.failure,
@@ -172,6 +209,7 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
         presets: state.presetFilters,
         sortAscending: state.sort == Sort.ascending,
       );
+      if (_isShuttingDown) return;
 
       emit(
         state.copyWith(
@@ -182,6 +220,7 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
         ),
       );
     } catch (e) {
+      if (_isShuttingDown) return;
       emit(
         state.copyWith(
           status: InflationStatus.failure,
@@ -223,6 +262,11 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
       'inflation_date_step',
       event.dateStep.toString(),
     );
+    if (_isShuttingDown) return;
+    // The reload below only restores the persisted value on the FIRST load, so
+    // the new step has to be put into state here - saving alone left the change
+    // with no visible effect at all.
+    emit(state.copyWith(dateStep: event.dateStep));
     add(LoadInflationRates());
   }
 
@@ -234,6 +278,10 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
       'inflation_filter_mode',
       event.filterMode.toString(),
     );
+    if (_isShuttingDown) return;
+    // Same as the date step above: the reload ignores persisted settings once
+    // the first load has happened, so emit the new mode explicitly.
+    emit(state.copyWith(filterMode: event.filterMode));
     add(LoadInflationRates());
   }
 
@@ -279,8 +327,10 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
   ) async {
     try {
       await _inflationRepository.addInflationRate(event.rate);
+      if (_isShuttingDown) return;
       add(LoadInflationRates());
     } catch (e) {
+      if (_isShuttingDown) return;
       emit(
         state.copyWith(
           status: InflationStatus.failure,
@@ -296,8 +346,10 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
   ) async {
     try {
       await _inflationRepository.updateInflationRate(event.rate);
+      if (_isShuttingDown) return;
       add(LoadInflationRates());
     } catch (e) {
+      if (_isShuttingDown) return;
       emit(
         state.copyWith(
           status: InflationStatus.failure,
@@ -317,8 +369,10 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
         event.country,
         event.preset,
       );
+      if (_isShuttingDown) return;
       add(LoadInflationRates());
     } catch (e) {
+      if (_isShuttingDown) return;
       emit(
         state.copyWith(
           status: InflationStatus.failure,
@@ -373,9 +427,11 @@ class InflationBloc extends Bloc<InflationEvent, InflationState> {
     try {
       final ratesToDelete = state.selectedRates.toList();
       await _inflationRepository.deleteInflationRates(ratesToDelete);
+      if (_isShuttingDown) return;
       emit(state.copyWith(selectedRates: {}, isSelectionModeActive: false));
       add(LoadInflationRates());
     } catch (e) {
+      if (_isShuttingDown) return;
       emit(
         state.copyWith(
           status: InflationStatus.failure,
