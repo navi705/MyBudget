@@ -1,7 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/domain/entities/category.dart';
-import 'package:uuid/uuid.dart';
 
 extension CategoryMapper on db.Category {
   Category toDomain() {
@@ -18,7 +17,12 @@ extension CategoryMapper on db.Category {
 extension CategoriesMapper on Category {
   db.CategoriesCompanion toCompanion() {
     return db.CategoriesCompanion(
-      id: Value(id ?? const Uuid().v4()),
+      // Minting a uuid here made two calls on the same unsaved Category
+      // produce two different row ids. Leaving it absent (as
+      // AccountMapper/StyleMapper do) hands id assignment to the single
+      // authority that already does it: CategoriesDao / the column's
+      // clientDefault.
+      id: id == null ? const Value.absent() : Value(id!),
       name: Value(name),
       parentId: Value(parentId),
       styleId: Value(styleId),

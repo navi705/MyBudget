@@ -109,6 +109,9 @@ class FinanceCalculator {
   ///
   /// For Asset Accounts: Quantity * Price at [data.date]
   /// For Standard Accounts: Initial + Sum(Transactions <= [data.date])
+  ///
+  /// A balance is `double.nan` when the asset's price currency cannot be
+  /// converted to the account currency — see [_getExchangeRate].
   Map<String, double> calculateBalances(FinancialSnapshot data) {
     final balances = <String, double>{};
 
@@ -207,8 +210,14 @@ class FinanceCalculator {
                   account.currencyCode,
                   rateIndex,
                   data.date,
+                  data.baseCurrency,
                 );
-                assetValue *= rate;
+                // Without a rate the holding's worth in the account's own
+                // currency is unknown — not zero, and not the raw foreign
+                // number. NaN keeps the account in the map (callers index it
+                // with `!`) while refusing to state a figure the user could
+                // act on, and it cannot be laundered into a total.
+                assetValue = rate == null ? double.nan : assetValue * rate;
               }
               balance = assetValue * currentQuantity;
             } else {
@@ -350,7 +359,9 @@ class FinanceCalculator {
 
   /// Returns Total Net Worth in Base Currency
   ///
-  /// Sum of all (Real or Nominal?) balances converted to [data.baseCurrency]
+  /// Sum of all (Real or Nominal?) balances converted to [data.baseCurrency].
+  /// Returns `double.nan` if any account cannot be converted, because a
+  /// partial sum is indistinguishable from a correct one.
   double calculateTotalNetWorth(
     FinancialSnapshot data, {
     Map<String, double>? balances,
@@ -374,13 +385,26 @@ class FinanceCalculator {
         data.baseCurrency,
         rateIndex,
         data.date,
+        data.baseCurrency,
       );
+      if (rate == null) {
+        // An account we cannot price in the base currency makes the TOTAL
+        // unknown, not smaller: quietly dropping it would return a
+        // plausible-looking net worth that leaves real money out. NaN is
+        // sticky under the `+=` below, so the rest of the loop still runs.
+        total = double.nan;
+        continue;
+      }
 
       total += balance * rate;
     }
     return total;
   }
 
+  /// Returns map of CurrencyCode -> total value in [data.baseCurrency].
+  ///
+  /// A bucket is `double.nan` when that currency cannot be converted; the
+  /// other buckets stay valid.
   Map<String, double> calculateCurrencyBreakdown(
     FinancialSnapshot data, {
     Map<String, double>? balances,
@@ -404,9 +428,12 @@ class FinanceCalculator {
         data.baseCurrency,
         rateIndex,
         data.date,
+        data.baseCurrency,
       );
 
-      final valueInBase = balance * rate;
+      // Only the bucket for the unpriceable currency is unknown; the other
+      // currencies in the breakdown are unaffected, so poison just this one.
+      final valueInBase = rate == null ? double.nan : balance * rate;
       breakdown[account.currencyCode] =
           (breakdown[account.currencyCode] ?? 0.0) + valueInBase;
     }
@@ -437,46 +464,97 @@ class FinanceCalculator {
     return index;
   }
 
-  double _getExchangeRate(
+  /// Most recent [from]->[to] rate dated at or before [date], or null.
+  ///
+  /// Only rows already in effect are eligible: a valuation dated in the past
+  /// must not be priced with a rate that did not exist yet.
+  ExchangeRateDomain? _latestRateAtOrBefore(
+    Map<String, Map<String, List<ExchangeRateDomain>>> rateIndex,
+    String from,
+    String to,
+    DateTime date,
+  ) {
+    final candidates = rateIndex[from]?[to];
+    if (candidates == null) return null;
+    // Lists are pre-sorted descending by date, so the first row that is not
+    // in the future is also the closest one behind [date].
+    for (final r in candidates) {
+      if (!r.date.isAfter(date)) return r;
+    }
+    return null;
+  }
+
+  /// Resolves [from]->[to] at [date], or **null** when no rate can be derived.
+  ///
+  /// Same "smart search" shape as CurrencyConverterService.getExchangeRate:
+  /// direct, inverse, then triangular through [mainCurrency].
+  ///
+  /// Null rather than 1.0 is deliberate. Parity is only ever true for
+  /// identical codes; handing back 1.0 for an unresolved pair made the
+  /// calculator add e.g. JPY straight onto USD, producing totals that were
+  /// simply wrong with nothing on screen to indicate it.
+  double? _getExchangeRate(
     String from,
     String to,
     Map<String, Map<String, List<ExchangeRateDomain>>> rateIndex,
     DateTime date,
+    String mainCurrency,
   ) {
     if (from == to) return 1.0;
 
-    // Try finding Direct From -> To using pre-built index (O(1) map lookup,
-    // then a linear scan over a pre-sorted, already-filtered list).
-    final directCandidates = rateIndex[from]?[to] ?? [];
-    final direct = directCandidates.cast<ExchangeRateDomain?>().firstWhere(
-      (r) => !r!.date.isAfter(date),
-      orElse: () => null,
-    );
-    if (direct != null) return direct.rate;
+    double? bestRate;
+    DateTime? bestDate;
 
-    // Try finding Indirect To -> From (ensure rate is invertible?)
-    // Usually stored as 1 From = X To. So 1 To = 1/X From.
-    final inverseCandidates = rateIndex[to]?[from] ?? [];
-    final inverse = inverseCandidates.cast<ExchangeRateDomain?>().firstWhere(
-      (r) => !r!.date.isAfter(date),
-      orElse: () => null,
-    );
-    if (inverse != null && inverse.rate != 0) return 1.0 / inverse.rate;
+    // Every candidate is dated at or before [date], so "closest to the
+    // target" reduces to "latest". Ties keep the incumbent, which makes the
+    // order of the offers below the tie-break: direct, then inverse, then
+    // triangular.
+    void offer(double rate, DateTime rateDate) {
+      if (bestDate == null || rateDate.isAfter(bestDate!)) {
+        bestRate = rate;
+        bestDate = rateDate;
+      }
+    }
 
-    // Fallback: Try via Base (EUR) if one of them is EUR and we can't find direct?
-    // If we are converting USD -> RSD.
-    // We might have USD -> EUR and EUR -> RSD.
-    // Value(RSD) = Value(USD) * Rate(USD->EUR) * Rate(EUR->RSD).
+    final direct = _latestRateAtOrBefore(rateIndex, from, to, date);
+    if (direct != null) offer(direct.rate, direct.date);
 
-    // If 'to' is not EUR, we might need a pivot.
-    // But for this project, let's assume rates are provided relative to something common or direct.
-    // If not found, return 1.0 (Safe fallback or throw error?)
-    // Returning 1.0 might hide errors.
+    // Stored as "1 [to] = X [from]", so the [from]->[to] rate is 1/X.
+    final inverse = _latestRateAtOrBefore(rateIndex, to, from, date);
+    if (inverse != null && inverse.rate != 0) {
+      offer(1.0 / inverse.rate, inverse.date);
+    }
 
-    return 1.0;
+    // Triangular: Value(to) = Value(from) * Rate(main->to) / Rate(main->from).
+    // Skipped when either side already IS the main currency — that pairing
+    // degenerates into the direct/inverse lookups already tried above.
+    if (from != mainCurrency && to != mainCurrency) {
+      final mainToFrom = _latestRateAtOrBefore(
+        rateIndex,
+        mainCurrency,
+        from,
+        date,
+      );
+      final mainToTo = _latestRateAtOrBefore(rateIndex, mainCurrency, to, date);
+      if (mainToFrom != null && mainToTo != null && mainToFrom.rate != 0) {
+        // A triangular rate is only as fresh as its STALEST leg — ranking it
+        // by the closer leg would let a pairing of (today, three years ago)
+        // beat an honest same-week direct rate.
+        final effectiveDate = mainToFrom.date.isBefore(mainToTo.date)
+            ? mainToFrom.date
+            : mainToTo.date;
+        offer(mainToTo.rate / mainToFrom.rate, effectiveDate);
+      }
+    }
+
+    return bestRate;
   }
 
   /// Returns Income/Expense for a specific period
+  ///
+  /// [PeriodStats.totalIncome]/[PeriodStats.totalExpense] are `double.nan`
+  /// when a transaction cannot be converted to [data.baseCurrency]; the
+  /// per-account maps are in account currency and stay valid regardless.
   PeriodStats calculatePeriodStats(
     FinancialSnapshot data,
     DatePeriod period, {
@@ -549,8 +627,12 @@ class FinanceCalculator {
         data.baseCurrency,
         rateIndex,
         tx.date,
+        data.baseCurrency,
       );
-      final amountInBase = amount * toBaseRate;
+      // A transaction we cannot price in the base currency poisons only the
+      // base-currency totals — the per-account maps below stay in the
+      // account's own currency and remain valid.
+      final amountInBase = amount * (toBaseRate ?? double.nan);
 
       // Nominal Stats (Per Account, in Account Currency)
       if (amount > 0) {
@@ -606,6 +688,10 @@ class FinanceCalculator {
 
   /// Returns map of AccountId -> AssetStats
   /// Calculates Net Balance (Post-Exit), Invested, Realized, and Commissions.
+  ///
+  /// Cross-currency cash legs are priced at the *transaction's* date, so
+  /// invested/realized are a true historical cost basis. They are
+  /// `double.nan` when such a leg cannot be converted.
   Map<String, AssetStats> calculateAssetStats(
     FinancialSnapshot data, {
     Map<String, double>? balances,
@@ -667,13 +753,17 @@ class FinanceCalculator {
               linkedTx.currencyCode,
               account.currencyCode,
               rateIndex,
-              data.date, // Use snapshot date or tx date? Usually Tx Date for historical accuracy.
-              // But _getExchangeRate looks for rate relevant to 'date' provided.
-              // For 'Invested' stats, we want historical cost basis -> Tx Date.
-              // Note: _getExchangeRate inside this class compares 'date' arg to rate.date.
-              // We should pass tx.date to get the rate AT THE TIME of transaction.
+              // Cost basis is what the trade actually cost when it happened,
+              // so it must be priced at the trade's own date. The snapshot
+              // date used to sit here, which restated every historical
+              // cross-currency buy/sell at a near-today rate.
+              tx.date,
+              data.baseCurrency,
             );
-            linkedAmount *= rate;
+            // No rate means this leg's cost basis is unknown; NaN propagates
+            // into invested/realized rather than quietly counting the raw
+            // foreign amount as if it were account currency.
+            linkedAmount *= rate ?? double.nan;
           }
           cashValue = linkedAmount;
         }

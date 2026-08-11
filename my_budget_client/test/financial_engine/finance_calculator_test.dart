@@ -1347,7 +1347,7 @@ void main() {
         expect(netWorth, closeTo(1010.0, 0.1));
       });
 
-      test('TC-FC-24: no exchange rate found falls back to 1.0', () {
+      test('TC-FC-24: an unconvertible currency does not count as parity', () {
         final account = Account(
           id: 'acc1',
           name: 'XYZ Account',
@@ -1371,8 +1371,11 @@ void main() {
         );
 
         final netWorth = calculator.calculateTotalNetWorth(snap);
-        // Falls back to 1.0 rate
-        expect(netWorth, equals(500.0));
+        // This used to return 500.0: with no XYZ->EUR rate the calculator fell
+        // back to 1.0 and counted 500 XYZ as 500 EUR. NaN is the only double
+        // that is not a fabricated figure, and it survives every downstream
+        // sum, so no caller can launder it back into a plausible total.
+        expect(netWorth, isNaN);
       });
     });
 
@@ -1422,7 +1425,11 @@ void main() {
 
         final breakdown = calculator.calculateCurrencyBreakdown(snap);
         expect(breakdown['EUR'], equals(800.0));
-        expect(breakdown['RSD'], equals(1000.0));
+        // No RSD->EUR rate is seeded, so this bucket cannot be priced. It used
+        // to read 1000.0 — 1000 RSD reported as 1000 EUR, roughly 8.5 EUR of
+        // real money shown as 1000. Only the unpriceable bucket is spoiled;
+        // the EUR one above is still exact.
+        expect(breakdown['RSD'], isNaN);
       });
 
       test('TC-FC-26: includes negative balances', () {

@@ -44,23 +44,19 @@ void main() {
   });
 
   test(
-    'toCompanion generates a fresh random id on every call when domain.id is null '
-    '(unlike AccountMapper/StyleMapper, which leave id absent for the DB/caller to assign)',
+    'a null domain id leaves the companion id absent, so repeated calls agree',
     () {
+      // It used to call Uuid().v4() inline, so two toCompanion() calls on the
+      // same unsaved Category produced two different row ids — anything that
+      // built the companion twice (validate, then insert) wrote the category
+      // under an id nobody else held. AccountMapper and StyleMapper leave it
+      // absent and let the DB's clientDefault assign one; this one now does too.
       final unsaved = Category(name: 'New Category');
 
-      final firstId = unsaved.toCompanion().id.value;
-      final secondId = unsaved.toCompanion().id.value;
-
-      expect(firstId, isNotNull);
-      expect(secondId, isNotNull);
+      expect(unsaved.toCompanion().id.present, isFalse);
       expect(
-        firstId,
-        isNot(secondId),
-        reason:
-            'CategoryMapper.toCompanion() calls Uuid().v4() inline instead of '
-            'leaving id absent, so two toCompanion() calls on the same unsaved '
-            'Category silently produce two different row ids.',
+        unsaved.toCompanion().id,
+        unsaved.toCompanion().id,
       );
     },
   );
