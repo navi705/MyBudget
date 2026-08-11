@@ -5,6 +5,10 @@ class Account extends Equatable {
   final String name;
   final String? description;
   final double balance;
+
+  /// Exact integer minor units of [balance] for fiat accounts; null for crypto/
+  /// commodity (which stay on [balance]). Used to derive drift-free balances.
+  final int? balanceMinor;
   final String currencyCode;
   final String currencyDesignationId;
   final String? styleId;
@@ -20,6 +24,7 @@ class Account extends Equatable {
     required this.name,
     this.description,
     required this.balance,
+    this.balanceMinor,
     required this.currencyCode,
     required this.currencyDesignationId,
     this.styleId,
@@ -37,6 +42,7 @@ class Account extends Equatable {
     name,
     description,
     balance,
+    balanceMinor,
     currencyCode,
     currencyDesignationId,
     styleId,
@@ -53,6 +59,7 @@ class Account extends Equatable {
     String? name,
     String? description,
     double? balance,
+    int? balanceMinor,
     String? currencyCode,
     String? currencyDesignationId,
     String? styleId,
@@ -68,6 +75,7 @@ class Account extends Equatable {
       name: name ?? this.name,
       description: description ?? this.description,
       balance: balance ?? this.balance,
+      balanceMinor: balanceMinor ?? this.balanceMinor,
       currencyCode: currencyCode ?? this.currencyCode,
       currencyDesignationId:
           currencyDesignationId ?? this.currencyDesignationId,

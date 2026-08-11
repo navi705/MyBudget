@@ -25,6 +25,7 @@ import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/entities/category.dart'; // Added
 
 import 'package:my_budget_client/domain/services/finance_calculator.dart'; // Added
+import 'package:my_budget_client/domain/value_objects/currency_precision.dart';
 
 part 'accounts_event.dart';
 part 'accounts_state.dart';
@@ -119,6 +120,27 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
   Future<void> close() {
     _transactionsSubscription?.cancel();
     return super.close();
+  }
+
+  /// Reverse-calc nominal balance for a standard (non-asset) account.
+  /// For a fiat account with an exact [Account.balanceMinor], compute in integer
+  /// minor units (no floating-point drift over the summed history) and divide by
+  /// the currency scale once at the end. Crypto/commodity or accounts missing a
+  /// minor anchor fall back to the double sums.
+  double _nominalBalance(
+    Account account,
+    Map<String, double> majorSums,
+    Map<String, int> minorSums,
+  ) {
+    final minorAnchor = account.balanceMinor;
+    if (minorAnchor != null &&
+        CurrencyPrecision.isMinorUnitCode(account.currencyCode)) {
+      final scale = CurrencyPrecision.scaleFor(
+        CurrencyPrecision.decimalsFor(account.currencyCode),
+      );
+      return (minorAnchor - (minorSums[account.id] ?? 0)) / scale;
+    }
+    return account.balance - (majorSums[account.id] ?? 0.0);
   }
 
   void _onDatePeriodNavigated(
@@ -351,6 +373,12 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final prevFutureSums = await _transactionRepository.getFutureSumsExact(
         prevEnd,
       );
+      // Exact integer-minor counterparts (fiat only) — used to derive drift-free
+      // balances; crypto accounts fall back to the double sums above.
+      final futureSumsMinor = await _transactionRepository
+          .getFutureSumsExactMinor(currentState.activeDate);
+      final prevFutureSumsMinor = await _transactionRepository
+          .getFutureSumsExactMinor(prevEnd);
       // Period-range transactions cover both current and previous period
       // (prevStart..periodEnd); used for income/expense stats only.
       final periodTransactions = await _transactionRepository
@@ -410,8 +438,11 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final nominalBalances = <String, double>{};
       for (final account in accounts) {
         if (account.assetId == null) {
-          nominalBalances[account.id!] =
-              account.balance - (futureSums[account.id] ?? 0.0);
+          nominalBalances[account.id!] = _nominalBalance(
+            account,
+            futureSums,
+            futureSumsMinor,
+          );
         }
       }
       if (assetAccountIds.isNotEmpty) {
@@ -501,8 +532,11 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final prevBalances = <String, double>{};
       for (final account in accounts) {
         if (account.assetId == null) {
-          prevBalances[account.id!] =
-              account.balance - (prevFutureSums[account.id] ?? 0.0);
+          prevBalances[account.id!] = _nominalBalance(
+            account,
+            prevFutureSums,
+            prevFutureSumsMinor,
+          );
         }
       }
       if (assetAccountIds.isNotEmpty) {

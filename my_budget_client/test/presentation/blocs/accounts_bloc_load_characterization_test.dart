@@ -81,6 +81,10 @@ void main() {
     // so it is already baked into the stored balance and sits in the current
     // month's period.
     await tx('today', 'S1', 200.0, now);
+
+    // Populate the exact minor-unit columns so the bloc exercises the
+    // integer-minor balance path (goldens are integer-clean, so values match).
+    await db.backfillMinorUnits();
   });
 
   tearDown(() async {

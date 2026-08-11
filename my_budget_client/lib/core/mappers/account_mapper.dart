@@ -17,6 +17,7 @@ extension AccountMapper on drift.DbAccount {
       name: name,
       description: description,
       balance: balance,
+      balanceMinor: balanceMinor,
       currencyCode: currencyCode,
       currencyDesignationId: currencyDesignationId,
       styleId: styleId,

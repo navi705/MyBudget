@@ -52,6 +52,11 @@ abstract class TransactionRepository {
   /// Used to derive balances via SQL instead of a full-history Dart pass.
   Future<Map<String, double>> getFutureSumsExact(DateTime cutoff);
 
+  /// Exact integer minor-unit sums after [cutoff], grouped by account, for fiat
+  /// rows only (crypto has null amountMinor and is excluded). Lets callers
+  /// derive drift-free fiat balances: balanceMinorAt = balanceMinor - result.
+  Future<Map<String, int>> getFutureSumsExactMinor(DateTime cutoff);
+
   /// OPTIMIZATION: Get category totals already converted to main currency
   /// Uses SQL aggregation with exchange rates to avoid expensive Dart computation
   Future<Map<String, double>> getCategoryTotalsInMainCurrency({

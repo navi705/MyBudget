@@ -1924,6 +1924,28 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     };
   }
 
+  /// Exact integer minor-unit counterpart of [getFutureSumsExact] for fiat
+  /// accounts: sums the amountMinor column (NULL for crypto rows, so they are
+  /// simply excluded here and handled via the double [getFutureSumsExact]).
+  /// balanceAt(cutoff)_minor == balanceMinor - result[accountId].
+  Future<Map<String, int>> getFutureSumsExactMinor(DateTime cutoff) async {
+    final amountExp = transactions.amountMinor.sum();
+    final query = selectOnly(transactions)
+      ..addColumns([transactions.accountId, amountExp])
+      ..where(
+        transactions.date.isBiggerThanValue(cutoff) &
+            transactions.isDeleted.equals(false) &
+            transactions.amountMinor.isNotNull(),
+      )
+      ..groupBy([transactions.accountId]);
+
+    final rows = await query.get();
+    return {
+      for (var row in rows)
+        row.read(transactions.accountId)!: row.read(amountExp) ?? 0,
+    };
+  }
+
   Future<List<GroupedTransactionTotal>> getTransactionTotalsGrouped({
     DateTime? dateFrom,
     DateTime? dateTo,
