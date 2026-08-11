@@ -8,6 +8,11 @@ abstract class TransactionRepository {
   /// that date are included — use this for date-bounded views (e.g. dashboard)
   /// to avoid loading the full history.
   Stream<List<Transaction>> watchTransactions({DateTime? from});
+
+  /// Lightweight change signal — emits (void) on any transaction insert/update/
+  /// delete without loading rows. Use to trigger reloads driven by SQL/aggregate
+  /// queries instead of the full-history [watchTransactions] list.
+  Stream<void> watchTransactionChanges();
   Future<List<Transaction>> getTransactions();
   Future<List<Transaction>> getTransactionsPaginated({
     int limit = 10,

@@ -23,52 +23,36 @@ class LocalTransactionRepository implements TransactionRepository {
   }
 
   @override
+  Stream<void> watchTransactionChanges() =>
+      database.transactionsDao.watchTransactionChanges();
+
+  @override
   Future<void> addTransaction(Transaction transaction) async {
-    print(
-      'DEBUG: LocalTransactionRepository.addTransaction called for: ${transaction.description}, amount: ${transaction.amount}',
-    );
-    try {
-      await database.transactionsDao.insertTransaction(
-        transaction.toCompanion(),
-      );
-      await _updateAccountBalance(transaction.accountId, transaction.amount);
-      print('DEBUG: LocalTransactionRepository.addTransaction success');
-    } catch (e) {
-      print('DEBUG: LocalTransactionRepository.addTransaction FAILED: $e');
-      rethrow;
-    }
+    await database.transactionsDao.insertTransaction(transaction.toCompanion());
+    await _updateAccountBalance(transaction.accountId, transaction.amount);
   }
 
   @override
   Future<void> addTransactions(List<Transaction> transactions) async {
-    print(
-      'DEBUG: LocalTransactionRepository.addTransactions called for ${transactions.length} transactions',
-    );
-    try {
-      await database.transaction(() async {
-        // 1. Batch insert all transactions
-        await database.transactionsDao.insertAllTransactions(
-          transactions.toCompanionList(),
+    await database.transaction(() async {
+      // 1. Batch insert all transactions
+      await database.transactionsDao.insertAllTransactions(
+        transactions.toCompanionList(),
+      );
+
+      // 2. Aggregate amounts by account ID
+      final amountChanges = <String, double>{};
+      for (final transaction in transactions) {
+        amountChanges.update(
+          transaction.accountId,
+          (value) => value + transaction.amount,
+          ifAbsent: () => transaction.amount,
         );
+      }
 
-        // 2. Aggregate amounts by account ID
-        final amountChanges = <String, double>{};
-        for (final transaction in transactions) {
-          amountChanges.update(
-            transaction.accountId,
-            (value) => value + transaction.amount,
-            ifAbsent: () => transaction.amount,
-          );
-        }
-
-        // 3. Call the DAO to perform the batch update
-        await database.accountsDao.batchUpdateBalances(amountChanges);
-      });
-      print('DEBUG: LocalTransactionRepository.addTransactions success');
-    } catch (e) {
-      print('DEBUG: LocalTransactionRepository.addTransactions FAILED: $e');
-      rethrow;
-    }
+      // 3. Call the DAO to perform the batch update
+      await database.accountsDao.batchUpdateBalances(amountChanges);
+    });
   }
 
   @override

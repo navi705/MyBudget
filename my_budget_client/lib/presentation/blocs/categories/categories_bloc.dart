@@ -27,7 +27,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   final TransactionRepository _transactionRepository;
   final CurrencyRepository _currencyRepository;
 
-  StreamSubscription<List<Transaction>>? _transactionsSubscription;
+  StreamSubscription<void>? _transactionsSubscription;
 
   CategoriesBloc({
     required CategoryRepository categoryRepository,
@@ -66,7 +66,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     on<UndoDeleteCategory>(_onUndoDeleteCategory);
 
     _transactionsSubscription = _transactionRepository
-        .watchTransactions()
+        .watchTransactionChanges()
         .debounceTime(const Duration(milliseconds: 500))
         .listen((_) => add(LoadCategories()));
   }

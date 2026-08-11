@@ -60,7 +60,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
    final CategoryRepository _categoryRepository; // Added
    final FinanceCalculator _financeCalculator; // Added
 
-   StreamSubscription<List<Transaction>>? _transactionsSubscription;
+   StreamSubscription<void>? _transactionsSubscription;
    
    // Optimization: Cache rate map to avoid rebuilding on every sort
    Map<String, double>? _cachedRateMap;
@@ -110,7 +110,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
     on<ClearRecentlyDeletedAccount>(_onClearRecentlyDeletedAccount);
 
     _transactionsSubscription = _transactionRepository
-        .watchTransactions()
+        .watchTransactionChanges()
         .debounceTime(const Duration(milliseconds: 500))
         .listen((_) => add(LoadAccounts()));
   }

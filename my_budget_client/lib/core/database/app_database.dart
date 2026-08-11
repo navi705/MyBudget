@@ -1549,6 +1549,13 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
           ))
           .watch();
 
+  /// Lightweight change signal for the transactions table. Fires on every
+  /// insert/update/delete WITHOUT materializing any rows. Use this to trigger
+  /// a reload when only the fact-of-change matters (not the data itself) —
+  /// avoids reading + mapping the entire history on each transaction create.
+  Stream<void> watchTransactionChanges() =>
+      tableUpdates(TableUpdateQuery.onTable(transactions));
+
   Future<void> insertTransaction(TransactionsCompanion transaction) async {
     var toInsert = transaction.id.present
         ? transaction
