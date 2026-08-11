@@ -4,12 +4,18 @@ import 'package:dart_frog_web_socket/dart_frog_web_socket.dart';
 import 'package:my_budget_server/ws/sync_controller.dart';
 
 Future<Response> onRequest(RequestContext context) async {
+  // Identifies the connecting device so it can be skipped when it is itself the
+  // source of a push. TODO: the current client does not send this yet — it
+  // connects to a bare /ws/sync — so it stays null and echo suppression is
+  // inert until the client appends ?device_id=<local_device_id>.
+  final deviceId = context.request.uri.queryParameters['device_id'];
+
   final handler = webSocketHandler(
     (channel, protocol) async {
       print('[WS_DEBUG] Handler started, protocol=$protocol');
 
       // Register new client
-      SyncWebSocketController.addClient(channel);
+      SyncWebSocketController.addClient(channel, deviceId: deviceId);
 
       // Use a Completer to keep this callback alive until the stream closes.
       // This is more robust than `await for` in case dart_frog_web_socket

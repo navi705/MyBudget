@@ -1307,12 +1307,12 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
-  Future<void> adjustBalance(String accountId, double amount) {
+  Future<void> adjustBalance(String accountId, double amount) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     // Also maintain the exact integer balance_minor: scale the delta by the
     // account's own currency and round. Crypto rows have balance_minor NULL, so
     // NULL + x stays NULL and they remain on the double.
-    return customUpdate(
+    await customUpdate(
       'UPDATE accounts SET balance = balance + ?, '
       'balance_minor = balance_minor + CAST(ROUND(? * ($kMinorScaleCase)) AS INTEGER), '
       'modified_at = ? WHERE id = ?',
@@ -1324,11 +1324,16 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       ],
       updates: {accounts},
     );
+    // The balance is a materialised value, not something a peer can recompute:
+    // incoming transactions are applied with a bare insert that does NOT touch
+    // balances. Without this log entry the peer got the transaction and never
+    // got the new balance, so stored balances drifted apart permanently.
+    await _logChange(accountId, 'upsert');
   }
 
-  Future<void> batchUpdateBalances(Map<String, double> amountChanges) {
+  Future<void> batchUpdateBalances(Map<String, double> amountChanges) async {
     if (amountChanges.isEmpty) {
-      return Future.value();
+      return;
     }
 
     final accountIds = amountChanges.keys.toList();
@@ -1367,7 +1372,11 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       WHERE id IN ($idsInClause)
     ''';
 
-    return customUpdate(sql, variables: variables, updates: {accounts});
+    await customUpdate(sql, variables: variables, updates: {accounts});
+    // Same reason as adjustBalance: peers cannot derive the new balance.
+    for (final accountId in accountIds) {
+      await _logChange(accountId, 'upsert');
+    }
   }
 
   Future<Map<String, double>> getBalancesAtDate(DateTime date) async {
@@ -1676,9 +1685,12 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       modifiedAt: Value(now),
     );
 
-    return (update(transactions)
-          ..where((t) => t.id.equals(transaction.id.value)))
-        .write(updatedTransaction);
+    final result =
+        await (update(transactions)
+              ..where((t) => t.id.equals(transaction.id.value)))
+            .write(updatedTransaction);
+    await _logChange(transaction.id.value, 'delete');
+    return result;
   }
 
   Future<void> _logChange(String recordId, String action) async {
@@ -1835,19 +1847,26 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateDateForMultipleTransactions(
     List<String> ids,
     DateTime newDate,
-  ) {
-    return (update(transactions)..where((tbl) => tbl.id.isIn(ids))).write(
-      TransactionsCompanion(date: Value(newDate)),
+  ) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await (update(transactions)..where((tbl) => tbl.id.isIn(ids))).write(
+      TransactionsCompanion(date: Value(newDate), modifiedAt: Value(now)),
     );
+    await _logChanges(ids, 'upsert');
   }
 
   Future<void> updateCategoryForMultipleTransactions(
     List<String> ids,
     String newCategoryId,
-  ) {
-    return (update(transactions)..where((tbl) => tbl.id.isIn(ids))).write(
-      TransactionsCompanion(categoryId: Value(newCategoryId)),
+  ) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await (update(transactions)..where((tbl) => tbl.id.isIn(ids))).write(
+      TransactionsCompanion(
+        categoryId: Value(newCategoryId),
+        modifiedAt: Value(now),
+      ),
     );
+    await _logChanges(ids, 'upsert');
   }
 
   Future<int> getAllCount() async {
@@ -2141,6 +2160,13 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
 
   Future<List<ExchangeRate>> getAllExchangeRates() =>
       select(exchangeRates).get();
+
+  /// Lightweight change signal for the exchange_rates table. Fires on every
+  /// insert/update/delete WITHOUT materializing any rows — used to invalidate
+  /// the in-memory rate cache in [CurrencyConverterService] so a freshly
+  /// added/imported/refreshed rate takes effect without an app restart.
+  Stream<void> watchExchangeRateChanges() =>
+      tableUpdates(TableUpdateQuery.onTable(exchangeRates));
 
   Future<List<ExchangeRate>> getAllExchangesRates(List<DateTime> dates) async {
     const int chunkSize = 500;

@@ -36,7 +36,10 @@ class SyncRepository {
       'accounts',
     };
 
-    await _dbClient.pool.run((session) async {
+    // runTx (not run): a batch must be all-or-nothing. `pool.run` is not a
+    // transaction, so a mid-batch failure left rows partially applied and
+    // visible to concurrent pulls.
+    await _dbClient.pool.runTx((session) async {
       for (final table in tablesList) {
         if (data.containsKey(table)) {
           final rows = data[table] as List;
@@ -128,11 +131,22 @@ class SyncRepository {
 
   Future<void> _bulkUpsertExchangeRates(
       Session session, List<Map<String, dynamic>> rows) async {
+    // date is part of the primary key: a row without a usable one cannot be
+    // stored at all, so skip it instead of inventing a timestamp.
+    final validRows = rows.where((row) {
+      if (_parseDate(row['date']) != null) return true;
+      print(
+          '[SYNC] Skipping exchange_rate ${row['fromCurrencyCode']}->${row['toCurrencyCode']}: missing or unparseable date (${row['date']})');
+      return false;
+    }).toList();
+    if (validRows.isEmpty) return;
+
     const subBatchSize = 1000;
-    for (var i = 0; i < rows.length; i += subBatchSize) {
-      final end =
-          (i + subBatchSize < rows.length) ? i + subBatchSize : rows.length;
-      final chunk = rows.sublist(i, end);
+    for (var i = 0; i < validRows.length; i += subBatchSize) {
+      final end = (i + subBatchSize < validRows.length)
+          ? i + subBatchSize
+          : validRows.length;
+      final chunk = validRows.sublist(i, end);
 
       final buffer = StringBuffer();
       buffer.write(
@@ -170,11 +184,21 @@ class SyncRepository {
 
   Future<void> _bulkUpsertInflationRates(
       Session session, List<Map<String, dynamic>> rows) async {
+    // date is part of the primary key — skip rows we cannot key.
+    final validRows = rows.where((row) {
+      if (_parseDate(row['date']) != null) return true;
+      print(
+          '[SYNC] Skipping inflation_rate for ${row['country']}: missing or unparseable date (${row['date']})');
+      return false;
+    }).toList();
+    if (validRows.isEmpty) return;
+
     const subBatchSize = 1000;
-    for (var i = 0; i < rows.length; i += subBatchSize) {
-      final end =
-          (i + subBatchSize < rows.length) ? i + subBatchSize : rows.length;
-      final chunk = rows.sublist(i, end);
+    for (var i = 0; i < validRows.length; i += subBatchSize) {
+      final end = (i + subBatchSize < validRows.length)
+          ? i + subBatchSize
+          : validRows.length;
+      final chunk = validRows.sublist(i, end);
 
       final buffer = StringBuffer();
       buffer.write(
@@ -256,15 +280,26 @@ class SyncRepository {
 
   Future<void> _bulkUpsertTransactions(
       Session session, List<Map<String, dynamic>> rows) async {
+    // A transaction with no usable date cannot be placed on any timeline —
+    // skip it rather than stamping it with DateTime.now().
+    final validRows = rows.where((row) {
+      if (_parseDate(row['date']) != null) return true;
+      print(
+          '[SYNC] Skipping transaction ${row['id']}: missing or unparseable date (${row['date']})');
+      return false;
+    }).toList();
+    if (validRows.isEmpty) return;
+
     const subBatchSize = 500;
-    for (var i = 0; i < rows.length; i += subBatchSize) {
-      final end =
-          (i + subBatchSize < rows.length) ? i + subBatchSize : rows.length;
-      final chunk = rows.sublist(i, end);
+    for (var i = 0; i < validRows.length; i += subBatchSize) {
+      final end = (i + subBatchSize < validRows.length)
+          ? i + subBatchSize
+          : validRows.length;
+      final chunk = validRows.sublist(i, end);
 
       final buffer = StringBuffer();
       buffer.write(
-          'INSERT INTO transactions (id, description, amount, date, account_id, category_id, currency_code, exchange_rate, exchange_rate_preset, fee, linked_transaction_id, modified_at, device_id, is_deleted) VALUES ');
+          'INSERT INTO transactions (id, description, amount, amount_minor, date, account_id, category_id, currency_code, exchange_rate, exchange_rate_preset, fee, fee_minor, linked_transaction_id, modified_at, device_id, is_deleted) VALUES ');
 
       final params = <String, dynamic>{};
       for (var j = 0; j < chunk.length; j++) {
@@ -272,10 +307,11 @@ class SyncRepository {
         if (j > 0) buffer.write(', ');
         final suffix = '_$j';
         buffer.write(
-            '(@id$suffix, @desc$suffix, @amt$suffix, @date$suffix, @aid$suffix, @cid$suffix, @cc$suffix, @er$suffix, @erp$suffix, @fee$suffix, @lti$suffix, @ma$suffix, @did$suffix, @del$suffix)');
+            '(@id$suffix, @desc$suffix, @amt$suffix, @amtm$suffix, @date$suffix, @aid$suffix, @cid$suffix, @cc$suffix, @er$suffix, @erp$suffix, @fee$suffix, @feem$suffix, @lti$suffix, @ma$suffix, @did$suffix, @del$suffix)');
         params['id$suffix'] = row['id'];
         params['desc$suffix'] = row['description'];
         params['amt$suffix'] = _round(row['amount']);
+        params['amtm$suffix'] = _minorUnits(row['amountMinor']);
         params['date$suffix'] = _parseDate(row['date']);
         params['aid$suffix'] = row['accountId'];
         params['cid$suffix'] = row['categoryId'];
@@ -283,6 +319,7 @@ class SyncRepository {
         params['er$suffix'] = _round(row['exchangeRate']);
         params['erp$suffix'] = row['exchangeRatePreset'];
         params['fee$suffix'] = _round(row['fee']);
+        params['feem$suffix'] = _minorUnits(row['feeMinor']);
         params['lti$suffix'] = row['linkedTransactionId'];
         params['ma$suffix'] = row['modifiedAt'];
         params['did$suffix'] = row['deviceId'];
@@ -293,6 +330,7 @@ class SyncRepository {
         ON CONFLICT (id) DO UPDATE SET
           description = EXCLUDED.description,
           amount = EXCLUDED.amount,
+          amount_minor = EXCLUDED.amount_minor,
           date = EXCLUDED.date,
           account_id = EXCLUDED.account_id,
           category_id = EXCLUDED.category_id,
@@ -300,6 +338,7 @@ class SyncRepository {
           exchange_rate = EXCLUDED.exchange_rate,
           exchange_rate_preset = EXCLUDED.exchange_rate_preset,
           fee = EXCLUDED.fee,
+          fee_minor = EXCLUDED.fee_minor,
           linked_transaction_id = EXCLUDED.linked_transaction_id,
           modified_at = EXCLUDED.modified_at,
           device_id = EXCLUDED.device_id,
@@ -321,7 +360,7 @@ class SyncRepository {
 
       final buffer = StringBuffer();
       buffer.write(
-          'INSERT INTO accounts (id, name, description, balance, currency_code, currency_designation_id, style_id, account_type_id, creation_date, country, asset_id, asset_quantity, fee_structure, modified_at, device_id, is_deleted) VALUES ');
+          'INSERT INTO accounts (id, name, description, balance, balance_minor, currency_code, currency_designation_id, style_id, account_type_id, creation_date, country, asset_id, asset_quantity, fee_structure, modified_at, device_id, is_deleted) VALUES ');
 
       final params = <String, dynamic>{};
       for (var j = 0; j < chunk.length; j++) {
@@ -329,16 +368,17 @@ class SyncRepository {
         if (j > 0) buffer.write(', ');
         final suffix = '_$j';
         buffer.write(
-            '(@id$suffix, @name$suffix, @desc$suffix, @bal$suffix, @cc$suffix, @cdi$suffix, @sid$suffix, @ati$suffix, @cd$suffix, @cnt$suffix, @aid$suffix, @aq$suffix, @fs$suffix, @ma$suffix, @did$suffix, @del$suffix)');
+            '(@id$suffix, @name$suffix, @desc$suffix, @bal$suffix, @balm$suffix, @cc$suffix, @cdi$suffix, @sid$suffix, @ati$suffix, @cd$suffix, @cnt$suffix, @aid$suffix, @aq$suffix, @fs$suffix, @ma$suffix, @did$suffix, @del$suffix)');
         params['id$suffix'] = row['id'];
         params['name$suffix'] = row['name'];
         params['desc$suffix'] = row['description'];
         params['bal$suffix'] = _round(row['balance']);
+        params['balm$suffix'] = _minorUnits(row['balanceMinor']);
         params['cc$suffix'] = row['currencyCode'];
         params['cdi$suffix'] = row['currencyDesignationId'];
         params['sid$suffix'] = row['styleId'];
         params['ati$suffix'] = row['accountTypeId'];
-        params['cd$suffix'] = _parseDate(row['creationDate']);
+        params['cd$suffix'] = _accountCreationDate(row);
         params['cnt$suffix'] = row['country'];
         params['aid$suffix'] = row['assetId'];
         params['aq$suffix'] = _round(row['assetQuantity']);
@@ -353,6 +393,7 @@ class SyncRepository {
           name = EXCLUDED.name,
           description = EXCLUDED.description,
           balance = EXCLUDED.balance,
+          balance_minor = EXCLUDED.balance_minor,
           currency_code = EXCLUDED.currency_code,
           currency_designation_id = EXCLUDED.currency_designation_id,
           style_id = EXCLUDED.style_id,
@@ -447,12 +488,21 @@ class SyncRepository {
 
   Future<void> _upsertTransaction(
       Session session, Map<String, dynamic> row) async {
+    final date = _parseDate(row['date']);
+    if (date == null) {
+      // No usable date: skip rather than stamping it with DateTime.now().
+      print(
+          '[SYNC] Skipping transaction ${row['id']}: missing or unparseable date (${row['date']})');
+      return;
+    }
+
     final sql = '''
-      INSERT INTO transactions (id, description, amount, date, account_id, category_id, currency_code, exchange_rate, exchange_rate_preset, fee, linked_transaction_id, modified_at, device_id, is_deleted)
-      VALUES (@id, @description, @amount, @date, @accountId, @categoryId, @currencyCode, @exchangeRate, @exchangeRatePreset, @fee, @linkedTransactionId, @modifiedAt, @deviceId, @isDeleted)
+      INSERT INTO transactions (id, description, amount, amount_minor, date, account_id, category_id, currency_code, exchange_rate, exchange_rate_preset, fee, fee_minor, linked_transaction_id, modified_at, device_id, is_deleted)
+      VALUES (@id, @description, @amount, @amountMinor, @date, @accountId, @categoryId, @currencyCode, @exchangeRate, @exchangeRatePreset, @fee, @feeMinor, @linkedTransactionId, @modifiedAt, @deviceId, @isDeleted)
       ON CONFLICT (id) DO UPDATE SET
         description = EXCLUDED.description,
         amount = EXCLUDED.amount,
+        amount_minor = EXCLUDED.amount_minor,
         date = EXCLUDED.date,
         account_id = EXCLUDED.account_id,
         category_id = EXCLUDED.category_id,
@@ -460,6 +510,7 @@ class SyncRepository {
         exchange_rate = EXCLUDED.exchange_rate,
         exchange_rate_preset = EXCLUDED.exchange_rate_preset,
         fee = EXCLUDED.fee,
+        fee_minor = EXCLUDED.fee_minor,
         linked_transaction_id = EXCLUDED.linked_transaction_id,
         modified_at = EXCLUDED.modified_at,
         device_id = EXCLUDED.device_id,
@@ -471,13 +522,15 @@ class SyncRepository {
       'id': row['id'],
       'description': row['description'],
       'amount': _round(row['amount']),
-      'date': _parseDate(row['date']),
+      'amountMinor': _minorUnits(row['amountMinor']),
+      'date': date,
       'accountId': row['accountId'],
       'categoryId': row['categoryId'],
       'currencyCode': row['currencyCode'],
       'exchangeRate': _round(row['exchangeRate']),
       'exchangeRatePreset': row['exchangeRatePreset'],
       'fee': _round(row['fee']),
+      'feeMinor': _minorUnits(row['feeMinor']),
       'linkedTransactionId': row['linkedTransactionId'],
       'modifiedAt': row['modifiedAt'],
       'deviceId': row['deviceId'],
@@ -488,12 +541,13 @@ class SyncRepository {
 
   Future<void> _upsertAccount(Session session, Map<String, dynamic> row) async {
     final sql = '''
-      INSERT INTO accounts (id, name, description, balance, currency_code, currency_designation_id, style_id, account_type_id, creation_date, country, asset_id, asset_quantity, fee_structure, modified_at, device_id, is_deleted)
-      VALUES (@id, @name, @description, @balance, @currencyCode, @currencyDesignationId, @styleId, @accountTypeId, @creationDate, @country, @assetId, @assetQuantity, @feeStructure, @modifiedAt, @deviceId, @isDeleted)
+      INSERT INTO accounts (id, name, description, balance, balance_minor, currency_code, currency_designation_id, style_id, account_type_id, creation_date, country, asset_id, asset_quantity, fee_structure, modified_at, device_id, is_deleted)
+      VALUES (@id, @name, @description, @balance, @balanceMinor, @currencyCode, @currencyDesignationId, @styleId, @accountTypeId, @creationDate, @country, @assetId, @assetQuantity, @feeStructure, @modifiedAt, @deviceId, @isDeleted)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
         description = EXCLUDED.description,
         balance = EXCLUDED.balance,
+        balance_minor = EXCLUDED.balance_minor,
         currency_code = EXCLUDED.currency_code,
         currency_designation_id = EXCLUDED.currency_designation_id,
         style_id = EXCLUDED.style_id,
@@ -514,11 +568,12 @@ class SyncRepository {
       'name': row['name'],
       'description': row['description'],
       'balance': _round(row['balance']),
+      'balanceMinor': _minorUnits(row['balanceMinor']),
       'currencyCode': row['currencyCode'],
       'currencyDesignationId': row['currencyDesignationId'],
       'styleId': row['styleId'],
       'accountTypeId': row['accountTypeId'],
-      'creationDate': _parseDate(row['creationDate']),
+      'creationDate': _accountCreationDate(row),
       'country': row['country'],
       'assetId': row['assetId'],
       'assetQuantity': _round(row['assetQuantity']),
@@ -560,6 +615,15 @@ class SyncRepository {
 
   Future<void> _upsertAssetEntry(
       Session session, Map<String, dynamic> row) async {
+    final date = _parseDate(row['date']);
+    if (date == null) {
+      // An asset entry is a point on a value timeline — without a date it is
+      // meaningless, so skip it rather than inventing one.
+      print(
+          '[SYNC] Skipping asset_entry ${row['id']}: missing or unparseable date (${row['date']})');
+      return;
+    }
+
     final sql = '''
       INSERT INTO asset_entries (id, asset_id, name, date, value, quantity, asset_type, description, currency_code, account_id, source, preset, modified_at, device_id, source_id, is_deleted)
       VALUES (@id, @assetId, @name, @date, @value, @quantity, @assetType, @description, @currencyCode, @accountId, @source, @preset, @modifiedAt, @deviceId, @sourceId, @isDeleted)
@@ -586,7 +650,7 @@ class SyncRepository {
       'id': row['id'],
       'assetId': row['assetId'],
       'name': row['name'],
-      'date': _parseDate(row['date']),
+      'date': date,
       'value': _round(row['value']),
       'quantity': _round(row['quantity']),
       'assetType': row['assetType'],
@@ -774,6 +838,14 @@ class SyncRepository {
 
   Future<void> _upsertExchangeRate(
       Session session, Map<String, dynamic> row) async {
+    final date = _parseDate(row['date']);
+    if (date == null) {
+      // date is part of the primary key — the row cannot be stored at all.
+      print(
+          '[SYNC] Skipping exchange_rate ${row['fromCurrencyCode']}->${row['toCurrencyCode']}: missing or unparseable date (${row['date']})');
+      return;
+    }
+
     final sql = '''
       INSERT INTO exchange_rates (from_currency_code, to_currency_code, rate, preset, date, modified_at, device_id, source_id)
       VALUES (@fromCurrencyCode, @toCurrencyCode, @rate, @preset, @date, @modifiedAt, @deviceId, @sourceId)
@@ -790,7 +862,7 @@ class SyncRepository {
       'toCurrencyCode': row['toCurrencyCode'],
       'rate': _round(row['rate']),
       'preset': row['preset'],
-      'date': _parseDate(row['date']),
+      'date': date,
       'modifiedAt': row['modifiedAt'],
       'deviceId': row['deviceId'],
       'sourceId': row['sourceId'],
@@ -799,6 +871,14 @@ class SyncRepository {
 
   Future<void> _upsertInflationRate(
       Session session, Map<String, dynamic> row) async {
+    final date = _parseDate(row['date']);
+    if (date == null) {
+      // date is part of the primary key — the row cannot be stored at all.
+      print(
+          '[SYNC] Skipping inflation_rate for ${row['country']}: missing or unparseable date (${row['date']})');
+      return;
+    }
+
     final sql = '''
       INSERT INTO inflation_rates (date, percent, country, preset, modified_at, device_id, source_id)
       VALUES (@date, @percent, @country, @preset, @modifiedAt, @deviceId, @sourceId)
@@ -811,7 +891,7 @@ class SyncRepository {
     ''';
 
     await session.execute(Sql.named(sql), parameters: {
-      'date': _parseDate(row['date']),
+      'date': date,
       'percent': _round(row['percent']),
       'country': row['country'],
       'preset': row['preset'],
@@ -872,19 +952,51 @@ class SyncRepository {
     });
   }
 
-  DateTime _parseDate(dynamic val) {
+  /// Returns null when the value is missing or unparseable.
+  ///
+  /// Never substitute DateTime.now() here: a fabricated timestamp is
+  /// indistinguishable from a real one once it is stored, and it silently wins
+  /// against the client's real date on the next comparison.
+  DateTime? _parseDate(dynamic val) {
     if (val is int) {
       return DateTime.fromMillisecondsSinceEpoch(val);
     } else if (val is String) {
-      return DateTime.parse(val);
+      return DateTime.tryParse(val);
     }
-    return DateTime.now();
+    return null;
   }
 
-  double _round(dynamic value) {
-    if (value == null) return 0.0;
-    final numVal = value is num ? value : 0.0;
+  /// creation_date is nullable and nothing is keyed on it, so an account with a
+  /// bad one is stored with NULL instead of being dropped — dropping it would
+  /// break the accounts(id) foreign key for every transaction it owns.
+  DateTime? _accountCreationDate(Map<String, dynamic> row) {
+    final parsed = _parseDate(row['creationDate']);
+    if (parsed == null && row['creationDate'] != null) {
+      print(
+          '[SYNC] Account ${row['id']}: unparseable creationDate (${row['creationDate']}), storing NULL');
+    }
+    return parsed;
+  }
+
+  /// Null in, null out — a NULL amount/rate/fee must stay NULL rather than
+  /// becoming 0.0, which would silently rewrite the value on every device.
+  double? _round(dynamic value) {
+    if (value == null) return null;
+    final numVal = value is num ? value : num.tryParse(value.toString());
+    if (numVal == null) return null;
     return double.parse(numVal.toStringAsFixed(8));
+  }
+
+  /// Exact integer minor units (cents) for fiat money.
+  ///
+  /// Nullable end to end: NULL marks a row whose value is not expressible in
+  /// minor units (crypto/commodity), where the double column is authoritative.
+  /// Never coerce to 0 and never route these through [_round].
+  int? _minorUnits(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    final numVal = value is num ? value : num.tryParse(value.toString());
+    return numVal?.round();
   }
 
   Future<({Map<String, List<Map<String, dynamic>>> changes, int lastTimestamp, bool hasMore})>
@@ -907,11 +1019,14 @@ class SyncRepository {
         'exchange_rate': 'exchangeRate',
         'exchange_rate_preset': 'exchangeRatePreset',
         'linked_transaction_id': 'linkedTransactionId',
+        'amount_minor': 'amountMinor',
+        'fee_minor': 'feeMinor',
         'modified_at': 'modifiedAt',
         'device_id': 'deviceId',
         'is_deleted': 'isDeleted'
       },
       'accounts': {
+        'balance_minor': 'balanceMinor',
         'currency_code': 'currencyCode',
         'currency_designation_id': 'currencyDesignationId',
         'account_type_id': 'accountTypeId',
@@ -1025,38 +1140,100 @@ class SyncRepository {
       },
     };
 
+    // Tiebreaker for the paging order. `ORDER BY modified_at` alone is not a
+    // total order, so rows sharing a millisecond can land on either side of the
+    // LIMIT between requests and be skipped. Each entry is that table's primary
+    // key, which makes the order deterministic.
+    final tieBreakerColumns = {
+      'categories': 'id',
+      'transactions': 'id',
+      'accounts': 'id',
+      'styles': 'id',
+      'asset_entries': 'id',
+      'account_types': 'id',
+      'currency_designations': 'id',
+      'custom_data_sources': 'id',
+      'api_settings': 'id',
+      'sms_presets': 'id',
+      'settings': 'key',
+      'exchange_rates':
+          'from_currency_code, to_currency_code, date, preset',
+      'inflation_rates': 'date, country, preset',
+      'languages': 'language_code',
+      'currencies': 'code',
+      'custom_themes': 'id',
+    };
+
     final tableConfigs = tableConfigsMap.entries.toList();
 
     // Optimization: Parallelize independent DB queries using Future.wait
     final queryFutures = tableConfigs.map((entry) async {
       final tableName = entry.key;
       final columnMap = entry.value;
+      final tieBreaker = tieBreakerColumns[tableName] ?? 'id';
 
       final result = await _dbClient.pool.execute(
         Sql.named(
-          'SELECT * FROM $tableName WHERE modified_at > @lastSync ORDER BY modified_at ASC LIMIT @limit',
+          'SELECT * FROM $tableName WHERE modified_at > @lastSync ORDER BY modified_at ASC, $tieBreaker LIMIT @limit',
         ),
         parameters: {'lastSync': lastSync, 'limit': limit},
       );
 
-      final rows = _mapResult(result, columnMap);
-      return (tableName: tableName, rows: rows);
+      var rows = _mapResult(result, columnMap);
+      final hitLimit = rows.isNotEmpty && rows.length >= limit;
+
+      // Cursor for THIS table alone. It is never advanced past a row this table
+      // has not returned yet; the caller then takes the minimum over the
+      // truncated tables so no table can be skipped by another table's data.
+      var cursor = lastSync;
+
+      if (rows.isNotEmpty) {
+        final lastTs = rows.last['modifiedAt'] as int;
+
+        if (!hitLimit) {
+          cursor = lastTs;
+        } else {
+          final firstTs = rows.first['modifiedAt'] as int;
+          if (firstTs == lastTs) {
+            // Degenerate page: every returned row shares one timestamp, so
+            // dropping the ties would return nothing and stall forever. Keep
+            // them all and advance past the timestamp instead — any rows beyond
+            // the limit at that exact millisecond are lost, hence the warning.
+            print(
+                '[SYNC] WARNING: table $tableName filled its limit of $limit rows all at modified_at=$lastTs; advancing past that timestamp. Rows beyond the limit at that millisecond will not be pulled — raise the limit.');
+            cursor = lastTs;
+          } else {
+            // Drop the trailing rows sharing the boundary millisecond and
+            // rewind the cursor below it, so the next page re-reads that
+            // millisecond in full instead of stepping over its remainder.
+            rows = rows
+                .where((row) => (row['modifiedAt'] as int) < lastTs)
+                .toList();
+            cursor = lastTs - 1;
+          }
+        }
+      }
+
+      return (
+        tableName: tableName,
+        rows: rows,
+        cursor: cursor,
+        hitLimit: hitLimit
+      );
     }).toList();
 
     final results = await Future.wait(queryFutures);
 
-    // Aggregate results and track max timestamp
+    // Aggregate results and compute the next cursor.
     // NOTE: No early break — all tables must be included regardless of count.
     // Breaking early causes tables with lower modifiedAt to be permanently skipped
     // once a high-volume table (e.g. exchange_rates) consumes the entire limit.
     bool hasMore = false;
+    int? truncatedCursor;
     for (final result in results) {
       final rows = result.rows;
       if (rows.isNotEmpty) {
         changes[result.tableName] = rows;
-
-        // If any table returned exactly limit rows, more data may exist
-        if (rows.length >= limit) hasMore = true;
 
         // Update maxTimestamp from the rows
         for (final row in rows) {
@@ -1064,9 +1241,23 @@ class SyncRepository {
           if (ts > maxTimestamp) maxTimestamp = ts;
         }
       }
+
+      // A table that filled its limit still has rows to give
+      if (result.hitLimit) {
+        hasMore = true;
+        if (truncatedCursor == null || result.cursor < truncatedCursor) {
+          truncatedCursor = result.cursor;
+        }
+      }
     }
 
-    return (changes: changes, lastTimestamp: maxTimestamp, hasMore: hasMore);
+    // A single global max would skip everything a truncated table has not
+    // returned yet, so any truncated table pins the cursor for all tables. The
+    // untruncated ones simply re-send a few rows on the next page (upserts are
+    // idempotent) instead of losing rows forever.
+    final nextTimestamp = truncatedCursor ?? maxTimestamp;
+
+    return (changes: changes, lastTimestamp: nextTimestamp, hasMore: hasMore);
   }
 
   // Helper to map DB row (snake_case) to JSON (camelCase or whatever client expects)

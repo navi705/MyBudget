@@ -120,6 +120,7 @@ class DatabaseClient {
         name TEXT,
         description TEXT,
         balance REAL,
+        balance_minor BIGINT,
         currency_code TEXT,
         currency_designation_id TEXT REFERENCES currency_designations(id),
         style_id TEXT REFERENCES styles(id),
@@ -140,6 +141,7 @@ class DatabaseClient {
         id TEXT PRIMARY KEY,
         description TEXT,
         amount REAL,
+        amount_minor BIGINT,
         date TIMESTAMP,
         account_id TEXT REFERENCES accounts(id),
         category_id TEXT REFERENCES categories(id),
@@ -147,12 +149,23 @@ class DatabaseClient {
         exchange_rate REAL,
         exchange_rate_preset INTEGER,
         fee REAL,
+        fee_minor BIGINT,
         linked_transaction_id TEXT,
         modified_at BIGINT DEFAULT 0,
         device_id TEXT,
         is_deleted BOOLEAN DEFAULT FALSE
       );
     ''');
+
+      // Exact integer minor units for fiat money. Nullable on purpose: NULL
+      // means the row is not fiat (crypto/commodity) and the REAL column is
+      // authoritative, so these must never default to 0.
+      await _pool.execute(
+          'ALTER TABLE accounts ADD COLUMN IF NOT EXISTS balance_minor BIGINT');
+      await _pool.execute(
+          'ALTER TABLE transactions ADD COLUMN IF NOT EXISTS amount_minor BIGINT');
+      await _pool.execute(
+          'ALTER TABLE transactions ADD COLUMN IF NOT EXISTS fee_minor BIGINT');
 
       await _pool.execute('''
       CREATE TABLE IF NOT EXISTS asset_entries (

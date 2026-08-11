@@ -22,8 +22,22 @@ Future<Response> onRequest(RequestContext context) async {
     // Logic to process push data
     await repo.upsertBatch(body);
 
-    // Notify all connected clients that new data is available
-    SyncWebSocketController.notifySyncAvailable();
+    // Notify the other connected clients that new data is available.
+    // The pushing device is skipped so it does not echo-pull its own write.
+    //
+    // TODO(sync): the client does not identify itself on push yet — the body
+    // is a bare {table: [rows]} map with no top-level device id and the request
+    // carries no such header. Until it sends one (an X-Device-Id header or a
+    // ?device_id= query parameter, matching the id it connects the WebSocket
+    // with), this stays null and every client is notified as before.
+    // Deriving it from the rows' deviceId is deliberately NOT done: a push can
+    // legitimately carry rows written by other devices.
+    final originDeviceId = context.request.headers['X-Device-Id'] ??
+        context.request.uri.queryParameters['device_id'];
+
+    SyncWebSocketController.notifySyncAvailable(
+      originDeviceId: originDeviceId,
+    );
 
     return Response.json(body: {
       'success': true,

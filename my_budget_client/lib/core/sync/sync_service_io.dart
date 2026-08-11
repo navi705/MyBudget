@@ -34,6 +34,17 @@ class SyncService {
   /// Maximum conflict history entries to keep
   int maxConflictHistory = 100;
 
+  /// How many times a file may fail to import before it is quarantined.
+  static const int _maxImportAttempts = 3;
+
+  /// Failed import attempts per file name.
+  ///
+  /// Kept in memory only: `sync_processed_files` has no column to carry a
+  /// failure count and adding one would need a schema migration. A permanently
+  /// corrupt file is therefore skipped for the rest of the process lifetime
+  /// instead of being retried on every single scan.
+  final Map<String, int> _failedImportAttempts = {};
+
   SyncService(this._db);
 
   /// Check if sync is currently running
@@ -405,6 +416,13 @@ class SyncService {
   Future<void> _processFile(File file) async {
     if (_localDeviceId == null) return;
 
+    final fileName = p.basename(file.path);
+
+    // A file that already failed too often is quarantined: retrying a corrupt
+    // packet on every scan only burns I/O and floods the log.
+    final previousFailures = _failedImportAttempts[fileName] ?? 0;
+    if (previousFailures >= _maxImportAttempts) return;
+
     try {
       final bytes = await file.readAsBytes();
       final packet = SyncBinaryFormat.decode(bytes);
@@ -412,19 +430,15 @@ class SyncService {
       // Process any existing files from other devices
       // Skip our own files and files we've already processed
       if (packet.deviceId == _localDeviceId) {
-        debugPrint(
-          '[SYNC_DEBUG] Ignoring local sync file: ${p.basename(file.path)}',
-        );
+        debugPrint('[SYNC_DEBUG] Ignoring local sync file: $fileName');
         return;
       }
 
       final alreadyProcessed = await _db.syncProcessedFilesDao.isProcessed(
-        p.basename(file.path),
+        fileName,
       );
       if (alreadyProcessed) {
-        debugPrint(
-          '[SYNC_DEBUG] Skipping already processed file: ${p.basename(file.path)}',
-        );
+        debugPrint('[SYNC_DEBUG] Skipping already processed file: $fileName');
         return;
       }
 
@@ -436,9 +450,10 @@ class SyncService {
       await _db.customStatement('PRAGMA foreign_keys = OFF;');
 
       try {
-        // Process each change
+        // Process each change. Deletes carry no payload, so the packet
+        // timestamp is the only clock a delete has.
         for (final change in packet.changes) {
-          await _applyChange(change, packet.deviceId);
+          await _applyChange(change, packet.deviceId, packet.timestamp);
         }
       } finally {
         // Re-enable FK checks
@@ -446,10 +461,8 @@ class SyncService {
       }
 
       // Mark as processed in database
-      await _db.syncProcessedFilesDao.markProcessed(
-        p.basename(file.path),
-        packet.deviceId,
-      );
+      await _db.syncProcessedFilesDao.markProcessed(fileName, packet.deviceId);
+      _failedImportAttempts.remove(fileName);
 
       // We no longer move to .processed immediately to allow other devices to pick it up.
       // Rename to .sync.processed to hide it from watcher but keep it in the folder?
@@ -458,13 +471,33 @@ class SyncService {
       // To avoid infinite loops in watcher, we might want to move it to a subfolder
       // AFTER a delay. For now, markProcessed is enough to skip it.
     } catch (e) {
-      // Log error but don't crash
-      debugPrint('Error processing sync file ${file.path}: $e');
+      // Log error but don't crash. The file stays unmarked so a transient
+      // failure can still be retried, but count the attempts so a permanently
+      // corrupt file is not re-read on every scan forever.
+      final attempts = previousFailures + 1;
+      _failedImportAttempts[fileName] = attempts;
+      debugPrint(
+        '[SYNC_DEBUG] Error processing sync file ${file.path} '
+        '(attempt $attempts of $_maxImportAttempts): $e',
+      );
+      if (attempts >= _maxImportAttempts) {
+        debugPrint(
+          '[SYNC_DEBUG] Quarantining sync file $fileName after $attempts '
+          'failed attempts. It will be skipped until the app restarts.',
+        );
+      }
     }
   }
 
   /// Apply a single change with conflict resolution
-  Future<void> _applyChange(SyncChange change, String fromDevice) async {
+  ///
+  /// [packetTimestamp] is the clock of the packet the change arrived in. A
+  /// delete carries no payload, so that is the only timestamp it has.
+  Future<void> _applyChange(
+    SyncChange change,
+    String fromDevice,
+    int packetTimestamp,
+  ) async {
     // Get local record
     final localData = await _getRecordData(change.tableId, change.recordId);
     final localModifiedAt = localData?['modifiedAt'] as int? ?? 0;
@@ -472,19 +505,77 @@ class SyncService {
 
     if (change.action == SyncAction.delete) {
       if (localData != null) {
-        // Soft delete - set is_deleted = true
-        await _softDeleteRecord(change.tableId, change.recordId);
+        // Same last-write-wins rule the upsert path below uses: the incoming
+        // change only wins when it is strictly newer, so a stale delete can no
+        // longer wipe out a newer local edit.
+        if (packetTimestamp > localModifiedAt) {
+          await _softDeleteRecord(
+            change.tableId,
+            change.recordId,
+            packetTimestamp,
+          );
+        } else {
+          debugPrint(
+            '[SYNC_DEBUG] Ignoring incoming delete for: ${change.recordId} '
+            '(Local newer: $localModifiedAt >= $packetTimestamp)',
+          );
+        }
+        return;
       }
+
+      // No visible row. Either it is already tombstoned, or this device has
+      // never seen the record at all.
+      final deletedAt = await _getDeletedRecordModifiedAt(
+        change.tableId,
+        change.recordId,
+      );
+      if (deletedAt != null) {
+        // Already deleted - keep the newest delete clock so that older upserts
+        // arriving later keep losing the comparison.
+        if (packetTimestamp > deletedAt) {
+          await _softDeleteRecord(
+            change.tableId,
+            change.recordId,
+            packetTimestamp,
+          );
+        }
+        return;
+      }
+
+      // Unknown record: record a tombstone so an older upsert for it that is
+      // processed later (files are imported in directory order, not timestamp
+      // order) loses last-write-wins instead of resurrecting the row.
+      await _insertTombstone(change.tableId, change.recordId, packetTimestamp);
       return;
     }
 
     // Upsert
     if (localData == null) {
-      // New record - insert
-      debugPrint(
-        '[SYNC_DEBUG] Inserting new record: ${change.recordId} into ${change.tableId.name}',
+      // "Missing" can also mean "soft deleted": every getById used by
+      // _getRecordData filters on isDeleted = false, so check for a tombstone
+      // before treating this as a brand new record.
+      final deletedAt = await _getDeletedRecordModifiedAt(
+        change.tableId,
+        change.recordId,
       );
-      await _insertRecord(change.tableId, change.data!);
+      if (deletedAt != null && deletedAt >= incomingModifiedAt) {
+        debugPrint(
+          '[SYNC_DEBUG] Ignoring incoming update for: ${change.recordId} '
+          '(Deleted locally: $deletedAt >= $incomingModifiedAt)',
+        );
+        await _db.conflictHistoryDao.saveConflict(
+          tableName: change.tableId.name,
+          recordId: change.recordId,
+          rejectedDataJson: jsonEncode(change.data),
+          rejectedDevice: fromDevice,
+        );
+      } else {
+        // New record (or a genuinely newer update to a deleted one) - insert
+        debugPrint(
+          '[SYNC_DEBUG] Inserting new record: ${change.recordId} into ${change.tableId.name}',
+        );
+        await _insertRecord(change.tableId, change.data!);
+      }
     } else if (incomingModifiedAt > localModifiedAt) {
       // Incoming is newer - update, save local to conflict history
       debugPrint(
@@ -766,82 +857,324 @@ class SyncService {
     }
   }
 
-  Future<void> _softDeleteRecord(SyncTableId tableId, String recordId) async {
-    final now = DateTime.now().millisecondsSinceEpoch;
+  /// Apply a peer's delete as a soft delete, stamped with the packet's own
+  /// timestamp.
+  ///
+  /// [modifiedAt] must come from the packet, never from `DateTime.now()`:
+  /// re-stamping with the local clock made a stale delete look like the newest
+  /// change to every other peer, so it kept winning and ping-ponging around the
+  /// network.
+  ///
+  /// The DAO `update*` helpers are deliberately bypassed here. They overwrite
+  /// `modifiedAt` with `DateTime.now()`, re-log the delete as a local `upsert`,
+  /// and validate the companion as a full insert (which throws for a partial
+  /// one), so the two sync columns are written directly instead.
+  Future<void> _softDeleteRecord(
+    SyncTableId tableId,
+    String recordId,
+    int modifiedAt,
+  ) async {
     switch (tableId) {
       case SyncTableId.transactions:
-        await _db.transactionsDao.updateTransaction(
-          TransactionsCompanion(
-            id: Value(recordId),
-            isDeleted: const Value(true),
-            modifiedAt: Value(now),
-          ),
-        );
+        await (_db.update(_db.transactions)
+              ..where((t) => t.id.equals(recordId)))
+            .write(
+              TransactionsCompanion(
+                isDeleted: const Value(true),
+                modifiedAt: Value(modifiedAt),
+              ),
+            );
         break;
       case SyncTableId.accounts:
-        await _db.accountsDao.updateAccount(
-          AccountsCompanion(
-            id: Value(recordId),
-            isDeleted: const Value(true),
-            modifiedAt: Value(now),
-          ),
-        );
+        await (_db.update(_db.accounts)..where((t) => t.id.equals(recordId)))
+            .write(
+              AccountsCompanion(
+                isDeleted: const Value(true),
+                modifiedAt: Value(modifiedAt),
+              ),
+            );
         break;
       case SyncTableId.categories:
-        await _db.categoriesDao.updateCategory(
-          CategoriesCompanion(
-            id: Value(recordId),
-            isDeleted: const Value(true),
-            modifiedAt: Value(now),
-          ),
-        );
+        await (_db.update(_db.categories)..where((t) => t.id.equals(recordId)))
+            .write(
+              CategoriesCompanion(
+                isDeleted: const Value(true),
+                modifiedAt: Value(modifiedAt),
+              ),
+            );
         break;
       case SyncTableId.styles:
-        await _db.stylesDao.updateStyle(
-          StylesCompanion(
-            id: Value(recordId),
-            isDeleted: const Value(true),
-            modifiedAt: Value(now),
-          ),
-        );
+        await (_db.update(_db.styles)..where((t) => t.id.equals(recordId)))
+            .write(
+              StylesCompanion(
+                isDeleted: const Value(true),
+                modifiedAt: Value(modifiedAt),
+              ),
+            );
         break;
       case SyncTableId.assetEntries:
-        await _db.assetEntriesDao.updateAssetData(
-          AssetEntriesCompanion(
-            id: Value(recordId),
-            isDeleted: const Value(true),
-            modifiedAt: Value(now),
-          ),
-        );
+        await (_db.update(_db.assetEntries)
+              ..where((t) => t.id.equals(recordId)))
+            .write(
+              AssetEntriesCompanion(
+                isDeleted: const Value(true),
+                modifiedAt: Value(modifiedAt),
+              ),
+            );
         break;
       case SyncTableId.accountTypes:
-        await _db.accountTypesDao.updateAccountType(
-          AccountTypesCompanion(
-            id: Value(recordId),
-            isDeleted: const Value(true),
-            modifiedAt: Value(now),
-          ),
-        );
+        await (_db.update(_db.accountTypes)
+              ..where((t) => t.id.equals(recordId)))
+            .write(
+              AccountTypesCompanion(
+                isDeleted: const Value(true),
+                modifiedAt: Value(modifiedAt),
+              ),
+            );
         break;
       case SyncTableId.currencyDesignations:
-        await _db.currencyDesignationsDao.updateDesignation(
-          CurrencyDesignationsCompanion(
-            id: Value(recordId),
-            isDeleted: const Value(true),
-            modifiedAt: Value(now),
-          ),
-        );
+        await (_db.update(_db.currencyDesignations)
+              ..where((t) => t.id.equals(recordId)))
+            .write(
+              CurrencyDesignationsCompanion(
+                isDeleted: const Value(true),
+                modifiedAt: Value(modifiedAt),
+              ),
+            );
         break;
       case SyncTableId.customDataSources:
-        await _db.customDataSourcesDao.updateCustomDataSource(
-          CustomDataSourcesCompanion(
-            id: Value(recordId),
-            isDeleted: const Value(true),
-            modifiedAt: Value(now),
-          ),
+        await (_db.update(_db.customDataSources)
+              ..where((t) => t.id.equals(recordId)))
+            .write(
+              CustomDataSourcesCompanion(
+                isDeleted: const Value(true),
+                modifiedAt: Value(modifiedAt),
+              ),
+            );
+        break;
+      case SyncTableId.apiSettings:
+        // api_settings_table has no isDeleted column, so a peer's delete
+        // cannot be represented without a schema migration. Log it rather than
+        // dropping it silently.
+        debugPrint(
+          '[SYNC_DEBUG] Cannot apply delete for api_settings_table:$recordId '
+          '(table has no isDeleted column)',
         );
         break;
       default:
+        break;
+    }
+  }
+
+  /// SQL table name of the imported tables that carry an `isDeleted` column.
+  ///
+  /// Returns null for tables that cannot hold a tombstone: `api_settings_table`
+  /// has no `isDeleted` column at all (giving it one would need a schema
+  /// migration), and the remaining ids are not applied by [_insertRecord] /
+  /// [_getRecordData] in the first place, so nothing can resurrect them either.
+  String? _deletableTableName(SyncTableId tableId) {
+    switch (tableId) {
+      case SyncTableId.transactions:
+        return 'transactions';
+      case SyncTableId.accounts:
+        return 'accounts';
+      case SyncTableId.categories:
+        return 'categories';
+      case SyncTableId.styles:
+        return 'styles';
+      case SyncTableId.assetEntries:
+        return 'asset_entries';
+      case SyncTableId.accountTypes:
+        return 'account_types';
+      case SyncTableId.currencyDesignations:
+        return 'currency_designations';
+      case SyncTableId.customDataSources:
+        return 'custom_data_sources';
+      default:
+        return null;
+    }
+  }
+
+  /// `modifiedAt` of a locally soft-deleted row, or null when no deleted row
+  /// exists.
+  ///
+  /// Needed because every getById used by [_getRecordData] filters on
+  /// `isDeleted = false`, which makes a tombstoned record look exactly like one
+  /// this device has never seen.
+  Future<int?> _getDeletedRecordModifiedAt(
+    SyncTableId tableId,
+    String recordId,
+  ) async {
+    final tableName = _deletableTableName(tableId);
+    if (tableName == null) return null;
+
+    final row = await _db
+        .customSelect(
+          'SELECT modified_at FROM $tableName WHERE id = ? AND is_deleted = 1',
+          variables: [Variable<String>(recordId)],
+        )
+        .getSingleOrNull();
+    return row?.read<int>('modified_at');
+  }
+
+  /// Record a delete for a record this device has never seen.
+  ///
+  /// Files are imported in directory order rather than timestamp order, so an
+  /// older upsert packet for the same record can still be processed after this
+  /// delete. Writing a tombstone stamped with the packet timestamp makes that
+  /// late upsert lose the last-write-wins comparison instead of resurrecting
+  /// the row.
+  ///
+  /// Only the columns the schema requires are filled with placeholders: the row
+  /// is invisible to every query because they all filter on
+  /// `isDeleted = false`, and a genuinely newer upsert replaces the whole row.
+  Future<void> _insertTombstone(
+    SyncTableId tableId,
+    String recordId,
+    int modifiedAt,
+  ) async {
+    const placeholder = 'Deleted';
+    final placeholderDate = DateTime.fromMillisecondsSinceEpoch(0);
+
+    switch (tableId) {
+      case SyncTableId.transactions:
+        await _db
+            .into(_db.transactions)
+            .insert(
+              TransactionsCompanion(
+                id: Value(recordId),
+                description: const Value(placeholder),
+                amount: const Value(0.0),
+                date: Value(placeholderDate),
+                accountId: const Value(''),
+                categoryId: const Value(''),
+                currencyCode: const Value(''),
+                modifiedAt: Value(modifiedAt),
+                isDeleted: const Value(true),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+        break;
+      case SyncTableId.accounts:
+        await _db
+            .into(_db.accounts)
+            .insert(
+              AccountsCompanion(
+                id: Value(recordId),
+                name: const Value(placeholder),
+                balance: const Value(0.0),
+                currencyCode: const Value(''),
+                currencyDesignationId: const Value(''),
+                accountTypeId: const Value(''),
+                modifiedAt: Value(modifiedAt),
+                isDeleted: const Value(true),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+        break;
+      case SyncTableId.categories:
+        await _db
+            .into(_db.categories)
+            .insert(
+              CategoriesCompanion(
+                id: Value(recordId),
+                name: const Value(placeholder),
+                modifiedAt: Value(modifiedAt),
+                isDeleted: const Value(true),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+        break;
+      case SyncTableId.styles:
+        await _db
+            .into(_db.styles)
+            .insert(
+              StylesCompanion(
+                id: Value(recordId),
+                name: const Value(placeholder),
+                iconName: const Value('star'),
+                colorHex: const Value('#000000'),
+                modifiedAt: Value(modifiedAt),
+                isDeleted: const Value(true),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+        break;
+      case SyncTableId.assetEntries:
+        await _db
+            .into(_db.assetEntries)
+            .insert(
+              AssetEntriesCompanion(
+                id: Value(recordId),
+                assetId: const Value(''),
+                name: const Value(placeholder),
+                date: Value(placeholderDate),
+                value: const Value(0.0),
+                currencyCode: const Value(''),
+                source: const Value('Manual'),
+                modifiedAt: Value(modifiedAt),
+                isDeleted: const Value(true),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+        break;
+      case SyncTableId.accountTypes:
+        // account_types.name is UNIQUE, so the record id doubles as the
+        // placeholder name to keep concurrent tombstones from colliding.
+        await _db
+            .into(_db.accountTypes)
+            .insert(
+              AccountTypesCompanion(
+                id: Value(recordId),
+                name: Value(
+                  recordId.length > 50 ? recordId.substring(0, 50) : recordId,
+                ),
+                languageCode: const Value(''),
+                modifiedAt: Value(modifiedAt),
+                isDeleted: const Value(true),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+        break;
+      case SyncTableId.currencyDesignations:
+        await _db
+            .into(_db.currencyDesignations)
+            .insert(
+              CurrencyDesignationsCompanion(
+                id: Value(recordId),
+                // Column is capped at 5 characters.
+                value: const Value('X'),
+                currencyCode: const Value(''),
+                modifiedAt: Value(modifiedAt),
+                isDeleted: const Value(true),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+        break;
+      case SyncTableId.customDataSources:
+        await _db
+            .into(_db.customDataSources)
+            .insert(
+              CustomDataSourcesCompanion(
+                id: Value(recordId),
+                name: const Value(placeholder),
+                url: const Value(''),
+                dataType: const Value(0),
+                modifiedAt: Value(modifiedAt),
+                isDeleted: const Value(true),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+        break;
+      default:
+        // api_settings_table has no isDeleted column, so a delete for a record
+        // it has never seen stays a no-op and a later upsert can still
+        // resurrect it - fixing that needs a schema migration. The other ids
+        // are not applied by _insertRecord either, so there is nothing to
+        // resurrect for them.
+        debugPrint(
+          '[SYNC_DEBUG] No tombstone support for ${tableId.name}:$recordId',
+        );
         break;
     }
   }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -20,6 +21,42 @@ class ServerSyncService {
   bool _isSyncingInternal = false;
   bool _autoSyncInitialized = false;
 
+  /// Set when a sync is requested while one is already running. The running
+  /// cycle re-runs instead of the request being dropped.
+  bool _syncRequestedWhileBusy = false;
+
+  /// True only while [_applyChanges] is writing rows pulled from the server.
+  /// Those writes fire the same `tableUpdates` stream we listen to, so this is
+  /// what distinguishes "our own echo" (ignore) from "the user edited something
+  /// mid-sync" (must be synced).
+  bool _isApplyingRemoteChanges = false;
+
+  /// Upper bound on back-to-back passes inside one [sync] call.
+  static const int _maxSyncPasses = 3;
+
+  /// Consecutive failed WebSocket connection attempts, for exponential backoff.
+  int _reconnectAttempts = 0;
+  Timer? _reconnectTimer;
+  Timer? _retryTimer;
+  final math.Random _jitter = math.Random();
+
+  /// Setting keys that describe THIS device and must never leave it.
+  ///
+  /// The settings table is keyed by `key` alone, so syncing these would make
+  /// every device converge on one identity and one set of credentials:
+  /// `local_device_id` is what both sync paths use to tell "my writes" from a
+  /// peer's, and the `server_sync_*` / `sync_folder_path` values are per-device
+  /// connection config — `server_sync_token` is a secret that has no business
+  /// being uploaded to the very server it authenticates against.
+  static const Set<String> _deviceLocalSettingKeys = {
+    'local_device_id',
+    'server_sync_enabled',
+    'server_sync_url',
+    'server_sync_token',
+    'sync_enabled',
+    'sync_folder_path',
+  };
+
   ServerSyncService({
     required AppDatabase database,
     required SettingsRepository settingsRepository,
@@ -34,6 +71,18 @@ class ServerSyncService {
   Future<String> _getAuthToken() async {
     final setting = await _settingsRepository.getSetting('server_sync_token');
     return setting?.value ?? 'dev_token';
+  }
+
+  /// This device's stable identity, as stored in the settings table and shared
+  /// with the file-based sync path. Sent on push (`X-Device-Id`) and on the
+  /// WebSocket handshake (`?device_id=`) so the server can skip ringing the
+  /// doorbell back at the device that just pushed — without it the server
+  /// broadcasts to everyone including the author, which triggers a pointless
+  /// extra pull on every write.
+  Future<String?> _getLocalDeviceId() async {
+    final setting = await _settingsRepository.getSetting('local_device_id');
+    final value = setting?.value;
+    return (value == null || value.isEmpty) ? null : value;
   }
 
   Future<bool> _isEnabled() async {
@@ -52,16 +101,35 @@ class ServerSyncService {
     }
 
     if (_isSyncingInternal) {
-      debugPrint('[ServerSync] Sync already in progress. Skipping.');
+      // Do not just drop the request. A local write (or a `sync_available`
+      // doorbell) that lands mid-cycle may already be past the point the
+      // running cycle reads; without this flag it would sit unsynced until the
+      // 5-minute fallback timer fired.
+      _syncRequestedWhileBusy = true;
+      debugPrint('[ServerSync] Sync in progress — queued a follow-up cycle.');
       return;
     }
 
     _isSyncingInternal = true;
     try {
-      debugPrint('[ServerSync] Starting sync cycle...');
-      await _pull();
-      await _push();
-      debugPrint('[ServerSync] Sync cycle completed.');
+      // Loop until nothing new arrived during the cycle. Bounded so a change
+      // stream that fires on our own writes cannot spin forever.
+      var passes = 0;
+      do {
+        _syncRequestedWhileBusy = false;
+        passes++;
+        debugPrint('[ServerSync] Starting sync cycle (pass $passes)...');
+        await _pull();
+        await _push();
+        debugPrint('[ServerSync] Sync cycle completed (pass $passes).');
+      } while (_syncRequestedWhileBusy && passes < _maxSyncPasses);
+
+      if (_syncRequestedWhileBusy) {
+        debugPrint(
+          '[ServerSync] Still dirty after $_maxSyncPasses passes — '
+          'leaving the rest to the next trigger.',
+        );
+      }
     } catch (e) {
       debugPrint('[ServerSync] Sync cycle error: $e');
       rethrow;
@@ -88,7 +156,10 @@ class ServerSyncService {
       final baseUrl = await _getBaseUrl();
       // Ensure ws:// or wss:// scheme
       final wsParams = baseUrl.replaceFirst(RegExp(r'^http'), 'ws');
-      final wsUrl = '$wsParams/ws/sync';
+      final deviceId = await _getLocalDeviceId();
+      final wsUrl = deviceId == null
+          ? '$wsParams/ws/sync'
+          : '$wsParams/ws/sync?device_id=${Uri.encodeQueryComponent(deviceId)}';
 
       debugPrint('[WS_CLIENT] Connecting to: $wsUrl');
 
@@ -132,7 +203,15 @@ class ServerSyncService {
           debugPrint('[WS_CLIENT] Message received: $message');
           if (message == 'pong') return; // heartbeat reply — ignore
           if (message == 'sync_available') {
-            sync();
+            // Fire-and-forget by design (the socket callback must not block),
+            // but the error MUST be caught here: an unhandled Future error in a
+            // stream callback escapes to the zone and can kill the isolate.
+            unawaited(
+              sync().catchError(
+                (Object e) =>
+                    debugPrint('[WS_CLIENT] Doorbell sync failed: $e'),
+              ),
+            );
           }
         },
         onDone: () {
@@ -153,6 +232,17 @@ class ServerSyncService {
       );
 
       debugPrint('[WS_CLIENT] Stream listener registered, connection active');
+      _reconnectAttempts = 0;
+
+      // The socket was down for an unknown span, and the server only rings the
+      // doorbell for changes made WHILE a client is listening. Without this
+      // catch-up pull, anything that changed during the outage waited for the
+      // 5-minute fallback timer.
+      unawaited(
+        sync().catchError(
+          (Object e) => debugPrint('[WS_CLIENT] Reconnect sync failed: $e'),
+        ),
+      );
     } catch (e) {
       _pingTimer?.cancel();
       _pingTimer = null;
@@ -164,10 +254,31 @@ class ServerSyncService {
   }
 
   /// Schedules a single reconnect attempt, ignoring duplicate calls.
+  ///
+  /// Backs off exponentially (1s, 2s, 4s … capped at 60s) with up to 30%
+  /// jitter. The previous fixed 10s retry hammered an unreachable server
+  /// forever at a constant rate, and every client reconnected in lockstep
+  /// after a server restart. The delay runs on a cancellable [Timer] so
+  /// [dispose] can actually stop it — `Future.delayed` could not be cancelled.
   void _scheduleReconnect() {
     if (_isDisposed || _reconnectScheduled) return;
     _reconnectScheduled = true;
-    Future.delayed(const Duration(seconds: 10), () {
+
+    final exponent = _reconnectAttempts.clamp(0, 6); // 2^6 = 64 -> capped
+    final baseSeconds = math.min(60, 1 << exponent);
+    final delay = Duration(
+      milliseconds:
+          (baseSeconds * 1000) + _jitter.nextInt(baseSeconds * 300 + 1),
+    );
+    _reconnectAttempts++;
+
+    debugPrint(
+      '[WS_CLIENT] Reconnect attempt $_reconnectAttempts in '
+      '${delay.inMilliseconds}ms',
+    );
+
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(delay, () {
       _reconnectScheduled = false;
       _connectWebSocket();
     });
@@ -177,21 +288,45 @@ class ServerSyncService {
   Timer? _periodicSyncTimer;
   StreamSubscription? _dbSubscription;
 
-  void dispose() {
-    _isDisposed = true;
+  /// Releases every background resource (socket, timers, DB listener) but
+  /// leaves the instance usable.
+  ///
+  /// This is what callers want when server sync is switched off or the server
+  /// URL changes: [dispose] used to latch `_isDisposed` permanently, which
+  /// bricked the GetIt singleton — re-enabling sync afterwards could never
+  /// re-establish the socket or the DB listener.
+  void stop() {
     _autoSyncInitialized = false;
     _reconnectScheduled = false;
     _isConnecting = false;
+    _reconnectAttempts = 0;
+
     _pingTimer?.cancel();
     _pingTimer = null;
-    // Cancel subscription first to prevent onDone from firing during dispose
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _retryTimer?.cancel();
+    _retryTimer = null;
+
+    // Cancel subscription first to prevent onDone from firing during teardown
     _wsSubscription?.cancel();
     _wsSubscription = null;
     _channel?.sink.close();
     _channel = null;
+
     _dbSubscription?.cancel();
+    _dbSubscription = null;
     _debounceTimer?.cancel();
+    _debounceTimer = null;
     _periodicSyncTimer?.cancel();
+    _periodicSyncTimer = null;
+  }
+
+  /// Permanent teardown. After this the instance stays inert — use [stop] if
+  /// the service must come back to life later.
+  void dispose() {
+    _isDisposed = true;
+    stop();
   }
 
   Future<bool> testConnection({String? url, String? token}) async {
@@ -235,8 +370,11 @@ class ServerSyncService {
 
     // Listen to all table updates
     _dbSubscription = _database.tableUpdates().listen((updates) {
-      // 1. Loop Protection: If we are currently applying a Pull, ignore updates
-      if (_isSyncingInternal) return;
+      // 1. Loop protection: rows we just wrote during a pull echo back through
+      // this same stream. Ignore only THOSE — the old check ignored everything
+      // for the whole sync cycle, so a user edit made while a sync was running
+      // was dropped and waited up to 5 minutes for the fallback timer.
+      if (_isApplyingRemoteChanges) return;
 
       // 2. Filter: Only trigger for data tables (ignore logs/metadata if any)
       final relevantTables = {
@@ -276,11 +414,18 @@ class ServerSyncService {
             );
             // Simple retry mechanism: try again in 30 seconds if it failed
             // We check _isEnabled again just in case the user disabled it in the meantime
-            if (await _isEnabled()) {
-              Timer(
+            if (await _isEnabled() && !_isDisposed) {
+              // Held in a field so stop()/dispose() can cancel it — the bare
+              // Timer here used to outlive teardown and fire a sync against a
+              // service the app had already torn down.
+              _retryTimer?.cancel();
+              _retryTimer = Timer(
                 const Duration(seconds: 30),
-                () => sync().catchError(
-                  (e) => debugPrint('[ServerSync] Retry failed: $e'),
+                () => unawaited(
+                  sync().catchError(
+                    (Object e) =>
+                        debugPrint('[ServerSync] Retry failed: $e'),
+                  ),
                 ),
               );
             }
@@ -454,9 +599,18 @@ class ServerSyncService {
     final lastPushKey = 'server_last_push_timestamp';
     final lastPush = prefs.getInt(lastPushKey) ?? 0;
 
-    debugPrint('[ServerSync] Starting batched push from $lastPush...');
+    // Freeze the set of rows this push is responsible for. Every table query
+    // is bounded by `modifiedAt <= pushCutoff`, so a local edit made WHILE the
+    // push is running lands outside the window instead of shifting the offset
+    // pagination underneath us — and is picked up whole by the next push.
+    final pushCutoff = DateTime.now().millisecondsSinceEpoch;
 
-    // We keep track of the highest timestamp acknowledged by the server
+    debugPrint(
+      '[ServerSync] Starting batched push from $lastPush up to $pushCutoff...',
+    );
+
+    // Highest LOCAL modifiedAt the server has acknowledged so far. Used only
+    // for logging — the watermark itself only moves on a fully successful push.
     int maxAckTimestamp = lastPush;
 
     try {
@@ -465,6 +619,8 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.languages)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         (l) => {
           'languageCode': l.languageCode,
@@ -480,6 +636,8 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.currencies)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         (c) => {
           'code': c.code,
@@ -497,6 +655,9 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.settings)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..where((r) => r.key.isNotIn(_deviceLocalSettingKeys.toList()))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         _settingToJson,
         (t) => maxAckTimestamp = t > maxAckTimestamp ? t : maxAckTimestamp,
@@ -507,6 +668,8 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.apiSettingsTable)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         _apiSettingsToJson,
         (t) => maxAckTimestamp = t > maxAckTimestamp ? t : maxAckTimestamp,
@@ -517,6 +680,8 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.styles)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         _styleToJson,
         (t) => maxAckTimestamp = t > maxAckTimestamp ? t : maxAckTimestamp,
@@ -527,6 +692,8 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.customThemes)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         _customThemeToJson,
         (t) => maxAckTimestamp = t > maxAckTimestamp ? t : maxAckTimestamp,
@@ -537,6 +704,8 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.accountTypes)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         _accountTypeToJson,
         (t) => maxAckTimestamp = t > maxAckTimestamp ? t : maxAckTimestamp,
@@ -547,6 +716,8 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.currencyDesignations)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         _currencyDesignationToJson,
         (t) => maxAckTimestamp = t > maxAckTimestamp ? t : maxAckTimestamp,
@@ -557,6 +728,8 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.categories)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         _categoryToJson,
         (t) => maxAckTimestamp = t > maxAckTimestamp ? t : maxAckTimestamp,
@@ -567,6 +740,8 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.exchangeRates)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         _exchangeRateToJson,
         (t) => maxAckTimestamp = t > maxAckTimestamp ? t : maxAckTimestamp,
@@ -577,6 +752,8 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.inflationRates)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         _inflationRateToJson,
         (t) => maxAckTimestamp = t > maxAckTimestamp ? t : maxAckTimestamp,
@@ -587,6 +764,8 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.customDataSources)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         _customDataSourceToJson,
         (t) => maxAckTimestamp = t > maxAckTimestamp ? t : maxAckTimestamp,
@@ -597,6 +776,8 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.smsPresets)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         _smsPresetToJson,
         (t) => maxAckTimestamp = t > maxAckTimestamp ? t : maxAckTimestamp,
@@ -608,6 +789,8 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.accounts)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         _accountToJson,
         (t) => maxAckTimestamp = t > maxAckTimestamp ? t : maxAckTimestamp,
@@ -618,6 +801,8 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.assetEntries)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         _assetEntryToJson,
         (t) => maxAckTimestamp = t > maxAckTimestamp ? t : maxAckTimestamp,
@@ -628,27 +813,37 @@ class ServerSyncService {
         lastPush,
         (t, lp, lim, off) => _database.select(_database.transactions)
           ..where((r) => r.modifiedAt.isBiggerThanValue(lp))
+          ..where((r) => r.modifiedAt.isSmallerOrEqualValue(pushCutoff))
+          ..orderBy([(r) => drift_db.OrderingTerm(expression: r.modifiedAt)])
           ..limit(lim, offset: off),
         _transactionToJson,
         (t) => maxAckTimestamp = t > maxAckTimestamp ? t : maxAckTimestamp,
       );
 
+      // Every table has now been pushed up to the SAME cutoff, so the cutoff
+      // itself is the watermark. Using the max acked timestamp instead was
+      // unsafe across tables: a late row written into an already-pushed table
+      // while a later table was still uploading would end up below a watermark
+      // advanced by that later table, and would never be pushed again.
       debugPrint(
-        '[ServerSync] Batched push complete. Final high-water timestamp: $maxAckTimestamp',
+        '[ServerSync] Batched push complete. Watermark -> $pushCutoff '
+        '(highest acked row: $maxAckTimestamp)',
       );
-      await prefs.setInt(lastPushKey, maxAckTimestamp);
+      await prefs.setInt(lastPushKey, pushCutoff);
       totalPushStopwatch.stop();
       debugPrint(
         '[PERF] Total Push: ${totalPushStopwatch.elapsedMilliseconds}ms',
       );
     } catch (e) {
-      debugPrint('[ServerSync] Error during batched push: $e');
-      if (maxAckTimestamp > lastPush) {
-        await prefs.setInt(lastPushKey, maxAckTimestamp);
-        debugPrint(
-          '[ServerSync] Partial push success up to timestamp: $maxAckTimestamp',
-        );
-      }
+      // Deliberately do NOT advance the watermark on a partial push. Tables are
+      // pushed sequentially and we abort on the first failure, so anything after
+      // the failing table is still unsent; moving the watermark would strand it.
+      // Re-pushing already-accepted rows is harmless — the server upsert is
+      // last-write-wins on modifiedAt, so a retry is idempotent.
+      debugPrint(
+        '[ServerSync] Error during batched push (watermark left at $lastPush, '
+        'highest acked row was $maxAckTimestamp): $e',
+      );
       rethrow;
     }
   }
@@ -659,7 +854,7 @@ class ServerSyncService {
     drift_db.Selectable<T> Function(String name, int lp, int limit, int offset)
     queryBuilder,
     Map<String, dynamic> Function(T record) toJson,
-    void Function(int serverTimestamp) onAck,
+    void Function(int ackedLocalTimestamp) onAck,
   ) async {
     const int batchSize = 20000;
     int offset = 0;
@@ -667,6 +862,7 @@ class ServerSyncService {
     final baseUrl = await _getBaseUrl();
     final url = Uri.parse('$baseUrl/api/sync/push');
     final authToken = await _getAuthToken();
+    final deviceId = await _getLocalDeviceId();
 
     while (true) {
       final batchStopwatch = Stopwatch()..start();
@@ -697,6 +893,7 @@ class ServerSyncService {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $authToken',
+              if (deviceId != null) 'X-Device-Id': deviceId,
             },
             body: jsonEncode(payload),
           )
@@ -704,9 +901,18 @@ class ServerSyncService {
       uploadStopwatch.stop();
 
       if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
-        final serverTimestamp = (body['timestamp'] as num).toInt();
-        onAck(serverTimestamp);
+        // The push watermark is compared against LOCAL `modified_at` values on
+        // the next run, so it must itself be a local timestamp. The server
+        // replies with its own `DateTime.now()`; using that meant a server
+        // clock even slightly ahead of the device pushed the watermark past
+        // rows that had not been sent yet, and those edits were never pushed
+        // again. Advance by the newest row we actually got an ack for instead.
+        int batchMaxLocal = 0;
+        for (final row in payload[tableName]!) {
+          final ts = row['modifiedAt'];
+          if (ts is int && ts > batchMaxLocal) batchMaxLocal = ts;
+        }
+        if (batchMaxLocal > 0) onAck(batchMaxLocal);
         offset += records.length;
 
         debugPrint(
@@ -723,165 +929,66 @@ class ServerSyncService {
     }
   }
 
+  /// Tables applied on pull, PARENTS FIRST — accounts before asset_entries and
+  /// transactions, currencies/styles/categories before accounts. Order matters
+  /// even with FK checks off, because the last writer of a row wins and a child
+  /// written before its parent would otherwise reference a stale parent row.
+  late final List<
+    ({String key, Future<void> Function(Map<String, dynamic>) upsert})
+  >
+  _pullTableOrder = [
+    (key: 'languages', upsert: _upsertLanguage),
+    (key: 'currencies', upsert: _upsertCurrency),
+    (key: 'settings', upsert: _upsertSetting),
+    (key: 'api_settings', upsert: _upsertApiSetting),
+    (key: 'styles', upsert: _upsertStyle),
+    (key: 'custom_themes', upsert: _upsertCustomTheme),
+    (key: 'account_types', upsert: _upsertAccountType),
+    (key: 'currency_designations', upsert: _upsertCurrencyDesignation),
+    (key: 'categories', upsert: _upsertCategory),
+    (key: 'exchange_rates', upsert: _upsertExchangeRate),
+    (key: 'inflation_rates', upsert: _upsertInflationRate),
+    (key: 'custom_data_sources', upsert: _upsertCustomDataSource),
+    (key: 'sms_presets', upsert: _upsertSmsPreset),
+    // Dependent tables
+    (key: 'accounts', upsert: _upsertAccount),
+    (key: 'asset_entries', upsert: _upsertAssetEntry),
+    (key: 'transactions', upsert: _upsertTransaction),
+  ];
+
+  /// Applies one pulled batch as a SINGLE all-or-nothing transaction.
+  ///
+  /// This used to open one transaction per table. Because the caller advances
+  /// the pull watermark right after this returns, a crash or a failed upsert
+  /// between two tables left the earlier tables committed and the later ones
+  /// lost — and the watermark either moved past them anyway or replayed rows
+  /// that were already in. One transaction means a failed batch changes
+  /// nothing and is simply re-pulled from the same watermark.
   Future<void> _applyChanges(Map<String, dynamic> changes) async {
-    // Temporarily disable FK checks
+    // FK enforcement is toggled OUTSIDE the transaction on purpose: SQLite
+    // silently ignores `PRAGMA foreign_keys` while a transaction is open.
+    // It has to be off because a batch can legitimately carry a child row
+    // whose parent arrives in a later batch.
     await _database.customStatement('PRAGMA foreign_keys = OFF');
+    _isApplyingRemoteChanges = true;
     try {
       debugPrint('[ServerSync] Entering database transaction for pull...');
-      if (changes.containsKey('languages')) {
-        await _database.transaction(() async {
-          final list = changes['languages'] as List;
-          debugPrint('[ServerSync] Applying ${list.length} languages...');
+      await _database.transaction(() async {
+        for (final table in _pullTableOrder) {
+          final list = changes[table.key] as List?;
+          if (list == null || list.isEmpty) continue;
+          debugPrint('[ServerSync] Applying ${list.length} ${table.key}...');
           for (final row in list) {
-            await _upsertLanguage(row as Map<String, dynamic>);
+            await table.upsert(row as Map<String, dynamic>);
           }
-        });
-      }
-      if (changes.containsKey('currencies')) {
-        await _database.transaction(() async {
-          final list = changes['currencies'] as List;
-          debugPrint('[ServerSync] Applying ${list.length} currencies...');
-          for (final row in list) {
-            await _upsertCurrency(row as Map<String, dynamic>);
-          }
-        });
-      }
-      if (changes.containsKey('settings')) {
-        await _database.transaction(() async {
-          final list = changes['settings'] as List;
-          debugPrint('[ServerSync] Applying ${list.length} settings...');
-          for (final row in list) {
-            await _upsertSetting(row as Map<String, dynamic>);
-          }
-        });
-      }
-      if (changes.containsKey('api_settings')) {
-        await _database.transaction(() async {
-          final list = changes['api_settings'] as List;
-          debugPrint('[ServerSync] Applying ${list.length} api_settings...');
-          for (final row in list) {
-            await _upsertApiSetting(row as Map<String, dynamic>);
-          }
-        });
-      }
-      if (changes.containsKey('styles')) {
-        await _database.transaction(() async {
-          final list = changes['styles'] as List;
-          debugPrint('[ServerSync] Applying ${list.length} styles...');
-          for (final row in list) {
-            await _upsertStyle(row as Map<String, dynamic>);
-          }
-        });
-      }
-      if (changes.containsKey('custom_themes')) {
-        await _database.transaction(() async {
-          final list = changes['custom_themes'] as List;
-          debugPrint('[ServerSync] Applying ${list.length} custom_themes...');
-          for (final row in list) {
-            await _upsertCustomTheme(row as Map<String, dynamic>);
-          }
-        });
-      }
-      if (changes.containsKey('account_types')) {
-        await _database.transaction(() async {
-          final list = changes['account_types'] as List;
-          debugPrint('[ServerSync] Applying ${list.length} account_types...');
-          for (final row in list) {
-            await _upsertAccountType(row as Map<String, dynamic>);
-          }
-        });
-      }
-      if (changes.containsKey('currency_designations')) {
-        await _database.transaction(() async {
-          final list = changes['currency_designations'] as List;
-          debugPrint(
-            '[ServerSync] Applying ${list.length} currency_designations...',
-          );
-          for (final row in list) {
-            await _upsertCurrencyDesignation(row as Map<String, dynamic>);
-          }
-        });
-      }
-      if (changes.containsKey('categories')) {
-        await _database.transaction(() async {
-          final list = changes['categories'] as List;
-          debugPrint('[ServerSync] Applying ${list.length} categories...');
-          for (final row in list) {
-            await _upsertCategory(row as Map<String, dynamic>);
-          }
-        });
-      }
-      if (changes.containsKey('exchange_rates')) {
-        await _database.transaction(() async {
-          final list = changes['exchange_rates'] as List;
-          debugPrint('[ServerSync] Applying ${list.length} exchange_rates...');
-          for (final row in list) {
-            await _upsertExchangeRate(row as Map<String, dynamic>);
-          }
-        });
-      }
-      if (changes.containsKey('inflation_rates')) {
-        await _database.transaction(() async {
-          final list = changes['inflation_rates'] as List;
-          debugPrint('[ServerSync] Applying ${list.length} inflation_rates...');
-          for (final row in list) {
-            await _upsertInflationRate(row as Map<String, dynamic>);
-          }
-        });
-      }
-      if (changes.containsKey('custom_data_sources')) {
-        await _database.transaction(() async {
-          final list = changes['custom_data_sources'] as List;
-          debugPrint(
-            '[ServerSync] Applying ${list.length} custom_data_sources...',
-          );
-          for (final row in list) {
-            await _upsertCustomDataSource(row as Map<String, dynamic>);
-          }
-        });
-      }
-      if (changes.containsKey('sms_presets')) {
-        await _database.transaction(() async {
-          final list = changes['sms_presets'] as List;
-          debugPrint('[ServerSync] Applying ${list.length} sms_presets...');
-          for (final row in list) {
-            await _upsertSmsPreset(row as Map<String, dynamic>);
-          }
-        });
-      }
-      // Dependent Tables
-      if (changes.containsKey('accounts')) {
-        await _database.transaction(() async {
-          final list = changes['accounts'] as List;
-          debugPrint('[ServerSync] Applying ${list.length} accounts...');
-          for (final row in list) {
-            await _upsertAccount(row as Map<String, dynamic>);
-          }
-        });
-      }
-      if (changes.containsKey('asset_entries')) {
-        await _database.transaction(() async {
-          final list = changes['asset_entries'] as List;
-          debugPrint('[ServerSync] Applying ${list.length} asset_entries...');
-          debugPrint('[DIAG][ServerSync] PULL: received ${list.length} asset_entries from server. IDs: ${list.take(5).map((r) => (r as Map)['id']).join(', ')}${list.length > 5 ? '...' : ''}');
-          for (final row in list) {
-            await _upsertAssetEntry(row as Map<String, dynamic>);
-          }
-        });
-      } else {
-        debugPrint('[DIAG][ServerSync] PULL: no asset_entries in server response — either no new data or server has nothing newer than lastSync');
-      }
-      if (changes.containsKey('transactions')) {
-        await _database.transaction(() async {
-          final list = changes['transactions'] as List;
-          debugPrint('[ServerSync] Applying ${list.length} transactions...');
-          for (final row in list) {
-            await _upsertTransaction(row as Map<String, dynamic>);
-          }
-        });
-      }
+        }
+      });
       debugPrint('[ServerSync] Pull committed successfully.');
     } finally {
+      // Drift dispatches the table-update events on commit, so by the time the
+      // transaction future resolves the echo has already been delivered and
+      // classified. Safe to clear here.
+      _isApplyingRemoteChanges = false;
       await _database.customStatement('PRAGMA foreign_keys = ON');
     }
   }
@@ -937,6 +1044,10 @@ class ServerSyncService {
     'name': e.name,
     'description': e.description,
     'balance': _round(e.balance),
+    // Exact minor units for fiat accounts. NULL for crypto/commodity, where the
+    // double above is the source of truth. Never _round()ed and never coerced
+    // to 0 — a 0 here would mean "this account holds nothing".
+    'balanceMinor': e.balanceMinor,
     'currencyCode': e.currencyCode,
     'currencyDesignationId': e.currencyDesignationId,
     'styleId': e.styleId,
@@ -955,6 +1066,8 @@ class ServerSyncService {
     'id': entry.id,
     'description': entry.description,
     'amount': _round(entry.amount),
+    // See _accountToJson: exact minor units for fiat, NULL for crypto.
+    'amountMinor': entry.amountMinor,
     'date': entry.date.toIso8601String(),
     'accountId': entry.accountId,
     'categoryId': entry.categoryId,
@@ -962,6 +1075,7 @@ class ServerSyncService {
     'exchangeRate': entry.exchangeRate,
     'exchangeRatePreset': entry.exchangeRatePreset,
     'fee': _round(entry.fee),
+    'feeMinor': entry.feeMinor,
     'linkedTransactionId': entry.linkedTransactionId,
     'modifiedAt': entry.modifiedAt,
     'deviceId': entry.deviceId,
@@ -1228,12 +1342,13 @@ class ServerSyncService {
             : '';
 
     await _database.customInsert(
-      '''INSERT INTO accounts (id, name, description, balance, currency_code, currency_designation_id, style_id, account_type_id, creation_date, country, asset_id, asset_quantity, fee_structure, modified_at, device_id, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      '''INSERT INTO accounts (id, name, description, balance, balance_minor, currency_code, currency_designation_id, style_id, account_type_id, creation_date, country, asset_id, asset_quantity, fee_structure, modified_at, device_id, is_deleted)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
         description = EXCLUDED.description,
         balance = EXCLUDED.balance,
+        balance_minor = EXCLUDED.balance_minor,
         currency_code = EXCLUDED.currency_code,
         currency_designation_id = EXCLUDED.currency_designation_id,
         style_id = EXCLUDED.style_id,
@@ -1252,6 +1367,9 @@ class ServerSyncService {
         drift_db.Variable.withString(json['name'] as String? ?? 'Untitled Account'),
         drift_db.Variable(json['description'] as String?),
         drift_db.Variable.withReal(_round((json['balance'] as num?)?.toDouble() ?? 0.0)),
+        // Nullable on purpose: NULL means "not a fiat account, use the double".
+        // A peer or server that predates this column simply sends nothing.
+        drift_db.Variable((json['balanceMinor'] as num?)?.toInt()),
         drift_db.Variable.withString(resolvedCurrencyCode),
         drift_db.Variable.withString(resolvedCurrencyDesignationId),
         drift_db.Variable(json['styleId'] as String?),
@@ -1276,11 +1394,12 @@ class ServerSyncService {
         (currencyCode != null && currencyCode.isNotEmpty) ? currencyCode : 'USD';
 
     await _database.customInsert(
-      '''INSERT INTO transactions (id, description, amount, date, account_id, category_id, currency_code, exchange_rate, exchange_rate_preset, fee, linked_transaction_id, modified_at, device_id, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      '''INSERT INTO transactions (id, description, amount, amount_minor, date, account_id, category_id, currency_code, exchange_rate, exchange_rate_preset, fee, fee_minor, linked_transaction_id, modified_at, device_id, is_deleted)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (id) DO UPDATE SET
         description = EXCLUDED.description,
         amount = EXCLUDED.amount,
+        amount_minor = EXCLUDED.amount_minor,
         date = EXCLUDED.date,
         account_id = EXCLUDED.account_id,
         category_id = EXCLUDED.category_id,
@@ -1288,6 +1407,7 @@ class ServerSyncService {
         exchange_rate = EXCLUDED.exchange_rate,
         exchange_rate_preset = EXCLUDED.exchange_rate_preset,
         fee = EXCLUDED.fee,
+        fee_minor = EXCLUDED.fee_minor,
         linked_transaction_id = EXCLUDED.linked_transaction_id,
         modified_at = EXCLUDED.modified_at,
         device_id = EXCLUDED.device_id,
@@ -1297,6 +1417,7 @@ class ServerSyncService {
         drift_db.Variable.withString(json['id'] as String? ?? ''),
         drift_db.Variable.withString(json['description'] as String? ?? ''),
         drift_db.Variable.withReal(_round((json['amount'] as num?)?.toDouble() ?? 0.0)),
+        drift_db.Variable((json['amountMinor'] as num?)?.toInt()),
         drift_db.Variable.withDateTime(
           DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
         ),
@@ -1306,6 +1427,7 @@ class ServerSyncService {
         drift_db.Variable.withReal((json['exchangeRate'] as num?)?.toDouble() ?? 1.0),
         drift_db.Variable(json['exchangeRatePreset'] as int?),
         drift_db.Variable.withReal(_round((json['fee'] as num?)?.toDouble() ?? 0.0)),
+        drift_db.Variable((json['feeMinor'] as num?)?.toInt()),
         drift_db.Variable(json['linkedTransactionId'] as String?),
         drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
         drift_db.Variable(json['deviceId'] as String?),
@@ -1464,6 +1586,16 @@ class ServerSyncService {
   }
 
   Future<void> _upsertSetting(Map<String, dynamic> json) async {
+    final key = json['key'] as String? ?? '';
+    // Defence in depth: even if a peer (or an older build) uploaded its own
+    // device-local settings, never let them overwrite ours. Accepting
+    // `local_device_id` here would give both devices the same identity and
+    // break the "skip my own packets" check in the file-based sync.
+    if (_deviceLocalSettingKeys.contains(key)) {
+      debugPrint('[ServerSync] Ignoring device-local setting from peer: $key');
+      return;
+    }
+
     await _database.customInsert(
       '''INSERT INTO settings (key, value, device, modified_at, device_id)
       VALUES (?, ?, ?, ?, ?)
