@@ -12,6 +12,26 @@ class _MockTxSession extends Mock implements TxSession {}
 
 class _MockResult extends Mock implements Result {}
 
+/// A pull page. Only `map` is exercised: `_mapResult` walks the rows and asks
+/// each one for its column map.
+class _FakeResult extends Fake implements Result {
+  _FakeResult(this._rows);
+
+  final List<ResultRow> _rows;
+
+  @override
+  Iterable<T> map<T>(T Function(ResultRow) toElement) => _rows.map(toElement);
+}
+
+class _FakeRow extends Fake implements ResultRow {
+  _FakeRow(this._columns);
+
+  final Map<String, dynamic> _columns;
+
+  @override
+  Map<String, dynamic> toColumnMap() => Map<String, dynamic>.from(_columns);
+}
+
 /// Records every `execute` the repository issues, in order, so a test can
 /// assert on the parameters that reach PostgreSQL.
 ///
@@ -37,6 +57,10 @@ class _ExecuteRecorder {
       return _MockResult();
     });
   }
+
+  /// Every recorded statement except the advisory lock every batch opens with.
+  List<Map<String, dynamic>> get writes =>
+      calls.where((call) => !call.containsKey('lockId')).toList();
 
   Map<String, dynamic>? withKey(String key) {
     for (final call in calls) {
@@ -162,7 +186,20 @@ void main() {
     test('ignores tables it does not know', () async {
       await repository.upsertBatch({'not_a_table': [<String, dynamic>{}]});
 
-      expect(recorder.calls, isEmpty);
+      expect(recorder.writes, isEmpty);
+    });
+
+    test('takes the push lock before writing anything', () async {
+      // server_seq is drawn when a row is written, not when the transaction
+      // commits, so two overlapping pushes can commit in the opposite order to
+      // the numbers they took. A pull in between then moves its cursor past the
+      // higher number and never sees the lower one. Serialising the writers is
+      // what makes sequence order and commit order the same order.
+      await repository.upsertBatch({'accounts': [accountRow()]});
+
+      expect(recorder.calls.first.containsKey('lockId'), isTrue,
+          reason: 'the lock must be held before the first write, not after');
+      expect(recorder.writes, isNotEmpty);
     });
   });
 
@@ -219,13 +256,13 @@ void main() {
         'transactions': [txRow(date: 'not-a-date')],
       });
 
-      expect(recorder.calls, isEmpty);
+      expect(recorder.writes, isEmpty);
     });
 
     test('a transaction with a null date is not written', () async {
       await repository.upsertBatch({'transactions': [txRow(date: null)]});
 
-      expect(recorder.calls, isEmpty);
+      expect(recorder.writes, isEmpty);
     });
 
     test('epoch milliseconds are accepted as a date', () async {
@@ -268,6 +305,104 @@ void main() {
       recorder.calls.clear();
       await repository.upsertBatch({'transactions': [txRow(isDeleted: 0)]});
       expect(recorder.withKey('amountMinor')!['isDeleted'], isFalse);
+    });
+  });
+
+  group('pull cursor', () {
+    /// Queues one result per table query, in the order getChanges issues them
+    /// (map order of its table config), and answers an empty page for the rest.
+    void answerPages(List<List<Map<String, dynamic>>> pages) {
+      var next = 0;
+      when(
+        () => pool.execute(
+          any<Object>(),
+          parameters: any(named: 'parameters'),
+        ),
+      ).thenAnswer((_) async {
+        final rows = next < pages.length ? pages[next] : const [];
+        next++;
+        return _FakeResult(
+          [for (final r in rows) _FakeRow(r)],
+        );
+      });
+    }
+
+    Map<String, dynamic> row(int seq, String id) => {
+          'id': id,
+          'modified_at': 1,
+          'server_seq': seq,
+        };
+
+    test('the cursor is the highest sequence handed out', () async {
+      answerPages([
+        [row(7, 'c1'), row(9, 'c2')],
+      ]);
+
+      final result = await repository.getChanges(0, limit: 100);
+
+      expect(result.lastTimestamp, 9);
+      expect(result.hasMore, isFalse);
+    });
+
+    test('the cursor is a sequence, so a low modified_at cannot hold it back',
+        () async {
+      // The bug this replaced: a device pushing with a clock behind its peers
+      // wrote rows below a cursor everyone had already passed, and no peer ever
+      // saw them again. Sequence order is assigned by the server on write, so a
+      // stale clock cannot place a row behind the cursor.
+      answerPages([
+        [
+          {'id': 'late', 'modified_at': 1, 'server_seq': 42},
+        ],
+      ]);
+
+      final result = await repository.getChanges(41, limit: 100);
+
+      expect(result.lastTimestamp, 42);
+      expect(result.changes['categories']!.single['id'], 'late');
+    });
+
+    test('a truncated table pins the cursor for every table', () async {
+      // categories fills its limit at seq 3 while transactions has already
+      // returned seq 900. Advancing to 900 would skip everything categories
+      // still owes. The untruncated table just re-sends a few rows next page.
+      answerPages([
+        [row(1, 'c1'), row(2, 'c2'), row(3, 'c3')],
+        [row(900, 't1')],
+      ]);
+
+      final result = await repository.getChanges(0, limit: 3);
+
+      expect(result.hasMore, isTrue);
+      expect(result.lastTimestamp, 3);
+    });
+
+    test('server_seq is bookkeeping and never reaches the client', () async {
+      answerPages([
+        [row(7, 'c1')],
+      ]);
+
+      final result = await repository.getChanges(0, limit: 100);
+
+      expect(result.changes['categories']!.single.containsKey('serverSeq'),
+          isFalse);
+      expect(result.changes['categories']!.single.containsKey('server_seq'),
+          isFalse);
+    });
+
+    test('the requested cursor and limit are what reach the query', () async {
+      answerPages([]);
+
+      await repository.getChanges(55, limit: 12);
+
+      final captured = verify(
+        () => pool.execute(
+          any<Object>(),
+          parameters: captureAny(named: 'parameters'),
+        ),
+      ).captured.first as Map<String, dynamic>;
+      expect(captured['lastSync'], 55);
+      expect(captured['limit'], 12);
     });
   });
 }

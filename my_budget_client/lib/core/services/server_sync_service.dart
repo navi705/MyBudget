@@ -46,6 +46,22 @@ class SyncAuthException implements Exception {
   String toString() => 'SyncAuthException(${status.name})';
 }
 
+/// SharedPreferences key holding the pull cursor for the HTTP sync server.
+///
+/// Deliberately a different key from the `server_last_sync_timestamp` it
+/// replaces. That one held a millisecond timestamp; the server now pages on a
+/// sequence number it assigns itself, because a cursor made of client clocks
+/// permanently skipped any row pushed with a clock below a value its peers had
+/// already passed. Feeding the old epoch value (a number in the trillions) in
+/// as a sequence would ask for everything after row 1.7 quadrillion and pull
+/// nothing, ever. A fresh key starts at 0, which costs one full re-pull on the
+/// first sync after the upgrade; every row applied on the way in is an
+/// idempotent last-write-wins upsert.
+const String serverPullCursorKey = 'server_pull_cursor';
+
+/// The pre-sequence pull cursor, removed on first use of [serverPullCursorKey].
+const String _legacyServerPullCursorKey = 'server_last_sync_timestamp';
+
 class ServerSyncService {
   final AppDatabase _database;
   final SettingsRepository _settingsRepository;
@@ -97,8 +113,18 @@ class ServerSyncService {
   ServerSyncService({
     required AppDatabase database,
     required SettingsRepository settingsRepository,
+    http.Client? httpClient,
   }) : _database = database,
-       _settingsRepository = settingsRepository;
+       _settingsRepository = settingsRepository,
+       _http = httpClient ?? http.Client();
+
+  /// The three calls this service makes went through the `http.get`/`http.post`
+  /// top-level functions, which nothing can stand in for. Pull and push - the
+  /// two paths that decide what a device keeps and what it sends - were
+  /// therefore untestable without a live server on localhost. Injecting the
+  /// client changes nothing in production (the default is a plain
+  /// [http.Client]) and makes both paths reachable from a test.
+  final http.Client _http;
 
   Future<String> _getBaseUrl() async {
     final setting = await _settingsRepository.getSetting('server_sync_url');
@@ -405,7 +431,7 @@ class ServerSyncService {
       // Use the pull endpoint with limit=1 to test connectivity and authentication
       final uri = Uri.parse('$baseUrl/api/sync/pull?limit=1&last_sync=0');
 
-      final response = await http
+      final response = await _http
           .get(uri, headers: {'Authorization': 'Bearer $authToken'})
           .timeout(const Duration(seconds: 10)); // Short timeout for testing
 
@@ -584,7 +610,14 @@ class ServerSyncService {
 
   Future<void> _pull() async {
     final prefs = await SharedPreferences.getInstance();
-    final lastSyncKey = 'server_last_sync_timestamp';
+    const lastSyncKey = serverPullCursorKey;
+    if (prefs.containsKey(_legacyServerPullCursorKey)) {
+      await prefs.remove(_legacyServerPullCursorKey);
+      debugPrint(
+        '[ServerSync] Dropped the pre-sequence pull cursor; this sync pulls '
+        'the whole budget once and resumes incrementally afterwards.',
+      );
+    }
 
     final baseUrl = await _getBaseUrl();
     final authToken = await _getAuthToken();
@@ -617,7 +650,7 @@ class ServerSyncService {
       debugPrint('[ServerSync] Pulling batch since $lastSync (iteration $iteration)...');
 
       final fetchStopwatch = Stopwatch()..start();
-      final response = await http
+      final response = await _http
           .get(url, headers: {'Authorization': 'Bearer $authToken'})
           .timeout(const Duration(seconds: 180));
       fetchStopwatch.stop();
@@ -657,12 +690,13 @@ class ServerSyncService {
           '[PERF] Pull Batch: Fetch ${fetchStopwatch.elapsedMilliseconds}ms, DB Apply ${applyStopwatch.elapsedMilliseconds}ms, Total ${batchStopwatch.elapsedMilliseconds}ms',
         );
 
-        // Primary infinite-loop guard: stop if timestamp did not advance.
-        // This catches the case where all rows share the same modifiedAt and
-        // the next query with modified_at > serverTimestamp returns nothing.
+        // Primary infinite-loop guard: stop if the cursor did not advance.
+        // With a server-assigned sequence it should always advance while rows
+        // are coming back, so a stall here means the server sent a page it
+        // will send again — looping on it would spin forever.
         if (serverTimestamp <= lastSync) {
           debugPrint(
-            '[ServerSync] WARNING: Server timestamp did not advance. Stopping pull loop.',
+            '[ServerSync] WARNING: Server cursor did not advance. Stopping pull loop.',
           );
           break;
         }
@@ -979,7 +1013,7 @@ class ServerSyncService {
       jsonStopwatch.stop();
 
       final uploadStopwatch = Stopwatch()..start();
-      final response = await http
+      final response = await _http
           .post(
             url,
             headers: {

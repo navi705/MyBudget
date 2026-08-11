@@ -6,6 +6,10 @@ class SyncRepository {
 
   SyncRepository(this._dbClient);
 
+  /// Arbitrary constant identifying the push lock. Any value works as long as
+  /// every push uses the same one and nothing else in the database picks it.
+  static const int _pushLockId = 795118301;
+
   Future<void> upsertBatch(Map<String, dynamic> data) async {
     final tablesList = [
       'settings',
@@ -40,6 +44,18 @@ class SyncRepository {
     // transaction, so a mid-batch failure left rows partially applied and
     // visible to concurrent pulls.
     await _dbClient.pool.runTx((session) async {
+      // Serialise pushes against each other so that `server_seq` order and
+      // commit order agree.
+      //
+      // The sequence is read when a row is written, not when the transaction
+      // commits. Two overlapping pushes can therefore take seq 100 and 101 and
+      // commit in the opposite order; a pull landing in between sees 101, moves
+      // its cursor past it, and never sees row 100. That is the same permanent
+      // skip the cursor rewrite exists to remove, so the writes are serialised
+      // instead. Pulls are read-only and never wait on this.
+      await session.execute(Sql.named('SELECT pg_advisory_xact_lock(@lockId)'),
+          parameters: {'lockId': _pushLockId});
+
       for (final table in tablesList) {
         if (data.containsKey(table)) {
           final rows = data[table] as List;
@@ -999,10 +1015,17 @@ class SyncRepository {
     return numVal?.round();
   }
 
+  /// Everything written after cursor [lastSync], in server-write order.
+  ///
+  /// [lastSync] is a `server_seq` value, not a timestamp: paging on
+  /// `modified_at` skipped any row a client pushed with a clock below a cursor
+  /// its peers had already passed, permanently and silently. `lastTimestamp` in
+  /// the returned record is likewise the cursor to send back next time - the
+  /// name is kept only because it is the wire field clients already read.
   Future<({Map<String, List<Map<String, dynamic>>> changes, int lastTimestamp, bool hasMore})>
       getChanges(int lastSync, {int limit = 5000}) async {
     final changes = <String, List<Map<String, dynamic>>>{};
-    int maxTimestamp = lastSync;
+    int maxSeq = lastSync;
 
     final tableConfigsMap = {
       'categories': {
@@ -1140,78 +1163,35 @@ class SyncRepository {
       },
     };
 
-    // Tiebreaker for the paging order. `ORDER BY modified_at` alone is not a
-    // total order, so rows sharing a millisecond can land on either side of the
-    // LIMIT between requests and be skipped. Each entry is that table's primary
-    // key, which makes the order deterministic.
-    final tieBreakerColumns = {
-      'categories': 'id',
-      'transactions': 'id',
-      'accounts': 'id',
-      'styles': 'id',
-      'asset_entries': 'id',
-      'account_types': 'id',
-      'currency_designations': 'id',
-      'custom_data_sources': 'id',
-      'api_settings': 'id',
-      'sms_presets': 'id',
-      'settings': 'key',
-      'exchange_rates':
-          'from_currency_code, to_currency_code, date, preset',
-      'inflation_rates': 'date, country, preset',
-      'languages': 'language_code',
-      'currencies': 'code',
-      'custom_themes': 'id',
-    };
-
     final tableConfigs = tableConfigsMap.entries.toList();
 
     // Optimization: Parallelize independent DB queries using Future.wait
     final queryFutures = tableConfigs.map((entry) async {
       final tableName = entry.key;
-      final columnMap = entry.value;
-      final tieBreaker = tieBreakerColumns[tableName] ?? 'id';
+      // Carried through the mapping so the cursor can be read off the rows;
+      // stripped again before they are handed to the client.
+      final columnMap = {...entry.value, 'server_seq': 'serverSeq'};
 
+      // `server_seq` is unique across every table, so it is already a total
+      // order - no primary-key tiebreaker is needed to keep paging stable, and
+      // no page can end mid-way through a group of rows sharing a value.
       final result = await _dbClient.pool.execute(
         Sql.named(
-          'SELECT * FROM $tableName WHERE modified_at > @lastSync ORDER BY modified_at ASC, $tieBreaker LIMIT @limit',
+          'SELECT * FROM $tableName WHERE server_seq > @lastSync '
+          'ORDER BY server_seq ASC LIMIT @limit',
         ),
         parameters: {'lastSync': lastSync, 'limit': limit},
       );
 
-      var rows = _mapResult(result, columnMap);
+      final rows = _mapResult(result, columnMap);
       final hitLimit = rows.isNotEmpty && rows.length >= limit;
 
       // Cursor for THIS table alone. It is never advanced past a row this table
       // has not returned yet; the caller then takes the minimum over the
       // truncated tables so no table can be skipped by another table's data.
       var cursor = lastSync;
-
       if (rows.isNotEmpty) {
-        final lastTs = rows.last['modifiedAt'] as int;
-
-        if (!hitLimit) {
-          cursor = lastTs;
-        } else {
-          final firstTs = rows.first['modifiedAt'] as int;
-          if (firstTs == lastTs) {
-            // Degenerate page: every returned row shares one timestamp, so
-            // dropping the ties would return nothing and stall forever. Keep
-            // them all and advance past the timestamp instead — any rows beyond
-            // the limit at that exact millisecond are lost, hence the warning.
-            print(
-                '[SYNC] WARNING: table $tableName filled its limit of $limit rows all at modified_at=$lastTs; advancing past that timestamp. Rows beyond the limit at that millisecond will not be pulled — raise the limit.');
-            cursor = lastTs;
-          } else {
-            // Drop the trailing rows sharing the boundary millisecond and
-            // rewind the cursor below it, so the next page re-reads that
-            // millisecond in full instead of stepping over its remainder.
-            rows = rows
-                .where((row) => (row['modifiedAt'] as int) < lastTs)
-                .toList();
-            cursor = lastTs - 1;
-          }
-        }
+        cursor = rows.last['serverSeq'] as int;
       }
 
       return (
@@ -1226,20 +1206,22 @@ class SyncRepository {
 
     // Aggregate results and compute the next cursor.
     // NOTE: No early break — all tables must be included regardless of count.
-    // Breaking early causes tables with lower modifiedAt to be permanently skipped
-    // once a high-volume table (e.g. exchange_rates) consumes the entire limit.
+    // Breaking early causes tables with lower sequence numbers to be
+    // permanently skipped once a high-volume table (e.g. exchange_rates)
+    // consumes the entire limit.
     bool hasMore = false;
     int? truncatedCursor;
     for (final result in results) {
       final rows = result.rows;
       if (rows.isNotEmpty) {
-        changes[result.tableName] = rows;
-
-        // Update maxTimestamp from the rows
         for (final row in rows) {
-          final ts = row['modifiedAt'] as int;
-          if (ts > maxTimestamp) maxTimestamp = ts;
+          final seq = row['serverSeq'] as int;
+          if (seq > maxSeq) maxSeq = seq;
+          // Internal bookkeeping: the client stores whatever it is handed, and
+          // this column is not one of its own.
+          row.remove('serverSeq');
         }
+        changes[result.tableName] = rows;
       }
 
       // A table that filled its limit still has rows to give
@@ -1255,9 +1237,9 @@ class SyncRepository {
     // returned yet, so any truncated table pins the cursor for all tables. The
     // untruncated ones simply re-send a few rows on the next page (upserts are
     // idempotent) instead of losing rows forever.
-    final nextTimestamp = truncatedCursor ?? maxTimestamp;
+    final nextCursor = truncatedCursor ?? maxSeq;
 
-    return (changes: changes, lastTimestamp: nextTimestamp, hasMore: hasMore);
+    return (changes: changes, lastTimestamp: nextCursor, hasMore: hasMore);
   }
 
   // Helper to map DB row (snake_case) to JSON (camelCase or whatever client expects)

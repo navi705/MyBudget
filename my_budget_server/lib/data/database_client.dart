@@ -289,11 +289,85 @@ class DatabaseClient {
         device_id TEXT
       );
     ''');
+      await _ensureServerSeq();
+
       print('[DB] Schema initialization completed successfully.');
     } catch (e, stack) {
       print('[DB] CRITICAL ERROR during schema initialization: $e');
       print(stack);
       rethrow;
+    }
+  }
+
+  /// Every table a client can pull from, in no particular order.
+  static const List<String> syncedTables = [
+    'languages',
+    'currencies',
+    'styles',
+    'account_types',
+    'currency_designations',
+    'categories',
+    'accounts',
+    'transactions',
+    'asset_entries',
+    'sms_presets',
+    'settings',
+    'exchange_rates',
+    'inflation_rates',
+    'custom_themes',
+    'custom_data_sources',
+    'api_settings',
+  ];
+
+  /// Gives every synced row a server-assigned position in one global order.
+  ///
+  /// Pull used to page on `modified_at`, which is written by the client that
+  /// made the change. A device whose clock is behind — or one that was offline
+  /// for a week and pushes a change stamped last Tuesday — writes a row *below*
+  /// a cursor other devices have already moved past, and that row is then never
+  /// handed out again: it is invisible to every peer forever, with nothing
+  /// anywhere reporting a loss.
+  ///
+  /// `server_seq` is drawn from a single sequence at write time, so it orders
+  /// rows by when this server accepted them, which is the only clock a cursor
+  /// can safely be built on. A trigger sets it rather than each of the ~20
+  /// upsert statements, so no future write path can forget to.
+  Future<void> _ensureServerSeq() async {
+    await _pool.execute('CREATE SEQUENCE IF NOT EXISTS sync_seq');
+
+    // Assigned on UPDATE as well as INSERT: an edit to an existing row is a
+    // change peers still have to receive, so it has to move to the end of the
+    // queue.
+    await _pool.execute('''
+      CREATE OR REPLACE FUNCTION sync_stamp_server_seq() RETURNS trigger AS \$\$
+      BEGIN
+        NEW.server_seq := nextval('sync_seq');
+        RETURN NEW;
+      END;
+      \$\$ LANGUAGE plpgsql;
+    ''');
+
+    for (final table in syncedTables) {
+      await _pool.execute(
+        'ALTER TABLE $table ADD COLUMN IF NOT EXISTS server_seq BIGINT',
+      );
+      await _pool.execute(
+        'CREATE INDEX IF NOT EXISTS ${table}_server_seq_idx '
+        'ON $table (server_seq)',
+      );
+      // Rows written before this column existed. Ordering among them is
+      // arbitrary, which is harmless: a client either has them already or is
+      // pulling from 0 and gets all of them regardless.
+      await _pool.execute(
+        "UPDATE $table SET server_seq = nextval('sync_seq') "
+        'WHERE server_seq IS NULL',
+      );
+      await _pool.execute('DROP TRIGGER IF EXISTS ${table}_server_seq ON $table');
+      await _pool.execute('''
+        CREATE TRIGGER ${table}_server_seq
+        BEFORE INSERT OR UPDATE ON $table
+        FOR EACH ROW EXECUTE FUNCTION sync_stamp_server_seq();
+      ''');
     }
   }
 }

@@ -10,6 +10,8 @@ import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:uuid/uuid.dart';
 import 'package:my_budget_client/core/services/android_file_picker_service.dart';
+import 'package:my_budget_client/core/services/server_sync_service.dart'
+    show serverPullCursorKey;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DataImportService {
@@ -495,7 +497,7 @@ class DataImportService {
 
       // Reset sync state
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('server_last_sync_timestamp', 0);
+      await prefs.setInt(serverPullCursorKey, 0);
       await prefs.setInt('server_last_push_timestamp', 0);
       debugPrint('[RESTORE] Sync state reset. Restore complete.');
     } catch (e, stack) {
