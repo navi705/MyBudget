@@ -248,18 +248,13 @@ void main() {
       expect((await logs()).single.action, 'upsert');
     });
 
-    test('CHARACTERIZATION: updating an id that does not exist writes a '
-        'sync_log row for a record that is not there', () async {
-      // BUG. `StylesDao.updateStyle` calls `_logChange` unconditionally,
-      // ignoring the bool returned by `replace`. The peer then asks for a
-      // record the sender does not have, so every failed edit costs one
-      // pointless round trip and, for the file-sync engine, one entry that can
-      // never be resolved. `CurrencyDesignationsDao.updateDesignation` does
-      // this correctly - it only logs `if (result)`.
+    test('updating an id that does not exist logs nothing', () async {
+      // Nothing was written, so there is nothing for a peer to fetch. Logging
+      // it anyway made every peer ask for a style the sender does not have.
       await repo.updateStyle(style(id: 'ghost', name: 'Rent'));
 
       expect(await repo.watchAllStyles().first, isEmpty);
-      expect((await logs()).single.recordId, 'ghost');
+      expect(await logs(), isEmpty);
     });
   });
 

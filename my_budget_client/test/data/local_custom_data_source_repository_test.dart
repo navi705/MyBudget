@@ -240,24 +240,20 @@ void main() {
       expect(await logs(), isEmpty);
     });
 
-    test('CHARACTERIZATION: saving a source whose id was deleted brings the '
-        'deleted row back', () async {
-      // BUG. `saveDataSource` decides between insert and update with
-      // `getDataSourceById`, which hides deleted rows, so a deleted id takes
-      // the insert path - and `insertDataSource` uses insertOrReplace with a
-      // companion that has no isDeleted, resetting the flag to false. On the
-      // sync side the resurrected row carries a newer modifiedAt than the
-      // tombstone, so it also comes back on every other device. Triggered by
-      // an import or a restore that re-saves a source the user had deleted.
-      // Correct behaviour: look the row up ignoring isDeleted and let the
-      // caller decide, or keep the delete flag on the insert path.
+    test('saving a source whose id was deleted leaves it deleted', () async {
+      // An import or a restore that re-saves a source the user had deleted must
+      // not put the endpoint back: a resurrected row carries a newer modifiedAt
+      // than the tombstone, so it would start fetching again on every device.
       await repo.saveDataSource(source());
       await repo.deleteDataSource('src-1');
+      await db.delete(db.syncLog).go();
 
       await repo.saveDataSource(source(name: 'Back'));
 
-      expect(await repo.getDataSourceById('src-1'), isNotNull);
-      expect((await rowFor('src-1'))!.isDeleted, isFalse);
+      expect(await repo.getDataSourceById('src-1'), isNull);
+      expect((await rowFor('src-1'))!.isDeleted, isTrue);
+      expect((await rowFor('src-1'))!.name, isNot('Back'));
+      expect(await logs(), isEmpty, reason: 'nothing changed, nothing to sync');
     });
   });
 }

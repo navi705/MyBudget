@@ -111,24 +111,33 @@ void main() {
       expect((await rowFor('k'))!.modifiedAt, greaterThanOrEqualTo(before));
     });
 
-    test('CHARACTERIZATION: setSetting leaves modifiedAt at 0', () async {
-      // BUG (mild). `SettingsMapper.toCompanion` in
-      // lib/core/mappers/setting_mapper.dart does not carry modifiedAt, and
-      // `SettingsDao.setSetting` uses insertOrReplace, so the column falls back
-      // to its default of 0 - including when this overwrites a row that had a
-      // real timestamp. Every last-write-wins comparison then treats the newest
-      // local value as the oldest copy there is. `saveSetting` on the same
-      // repository does stamp it, which is what makes this an inconsistency
-      // rather than a deliberate choice. Correct behaviour: stamp modifiedAt in
-      // the mapper or in SettingsDao.setSetting.
+    test('setSetting stamps modifiedAt, like saveSetting', () async {
+      // Both write paths have to leave a real timestamp. A row stored as
+      // "changed at epoch 0" is the oldest copy there is, so the value the user
+      // just picked would lose last-write-wins against any peer's untouched
+      // default the moment settings are carried by a sync engine.
       await repo.saveSetting('k', 'first');
-      expect((await rowFor('k'))!.modifiedAt, greaterThan(0));
+      final before = DateTime.now().millisecondsSinceEpoch;
 
       await repo.setSetting(
         const domain.Settings(key: 'k', value: 'second', device: 'd'),
       );
 
-      expect((await rowFor('k'))!.modifiedAt, 0);
+      expect((await rowFor('k'))!.modifiedAt, greaterThanOrEqualTo(before));
+    });
+
+    test('setSetting keeps a modifiedAt the caller supplied', () async {
+      // Rows applied from a peer keep the clock they arrived with, otherwise
+      // every incoming row would look like a local edit made just now.
+      await db.settingsDao.setSetting(
+        SettingsCompanion.insert(
+          key: 'k',
+          value: 'v',
+          modifiedAt: const Value(1234),
+        ),
+      );
+
+      expect((await rowFor('k'))!.modifiedAt, 1234);
     });
 
     test('settings writes do not append to sync_log', () async {

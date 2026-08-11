@@ -9,11 +9,18 @@ extension SettingMapper on db.Setting {
 }
 
 extension SettingsMapper on Settings {
+  /// The companion for writing this setting back.
+  ///
+  /// `modifiedAt` is stamped here because the domain entity does not carry one
+  /// and the row it lands on does: left out, the setting is stored as "changed
+  /// at epoch 0", which loses last-write-wins against any peer's untouched
+  /// default - the user's choice would be the one thrown away.
   db.SettingsCompanion toCompanion() {
     return db.SettingsCompanion.insert(
       key: key,
       value: value,
       device: drift.Value(device),
+      modifiedAt: drift.Value(DateTime.now().millisecondsSinceEpoch),
     );
   }
 }

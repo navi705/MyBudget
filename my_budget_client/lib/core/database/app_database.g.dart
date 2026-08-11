@@ -8518,6 +8518,21 @@ class $ApiSettingsTableTable extends ApiSettingsTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -8526,6 +8541,7 @@ class $ApiSettingsTableTable extends ApiSettingsTable
     lastFetchAt,
     modifiedAt,
     deviceId,
+    isDeleted,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -8577,6 +8593,12 @@ class $ApiSettingsTableTable extends ApiSettingsTable
         deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
       );
     }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
     return context;
   }
 
@@ -8610,6 +8632,10 @@ class $ApiSettingsTableTable extends ApiSettingsTable
         DriftSqlType.string,
         data['${effectivePrefix}device_id'],
       ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
     );
   }
 
@@ -8627,6 +8653,14 @@ class ApiSettingsTableData extends DataClass
   final int? lastFetchAt;
   final int modifiedAt;
   final String? deviceId;
+
+  /// Tombstone flag, like every other synced table.
+  ///
+  /// Without it a delete for a provider row the peer had never seen was a
+  /// no-op there, and the upsert that had been sitting in an earlier file
+  /// simply recreated the row - a provider the user removed came back, and
+  /// started fetching again.
+  final bool isDeleted;
   const ApiSettingsTableData({
     required this.id,
     required this.enabled,
@@ -8634,6 +8668,7 @@ class ApiSettingsTableData extends DataClass
     this.lastFetchAt,
     required this.modifiedAt,
     this.deviceId,
+    required this.isDeleted,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -8648,6 +8683,7 @@ class ApiSettingsTableData extends DataClass
     if (!nullToAbsent || deviceId != null) {
       map['device_id'] = Variable<String>(deviceId);
     }
+    map['is_deleted'] = Variable<bool>(isDeleted);
     return map;
   }
 
@@ -8663,6 +8699,7 @@ class ApiSettingsTableData extends DataClass
       deviceId: deviceId == null && nullToAbsent
           ? const Value.absent()
           : Value(deviceId),
+      isDeleted: Value(isDeleted),
     );
   }
 
@@ -8678,6 +8715,7 @@ class ApiSettingsTableData extends DataClass
       lastFetchAt: serializer.fromJson<int?>(json['lastFetchAt']),
       modifiedAt: serializer.fromJson<int>(json['modifiedAt']),
       deviceId: serializer.fromJson<String?>(json['deviceId']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
     );
   }
   @override
@@ -8690,6 +8728,7 @@ class ApiSettingsTableData extends DataClass
       'lastFetchAt': serializer.toJson<int?>(lastFetchAt),
       'modifiedAt': serializer.toJson<int>(modifiedAt),
       'deviceId': serializer.toJson<String?>(deviceId),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
     };
   }
 
@@ -8700,6 +8739,7 @@ class ApiSettingsTableData extends DataClass
     Value<int?> lastFetchAt = const Value.absent(),
     int? modifiedAt,
     Value<String?> deviceId = const Value.absent(),
+    bool? isDeleted,
   }) => ApiSettingsTableData(
     id: id ?? this.id,
     enabled: enabled ?? this.enabled,
@@ -8707,6 +8747,7 @@ class ApiSettingsTableData extends DataClass
     lastFetchAt: lastFetchAt.present ? lastFetchAt.value : this.lastFetchAt,
     modifiedAt: modifiedAt ?? this.modifiedAt,
     deviceId: deviceId.present ? deviceId.value : this.deviceId,
+    isDeleted: isDeleted ?? this.isDeleted,
   );
   ApiSettingsTableData copyWithCompanion(ApiSettingsTableCompanion data) {
     return ApiSettingsTableData(
@@ -8720,6 +8761,7 @@ class ApiSettingsTableData extends DataClass
           ? data.modifiedAt.value
           : this.modifiedAt,
       deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
     );
   }
 
@@ -8731,14 +8773,22 @@ class ApiSettingsTableData extends DataClass
           ..write('autoFetch: $autoFetch, ')
           ..write('lastFetchAt: $lastFetchAt, ')
           ..write('modifiedAt: $modifiedAt, ')
-          ..write('deviceId: $deviceId')
+          ..write('deviceId: $deviceId, ')
+          ..write('isDeleted: $isDeleted')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, enabled, autoFetch, lastFetchAt, modifiedAt, deviceId);
+  int get hashCode => Object.hash(
+    id,
+    enabled,
+    autoFetch,
+    lastFetchAt,
+    modifiedAt,
+    deviceId,
+    isDeleted,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -8748,7 +8798,8 @@ class ApiSettingsTableData extends DataClass
           other.autoFetch == this.autoFetch &&
           other.lastFetchAt == this.lastFetchAt &&
           other.modifiedAt == this.modifiedAt &&
-          other.deviceId == this.deviceId);
+          other.deviceId == this.deviceId &&
+          other.isDeleted == this.isDeleted);
 }
 
 class ApiSettingsTableCompanion extends UpdateCompanion<ApiSettingsTableData> {
@@ -8758,6 +8809,7 @@ class ApiSettingsTableCompanion extends UpdateCompanion<ApiSettingsTableData> {
   final Value<int?> lastFetchAt;
   final Value<int> modifiedAt;
   final Value<String?> deviceId;
+  final Value<bool> isDeleted;
   final Value<int> rowid;
   const ApiSettingsTableCompanion({
     this.id = const Value.absent(),
@@ -8766,6 +8818,7 @@ class ApiSettingsTableCompanion extends UpdateCompanion<ApiSettingsTableData> {
     this.lastFetchAt = const Value.absent(),
     this.modifiedAt = const Value.absent(),
     this.deviceId = const Value.absent(),
+    this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ApiSettingsTableCompanion.insert({
@@ -8775,6 +8828,7 @@ class ApiSettingsTableCompanion extends UpdateCompanion<ApiSettingsTableData> {
     this.lastFetchAt = const Value.absent(),
     this.modifiedAt = const Value.absent(),
     this.deviceId = const Value.absent(),
+    this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<ApiSettingsTableData> custom({
@@ -8784,6 +8838,7 @@ class ApiSettingsTableCompanion extends UpdateCompanion<ApiSettingsTableData> {
     Expression<int>? lastFetchAt,
     Expression<int>? modifiedAt,
     Expression<String>? deviceId,
+    Expression<bool>? isDeleted,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -8793,6 +8848,7 @@ class ApiSettingsTableCompanion extends UpdateCompanion<ApiSettingsTableData> {
       if (lastFetchAt != null) 'last_fetch_at': lastFetchAt,
       if (modifiedAt != null) 'modified_at': modifiedAt,
       if (deviceId != null) 'device_id': deviceId,
+      if (isDeleted != null) 'is_deleted': isDeleted,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -8804,6 +8860,7 @@ class ApiSettingsTableCompanion extends UpdateCompanion<ApiSettingsTableData> {
     Value<int?>? lastFetchAt,
     Value<int>? modifiedAt,
     Value<String?>? deviceId,
+    Value<bool>? isDeleted,
     Value<int>? rowid,
   }) {
     return ApiSettingsTableCompanion(
@@ -8813,6 +8870,7 @@ class ApiSettingsTableCompanion extends UpdateCompanion<ApiSettingsTableData> {
       lastFetchAt: lastFetchAt ?? this.lastFetchAt,
       modifiedAt: modifiedAt ?? this.modifiedAt,
       deviceId: deviceId ?? this.deviceId,
+      isDeleted: isDeleted ?? this.isDeleted,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -8838,6 +8896,9 @@ class ApiSettingsTableCompanion extends UpdateCompanion<ApiSettingsTableData> {
     if (deviceId.present) {
       map['device_id'] = Variable<String>(deviceId.value);
     }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -8853,6 +8914,7 @@ class ApiSettingsTableCompanion extends UpdateCompanion<ApiSettingsTableData> {
           ..write('lastFetchAt: $lastFetchAt, ')
           ..write('modifiedAt: $modifiedAt, ')
           ..write('deviceId: $deviceId, ')
+          ..write('isDeleted: $isDeleted, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -18667,6 +18729,7 @@ typedef $$ApiSettingsTableTableCreateCompanionBuilder =
       Value<int?> lastFetchAt,
       Value<int> modifiedAt,
       Value<String?> deviceId,
+      Value<bool> isDeleted,
       Value<int> rowid,
     });
 typedef $$ApiSettingsTableTableUpdateCompanionBuilder =
@@ -18677,6 +18740,7 @@ typedef $$ApiSettingsTableTableUpdateCompanionBuilder =
       Value<int?> lastFetchAt,
       Value<int> modifiedAt,
       Value<String?> deviceId,
+      Value<bool> isDeleted,
       Value<int> rowid,
     });
 
@@ -18716,6 +18780,11 @@ class $$ApiSettingsTableTableFilterComposer
 
   ColumnFilters<String> get deviceId => $composableBuilder(
     column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -18758,6 +18827,11 @@ class $$ApiSettingsTableTableOrderingComposer
     column: $table.deviceId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ApiSettingsTableTableAnnotationComposer
@@ -18790,6 +18864,9 @@ class $$ApiSettingsTableTableAnnotationComposer
 
   GeneratedColumn<String> get deviceId =>
       $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
 }
 
 class $$ApiSettingsTableTableTableManager
@@ -18835,6 +18912,7 @@ class $$ApiSettingsTableTableTableManager
                 Value<int?> lastFetchAt = const Value.absent(),
                 Value<int> modifiedAt = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ApiSettingsTableCompanion(
                 id: id,
@@ -18843,6 +18921,7 @@ class $$ApiSettingsTableTableTableManager
                 lastFetchAt: lastFetchAt,
                 modifiedAt: modifiedAt,
                 deviceId: deviceId,
+                isDeleted: isDeleted,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -18853,6 +18932,7 @@ class $$ApiSettingsTableTableTableManager
                 Value<int?> lastFetchAt = const Value.absent(),
                 Value<int> modifiedAt = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ApiSettingsTableCompanion.insert(
                 id: id,
@@ -18861,6 +18941,7 @@ class $$ApiSettingsTableTableTableManager
                 lastFetchAt: lastFetchAt,
                 modifiedAt: modifiedAt,
                 deviceId: deviceId,
+                isDeleted: isDeleted,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

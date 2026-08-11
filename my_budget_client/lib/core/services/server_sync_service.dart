@@ -1332,6 +1332,10 @@ class ServerSyncService {
     'lastFetchAt': e.lastFetchAt,
     'modifiedAt': e.modifiedAt,
     'deviceId': e.deviceId,
+    // Without this the delete never left the device: the row was pushed as a
+    // live one, and the provider the user removed kept coming back from the
+    // server on every other device.
+    'isDeleted': e.isDeleted,
   };
 
   Map<String, dynamic> _smsPresetToJson(SmsPreset e) => {
@@ -1760,14 +1764,15 @@ class ServerSyncService {
 
   Future<void> _upsertApiSetting(Map<String, dynamic> json) async {
     await _database.customInsert(
-      '''INSERT INTO api_settings_table (id, enabled, auto_fetch, last_fetch_at, modified_at, device_id)
-      VALUES (?, ?, ?, ?, ?, ?)
+      '''INSERT INTO api_settings_table (id, enabled, auto_fetch, last_fetch_at, modified_at, device_id, is_deleted)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (id) DO UPDATE SET
         enabled = EXCLUDED.enabled,
         auto_fetch = EXCLUDED.auto_fetch,
         last_fetch_at = EXCLUDED.last_fetch_at,
         modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id
+        device_id = EXCLUDED.device_id,
+        is_deleted = EXCLUDED.is_deleted
       WHERE EXCLUDED.modified_at > api_settings_table.modified_at''',
       variables: [
         drift_db.Variable.withString(json['id'] as String? ?? ''),
@@ -1776,6 +1781,9 @@ class ServerSyncService {
         drift_db.Variable(json['lastFetchAt'] as int?),
         drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
         drift_db.Variable(json['deviceId'] as String?),
+        // A peer on a pre-v12 build sends no flag; the only thing it can mean
+        // is "live", since that build had no way to delete one.
+        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
       ],
     );
   }

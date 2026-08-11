@@ -1273,9 +1273,9 @@ class SyncService {
         // Plainly: with no tombstone there is nothing left for a later change
         // to lose a comparison against, so an OLDER upsert for the same rate
         // that is imported after this delete (files are read in directory
-        // order, not timestamp order) resurrects the row. That mirrors the
-        // api_settings_table caveat below; closing it needs an isDeleted
-        // column, i.e. a schema migration. A silent no-op would be worse - the
+        // order, not timestamp order) resurrects the row. Closing it needs an
+        // isDeleted column, i.e. a schema migration - the one that
+        // api_settings_table got in v12. A silent no-op would be worse - the
         // row the user deleted would simply never go away on the peer.
         final exchangeRateKey = ExchangeRateKey.tryParse(recordId);
         if (exchangeRateKey == null) {
@@ -1317,13 +1317,14 @@ class SyncService {
             .go();
         break;
       case SyncTableId.apiSettings:
-        // api_settings_table has no isDeleted column, so a peer's delete
-        // cannot be represented without a schema migration. Log it rather than
-        // dropping it silently.
-        debugPrint(
-          '[SYNC_DEBUG] Cannot apply delete for api_settings_table:$recordId '
-          '(table has no isDeleted column)',
-        );
+        await (_db.update(_db.apiSettingsTable)
+              ..where((t) => t.id.equals(recordId)))
+            .write(
+              ApiSettingsTableCompanion(
+                isDeleted: const Value(true),
+                modifiedAt: Value(modifiedAt),
+              ),
+            );
         break;
       default:
         break;
@@ -1335,12 +1336,12 @@ class SyncService {
   /// Returns null for tables that cannot hold a tombstone, which now splits
   /// into two very different cases:
   ///
-  /// * `api_settings_table`, `exchange_rates` and `inflation_rates` have no
-  ///   `isDeleted` column at all (giving them one would need a schema
-  ///   migration), yet [_insertRecord] / [_getRecordData] DO apply them. A
-  ///   delete for one of these is therefore final only until an older upsert
-  ///   for the same record arrives, which resurrects it - see
-  ///   [_softDeleteRecord].
+  /// * `exchange_rates` and `inflation_rates` have no `isDeleted` column at all
+  ///   (giving them one would need a schema migration), yet [_insertRecord] /
+  ///   [_getRecordData] DO apply them. A delete for one of these is therefore
+  ///   final only until an older upsert for the same record arrives, which
+  ///   resurrects it - see [_softDeleteRecord]. `api_settings_table` used to be
+  ///   in this list; it gained the column in schema v12.
   /// * The remaining ids are not applied by [_insertRecord] / [_getRecordData]
   ///   in the first place, so nothing can resurrect them either.
   String? _deletableTableName(SyncTableId tableId) {
@@ -1363,6 +1364,8 @@ class SyncService {
         return 'custom_data_sources';
       case SyncTableId.customThemes:
         return 'custom_themes';
+      case SyncTableId.apiSettings:
+        return 'api_settings_table';
       default:
         return null;
     }
@@ -1558,12 +1561,28 @@ class SyncService {
               mode: InsertMode.insertOrIgnore,
             );
         break;
+      case SyncTableId.apiSettings:
+        await _db
+            .into(_db.apiSettingsTable)
+            .insert(
+              ApiSettingsTableCompanion(
+                id: Value(recordId),
+                // A tombstoned provider must not look like one to fetch from.
+                enabled: const Value(false),
+                autoFetch: const Value(false),
+                modifiedAt: Value(modifiedAt),
+                isDeleted: const Value(true),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+        break;
       default:
-        // api_settings_table, exchange_rates and inflation_rates have no
-        // isDeleted column, so a delete for a record they have never seen
-        // stays a no-op and a later upsert can still resurrect it - fixing
-        // that needs a schema migration. The other ids are not applied by
-        // _insertRecord either, so there is nothing to resurrect for them.
+        // exchange_rates and inflation_rates have no isDeleted column, so a
+        // delete for a record they have never seen stays a no-op and a later
+        // upsert can still resurrect it - fixing that needs a schema
+        // migration, the way api_settings_table got one in v12. The other ids
+        // are not applied by _insertRecord either, so there is nothing to
+        // resurrect for them.
         debugPrint(
           '[SYNC_DEBUG] No tombstone support for ${tableId.name}:$recordId',
         );
@@ -2028,6 +2047,7 @@ class SyncService {
       'lastFetchAt': s.lastFetchAt,
       'modifiedAt': s.modifiedAt,
       'deviceId': s.deviceId,
+      'isDeleted': s.isDeleted,
     };
   }
 
@@ -2039,6 +2059,10 @@ class SyncService {
       lastFetchAt: Value(json['lastFetchAt'] as int?),
       modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
+      // A packet from a build older than schema v12 carries no flag, and the
+      // only thing it can mean is "not deleted" - the sender had no way to
+      // delete one.
+      isDeleted: Value(json['isDeleted'] as bool? ?? false),
     );
   }
 }

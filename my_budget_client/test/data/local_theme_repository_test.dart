@@ -225,35 +225,34 @@ void main() {
       expect((await repo.getActiveTheme())!.id, 't1');
     });
 
-    test('CHARACTERIZATION: setActiveTheme with an unknown id leaves the app '
-        'with no active theme at all', () async {
-      // BUG. `CustomThemesDao.setActiveTheme` clears `isActive` on every row
-      // first and only then tries to set it on [id]; when that id does not
-      // exist the update matches nothing and the user is left themeless (the
-      // app falls back to the default theme) with no error reported. It also
-      // logs an upsert for the missing id. Correct behaviour: check the row
-      // exists first and abort the transaction if it does not.
+    test('setActiveTheme with an unknown id keeps the theme the user '
+        'had', () async {
+      // Deactivating everything before checking the target left the user with
+      // no active theme at all: the app fell back to the default look and
+      // nothing in the picker was marked as current.
       await repo.saveTheme(theme(id: 't1', isActive: true));
+      await db.delete(db.syncLog).go();
 
       await repo.setActiveTheme('ghost');
 
-      expect(await repo.getActiveTheme(), isNull);
+      expect((await repo.getActiveTheme())!.id, 't1');
+      expect(await logs(), isEmpty, reason: 'nothing changed');
     });
 
-    test('CHARACTERIZATION: a soft-deleted theme can still be made '
-        'active', () async {
-      // BUG. `setActiveTheme` does not filter `isDeleted`, so the row is
-      // flagged active while every read path hides it: getActiveTheme returns
-      // null and the app silently drops back to the default theme, but the
-      // deleted row now holds the active flag, so activating a real theme is
-      // the only way out. Correct behaviour: refuse to activate a deleted row.
+    test('a soft-deleted theme cannot be made active', () async {
+      // Every read path hides deleted rows, so flagging one active took the
+      // user's look away and left the active flag somewhere they could not see
+      // or clear.
       await repo.saveTheme(theme(id: 't1'));
+      await repo.saveTheme(theme(id: 't2', isActive: true));
       await repo.deleteTheme('t1');
+      await db.delete(db.syncLog).go();
 
       await repo.setActiveTheme('t1');
 
-      expect((await rowFor('t1'))!.isActive, isTrue);
-      expect(await repo.getActiveTheme(), isNull);
+      expect((await rowFor('t1'))!.isActive, isFalse);
+      expect((await repo.getActiveTheme())!.id, 't2');
+      expect(await logs(), isEmpty, reason: 'nothing changed');
     });
   });
 

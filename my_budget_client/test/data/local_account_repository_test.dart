@@ -686,50 +686,31 @@ void main() {
       );
     });
 
-    // BUG (characterisation): AccountsDao.deleteAccountWithTransactions
-    // (lib/core/database/app_database.dart:1606-1607) logs the deleted
-    // TRANSACTION ids through `_logChanges`, which hardcodes
-    // `changedTableName: Value('accounts')` (line 1311). The transaction
-    // deletes are therefore announced as account deletes.
-    // CORRECT behaviour: the transaction ids belong under
-    // changedTableName 'transactions', the way CategoriesDao does it with its
-    // separate `_logTransactionChanges`. As written, a peer receiving the log
-    // looks for accounts with ids 'out'/'in', finds none, and the deleted
-    // transactions stay alive on that device forever — while the account rows
-    // it does own may be touched by an id collision.
-    test(
-      'the deleted transactions are logged under the accounts table name '
-      '(WRONG - should be transactions)',
-      () async {
-        await repo.deleteAccountWithTransactions('a');
+    test('the deleted transactions are logged under the transactions table '
+        'name', () async {
+      // A peer that reads 'out'/'in' under 'accounts' looks for accounts with
+      // those ids, finds none, and keeps the deleted transactions alive
+      // forever - while the account rows it does own risk an id collision.
+      await repo.deleteAccountWithTransactions('a');
 
-        expect(
-          (await logsFor('accounts')).map((l) => l.recordId),
-          containsAll(['a', 'out', 'in']),
-        );
-        expect(await logsFor('transactions'), isEmpty);
-      },
-    );
+      expect(
+        (await logsFor('transactions')).map((l) => l.recordId),
+        containsAll(['out', 'in']),
+      );
+      expect((await logsFor('accounts')).map((l) => l.recordId), ['a']);
+    });
 
-    // BUG (characterisation): the same method soft-deletes the linked leg on
-    // account 'b' but never reverts the balance that leg had contributed.
-    // CORRECT behaviour: account b's balance should go back to 0 when the
-    // +100 leg is deleted, exactly as
-    // TransactionsDao.deleteTransaction already does. As written, deleting an
-    // account leaves every account it ever transferred with showing a balance
-    // that includes money from transactions that no longer exist, and no
-    // amount of re-reading fixes it because the balance is materialised.
-    test(
-      'the counterpart account keeps the balance of its deleted leg '
-      '(WRONG - it should be reverted)',
-      () async {
-        await repo.deleteAccountWithTransactions('a');
+    test("the counterpart account's balance drops the leg that was deleted",
+        () async {
+      // The +100 leg on b is gone, so the money it brought has to go with it.
+      // Balances are materialised, so a stale one never corrects itself: the
+      // account keeps showing money from transactions that no longer exist.
+      await repo.deleteAccountWithTransactions('a');
 
-        final b = await row('b');
-        expect(b.balance, 100.0);
-        expect(b.balanceMinor, 10000);
-      },
-    );
+      final b = await row('b');
+      expect(b.balance, 0.0);
+      expect(b.balanceMinor, 0);
+    });
   });
 
   group('deleteAccountAndReassignTransactions', () {
@@ -767,43 +748,31 @@ void main() {
       );
     });
 
-    // BUG (characterisation): AccountsDao.deleteAccountAndReassignTransactions
-    // (lib/core/database/app_database.dart:1611-1630) rewrites every moved
-    // transaction's `account_id` but only logs the account delete.
-    // CORRECT behaviour: each reassigned transaction id needs an 'upsert' row
-    // under changedTableName 'transactions'. As written, the peer deletes the
-    // account and never learns the transactions moved: on that device they
-    // still point at the deleted account, so they vanish from every account
-    // view while still counting towards totals.
-    test(
-      'no sync_log row is written for the reassigned transactions '
-      '(WRONG - each moved transaction should log an upsert)',
-      () async {
-        await repo.deleteAccountAndReassignTransactions('a', 'b');
+    test('each reassigned transaction logs an upsert', () async {
+      // Without it the peer deletes the account and never learns the
+      // transactions moved: there they still point at the deleted account, so
+      // they disappear from every account view while still counting towards
+      // the totals.
+      await repo.deleteAccountAndReassignTransactions('a', 'b');
 
-        expect(await logsFor('transactions'), isEmpty);
-        expect((await logsFor('accounts')).map((l) => l.recordId), ['a']);
-      },
-    );
+      final moved = (await logsFor(
+        'transactions',
+      )).where((l) => l.action == 'upsert').map((l) => l.recordId);
+      expect(moved, contains('t1'));
+      expect((await logsFor('accounts')).map((l) => l.recordId), ['a']);
+    });
 
-    // BUG (characterisation): the same method moves the transaction but not
-    // the money it represents.
-    // CORRECT behaviour: the destination account's balance should gain the sum
-    // of the reassigned transactions (+50 here). As written, the user reassigns
-    // a deleted account's history to another account and that account's balance
-    // does not change, so its displayed balance no longer matches the sum of
-    // its own transactions.
-    test(
-      'the destination account balance does not gain the reassigned amount '
-      '(WRONG - it should)',
-      () async {
-        await repo.deleteAccountAndReassignTransactions('a', 'b');
+    test('the destination account balance gains the reassigned amount',
+        () async {
+      // The transactions moved, so the money has to move with them, otherwise
+      // the account shows a balance that does not match its own history - and
+      // the balance is materialised, so re-reading never fixes it.
+      await repo.deleteAccountAndReassignTransactions('a', 'b');
 
-        final b = await row('b');
-        expect(b.balance, 0.0);
-        expect(b.balanceMinor, 0);
-      },
-    );
+      final b = await row('b');
+      expect(b.balance, 50.0);
+      expect(b.balanceMinor, 5000);
+    });
   });
 
   group('account types', () {

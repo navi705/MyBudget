@@ -216,22 +216,21 @@ void main() {
       expect(await logs(), isEmpty);
     });
 
-    test('CHARACTERIZATION: updating a soft-deleted designation resurrects '
-        'it', () async {
-      // BUG. `CurrencyDesignationsDao.updateDesignation` uses drift's
-      // `replace`, which writes *every* column of the row; the companion built
-      // by `CurrencyDesignationCompanionMapper.toCompanion` carries only
-      // id/value/currencyCode, so `isDeleted` falls back to its column default
-      // (false) and the deleted symbol comes back to life - with a fresh
-      // modifiedAt, so it also wins over the tombstone on every other device.
-      // Correct behaviour: the update should either preserve isDeleted or
-      // refuse to touch rows where it is true.
+    test('updating a soft-deleted designation does not bring it back', () async {
+      // The companion the UI builds carries only id/value/currencyCode, so a
+      // write that touches every column would reset isDeleted and the symbol
+      // the user deleted would reappear - here and, with its fresh modifiedAt
+      // beating the tombstone, on every other device.
       await repo.addDesignation(designation(id: 'd1', value: 'A'));
       await repo.deleteDesignation('d1');
+      await db.delete(db.syncLog).go();
 
       await repo.updateDesignation(designation(id: 'd1', value: 'B'));
 
-      expect(await repo.getDesignationById('d1'), isNotNull);
+      expect(await repo.getDesignationById('d1'), isNull);
+      expect((await rowFor('d1'))!.isDeleted, isTrue);
+      expect((await rowFor('d1'))!.value, 'A', reason: 'no columns written');
+      expect(await logs(), isEmpty, reason: 'nothing changed, nothing to sync');
     });
   });
 

@@ -538,4 +538,139 @@ void main() {
       expect(names, containsAll(['balance', 'balance_minor', 'is_deleted']));
     });
   });
+
+  group('v11 -> v12 migration (adds is_deleted to api_settings_table)', () {
+    // v11 == the v10 fixture plus the two opening-balance columns the v10->v11
+    // step adds to accounts, which is all that separates the two versions.
+    const createV11Sql = '''
+      CREATE TABLE "languages" ("language" TEXT NOT NULL, "language_code" TEXT NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("language_code"));
+      CREATE TABLE "currencies" ("name" TEXT NOT NULL UNIQUE, "code" TEXT NOT NULL, "language_code" TEXT NOT NULL REFERENCES languages (language_code), "type" INTEGER NOT NULL DEFAULT 6, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("code"));
+      CREATE TABLE "currency_designations" ("id" TEXT NOT NULL, "value" TEXT NOT NULL, "currency_code" TEXT NOT NULL REFERENCES currencies (code), "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "account_types" ("id" TEXT NOT NULL, "name" TEXT NOT NULL UNIQUE, "language_code" TEXT NOT NULL REFERENCES languages (language_code), "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "styles" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "icon_name" TEXT NOT NULL, "color_hex" TEXT NOT NULL, "icon_type" INTEGER NOT NULL DEFAULT 0, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "categories" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "parent_id" TEXT NULL REFERENCES categories (id), "style_id" TEXT NULL REFERENCES styles (id), "type" INTEGER NOT NULL DEFAULT 0, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "accounts" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "description" TEXT NULL, "balance" REAL NOT NULL, "balance_minor" INTEGER NULL, "opening_balance" REAL NOT NULL DEFAULT 0.0, "opening_balance_minor" INTEGER NULL, "currency_code" TEXT NOT NULL REFERENCES currencies (code), "currency_designation_id" TEXT NOT NULL REFERENCES currency_designations (id), "style_id" TEXT NULL REFERENCES styles (id), "account_type_id" TEXT NOT NULL REFERENCES account_types (id), "creation_date" INTEGER NOT NULL, "country" TEXT NULL, "asset_id" TEXT NULL, "asset_quantity" REAL NOT NULL DEFAULT 0.0, "fee_structure" TEXT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "transactions" ("id" TEXT NOT NULL, "description" TEXT NOT NULL, "amount" REAL NOT NULL, "amount_minor" INTEGER NULL, "date" INTEGER NOT NULL, "account_id" TEXT NOT NULL REFERENCES accounts (id), "category_id" TEXT NOT NULL REFERENCES categories (id), "currency_code" TEXT NOT NULL REFERENCES currencies (code), "exchange_rate" REAL NULL, "exchange_rate_preset" INTEGER NULL, "fee" REAL NOT NULL DEFAULT 0.0, "fee_minor" INTEGER NULL, "linked_transaction_id" TEXT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "exchange_rates" ("from_currency_code" TEXT NOT NULL REFERENCES currencies (code), "to_currency_code" TEXT NOT NULL REFERENCES currencies (code), "rate" REAL NOT NULL, "preset" INTEGER NOT NULL, "date" INTEGER NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "source_id" TEXT NULL, PRIMARY KEY ("from_currency_code", "to_currency_code", "date", "preset"));
+      CREATE TABLE "inflation_rates" ("date" INTEGER NOT NULL, "percent" REAL NOT NULL, "country" TEXT NOT NULL DEFAULT 'global', "preset" INTEGER NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "source_id" TEXT NULL, PRIMARY KEY ("date", "country", "preset"));
+      CREATE TABLE "asset_entries" ("id" TEXT NOT NULL, "asset_id" TEXT NOT NULL, "name" TEXT NOT NULL, "date" INTEGER NOT NULL, "value" REAL NOT NULL, "quantity" REAL NOT NULL DEFAULT 1.0, "asset_type" TEXT NULL, "description" TEXT NULL, "currency_code" TEXT NOT NULL REFERENCES currencies (code), "account_id" TEXT NULL REFERENCES accounts (id), "source" TEXT NOT NULL, "preset" INTEGER NOT NULL DEFAULT 1, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "source_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "settings" ("key" TEXT NOT NULL, "value" TEXT NOT NULL, "device" TEXT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("key"));
+      CREATE TABLE "custom_themes" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "primary_color_hex" TEXT NOT NULL, "secondary_color_hex" TEXT NOT NULL, "surface_color_hex" TEXT NOT NULL, "background_color_hex" TEXT NOT NULL, "background_image_path" TEXT NULL, "background_image_opacity" REAL NOT NULL DEFAULT 1.0, "background_image_blur" REAL NOT NULL DEFAULT 0.0, "window_effect_type" INTEGER NOT NULL, "effect_opacity" REAL NOT NULL DEFAULT 1.0, "surface_opacity" REAL NOT NULL DEFAULT 1.0, "theme_mode" INTEGER NOT NULL, "is_preset" INTEGER NOT NULL DEFAULT 0, "is_active" INTEGER NOT NULL DEFAULT 0, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "sync_log" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "changed_table_name" TEXT NOT NULL, "record_id" TEXT NOT NULL, "action" TEXT NOT NULL, "timestamp" INTEGER NOT NULL, "exported" INTEGER NOT NULL DEFAULT 0);
+      CREATE TABLE "conflict_history" ("id" TEXT NOT NULL, "changed_table_name" TEXT NOT NULL, "record_id" TEXT NOT NULL, "rejected_data" TEXT NOT NULL, "rejected_at" INTEGER NOT NULL, "rejected_device" TEXT NULL, PRIMARY KEY ("id"));
+      CREATE TABLE "custom_data_sources" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "url" TEXT NOT NULL, "data_type" INTEGER NOT NULL, "enabled" INTEGER NOT NULL DEFAULT 1, "auto_fetch" INTEGER NOT NULL DEFAULT 0, "last_fetch_at" INTEGER NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "api_settings_table" ("id" TEXT NOT NULL, "enabled" INTEGER NOT NULL DEFAULT 1, "auto_fetch" INTEGER NOT NULL DEFAULT 0, "last_fetch_at" INTEGER NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("id"));
+      CREATE TABLE "api_fetch_statuses" ("id" TEXT NOT NULL, "attempts" INTEGER NOT NULL DEFAULT 0, "last_attempt" INTEGER NULL, "status" TEXT NOT NULL DEFAULT 'pending', PRIMARY KEY ("id"));
+      CREATE TABLE "sms_presets" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "sender_filter" TEXT NOT NULL, "is_built_in" INTEGER NOT NULL DEFAULT 0, "is_enabled" INTEGER NOT NULL DEFAULT 1, "default_account_id" TEXT NULL, "default_category_id" TEXT NULL, "rules_json" TEXT NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "sync_processed_files" ("file_name" TEXT NOT NULL, "processed_at" INTEGER NOT NULL, "device_id" TEXT NOT NULL, PRIMARY KEY ("file_name"));
+    ''';
+
+    // A device mid-life: providers the user has configured by hand, an account
+    // with money on it, and a custom data source - none of which the new column
+    // has any business touching.
+    const seedSql = '''
+      INSERT INTO languages (language, language_code) VALUES ('English','en');
+      INSERT INTO currencies (name, code, language_code, type) VALUES ('Euro','EUR','en',0);
+      INSERT INTO currency_designations (id, value, currency_code) VALUES ('d1','€','EUR');
+      INSERT INTO account_types (id, name, language_code) VALUES ('at1','Checking','en');
+      INSERT INTO categories (id, name) VALUES ('c1','Groceries');
+      INSERT INTO accounts (id, name, balance, balance_minor, opening_balance, opening_balance_minor, currency_code, currency_designation_id, account_type_id, creation_date)
+        VALUES ('accEur', 'Eur Wallet', 1234.56, 123456, 1200.0, 120000, 'EUR', 'd1', 'at1', 0);
+      INSERT INTO transactions (id, description, amount, amount_minor, date, account_id, category_id, currency_code)
+        VALUES ('t1', 'Weekly shop', 34.56, 3456, 0, 'accEur', 'c1', 'EUR');
+      INSERT INTO api_settings_table (id, enabled, auto_fetch, last_fetch_at, modified_at, device_id)
+        VALUES ('exchange_rates', 0, 0, 1700000000000, 1700000000001, 'old-device');
+      INSERT INTO api_settings_table (id, enabled, auto_fetch, modified_at)
+        VALUES ('inflation', 1, 1, 1700000000002);
+      INSERT INTO custom_data_sources (id, name, url, data_type, enabled, auto_fetch)
+        VALUES ('src1', 'My rates', 'https://example.test', 0, 1, 0);
+    ''';
+
+    late AppDatabase db;
+
+    setUp(() async {
+      final file = File('${tempDir.path}/v11.sqlite');
+      final raw = sqlite3.sqlite3.open(file.path);
+      raw.execute(createV11Sql);
+      raw.execute(seedSql);
+      raw.execute('PRAGMA user_version = 11;');
+      raw.dispose();
+
+      db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+    });
+
+    tearDown(() async => db.close());
+
+    test('adds is_deleted to api_settings_table', () async {
+      final cols = await db
+          .customSelect("PRAGMA table_info('api_settings_table')")
+          .get();
+      final names = cols.map((r) => r.data['name'] as String).toSet();
+      expect(names, contains('is_deleted'));
+    });
+
+    test('every existing provider row survives, live and unchanged', () async {
+      // The column is what a delete is recorded in, so an upgrade that defaulted
+      // rows to deleted would silently switch every provider off.
+      final rates = await db.apiSettingsDao.getSettingById('exchange_rates');
+      expect(rates, isNotNull);
+      expect(rates!.enabled, isFalse, reason: 'the user turned this one off');
+      expect(rates.autoFetch, isFalse);
+      expect(rates.lastFetchAt, 1700000000000);
+      expect(rates.modifiedAt, 1700000000001);
+      expect(rates.deviceId, 'old-device');
+      expect(rates.isDeleted, isFalse);
+
+      final inflation = await db.apiSettingsDao.getSettingById('inflation');
+      expect(inflation!.enabled, isTrue);
+      expect(inflation.autoFetch, isTrue);
+      expect(inflation.isDeleted, isFalse);
+    });
+
+    test('the rest of the database is untouched', () async {
+      final account = await (db.select(
+        db.accounts,
+      )..where((a) => a.id.equals('accEur'))).getSingle();
+      expect(account.balanceMinor, 123456);
+      expect(account.openingBalanceMinor, 120000);
+
+      final tx = await (db.select(
+        db.transactions,
+      )..where((t) => t.id.equals('t1'))).getSingle();
+      expect(tx.amountMinor, 3456);
+
+      expect(await db.customDataSourcesDao.getDataSourceById('src1'), isNotNull);
+    });
+
+    test('lands on the current schema version', () async {
+      final row = await db.customSelect('PRAGMA user_version').getSingle();
+      expect(row.data['user_version'], db.schemaVersion);
+    });
+
+    test('a database that already has the column upgrades without error',
+        () async {
+      // The step is re-runnable: a device that took an interim build carrying
+      // the column must not hit "duplicate column name" and be stuck on every
+      // launch.
+      final file = File('${tempDir.path}/v11_with_column.sqlite');
+      final raw = sqlite3.sqlite3.open(file.path);
+      raw.execute(createV11Sql);
+      raw.execute(
+        'ALTER TABLE api_settings_table ADD COLUMN "is_deleted" INTEGER NOT '
+        'NULL DEFAULT 0;',
+      );
+      raw.execute(seedSql);
+      raw.execute('PRAGMA user_version = 11;');
+      raw.dispose();
+
+      final upgraded = AppDatabase.forTesting(NativeDatabase(file));
+      await expectLater(upgraded.customSelect('SELECT 1').get(), completes);
+      expect(
+        await upgraded.apiSettingsDao.getSettingById('exchange_rates'),
+        isNotNull,
+      );
+      await upgraded.close();
+    });
+  });
 }

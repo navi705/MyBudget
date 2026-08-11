@@ -404,6 +404,14 @@ class ApiSettingsTable extends Table {
   IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
   TextColumn get deviceId => text().nullable()();
 
+  /// Tombstone flag, like every other synced table.
+  ///
+  /// Without it a delete for a provider row the peer had never seen was a
+  /// no-op there, and the upsert that had been sitting in an earlier file
+  /// simply recreated the row - a provider the user removed came back, and
+  /// started fetching again.
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -558,14 +566,26 @@ class CurrencyDesignationsDao extends DatabaseAccessor<AppDatabase>
     CurrencyDesignationsCompanion designation,
   ) async {
     final updatedDesignation = designation.copyWith(
+      // The id addresses the row, it is never part of the new values.
+      id: const Value.absent(),
       modifiedAt:
           (designation.modifiedAt.present && designation.modifiedAt.value > 0)
           ? designation.modifiedAt
           : Value(DateTime.now().millisecondsSinceEpoch),
     );
-    final result = await update(
-      currencyDesignations,
-    ).replace(updatedDesignation);
+    // Deliberately NOT `replace`: replace writes every column of the table, and
+    // the companion the UI builds carries no isDeleted, so a designation the
+    // user deleted came back to life - on this device and, through the upsert
+    // below, on every paired one - the moment anything re-saved that id.
+    // Scoping the write to live rows also makes editing a deleted designation
+    // the no-op the caller already expects, since it cannot even load one.
+    final count =
+        await (update(currencyDesignations)..where(
+              (t) =>
+                  t.id.equals(designation.id.value) & t.isDeleted.equals(false),
+            ))
+            .write(updatedDesignation);
+    final result = count > 0;
     if (result) {
       await _logChange(designation.id.value, 'upsert');
     }
@@ -1114,7 +1134,13 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
           : Value(DateTime.now().millisecondsSinceEpoch),
     );
     final result = await update(styles).replace(updatedStyle);
-    await _logChange(style.id.value, 'upsert');
+    // Only log what actually changed. `replace` returns false when no row
+    // matched, and announcing that id anyway makes every peer ask for a style
+    // this device does not have - a wasted round trip on the server engine, and
+    // an entry the file engine can never resolve.
+    if (result) {
+      await _logChange(style.id.value, 'upsert');
+    }
     return result;
   }
 
@@ -1825,6 +1851,19 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
           .whereType<String>()
           .toList();
 
+      // The other half of a transfer sits on a DIFFERENT account, and that
+      // account survives this delete. Its balance still counts the leg that is
+      // about to disappear, so the accounts holding those legs are collected
+      // here and rebuilt at the end - otherwise the user deletes one account
+      // and another one is left showing money that no transaction backs.
+      final linkedAccountIds = <String>{};
+      if (linkedTxIds.isNotEmpty) {
+        final linkedTxs = await (select(
+          db.transactions,
+        )..where((t) => t.id.isIn(linkedTxIds))).get();
+        linkedAccountIds.addAll(linkedTxs.map((t) => t.accountId));
+      }
+
       // 2. Mark account transactions as deleted
       final txUpdate =
           await (update(
@@ -1865,9 +1904,20 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
         '[AccountsDao] Marked account as deleted (count: $accUpdate).',
       );
 
+      // 5. Rebuild the accounts that kept a transfer leg (see above). The
+      // deleted account itself is gone, so it is not worth rebuilding.
+      linkedAccountIds.remove(accountId);
+      await recomputeBalances(linkedAccountIds);
+
       await _logChange(accountId, 'delete');
-      if (txIds.isNotEmpty) await _logChanges(txIds, 'delete');
-      if (linkedTxIds.isNotEmpty) await _logChanges(linkedTxIds, 'delete');
+      // Transaction ids have to be logged against the transactions table.
+      // Logged as 'accounts' they named rows that do not exist in that table,
+      // so every peer discarded them: the deleted transactions never reached
+      // another device and came straight back on the next sync.
+      if (txIds.isNotEmpty) await _logTransactionChanges(txIds, 'delete');
+      if (linkedTxIds.isNotEmpty) {
+        await _logTransactionChanges(linkedTxIds, 'delete');
+      }
     });
   }
 
@@ -1877,6 +1927,12 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   ) {
     return db.transaction(() async {
       final now = DateTime.now().millisecondsSinceEpoch;
+      final movedTxIds =
+          (await (select(
+                db.transactions,
+              )..where((t) => t.accountId.equals(accountId))).get())
+              .map((t) => t.id)
+              .toList();
       await (update(
         db.transactions,
       )..where((t) => t.accountId.equals(accountId))).write(
@@ -1888,7 +1944,42 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       await (update(accounts)..where((a) => a.id.equals(accountId))).write(
         AccountsCompanion(isDeleted: const Value(true), modifiedAt: Value(now)),
       );
+      // Moving transactions between accounts moves money between them, and
+      // neither balance was touched: the account taking the transactions kept
+      // showing its old total, so the transfers the user could now see on it
+      // did not add up to it.
+      await recomputeBalances([accountId, newAccountId]);
       await _logChange(accountId, 'delete');
+      // The rows survive, they only moved account: 'upsert', not 'delete', and
+      // against the table they actually live in.
+      if (movedTxIds.isNotEmpty) {
+        await _logTransactionChanges(movedTxIds, 'upsert');
+      }
+    });
+  }
+
+  /// Log transaction-table changes made as a side effect of an account
+  /// mutation ([_logChanges] is hard-coded to the `accounts` table).
+  Future<void> _logTransactionChanges(
+    List<String> recordIds,
+    String action,
+  ) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    await batch((batch) {
+      batch.insertAll(
+        syncLog,
+        recordIds
+            .map(
+              (id) => SyncLogCompanion(
+                changedTableName: const Value('transactions'),
+                recordId: Value(id),
+                action: Value(action),
+                timestamp: Value(timestamp),
+                exported: const Value(false),
+              ),
+            )
+            .toList(),
+      );
     });
   }
 }
@@ -2459,8 +2550,23 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
 
   Future<Setting?> getSetting(String key) =>
       (select(settings)..where((tbl) => tbl.key.equals(key))).getSingleOrNull();
-  Future<void> setSetting(SettingsCompanion setting) =>
-      into(settings).insert(setting, mode: InsertMode.insertOrReplace);
+  /// Writes a setting, stamping [Settings.modifiedAt] when the caller left it
+  /// out.
+  ///
+  /// Without the stamp every setting the user changed sat at modifiedAt 0,
+  /// which is the losing side of last-write-wins: the moment settings are
+  /// carried by a sync engine, a peer's untouched default beats the choice the
+  /// user actually made. An explicit value is left alone, so a row applied from
+  /// a peer keeps the timestamp it arrived with.
+  Future<void> setSetting(SettingsCompanion setting) {
+    final toInsert =
+        (setting.modifiedAt.present && setting.modifiedAt.value > 0)
+        ? setting
+        : setting.copyWith(
+            modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+          );
+    return into(settings).insert(toInsert, mode: InsertMode.insertOrReplace);
+  }
 
   Future<void> insertAllSettings(List<SettingsCompanion> settings) {
     return batch((batch) {
@@ -2700,14 +2806,12 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     });
 
     // Deliberately not written to sync_log. This is the bulk path used by the
-    // seed data and by every rate-provider refresh, so one launch enqueues
-    // hundreds of thousands of rows - and the file-sync engine cannot deliver
-    // a single one of them: SyncService has no exchangeRates case in
-    // _getBulkRecordData/_insertRecord, so each row is fetched, found to have
-    // no payload, and dropped ("Data null for exchangeRates:... (skipping)").
-    // The only effect was an export that re-walked the entire backlog every
-    // cycle. Every device fetches the same rates from the same provider, so
-    // there is nothing here a peer needs shipped to it. Manually entered rates
+    // seed data and by every rate-provider refresh, so one launch would enqueue
+    // hundreds of thousands of rows. Both engines could ship them now - the
+    // file engine gained an exchangeRates case in 585b48d - which is exactly
+    // why the omission has to stay deliberate: every device fetches the same
+    // rates from the same provider, so shipping them buys the peer nothing and
+    // costs every export a re-walk of the whole backlog. Manually entered rates
     // still log through addExchangeRate/updateExchangeRate/replaceExchangeRate.
   }
 
@@ -2855,6 +2959,20 @@ class CustomThemesDao extends DatabaseAccessor<AppDatabase>
   Future<void> setActiveTheme(String id) {
     return transaction(() async {
       final now = DateTime.now().millisecondsSinceEpoch;
+
+      // Check the target first. Deactivating everything and then updating an id
+      // that is not there - or one the user deleted - left the app with NO
+      // active theme at all, which is worse than the theme not changing: the
+      // user loses the look they had and there is nothing in the picker marked
+      // as current. A deleted theme must not become active either, or the
+      // interface renders from a row that is a tombstone everywhere else.
+      final target =
+          await (select(customThemes)..where(
+                (tbl) => tbl.id.equals(id) & tbl.isDeleted.equals(false),
+              ))
+              .getSingleOrNull();
+      if (target == null) return;
+
       // The rows losing `is_active` change too, so a peer that only heard
       // about [id] would end up with two active themes.
       final deactivated = await (select(
@@ -3016,8 +3134,9 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
     });
 
     // Not written to sync_log, for the same reason as insertAllExchangeRates:
-    // provider data every device fetches for itself, which the file-sync
-    // engine has no inflationRates case to deliver anyway. This loop also ran
+    // provider data every device fetches for itself, so shipping it only makes
+    // every export longer. Both engines can carry inflation rates - the file
+    // engine since 585b48d - so this is a choice, not a gap. This loop also ran
     // one INSERT round trip per rate.
   }
 
@@ -3591,8 +3710,15 @@ class AppDatabase extends _$AppDatabase {
 
   AppDatabase.forTesting(super.connection);
 
+  /// Whether [table] already has [column], so a migration step that adds it can
+  /// be re-run after an upgrade that was interrupted halfway.
+  Future<bool> _hasColumn(String table, String column) async {
+    final rows = await customSelect('PRAGMA table_info($table)').get();
+    return rows.any((r) => r.read<String>('name') == column);
+  }
+
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration {
@@ -3841,6 +3967,20 @@ class AppDatabase extends _$AppDatabase {
           debugPrint('[DB_MIGRATION] v10→v11: complete');
         }
 
+        if (from < 12) {
+          // api_settings_table was the only synced table with no tombstone, so
+          // deleting a provider on one device left the others untouched and the
+          // row came back on the next sync. Guarded like the index steps above:
+          // a database that already carries the column (an upgrade that died
+          // after the ALTER) must not fail the whole migration on
+          // "duplicate column name".
+          debugPrint('[DB_MIGRATION] v11→v12: adding is_deleted to api_settings_table...');
+          if (!await _hasColumn('api_settings_table', 'is_deleted')) {
+            await m.addColumn(apiSettingsTable, apiSettingsTable.isDeleted);
+          }
+          debugPrint('[DB_MIGRATION] v11→v12: complete');
+        }
+
         debugPrint('[DB_MIGRATION] onUpgrade complete: from=$from to=$to');
       },
       beforeOpen: (details) async {
@@ -3986,32 +4126,32 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  /// Creates the built-in provider rows that are missing.
+  ///
+  /// Only the missing ones: this also runs after "clear my data", and an
+  /// unconditional upsert switched every provider back to enabled with
+  /// auto-fetch on. A user who had deliberately turned the exchange-rate
+  /// provider off found their device talking to the network again after a
+  /// clear, without being asked.
   Future<void> _seedApiSettings(AppDatabase db) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    await db.apiSettingsDao.upsertSetting(
-      ApiSettingsTableCompanion(
-        id: const Value('exchange_rates'),
-        enabled: const Value(true),
-        autoFetch: const Value(true),
-        modifiedAt: Value(now),
-      ),
-    );
-    await db.apiSettingsDao.upsertSetting(
-      ApiSettingsTableCompanion(
-        id: const Value('inflation'),
-        enabled: const Value(true),
-        autoFetch: const Value(true),
-        modifiedAt: Value(now),
-      ),
-    );
-    await db.apiSettingsDao.upsertSetting(
-      ApiSettingsTableCompanion(
-        id: const Value('assets'),
-        enabled: const Value(true),
-        autoFetch: const Value(true),
-        modifiedAt: Value(now),
-      ),
-    );
+    const providerIds = ['exchange_rates', 'inflation', 'assets'];
+
+    // Tombstones count as existing, or a provider the user deleted would be
+    // recreated - and re-enabled - by the next reseed.
+    final existing = await db.apiSettingsDao.existingIds(providerIds);
+
+    for (final id in providerIds) {
+      if (existing.contains(id)) continue;
+      await db.apiSettingsDao.upsertSetting(
+        ApiSettingsTableCompanion(
+          id: Value(id),
+          enabled: const Value(true),
+          autoFetch: const Value(true),
+          modifiedAt: Value(now),
+        ),
+      );
+    }
   }
 
   Future<void> _seedStyles(AppDatabase db) async {
@@ -4144,9 +4284,41 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  /// The tables [clearAllData] empties, mapped to the ids they held.
+  ///
+  /// Read before the wipe, because after it there is nothing left to name.
+  /// Keyed by the `sync_log` table name, which is what the sync engines match
+  /// on - not the drift class name.
+  Future<Map<String, List<String>>> _clearableRecordIds({
+    required bool preserveStaticData,
+  }) async {
+    Future<List<String>> ids(String table, [String column = 'id']) async {
+      final rows = await customSelect('SELECT $column AS id FROM $table').get();
+      return rows.map((r) => r.read<String>('id')).toList();
+    }
+
+    return {
+      'transactions': await ids('transactions'),
+      'accounts': await ids('accounts'),
+      'categories': await ids('categories'),
+      'asset_entries': await ids('asset_entries'),
+      'styles': await ids('styles'),
+      'sms_presets': await ids('sms_presets'),
+      if (!preserveStaticData) ...{
+        'currency_designations': await ids('currency_designations'),
+        'account_types': await ids('account_types'),
+        'currencies': await ids('currencies', 'code'),
+      },
+    };
+  }
+
   Future<void> clearAllData({bool preserveStaticData = true}) async {
     // Disable FK checks during clear and reseed
     await customStatement('PRAGMA foreign_keys = OFF');
+
+    final clearedIds = await _clearableRecordIds(
+      preserveStaticData: preserveStaticData,
+    );
 
     // Delete all data from tables
     await batch((batch) {
@@ -4172,12 +4344,76 @@ class AppDatabase extends _$AppDatabase {
       }
     });
 
+    // Everything still queued for export against a wiped table names a row that
+    // no longer exists, so it can only be sent as "nothing" or re-sent from the
+    // reseed. Dropping those entries first also keeps a pre-clear upsert from
+    // arriving after the tombstone written below and undoing it. Entries for
+    // tables the clear does not touch - custom themes, custom data sources, API
+    // settings - are deliberately left pending.
+    final clearedTables = [...clearedIds.keys, 'exchange_rates', 'inflation_rates'];
+    await (delete(
+      syncLog,
+    )..where((l) => l.changedTableName.isIn(clearedTables))).go();
+
     // Re-seed the data after clearing
     await _seedData(this, skipStaticData: preserveStaticData);
+
+    // Tombstones for everything the wipe removed and the reseed did not bring
+    // back. Without them the clear was invisible to the other devices: they
+    // still held the accounts, transactions and asset entries the user had just
+    // erased, and pushed every one of them back on the next sync, so the data
+    // reappeared by itself. Ids the reseed restored (the default styles and
+    // categories) are excluded - they exist again, and their reseed upsert has
+    // already been logged.
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final tombstones = <SyncLogCompanion>[];
+    for (final entry in clearedIds.entries) {
+      final table = _tableForSyncName(entry.key);
+      final survivors = table == null
+          ? const <String>{}
+          : (await customSelect(
+                  'SELECT ${_idColumnForSyncName(entry.key)} AS id FROM $table',
+                ).get())
+                .map((r) => r.read<String>('id'))
+                .toSet();
+      for (final id in entry.value) {
+        if (survivors.contains(id)) continue;
+        tombstones.add(
+          SyncLogCompanion(
+            changedTableName: Value(entry.key),
+            recordId: Value(id),
+            action: const Value('delete'),
+            timestamp: Value(now),
+            exported: const Value(false),
+          ),
+        );
+      }
+    }
+    if (tombstones.isNotEmpty) {
+      await batch((batch) => batch.insertAll(syncLog, tombstones));
+    }
 
     // Re-enable FK checks
     await customStatement('PRAGMA foreign_keys = ON');
   }
+
+  /// SQL table behind a `sync_log` table name, for the few tables [clearAllData]
+  /// wipes. Returns null when the name is not one of them.
+  String? _tableForSyncName(String syncName) => const {
+    'transactions': 'transactions',
+    'accounts': 'accounts',
+    'categories': 'categories',
+    'asset_entries': 'asset_entries',
+    'styles': 'styles',
+    'sms_presets': 'sms_presets',
+    'currency_designations': 'currency_designations',
+    'account_types': 'account_types',
+    'currencies': 'currencies',
+  }[syncName];
+
+  /// Currencies are keyed by `code`, everything else by `id`.
+  String _idColumnForSyncName(String syncName) =>
+      syncName == 'currencies' ? 'code' : 'id';
 }
 
 @DriftAccessor(tables: [CustomDataSources, SyncLog])
@@ -4192,6 +4428,14 @@ class CustomDataSourcesDao extends DatabaseAccessor<AppDatabase>
   Future<CustomDataSource?> getDataSourceById(String id) =>
       (select(customDataSources)
             ..where((tbl) => tbl.id.equals(id) & tbl.isDeleted.equals(false)))
+          .getSingleOrNull();
+
+  /// Same lookup, but tombstones included. Callers deciding whether an id is
+  /// free must use this one: an id whose row is soft-deleted is still taken,
+  /// and treating it as free means inserting over the tombstone, which brings
+  /// a deleted endpoint back and starts it fetching again.
+  Future<CustomDataSource?> getDataSourceByIdIncludingDeleted(String id) =>
+      (select(customDataSources)..where((tbl) => tbl.id.equals(id)))
           .getSingleOrNull();
 
   Future<List<CustomDataSource>> getDataSourcesByIds(List<String> ids) async {
@@ -4248,9 +4492,23 @@ class CustomDataSourcesDao extends DatabaseAccessor<AppDatabase>
     CustomDataSourcesCompanion dataSource,
   ) async {
     final updatedDataSource = dataSource.copyWith(
+      // The id addresses the row, it is never part of the new values.
+      id: const Value.absent(),
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
-    final result = await update(customDataSources).replace(updatedDataSource);
+    // Deliberately NOT `replace`: replace fills in the table default for every
+    // column the caller left out, so an edit built without isDeleted cleared
+    // the tombstone and the deleted endpoint started being fetched again, here
+    // and on every paired device. Restricting the write to live rows makes
+    // editing a deleted source do nothing, which is what the caller expects -
+    // it cannot even load one.
+    final count =
+        await (update(customDataSources)..where(
+              (t) =>
+                  t.id.equals(dataSource.id.value) & t.isDeleted.equals(false),
+            ))
+            .write(updatedDataSource);
+    final result = count > 0;
     if (result) {
       await _logChange(dataSource.id.value, 'upsert');
     }
@@ -4311,12 +4569,14 @@ class ApiSettingsDao extends DatabaseAccessor<AppDatabase>
     with _$ApiSettingsDaoMixin {
   ApiSettingsDao(super.db);
 
-  Future<List<ApiSettingsTableData>> getAllSettings() =>
-      select(apiSettingsTable).get();
-
-  Future<ApiSettingsTableData?> getSettingById(String id) => (select(
+  Future<List<ApiSettingsTableData>> getAllSettings() => (select(
     apiSettingsTable,
-  )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+  )..where((tbl) => tbl.isDeleted.equals(false))).get();
+
+  Future<ApiSettingsTableData?> getSettingById(String id) =>
+      (select(apiSettingsTable)
+            ..where((tbl) => tbl.id.equals(id) & tbl.isDeleted.equals(false)))
+          .getSingleOrNull();
 
   Future<void> upsertSetting(ApiSettingsTableCompanion setting) async {
     final toInsert = setting.copyWith(
@@ -4327,8 +4587,36 @@ class ApiSettingsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<List<ApiSettingsTableData>> getSettingsByIds(List<String> ids) async {
-    final query = select(apiSettingsTable)..where((t) => t.id.isIn(ids));
+    final query = select(apiSettingsTable)
+      ..where((t) => t.id.isIn(ids) & t.isDeleted.equals(false));
     return query.get();
+  }
+
+  /// Which of [ids] already have a row, tombstones included.
+  ///
+  /// Anything deciding whether an id is free has to count tombstones as taken:
+  /// treating a deleted provider as missing means seeding it again, which is
+  /// how a provider the user removed starts fetching by itself.
+  Future<Set<String>> existingIds(List<String> ids) async {
+    final rows = await (select(apiSettingsTable)..where((t) => t.id.isIn(ids)))
+        .get();
+    return rows.map((r) => r.id).toSet();
+  }
+
+  /// Soft-deletes a provider row so the removal can reach the other devices.
+  Future<int> deleteSetting(String id) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final count =
+        await (update(apiSettingsTable)..where((t) => t.id.equals(id))).write(
+          ApiSettingsTableCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(now),
+          ),
+        );
+    if (count > 0) {
+      await _logChange(id, 'delete');
+    }
+    return count;
   }
 
   Future<void> insertSyncedApiSetting(ApiSettingsTableCompanion setting) =>

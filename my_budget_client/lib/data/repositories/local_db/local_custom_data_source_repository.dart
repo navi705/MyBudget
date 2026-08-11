@@ -33,9 +33,16 @@ class LocalCustomDataSourceRepository implements CustomDataSourceRepository {
       lastFetchAt: Value(dataSource.lastFetchAt?.millisecondsSinceEpoch),
     );
 
-    final existing = await _customDataSourcesDao.getDataSourceById(dataSource.id);
+    // Tombstones count as existing. `getDataSourceById` hides soft-deleted
+    // rows, so saving a deleted id looked like a brand new record and took the
+    // insertOrReplace path, which wiped the delete flag: an endpoint the user
+    // removed silently started being fetched again, and the resurrection was
+    // pushed to every paired device.
+    final existing = await _customDataSourcesDao
+        .getDataSourceByIdIncludingDeleted(dataSource.id);
     if (existing != null) {
-      // Record exists — update (preserves modifiedAt bump + sync log)
+      // Record exists — update (preserves modifiedAt bump + sync log). The DAO
+      // only writes live rows, so a deleted id stays deleted.
       await _customDataSourcesDao.updateCustomDataSource(companion);
     } else {
       // New record — insert

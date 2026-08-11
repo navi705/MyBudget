@@ -96,6 +96,18 @@ void main() {
       ),
     );
 
+    // A change still queued for export against a record the clear wipes.
+    await db
+        .into(db.syncLog)
+        .insert(
+          SyncLogCompanion.insert(
+            changedTableName: 'accounts',
+            recordId: 'acc-1',
+            action: 'upsert',
+            timestamp: DateTime.now().millisecondsSinceEpoch,
+          ),
+        );
+
     syncLogRowsBeforeClear = (await db.select(db.syncLog).get()).length;
 
     await repo.clearAllDatabase();
@@ -167,36 +179,70 @@ void main() {
       expect(await db.customDataSourcesDao.getAllDataSources(), hasLength(1));
     });
 
-    test('CHARACTERIZATION: the user\'s API provider toggles are reset to '
-        'enabled + auto-fetch', () async {
-      // BUG. `clearAllData` does not delete api_settings_table, but its reseed
-      // calls `_seedApiSettings`, which upserts every provider back to
-      // enabled: true / autoFetch: true. A user who deliberately turned the
-      // exchange-rate provider off and then clears their data starts fetching
-      // from the network again without being asked. Correct behaviour: seed
-      // API settings only for ids that are missing.
+    test('the API provider toggles the user turned off stay off', () async {
+      // The reseed used to upsert every provider back to enabled + auto-fetch,
+      // so a user who deliberately switched the exchange-rate provider off and
+      // then cleared their data started hitting the network again without being
+      // asked. The seed now only fills in provider ids that are missing.
       final setting = await db.apiSettingsDao.getSettingById('exchange_rates');
-      expect(setting!.enabled, isTrue);
-      expect(setting.autoFetch, isTrue);
+      expect(setting!.enabled, isFalse);
+      expect(setting.autoFetch, isFalse);
     });
 
-    test('CHARACTERIZATION: the clear writes no delete rows to sync_log, so '
-        'every wiped record comes back from the next sync', () async {
-      // BUG. `AppDatabase.clearAllData` deletes with a raw batch and never
-      // records tombstones, while the reseed that follows it *does* log
-      // upserts for the freshly seeded styles, categories and API settings. On
-      // the next sync the peer sends back the accounts, transactions and asset
-      // entries this device just erased, and the user watches their data
-      // reappear. Correct behaviour: write `delete` rows for every cleared
-      // record id (or explicitly reset the sync state and re-pair).
-      final logged = await db.select(db.syncLog).get();
+    test('providers that were never configured are still seeded', () async {
+      // Skipping existing ids must not turn into skipping the seed entirely.
+      final ids = (await db.apiSettingsDao.getAllSettings()).map((s) => s.id);
+      expect(ids, containsAll(['exchange_rates', 'inflation', 'assets']));
+    });
+  });
 
-      expect(logged.where((l) => l.action == 'delete'), isEmpty);
+  group('clearAllDatabase tells the other devices', () {
+    test('every wiped record gets a delete row in sync_log', () async {
+      // Without tombstones the clear was invisible to the peers: they still
+      // held the accounts, transactions and asset entries the user had just
+      // erased and pushed all of them back on the next sync, so the data
+      // reappeared by itself.
+      final logged = await db.select(db.syncLog).get();
+      final deletes = logged.where((l) => l.action == 'delete');
+
       expect(
-        logged.length,
-        greaterThan(syncLogRowsBeforeClear),
-        reason: 'the reseed logs upserts even though the wipe logs nothing',
+        deletes.any(
+          (l) => l.changedTableName == 'accounts' && l.recordId == 'acc-1',
+        ),
+        isTrue,
       );
+      expect(
+        deletes.any(
+          (l) => l.changedTableName == 'asset_entries' &&
+              l.recordId == 'asset-1',
+        ),
+        isTrue,
+      );
+    });
+
+    test('no delete row is written for a record the reseed brought back',
+        () async {
+      // The default styles and categories exist again, so a tombstone for them
+      // would erase the freshly seeded rows on every other device.
+      final styleIds = (await db.select(db.styles).get()).map((s) => s.id).toSet();
+      final tombstoned = (await db.select(db.syncLog).get())
+          .where((l) => l.action == 'delete' && l.changedTableName == 'styles')
+          .map((l) => l.recordId)
+          .toSet();
+
+      expect(styleIds, isNotEmpty);
+      expect(tombstoned.intersection(styleIds), isEmpty);
+    });
+
+    test('the stale export queue for the wiped tables is dropped', () async {
+      // A pre-clear upsert left in the queue would arrive after the tombstone
+      // and put the record back on the peer.
+      final upserts = (await db.select(db.syncLog).get()).where(
+        (l) => l.action == 'upsert' && l.changedTableName == 'accounts',
+      );
+
+      expect(syncLogRowsBeforeClear, greaterThan(0));
+      expect(upserts, isEmpty);
     });
   });
 
