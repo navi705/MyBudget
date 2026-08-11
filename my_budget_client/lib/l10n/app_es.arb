@@ -629,5 +629,8 @@
     "exchDeleteConfirmMessage": "¿Está seguro de que desea eliminar {count} tipos de cambio?",
     "exchUpdatePresetTitle": "Actualizar Preajuste",
     "exchUpdatePresetMessage": "Introduzca el nuevo ID de preajuste para los elementos seleccionados:",
-    "dashboardUnconvertibleCurrencies": "No se pudo convertir {currencies}; esos importes no se incluyen en el total"
+    "dashboardUnconvertibleCurrencies": "No se pudo convertir {currencies}; esos importes no se incluyen en el total",
+    "addAccountBeforeTransactionDescription": "Una transacción necesita una cuenta. Cree la primera para empezar",
+    "selectDialogEmptyState": "Todavía no hay nada para elegir",
+    "selectDialogNoMatches": "No hay resultados para su búsqueda"
 }

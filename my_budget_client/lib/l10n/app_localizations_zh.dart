@@ -2059,4 +2059,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String dashboardUnconvertibleCurrencies(String currencies) {
     return '无法换算 $currencies，这些金额未计入总额';
   }
+
+  @override
+  String get addAccountBeforeTransactionDescription => '记录交易需要账户，请先创建第一个账户';
+
+  @override
+  String get selectDialogEmptyState => '暂时没有可供选择的内容';
+
+  @override
+  String get selectDialogNoMatches => '没有符合搜索的结果';
 }

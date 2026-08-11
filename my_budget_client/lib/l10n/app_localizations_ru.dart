@@ -2061,4 +2061,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String dashboardUnconvertibleCurrencies(String currencies) {
     return 'Не удалось конвертировать $currencies — эти суммы не включены в итог';
   }
+
+  @override
+  String get addAccountBeforeTransactionDescription => 'Транзакции нужен счёт. Создайте первый, чтобы начать';
+
+  @override
+  String get selectDialogEmptyState => 'Пока не из чего выбирать';
+
+  @override
+  String get selectDialogNoMatches => 'По запросу ничего не найдено';
 }

@@ -629,5 +629,8 @@
     "exchDeleteConfirmMessage": "Tem certeza de que deseja excluir {count} taxas de câmbio?",
     "exchUpdatePresetTitle": "Atualizar Predefinição",
     "exchUpdatePresetMessage": "Digite o novo ID da predefinição para os itens selecionados:",
-    "dashboardUnconvertibleCurrencies": "Não foi possível converter {currencies}; esses valores não estão incluídos no total"
+    "dashboardUnconvertibleCurrencies": "Não foi possível converter {currencies}; esses valores não estão incluídos no total",
+    "addAccountBeforeTransactionDescription": "Uma transação precisa de uma conta. Crie a primeira para começar",
+    "selectDialogEmptyState": "Ainda não há nada para escolher",
+    "selectDialogNoMatches": "Nenhum resultado para sua pesquisa"
 }

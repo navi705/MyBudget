@@ -629,5 +629,8 @@
     "exchDeleteConfirmMessage": "আপনি কি নিশ্চিত যে আপনি {count}টি বিনিময় হার মুছে ফেলতে চান?",
     "exchUpdatePresetTitle": "প্রিসেট আপডেট করুন",
     "exchUpdatePresetMessage": "নির্বাচিত আইটেমগুলোর জন্য নতুন প্রিসেট আইডি লিখুন:",
-    "dashboardUnconvertibleCurrencies": "{currencies} রূপান্তর করা যায়নি, তাই এই পরিমাণগুলো মোটের মধ্যে অন্তর্ভুক্ত নয়"
+    "dashboardUnconvertibleCurrencies": "{currencies} রূপান্তর করা যায়নি, তাই এই পরিমাণগুলো মোটের মধ্যে অন্তর্ভুক্ত নয়",
+    "addAccountBeforeTransactionDescription": "লেনদেনের জন্য একটি অ্যাকাউন্ট প্রয়োজন। শুরু করতে প্রথমটি তৈরি করুন",
+    "selectDialogEmptyState": "এখনও বেছে নেওয়ার মতো কিছু নেই",
+    "selectDialogNoMatches": "আপনার অনুসন্ধানের সাথে কিছুই মেলেনি"
 }

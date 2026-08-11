@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
+import 'package:my_budget_client/core/utils/dialog_utils.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
@@ -20,8 +21,10 @@ import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/add_edit_transaction/add_edit_transaction_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/budget_icon.dart';
@@ -1261,6 +1264,26 @@ class _AssetPriceDisplay extends StatelessWidget {
   }
 }
 
+/// Account creation, reached from a picker that has nothing to offer.
+///
+/// The blocs are re-provided the way the accounts screen does it: the dialog
+/// goes onto the root navigator, so it is a sibling of this route rather than a
+/// descendant of it.
+void _showAddAccountDialog(BuildContext context) {
+  DialogUtils.showAppDialog(
+    context: context,
+    resizeToAvoidBottomInset: false,
+    child: MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: context.read<AccountsBloc>()),
+        BlocProvider.value(value: context.read<CurrencyBloc>()),
+        BlocProvider.value(value: context.read<StylesBloc>()),
+      ],
+      child: const AddAccountDialog(),
+    ),
+  );
+}
+
 class _LinkedAccountField extends StatelessWidget {
   final String? label;
   const _LinkedAccountField({this.label});
@@ -1300,6 +1323,20 @@ class _LinkedAccountField extends StatelessWidget {
                             leading: const Icon(Icons.account_balance_wallet),
                           ),
                           stringGetter: (account) => account.name,
+                          // A transfer needs a second cash account. With only
+                          // one there is nothing to pick, yet this field is
+                          // required - so the form could never be saved and
+                          // never said why. Creating the missing account from
+                          // inside the picker is the only exit that does not
+                          // throw away the half-filled form; the bloc watches
+                          // the account stream, so it appears here at once.
+                          createAction: cashAccounts.isEmpty
+                              ? SingleSelectCreateAction(
+                                  label: context.l10n.accountsAddTooltip,
+                                  onPressed: () =>
+                                      _showAddAccountDialog(context),
+                                )
+                              : null,
                         );
 
                     if (context.mounted && selectedAccount != null) {

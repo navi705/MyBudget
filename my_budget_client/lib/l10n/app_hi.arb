@@ -629,5 +629,8 @@
     "exchDeleteConfirmMessage": "क्या आप वाकई {count} विनिमय दरें हटाना चाहते हैं?",
     "exchUpdatePresetTitle": "प्रीसेट अपडेट करें",
     "exchUpdatePresetMessage": "चयनित आइटम के लिए नया प्रीसेट आईडी दर्ज करें:",
-    "dashboardUnconvertibleCurrencies": "{currencies} को परिवर्तित नहीं किया जा सका, इसलिए ये राशियाँ कुल में शामिल नहीं हैं"
+    "dashboardUnconvertibleCurrencies": "{currencies} को परिवर्तित नहीं किया जा सका, इसलिए ये राशियाँ कुल में शामिल नहीं हैं",
+    "addAccountBeforeTransactionDescription": "लेन-देन के लिए खाता आवश्यक है। शुरू करने के लिए पहला खाता बनाएं",
+    "selectDialogEmptyState": "अभी चुनने के लिए कुछ नहीं है",
+    "selectDialogNoMatches": "आपकी खोज से कोई मेल नहीं मिला"
 }

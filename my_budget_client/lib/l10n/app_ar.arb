@@ -629,5 +629,8 @@
     "exchDeleteConfirmMessage": "هل أنت متأكد من رغبتك في حذف {count} أسعار صرف؟",
     "exchUpdatePresetTitle": "تحديث النموذج",
     "exchUpdatePresetMessage": "أدخل معرّف النموذج الجديد للعناصر المحددة:",
-    "dashboardUnconvertibleCurrencies": "تعذّر تحويل {currencies}، وهي غير مُدرجة في الإجمالي"
+    "dashboardUnconvertibleCurrencies": "تعذّر تحويل {currencies}، وهي غير مُدرجة في الإجمالي",
+    "addAccountBeforeTransactionDescription": "تحتاج المعاملة إلى حساب. أنشئ حسابك الأول للبدء",
+    "selectDialogEmptyState": "لا يوجد شيء للاختيار منه بعد",
+    "selectDialogNoMatches": "لا توجد نتائج مطابقة لبحثك"
 }

@@ -629,5 +629,8 @@
     "exchDeleteConfirmMessage": "کیا آپ واقعی {count} شرح تبادلہ حذف کرنا چاہتے ہیں؟",
     "exchUpdatePresetTitle": "پیش سیٹ اپ ڈیٹ کریں",
     "exchUpdatePresetMessage": "منتخب آئٹمز کے لیے نئی پیش سیٹ آئی ڈی درج کریں:",
-    "dashboardUnconvertibleCurrencies": "{currencies} کو تبدیل نہیں کیا جا سکا، اس لیے یہ رقوم کل میں شامل نہیں ہیں"
+    "dashboardUnconvertibleCurrencies": "{currencies} کو تبدیل نہیں کیا جا سکا، اس لیے یہ رقوم کل میں شامل نہیں ہیں",
+    "addAccountBeforeTransactionDescription": "لین دین کے لیے اکاؤنٹ ضروری ہے۔ شروع کرنے کے لیے پہلا اکاؤنٹ بنائیں",
+    "selectDialogEmptyState": "ابھی منتخب کرنے کے لیے کچھ نہیں ہے",
+    "selectDialogNoMatches": "آپ کی تلاش سے کوئی چیز مطابقت نہیں رکھتی"
 }

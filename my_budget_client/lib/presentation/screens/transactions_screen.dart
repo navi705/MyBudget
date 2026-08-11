@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+// Both bloc libraries export ToggleSelectionMode and DatePeriodNavigated, and
+// every use of those names on this screen belongs to the transactions bloc.
+import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart'
+    show AccountsBloc, AccountsLoadSuccess, AccountsState;
+import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
+import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/category_picker_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/filter_date.dart';
 import 'package:my_budget_client/presentation/widgets/transaction_list.dart';
@@ -14,6 +21,43 @@ import 'package:my_budget_client/core/theme/app_spacing.dart';
 
 class TransactionsScreen extends StatelessWidget {
   const TransactionsScreen({super.key});
+
+  /// True once the accounts have actually loaded and there are none.
+  ///
+  /// Every other [AccountsState] reports an empty list while the load is still
+  /// running, so treating "empty" as "no accounts" everywhere would flip the
+  /// button under the user on the first frame of a normal launch.
+  static bool _hasNoAccounts(AccountsState state) =>
+      state is AccountsLoadSuccess && state.accounts.isEmpty;
+
+  /// The "+" entry point, shared by the button and the hotkey.
+  ///
+  /// Nothing seeds an account, Account is required on the transaction form and
+  /// its picker is fed from the same empty list, so on a fresh install the form
+  /// could be opened but never saved - Back was the only way out. Those users
+  /// get account creation instead, which is what the form was waiting for.
+  void _startAddFlow(BuildContext context) {
+    if (_hasNoAccounts(context.read<AccountsBloc>().state)) {
+      _showAddAccountDialog(context);
+      return;
+    }
+    context.push(AppRoutes.addEditTransaction);
+  }
+
+  void _showAddAccountDialog(BuildContext context) {
+    DialogUtils.showAppDialog(
+      context: context,
+      resizeToAvoidBottomInset: false,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: context.read<AccountsBloc>()),
+          BlocProvider.value(value: context.read<CurrencyBloc>()),
+          BlocProvider.value(value: context.read<StylesBloc>()),
+        ],
+        child: const AddAccountDialog(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -197,16 +241,23 @@ class TransactionsScreen extends StatelessWidget {
           ),
           floatingActionButton: isSelectionMode
               ? null
-              : MultiLevelTooltip(
-                  message: l10n.contextMenuAddTransaction,
-                  actionId: 'add_action',
-                  description: l10n.addTransactionDescription,
-                  child: FloatingActionButton(
-                    onPressed: () {
-                      context.push(AppRoutes.addEditTransaction);
-                    },
-                    child: const Icon(Icons.add),
-                  ),
+              : BlocBuilder<AccountsBloc, AccountsState>(
+                  builder: (context, accountsState) {
+                    final needsAccount = _hasNoAccounts(accountsState);
+                    return MultiLevelTooltip(
+                      message: needsAccount
+                          ? l10n.accountsAddTooltip
+                          : l10n.contextMenuAddTransaction,
+                      actionId: 'add_action',
+                      description: needsAccount
+                          ? l10n.addAccountBeforeTransactionDescription
+                          : l10n.addTransactionDescription,
+                      child: FloatingActionButton(
+                        onPressed: () => _startAddFlow(context),
+                        child: const Icon(Icons.add),
+                      ),
+                    );
+                  },
                 ),
         );
 
@@ -214,7 +265,7 @@ class TransactionsScreen extends StatelessWidget {
           actions: {
             'add_action': () {
               if (!isSelectionMode) {
-                context.push(AppRoutes.addEditTransaction);
+                _startAddFlow(context);
               }
             },
             'prev_period': () => context.read<TransactionsBloc>().add(

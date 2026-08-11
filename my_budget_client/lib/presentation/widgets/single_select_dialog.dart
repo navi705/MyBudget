@@ -2,6 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
 
+/// A way out of a picker that has nothing to offer.
+///
+/// The dialog is generic over [T] and cannot know how an Account or a Category
+/// is created, so a caller that has somewhere to send the user supplies one of
+/// these. Callers that leave it null keep the picker read-only.
+class SingleSelectCreateAction {
+  final String label;
+  final VoidCallback onPressed;
+
+  const SingleSelectCreateAction({
+    required this.label,
+    required this.onPressed,
+  });
+}
+
 Future<T?> showSingleSelectDialog<T>({
   required BuildContext context,
   required List<T> items,
@@ -9,6 +24,7 @@ Future<T?> showSingleSelectDialog<T>({
   T? selectedItem,
   required Widget Function(T) itemBuilder,
   required String Function(T) stringGetter,
+  SingleSelectCreateAction? createAction,
 }) {
   return DialogUtils.showAppDialog<T>(
     context: context,
@@ -19,6 +35,7 @@ Future<T?> showSingleSelectDialog<T>({
       selectedItem: selectedItem,
       itemBuilder: itemBuilder,
       stringGetter: stringGetter,
+      createAction: createAction,
     ),
   );
 }
@@ -29,6 +46,7 @@ class SingleSelectDialog<T> extends StatefulWidget {
   final T? selectedItem;
   final Widget Function(T) itemBuilder;
   final String Function(T) stringGetter;
+  final SingleSelectCreateAction? createAction;
 
   const SingleSelectDialog({
     super.key,
@@ -37,6 +55,7 @@ class SingleSelectDialog<T> extends StatefulWidget {
     this.selectedItem,
     required this.itemBuilder,
     required this.stringGetter,
+    this.createAction,
   });
 
   @override
@@ -94,23 +113,52 @@ class _SingleSelectDialogState<T> extends State<SingleSelectDialog<T>> {
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                itemCount: _filteredItems.length,
-                itemBuilder: (context, index) {
-                  final item = _filteredItems[index];
-                  return ListTile(
-                    title: widget.itemBuilder(item),
-                    onTap: () {
-                      Navigator.of(context).pop(item);
-                    },
-                  );
-                },
-              ),
+              child: _filteredItems.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        // Two very different dead ends used to look identical:
+                        // a search that matches nothing is undone by clearing
+                        // the box, an empty source list needs the user to go
+                        // and create something first.
+                        child: Text(
+                          widget.items.isEmpty
+                              ? context.l10n.selectDialogEmptyState
+                              : context.l10n.selectDialogNoMatches,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: Theme.of(context).hintColor),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _filteredItems.length,
+                      itemBuilder: (context, index) {
+                        final item = _filteredItems[index];
+                        return ListTile(
+                          title: widget.itemBuilder(item),
+                          onTap: () {
+                            Navigator.of(context).pop(item);
+                          },
+                        );
+                      },
+                    ),
             ),
           ],
         ),
       ),
       actions: [
+        if (widget.createAction != null)
+          TextButton(
+            onPressed: () {
+              // The action opens a dialog of its own, and this one is already
+              // on the root navigator: left open it would sit under a barrier
+              // between the user and the item they came here to create.
+              Navigator.of(context).pop(widget.selectedItem);
+              widget.createAction!.onPressed();
+            },
+            child: Text(widget.createAction!.label),
+          ),
         TextButton(
           onPressed: () {
             Navigator.of(context).pop(widget.selectedItem);

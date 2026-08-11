@@ -2059,4 +2059,13 @@ class AppLocalizationsHi extends AppLocalizations {
   String dashboardUnconvertibleCurrencies(String currencies) {
     return '$currencies को परिवर्तित नहीं किया जा सका, इसलिए ये राशियाँ कुल में शामिल नहीं हैं';
   }
+
+  @override
+  String get addAccountBeforeTransactionDescription => 'लेन-देन के लिए खाता आवश्यक है। शुरू करने के लिए पहला खाता बनाएं';
+
+  @override
+  String get selectDialogEmptyState => 'अभी चुनने के लिए कुछ नहीं है';
+
+  @override
+  String get selectDialogNoMatches => 'आपकी खोज से कोई मेल नहीं मिला';
 }

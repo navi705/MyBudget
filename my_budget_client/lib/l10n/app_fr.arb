@@ -629,5 +629,8 @@
     "exchDeleteConfirmMessage": "Êtes-vous sûr de vouloir supprimer {count} taux de change ?",
     "exchUpdatePresetTitle": "Mettre à jour le Préréglage",
     "exchUpdatePresetMessage": "Saisissez le nouvel ID de préréglage pour les éléments sélectionnés:",
-    "dashboardUnconvertibleCurrencies": "Impossible de convertir {currencies} ; ces montants ne sont pas inclus dans le total"
+    "dashboardUnconvertibleCurrencies": "Impossible de convertir {currencies} ; ces montants ne sont pas inclus dans le total",
+    "addAccountBeforeTransactionDescription": "Une transaction nécessite un compte. Créez le premier pour commencer",
+    "selectDialogEmptyState": "Il n'y a encore rien à choisir",
+    "selectDialogNoMatches": "Aucun résultat pour votre recherche"
 }

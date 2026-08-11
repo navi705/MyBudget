@@ -2059,4 +2059,13 @@ class AppLocalizationsBn extends AppLocalizations {
   String dashboardUnconvertibleCurrencies(String currencies) {
     return '$currencies রূপান্তর করা যায়নি, তাই এই পরিমাণগুলো মোটের মধ্যে অন্তর্ভুক্ত নয়';
   }
+
+  @override
+  String get addAccountBeforeTransactionDescription => 'লেনদেনের জন্য একটি অ্যাকাউন্ট প্রয়োজন। শুরু করতে প্রথমটি তৈরি করুন';
+
+  @override
+  String get selectDialogEmptyState => 'এখনও বেছে নেওয়ার মতো কিছু নেই';
+
+  @override
+  String get selectDialogNoMatches => 'আপনার অনুসন্ধানের সাথে কিছুই মেলেনি';
 }

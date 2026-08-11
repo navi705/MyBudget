@@ -3890,6 +3890,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{currencies} could not be converted and are not included in the total'**
   String dashboardUnconvertibleCurrencies(String currencies);
+
+  /// Explains the add button on the Transactions screen while no account exists yet: it opens account creation, because the transaction form could not be saved without one
+  ///
+  /// In en, this message translates to:
+  /// **'A transaction needs an account. Create your first one to get started'**
+  String get addAccountBeforeTransactionDescription;
+
+  /// Shown inside a single-select picker whose whole list is empty, as opposed to a search that filtered everything out
+  ///
+  /// In en, this message translates to:
+  /// **'There is nothing to choose from yet'**
+  String get selectDialogEmptyState;
+
+  /// Shown inside a single-select picker when the list has items but the search text matches none of them
+  ///
+  /// In en, this message translates to:
+  /// **'No matches for your search'**
+  String get selectDialogNoMatches;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
