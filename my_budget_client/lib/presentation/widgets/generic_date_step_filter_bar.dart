@@ -61,6 +61,7 @@ class GenericDateStepFilterBar extends StatelessWidget
 
   @override
   Widget build(BuildContext context) {
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
     return Container(
       height: kToolbarHeight,
       color: Theme.of(context).primaryColor,
@@ -70,8 +71,8 @@ class GenericDateStepFilterBar extends StatelessWidget
           // Total Count Area
           Text(
             context.l10n.totalCountLabel(totalCount.toString()),
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: onPrimary,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -83,14 +84,14 @@ class GenericDateStepFilterBar extends StatelessWidget
                 // Filter Button
                 if (onFilterPressed != null)
                   IconButton(
-                    icon: const Icon(Icons.tune, color: Colors.white),
+                    icon: Icon(Icons.tune, color: onPrimary),
                     tooltip: 'Filters',
                     onPressed: onFilterPressed,
                   ),
 
                 // Previous Button
                 IconButton(
-                  icon: const Icon(Icons.chevron_left, color: Colors.white),
+                  icon: Icon(Icons.chevron_left, color: onPrimary),
                   onPressed: onPrevious,
                   tooltip: 'Previous',
                 ),
@@ -106,8 +107,8 @@ class GenericDateStepFilterBar extends StatelessWidget
                     ),
                     child: Text(
                       _formatDate(context),
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: onPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.w500,
                       ),
@@ -117,7 +118,7 @@ class GenericDateStepFilterBar extends StatelessWidget
 
                 // Next Button
                 IconButton(
-                  icon: const Icon(Icons.chevron_right, color: Colors.white),
+                  icon: Icon(Icons.chevron_right, color: onPrimary),
                   onPressed: onNext,
                   tooltip: 'Next',
                 ),
@@ -127,7 +128,7 @@ class GenericDateStepFilterBar extends StatelessWidget
                   RotatedBox(
                     quarterTurns: sort == Sort.ascending ? 0 : 2,
                     child: IconButton(
-                      icon: const Icon(Icons.sort, color: Colors.white),
+                      icon: Icon(Icons.sort, color: onPrimary),
                       tooltip: 'Sort (Asc/Desc)',
                       onPressed: onSortToggle,
                     ),

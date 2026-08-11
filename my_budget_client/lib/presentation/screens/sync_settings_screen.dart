@@ -77,9 +77,8 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
         _isServerEnabled = false;
       }
 
-      _serverUrlController.text =
-          serverUrlSetting?.value ?? 'http://localhost:58080';
-      _serverTokenController.text = serverTokenSetting?.value ?? 'dev_token';
+      _serverUrlController.text = serverUrlSetting?.value ?? '';
+      _serverTokenController.text = serverTokenSetting?.value ?? '';
       _incomingChanges = incoming;
     });
 
@@ -528,18 +527,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // const Text('Incoming changes pending:'),
-                      // Text(
-                      //   '$_incomingChanges',
-                      //   style: theme.textTheme.titleMedium?.copyWith(
-                      //     fontWeight: FontWeight.bold,
-                      //     color: _incomingChanges > 0
-                      //         ? theme.colorScheme.primary
-                      //         : null,
-                      //   ),
-                      // ),
-                    ],
+                    children: [],
                   ),
                   const SizedBox(height: 16),
                   SizedBox(

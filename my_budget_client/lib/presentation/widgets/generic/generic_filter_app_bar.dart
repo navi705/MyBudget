@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 
 class GenericFilterAppBar extends StatelessWidget
     implements PreferredSizeWidget {
@@ -28,7 +30,7 @@ class GenericFilterAppBar extends StatelessWidget
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 600;
+        final isMobile = constraints.maxWidth < kMobileBreakpoint;
         final actualHeight = kToolbarHeight;
 
         return Container(
@@ -51,6 +53,7 @@ class GenericFilterAppBar extends StatelessWidget
                     )
                   else
                     IconButton(
+                      tooltip: context.l10n.previousPeriodTooltip,
                       icon: Icon(
                         Icons.arrow_back_ios,
                         color: onSurface,
@@ -72,6 +75,7 @@ class GenericFilterAppBar extends StatelessWidget
                     Row(mainAxisSize: MainAxisSize.min, children: actions!)
                   else if (hasNavigation)
                     IconButton(
+                      tooltip: context.l10n.nextPeriodTooltip,
                       icon: Icon(
                         Icons.arrow_forward_ios,
                         color: onSurface,

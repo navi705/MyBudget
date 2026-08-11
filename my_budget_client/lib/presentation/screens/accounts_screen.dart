@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
@@ -20,6 +19,8 @@ import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/presentation/widgets/total_balance_summary_widget.dart';
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
+import 'package:my_budget_client/presentation/widgets/generic/app_state_view.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
 
 class AccountsScreen extends StatefulWidget {
@@ -99,13 +100,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
           TextButton(
             onPressed: () {
               // For multiple accounts, default to cascading delete (delete w/ transactions)
-              // We need to update Bloc to handle this safely or loop.
-              // Current Bloc `DeleteMultipleAccounts` uses repo `deleteMultipleAccounts`.
-              // We need to update `deleteMultipleAccounts` in Repo/DAO to cascade or use loop here.
-              // Given time, I'll update Bloc to loop calls or Repo to cascade.
-              // For now, let's leave as is but warn user.
-              // Wait, if I don't fix multiple, user will still crash on bulk delete.
-              // I should probably update `DeleteMultipleAccounts` handler in Bloc to use `deleteAccountWithTransactions` for each ID.
               bloc.add(DeleteMultipleAccounts(accountIds));
               Navigator.of(context, rootNavigator: true).pop();
             },
@@ -122,20 +116,20 @@ class _AccountsScreenState extends State<AccountsScreen> {
     List<String> accountIds,
     List<AccountType> accountTypes,
   ) {
+    String? selectedTypeId = accountTypes.first.id;
     DialogUtils.showAppDialog(
       context: context,
       resizeToAvoidBottomInset: false,
-      child: Builder(
-        builder: (context) {
-          String? selectedTypeId = accountTypes.first.id;
+      child: StatefulBuilder(
+        builder: (context, setState) {
           return AlertDialog(
             title: const Text('Change Account Type'),
             content: DropdownButton<String>(
               value: selectedTypeId,
               onChanged: (newValue) {
-                // This needs to be in a stateful builder to update UI
-                // For simplicity, we'll just handle it on submission
-                selectedTypeId = newValue;
+                setState(() {
+                  selectedTypeId = newValue;
+                });
               },
               items: accountTypes
                   .map(
@@ -337,7 +331,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
       child: Scaffold(
         appBar: PreferredSize(
           preferredSize: Size.fromHeight(
-            MediaQuery.of(context).size.width < 600
+            MediaQuery.of(context).size.width < kMobileBreakpoint
                 ? kToolbarHeight * 1.8
                 : kToolbarHeight,
           ),
@@ -375,19 +369,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 previous.recentlyDeletedAccount !=
                 current.recentlyDeletedAccount;
             final isNowNotNull = current.recentlyDeletedAccount != null;
-            debugPrint(
-              '[SnackBarDebug] Accounts listenWhen: changed=$changed, isNowNotNull=$isNowNotNull',
-            );
-            debugPrint(
-              '[SnackBarDebug] Prev: ${previous.recentlyDeletedAccount?.name}, Current: ${current.recentlyDeletedAccount?.name}',
-            );
             return changed && isNowNotNull;
           },
           listener: (context, state) {
             final recentlyDeleted = state.recentlyDeletedAccount;
-            debugPrint(
-              '[SnackBarDebug] Accounts listener triggered for: ${recentlyDeleted?.name}',
-            );
             if (recentlyDeleted != null) {
               final scaffoldMessenger = ScaffoldMessenger.of(context);
               scaffoldMessenger.removeCurrentSnackBar();
@@ -404,9 +389,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
                       action: SnackBarAction(
                         label: l10n.undoButton,
                         onPressed: () {
-                          debugPrint(
-                            '[SnackBarDebug] Accounts Undo pressed for: ${recentlyDeleted.name}',
-                          );
                           context.read<AccountsBloc>().add(UndoDeleteAccount());
                         },
                       ),
@@ -414,15 +396,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   )
                   .closed
                   .then((reason) {
-                    debugPrint(
-                      '[SnackBarDebug] Accounts SnackBar closed. Reason: $reason, context.mounted: ${context.mounted}',
-                    );
                     // Clear state on ANY reason except action (action clears it in Bloc itself)
                     if (context.mounted &&
                         reason != SnackBarClosedReason.action) {
-                      debugPrint(
-                        '[SnackBarDebug] Accounts clearing recentlyDeletedAccount from state',
-                      );
                       context.read<AccountsBloc>().add(
                         const ClearRecentlyDeletedAccount(),
                       );
@@ -573,6 +549,16 @@ class _AccountsScreenState extends State<AccountsScreen> {
                       );
                     }
 
+                    if (state is AccountsLoadFailure) {
+                      return SliverFillRemaining(
+                        child: AppStateView.error(
+                          message: l10n.failedToLoadData,
+                          onRetry: () =>
+                              context.read<AccountsBloc>().add(LoadAccounts()),
+                        ),
+                      );
+                    }
+
                     return const SliverToBoxAdapter(child: SizedBox.shrink());
                   },
                 ),
@@ -709,192 +695,6 @@ class _SelectionAppBar extends StatelessWidget {
   }
 }
 
-class TotalBalanceCard extends StatelessWidget {
-  final CurrencyConverterLoadSuccess converterState;
-  final AccountsLoadSuccess accountsState;
-
-  const TotalBalanceCard({
-    required this.converterState,
-    required this.accountsState,
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final formatter = NumberFormat('#,##0.00', 'en_US');
-    return Card(
-      margin: const EdgeInsets.all(8.0),
-      elevation: 4.0,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              l10n.totalBalanceLabel,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            if (converterState.selectedCurrencies.isEmpty)
-              Text(l10n.noCurrenciesSelected)
-            else
-              Wrap(
-                spacing: 16.0,
-                runSpacing: 8.0,
-                children: converterState.selectedCurrencies.map((currency) {
-                  final total = totalBalanceFor(
-                    currency: currency,
-                    accounts: accountsState.accounts,
-                    exchangeRates: converterState.exchangeRates,
-                    baseCurrencyCode: converterState.baseCurrencyCode,
-                    date: accountsState.activeDate,
-                    groupedRates: converterState.groupedRates,
-                  );
-                  final realTotal = totalBalanceFor(
-                    currency: currency,
-                    accounts: accountsState.accounts,
-                    exchangeRates: converterState.exchangeRates,
-                    baseCurrencyCode: converterState.baseCurrencyCode,
-                    date: accountsState.activeDate,
-                    groupedRates: converterState.groupedRates,
-                    balancesOverride: accountsState.realBalances,
-                  );
-
-                  final prevTotal = totalBalanceFor(
-                    currency: currency,
-                    accounts: accountsState.accounts,
-                    exchangeRates: converterState.exchangeRates,
-                    baseCurrencyCode: converterState.baseCurrencyCode,
-                    date: accountsState.activeDate,
-                    groupedRates: converterState.groupedRates,
-                    balancesOverride: accountsState.previousPeriodBalances,
-                  );
-                  final prevRealTotal = totalBalanceFor(
-                    currency: currency,
-                    accounts: accountsState.accounts,
-                    exchangeRates: converterState.exchangeRates,
-                    baseCurrencyCode: converterState.baseCurrencyCode,
-                    date: accountsState.activeDate,
-                    groupedRates: converterState.groupedRates,
-                    balancesOverride: accountsState.previousPeriodRealBalances,
-                  );
-
-                  final diff = total - prevTotal;
-                  final realDiff = realTotal - prevRealTotal;
-
-                  Color balanceColor;
-                  if (total > 0) {
-                    balanceColor = Colors.green;
-                  } else if (total < 0) {
-                    balanceColor = Colors.red;
-                  } else {
-                    balanceColor =
-                        Theme.of(context).textTheme.bodyLarge?.color ??
-                        Colors.black;
-                  }
-
-                  final lossPercent = total != 0
-                      ? ((total - realTotal) / total.abs() * 100)
-                      : 0.0;
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          SelectableText(
-                            '${currency.code}: ${formatter.format(total).replaceAll(',', ' ')} ${currency.code}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: balanceColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            '${diff > 0 ? '+' : ''}${formatter.format(diff).replaceAll(',', ' ')} ${currency.code} (${(diff / prevTotal * 100).toStringAsFixed(2)}%)',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: diff > 0 ? Colors.green : Colors.red,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (lossPercent > 0.01)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Real: ${formatter.format(realTotal).replaceAll(',', ' ')} ${currency.code} (-${lossPercent.toStringAsFixed(2)}%)',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).colorScheme.outline,
-                              ),
-                            ),
-                            Text(
-                              '${realDiff > 0 ? '+' : ''}${formatter.format(realDiff).replaceAll(',', ' ')} (${(realDiff / prevRealTotal * 100).toStringAsFixed(2)}%)',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: realDiff > 0 ? Colors.green : Colors.red,
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
-                  );
-                }).toList(),
-              ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Column(
-                  children: [
-                    Text(
-                      'Income',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      formatter
-                          .format(accountsState.income)
-                          .replaceAll(',', ' '),
-                      style: TextStyle(fontSize: 14, color: Colors.green),
-                    ),
-                  ],
-                ),
-                Column(
-                  children: [
-                    Text(
-                      'Expense',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      formatter
-                          .format(accountsState.expense)
-                          .replaceAll(',', ' '),
-                      style: TextStyle(fontSize: 14, color: Colors.red),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _AccountsDateAppBar extends StatelessWidget
     implements PreferredSizeWidget {
   final AccountsLoadSuccess state;
@@ -923,10 +723,6 @@ class _AccountsDateAppBar extends StatelessWidget
             onApply: (date, range, step, mode) {
               final bloc = context.read<AccountsBloc>();
 
-              debugPrint(
-                'DEBUG onApply: date=$date, step=$step, currentStep=${state.dateStep}',
-              );
-
               // Adjust date to end of period if switching to Month or Year
               DateTime adjustedDate = date;
               if (step == DateStep.month) {
@@ -941,8 +737,6 @@ class _AccountsDateAppBar extends StatelessWidget
               } else if (step == DateStep.year) {
                 adjustedDate = DateTime(date.year, 12, 31, 23, 59, 59);
               }
-
-              debugPrint('DEBUG onApply: adjustedDate=$adjustedDate');
 
               // Single atomic event - updates both date and step
               if (state.dateStep != step) {
@@ -976,7 +770,7 @@ class _AccountsDateAppBar extends StatelessWidget
   Widget build(BuildContext context) {
     final bloc = context.read<AccountsBloc>();
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < kMobileBreakpoint;
 
     final centerWidget = Row(
       mainAxisAlignment: isMobile

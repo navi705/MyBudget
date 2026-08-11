@@ -241,7 +241,7 @@ class ManageStylesScreen extends StatelessWidget {
             children: [
               const Icon(Icons.add),
               const SizedBox(width: 8),
-              Flexible(child: const Text('Add Icon')),
+              Flexible(child: Text(context.l10n.styAddIcon)),
             ],
           ),
         ),

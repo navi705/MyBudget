@@ -145,10 +145,6 @@ Future<_ProcessDataResult> _processTransactionsData(
   final List<TransactionCategory> transactionsWithStyles = [];
   final Map<DateTime, Map<String, double>> totalsByDateAndCurrency = {};
 
-  // DIAG: count transfers included in dailyTotals
-  int _diagTransferCount = 0;
-  int _diagNonTransferCount = 0;
-
   for (var transaction in params.transactions) {
     final category = categoryMap[transaction.categoryId];
     Style? foundStyle;
@@ -193,10 +189,7 @@ Future<_ProcessDataResult> _processTransactionsData(
     final isTransfer = transaction.linkedTransactionId != null &&
         transaction.linkedTransactionId!.isNotEmpty;
     if (isTransfer) {
-      _diagTransferCount++;
       continue; // Skip transfers — don't include in daily totals
-    } else {
-      _diagNonTransferCount++;
     }
 
     if (!totalsByDateAndCurrency.containsKey(date)) {
@@ -207,11 +200,6 @@ Future<_ProcessDataResult> _processTransactionsData(
     totalsByDateAndCurrency[date]![transaction.currencyCode] =
         currentSum + transaction.amount;
   }
-
-  debugPrint(
-    '[DIAG dailyTotals] Total: $_diagNonTransferCount non-transfers, '
-    '$_diagTransferCount transfers excluded from totals',
-  );
 
   // Build global fallback: most recent rate for each currency pair across ALL dates.
   // Root cause of the 0-EUR bug: ratesMapsByDate[date] can exist (so ratesMapEmpty=false)

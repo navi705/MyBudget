@@ -4,6 +4,7 @@ import 'package:my_budget_client/core/utils/platform/icon_helper.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:material_symbols_icons/get.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
@@ -121,7 +122,7 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Select Icon'),
+      title: Text(context.l10n.pckSelectIcon),
       content: SizedBox(
         width: double.maxFinite,
         child: DefaultTabController(
@@ -129,10 +130,10 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const TabBar(
+              TabBar(
                 tabs: [
-                  Tab(text: 'Material Icons'),
-                  Tab(text: 'Custom Icons'),
+                  Tab(text: context.l10n.pckMaterialIcons),
+                  Tab(text: context.l10n.pckCustomIcons),
                 ],
               ),
               LayoutBuilder(
@@ -156,7 +157,7 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancelButton),
         ),
         FilledButton.tonal(
           onPressed: () {
@@ -164,7 +165,7 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
               context,
             ).pop({'name': _selectedIconName, 'type': _selectedIconType});
           },
-          child: const Text('Select'),
+          child: Text(context.l10n.selectButton),
         ),
       ],
     );
@@ -271,6 +272,7 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
           right: 16,
           child: FloatingActionButton(
             onPressed: _addNewIcon,
+            tooltip: context.l10n.addNewIconLabel,
             child: const Icon(Icons.add),
           ),
         ),

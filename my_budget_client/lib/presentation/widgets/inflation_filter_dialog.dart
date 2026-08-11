@@ -4,6 +4,7 @@ import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 void showInflationFilterDialog(BuildContext context) {
   DialogUtils.showAppDialog(
@@ -83,7 +84,7 @@ class _InflationFilterDialogState extends State<InflationFilterDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Inflation Filters'),
+      title: Text(context.l10n.inflationFiltersTitle),
       content: _isLoading
           ? const SizedBox(
               height: 100,
@@ -94,11 +95,13 @@ class _InflationFilterDialogState extends State<InflationFilterDialog> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ListTile(
-                    title: const Text('Countries'),
+                    title: Text(context.l10n.inflationCountries),
                     subtitle: Text(
                       _selectedCountries.isEmpty
-                          ? 'All'
-                          : '${_selectedCountries.length} selected',
+                          ? context.l10n.allLabel
+                          : context.l10n.selectedCountLabel(
+                              _selectedCountries.length.toString(),
+                            ),
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () async {
@@ -123,11 +126,13 @@ class _InflationFilterDialogState extends State<InflationFilterDialog> {
                   ),
                   const Divider(),
                   ListTile(
-                    title: const Text('Presets'),
+                    title: Text(context.l10n.inflationPresets),
                     subtitle: Text(
                       _selectedPresets.isEmpty
-                          ? 'All'
-                          : '${_selectedPresets.length} selected',
+                          ? context.l10n.allLabel
+                          : context.l10n.selectedCountLabel(
+                              _selectedPresets.length.toString(),
+                            ),
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () async {
@@ -154,8 +159,8 @@ class _InflationFilterDialogState extends State<InflationFilterDialog> {
               ),
             ),
       actions: [
-        TextButton(onPressed: _clearFilters, child: const Text('Clear')),
-        TextButton(onPressed: _applyFilters, child: const Text('Apply')),
+        TextButton(onPressed: _clearFilters, child: Text(context.l10n.clearButton)),
+        TextButton(onPressed: _applyFilters, child: Text(context.l10n.applyButton)),
       ],
     );
   }

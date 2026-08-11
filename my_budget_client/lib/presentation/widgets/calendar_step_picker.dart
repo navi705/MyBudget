@@ -137,7 +137,7 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
       ),
       padding: const EdgeInsets.only(top: 16, bottom: 24, left: 16, right: 16),
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(

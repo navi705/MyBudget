@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 class DashboardCurrencySelector extends StatefulWidget {
   final String selectedCurrency;
@@ -134,10 +135,10 @@ class _CurrencyPickerDialogState extends State<_CurrencyPickerDialog> {
                 padding: const EdgeInsets.all(16.0),
                 child: TextField(
                   controller: _searchController,
-                  decoration: const InputDecoration(
-                    labelText: 'Search Currency',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.dshSearchCurrency,
+                    prefixIcon: const Icon(Icons.search),
+                    border: const OutlineInputBorder(),
                   ),
                   onChanged: _filter,
                 ),

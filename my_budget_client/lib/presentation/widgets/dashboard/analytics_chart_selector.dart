@@ -41,27 +41,9 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Filter Data
     final isAllAccounts = _selectedAccountId == null;
 
-    // For "All", use the pre-calculated dailyNetWorth passed from parent (which is usually total).
-    // For "Single", we technically need the daily history of THAT account.
-    // However, the current DashboardBloc usually calculates dailyNetWorth for ALL accounts derived from transactions.
-    // LIMITATION: 'dailyNetWorth' passed here is likely TOTAL.
-    // To show single account trend properly, we might need logic to extract it or we just show "Current Balance" for single.
-    // OPTION: For this "Visual Refresh", let's assume valid data is passed or we filter what we can.
-    // Actually, DashboardState has 'dailyNetWorth' which is TOTAL.
-    // If we select a single account, we can't easily reconstruct its daily history from just 'dailyNetWorth'.
-    // We would need 'dailyBalances' map for each account which might not be fully available or expensive to compute here dynamically without Bloc support.
-
-    // DECISION: For now, if "All Accounts", show Trend + Distributions.
-    // If "Single Account", just show its details and maybe hide the Chart if we don't have historical data for it ready,
-    // OR just show the current balance and a "Distribution not available" message or similar.
-    // User asked: "один какой-то из аккаунтов смотреть так же графк по каждому из однельности"
-    // (See chart for each separately).
-    // To do this properly, we likely need the Bloc to provide history for the selected account.
-    // BUT checking 'DashboardState', we have `dayBalances` (Map<DateTime, Map<String, double>>).
-    // This allows us to construct the chart for a single account! Awesome.
+    // Single-account charts are built from dayBalances (per-account daily history).
 
     return Column(
       children: [
@@ -252,6 +234,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
             dateRangeStart: widget.dateRangeStart,
             dateRangeEnd: widget.dateRangeEnd,
             currencySymbol: _getCurrencySymbolForChart(),
+            currencyCode: widget.currencyCode,
           ),
         ),
       ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 class MultiSelectDialog<T, K> extends StatefulWidget {
   final List<T> items;
@@ -43,7 +44,11 @@ class _MultiSelectDialogState<T, K> extends State<MultiSelectDialog<T, K>> {
     }).toList();
 
     return AlertDialog(
-      title: Text(widget.isSingleSelect ? 'Select Item' : 'Select Items'),
+      title: Text(
+        widget.isSingleSelect
+            ? context.l10n.pckSelectItem
+            : context.l10n.pckSelectItems,
+      ),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -56,9 +61,9 @@ class _MultiSelectDialogState<T, K> extends State<MultiSelectDialog<T, K>> {
                   _searchText = value;
                 });
               },
-              decoration: const InputDecoration(
-                labelText: 'Search',
-                prefixIcon: Icon(Icons.search),
+              decoration: InputDecoration(
+                labelText: context.l10n.searchHint,
+                prefixIcon: const Icon(Icons.search),
                 isDense: true,
                 contentPadding: EdgeInsets.symmetric(
                   vertical: 12.0,
@@ -100,7 +105,7 @@ class _MultiSelectDialogState<T, K> extends State<MultiSelectDialog<T, K>> {
       ),
       actions: [
         TextButton(
-          child: const Text('Clear All'),
+          child: Text(context.l10n.pckClearAll),
           onPressed: () {
             setState(() {
               _selectedIds.clear();
@@ -108,13 +113,13 @@ class _MultiSelectDialogState<T, K> extends State<MultiSelectDialog<T, K>> {
           },
         ),
         TextButton(
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancelButton),
           onPressed: () {
             Navigator.of(context).pop();
           },
         ),
         TextButton(
-          child: const Text('OK'),
+          child: Text(context.l10n.okButton),
           onPressed: () {
             Navigator.of(context).pop(_selectedIds);
           },

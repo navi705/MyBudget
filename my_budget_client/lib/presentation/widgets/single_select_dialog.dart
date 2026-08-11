@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
 
 Future<T?> showSingleSelectDialog<T>({
@@ -82,7 +83,7 @@ class _SingleSelectDialogState<T> extends State<SingleSelectDialog<T>> {
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                labelText: 'Search',
+                labelText: context.l10n.searchHint,
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.clear),
@@ -114,7 +115,7 @@ class _SingleSelectDialogState<T> extends State<SingleSelectDialog<T>> {
           onPressed: () {
             Navigator.of(context).pop(widget.selectedItem);
           },
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancelButton),
         ),
       ],
     );

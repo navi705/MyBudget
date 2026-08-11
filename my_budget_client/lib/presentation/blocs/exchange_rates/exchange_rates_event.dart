@@ -24,6 +24,22 @@ class AddExchangeRate extends ExchangeRatesEvent {
   List<Object?> get props => [exchangeRate];
 }
 
+class UpdateExchangeRate extends ExchangeRatesEvent {
+  /// The rate as it currently exists (used to locate/delete the original row).
+  final ExchangeRateDomain originalExchangeRate;
+
+  /// The new values to store.
+  final ExchangeRateDomain updatedExchangeRate;
+
+  const UpdateExchangeRate({
+    required this.originalExchangeRate,
+    required this.updatedExchangeRate,
+  });
+
+  @override
+  List<Object?> get props => [originalExchangeRate, updatedExchangeRate];
+}
+
 class ChangeExchangeRatesFilters extends ExchangeRatesEvent {
   final DateTime? date;
   final String? fromCurrency;

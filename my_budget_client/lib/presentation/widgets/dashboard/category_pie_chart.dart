@@ -2,8 +2,10 @@ import 'package:collection/collection.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/utils/chart_color_utils.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
+import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
@@ -28,17 +30,17 @@ class CategoryPieChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (categoryConvertedTotals.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: 200,
-        child: Center(child: Text('No data for this period')),
+        child: Center(child: Text(context.l10n.noDataForPeriod)),
       );
     }
 
     final filteredTotals = _getFilteredTotals();
     if (filteredTotals.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: 200,
-        child: Center(child: Text('No data for this range')),
+        child: Center(child: Text(context.l10n.noDataForRange)),
       );
     }
 
@@ -101,7 +103,7 @@ class CategoryPieChart extends StatelessWidget {
               const SizedBox(width: 48), // Increased gap
               Expanded(
                 child: Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 650),
                     child: _buildCategoryList(context, filteredTotals),
@@ -168,7 +170,7 @@ class CategoryPieChart extends StatelessWidget {
           (c) => c.id == entry.key,
           orElse: () => Category(
             id: 'unknown',
-            name: 'Unknown',
+            name: context.l10n.dshUnknownCategory,
             type: CategoryType.expense,
             styleId: null,
           ),
@@ -209,11 +211,11 @@ class CategoryPieChart extends StatelessWidget {
   ) {
     final theme = Theme.of(context);
     // Currency formatting with symbol at end
-    final numberFormat = NumberFormat.currency(name: currencyCode, symbol: '');
     final symbol = NumberFormat.simpleCurrency(
       name: currencyCode,
     ).currencySymbol;
-    final formattedAmount = '${numberFormat.format(amount).trim()} $symbol';
+    final formattedAmount =
+        '${MoneyFormatter.format(amount, currencyCode).trim()} $symbol';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

@@ -10,7 +10,8 @@ import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
-import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/utils/money_formatter.dart';
 
 class CategoryListItem extends StatelessWidget {
   final CategoryWithTotal categoryWithTotal;
@@ -69,11 +70,11 @@ class CategoryListItem extends StatelessWidget {
         final currencySymbol = designation?.value ?? mainCurrencyCode;
 
         final formattedTotal =
-            '${NumberFormat('#,##0.00', 'en_US').format(total).replaceAll(',', ' ')} $currencySymbol';
+            '${MoneyFormatter.format(total, mainCurrencyCode)} $currencySymbol';
 
         final subtitleText = category.type == CategoryType.income
-            ? 'Received: $formattedTotal'
-            : 'Spent: $formattedTotal';
+            ? context.l10n.receivedTotalLabel(formattedTotal)
+            : context.l10n.spentTotalLabel(formattedTotal);
 
         final balanceColor = category.type == CategoryType.income
             ? Colors.green
@@ -99,7 +100,7 @@ class CategoryListItem extends StatelessWidget {
             ),
             title: Text(
               category.name == AppConstants.systemTransferCategoryName
-                  ? 'Transfer'
+                  ? context.l10n.transferLabel
                   : category.name,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
@@ -145,7 +146,7 @@ class CategoryListItem extends StatelessWidget {
                       onTap: onTap,
                       mainCurrencyCode: mainCurrencyCode,
                       currencyDesignations: currencyDesignations,
-                      isSelected: isSelected,
+                      isSelected: false,
                       onLongPress: onLongPress,
                       onSecondaryTapUp: onSecondaryTapUp,
                     ),

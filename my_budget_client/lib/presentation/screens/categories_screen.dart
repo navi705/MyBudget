@@ -15,6 +15,7 @@ import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/delete_category_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/presentation/widgets/category_filter_dialog.dart';
@@ -65,8 +66,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   void _showDeleteConfirmationDialog(
     BuildContext context,
     CategoriesBloc bloc,
-    List<String> categoryIds,
-  ) {
+    List<String> categoryIds, {
+    VoidCallback? onConfirm,
+  }) {
     final l10n = context.l10n;
     DialogUtils.showAppDialog(
       context: context,
@@ -81,7 +83,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ),
           TextButton(
             onPressed: () {
-              bloc.add(DeleteMultipleCategories(categoryIds));
+              if (onConfirm != null) {
+                onConfirm();
+              } else {
+                bloc.add(DeleteMultipleCategories(categoryIds));
+              }
               Navigator.of(context, rootNavigator: true).pop();
             },
             child: Text(l10n.deleteButton),
@@ -97,18 +103,20 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     List<String> categoryIds,
   ) {
     final l10n = context.l10n;
+    CategoryType? selectedType = CategoryType.expense;
     DialogUtils.showAppDialog(
       context: context,
       resizeToAvoidBottomInset: false,
-      child: Builder(
-        builder: (context) {
-          CategoryType? selectedType = CategoryType.expense;
+      child: StatefulBuilder(
+        builder: (context, setState) {
           return AlertDialog(
             title: Text(l10n.changeCategoryTypeDialogTitle),
             content: DropdownButton<CategoryType>(
               value: selectedType,
               onChanged: (newValue) {
-                selectedType = newValue;
+                setState(() {
+                  selectedType = newValue;
+                });
               },
               items: CategoryType.values
                   .map(
@@ -247,7 +255,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       if (isSelected && state.selectedCategoryIds.length > 1) {
         _showDeleteConfirmationDialog(context, bloc, selectedIds);
       } else {
-        bloc.add(DeleteCategory(category.id!));
+        _showDeleteConfirmationDialog(
+          context,
+          bloc,
+          [category.id!],
+          onConfirm: () => bloc.add(DeleteCategory(category.id!)),
+        );
       }
     } else if (value == 'change_type') {
       _showChangeCategoryTypeDialog(
@@ -392,7 +405,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           appBar: widget.isStandalone
               ? PreferredSize(
                   preferredSize: Size.fromHeight(
-                    MediaQuery.of(context).size.width < 600
+                    MediaQuery.of(context).size.width < kMobileBreakpoint
                         ? kToolbarHeight * 1.8
                         : kToolbarHeight,
                   ),
@@ -656,7 +669,7 @@ class _CategoriesDateAppBar extends StatelessWidget {
     final bloc = context.read<CategoriesBloc>();
     final l10n = context.l10n;
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < kMobileBreakpoint;
 
     final centerWidget = Row(
       mainAxisAlignment: isMobile

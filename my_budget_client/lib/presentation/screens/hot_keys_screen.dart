@@ -36,7 +36,7 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Search hotkeys...',
+                  hintText: context.l10n.searchHotkeysHint,
                   prefixIcon: const Icon(Icons.search),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(30),

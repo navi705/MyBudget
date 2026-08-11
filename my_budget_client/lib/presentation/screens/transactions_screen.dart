@@ -10,6 +10,7 @@ import 'package:my_budget_client/presentation/widgets/transaction_list.dart';
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 
 class TransactionsScreen extends StatelessWidget {
   const TransactionsScreen({super.key});
@@ -138,7 +139,7 @@ class TransactionsScreen extends StatelessWidget {
                 )
               : PreferredSize(
                   preferredSize: Size.fromHeight(
-                    MediaQuery.of(context).size.width < 600
+                    MediaQuery.of(context).size.width < kMobileBreakpoint
                         ? kToolbarHeight * 1.8
                         : kToolbarHeight,
                   ),
@@ -152,16 +153,10 @@ class TransactionsScreen extends StatelessWidget {
               final isNowNotEmpty =
                   current.recentlyDeletedTransactions != null &&
                   current.recentlyDeletedTransactions!.isNotEmpty;
-              debugPrint(
-                '[SnackBarDebug] Transactions listenWhen: changed=$changed, isNowNotEmpty=$isNowNotEmpty',
-              );
               return changed && isNowNotEmpty;
             },
             listener: (context, state) {
               final txs = state.recentlyDeletedTransactions!;
-              debugPrint(
-                '[SnackBarDebug] Transactions listener triggered. Count: ${txs.length}',
-              );
               final name = txs.length == 1
                   ? (txs.first.description.isNotEmpty
                         ? txs.first.description
@@ -181,9 +176,6 @@ class TransactionsScreen extends StatelessWidget {
                       action: SnackBarAction(
                         label: l10n.undoButton,
                         onPressed: () {
-                          debugPrint(
-                            '[SnackBarDebug] Transactions Undo pressed',
-                          );
                           context.read<TransactionsBloc>().add(
                             const UndoDeleteTransactions(),
                           );
@@ -193,14 +185,8 @@ class TransactionsScreen extends StatelessWidget {
                   )
                   .closed
                   .then((reason) {
-                    debugPrint(
-                      '[SnackBarDebug] Transactions SnackBar closed. Reason: $reason',
-                    );
                     if (context.mounted &&
                         reason != SnackBarClosedReason.action) {
-                      debugPrint(
-                        '[SnackBarDebug] Transactions clearing recentlyDeletedTransactions from state',
-                      );
                       context.read<TransactionsBloc>().add(
                         const ClearRecentlyDeletedTransactions(),
                       );

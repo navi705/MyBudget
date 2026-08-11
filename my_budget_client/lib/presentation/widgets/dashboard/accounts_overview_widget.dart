@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/balance_line_chart.dart';
 
@@ -9,6 +10,7 @@ class AccountsOverviewWidget extends StatelessWidget {
   final Map<DateTime, double> dailyNetWorth;
   final DateTime dateRangeStart;
   final DateTime dateRangeEnd;
+  final String currencyCode; // Dashboard display currency for chart tooltip
 
   const AccountsOverviewWidget({
     super.key,
@@ -16,6 +18,7 @@ class AccountsOverviewWidget extends StatelessWidget {
     required this.dailyNetWorth,
     required this.dateRangeStart,
     required this.dateRangeEnd,
+    this.currencyCode = '',
   });
 
   @override
@@ -41,13 +44,14 @@ class AccountsOverviewWidget extends StatelessWidget {
             dailyNetWorth: dailyNetWorth,
             dateRangeStart: dateRangeStart,
             dateRangeEnd: dateRangeEnd,
+            currencyCode: currencyCode,
           ),
           const SizedBox(height: 32),
 
           // 2. Charts Row (Responsive)
           LayoutBuilder(
             builder: (context, constraints) {
-              if (constraints.maxWidth > 600) {
+              if (constraints.maxWidth > kMobileBreakpoint) {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

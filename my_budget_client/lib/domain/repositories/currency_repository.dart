@@ -57,4 +57,12 @@ abstract class CurrencyRepository {
   Future<void> addExchangeRate(ExchangeRateDomain exchangeRate);
   Future<void> addExchangeRates(List<ExchangeRateDomain> exchangeRates);
   Future<void> updateExchangeRate(ExchangeRateDomain exchangeRate);
+
+  /// Replaces an existing exchange rate. Deletes the [original] row (located by
+  /// its from/to/date/preset key) and inserts [updated] atomically, so editing
+  /// key fields does not leave an orphaned duplicate.
+  Future<void> replaceExchangeRate(
+    ExchangeRateDomain original,
+    ExchangeRateDomain updated,
+  );
 }

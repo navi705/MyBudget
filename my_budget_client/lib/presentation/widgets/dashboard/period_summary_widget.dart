@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/utils/money_formatter.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 
 class PeriodSummaryWidget extends StatelessWidget {
@@ -53,7 +54,6 @@ class PeriodSummaryWidget extends StatelessWidget {
         .cast<CurrencyDesignation?>()
         .firstWhere((d) => d?.currencyCode == currencyCode, orElse: () => null);
     final currencySymbol = designation?.value ?? currencyCode;
-    final numberFormatter = NumberFormat.decimalPatternDigits(decimalDigits: 2);
 
     return Card(
       elevation: 0,
@@ -79,7 +79,6 @@ class PeriodSummaryWidget extends StatelessWidget {
                   context.l10n.incomeLabel,
                   totalIncome,
                   Colors.green,
-                  numberFormatter,
                   currencySymbol,
                 ),
                 _buildStat(
@@ -87,7 +86,6 @@ class PeriodSummaryWidget extends StatelessWidget {
                   context.l10n.expenseLabel,
                   totalExpense,
                   Colors.red,
-                  numberFormatter,
                   currencySymbol,
                 ),
                 _buildStat(
@@ -95,7 +93,6 @@ class PeriodSummaryWidget extends StatelessWidget {
                   context.l10n.netLabel,
                   net,
                   net >= 0 ? Colors.green : Colors.red,
-                  numberFormatter,
                   currencySymbol,
                   showSign: true,
                 ),
@@ -112,17 +109,16 @@ class PeriodSummaryWidget extends StatelessWidget {
     String label,
     double amount,
     Color color,
-    NumberFormat numberFormatter,
     String currencySymbol, {
     bool showSign = false,
   }) {
     // Format: "123.45 €" (number, space, symbol)
-    String text = '${numberFormatter.format(amount)} $currencySymbol';
+    String text = '${MoneyFormatter.format(amount, currencyCode)} $currencySymbol';
     if (showSign && amount > 0) {
       text = '+$text';
     }
 
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < kMobileBreakpoint;
 
     final textWidget = Text(
       text,

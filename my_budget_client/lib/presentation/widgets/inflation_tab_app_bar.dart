@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
@@ -116,7 +117,7 @@ class InflationTabAppBar extends StatelessWidget
       );
     }
 
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < kMobileBreakpoint;
 
     final centerWidget = Row(
       mainAxisAlignment: isMobile
@@ -135,11 +136,13 @@ class InflationTabAppBar extends StatelessWidget
         ),
         if (isMobile)
           IconButton(
+            tooltip: l10n.filterTooltip,
             icon: Icon(Icons.tune, color: onSurface),
             onPressed: () => showInflationFilterDialog(context),
           )
         else if (!isMobile) ...[
           IconButton(
+            tooltip: l10n.filterTooltip,
             icon: Icon(Icons.tune, color: onSurface),
             onPressed: () => showInflationFilterDialog(context),
           ),

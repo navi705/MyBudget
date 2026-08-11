@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_event.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_state.dart';
@@ -114,7 +116,7 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
       );
     }
 
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < kMobileBreakpoint;
 
     final centerWidget = Row(
       mainAxisAlignment: isMobile
@@ -133,11 +135,13 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
         if (isMobile)
           IconButton(
+            tooltip: context.l10n.filterTooltip,
             icon: Icon(Icons.tune, color: onSurface),
             onPressed: () => showAssetFilterDialog(context),
           )
         else if (!isMobile) ...[
           IconButton(
+            tooltip: context.l10n.filterTooltip,
             icon: Icon(Icons.tune, color: onSurface),
             onPressed: () => showAssetFilterDialog(context),
           ),

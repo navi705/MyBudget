@@ -148,10 +148,9 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
   }
 
   Widget _buildWindowEffectsSection(BuildContext context, CustomTheme theme) {
-    if (kIsWeb ||
-        (!AppPlatform.isWindows &&
-            !AppPlatform.isMacOS &&
-            !AppPlatform.isLinux)) {
+    // Window effects only apply on Windows/macOS; on Linux they are a no-op,
+    // so hide the section there.
+    if (kIsWeb || (!AppPlatform.isWindows && !AppPlatform.isMacOS)) {
       return const SizedBox.shrink();
     }
 
@@ -416,8 +415,34 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                 if (theme.backgroundImagePath != null) ...[
                   const SizedBox(width: 12),
                   IconButton.filledTonal(
-                    onPressed: () =>
-                        _update(context, clearBackgroundImage: true),
+                    tooltip: context.l10n.deleteButton,
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: Text(
+                            dialogContext.l10n.deleteConfirmationTitle(
+                              dialogContext.l10n.backgroundLabel,
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, false),
+                              child: Text(dialogContext.l10n.cancelButton),
+                            ),
+                            FilledButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, true),
+                              child: Text(dialogContext.l10n.deleteButton),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmed == true && context.mounted) {
+                        _update(context, clearBackgroundImage: true);
+                      }
+                    },
                     icon: const Icon(Icons.delete, color: Colors.redAccent),
                   ),
                 ],
@@ -726,7 +751,7 @@ class _PresetsSectionState extends State<_PresetsSection> {
                 final isSelected = preset.id == widget.state.activeTheme?.id;
 
                 return Padding(
-                  padding: const EdgeInsets.only(right: 12),
+                  padding: const EdgeInsetsDirectional.only(end: 12),
                   child: GestureDetector(
                     onTap: () {
                       context.read<ThemeBloc>().add(
@@ -794,9 +819,45 @@ class _PresetsSectionState extends State<_PresetsSection> {
                                   size: 18,
                                   color: Colors.redAccent,
                                 ),
-                                onPressed: () => context.read<ThemeBloc>().add(
-                                  DeleteThemePreset(preset.id),
-                                ),
+                                tooltip: context.l10n.deleteButton,
+                                onPressed: () async {
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (dialogContext) => AlertDialog(
+                                      title: Text(
+                                        dialogContext.l10n
+                                            .deleteConfirmationTitle(
+                                              preset.name,
+                                            ),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(
+                                            dialogContext,
+                                            false,
+                                          ),
+                                          child: Text(
+                                            dialogContext.l10n.cancelButton,
+                                          ),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () => Navigator.pop(
+                                            dialogContext,
+                                            true,
+                                          ),
+                                          child: Text(
+                                            dialogContext.l10n.deleteButton,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirmed == true && context.mounted) {
+                                    context.read<ThemeBloc>().add(
+                                      DeleteThemePreset(preset.id),
+                                    );
+                                  }
+                                },
                               ),
                             ),
                           Positioned(

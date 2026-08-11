@@ -2,6 +2,7 @@ import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
@@ -101,14 +102,16 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
       return EscapeBackHandler(
         child: Scaffold(
           appBar: AppBar(),
-          body: const Center(child: Text('Style not found.')),
+          body: Center(child: Text(context.l10n.styNotFound)),
         ),
       );
     }
 
     return EscapeBackHandler(
       child: Scaffold(
-        appBar: AppBar(title: Text('Edit: ${_initialStyle!.name}')),
+        appBar: AppBar(
+          title: Text(context.l10n.editAccountTitle(_initialStyle!.name)),
+        ),
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -118,15 +121,17 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Style Name'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.styleNameLabel,
+                ),
                 validator: (value) => (value == null || value.isEmpty)
-                    ? 'Please enter a name'
+                    ? context.l10n.formValidationPleaseEnterName
                     : null,
               ),
               const SizedBox(height: 24),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Color'),
+                title: Text(context.l10n.colorLabel),
                 subtitle: Text(_selectedColor.hex.toUpperCase()),
                 trailing: Container(
                   width: 40,
@@ -155,7 +160,7 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
               const SizedBox(height: 16),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Icon'),
+                title: Text(context.l10n.iconLabel),
                 subtitle: Text(_selectedIconName),
                 trailing: SizedBox(
                   width: 40,
@@ -178,7 +183,7 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 50),
                 ),
-                child: const Text('Save Changes'),
+                child: Text(context.l10n.stySaveChanges),
               ),
             ],
           ),

@@ -11,6 +11,7 @@ import 'package:my_budget_client/presentation/blocs/api_settings/api_settings_ev
 import 'package:my_budget_client/presentation/blocs/api_settings/api_settings_state.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
+import 'package:my_budget_client/presentation/widgets/generic/app_state_view.dart';
 
 class ApiSettingsScreen extends StatefulWidget {
   const ApiSettingsScreen({super.key});
@@ -99,6 +100,12 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                       );
                     }
 
+                    if (state is ApiSettingsFailure) {
+                      return AppStateView.error(
+                        message: context.l10n.failedToLoadData,
+                      );
+                    }
+
                     return const SizedBox();
                   },
                 ),
@@ -112,7 +119,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
 
   Widget _buildSectionTitle(BuildContext context, String title) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4.0, bottom: 4.0),
+      padding: const EdgeInsetsDirectional.only(start: 4.0, bottom: 4.0),
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -247,6 +254,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                       const Spacer(),
                       IconButton(
                         icon: const Icon(Icons.add, size: 20),
+                        tooltip: context.l10n.addCustomSourceTitle,
                         onPressed: () => _showSourceDialog(
                           context,
                           preselectedType: dataType,
@@ -793,6 +801,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.edit, color: Colors.blueAccent),
+                  tooltip: context.l10n.editCustomSourceTitle,
                   onPressed: () => _showSourceDialog(
                     context,
                     preselectedType: source.dataType,
@@ -801,6 +810,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete, color: Colors.redAccent),
+                  tooltip: context.l10n.deleteButton,
                   onPressed: () => context.read<ApiSettingsBloc>().add(
                     DeleteCustomDataSource(source.id),
                   ),

@@ -1,13 +1,16 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/utils/chart_color_utils.dart';
+import 'package:my_budget_client/core/utils/money_formatter.dart';
 
 class BalanceLineChart extends StatelessWidget {
   final Map<DateTime, double> dailyNetWorth;
   final DateTime dateRangeStart;
   final DateTime dateRangeEnd;
   final String currencySymbol; // Added for tooltip
+  final String currencyCode; // ISO code for per-currency tooltip decimals
 
   const BalanceLineChart({
     super.key,
@@ -15,12 +18,13 @@ class BalanceLineChart extends StatelessWidget {
     required this.dateRangeStart,
     required this.dateRangeEnd,
     this.currencySymbol = '', // Optional, defaults to empty
+    this.currencyCode = '', // Optional; when set, tooltip uses ISO decimals
   });
 
   @override
   Widget build(BuildContext context) {
     if (dailyNetWorth.isEmpty) {
-      return const Center(child: Text('No history data available'));
+      return Center(child: Text(context.l10n.noHistoryData));
     }
 
     // Optimization: Check if data is already sorted to avoid redundant O(D log D) sort
@@ -143,7 +147,9 @@ class BalanceLineChart extends StatelessWidget {
             touchTooltipData: LineTouchTooltipData(
               getTooltipItems: (touchedSpots) {
                 return touchedSpots.map((spot) {
-                  final formattedValue = spot.y.toStringAsFixed(2);
+                  final formattedValue = currencyCode.isNotEmpty
+                      ? MoneyFormatter.format(spot.y, currencyCode)
+                      : spot.y.toStringAsFixed(2);
                   final displayText = currencySymbol.isNotEmpty
                       ? '$formattedValue $currencySymbol'
                       : formattedValue;

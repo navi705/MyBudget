@@ -18,6 +18,7 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
       super(ExchangeRatesState()) {
     on<LoadExchangeRates>(_onLoadExchangeRates);
     on<AddExchangeRate>(_onAddExchangeRate);
+    on<UpdateExchangeRate>(_onUpdateExchangeRate);
     on<ChangeExchangeRatesFilters>(_onChangeExchangeRatesFilters);
     on<ChangeExchangeRatesDateStep>((event, emit) {
       emit(state.copyWith(dateStep: event.dateStep));
@@ -176,6 +177,24 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
   ) async {
     try {
       await _currencyRepository.addExchangeRate(event.exchangeRate);
+      add(const LoadExchangeRates(isRefresh: true));
+    } catch (e) {
+      emit(state.copyWith(error: e.toString()));
+    }
+  }
+
+  Future<void> _onUpdateExchangeRate(
+    UpdateExchangeRate event,
+    Emitter<ExchangeRatesState> emit,
+  ) async {
+    try {
+      // Deletes the original row (matched on its from/to/date/preset key) and
+      // inserts the updated one atomically, so editing key fields does not
+      // leave an orphaned duplicate.
+      await _currencyRepository.replaceExchangeRate(
+        event.originalExchangeRate,
+        event.updatedExchangeRate,
+      );
       add(const LoadExchangeRates(isRefresh: true));
     } catch (e) {
       emit(state.copyWith(error: e.toString()));

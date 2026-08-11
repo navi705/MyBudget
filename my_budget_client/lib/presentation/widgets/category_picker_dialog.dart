@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/constants/app_constants.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
@@ -26,7 +27,7 @@ class CategoryPickerDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Select Category'),
+      title: Text(context.l10n.selectCategoryTitle),
       content: SizedBox(
         width: double.maxFinite,
         child: BlocBuilder<CategoriesBloc, CategoriesState>(
@@ -41,7 +42,7 @@ class CategoryPickerDialog extends StatelessWidget {
                     title: Text(
                       categoryWithTotal.category.name ==
                               AppConstants.systemTransferCategoryName
-                          ? 'Transfer'
+                          ? context.l10n.transferLabel
                           : categoryWithTotal.category.name,
                     ),
                     onTap: () {

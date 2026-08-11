@@ -14,6 +14,7 @@ import 'package:my_budget_client/presentation/blocs/transactions/transactions_bl
 import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:collection/collection.dart';
 
 void showAdvancedFilterDialog(
@@ -199,7 +200,7 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Advanced Filters'),
+      title: Text(context.l10n.advancedFiltersTitle),
       content: SizedBox(
         height: MediaQuery.of(context).size.height * 0.7,
         child: SingleChildScrollView(
@@ -209,7 +210,7 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Persist Filters'),
+                  Text(context.l10n.persistFiltersLabel),
                   Switch(
                     value: _persistFilters,
                     onChanged: (value) {
@@ -223,8 +224,8 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
               const SizedBox(height: 16),
               DropdownButtonFormField<TransactionTypeFilter>(
                 initialValue: _selectedTransactionType,
-                decoration: const InputDecoration(
-                  labelText: 'Transaction Type',
+                decoration: InputDecoration(
+                  labelText: context.l10n.transactionTypeLabel,
                 ),
                 items: TransactionTypeFilter.values.map((
                   TransactionTypeFilter type,
@@ -242,15 +243,15 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
               ),
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  hintText: 'Search description...',
+                decoration: InputDecoration(
+                  labelText: context.l10n.descriptionLabel,
+                  hintText: context.l10n.searchDescriptionHint,
                 ),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _amountFromController,
-                decoration: const InputDecoration(labelText: 'Amount From'),
+                decoration: InputDecoration(labelText: context.l10n.fltAmountFrom),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -258,7 +259,7 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _amountToController,
-                decoration: const InputDecoration(labelText: 'Amount To'),
+                decoration: InputDecoration(labelText: context.l10n.fltAmountTo),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -267,7 +268,7 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
               BlocBuilder<AccountsBloc, AccountsState>(
                 builder: (context, state) {
                   return ListTile(
-                    title: const Text('Account'),
+                    title: Text(context.l10n.accountLabel),
                     subtitle: Wrap(
                       spacing: 4.0,
                       runSpacing: 4.0,
@@ -345,7 +346,7 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
                 builder: (context, state) {
                   if (state is CategoriesLoadSuccess) {
                     return ListTile(
-                      title: const Text('Category'),
+                      title: Text(context.l10n.categoryLabel),
                       subtitle: Wrap(
                         spacing: 4.0,
                         runSpacing: 4.0,
@@ -429,7 +430,7 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
                 builder: (context, state) {
                   if (state is CurrencyLoadSuccess) {
                     return ListTile(
-                      title: const Text('Currency'),
+                      title: Text(context.l10n.currencyLabel),
                       subtitle: Wrap(
                         spacing: 4.0,
                         runSpacing: 4.0,
@@ -471,8 +472,8 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
         ),
       ),
       actions: <Widget>[
-        TextButton(onPressed: _clearFilters, child: const Text('Clear')),
-        TextButton(onPressed: _applyFilters, child: const Text('Apply')),
+        TextButton(onPressed: _clearFilters, child: Text(context.l10n.clearButton)),
+        TextButton(onPressed: _applyFilters, child: Text(context.l10n.applyButton)),
       ],
     );
   }

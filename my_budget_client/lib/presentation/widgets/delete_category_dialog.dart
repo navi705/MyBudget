@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
@@ -27,8 +28,8 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
   void initState() {
     super.initState();
     _newCategoryId = widget.allCategories
-        .firstWhere((c) => c.id != widget.categoryToDelete.id)
-        .id;
+        .firstWhereOrNull((c) => c.id != widget.categoryToDelete.id)
+        ?.id;
   }
 
   @override

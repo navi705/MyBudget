@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/advanced_filter_dialog.dart';
@@ -26,7 +27,7 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
     final locale = Localizations.localeOf(context).toString();
     if (state.filterMode == FilterMode.range) {
       if (state.activeDateRange == null) {
-        return 'Select Range'; // Localize if needed
+        return context.l10n.fltSelectRange;
       }
       final start = DateFormat(
         'dd.MM.yyyy',
@@ -54,7 +55,7 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
     return BlocBuilder<TransactionsBloc, TransactionsState>(
       builder: (context, state) {
         final onSurface = Theme.of(context).colorScheme.onSurface;
-        final isMobile = MediaQuery.of(context).size.width < 600;
+        final isMobile = MediaQuery.of(context).size.width < kMobileBreakpoint;
 
         final centerWidget = Row(
           mainAxisAlignment: isMobile
@@ -86,10 +87,9 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
               )
             else if (!isMobile) ...[
               MultiLevelTooltip(
-                message: 'Advanced Filter',
+                message: context.l10n.fltAdvancedFilterTooltip,
                 actionId: 'filter_advanced',
-                description:
-                    'Filter transactions by account, category, or amount',
+                description: context.l10n.fltAdvancedFilterDescription,
                 child: IconButton(
                   icon: Icon(Icons.tune, color: onSurface),
                   onPressed: () =>
@@ -125,9 +125,9 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
             ),
             if (isMobile)
               MultiLevelTooltip(
-                message: 'Sort Order',
+                message: context.l10n.sortOrderTooltip,
                 actionId: 'filter_sort',
-                description: 'Toggle between ascending and descending order',
+                description: context.l10n.fltSortOrderDescription,
                 child: RotatedBox(
                   quarterTurns: state.sort == Sort.ascending ? 0 : 2,
                   child: IconButton(
@@ -149,9 +149,9 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
             if (!isMobile) ...[
               const SizedBox(width: 8),
               MultiLevelTooltip(
-                message: 'Sort Order',
+                message: context.l10n.sortOrderTooltip,
                 actionId: 'filter_sort',
-                description: 'Toggle between ascending and descending order',
+                description: context.l10n.fltSortOrderDescription,
                 child: RotatedBox(
                   quarterTurns: state.sort == Sort.ascending ? 0 : 2,
                   child: IconButton(

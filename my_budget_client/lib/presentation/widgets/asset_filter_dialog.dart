@@ -7,6 +7,7 @@ import 'package:my_budget_client/presentation/blocs/asset/asset_event.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 void showAssetFilterDialog(BuildContext context) {
   DialogUtils.showAppDialog(
@@ -140,7 +141,7 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Asset Filters'),
+      title: Text(context.l10n.assetFiltersTitle),
       content: _isLoading
           ? const SizedBox(
               height: 100,
@@ -152,12 +153,12 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                 children: [
                   TextFormField(
                     controller: _nameController,
-                    decoration: const InputDecoration(labelText: 'Name'),
+                    decoration: InputDecoration(labelText: context.l10n.fltNameLabel),
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _descriptionController,
-                    decoration: const InputDecoration(labelText: 'Description'),
+                    decoration: InputDecoration(labelText: context.l10n.descriptionLabel),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -165,8 +166,8 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                       Expanded(
                         child: TextFormField(
                           controller: _minValueController,
-                          decoration: const InputDecoration(
-                            labelText: 'Min Value',
+                          decoration: InputDecoration(
+                            labelText: context.l10n.minValueLabel,
                           ),
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
@@ -177,8 +178,8 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                       Expanded(
                         child: TextFormField(
                           controller: _maxValueController,
-                          decoration: const InputDecoration(
-                            labelText: 'Max Value',
+                          decoration: InputDecoration(
+                            labelText: context.l10n.maxValueLabel,
                           ),
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
@@ -189,11 +190,13 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                   ),
                   const SizedBox(height: 16),
                   ListTile(
-                    title: const Text('Asset Types'),
+                    title: Text(context.l10n.assetTypesLabel),
                     subtitle: Text(
                       _selectedAssetTypes.isEmpty
-                          ? 'All'
-                          : '${_selectedAssetTypes.length} selected',
+                          ? context.l10n.allLabel
+                          : context.l10n.selectedCountLabel(
+                              _selectedAssetTypes.length.toString(),
+                            ),
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () async {
@@ -223,11 +226,13 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                           ? state.currencies
                           : <Currency>[];
                       return ListTile(
-                        title: const Text('Currencies'),
+                        title: Text(context.l10n.currenciesLabel),
                         subtitle: Text(
                           _selectedCurrencyCodes.isEmpty
-                              ? 'All'
-                              : '${_selectedCurrencyCodes.length} selected',
+                              ? context.l10n.allLabel
+                              : context.l10n.selectedCountLabel(
+                                  _selectedCurrencyCodes.length.toString(),
+                                ),
                         ),
                         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                         onTap: () async {
@@ -255,11 +260,13 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                   ),
                   const Divider(),
                   ListTile(
-                    title: const Text('Sources'),
+                    title: Text(context.l10n.sourcesLabel),
                     subtitle: Text(
                       _selectedSources.isEmpty
-                          ? 'All'
-                          : '${_selectedSources.length} selected',
+                          ? context.l10n.allLabel
+                          : context.l10n.selectedCountLabel(
+                              _selectedSources.length.toString(),
+                            ),
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () async {
@@ -284,11 +291,13 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                   ),
                   const Divider(),
                   ListTile(
-                    title: const Text('Presets'),
+                    title: Text(context.l10n.presetsLabel),
                     subtitle: Text(
                       _selectedPresets.isEmpty
-                          ? 'All'
-                          : '${_selectedPresets.length} selected',
+                          ? context.l10n.allLabel
+                          : context.l10n.selectedCountLabel(
+                              _selectedPresets.length.toString(),
+                            ),
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () async {
@@ -315,8 +324,8 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
               ),
             ),
       actions: [
-        TextButton(onPressed: _clearFilters, child: const Text('Clear')),
-        TextButton(onPressed: _applyFilters, child: const Text('Apply')),
+        TextButton(onPressed: _clearFilters, child: Text(context.l10n.clearButton)),
+        TextButton(onPressed: _applyFilters, child: Text(context.l10n.applyButton)),
       ],
     );
   }

@@ -15,12 +15,14 @@ import 'package:my_budget_client/presentation/widgets/currency_selection_dialog.
 import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 
 void showAccountFilterDialog(
   BuildContext context,
   AccountFilters currentFilters,
 ) {
-  final isMobile = MediaQuery.of(context).size.width < 600;
+  final isMobile = MediaQuery.of(context).size.width < kMobileBreakpoint;
   DialogUtils.showAppDialog(
     context: context,
     resizeToAvoidBottomInset: false,
@@ -231,7 +233,7 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
     //     context.watch<SettingsBloc>().state.settings['main_currency_code'] ??
     //         'EUR';
     return AlertDialog(
-      title: const Text('Account Filters'),
+      title: Text(context.l10n.fltAccountFiltersTitle),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -239,7 +241,7 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Persist Filters'),
+                Text(context.l10n.persistFiltersLabel),
                 Switch(
                   value: _persistFilters,
                   onChanged: (value) {
@@ -252,17 +254,17 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
             ),
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                hintText: 'Search by name...',
+              decoration: InputDecoration(
+                labelText: context.l10n.fltNameLabel,
+                hintText: context.l10n.searchByNameHint,
               ),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                hintText: 'Search description...',
+              decoration: InputDecoration(
+                labelText: context.l10n.descriptionLabel,
+                hintText: context.l10n.searchDescriptionHint,
               ),
             ),
             // const SizedBox(height: 16),
@@ -286,15 +288,23 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
               children: [
                 Expanded(
                   child: Text(
-                    'Date create: ${_creationDate != null ? DateFormat.yMd(Localizations.localeOf(context).toString()).format(_creationDate!) : 'Any'}',
+                    context.l10n.dateCreatedLabel(
+                      _creationDate != null
+                          ? DateFormat.yMd(
+                              Localizations.localeOf(context).toString(),
+                            ).format(_creationDate!)
+                          : context.l10n.anyLabel,
+                    ),
                   ),
                 ),
                 IconButton(
+                  tooltip: context.l10n.selectDateTooltip,
                   icon: const Icon(Icons.calendar_today),
                   onPressed: () => _selectDate(context),
                 ),
                 if (_creationDate != null)
                   IconButton(
+                    tooltip: context.l10n.clearButton,
                     icon: const Icon(Icons.clear),
                     onPressed: () {
                       setState(() {
@@ -309,9 +319,11 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
               builder: (context, state) {
                 if (state is AccountsLoadSuccess) {
                   return ListTile(
-                    title: const Text('Account Types'),
+                    title: Text(context.l10n.fltAccountTypesLabel),
                     subtitle: Text(
-                      '${_selectedAccountTypeIds.length} selected',
+                      context.l10n.selectedCountLabel(
+                        _selectedAccountTypeIds.length.toString(),
+                      ),
                     ),
                     onTap: () async {
                       final List<String>? result = await showDialog(
@@ -341,8 +353,12 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
               builder: (context, state) {
                 if (state is CurrencyLoadSuccess) {
                   return ListTile(
-                    title: const Text('Filter Currencies'),
-                    subtitle: Text('${_selectedCurrencyIds.length} selected'),
+                    title: Text(context.l10n.fltFilterCurrenciesLabel),
+                    subtitle: Text(
+                      context.l10n.selectedCountLabel(
+                        _selectedCurrencyIds.length.toString(),
+                      ),
+                    ),
                     onTap: () async {
                       final List<String>? result = await showDialog(
                         context: context,
@@ -368,20 +384,22 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
             ),
             if (widget.isMobile) ...[
               const Divider(height: 32),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8.0),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
                 child: Text(
-                  'Balance Display',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  context.l10n.balanceDisplayLabel,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
               BlocBuilder<CurrencyConverterBloc, CurrencyConverterState>(
                 builder: (context, state) {
                   if (state is CurrencyConverterLoadSuccess) {
                     return ListTile(
-                      title: const Text('Select Currencies'),
+                      title: Text(context.l10n.fltSelectCurrenciesLabel),
                       subtitle: Text(
-                        '${state.selectedCurrencies.length} currencies active',
+                        context.l10n.currenciesActiveLabel(
+                          state.selectedCurrencies.length,
+                        ),
                       ),
                       trailing: const Icon(Icons.currency_exchange, size: 20),
                       onTap: () async {
@@ -420,8 +438,8 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
         ),
       ),
       actions: <Widget>[
-        TextButton(onPressed: _clearFilters, child: const Text('Clear')),
-        TextButton(onPressed: _applyFilters, child: const Text('Apply')),
+        TextButton(onPressed: _clearFilters, child: Text(context.l10n.clearButton)),
+        TextButton(onPressed: _applyFilters, child: Text(context.l10n.applyButton)),
       ],
     );
   }

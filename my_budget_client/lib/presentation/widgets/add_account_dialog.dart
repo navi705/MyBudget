@@ -265,6 +265,12 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
         FilledButton.tonal(
           onPressed: () {
             if (_formKey.currentState!.validate()) {
+              // Guard against force-unwrap crash if currency/designation unresolved.
+              if (_selectedCurrencyCode == null ||
+                  _selectedCurrencyDesignationId == null ||
+                  _selectedAccountTypeId == null) {
+                return;
+              }
               final newAccount = Account(
                 name: _nameController.text,
                 description: _descriptionController.text.isEmpty

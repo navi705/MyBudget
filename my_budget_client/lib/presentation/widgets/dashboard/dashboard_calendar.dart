@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
+import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_header.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 
@@ -43,7 +45,7 @@ class DashboardCalendar extends StatelessWidget {
       builder: (context, constraints) {
         // Calculate appropriate maxWidth based on screen width
         final screenWidth = constraints.maxWidth;
-        final isWideScreen = screenWidth > 600;
+        final isWideScreen = screenWidth > kMobileBreakpoint;
         // RESPONSIVE: 700px on desktop for better readability
         final maxCalendarWidth = isWideScreen ? 700.0 : screenWidth;
 
@@ -166,11 +168,11 @@ class DashboardCalendar extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Material(
-      // 1. Делаем фон прозрачным, так как цвет задается внутри Ink
+      // Transparent background; the color is applied inside Ink
       color: Colors.transparent,
-      // 2. Ограничиваем область отрисовки (подсветка не выйдет за границы)
+      // Clip the paint area so the highlight stays within bounds
       clipBehavior: Clip.antiAlias,
-      // 3. Скругление должно совпадать со скруглением Ink
+      // Match the corner radius of the inner Ink
       borderRadius: BorderRadius.circular(8),
       child: Ink(
         decoration: BoxDecoration(
@@ -186,16 +188,16 @@ class DashboardCalendar extends StatelessWidget {
         ),
         child: InkWell(
           onTap: () => onDaySelected(date),
-          // Указываем радиус для эффекта нажатия
+          // Radius for the tap ripple effect
           borderRadius: BorderRadius.circular(8),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              // Номер дня
+              // Day number
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.only(top: 4, right: 6),
-                alignment: Alignment.topRight,
+                padding: const EdgeInsetsDirectional.only(top: 4, end: 6),
+                alignment: AlignmentDirectional.topEnd,
                 child: Text(
                   date.day.toString(),
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -207,18 +209,18 @@ class DashboardCalendar extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              // Статистика (Доходы/Расходы)
+              // Stats (Income/Expense)
               if (income > 0 || expense > 0) ...[
                 if (income > 0)
                   _buildMiniStat(
                     context,
-                    '+${NumberFormat('#,##0.00', 'en_US').format(income).replaceAll(',', ' ')} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
+                    '+${MoneyFormatter.format(income, currencyCode)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
                     Colors.green,
                   ),
                 if (expense > 0)
                   _buildMiniStat(
                     context,
-                    '-${NumberFormat('#,##0.00', 'en_US').format(expense).replaceAll(',', ' ')} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
+                    '-${MoneyFormatter.format(expense, currencyCode)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
                     Colors.red,
                   ),
               ],
@@ -322,7 +324,7 @@ class DashboardCalendar extends StatelessWidget {
                   name: currencyCode,
                 ).currencySymbol;
                 return Text(
-                  '${net >= 0 ? '+' : ''}${NumberFormat('#,##0.00', 'en_US').format(net).replaceAll(',', ' ')}$currencySymbol',
+                  '${net >= 0 ? '+' : ''}${MoneyFormatter.format(net, currencyCode)}$currencySymbol',
                   style: TextStyle(
                     color: color,
                     fontSize: 15,

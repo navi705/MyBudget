@@ -428,6 +428,14 @@ class MockTransactionRepository extends _i1.Mock
           as _i3.Stream<List<_i10.Transaction>>);
 
   @override
+  _i3.Stream<void> watchTransactionChanges() =>
+      (super.noSuchMethod(
+            Invocation.method(#watchTransactionChanges, []),
+            returnValue: _i3.Stream<void>.empty(),
+          )
+          as _i3.Stream<void>);
+
+  @override
   _i3.Future<List<_i10.Transaction>> getTransactions() =>
       (super.noSuchMethod(
             Invocation.method(#getTransactions, []),
@@ -609,6 +617,16 @@ class MockTransactionRepository extends _i1.Mock
             ),
           )
           as _i3.Future<List<_i9.GroupedTransactionTotal>>);
+
+  @override
+  _i3.Future<Map<String, double>> getFutureSumsExact(DateTime? cutoff) =>
+      (super.noSuchMethod(
+            Invocation.method(#getFutureSumsExact, [cutoff]),
+            returnValue: _i3.Future<Map<String, double>>.value(
+              <String, double>{},
+            ),
+          )
+          as _i3.Future<Map<String, double>>);
 
   @override
   _i3.Future<Map<String, double>> getCategoryTotalsInMainCurrency({
@@ -908,6 +926,18 @@ class MockCurrencyRepository extends _i1.Mock
   _i3.Future<void> updateExchangeRate(_i15.ExchangeRateDomain? exchangeRate) =>
       (super.noSuchMethod(
             Invocation.method(#updateExchangeRate, [exchangeRate]),
+            returnValue: _i3.Future<void>.value(),
+            returnValueForMissingStub: _i3.Future<void>.value(),
+          )
+          as _i3.Future<void>);
+
+  @override
+  _i3.Future<void> replaceExchangeRate(
+    _i15.ExchangeRateDomain? original,
+    _i15.ExchangeRateDomain? updated,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#replaceExchangeRate, [original, updated]),
             returnValue: _i3.Future<void>.value(),
             returnValueForMissingStub: _i3.Future<void>.value(),
           )

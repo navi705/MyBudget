@@ -25,9 +25,9 @@ class SmsSettingsScreen extends StatelessWidget {
     // Only available on Android
     if (!AppPlatform.isAndroid) {
       return Scaffold(
-        appBar: AppBar(title: const Text('SMS Import')),
-        body: const Center(
-          child: Text('SMS import is only available on Android'),
+        appBar: AppBar(title: Text(context.l10n.smsImportLabel)),
+        body: Center(
+          child: Text(context.l10n.smsOnlyAndroid),
         ),
       );
     }
@@ -47,11 +47,11 @@ class _SmsSettingsContent extends StatelessWidget {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        title: const Text('SMS Import'),
+        title: Text(context.l10n.smsImportLabel),
         actions: [
           IconButton(
             icon: const Icon(Icons.download),
-            tooltip: 'Import SMS',
+            tooltip: context.l10n.smsImportSms,
             onPressed: () => _showImportDialog(context),
           ),
         ],
@@ -90,13 +90,13 @@ class _SmsSettingsContent extends StatelessWidget {
           children: [
             const Icon(Icons.sms, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            const Text(
-              'SMS Permission Required',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              context.l10n.smsPermissionRequired,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'To import transactions from SMS, we need permission to read your messages.',
+            Text(
+              context.l10n.smsPermissionRationale,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -104,7 +104,7 @@ class _SmsSettingsContent extends StatelessWidget {
               onPressed: () {
                 context.read<SmsBloc>().add(RequestSmsPermission());
               },
-              child: const Text('Grant Permission'),
+              child: Text(context.l10n.smsGrantPermission),
             ),
           ],
         ),
@@ -114,8 +114,8 @@ class _SmsSettingsContent extends StatelessWidget {
 
   Widget _buildPresetList(BuildContext context, SmsState state) {
     if (state.presets.isEmpty) {
-      return const Center(
-        child: Text('No presets configured. Tap + to add one.'),
+      return Center(
+        child: Text(context.l10n.smsNoPresets),
       );
     }
 
@@ -155,14 +155,12 @@ class _SmsSettingsContent extends StatelessWidget {
       context: context,
       resizeToAvoidBottomInset: false,
       child: AlertDialog(
-        title: const Text('Import SMS'),
-        content: const Text(
-          'Import transactions from SMS messages. Choose a time range:',
-        ),
+        title: Text(context.l10n.smsImportSms),
+        content: Text(context.l10n.smsImportDescription),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
@@ -170,14 +168,14 @@ class _SmsSettingsContent extends StatelessWidget {
               final lastWeek = DateTime.now().subtract(const Duration(days: 7));
               context.read<SmsBloc>().add(ImportSmsMessages(since: lastWeek));
             },
-            child: const Text('Last 7 Days'),
+            child: Text(context.l10n.smsLast7Days),
           ),
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
               context.read<SmsBloc>().add(const ImportSmsMessages());
             },
-            child: const Text('All Time'),
+            child: Text(context.l10n.smsAllTime),
           ),
         ],
       ),
@@ -236,7 +234,7 @@ class _PresetCard extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Filter: ${preset.senderFilter}'),
+            Text(context.l10n.smsFilterLabel(preset.senderFilter)),
             const SizedBox(height: 4),
             Row(
               children: [
@@ -258,7 +256,7 @@ class _PresetCard extends StatelessWidget {
                                 children: [
                                   if (style != null)
                                     Padding(
-                                      padding: const EdgeInsets.only(right: 4),
+                                      padding: const EdgeInsetsDirectional.only(end: 4),
                                       child: BudgetIcon(
                                         style: style,
                                         radius: 8,
@@ -300,7 +298,7 @@ class _PresetCard extends StatelessWidget {
                                 children: [
                                   if (style != null)
                                     Padding(
-                                      padding: const EdgeInsets.only(right: 4),
+                                      padding: const EdgeInsetsDirectional.only(end: 4),
                                       child: BudgetIcon(
                                         style: style,
                                         radius: 8,
@@ -331,7 +329,11 @@ class _PresetCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (onDelete != null)
-              IconButton(icon: const Icon(Icons.delete), onPressed: onDelete),
+              IconButton(
+                icon: const Icon(Icons.delete),
+                tooltip: context.l10n.deleteButton,
+                onPressed: onDelete,
+              ),
             Switch(value: preset.isEnabled, onChanged: onToggle),
           ],
         ),
@@ -385,12 +387,12 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Edit Preset' : 'New Preset'),
+        title: Text(isEditing ? context.l10n.smsEditPreset : context.l10n.smsNewPreset),
         actions: [
           if (!isEditing)
             TextButton(
               onPressed: () => _savePreset(pop: true),
-              child: const Text('Save'),
+              child: Text(context.l10n.saveButton),
             ),
         ],
       ),
@@ -399,9 +401,9 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
         children: [
           TextField(
             controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: 'Preset Name',
-              hintText: 'e.g., My Bank',
+            decoration: InputDecoration(
+              labelText: context.l10n.presetNameLabel,
+              hintText: context.l10n.smsPresetNameHint,
             ),
             enabled: !isBuiltIn,
             onChanged: (_) {
@@ -411,10 +413,10 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
           const SizedBox(height: 16),
           TextField(
             controller: _senderController,
-            decoration: const InputDecoration(
-              labelText: 'Sender Filter',
-              hintText: 'e.g., ALTA or +381...',
-              helperText: 'Filter SMS by sender name or phone number',
+            decoration: InputDecoration(
+              labelText: context.l10n.smsSenderFilter,
+              hintText: context.l10n.smsSenderFilterHint,
+              helperText: context.l10n.smsSenderFilterHelper,
             ),
             enabled: !isBuiltIn,
             onChanged: (_) {
@@ -438,7 +440,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Defaults', style: Theme.of(context).textTheme.titleMedium),
+        Text(context.l10n.smsDefaults, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 16),
         BlocBuilder<AccountsBloc, AccountsState>(
           builder: (context, state) {
@@ -476,7 +478,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                                 );
                                 if (s != null) {
                                   return Padding(
-                                    padding: const EdgeInsets.only(right: 12),
+                                    padding: const EdgeInsetsDirectional.only(end: 12),
                                     child: BudgetIcon(style: s, radius: 12),
                                   );
                                 }
@@ -496,18 +498,18 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                     }
                   },
                   child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Default Account',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.smsDefaultAccount,
+                      border: const OutlineInputBorder(),
                     ),
                     child: Row(
                       children: [
                         if (style != null)
                           Padding(
-                            padding: const EdgeInsets.only(right: 12),
+                            padding: const EdgeInsetsDirectional.only(end: 12),
                             child: BudgetIcon(style: style, radius: 12),
                           ),
-                        Text(selectedAccount?.name ?? 'Select Account'),
+                        Text(selectedAccount?.name ?? context.l10n.selectAccountTitle),
                       ],
                     ),
                   ),
@@ -553,7 +555,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                                 );
                                 if (s != null) {
                                   return Padding(
-                                    padding: const EdgeInsets.only(right: 12),
+                                    padding: const EdgeInsetsDirectional.only(end: 12),
                                     child: BudgetIcon(style: s, radius: 12),
                                   );
                                 }
@@ -573,18 +575,18 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                     }
                   },
                   child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Default Category',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.smsDefaultCategory,
+                      border: const OutlineInputBorder(),
                     ),
                     child: Row(
                       children: [
                         if (style != null)
                           Padding(
-                            padding: const EdgeInsets.only(right: 12),
+                            padding: const EdgeInsetsDirectional.only(end: 12),
                             child: BudgetIcon(style: style, radius: 12),
                           ),
-                        Text(selectedCategory?.name ?? 'Select Category'),
+                        Text(selectedCategory?.name ?? context.l10n.selectCategoryTitle),
                       ],
                     ),
                   ),
@@ -608,13 +610,13 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Import Messages',
+              context.l10n.smsImportMessages,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             if (!canImport)
-              const Text(
-                'Select defaults first',
-                style: TextStyle(color: Colors.red, fontSize: 12),
+              Text(
+                context.l10n.smsSelectDefaultsFirst,
+                style: const TextStyle(color: Colors.red, fontSize: 12),
               ),
           ],
         ),
@@ -638,7 +640,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                       );
                     },
               icon: const Icon(Icons.calendar_view_week),
-              label: const Text('Last 7 Days'),
+              label: Text(context.l10n.smsLast7Days),
             ),
             FilledButton.tonalIcon(
               onPressed: !canImport
@@ -649,7 +651,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                       );
                     },
               icon: const Icon(Icons.all_inclusive),
-              label: const Text('All Time'),
+              label: Text(context.l10n.smsAllTime),
             ),
             FilledButton.icon(
               onPressed: !canImport
@@ -671,7 +673,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                       }
                     },
               icon: const Icon(Icons.date_range),
-              label: const Text('Custom Range'),
+              label: Text(context.l10n.smsCustomRange),
             ),
           ],
         ),
@@ -687,7 +689,9 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
               return Padding(
                 padding: const EdgeInsets.only(top: 16),
                 child: Text(
-                  'Success: ${state.createdTransactionsCount} transactions imported',
+                  context.l10n.smsImportSuccessCount(
+                    state.createdTransactionsCount,
+                  ),
                   style: const TextStyle(color: Colors.green),
                 ),
               );
@@ -707,7 +711,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Parsing Rules',
+              context.l10n.smsParsingRules,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             if (!isBuiltIn)
@@ -716,7 +720,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
         ),
         const SizedBox(height: 8),
         if (_rules.isEmpty)
-          const Text('No rules defined. Tap + to add one.')
+          Text(context.l10n.smsNoRules)
         else
           ListView.builder(
             shrinkWrap: true,
@@ -760,11 +764,12 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                           ],
                         ],
                       ),
-                      subtitle: Text('Match: ${rule.matchPattern}'),
+                      subtitle: Text(context.l10n.smsMatchLabel(rule.matchPattern)),
                       trailing: isBuiltIn
                           ? null
                           : IconButton(
                               icon: const Icon(Icons.delete),
+                              tooltip: context.l10n.deleteButton,
                               onPressed: () {
                                 setState(() => _rules.removeAt(index));
                                 if (isEditing) _savePreset(pop: false);
@@ -801,7 +806,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
     if (_nameController.text.isEmpty || _senderController.text.isEmpty) {
       if (pop) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Name and sender filter are required')),
+          SnackBar(content: Text(context.l10n.smsNameSenderRequired)),
         );
       }
       return;
@@ -833,18 +838,19 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Category Keywords',
+              context.l10n.smsCategoryKeywords,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             IconButton(
               icon: const Icon(Icons.add),
+              tooltip: context.l10n.smsAddKeywordRule,
               onPressed: _showAddKeywordDialog,
             ),
           ],
         ),
         const SizedBox(height: 4),
         Text(
-          'Map keywords in SMS body to categories',
+          context.l10n.smsCategoryKeywordsSubtitle,
           style: Theme.of(context)
               .textTheme
               .bodySmall
@@ -852,7 +858,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
         ),
         const SizedBox(height: 8),
         if (_categoryKeywords.isEmpty)
-          const Text('No keyword rules. Tap + to add one.')
+          Text(context.l10n.smsNoKeywordRules)
         else
           BlocBuilder<CategoriesBloc, CategoriesState>(
             builder: (context, catState) {
@@ -880,6 +886,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                       ),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete),
+                        tooltip: context.l10n.deleteButton,
                         onPressed: () {
                           setState(() => _categoryKeywords.removeAt(index));
                           if (isEditing) _savePreset(pop: false);
@@ -936,27 +943,27 @@ class _KeywordRuleDialogState extends State<_KeywordRuleDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add Keyword Rule'),
+      title: Text(context.l10n.smsAddKeywordRule),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
             controller: _keywordController,
-            decoration: const InputDecoration(
-              labelText: 'Keyword',
-              hintText: 'e.g., Grocery, Netflix',
-              helperText: 'Case-insensitive substring to match in SMS body',
+            decoration: InputDecoration(
+              labelText: context.l10n.smsKeyword,
+              hintText: context.l10n.smsKeywordHint,
+              helperText: context.l10n.smsKeywordHelper,
             ),
             autofocus: true,
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             value: _selectedCategoryId,
-            decoration: const InputDecoration(
-              labelText: 'Category',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: context.l10n.categoryLabel,
+              border: const OutlineInputBorder(),
             ),
-            hint: const Text('Select category'),
+            hint: Text(context.l10n.smsSelectCategoryHint),
             items: widget.categories
                 .map(
                   (c) => DropdownMenuItem(
@@ -972,7 +979,7 @@ class _KeywordRuleDialogState extends State<_KeywordRuleDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancelButton),
         ),
         FilledButton(
           onPressed: _selectedCategoryId == null ||
@@ -987,7 +994,7 @@ class _KeywordRuleDialogState extends State<_KeywordRuleDialog> {
                     ),
                   );
                 },
-          child: const Text('Save'),
+          child: Text(context.l10n.saveButton),
         ),
       ],
     );

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_currency_selector.dart';
 
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
@@ -45,13 +47,13 @@ class DashboardHeader extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 600;
+        final isMobile = constraints.maxWidth < kMobileBreakpoint;
 
         // Shared Components
         final leftArrow = MultiLevelTooltip(
-          message: 'Previous Period',
+          message: context.l10n.previousPeriodTooltip,
           actionId: 'prev_period',
-          description: 'Go to the previous month or year',
+          description: context.l10n.previousPeriodDescription,
           child: IconButton(
             icon: Icon(Icons.chevron_left, color: onSurface),
             onPressed: onPrevious,
@@ -59,9 +61,9 @@ class DashboardHeader extends StatelessWidget {
         );
 
         final rightArrow = MultiLevelTooltip(
-          message: 'Next Period',
+          message: context.l10n.nextPeriodTooltip,
           actionId: 'next_period',
-          description: 'Go to the next month or year',
+          description: context.l10n.nextPeriodDescription,
           child: IconButton(
             icon: Icon(Icons.chevron_right, color: onSurface),
             onPressed: onNext,
@@ -69,16 +71,16 @@ class DashboardHeader extends StatelessWidget {
         );
 
         final titleWidget = MultiLevelTooltip(
-          message: 'Select Date',
+          message: context.l10n.selectDateTooltip,
           actionId: 'dashboard_pick_date',
-          description: 'Open calendar to pick a specific date or range',
+          description: context.l10n.dshSelectDateDescription,
           child: _PeriodSelector(title: title, onTap: onTitleTap),
         );
 
         final currencySelector = MultiLevelTooltip(
-          message: 'Currency',
+          message: context.l10n.currencyLabel,
           actionId: 'dashboard_currency',
-          description: 'Select the primary currency for display',
+          description: context.l10n.dshCurrencyDescription,
           child: DashboardCurrencySelector(
             selectedCurrency: currencyCode,
             availableCurrencies: availableCurrencies,
@@ -87,13 +89,19 @@ class DashboardHeader extends StatelessWidget {
         );
 
         final viewSwitcher = MultiLevelTooltip(
-          message: 'Change View',
+          message: context.l10n.dshChangeViewTooltip,
           actionId: 'dashboard_switch_view',
-          description: 'Switch between Monthly and Yearly views',
+          description: context.l10n.dshChangeViewDescription,
           child: SegmentedButton<DateStep>(
-            segments: const [
-              ButtonSegment(value: DateStep.month, label: Text('M')),
-              ButtonSegment(value: DateStep.year, label: Text('Y')),
+            segments: [
+              ButtonSegment(
+                value: DateStep.month,
+                label: Text(context.l10n.dshMonthlyAbbreviation),
+              ),
+              ButtonSegment(
+                value: DateStep.year,
+                label: Text(context.l10n.dshYearlyAbbreviation),
+              ),
             ],
             selected: {dateStep},
             onSelectionChanged: (Set<DateStep> newSelection) {

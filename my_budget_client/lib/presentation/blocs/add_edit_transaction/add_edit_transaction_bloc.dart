@@ -141,7 +141,7 @@ class AddEditTransactionBloc
               // If the current transaction is the "To" side (positive amount),
               // swap to the linked transaction (the "From" side with negative amount).
               // This ensures From/To accounts are always displayed correctly on all platforms.
-              if (initialTransaction!.amount > 0 && linkedTx.amount < 0) {
+              if (initialTransaction.amount > 0 && linkedTx.amount < 0) {
                 // Current is "To" side (positive), swap to "From" side (negative)
                 initialTransaction = linkedTx;
               }

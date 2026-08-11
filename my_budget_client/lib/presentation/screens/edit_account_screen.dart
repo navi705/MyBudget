@@ -4,8 +4,8 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
+import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
@@ -49,6 +49,8 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   String? _feeStructureJson; // Added
 
   late Account _initialAccount;
+
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -97,7 +99,14 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   }
 
   void _onSave() {
+    if (_isSaving) return;
     if (_formKey.currentState!.validate()) {
+      // Guard against force-unwrap crash if currency/designation unresolved.
+      if (_selectedCurrencyCode == null ||
+          _selectedCurrencyDesignationId == null) {
+        return;
+      }
+      _isSaving = true;
       final updatedAccount = Account(
         id: _initialAccount.id,
         creationDate: _initialAccount.creationDate,
@@ -136,33 +145,8 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
           accountToDelete: _initialAccount,
           allAccounts: state.accounts,
         ),
-      ).then((_) {
-        // Dialog handles the bloc event.
-        // If deleted, we should pop.
-        // But better to listen to Bloc state change (RecentlyDeleted) in Screen?
-        // Actually typical flow: Dialog adds event -> Bloc updates state -> Listener Pops.
-        // But here we are in Edit Screen. If deleted, we should manually pop?
-        // The dialog confirms and closes itself.
-        // We need to close *this* screen if delete happened.
-        // But we don't know if user cancelled or deleted from the dialog result unless we return it.
-        // Let's assume user might manually navigate back or we rely on some listener.
-        // Simple fix: Check if account exists in list?
-        // Actually, `DeleteAccountDialog` returns void.
-        // I will just pop `EditAccountScreen` if the dialog *was confirmed*.
-        // But `DeleteAccountDialog` creates the event.
-        // I'll make `DeleteAccountScreen` close automatically.
-        // Wait, `EditAccountScreen` is pushed on stack.
-        // If I delete account, `AccountsScreen` (underneath) updates.
-        // `EditAccountScreen` remains open?
-        // I should stick to: Dialog handles deletion. logic.
-        // Ideally, `EditAccountScreen` should listen to Bloc and pop if current account is deleted.
-        // Or I can pass a callback?
-        // Let's just pop `EditAccountScreen` here assuming success if we want, OR just let user go back.
-        // BETTER: `DeleteAccountDialog` handles deletion.
-        // If I want to close `EditAccountScreen` on success, I should listen to `AccountsBloc`.
-        // But `AccountsBloc` listener is in `AccountsScreen`.
-        // Let's add a `BlocListener` in `EditAccountScreen`.
-      });
+      );
+      // The BlocListener above pops this screen when the account is deleted.
     }
   }
 
@@ -569,9 +553,10 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                 _currentAssetPrice != null &&
                                     _assetCurrency != null
                                 ? l10n.currentPriceLabel(
-                                    NumberFormat('#,##0.00', 'en_US')
-                                        .format(_currentAssetPrice)
-                                        .replaceAll(',', ' '),
+                                    MoneyFormatter.format(
+                                      _currentAssetPrice!,
+                                      _assetCurrency!,
+                                    ),
                                     _assetCurrency!,
                                   )
                                 : null,
@@ -647,7 +632,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                       '${asset.quantity} @ ${asset.value} ${asset.currency}',
                                     ),
                                     trailing: Text(
-                                      '${NumberFormat('#,##0.00', 'en_US').format(asset.quantity * asset.value).replaceAll(',', ' ')} ${asset.currency}',
+                                      '${MoneyFormatter.format(asset.quantity * asset.value, asset.currency)} ${asset.currency}',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                       ),

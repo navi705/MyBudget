@@ -51,14 +51,7 @@ class NavigationTabBar extends StatelessWidget {
                   Theme.of(context).scaffoldBackgroundColor);
         final primaryColor =
             activeTheme?.primaryColor ?? Theme.of(context).colorScheme.primary;
-        final unselectedColor = activeTheme?.surfaceColor != null
-            ? (activeTheme!.themeMode == ThemeMode.dark ||
-                      (activeTheme.themeMode == ThemeMode.system &&
-                          MediaQuery.of(context).platformBrightness ==
-                              Brightness.dark)
-                  ? Colors.white70
-                  : Colors.black54)
-            : Theme.of(context).colorScheme.onSurfaceVariant;
+        final unselectedColor = Theme.of(context).colorScheme.onSurfaceVariant;
 
         return MediaQuery.removePadding(
           context: context,

@@ -171,7 +171,9 @@ class SettingsScreen extends StatelessWidget {
                         context.push(AppRoutes.exchangeRates);
                       },
                     ),
-                  if (AppPlatform.isAndroid || AppPlatform.isIOS)
+                  // SMS import only works on Android; hide on iOS to avoid a
+                  // dead feature.
+                  if (AppPlatform.isAndroid)
                     ListTile(
                       leading: const Icon(Icons.sms),
                       title: Text(l10n.smsImportLabel),
@@ -190,7 +192,10 @@ class SettingsScreen extends StatelessWidget {
                   const Divider(),
 
                   // Synchronization
-                  if (!kIsWeb)
+                  // P2P sync relies on a directory picker + Directory.watch,
+                  // which are unavailable in the iOS sandbox. Show only on
+                  // Android and desktop.
+                  if (!kIsWeb && !AppPlatform.isIOS)
                     ListTile(
                       leading: const Icon(Icons.sync),
                       title: Text(l10n.syncSettingsLabel),
@@ -284,8 +289,11 @@ class SettingsScreen extends StatelessWidget {
     try {
       final db = GetIt.I<AppDatabase>();
       final service = DataExportService(db);
-      await service.exportData(isCsv);
-      if (context.mounted) {
+      final success = await service.exportData(isCsv);
+      // Only report success when the export actually happened. A `false`
+      // result means the user cancelled or the platform (web) is unsupported,
+      // so we avoid fabricating a success snackbar.
+      if (context.mounted && success) {
         final l10n = context.l10n;
         ScaffoldMessenger.of(
           context,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
@@ -75,13 +76,13 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
         Offset.zero & overlay.size,
       ),
       items: <PopupMenuEntry<String>>[
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'add_rate',
           child: Row(
             children: [
-              Icon(Icons.add),
-              SizedBox(width: 8),
-              Flexible(child: Text('Add Exchange Rate')),
+              const Icon(Icons.add),
+              const SizedBox(width: 8),
+              Flexible(child: Text(context.l10n.exchAddExchangeRate)),
             ],
           ),
         ),
@@ -146,10 +147,9 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
             appBar: _buildAppBar(context, state),
             body: body,
             floatingActionButton: MultiLevelTooltip(
-              message: 'Add Exchange Rate',
+              message: context.l10n.exchAddExchangeRate,
               actionId: 'add_action',
-              description:
-                  'Manually enter a conversion rate between two currencies',
+              description: context.l10n.exchAddRateDescription,
               child: FloatingActionButton(
                 onPressed: () => _showAddEditExchangeRateDialog(context),
                 child: const Icon(Icons.add),
@@ -206,7 +206,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.status == ExchangeRatesStatus.failure) {
-      return Center(child: Text('Error: ${state.error}'));
+      return Center(child: Text(context.l10n.importErrorLabel('${state.error}')));
     }
     if (state.exchangeRates.isEmpty &&
         state.status == ExchangeRatesStatus.success) {
@@ -216,7 +216,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
             _showEmptyAreaContextMenu(context, details.globalPosition),
         onLongPressStart: (details) =>
             _showEmptyAreaContextMenu(context, details.globalPosition),
-        child: const Center(child: Text('No exchange rates found.')),
+        child: Center(child: Text(context.l10n.exchNoRatesFound)),
       );
     }
 
@@ -283,20 +283,22 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
       items: <PopupMenuEntry<String>>[
         PopupMenuItem(
           value: 'select',
-          child: Text(isSelected ? 'Deselect' : 'Select'),
+          child: Text(
+            isSelected ? context.l10n.contextMenuDeselect : context.l10n.selectButton,
+          ),
         ),
-        const PopupMenuItem(value: 'select_all', child: Text('Select All')),
+        PopupMenuItem(value: 'select_all', child: Text(context.l10n.selectAllButton)),
         if (state.selectedExchangeRates.isNotEmpty)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'deselect_all',
-            child: Text('Deselect All'),
+            child: Text(context.l10n.deselectAllButton),
           ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'change_preset',
-          child: Text('Change Preset'),
+          child: Text(context.l10n.exchChangePreset),
         ),
-        const PopupMenuItem(value: 'delete', child: Text('Delete')),
+        PopupMenuItem(value: 'delete', child: Text(context.l10n.deleteButton)),
       ],
     );
 
@@ -374,7 +376,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
 
             final displayText = selectedCurrency != null
                 ? '${selectedCurrency.name} (${selectedCurrency.code})'
-                : 'Select Currency';
+                : context.l10n.selectCurrencyTitle;
 
             return ListTile(
               title: Text(label),
@@ -401,7 +403,9 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
 
           return AlertDialog(
             title: Text(
-              existingRate == null ? 'Add Exchange Rate' : 'Edit Exchange Rate',
+              existingRate == null
+                  ? context.l10n.exchAddExchangeRate
+                  : context.l10n.exchEditExchangeRate,
             ),
             content: SingleChildScrollView(
               child: ConstrainedBox(
@@ -412,13 +416,13 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       buildCurrencySelector(
-                        'From Currency',
+                        context.l10n.exchFromCurrency,
                         fromCurrency,
                         (val) => setState(() => fromCurrency = val!),
                       ),
                       const SizedBox(height: 8),
                       buildCurrencySelector(
-                        'To Currency',
+                        context.l10n.exchToCurrency,
                         toCurrency,
                         (val) => setState(() => toCurrency = val),
                       ),
@@ -428,8 +432,8 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
                           Expanded(
                             child: TextField(
                               controller: rateController,
-                              decoration: const InputDecoration(
-                                labelText: 'Rate',
+                              decoration: InputDecoration(
+                                labelText: context.l10n.exchRate,
                               ),
                               keyboardType:
                                   const TextInputType.numberWithOptions(
@@ -441,8 +445,8 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
                           Expanded(
                             child: TextField(
                               controller: presetController,
-                              decoration: const InputDecoration(
-                                labelText: 'Preset ID',
+                              decoration: InputDecoration(
+                                labelText: context.l10n.exchPresetIdLabel,
                               ),
                               keyboardType: TextInputType.number,
                             ),
@@ -452,7 +456,9 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
                       const SizedBox(height: 16),
                       ListTile(
                         title: Text(
-                          'Date: ${DateFormat('dd.MM.yyyy').format(selectedDate)}',
+                          context.l10n.importDateLabel(
+                            DateFormat('dd.MM.yyyy').format(selectedDate),
+                          ),
                         ),
                         trailing: const Icon(Icons.calendar_today),
                         onTap: () async {
@@ -473,7 +479,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text(context.l10n.cancelButton),
               ),
               FilledButton.tonal(
                 onPressed: () {
@@ -482,21 +488,30 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
                   if (fromCurrency.isNotEmpty &&
                       toCurrency != null &&
                       rate != null) {
-                    bloc.add(
-                      AddExchangeRate(
-                        ExchangeRateDomain(
-                          fromCurrencyCode: fromCurrency,
-                          toCurrencyCode: toCurrency!,
-                          rate: rate,
-                          date: selectedDate,
-                          preset: preset,
-                        ),
-                      ),
+                    final newRate = ExchangeRateDomain(
+                      fromCurrencyCode: fromCurrency,
+                      toCurrencyCode: toCurrency!,
+                      rate: rate,
+                      date: selectedDate,
+                      preset: preset,
                     );
+                    if (existingRate == null) {
+                      bloc.add(AddExchangeRate(newRate));
+                    } else {
+                      // Editing an existing rate: delete the original row and
+                      // insert the new one so changing from/to/date/preset does
+                      // not create a duplicate.
+                      bloc.add(
+                        UpdateExchangeRate(
+                          originalExchangeRate: existingRate,
+                          updatedExchangeRate: newRate,
+                        ),
+                      );
+                    }
                     Navigator.pop(context);
                   }
                 },
-                child: const Text('Save'),
+                child: Text(context.l10n.saveButton),
               ),
             ],
           );
@@ -605,7 +620,7 @@ class _ExchangeRateListItem extends StatelessWidget {
                 ),
               ),
               Text(
-                'Preset: ${rate.preset}',
+                context.l10n.exchPresetValue(rate.preset),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -663,7 +678,7 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
 
   String _formatDate(BuildContext context) {
     if (state.filterMode == FilterMode.range) {
-      if (state.activeDateRange == null) return 'Select Range';
+      if (state.activeDateRange == null) return context.l10n.exchSelectRange;
       final start = MaterialLocalizations.of(
         context,
       ).formatShortDate(state.activeDateRange!.start);
@@ -715,9 +730,9 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
       mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
       children: [
         MultiLevelTooltip(
-          message: 'Previous Period',
+          message: context.l10n.previousPeriodTooltip,
           actionId: 'prev_period',
-          description: 'Go to the previous day, month, or year',
+          description: context.l10n.exchPreviousPeriodDescription,
           child: IconButton(
             icon: Icon(Icons.chevron_left, color: onSurface),
             onPressed: () => _navigateInAppBar(context, bloc, -1),
@@ -725,9 +740,9 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
         ),
         if (isMobile)
           MultiLevelTooltip(
-            message: 'Filter',
+            message: context.l10n.filterTooltip,
             actionId: 'filter_exchange_rates',
-            description: 'Filter rates by from/to currency and preset ID',
+            description: context.l10n.exchFilterDescription,
             child: IconButton(
               icon: Icon(Icons.tune, color: onSurface),
               onPressed: () => _showFilterDialog(context),
@@ -735,9 +750,9 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
           )
         else if (!isMobile) ...[
           MultiLevelTooltip(
-            message: 'Filter',
+            message: context.l10n.filterTooltip,
             actionId: 'filter_exchange_rates',
-            description: 'Filter rates by from/to currency and preset ID',
+            description: context.l10n.exchFilterDescription,
             child: IconButton(
               icon: Icon(Icons.tune, color: onSurface),
               onPressed: () => _showFilterDialog(context),
@@ -748,10 +763,9 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
         Expanded(
           flex: isMobile ? 1 : 0,
           child: MultiLevelTooltip(
-            message: 'Select Date',
+            message: context.l10n.selectDateTooltip,
             actionId: 'exchange_rates_pick_date',
-            description:
-                'Choose a specific date or range to view historical rates',
+            description: context.l10n.exchSelectDateDescription,
             child: InkWell(
               onTap: () => _showCustomCalendar(context),
               child: Container(
@@ -771,10 +785,9 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
         ),
         if (isMobile)
           MultiLevelTooltip(
-            message: 'Sort Order',
+            message: context.l10n.sortOrderTooltip,
             actionId: 'exchange_rates_sort',
-            description:
-                'Switch between ascending and descending date/rate order',
+            description: context.l10n.exchSortOrderDescription,
             child: RotatedBox(
               quarterTurns: state.sort == Sort.ascending ? 2 : 0,
               child: IconButton(
@@ -794,10 +807,9 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
         if (!isMobile) ...[
           const SizedBox(width: 8),
           MultiLevelTooltip(
-            message: 'Sort Order',
+            message: context.l10n.sortOrderTooltip,
             actionId: 'exchange_rates_sort',
-            description:
-                'Switch between ascending and descending date/rate order',
+            description: context.l10n.exchSortOrderDescription,
             child: RotatedBox(
               quarterTurns: state.sort == Sort.ascending ? 2 : 0,
               child: IconButton(
@@ -814,9 +826,9 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
           const SizedBox(width: 8),
         ],
         MultiLevelTooltip(
-          message: 'Next Period',
+          message: context.l10n.nextPeriodTooltip,
           actionId: 'next_period',
-          description: 'Go to the next day, month, or year',
+          description: context.l10n.exchNextPeriodDescription,
           child: IconButton(
             icon: Icon(Icons.chevron_right, color: onSurface),
             onPressed: () => _navigateInAppBar(context, bloc, 1),
@@ -827,7 +839,7 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
 
     return GenericFilterAppBar(
       centerWidget: centerWidget,
-      totalCountText: 'Total: ${state.totalCount}',
+      totalCountText: context.l10n.totalCountLabel(state.totalCount),
     );
   }
 
@@ -894,7 +906,7 @@ class _ExchangeRatesFilterDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Filter Exchange Rates'),
+      title: Text(context.l10n.exchFilterExchangeRates),
       content: _isLoading
           ? const SizedBox(
               height: 100,
@@ -905,7 +917,7 @@ class _ExchangeRatesFilterDialogState
               children: [
                 _buildCurrencySelector(
                   context,
-                  'From Currency',
+                  context.l10n.exchFromCurrency,
                   _fromCurrency,
                   widget.state.currencies,
                   (val) => setState(() => _fromCurrency = val),
@@ -913,18 +925,18 @@ class _ExchangeRatesFilterDialogState
                 const SizedBox(height: 16),
                 _buildCurrencySelector(
                   context,
-                  'To Currency',
+                  context.l10n.exchToCurrency,
                   _toCurrency,
                   widget.state.currencies,
                   (val) => setState(() => _toCurrency = val),
                 ),
                 const SizedBox(height: 16),
                 ListTile(
-                  title: const Text('Presets'),
+                  title: Text(context.l10n.presetsLabel),
                   subtitle: Text(
                     _selectedPresets.isEmpty
-                        ? 'All'
-                        : '${_selectedPresets.length} selected',
+                        ? context.l10n.allLabel
+                        : context.l10n.selectedCountLabel(_selectedPresets.length),
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () async {
@@ -954,7 +966,7 @@ class _ExchangeRatesFilterDialogState
               _selectedPresets = [];
             });
           },
-          child: const Text('Clear'),
+          child: Text(context.l10n.clearButton),
         ),
         FilledButton(
           onPressed: () {
@@ -967,7 +979,7 @@ class _ExchangeRatesFilterDialogState
             );
             Navigator.pop(context);
           },
-          child: const Text('Apply'),
+          child: Text(context.l10n.applyButton),
         ),
       ],
     );
@@ -986,7 +998,7 @@ class _ExchangeRatesFilterDialogState
 
     final displayText = selectedCurrency != null
         ? '${selectedCurrency.name} (${selectedCurrency.code})'
-        : 'All';
+        : context.l10n.allLabel;
 
     return ListTile(
       title: Text(label),
@@ -1035,22 +1047,24 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     return AppBar(
       leading: MultiLevelTooltip(
-        message: 'Close Selection',
+        message: context.l10n.closeSelectionTooltip,
         actionId: 'exchange_rates_selection_close',
-        description: 'Exit exchange rate selection mode',
+        description: context.l10n.exchExitSelectionDescription,
         child: IconButton(
           icon: const Icon(Icons.close),
           onPressed: onClearSelection,
         ),
       ),
-      title: Text('$selectionCount selected'),
+      title: Text(context.l10n.selectedCountLabel(selectionCount)),
       actions: [
         MultiLevelTooltip(
-          message: isAllSelected ? 'Deselect All' : 'Select All',
+          message: isAllSelected
+              ? context.l10n.deselectAllButton
+              : context.l10n.selectAllButton,
           actionId: 'exchange_rates_selection_all',
           description: isAllSelected
-              ? 'Unselect all rates'
-              : 'Select all listed exchange rates',
+              ? context.l10n.exchDeselectAllDescription
+              : context.l10n.exchSelectAllDescription,
           child: IconButton(
             icon: Icon(
               isAllSelected
@@ -1062,18 +1076,18 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
         if (selectionCount > 0) ...[
           MultiLevelTooltip(
-            message: 'Change Preset',
+            message: context.l10n.exchChangePreset,
             actionId: 'exchange_rates_selection_change_preset',
-            description: 'Update the preset ID for all selected exchange rates',
+            description: context.l10n.exchChangePresetDescription,
             child: IconButton(
               icon: const Icon(Icons.drive_file_rename_outline),
               onPressed: onChangePreset,
             ),
           ),
           MultiLevelTooltip(
-            message: 'Delete Selected',
+            message: context.l10n.deleteSelectedButton,
             actionId: 'exchange_rates_selection_delete',
-            description: 'Permanently delete all selected exchange rates',
+            description: context.l10n.exchDeleteSelectedDescription,
             child: IconButton(
               icon: const Icon(Icons.delete),
               onPressed: onDelete,
@@ -1096,19 +1110,19 @@ void _showDeleteConfirmation(
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Delete Exchange Rates'),
-      content: Text('Are you sure you want to delete $count exchange rates?'),
+      title: Text(context.l10n.exchDeleteExchangeRatesTitle),
+      content: Text(context.l10n.exchDeleteConfirmMessage(count)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancelButton),
         ),
         FilledButton(
           onPressed: () {
             bloc.add(const DeleteSelectedExchangeRates());
             Navigator.pop(context);
           },
-          child: const Text('Delete'),
+          child: Text(context.l10n.deleteButton),
         ),
       ],
     ),
@@ -1120,17 +1134,17 @@ void _showBulkPresetUpdate(BuildContext context, ExchangeRatesBloc bloc) {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Update Preset'),
+      title: Text(context.l10n.exchUpdatePresetTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Enter the new preset ID for the selected items:'),
+          Text(context.l10n.exchUpdatePresetMessage),
           const SizedBox(height: 16),
           TextField(
             controller: presetController,
-            decoration: const InputDecoration(
-              labelText: 'Preset ID',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: context.l10n.exchPresetIdLabel,
+              border: const OutlineInputBorder(),
             ),
             keyboardType: TextInputType.number,
             autofocus: true,
@@ -1140,7 +1154,7 @@ void _showBulkPresetUpdate(BuildContext context, ExchangeRatesBloc bloc) {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancelButton),
         ),
         FilledButton(
           onPressed: () {
@@ -1150,7 +1164,7 @@ void _showBulkPresetUpdate(BuildContext context, ExchangeRatesBloc bloc) {
               Navigator.pop(context);
             }
           },
-          child: const Text('Update'),
+          child: Text(context.l10n.updateButton),
         ),
       ],
     ),

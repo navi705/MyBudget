@@ -1,5 +1,6 @@
 import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/presentation/widgets/navigation/navigation_tab_bar.dart';
 import 'package:my_budget_client/presentation/screens/exchange_rates_screen.dart';
 import 'package:my_budget_client/presentation/widgets/asset_tab.dart';
@@ -65,13 +66,19 @@ class _DataScreenState extends State<DataScreen> {
       animation: tabController,
       builder: (context, _) {
         return NavigationTabBar(
-          items: const [
+          items: [
             NavigationTabBarItem(
               icon: Icons.currency_exchange,
-              label: 'Exchange Rates',
+              label: context.l10n.hkActionDataTab1,
             ),
-            NavigationTabBarItem(icon: Icons.trending_up, label: 'Inflation'),
-            NavigationTabBarItem(icon: Icons.inventory_2, label: 'Assets'),
+            NavigationTabBarItem(
+              icon: Icons.trending_up,
+              label: context.l10n.hkActionDataTab2,
+            ),
+            NavigationTabBarItem(
+              icon: Icons.inventory_2,
+              label: context.l10n.hkActionDataTab3,
+            ),
           ],
           selectedIndex: tabController.index,
           onTap: (index) => tabController.index = index,

@@ -647,11 +647,11 @@ class _SaveButton extends StatelessWidget {
     return FilledButton.tonal(
       onPressed: () {
         final isValid = formKey.currentState?.validate() ?? false;
-        debugPrint('DEBUG SAVE BUTTON: Form valid = $isValid');
-
-        context.read<AddEditTransactionBloc>().add(
-          const AddEditTransactionSubmitted(),
-        );
+        if (isValid) {
+          context.read<AddEditTransactionBloc>().add(
+            const AddEditTransactionSubmitted(),
+          );
+        }
       },
       style: FilledButton.styleFrom(
         minimumSize: const Size(double.infinity, 50),

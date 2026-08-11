@@ -1757,4 +1757,289 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get hkActionDataSelectionChangePreset => 'Données: Changer de Préréglage';
+
+  @override
+  String get styNotFound => 'Style not found.';
+
+  @override
+  String get stySaveChanges => 'Save Changes';
+
+  @override
+  String get styAddIcon => 'Add Icon';
+
+  @override
+  String get smsOnlyAndroid => 'SMS import is only available on Android';
+
+  @override
+  String get smsImportSms => 'Import SMS';
+
+  @override
+  String get smsPermissionRequired => 'SMS Permission Required';
+
+  @override
+  String get smsPermissionRationale => 'To import transactions from SMS, we need permission to read your messages.';
+
+  @override
+  String get smsGrantPermission => 'Grant Permission';
+
+  @override
+  String get smsNoPresets => 'No presets configured. Tap + to add one.';
+
+  @override
+  String get smsImportDescription => 'Import transactions from SMS messages. Choose a time range:';
+
+  @override
+  String get smsLast7Days => 'Last 7 Days';
+
+  @override
+  String get smsAllTime => 'All Time';
+
+  @override
+  String smsFilterLabel(Object filter) {
+    return 'Filter: $filter';
+  }
+
+  @override
+  String get smsEditPreset => 'Edit Preset';
+
+  @override
+  String get smsNewPreset => 'New Preset';
+
+  @override
+  String get smsPresetNameHint => 'e.g., My Bank';
+
+  @override
+  String get smsSenderFilter => 'Sender Filter';
+
+  @override
+  String get smsSenderFilterHint => 'e.g., ALTA or +381...';
+
+  @override
+  String get smsSenderFilterHelper => 'Filter SMS by sender name or phone number';
+
+  @override
+  String get smsDefaults => 'Defaults';
+
+  @override
+  String get smsDefaultAccount => 'Default Account';
+
+  @override
+  String get smsDefaultCategory => 'Default Category';
+
+  @override
+  String get smsImportMessages => 'Import Messages';
+
+  @override
+  String get smsSelectDefaultsFirst => 'Select defaults first';
+
+  @override
+  String get smsCustomRange => 'Custom Range';
+
+  @override
+  String smsImportSuccessCount(Object count) {
+    return 'Success: $count transactions imported';
+  }
+
+  @override
+  String get smsParsingRules => 'Parsing Rules';
+
+  @override
+  String get smsNoRules => 'No rules defined. Tap + to add one.';
+
+  @override
+  String smsMatchLabel(Object pattern) {
+    return 'Match: $pattern';
+  }
+
+  @override
+  String get smsNameSenderRequired => 'Name and sender filter are required';
+
+  @override
+  String get smsCategoryKeywords => 'Category Keywords';
+
+  @override
+  String get smsCategoryKeywordsSubtitle => 'Map keywords in SMS body to categories';
+
+  @override
+  String get smsNoKeywordRules => 'No keyword rules. Tap + to add one.';
+
+  @override
+  String get smsAddKeywordRule => 'Add Keyword Rule';
+
+  @override
+  String get smsKeyword => 'Keyword';
+
+  @override
+  String get smsKeywordHint => 'e.g., Grocery, Netflix';
+
+  @override
+  String get smsKeywordHelper => 'Case-insensitive substring to match in SMS body';
+
+  @override
+  String get smsSelectCategoryHint => 'Select category';
+
+  @override
+  String get dshSelectDateDescription => 'Open calendar to pick a specific date or range';
+
+  @override
+  String get dshCurrencyDescription => 'Select the primary currency for display';
+
+  @override
+  String get dshChangeViewTooltip => 'Change View';
+
+  @override
+  String get dshChangeViewDescription => 'Switch between Monthly and Yearly views';
+
+  @override
+  String get dshMonthlyAbbreviation => 'M';
+
+  @override
+  String get dshYearlyAbbreviation => 'Y';
+
+  @override
+  String dshBalancesOnDate(Object date) {
+    return 'Balances on $date';
+  }
+
+  @override
+  String get dshSearchCurrency => 'Search Currency';
+
+  @override
+  String get dshUnknownCategory => 'Unknown';
+
+  @override
+  String get pckSelectItem => 'Select Item';
+
+  @override
+  String get pckSelectItems => 'Select Items';
+
+  @override
+  String get pckClearAll => 'Clear All';
+
+  @override
+  String get pckSelectIcon => 'Select Icon';
+
+  @override
+  String get pckMaterialIcons => 'Material Icons';
+
+  @override
+  String get pckCustomIcons => 'Custom Icons';
+
+  @override
+  String get fltAmountFrom => 'Amount From';
+
+  @override
+  String get fltAmountTo => 'Amount To';
+
+  @override
+  String get fltSelectRange => 'Select Range';
+
+  @override
+  String get fltAdvancedFilterTooltip => 'Advanced Filter';
+
+  @override
+  String get fltAdvancedFilterDescription => 'Filter transactions by account, category, or amount';
+
+  @override
+  String get fltSortOrderDescription => 'Toggle between ascending and descending order';
+
+  @override
+  String get fltAccountFiltersTitle => 'Account Filters';
+
+  @override
+  String get fltNameLabel => 'Name';
+
+  @override
+  String get fltAccountTypesLabel => 'Account Types';
+
+  @override
+  String get fltFilterCurrenciesLabel => 'Filter Currencies';
+
+  @override
+  String get fltSelectCurrenciesLabel => 'Select Currencies';
+
+  @override
+  String get fltFilterCategoriesTitle => 'Filter Categories';
+
+  @override
+  String get exchAddExchangeRate => 'Add Exchange Rate';
+
+  @override
+  String get exchEditExchangeRate => 'Edit Exchange Rate';
+
+  @override
+  String get exchAddRateDescription => 'Manually enter a conversion rate between two currencies';
+
+  @override
+  String get exchNoRatesFound => 'No exchange rates found.';
+
+  @override
+  String get exchChangePreset => 'Change Preset';
+
+  @override
+  String get exchFromCurrency => 'From Currency';
+
+  @override
+  String get exchToCurrency => 'To Currency';
+
+  @override
+  String get exchRate => 'Rate';
+
+  @override
+  String get exchPresetIdLabel => 'Preset ID';
+
+  @override
+  String exchPresetValue(Object preset) {
+    return 'Preset: $preset';
+  }
+
+  @override
+  String get exchSelectRange => 'Select Range';
+
+  @override
+  String get exchPreviousPeriodDescription => 'Go to the previous day, month, or year';
+
+  @override
+  String get exchNextPeriodDescription => 'Go to the next day, month, or year';
+
+  @override
+  String get exchFilterDescription => 'Filter rates by from/to currency and preset ID';
+
+  @override
+  String get exchSelectDateDescription => 'Choose a specific date or range to view historical rates';
+
+  @override
+  String get exchSortOrderDescription => 'Switch between ascending and descending date/rate order';
+
+  @override
+  String get exchFilterExchangeRates => 'Filter Exchange Rates';
+
+  @override
+  String get exchExitSelectionDescription => 'Exit exchange rate selection mode';
+
+  @override
+  String get exchSelectAllDescription => 'Select all listed exchange rates';
+
+  @override
+  String get exchDeselectAllDescription => 'Unselect all rates';
+
+  @override
+  String get exchChangePresetDescription => 'Update the preset ID for all selected exchange rates';
+
+  @override
+  String get exchDeleteSelectedDescription => 'Permanently delete all selected exchange rates';
+
+  @override
+  String get exchDeleteExchangeRatesTitle => 'Delete Exchange Rates';
+
+  @override
+  String exchDeleteConfirmMessage(Object count) {
+    return 'Are you sure you want to delete $count exchange rates?';
+  }
+
+  @override
+  String get exchUpdatePresetTitle => 'Update Preset';
+
+  @override
+  String get exchUpdatePresetMessage => 'Enter the new preset ID for the selected items:';
 }

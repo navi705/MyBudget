@@ -4,6 +4,7 @@ import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 void showCategoryFilterDialog(
   BuildContext context,
@@ -71,35 +72,35 @@ class _CategoryFilterDialogState extends State<CategoryFilterDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Filter Categories'),
+      title: Text(context.l10n.fltFilterCategoriesTitle),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                hintText: 'Enter category name',
+              decoration: InputDecoration(
+                labelText: context.l10n.fltNameLabel,
+                hintText: context.l10n.enterCategoryNameHint,
               ),
             ),
             TextFormField(
               controller: _amountFromController,
-              decoration: const InputDecoration(labelText: 'Amount From'),
+              decoration: InputDecoration(labelText: context.l10n.fltAmountFrom),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
             ),
             TextFormField(
               controller: _amountToController,
-              decoration: const InputDecoration(labelText: 'Amount To'),
+              decoration: InputDecoration(labelText: context.l10n.fltAmountTo),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
             ),
             DropdownButtonFormField<CategoryType>(
               initialValue: _selectedType,
-              hint: const Text('Select Type'),
+              hint: Text(context.l10n.selectTypeHint),
               items: [
                 DropdownMenuItem<CategoryType>(
                   value: null,
@@ -107,7 +108,7 @@ class _CategoryFilterDialogState extends State<CategoryFilterDialog> {
                     children: [
                       Icon(_getIconForCategoryType(null)),
                       const SizedBox(width: 10),
-                      const Text('All'),
+                      Text(context.l10n.allLabel),
                     ],
                   ),
                 ),
@@ -135,7 +136,7 @@ class _CategoryFilterDialogState extends State<CategoryFilterDialog> {
       ),
       actions: <Widget>[
         TextButton(
-          child: const Text('Clear'),
+          child: Text(context.l10n.clearButton),
           onPressed: () {
             context.read<CategoriesBloc>().add(
               const FiltersChanged(CategoryFilters()),
@@ -144,13 +145,13 @@ class _CategoryFilterDialogState extends State<CategoryFilterDialog> {
           },
         ),
         TextButton(
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancelButton),
           onPressed: () {
             Navigator.of(context).pop();
           },
         ),
         FilledButton.tonal(
-          child: const Text('Apply'),
+          child: Text(context.l10n.applyButton),
           onPressed: () {
             final newFilters = widget.currentFilters.copyWith(
               name: _nameController.text.isNotEmpty

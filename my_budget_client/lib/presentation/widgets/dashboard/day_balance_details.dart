@@ -1,7 +1,9 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
+import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
@@ -44,7 +46,7 @@ class DayBalanceDetails extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Text(
-            'Balances on ${DateFormat.yMMMMd().format(date)}',
+            context.l10n.dshBalancesOnDate(DateFormat.yMMMMd().format(date)),
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
@@ -81,11 +83,8 @@ class DayBalanceDetails extends StatelessWidget {
         NumberFormat.simpleCurrency(name: account.currencyCode).currencySymbol;
 
     // Format number without symbol first, using account's currency for proper decimal places
-    final numberFormat = NumberFormat.currency(
-      name: account.currencyCode,
-      symbol: '',
-    );
-    final formattedBalance = '${numberFormat.format(balance).trim()} $symbol';
+    final formattedBalance =
+        '${MoneyFormatter.format(balance, account.currencyCode)} $symbol';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12), // Increased spacing

@@ -3314,6 +3314,552 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Data: Change Preset'**
   String get hkActionDataSelectionChangePreset;
+
+  /// No description provided for @styNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Style not found.'**
+  String get styNotFound;
+
+  /// No description provided for @stySaveChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Changes'**
+  String get stySaveChanges;
+
+  /// No description provided for @styAddIcon.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Icon'**
+  String get styAddIcon;
+
+  /// No description provided for @smsOnlyAndroid.
+  ///
+  /// In en, this message translates to:
+  /// **'SMS import is only available on Android'**
+  String get smsOnlyAndroid;
+
+  /// No description provided for @smsImportSms.
+  ///
+  /// In en, this message translates to:
+  /// **'Import SMS'**
+  String get smsImportSms;
+
+  /// No description provided for @smsPermissionRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'SMS Permission Required'**
+  String get smsPermissionRequired;
+
+  /// No description provided for @smsPermissionRationale.
+  ///
+  /// In en, this message translates to:
+  /// **'To import transactions from SMS, we need permission to read your messages.'**
+  String get smsPermissionRationale;
+
+  /// No description provided for @smsGrantPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant Permission'**
+  String get smsGrantPermission;
+
+  /// No description provided for @smsNoPresets.
+  ///
+  /// In en, this message translates to:
+  /// **'No presets configured. Tap + to add one.'**
+  String get smsNoPresets;
+
+  /// No description provided for @smsImportDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Import transactions from SMS messages. Choose a time range:'**
+  String get smsImportDescription;
+
+  /// No description provided for @smsLast7Days.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 7 Days'**
+  String get smsLast7Days;
+
+  /// No description provided for @smsAllTime.
+  ///
+  /// In en, this message translates to:
+  /// **'All Time'**
+  String get smsAllTime;
+
+  /// No description provided for @smsFilterLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter: {filter}'**
+  String smsFilterLabel(Object filter);
+
+  /// No description provided for @smsEditPreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Preset'**
+  String get smsEditPreset;
+
+  /// No description provided for @smsNewPreset.
+  ///
+  /// In en, this message translates to:
+  /// **'New Preset'**
+  String get smsNewPreset;
+
+  /// No description provided for @smsPresetNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., My Bank'**
+  String get smsPresetNameHint;
+
+  /// No description provided for @smsSenderFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'Sender Filter'**
+  String get smsSenderFilter;
+
+  /// No description provided for @smsSenderFilterHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., ALTA or +381...'**
+  String get smsSenderFilterHint;
+
+  /// No description provided for @smsSenderFilterHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter SMS by sender name or phone number'**
+  String get smsSenderFilterHelper;
+
+  /// No description provided for @smsDefaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Defaults'**
+  String get smsDefaults;
+
+  /// No description provided for @smsDefaultAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Default Account'**
+  String get smsDefaultAccount;
+
+  /// No description provided for @smsDefaultCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Default Category'**
+  String get smsDefaultCategory;
+
+  /// No description provided for @smsImportMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'Import Messages'**
+  String get smsImportMessages;
+
+  /// No description provided for @smsSelectDefaultsFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Select defaults first'**
+  String get smsSelectDefaultsFirst;
+
+  /// No description provided for @smsCustomRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Range'**
+  String get smsCustomRange;
+
+  /// No description provided for @smsImportSuccessCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Success: {count} transactions imported'**
+  String smsImportSuccessCount(Object count);
+
+  /// No description provided for @smsParsingRules.
+  ///
+  /// In en, this message translates to:
+  /// **'Parsing Rules'**
+  String get smsParsingRules;
+
+  /// No description provided for @smsNoRules.
+  ///
+  /// In en, this message translates to:
+  /// **'No rules defined. Tap + to add one.'**
+  String get smsNoRules;
+
+  /// No description provided for @smsMatchLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Match: {pattern}'**
+  String smsMatchLabel(Object pattern);
+
+  /// No description provided for @smsNameSenderRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Name and sender filter are required'**
+  String get smsNameSenderRequired;
+
+  /// No description provided for @smsCategoryKeywords.
+  ///
+  /// In en, this message translates to:
+  /// **'Category Keywords'**
+  String get smsCategoryKeywords;
+
+  /// No description provided for @smsCategoryKeywordsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Map keywords in SMS body to categories'**
+  String get smsCategoryKeywordsSubtitle;
+
+  /// No description provided for @smsNoKeywordRules.
+  ///
+  /// In en, this message translates to:
+  /// **'No keyword rules. Tap + to add one.'**
+  String get smsNoKeywordRules;
+
+  /// No description provided for @smsAddKeywordRule.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Keyword Rule'**
+  String get smsAddKeywordRule;
+
+  /// No description provided for @smsKeyword.
+  ///
+  /// In en, this message translates to:
+  /// **'Keyword'**
+  String get smsKeyword;
+
+  /// No description provided for @smsKeywordHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., Grocery, Netflix'**
+  String get smsKeywordHint;
+
+  /// No description provided for @smsKeywordHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Case-insensitive substring to match in SMS body'**
+  String get smsKeywordHelper;
+
+  /// No description provided for @smsSelectCategoryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select category'**
+  String get smsSelectCategoryHint;
+
+  /// No description provided for @dshSelectDateDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Open calendar to pick a specific date or range'**
+  String get dshSelectDateDescription;
+
+  /// No description provided for @dshCurrencyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Select the primary currency for display'**
+  String get dshCurrencyDescription;
+
+  /// No description provided for @dshChangeViewTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Change View'**
+  String get dshChangeViewTooltip;
+
+  /// No description provided for @dshChangeViewDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch between Monthly and Yearly views'**
+  String get dshChangeViewDescription;
+
+  /// No description provided for @dshMonthlyAbbreviation.
+  ///
+  /// In en, this message translates to:
+  /// **'M'**
+  String get dshMonthlyAbbreviation;
+
+  /// No description provided for @dshYearlyAbbreviation.
+  ///
+  /// In en, this message translates to:
+  /// **'Y'**
+  String get dshYearlyAbbreviation;
+
+  /// No description provided for @dshBalancesOnDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Balances on {date}'**
+  String dshBalancesOnDate(Object date);
+
+  /// No description provided for @dshSearchCurrency.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Currency'**
+  String get dshSearchCurrency;
+
+  /// No description provided for @dshUnknownCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get dshUnknownCategory;
+
+  /// No description provided for @pckSelectItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Item'**
+  String get pckSelectItem;
+
+  /// No description provided for @pckSelectItems.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Items'**
+  String get pckSelectItems;
+
+  /// No description provided for @pckClearAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear All'**
+  String get pckClearAll;
+
+  /// No description provided for @pckSelectIcon.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Icon'**
+  String get pckSelectIcon;
+
+  /// No description provided for @pckMaterialIcons.
+  ///
+  /// In en, this message translates to:
+  /// **'Material Icons'**
+  String get pckMaterialIcons;
+
+  /// No description provided for @pckCustomIcons.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Icons'**
+  String get pckCustomIcons;
+
+  /// No description provided for @fltAmountFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount From'**
+  String get fltAmountFrom;
+
+  /// No description provided for @fltAmountTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount To'**
+  String get fltAmountTo;
+
+  /// No description provided for @fltSelectRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Range'**
+  String get fltSelectRange;
+
+  /// No description provided for @fltAdvancedFilterTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced Filter'**
+  String get fltAdvancedFilterTooltip;
+
+  /// No description provided for @fltAdvancedFilterDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter transactions by account, category, or amount'**
+  String get fltAdvancedFilterDescription;
+
+  /// No description provided for @fltSortOrderDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Toggle between ascending and descending order'**
+  String get fltSortOrderDescription;
+
+  /// No description provided for @fltAccountFiltersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Account Filters'**
+  String get fltAccountFiltersTitle;
+
+  /// No description provided for @fltNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get fltNameLabel;
+
+  /// No description provided for @fltAccountTypesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Account Types'**
+  String get fltAccountTypesLabel;
+
+  /// No description provided for @fltFilterCurrenciesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter Currencies'**
+  String get fltFilterCurrenciesLabel;
+
+  /// No description provided for @fltSelectCurrenciesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Currencies'**
+  String get fltSelectCurrenciesLabel;
+
+  /// No description provided for @fltFilterCategoriesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter Categories'**
+  String get fltFilterCategoriesTitle;
+
+  /// No description provided for @exchAddExchangeRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Exchange Rate'**
+  String get exchAddExchangeRate;
+
+  /// No description provided for @exchEditExchangeRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Exchange Rate'**
+  String get exchEditExchangeRate;
+
+  /// No description provided for @exchAddRateDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Manually enter a conversion rate between two currencies'**
+  String get exchAddRateDescription;
+
+  /// No description provided for @exchNoRatesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No exchange rates found.'**
+  String get exchNoRatesFound;
+
+  /// No description provided for @exchChangePreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Preset'**
+  String get exchChangePreset;
+
+  /// No description provided for @exchFromCurrency.
+  ///
+  /// In en, this message translates to:
+  /// **'From Currency'**
+  String get exchFromCurrency;
+
+  /// No description provided for @exchToCurrency.
+  ///
+  /// In en, this message translates to:
+  /// **'To Currency'**
+  String get exchToCurrency;
+
+  /// No description provided for @exchRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate'**
+  String get exchRate;
+
+  /// No description provided for @exchPresetIdLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset ID'**
+  String get exchPresetIdLabel;
+
+  /// No description provided for @exchPresetValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset: {preset}'**
+  String exchPresetValue(Object preset);
+
+  /// No description provided for @exchSelectRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Range'**
+  String get exchSelectRange;
+
+  /// No description provided for @exchPreviousPeriodDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to the previous day, month, or year'**
+  String get exchPreviousPeriodDescription;
+
+  /// No description provided for @exchNextPeriodDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to the next day, month, or year'**
+  String get exchNextPeriodDescription;
+
+  /// No description provided for @exchFilterDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter rates by from/to currency and preset ID'**
+  String get exchFilterDescription;
+
+  /// No description provided for @exchSelectDateDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a specific date or range to view historical rates'**
+  String get exchSelectDateDescription;
+
+  /// No description provided for @exchSortOrderDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch between ascending and descending date/rate order'**
+  String get exchSortOrderDescription;
+
+  /// No description provided for @exchFilterExchangeRates.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter Exchange Rates'**
+  String get exchFilterExchangeRates;
+
+  /// No description provided for @exchExitSelectionDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit exchange rate selection mode'**
+  String get exchExitSelectionDescription;
+
+  /// No description provided for @exchSelectAllDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all listed exchange rates'**
+  String get exchSelectAllDescription;
+
+  /// No description provided for @exchDeselectAllDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Unselect all rates'**
+  String get exchDeselectAllDescription;
+
+  /// No description provided for @exchChangePresetDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Update the preset ID for all selected exchange rates'**
+  String get exchChangePresetDescription;
+
+  /// No description provided for @exchDeleteSelectedDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently delete all selected exchange rates'**
+  String get exchDeleteSelectedDescription;
+
+  /// No description provided for @exchDeleteExchangeRatesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Exchange Rates'**
+  String get exchDeleteExchangeRatesTitle;
+
+  /// No description provided for @exchDeleteConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete {count} exchange rates?'**
+  String exchDeleteConfirmMessage(Object count);
+
+  /// No description provided for @exchUpdatePresetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update Preset'**
+  String get exchUpdatePresetTitle;
+
+  /// No description provided for @exchUpdatePresetMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the new preset ID for the selected items:'**
+  String get exchUpdatePresetMessage;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

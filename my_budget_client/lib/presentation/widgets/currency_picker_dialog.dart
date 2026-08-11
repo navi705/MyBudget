@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 
 class CurrencyPickerDialog extends StatefulWidget {
@@ -48,7 +49,7 @@ class _CurrencyPickerDialogState extends State<CurrencyPickerDialog> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return AlertDialog(
-      title: const Text('Select Currency'),
+      title: Text(context.l10n.selectCurrencyTitle),
       content: SizedBox(
         width: double.maxFinite,
         height: screenHeight * 0.7,
@@ -57,9 +58,9 @@ class _CurrencyPickerDialogState extends State<CurrencyPickerDialog> {
           children: [
             TextField(
               controller: _searchController,
-              decoration: const InputDecoration(
-                labelText: 'Search',
-                prefixIcon: Icon(Icons.search),
+              decoration: InputDecoration(
+                labelText: context.l10n.searchHint,
+                prefixIcon: const Icon(Icons.search),
                 isDense: true,
                 contentPadding: EdgeInsets.symmetric(
                   vertical: 12.0,
@@ -95,7 +96,7 @@ class _CurrencyPickerDialogState extends State<CurrencyPickerDialog> {
       ),
       actions: [
         TextButton(
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancelButton),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ],
