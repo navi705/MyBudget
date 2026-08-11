@@ -312,6 +312,13 @@ class ServerSyncService {
         cancelOnError: true,
       );
 
+      // `WebSocketChannel.connect` returns a channel before the handshake has
+      // happened, so registering a listener proves nothing about the server
+      // being reachable. Awaiting `ready` is what makes the reset below mean
+      // "we are connected" — resetting on the attempt instead pinned the
+      // backoff at its first step, and an unreachable server was retried once a
+      // second forever.
+      await _channel!.ready;
       debugPrint('[WS_CLIENT] Stream listener registered, connection active');
       _reconnectAttempts = 0;
 

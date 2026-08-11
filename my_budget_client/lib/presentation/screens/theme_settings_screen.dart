@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:my_budget_client/core/utils/platform/icon_helper.dart';
+import 'package:my_budget_client/core/utils/window/window_effect_resolver.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flex_color_picker/flex_color_picker.dart';
@@ -22,56 +23,6 @@ import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.
 bool get _supportsWindowEffects =>
     !kIsWeb &&
     (AppPlatform.isWindows || AppPlatform.isMacOS || AppPlatform.isLinux);
-
-/// Whether [type] is worth offering to the user on the running platform.
-///
-/// The picker must never list an effect the backend would silently swap for
-/// something else, otherwise the selection reads as broken.
-bool _effectAvailableOnPlatform(WindowEffectType type) {
-  if (AppPlatform.isLinux) {
-    // The GTK backend implements only "off" and "see-through"; every other
-    // effect is rejected outright by the native plugin.
-    return type == WindowEffectType.none ||
-        type == WindowEffectType.transparent;
-  }
-  if (AppPlatform.isMacOS) return true;
-  return type != WindowEffectType.vibrancy && type != WindowEffectType.aero;
-}
-
-/// Maps a stored effect choice onto an effect the running platform's backend
-/// can actually render.
-///
-/// This clamping is not cosmetic: flutter_acrylic forwards the raw enum index
-/// to the native side without validating it, so an unsupported value is not a
-/// graceful no-op. The Windows plugin casts it straight to an ACCENT_STATE and
-/// the Linux plugin answers anything above index 2 with a NOT_SUPPORTED_ON_LINUX
-/// platform exception.
-WindowEffect _resolveWindowEffect(WindowEffectType type) {
-  if (AppPlatform.isLinux) {
-    return type == WindowEffectType.none
-        ? WindowEffect.disabled
-        : WindowEffect.transparent;
-  }
-
-  switch (type) {
-    case WindowEffectType.none:
-      return WindowEffect.disabled;
-    case WindowEffectType.acrylic:
-      return WindowEffect.acrylic;
-    case WindowEffectType.mica:
-      return WindowEffect.mica;
-    case WindowEffectType.aero:
-      return WindowEffect.aero;
-    case WindowEffectType.vibrancy:
-      // Vibrancy is the macOS blur, and `sidebar` is the WindowEffect that
-      // flutter_acrylic converts to NSVisualEffectViewMaterial.sidebar. It has
-      // no Windows counterpart - its index would land on an undefined
-      // ACCENT_STATE there - so Windows falls back to its closest blur.
-      return AppPlatform.isMacOS ? WindowEffect.sidebar : WindowEffect.acrylic;
-    case WindowEffectType.transparent:
-      return WindowEffect.transparent;
-  }
-}
 
 class ThemeSettingsScreen extends StatefulWidget {
   const ThemeSettingsScreen({super.key});
@@ -208,7 +159,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
   Widget _buildWindowEffectsSection(BuildContext context, CustomTheme theme) {
     // Hide the whole section where no native backend exists; the platforms that
     // do have one differ only in how many effects they can render, which
-    // _effectAvailableOnPlatform filters below.
+    // effectAvailableOnPlatform filters below.
     if (!_supportsWindowEffects) {
       return const SizedBox.shrink();
     }
@@ -227,7 +178,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
             DropdownButtonFormField<WindowEffectType>(
               initialValue:
                   WindowEffectType.values
-                      .where(_effectAvailableOnPlatform)
+                      .where(effectAvailableOnPlatform)
                       .contains(theme.windowEffectType)
                   ? theme.windowEffectType
                   : WindowEffectType.none,
@@ -236,7 +187,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                 border: const OutlineInputBorder(),
               ),
               items: WindowEffectType.values
-                  .where(_effectAvailableOnPlatform)
+                  .where(effectAvailableOnPlatform)
                   .map(
                     (e) =>
                         DropdownMenuItem(value: e, child: Text(e.displayName)),
@@ -603,7 +554,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
               ? Brightness.dark
               : Brightness.light);
 
-    final windowEffect = _resolveWindowEffect(theme.windowEffectType);
+    final windowEffect = resolveWindowEffect(theme.windowEffectType);
 
     final tintColor = theme.backgroundColor.a == 0
         ? theme.surfaceColor
@@ -677,7 +628,7 @@ class _PresetsSectionState extends State<_PresetsSection> {
               ? Brightness.dark
               : Brightness.light);
 
-    final windowEffect = _resolveWindowEffect(theme.windowEffectType);
+    final windowEffect = resolveWindowEffect(theme.windowEffectType);
 
     // If background color is transparent (e.g. "Remove background color" checked),
     // use surface color as the tint base to preserve some theme color/neutrality
