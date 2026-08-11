@@ -25,6 +25,42 @@ void main() {
       // Normal magnitude -> 2 places
       expect(MoneyFormatter.format(1.5, 'BTC'), '1.50');
     });
+
+    test('NaN renders as a dash, not the literal text "NaN"', () {
+      // double.nan means "this amount could not be priced in this currency".
+      expect(MoneyFormatter.format(double.nan, 'EUR'), '—');
+      expect(MoneyFormatter.format(double.nan, 'EUR'), isNot(contains('NaN')));
+    });
+
+    test('both infinities render as a dash', () {
+      expect(MoneyFormatter.format(double.infinity, 'USD'), '—');
+      expect(MoneyFormatter.format(double.negativeInfinity, 'USD'), '—');
+    });
+
+    test('the placeholder is not decorated with a sign', () {
+      expect(MoneyFormatter.format(double.nan, 'EUR', signed: true), '—');
+      expect(
+        MoneyFormatter.format(double.infinity, 'EUR', signed: true),
+        '—',
+      );
+    });
+
+    test('non-finite handling does not disturb finite values', () {
+      expect(MoneyFormatter.format(0, 'EUR'), '0.00');
+      expect(MoneyFormatter.format(-1234.5, 'EUR'), '-1 234.50');
+    });
+  });
+
+  group('MoneyFormatter.isUnknown', () {
+    test('true only for non-finite values', () {
+      expect(MoneyFormatter.isUnknown(double.nan), isTrue);
+      expect(MoneyFormatter.isUnknown(double.infinity), isTrue);
+      expect(MoneyFormatter.isUnknown(double.negativeInfinity), isTrue);
+
+      expect(MoneyFormatter.isUnknown(0), isFalse);
+      expect(MoneyFormatter.isUnknown(-5000), isFalse);
+      expect(MoneyFormatter.isUnknown(1e300), isFalse);
+    });
   });
 
   group('MoneyFormatter.decimalsFor', () {

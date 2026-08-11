@@ -58,6 +58,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   Set<DateTime> _cachedDates = {};
   List<Currency>? _cachedCurrencies;
   CurrencyConverter? _cachedConverter;
+  // The pivot the cached converter was built with. The converter's triangular
+  // fallback goes through it, so a converter built for one main currency is
+  // wrong for another — this is compared before reusing the cache.
+  String? _cachedConverterBaseCurrency;
 
   // OPTIMIZATION: Cache for settings and currency designations
   // These rarely change — fetched once per session, not on every stream update
@@ -119,6 +123,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     _cachedExchangeRates = null;
     _cachedCurrencies = null;
     _cachedConverter = null;
+    _cachedConverterBaseCurrency = null;
     _cachedDates = {};
     _lastComputeParams = null;
     _lastComputeResults = null;
@@ -317,10 +322,20 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
           PerformanceLogger().start('Dashboard: compute');
 
-          // OPTIMIZATION: Cache CurrencyConverter - only recreate when rates change
-          if (_cachedConverter == null || missingDates.isNotEmpty) {
-            _cachedConverter = CurrencyConverter(exchangeRates);
-          } else {}
+          // OPTIMIZATION: Cache CurrencyConverter — recreate when the rates
+          // change OR when the target currency changes. The converter pivots
+          // triangular conversions through its baseCurrency, so reusing one
+          // built for the previous currency would keep pivoting through it
+          // after the user switches.
+          if (_cachedConverter == null ||
+              missingDates.isNotEmpty ||
+              _cachedConverterBaseCurrency != targetCurrency) {
+            _cachedConverter = CurrencyConverter(
+              exchangeRates,
+              baseCurrency: targetCurrency,
+            );
+            _cachedConverterBaseCurrency = targetCurrency;
+          }
 
           // Build Category Type Map for filtering (Isolate safe: String -> Enum)
           final categoryTypeMap = {
@@ -344,15 +359,23 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
           // Converted balances are now computed in _calculateDashboardData to match historical state exactly
 
-          // Convert category totals
+          // Convert category totals. Anything that cannot be priced in
+          // targetCurrency is left out of the total and its currency code is
+          // reported, so the UI can say the figure is incomplete instead of
+          // quietly dropping the amount (or poisoning the sum with NaN).
           final categoryConvertedTotals = <String, double>{}; // Added
+          final unconvertibleCurrencies = <String>{};
           for (final total in categoryTotals) {
-            final convertedAmount = _cachedConverter!.convert(
+            final convertedAmount = _cachedConverter!.tryConvert(
               amount: total.total,
               from: total.currencyCode,
               to: targetCurrency,
               date: total.date,
             );
+            if (convertedAmount == null) {
+              unconvertibleCurrencies.add(total.currencyCode);
+              continue;
+            }
             categoryConvertedTotals.update(
               total.categoryId,
               (value) => value + convertedAmount,
@@ -403,6 +426,11 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
           await PerformanceLogger().stop('Dashboard Screen Load');
 
+          // The walk-back's misses come out of the (possibly memoized) compute
+          // results, so a cache hit still reports them; the category-total
+          // misses above are collected fresh on every pass.
+          unconvertibleCurrencies.addAll(computeResults.unconvertibleCurrencies);
+
           return DashboardLoadSuccess(
             accounts: accounts,
             transactions: transactions,
@@ -426,6 +454,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             accountBreakdown: computeResults.accountBreakdown, // Added
             availableCurrencies: availableCurrencies,
             currencyDesignations: currencyDesignations,
+            unconvertibleCurrencies: unconvertibleCurrencies,
           );
         });
 
@@ -632,6 +661,11 @@ class _DashboardComputeResults {
   final Map<String, double> accountBreakdown; // Added
   final List<GroupedTransactionTotal> categoryTotals;
 
+  /// Currency codes that could not be priced in the target currency during
+  /// this compute. Their amounts were skipped, so every total above is an
+  /// UNDERSTATEMENT while this is non-empty — the UI must say so.
+  final Set<String> unconvertibleCurrencies;
+
   _DashboardComputeResults({
     required this.dailyIncomes,
     required this.dailyExpenses,
@@ -641,6 +675,7 @@ class _DashboardComputeResults {
     required this.currencyBreakdown, // Added
     required this.accountBreakdown, // Added
     required this.categoryTotals,
+    required this.unconvertibleCurrencies,
   });
 }
 
@@ -664,6 +699,9 @@ _DashboardComputeResults _calculateDashboardData(
   Map<String, double> dayBalances = {};
   Map<String, double> currencyBreakdown = {}; // Added
   Map<String, double> accountBreakdown = {}; // Added
+  // Codes whose amounts had to be skipped because no rate path reached
+  // params.mainCurrencyCode. Reported to the UI rather than swallowed.
+  final unconvertibleCurrencies = <String>{};
 
   final currentBalances = <String, double>{};
   final accountCurrencyMap = <String, String>{};
@@ -713,12 +751,19 @@ _DashboardComputeResults _calculateDashboardData(
       continue;
     }
 
-    final convertedAmount = converter.convert(
+    final convertedAmount = converter.tryConvert(
       amount: transaction.amount,
       from: transactionCurrency,
       to: params.mainCurrencyCode,
       date: date,
     );
+
+    // Unpriceable: skip it rather than fold NaN into dailyIncomes /
+    // dailyExpenses, which feed fl_chart — one NaN spoils the whole series.
+    if (convertedAmount == null) {
+      unconvertibleCurrencies.add(transactionCurrency);
+      continue;
+    }
 
     // Pre-calculate Daily Incomes/Expenses for the WHOLE period
     // (Independent of the net-worth walk-back which handles balances)
@@ -910,12 +955,20 @@ _DashboardComputeResults _calculateDashboardData(
     // Calculate total net worth with converted values
     for (final account in params.accounts) {
       final balance = balancesForDay[account.id!] ?? 0.0;
-      totalNetWorth += converter.convert(
+      final converted = converter.tryConvert(
         amount: balance,
         from: account.currencyCode,
         to: params.mainCurrencyCode,
         date: conversionDate,
       );
+      // dailyNetWorth feeds fl_chart — a single NaN would blank the entire
+      // series. Skip the account, remember its currency, and let the UI report
+      // that the net worth shown is missing something.
+      if (converted == null) {
+        unconvertibleCurrencies.add(account.currencyCode);
+        continue;
+      }
+      totalNetWorth += converted;
     }
 
     // OPTIMIZATION: For yearly view, only store monthly data points (last day of each month).
@@ -954,12 +1007,19 @@ _DashboardComputeResults _calculateDashboardData(
         final currency = account.currencyCode;
 
         if (nativeBalance > 0) {
-          final convertedValue = converter.convert(
+          final convertedValue = converter.tryConvert(
             amount: nativeBalance,
             from: currency,
             to: params.mainCurrencyCode,
             date: iterDate,
           );
+
+          // No path to the target currency: leave this slice out of the pie
+          // charts entirely instead of drawing a NaN-sized wedge.
+          if (convertedValue == null) {
+            unconvertibleCurrencies.add(currency);
+            continue;
+          }
 
           // Currency Breakdown
           currencyBreakdown.update(
@@ -1005,5 +1065,6 @@ _DashboardComputeResults _calculateDashboardData(
     currencyBreakdown: currencyBreakdown, // Added
     accountBreakdown: accountBreakdown, // Added
     categoryTotals: [],
+    unconvertibleCurrencies: unconvertibleCurrencies,
   );
 }

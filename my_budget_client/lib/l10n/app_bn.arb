@@ -628,5 +628,6 @@
     "exchDeleteExchangeRatesTitle": "বিনিময় হার মুছে ফেলুন",
     "exchDeleteConfirmMessage": "আপনি কি নিশ্চিত যে আপনি {count}টি বিনিময় হার মুছে ফেলতে চান?",
     "exchUpdatePresetTitle": "প্রিসেট আপডেট করুন",
-    "exchUpdatePresetMessage": "নির্বাচিত আইটেমগুলোর জন্য নতুন প্রিসেট আইডি লিখুন:"
+    "exchUpdatePresetMessage": "নির্বাচিত আইটেমগুলোর জন্য নতুন প্রিসেট আইডি লিখুন:",
+    "dashboardUnconvertibleCurrencies": "{currencies} রূপান্তর করা যায়নি, তাই এই পরিমাণগুলো মোটের মধ্যে অন্তর্ভুক্ত নয়"
 }

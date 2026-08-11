@@ -2054,4 +2054,9 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get exchUpdatePresetMessage => 'चयनित आइटम के लिए नया प्रीसेट आईडी दर्ज करें:';
+
+  @override
+  String dashboardUnconvertibleCurrencies(String currencies) {
+    return '$currencies को परिवर्तित नहीं किया जा सका, इसलिए ये राशियाँ कुल में शामिल नहीं हैं';
+  }
 }

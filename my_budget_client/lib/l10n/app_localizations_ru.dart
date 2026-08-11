@@ -2056,4 +2056,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get exchUpdatePresetMessage => 'Введите новый ID пресета для выбранных элементов:';
+
+  @override
+  String dashboardUnconvertibleCurrencies(String currencies) {
+    return 'Не удалось конвертировать $currencies — эти суммы не включены в итог';
+  }
 }

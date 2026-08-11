@@ -66,6 +66,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         if (isWide) const SizedBox(height: 10),
                         if (!isWide) _buildTabBar(context, state),
+                        _buildUnconvertibleNotice(context, state),
                         Expanded(child: _buildBody(state, isWide: isWide)),
                         if (isWide) _buildTabBar(context, state),
                       ],
@@ -81,6 +82,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
           body: Center(child: Text(context.l10n.failedToLoadDashboard)),
         );
       },
+    );
+  }
+
+  /// Compact, non-blocking warning shown above the dashboard body when some
+  /// account/transaction currencies had no exchange-rate path to the selected
+  /// currency. Those amounts are omitted from every total on this screen —
+  /// which, unannounced, is how a whole account can vanish from net worth.
+  /// Renders nothing when everything converted.
+  Widget _buildUnconvertibleNotice(
+    BuildContext context,
+    DashboardLoadSuccess state,
+  ) {
+    if (state.unconvertibleCurrencies.isEmpty) return const SizedBox.shrink();
+
+    final codes = state.unconvertibleCurrencies.toList()..sort();
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.error;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 16, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              context.l10n.dashboardUnconvertibleCurrencies(codes.join(', ')),
+              style: theme.textTheme.bodySmall?.copyWith(color: color),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

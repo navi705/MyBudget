@@ -628,5 +628,15 @@
     "exchDeleteExchangeRatesTitle": "Delete Exchange Rates",
     "exchDeleteConfirmMessage": "Are you sure you want to delete {count} exchange rates?",
     "exchUpdatePresetTitle": "Update Preset",
-    "exchUpdatePresetMessage": "Enter the new preset ID for the selected items:"
+    "exchUpdatePresetMessage": "Enter the new preset ID for the selected items:",
+    "dashboardUnconvertibleCurrencies": "{currencies} could not be converted and are not included in the total",
+    "@dashboardUnconvertibleCurrencies": {
+        "description": "Warning shown beside dashboard totals when some currencies had no exchange rate path to the selected currency, so their amounts were left out",
+        "placeholders": {
+            "currencies": {
+                "type": "String",
+                "example": "JPY, BTC"
+            }
+        }
+    }
 }

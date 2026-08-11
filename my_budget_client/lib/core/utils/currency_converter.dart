@@ -1,12 +1,35 @@
-import 'package:collection/collection.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 
+/// A resolved rate together with the date of the row it came from. The date is
+/// what lets competing candidates (direct / inverse / triangular) be ranked
+/// against each other by freshness.
+typedef DatedRate = ({double rate, DateTime date});
+
+/// Synchronous, isolate-safe currency conversion over a pre-loaded list of
+/// exchange rates.
+///
+/// Mirrors the algorithm of `CurrencyConverterService` (async, DB-backed) and
+/// `FinanceCalculator._getExchangeRate` (sync, in-memory): for a pair and a
+/// date it gathers a direct rate, an inverse rate and a triangular rate pivoted
+/// through [baseCurrency], then keeps whichever candidate is dated closest to
+/// the requested date. Each leg is the *nearest* stored row on either side of
+/// the target date, not merely the newest row at or before it.
 class CurrencyConverter {
   final Map<String, Map<String, List<ExchangeRateDomain>>> _groupedRates = {};
   final List<ExchangeRateDomain> rates;
 
-  CurrencyConverter(this.rates) {
-    final sortedRates = rates.toList()..sort((a, b) => b.date.compareTo(a.date));
+  /// The pivot used for triangular conversion — the user's main currency.
+  ///
+  /// Deliberately has no default. This used to be a hardcoded `'EUR'`, which
+  /// silently produced wrong (or zero) totals for every user whose rate set is
+  /// anchored on something else. A required parameter makes the caller say
+  /// which currency the rate table is actually built around.
+  final String baseCurrency;
+
+  CurrencyConverter(this.rates, {required this.baseCurrency}) {
+    // Ascending by date: _findRate scans in this order, and scanning ascending
+    // is what makes a distance tie resolve to the EARLIER row (see below).
+    final sortedRates = rates.toList()..sort((a, b) => a.date.compareTo(b.date));
     for (final rate in sortedRates) {
       _groupedRates
           .putIfAbsent(rate.fromCurrencyCode, () => {})
@@ -15,32 +38,105 @@ class CurrencyConverter {
     }
   }
 
-  double? _findRate(String from, String to, DateTime date) {
-    if (from == to) return 1.0;
-  
-    // Direct rate A -> B
-    final ratesForFrom = _groupedRates[from];
-    if (ratesForFrom != null) {
-      final ratesForTo = ratesForFrom[to];
-      if (ratesForTo != null) {
-        final rate = ratesForTo.firstWhereOrNull((r) => !r.date.isAfter(date));
-        if (rate != null) return rate.rate;
+  /// The stored [from]->[to] row whose date is nearest [date], on **either**
+  /// side of it, or null when the pair is not stored at all.
+  ///
+  /// Looking only backwards (the previous behaviour) meant a transaction dated
+  /// before the earliest stored row for a pair found nothing at all, even with
+  /// a rate one day later sitting in the table. Ties go to the earlier row: a
+  /// rate already in effect on the target day is a better estimate than one
+  /// that only came into effect afterwards.
+  DatedRate? _findRate(String from, String to, DateTime date) {
+    final candidates = _groupedRates[from]?[to];
+    if (candidates == null || candidates.isEmpty) return null;
+
+    ExchangeRateDomain? best;
+    Duration? bestDist;
+    for (final r in candidates) {
+      final dist = r.date.difference(date).abs();
+      // Dates ascend, so distance falls until the list crosses [date] and then
+      // rises — the first increase is past the minimum. Strict `<` keeps the
+      // incumbent on a tie, and the incumbent is always the earlier row.
+      if (bestDist != null && dist > bestDist) break;
+      if (bestDist == null || dist < bestDist) {
+        best = r;
+        bestDist = dist;
       }
     }
 
-    // Reverse rate B -> A
-    final reverseRatesForFrom = _groupedRates[to];
-    if (reverseRatesForFrom != null) {
-      final reverseRatesForTo = reverseRatesForFrom[from];
-      if (reverseRatesForTo != null) {
-        final rate = reverseRatesForTo.firstWhereOrNull((r) => !r.date.isAfter(date));
-        if (rate != null && rate.rate != 0) return 1 / rate.rate;
-      }
-    }
-    return null;
+    if (best == null) return null;
+    return (rate: best.rate, date: best.date);
   }
 
-  double convert({
+  /// Resolves [from]->[to] at [date], or null when no path exists.
+  ///
+  /// 1. Direct rate (from -> to)
+  /// 2. Inverse rate (to -> from) => 1/rate
+  /// 3. Triangular through [baseCurrency] => Rate(base->to) / Rate(base->from)
+  ///
+  /// The winner is the candidate dated closest to [date], not the first one
+  /// found — a same-week direct rate should beat a triangular pairing built
+  /// from rows years away.
+  DatedRate? resolveRate(String from, String to, DateTime date) {
+    if (from == to) return (rate: 1.0, date: date);
+
+    double? bestRate;
+    DateTime? bestDate;
+
+    void offer(double rate, DateTime rateDate) {
+      if (bestDate == null) {
+        bestRate = rate;
+        bestDate = rateDate;
+        return;
+      }
+      final distCurrent = bestDate!.difference(date).abs();
+      final distNew = rateDate.difference(date).abs();
+      if (distNew < distCurrent) {
+        bestRate = rate;
+        bestDate = rateDate;
+      }
+    }
+
+    final direct = _findRate(from, to, date);
+    if (direct != null) offer(direct.rate, direct.date);
+
+    // Stored as "1 [to] = X [from]", so the [from]->[to] rate is 1/X. The
+    // `!= 0` guard keeps a placeholder zero row from yielding an infinity.
+    final inverse = _findRate(to, from, date);
+    if (inverse != null && inverse.rate != 0) {
+      offer(1.0 / inverse.rate, inverse.date);
+    }
+
+    // Skipped when either side already IS the pivot — that pairing degenerates
+    // into the direct/inverse lookups already tried above.
+    if (from != baseCurrency && to != baseCurrency) {
+      final baseToFrom = _findRate(baseCurrency, from, date);
+      final baseToTo = _findRate(baseCurrency, to, date);
+      if (baseToFrom != null && baseToTo != null && baseToFrom.rate != 0) {
+        // A triangular rate is only as fresh as its STALEST leg — ranking it
+        // by the closer leg would let a pairing of (today, three years ago)
+        // beat an honest same-week direct rate.
+        final distFrom = baseToFrom.date.difference(date).abs();
+        final distTo = baseToTo.date.difference(date).abs();
+        final effectiveDate = distFrom >= distTo
+            ? baseToFrom.date
+            : baseToTo.date;
+        offer(baseToTo.rate / baseToFrom.rate, effectiveDate);
+      }
+    }
+
+    final rate = bestRate;
+    if (rate == null) return null;
+    return (rate: rate, date: bestDate!);
+  }
+
+  /// Converts [amount] from [from] to [to] as of [date], or **null** when the
+  /// pair cannot be priced at all.
+  ///
+  /// Prefer this over [convert] wherever the result is summed: null is the
+  /// caller's cue to leave the amount out of the total *and say so*, rather
+  /// than let it vanish silently.
+  double? tryConvert({
     required double amount,
     required String from,
     required String to,
@@ -48,23 +144,29 @@ class CurrencyConverter {
   }) {
     if (from == to) return amount;
 
-    // Try direct conversion: FROM -> TO
-    final directRate = _findRate(from, to, date);
-    if (directRate != null) {
-      return amount * directRate;
-    }
+    final resolved = resolveRate(from, to, date);
+    if (resolved == null) return null;
+    return amount * resolved.rate;
+  }
 
-    // Try pivot conversion: FROM -> EUR -> TO
-    const baseCurrency = 'EUR';
-    final rateFromToEur = _findRate(from, baseCurrency, date);
-    final rateEurToTo = _findRate(baseCurrency, to, date);
-
-    if (rateFromToEur != null && rateEurToTo != null) {
-      return amount * rateFromToEur * rateEurToTo;
-    }
-    
-    // If no conversion path is found, return 0. This prevents corrupting
-    // a total with un-converted amounts from different currencies.
-    return 0.0;
+  /// Converts [amount] from [from] to [to] as of [date], returning
+  /// `double.nan` when no conversion path exists.
+  ///
+  /// NaN, not 0.0. Returning zero used to be justified as "prevents corrupting
+  /// a total" — it did the opposite: a 5 000 USD account with no path to the
+  /// target currency was counted as zero and simply disappeared from net
+  /// worth, with nothing on screen to say so. NaN at least propagates, so a
+  /// wrong total is visibly wrong instead of quietly wrong.
+  ///
+  /// Callers that must not poison a sum (charts, running totals) should use
+  /// [tryConvert] and account for the miss explicitly.
+  double convert({
+    required double amount,
+    required String from,
+    required String to,
+    required DateTime date,
+  }) {
+    return tryConvert(amount: amount, from: from, to: to, date: date) ??
+        double.nan;
   }
 }

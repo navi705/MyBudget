@@ -8,14 +8,33 @@ import 'package:my_budget_client/domain/value_objects/currency_precision.dart';
 class MoneyFormatter {
   const MoneyFormatter._();
 
+  /// Rendered in place of a number whenever the amount is not a real figure.
+  static const String unknownPlaceholder = '—';
+
+  /// True when [value] is not a real amount — NaN or either infinity.
+  ///
+  /// The conversion engines (`FinanceCalculator`, `CurrencyConverter`) return
+  /// `double.nan` for a figure that genuinely could not be priced in the
+  /// target currency. Callers that want to style or omit such a figure rather
+  /// than print the placeholder can branch on this.
+  static bool isUnknown(double value) => !value.isFinite;
+
   /// Format [value] (already in [currencyCode]'s units) as a grouped number
   /// string, without the currency symbol. Set [signed] to prefix a '+' for
   /// positive values.
+  ///
+  /// Non-finite values render as [unknownPlaceholder] ('—'). A NaN reaching
+  /// here is not a crash — it is an amount that could not be converted to the
+  /// requested currency. `NumberFormat` would print the literal text `NaN` in
+  /// the middle of a money column, which reads as a broken app; a dash reads
+  /// as "unknown", which is exactly what it is.
   static String format(
     double value,
     String currencyCode, {
     bool signed = false,
   }) {
+    if (!value.isFinite) return unknownPlaceholder;
+
     final pattern = _patternFor(currencyCode, value);
     final text = NumberFormat(pattern, 'en_US').format(value).replaceAll(
           ',',

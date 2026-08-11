@@ -628,5 +628,6 @@
     "exchDeleteExchangeRatesTitle": "删除汇率",
     "exchDeleteConfirmMessage": "您确定要删除这 {count} 个汇率吗？",
     "exchUpdatePresetTitle": "更新预设",
-    "exchUpdatePresetMessage": "为选中的项目输入新的预设 ID:"
+    "exchUpdatePresetMessage": "为选中的项目输入新的预设 ID:",
+    "dashboardUnconvertibleCurrencies": "无法换算 {currencies}，这些金额未计入总额"
 }

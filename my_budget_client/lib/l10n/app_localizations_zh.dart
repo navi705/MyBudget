@@ -2054,4 +2054,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get exchUpdatePresetMessage => '为选中的项目输入新的预设 ID:';
+
+  @override
+  String dashboardUnconvertibleCurrencies(String currencies) {
+    return '无法换算 $currencies，这些金额未计入总额';
+  }
 }

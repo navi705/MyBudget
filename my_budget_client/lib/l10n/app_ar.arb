@@ -628,5 +628,6 @@
     "exchDeleteExchangeRatesTitle": "حذف أسعار الصرف",
     "exchDeleteConfirmMessage": "هل أنت متأكد من رغبتك في حذف {count} أسعار صرف؟",
     "exchUpdatePresetTitle": "تحديث النموذج",
-    "exchUpdatePresetMessage": "أدخل معرّف النموذج الجديد للعناصر المحددة:"
+    "exchUpdatePresetMessage": "أدخل معرّف النموذج الجديد للعناصر المحددة:",
+    "dashboardUnconvertibleCurrencies": "تعذّر تحويل {currencies}، وهي غير مُدرجة في الإجمالي"
 }

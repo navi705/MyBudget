@@ -2054,4 +2054,9 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get exchUpdatePresetMessage => 'নির্বাচিত আইটেমগুলোর জন্য নতুন প্রিসেট আইডি লিখুন:';
+
+  @override
+  String dashboardUnconvertibleCurrencies(String currencies) {
+    return '$currencies রূপান্তর করা যায়নি, তাই এই পরিমাণগুলো মোটের মধ্যে অন্তর্ভুক্ত নয়';
+  }
 }

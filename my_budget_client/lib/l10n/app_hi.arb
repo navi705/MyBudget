@@ -628,5 +628,6 @@
     "exchDeleteExchangeRatesTitle": "विनिमय दरें हटाएं",
     "exchDeleteConfirmMessage": "क्या आप वाकई {count} विनिमय दरें हटाना चाहते हैं?",
     "exchUpdatePresetTitle": "प्रीसेट अपडेट करें",
-    "exchUpdatePresetMessage": "चयनित आइटम के लिए नया प्रीसेट आईडी दर्ज करें:"
+    "exchUpdatePresetMessage": "चयनित आइटम के लिए नया प्रीसेट आईडी दर्ज करें:",
+    "dashboardUnconvertibleCurrencies": "{currencies} को परिवर्तित नहीं किया जा सका, इसलिए ये राशियाँ कुल में शामिल नहीं हैं"
 }

@@ -628,5 +628,6 @@
     "exchDeleteExchangeRatesTitle": "شرح تبادلہ حذف کریں",
     "exchDeleteConfirmMessage": "کیا آپ واقعی {count} شرح تبادلہ حذف کرنا چاہتے ہیں؟",
     "exchUpdatePresetTitle": "پیش سیٹ اپ ڈیٹ کریں",
-    "exchUpdatePresetMessage": "منتخب آئٹمز کے لیے نئی پیش سیٹ آئی ڈی درج کریں:"
+    "exchUpdatePresetMessage": "منتخب آئٹمز کے لیے نئی پیش سیٹ آئی ڈی درج کریں:",
+    "dashboardUnconvertibleCurrencies": "{currencies} کو تبدیل نہیں کیا جا سکا، اس لیے یہ رقوم کل میں شامل نہیں ہیں"
 }

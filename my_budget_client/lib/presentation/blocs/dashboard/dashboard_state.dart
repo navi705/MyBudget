@@ -43,6 +43,12 @@ class DashboardLoadSuccess extends DashboardState {
 
   final Map<String, CurrencyDesignation> currencyDesignations; // Added
 
+  /// Currency codes that could not be converted to [selectedCurrency] with the
+  /// exchange rates on hand. Their amounts are EXCLUDED from every aggregate
+  /// above — net worth, breakdowns, income/expense — so while this is
+  /// non-empty the figures shown are understated and the UI must say so.
+  final Set<String> unconvertibleCurrencies;
+
   DashboardLoadSuccess({
     this.accounts = const [],
     this.transactions = const [],
@@ -66,6 +72,7 @@ class DashboardLoadSuccess extends DashboardState {
     this.dailyAccountBalances = const {}, // Added
     this.availableCurrencies = const [],
     this.currencyDesignations = const {}, // Added
+    this.unconvertibleCurrencies = const {},
   }) : selectedDay = selectedDay ?? DateTime.now(),
        dateRangeStart =
            dateRangeStart ?? DateTime.now().subtract(const Duration(days: 30)),
@@ -94,6 +101,7 @@ class DashboardLoadSuccess extends DashboardState {
     Map<DateTime, Map<String, double>>? dailyAccountBalances, // Added
     List<Currency>? availableCurrencies,
     Map<String, CurrencyDesignation>? currencyDesignations, // Added
+    Set<String>? unconvertibleCurrencies,
   }) {
     return DashboardLoadSuccess(
       accounts: accounts ?? this.accounts,
@@ -121,6 +129,8 @@ class DashboardLoadSuccess extends DashboardState {
       availableCurrencies: availableCurrencies ?? this.availableCurrencies,
       currencyDesignations:
           currencyDesignations ?? this.currencyDesignations, // Added
+      unconvertibleCurrencies:
+          unconvertibleCurrencies ?? this.unconvertibleCurrencies,
     );
   }
 
@@ -148,6 +158,7 @@ class DashboardLoadSuccess extends DashboardState {
     dailyAccountBalances, // Added
     availableCurrencies,
     currencyDesignations, // Added
+    unconvertibleCurrencies,
   ];
 }
 

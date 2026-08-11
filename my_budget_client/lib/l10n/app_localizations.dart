@@ -3884,6 +3884,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter the new preset ID for the selected items:'**
   String get exchUpdatePresetMessage;
+
+  /// Warning shown beside dashboard totals when some currencies had no exchange rate path to the selected currency, so their amounts were left out
+  ///
+  /// In en, this message translates to:
+  /// **'{currencies} could not be converted and are not included in the total'**
+  String dashboardUnconvertibleCurrencies(String currencies);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -628,5 +628,6 @@
     "exchDeleteExchangeRatesTitle": "Удалить курсы валют",
     "exchDeleteConfirmMessage": "Вы уверены, что хотите удалить {count} курсов валют?",
     "exchUpdatePresetTitle": "Обновить пресет",
-    "exchUpdatePresetMessage": "Введите новый ID пресета для выбранных элементов:"
+    "exchUpdatePresetMessage": "Введите новый ID пресета для выбранных элементов:",
+    "dashboardUnconvertibleCurrencies": "Не удалось конвертировать {currencies} — эти суммы не включены в итог"
 }

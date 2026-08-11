@@ -2054,4 +2054,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get exchUpdatePresetMessage => 'Introduzca el nuevo ID de preajuste para los elementos seleccionados:';
+
+  @override
+  String dashboardUnconvertibleCurrencies(String currencies) {
+    return 'No se pudo convertir $currencies; esos importes no se incluyen en el total';
+  }
 }

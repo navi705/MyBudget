@@ -2054,4 +2054,9 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get exchUpdatePresetMessage => 'منتخب آئٹمز کے لیے نئی پیش سیٹ آئی ڈی درج کریں:';
+
+  @override
+  String dashboardUnconvertibleCurrencies(String currencies) {
+    return '$currencies کو تبدیل نہیں کیا جا سکا، اس لیے یہ رقوم کل میں شامل نہیں ہیں';
+  }
 }

@@ -628,5 +628,6 @@
     "exchDeleteExchangeRatesTitle": "Eliminar Tipos de Cambio",
     "exchDeleteConfirmMessage": "¿Está seguro de que desea eliminar {count} tipos de cambio?",
     "exchUpdatePresetTitle": "Actualizar Preajuste",
-    "exchUpdatePresetMessage": "Introduzca el nuevo ID de preajuste para los elementos seleccionados:"
+    "exchUpdatePresetMessage": "Introduzca el nuevo ID de preajuste para los elementos seleccionados:",
+    "dashboardUnconvertibleCurrencies": "No se pudo convertir {currencies}; esos importes no se incluyen en el total"
 }

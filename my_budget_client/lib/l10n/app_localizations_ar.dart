@@ -2054,4 +2054,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get exchUpdatePresetMessage => 'أدخل معرّف النموذج الجديد للعناصر المحددة:';
+
+  @override
+  String dashboardUnconvertibleCurrencies(String currencies) {
+    return 'تعذّر تحويل $currencies، وهي غير مُدرجة في الإجمالي';
+  }
 }

@@ -628,5 +628,6 @@
     "exchDeleteExchangeRatesTitle": "Supprimer les Taux de Change",
     "exchDeleteConfirmMessage": "Êtes-vous sûr de vouloir supprimer {count} taux de change ?",
     "exchUpdatePresetTitle": "Mettre à jour le Préréglage",
-    "exchUpdatePresetMessage": "Saisissez le nouvel ID de préréglage pour les éléments sélectionnés:"
+    "exchUpdatePresetMessage": "Saisissez le nouvel ID de préréglage pour les éléments sélectionnés:",
+    "dashboardUnconvertibleCurrencies": "Impossible de convertir {currencies} ; ces montants ne sont pas inclus dans le total"
 }
