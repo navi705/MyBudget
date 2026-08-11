@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/core/sync/sync_binary_format.dart';
+import 'package:my_budget_client/core/sync/sync_record_keys.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 // `show` because the entity library also declares a `Currency` class, which
 // would collide with the drift row class of the same name.
@@ -753,10 +754,222 @@ class SyncService {
           result[r.code] = _currencyToJson(r);
         }
         break;
+      case SyncTableId.exchangeRates:
+        result.addAll(await _bulkExchangeRateData(ids));
+        break;
+      case SyncTableId.inflationRates:
+        result.addAll(await _bulkInflationRateData(ids));
+        break;
+      case SyncTableId.customThemes:
+        // One query per id rather than a chunked `isIn`: custom themes are
+        // hand-made by the user, so a pending batch holds a handful of them at
+        // most, and the DAO getter already applies the `isDeleted = false`
+        // filter every other table's getById does.
+        for (final id in ids) {
+          final record = await _db.customThemesDao.getThemeById(id);
+          if (record != null) {
+            result[id] = _customThemeToJson(record);
+          }
+        }
+        break;
       default:
         break;
     }
     return result;
+  }
+
+  /// Keys per statement when fetching exchange rates by parsed record id.
+  ///
+  /// Each key contributes five bound variables (from, to, preset and the two
+  /// ends of the day range) to an OR-ed `WHERE`, and SQLite caps a statement at
+  /// 999 of them - the same limit that made [SyncLogDao.markExported] chunk its
+  /// writes. 150 keys is 750 variables, comfortably under it.
+  static const int _exchangeRateKeyChunkSize = 150;
+
+  /// Keys per statement when fetching inflation rates by parsed record id.
+  ///
+  /// Four bound variables each (country, preset and the two ends of the day
+  /// range); 200 keys is 800 variables. See [_exchangeRateKeyChunkSize].
+  static const int _inflationRateKeyChunkSize = 200;
+
+  /// Exchange rates for a batch of `sync_log` record ids, keyed by the id each
+  /// row was found for.
+  ///
+  /// The map has to be keyed by the exact string `sync_log` carries, because
+  /// that is what [_exportPendingChanges] looks the payload up by. The row
+  /// itself only yields the canonical spelling of its key, so the canonical
+  /// form is used to find the original id again - a record id written with,
+  /// say, a zero-padded preset still resolves to its row.
+  ///
+  /// A record id that does not parse is skipped rather than fetched: it cannot
+  /// name a row in this table, and letting it through would only turn into a
+  /// `null` payload downstream.
+  Future<Map<String, Map<String, dynamic>>> _bulkExchangeRateData(
+    List<String> ids,
+  ) async {
+    final result = <String, Map<String, dynamic>>{};
+    final idByCanonicalKey = <String, String>{};
+    final keys = <ExchangeRateKey>[];
+
+    for (final id in ids) {
+      final key = ExchangeRateKey.tryParse(id);
+      if (key == null) {
+        debugPrint('[SYNC_DEBUG] Unparsable exchange_rates record id: $id');
+        continue;
+      }
+      idByCanonicalKey[key.format()] = id;
+      keys.add(key);
+    }
+
+    for (var i = 0; i < keys.length; i += _exchangeRateKeyChunkSize) {
+      final end = (i + _exchangeRateKeyChunkSize < keys.length)
+          ? i + _exchangeRateKeyChunkSize
+          : keys.length;
+      final chunk = keys.sublist(i, end);
+
+      final rows =
+          await (_db.select(_db.exchangeRates)..where(
+                (t) => _anyOf([
+                  for (final key in chunk)
+                    t.fromCurrencyCode.equals(key.fromCurrencyCode) &
+                        t.toCurrencyCode.equals(key.toCurrencyCode) &
+                        t.preset.equals(key.preset) &
+                        t.date.isBiggerOrEqualValue(key.dayStart) &
+                        t.date.isSmallerThanValue(key.dayAfter),
+                ]),
+              ))
+              .get();
+
+      for (final row in rows) {
+        final id = idByCanonicalKey[_exchangeRateKeyOf(row).format()];
+        if (id != null) {
+          result[id] = _exchangeRateToJson(row);
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /// Inflation rates for a batch of `sync_log` record ids. See
+  /// [_bulkExchangeRateData] for how the result is keyed.
+  Future<Map<String, Map<String, dynamic>>> _bulkInflationRateData(
+    List<String> ids,
+  ) async {
+    final result = <String, Map<String, dynamic>>{};
+    final idByCanonicalKey = <String, String>{};
+    final keys = <InflationRateKey>[];
+
+    for (final id in ids) {
+      final key = InflationRateKey.tryParse(id);
+      if (key == null) {
+        debugPrint('[SYNC_DEBUG] Unparsable inflation_rates record id: $id');
+        continue;
+      }
+      idByCanonicalKey[key.format()] = id;
+      keys.add(key);
+    }
+
+    for (var i = 0; i < keys.length; i += _inflationRateKeyChunkSize) {
+      final end = (i + _inflationRateKeyChunkSize < keys.length)
+          ? i + _inflationRateKeyChunkSize
+          : keys.length;
+      final chunk = keys.sublist(i, end);
+
+      final rows =
+          await (_db.select(_db.inflationRates)..where(
+                (t) => _anyOf([
+                  for (final key in chunk)
+                    t.country.equals(key.country) &
+                        t.preset.equals(key.preset) &
+                        t.date.isBiggerOrEqualValue(key.dayStart) &
+                        t.date.isSmallerThanValue(key.dayAfter),
+                ]),
+              ))
+              .get();
+
+      for (final row in rows) {
+        final id = idByCanonicalKey[_inflationRateKeyOf(row).format()];
+        if (id != null) {
+          result[id] = _inflationRateToJson(row);
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /// OR of [terms], or a predicate matching nothing when [terms] is empty.
+  ///
+  /// An empty list must not degrade into "no WHERE clause at all", which would
+  /// select the entire table.
+  Expression<bool> _anyOf(List<Expression<bool>> terms) {
+    if (terms.isEmpty) return const Constant(false);
+    return terms.reduce((a, b) => a | b);
+  }
+
+  /// The record id key of a stored exchange rate row.
+  ///
+  /// Lives here rather than in `sync_record_keys.dart` so that file stays free
+  /// of any database import.
+  ExchangeRateKey _exchangeRateKeyOf(ExchangeRate r) => ExchangeRateKey(
+    fromCurrencyCode: r.fromCurrencyCode,
+    toCurrencyCode: r.toCurrencyCode,
+    date: r.date,
+    preset: r.preset,
+  );
+
+  /// The record id key of a stored inflation rate row. See
+  /// [_exchangeRateKeyOf].
+  InflationRateKey _inflationRateKeyOf(InflationRate r) =>
+      InflationRateKey(date: r.date, country: r.country, preset: r.preset);
+
+  /// The single exchange rate a record id names, or null.
+  ///
+  /// The id carries only the calendar day, while the column may hold a time of
+  /// day (not every caller normalises to midnight), so the day is matched as a
+  /// range. `getSingleOrNull` is deliberately not used: two rows on the same
+  /// day differing only in time of day are distinct rows sharing one record id,
+  /// and the newest is the one a peer should be told about.
+  Future<ExchangeRate?> _exchangeRateForId(String recordId) async {
+    final key = ExchangeRateKey.tryParse(recordId);
+    if (key == null) return null;
+
+    final rows =
+        await (_db.select(_db.exchangeRates)
+              ..where(
+                (t) =>
+                    t.fromCurrencyCode.equals(key.fromCurrencyCode) &
+                    t.toCurrencyCode.equals(key.toCurrencyCode) &
+                    t.preset.equals(key.preset) &
+                    t.date.isBiggerOrEqualValue(key.dayStart) &
+                    t.date.isSmallerThanValue(key.dayAfter),
+              )
+              ..orderBy([(t) => OrderingTerm.desc(t.modifiedAt)])
+              ..limit(1))
+            .get();
+    return rows.isEmpty ? null : rows.first;
+  }
+
+  /// The single inflation rate a record id names, or null. See
+  /// [_exchangeRateForId].
+  Future<InflationRate?> _inflationRateForId(String recordId) async {
+    final key = InflationRateKey.tryParse(recordId);
+    if (key == null) return null;
+
+    final rows =
+        await (_db.select(_db.inflationRates)
+              ..where(
+                (t) =>
+                    t.country.equals(key.country) &
+                    t.preset.equals(key.preset) &
+                    t.date.isBiggerOrEqualValue(key.dayStart) &
+                    t.date.isSmallerThanValue(key.dayAfter),
+              )
+              ..orderBy([(t) => OrderingTerm.desc(t.modifiedAt)])
+              ..limit(1))
+            .get();
+    return rows.isEmpty ? null : rows.first;
   }
 
   Future<Map<String, dynamic>?> _getRecordData(
@@ -798,6 +1011,15 @@ class SyncService {
       case SyncTableId.currencies:
         final record = await _db.currenciesDao.getCurrencyByCode(recordId);
         return record != null ? _currencyToJson(record) : null;
+      case SyncTableId.exchangeRates:
+        final record = await _exchangeRateForId(recordId);
+        return record != null ? _exchangeRateToJson(record) : null;
+      case SyncTableId.inflationRates:
+        final record = await _inflationRateForId(recordId);
+        return record != null ? _inflationRateToJson(record) : null;
+      case SyncTableId.customThemes:
+        final record = await _db.customThemesDao.getThemeById(recordId);
+        return record != null ? _customThemeToJson(record) : null;
       default:
         return null;
     }
@@ -849,6 +1071,19 @@ class SyncService {
         break;
       case SyncTableId.currencies:
         await _db.currenciesDao.insertSyncedCurrency(_currencyFromJson(data));
+        break;
+      case SyncTableId.exchangeRates:
+        await _db.exchangeRatesDao.insertSyncedExchangeRate(
+          _exchangeRateFromJson(data),
+        );
+        break;
+      case SyncTableId.inflationRates:
+        await _db.inflationRatesDao.insertSyncedInflationRate(
+          _inflationRateFromJson(data),
+        );
+        break;
+      case SyncTableId.customThemes:
+        await _db.customThemesDao.insertSyncedTheme(_customThemeFromJson(data));
         break;
       default:
         break;
@@ -902,6 +1137,19 @@ class SyncService {
       case SyncTableId.currencies:
         await _db.currenciesDao.insertSyncedCurrency(_currencyFromJson(data));
         break;
+      case SyncTableId.exchangeRates:
+        await _db.exchangeRatesDao.insertSyncedExchangeRate(
+          _exchangeRateFromJson(data),
+        );
+        break;
+      case SyncTableId.inflationRates:
+        await _db.inflationRatesDao.insertSyncedInflationRate(
+          _inflationRateFromJson(data),
+        );
+        break;
+      case SyncTableId.customThemes:
+        await _db.customThemesDao.insertSyncedTheme(_customThemeFromJson(data));
+        break;
       default:
         break;
     }
@@ -909,6 +1157,11 @@ class SyncService {
 
   /// Apply a peer's delete as a soft delete, stamped with the clock the delete
   /// arrived with.
+  ///
+  /// `exchange_rates` and `inflation_rates` are the exception: they have no
+  /// `isDeleted` column, so the delete is applied as a real DELETE and
+  /// [modifiedAt] has nowhere to be recorded. See the cases themselves for what
+  /// that costs.
   ///
   /// [modifiedAt] must come from the incoming change, never from
   /// `DateTime.now()`: re-stamping with the local clock made a stale delete look
@@ -1002,6 +1255,67 @@ class SyncService {
               ),
             );
         break;
+      case SyncTableId.customThemes:
+        await (_db.update(_db.customThemes)
+              ..where((t) => t.id.equals(recordId)))
+            .write(
+              CustomThemesCompanion(
+                isDeleted: const Value(true),
+                modifiedAt: Value(modifiedAt),
+              ),
+            );
+        break;
+      case SyncTableId.exchangeRates:
+        // exchange_rates has no isDeleted column, so the delete cannot be held
+        // as a tombstone and the row is removed outright instead, matched on
+        // its composite primary key.
+        //
+        // Plainly: with no tombstone there is nothing left for a later change
+        // to lose a comparison against, so an OLDER upsert for the same rate
+        // that is imported after this delete (files are read in directory
+        // order, not timestamp order) resurrects the row. That mirrors the
+        // api_settings_table caveat below; closing it needs an isDeleted
+        // column, i.e. a schema migration. A silent no-op would be worse - the
+        // row the user deleted would simply never go away on the peer.
+        final exchangeRateKey = ExchangeRateKey.tryParse(recordId);
+        if (exchangeRateKey == null) {
+          debugPrint(
+            '[SYNC_DEBUG] Cannot apply delete for exchange_rates:$recordId '
+            '(unparsable record id)',
+          );
+          break;
+        }
+        await (_db.delete(_db.exchangeRates)..where(
+              (t) =>
+                  t.fromCurrencyCode.equals(exchangeRateKey.fromCurrencyCode) &
+                  t.toCurrencyCode.equals(exchangeRateKey.toCurrencyCode) &
+                  t.preset.equals(exchangeRateKey.preset) &
+                  t.date.isBiggerOrEqualValue(exchangeRateKey.dayStart) &
+                  t.date.isSmallerThanValue(exchangeRateKey.dayAfter),
+            ))
+            .go();
+        break;
+      case SyncTableId.inflationRates:
+        // inflation_rates has no isDeleted column either: same real DELETE,
+        // same caveat as exchange_rates above - an older upsert arriving after
+        // this delete can bring the row back.
+        final inflationRateKey = InflationRateKey.tryParse(recordId);
+        if (inflationRateKey == null) {
+          debugPrint(
+            '[SYNC_DEBUG] Cannot apply delete for inflation_rates:$recordId '
+            '(unparsable record id)',
+          );
+          break;
+        }
+        await (_db.delete(_db.inflationRates)..where(
+              (t) =>
+                  t.country.equals(inflationRateKey.country) &
+                  t.preset.equals(inflationRateKey.preset) &
+                  t.date.isBiggerOrEqualValue(inflationRateKey.dayStart) &
+                  t.date.isSmallerThanValue(inflationRateKey.dayAfter),
+            ))
+            .go();
+        break;
       case SyncTableId.apiSettings:
         // api_settings_table has no isDeleted column, so a peer's delete
         // cannot be represented without a schema migration. Log it rather than
@@ -1018,10 +1332,17 @@ class SyncService {
 
   /// SQL table name of the imported tables that carry an `isDeleted` column.
   ///
-  /// Returns null for tables that cannot hold a tombstone: `api_settings_table`
-  /// has no `isDeleted` column at all (giving it one would need a schema
-  /// migration), and the remaining ids are not applied by [_insertRecord] /
-  /// [_getRecordData] in the first place, so nothing can resurrect them either.
+  /// Returns null for tables that cannot hold a tombstone, which now splits
+  /// into two very different cases:
+  ///
+  /// * `api_settings_table`, `exchange_rates` and `inflation_rates` have no
+  ///   `isDeleted` column at all (giving them one would need a schema
+  ///   migration), yet [_insertRecord] / [_getRecordData] DO apply them. A
+  ///   delete for one of these is therefore final only until an older upsert
+  ///   for the same record arrives, which resurrects it - see
+  ///   [_softDeleteRecord].
+  /// * The remaining ids are not applied by [_insertRecord] / [_getRecordData]
+  ///   in the first place, so nothing can resurrect them either.
   String? _deletableTableName(SyncTableId tableId) {
     switch (tableId) {
       case SyncTableId.transactions:
@@ -1040,6 +1361,8 @@ class SyncService {
         return 'currency_designations';
       case SyncTableId.customDataSources:
         return 'custom_data_sources';
+      case SyncTableId.customThemes:
+        return 'custom_themes';
       default:
         return null;
     }
@@ -1216,12 +1539,31 @@ class SyncService {
               mode: InsertMode.insertOrIgnore,
             );
         break;
+      case SyncTableId.customThemes:
+        await _db
+            .into(_db.customThemes)
+            .insert(
+              CustomThemesCompanion(
+                id: Value(recordId),
+                name: const Value(placeholder),
+                primaryColorHex: const Value('#000000'),
+                secondaryColorHex: const Value('#000000'),
+                surfaceColorHex: const Value('#000000'),
+                backgroundColorHex: const Value('#000000'),
+                windowEffectType: const Value(0),
+                themeMode: const Value(0),
+                modifiedAt: Value(modifiedAt),
+                isDeleted: const Value(true),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+        break;
       default:
-        // api_settings_table has no isDeleted column, so a delete for a record
-        // it has never seen stays a no-op and a later upsert can still
-        // resurrect it - fixing that needs a schema migration. The other ids
-        // are not applied by _insertRecord either, so there is nothing to
-        // resurrect for them.
+        // api_settings_table, exchange_rates and inflation_rates have no
+        // isDeleted column, so a delete for a record they have never seen
+        // stays a no-op and a later upsert can still resurrect it - fixing
+        // that needs a schema migration. The other ids are not applied by
+        // _insertRecord either, so there is nothing to resurrect for them.
         debugPrint(
           '[SYNC_DEBUG] No tombstone support for ${tableId.name}:$recordId',
         );
@@ -1553,6 +1895,125 @@ class SyncService {
       enabled: Value(json['enabled'] as bool? ?? true),
       autoFetch: Value(json['autoFetch'] as bool? ?? false),
       lastFetchAt: Value(json['lastFetchAt'] as int?),
+      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      deviceId: Value(json['deviceId'] as String?),
+      isDeleted: Value(json['isDeleted'] as bool? ?? false),
+    );
+  }
+
+  /// The composite primary key columns travel with the payload, not just in the
+  /// record id: the id spells the date only to the day, while the column stores
+  /// a full [DateTime], so the peer needs the real value to rebuild the row it
+  /// is being told about.
+  Map<String, dynamic> _exchangeRateToJson(ExchangeRate r) {
+    return {
+      'fromCurrencyCode': r.fromCurrencyCode,
+      'toCurrencyCode': r.toCurrencyCode,
+      'rate': r.rate,
+      'preset': r.preset,
+      'date': r.date.toIso8601String(),
+      'modifiedAt': r.modifiedAt,
+      'deviceId': r.deviceId,
+      'sourceId': r.sourceId,
+    };
+  }
+
+  ExchangeRatesCompanion _exchangeRateFromJson(Map<String, dynamic> json) {
+    return ExchangeRatesCompanion(
+      fromCurrencyCode: Value(json['fromCurrencyCode'] as String),
+      toCurrencyCode: Value(json['toCurrencyCode'] as String),
+      rate: Value((json['rate'] as num).toDouble()),
+      preset: Value((json['preset'] as int?) ?? 1),
+      date: Value(DateTime.parse(json['date'] as String)),
+      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      deviceId: Value(json['deviceId'] as String?),
+      sourceId: Value(json['sourceId'] as String?),
+    );
+  }
+
+  /// See [_exchangeRateToJson] for why the key columns are carried.
+  Map<String, dynamic> _inflationRateToJson(InflationRate r) {
+    return {
+      'date': r.date.toIso8601String(),
+      'percent': r.percent,
+      // Never null in the database: the worldwide series is stored under the
+      // globalInflationCountry sentinel, which is also what the record id
+      // spells.
+      'country': r.country,
+      'preset': r.preset,
+      'modifiedAt': r.modifiedAt,
+      'deviceId': r.deviceId,
+      'sourceId': r.sourceId,
+    };
+  }
+
+  InflationRatesCompanion _inflationRateFromJson(Map<String, dynamic> json) {
+    return InflationRatesCompanion(
+      date: Value(DateTime.parse(json['date'] as String)),
+      percent: Value((json['percent'] as num).toDouble()),
+      country: Value(json['country'] as String? ?? globalInflationCountry),
+      preset: Value((json['preset'] as int?) ?? 1),
+      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      deviceId: Value(json['deviceId'] as String?),
+      sourceId: Value(json['sourceId'] as String?),
+    );
+  }
+
+  /// `isActive` is carried deliberately: `CustomThemesDao.setActiveTheme` logs
+  /// every row whose flag changed, so a peer that received only the newly
+  /// active theme would end up with two active ones.
+  Map<String, dynamic> _customThemeToJson(DbCustomTheme t) {
+    return {
+      'id': t.id,
+      'name': t.name,
+      'primaryColorHex': t.primaryColorHex,
+      'secondaryColorHex': t.secondaryColorHex,
+      'surfaceColorHex': t.surfaceColorHex,
+      'backgroundColorHex': t.backgroundColorHex,
+      'backgroundImagePath': t.backgroundImagePath,
+      'backgroundImageOpacity': t.backgroundImageOpacity,
+      'backgroundImageBlur': t.backgroundImageBlur,
+      'windowEffectType': t.windowEffectType,
+      'effectOpacity': t.effectOpacity,
+      'surfaceOpacity': t.surfaceOpacity,
+      'themeMode': t.themeMode,
+      'isPreset': t.isPreset,
+      'isActive': t.isActive,
+      'modifiedAt': t.modifiedAt,
+      'deviceId': t.deviceId,
+      'isDeleted': t.isDeleted,
+    };
+  }
+
+  CustomThemesCompanion _customThemeFromJson(Map<String, dynamic> json) {
+    return CustomThemesCompanion(
+      id: Value(json['id'] as String),
+      // The column is constrained to 1..50 characters, so an empty or absent
+      // name would be rejected by drift's own validation on insert.
+      name: Value(json['name'] as String? ?? 'Theme'),
+      primaryColorHex: Value(json['primaryColorHex'] as String? ?? '#000000'),
+      secondaryColorHex: Value(
+        json['secondaryColorHex'] as String? ?? '#000000',
+      ),
+      surfaceColorHex: Value(json['surfaceColorHex'] as String? ?? '#000000'),
+      backgroundColorHex: Value(
+        json['backgroundColorHex'] as String? ?? '#000000',
+      ),
+      backgroundImagePath: Value(json['backgroundImagePath'] as String?),
+      backgroundImageOpacity: Value(
+        (json['backgroundImageOpacity'] as num?)?.toDouble() ?? 1.0,
+      ),
+      backgroundImageBlur: Value(
+        (json['backgroundImageBlur'] as num?)?.toDouble() ?? 0.0,
+      ),
+      windowEffectType: Value((json['windowEffectType'] as int?) ?? 0),
+      effectOpacity: Value((json['effectOpacity'] as num?)?.toDouble() ?? 1.0),
+      surfaceOpacity: Value(
+        (json['surfaceOpacity'] as num?)?.toDouble() ?? 1.0,
+      ),
+      themeMode: Value((json['themeMode'] as int?) ?? 0),
+      isPreset: Value(json['isPreset'] as bool? ?? false),
+      isActive: Value(json['isActive'] as bool? ?? false),
       modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
