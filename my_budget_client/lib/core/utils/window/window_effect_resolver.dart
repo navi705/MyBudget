@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:my_budget_client/core/theme/app_theme.dart';
 import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
@@ -60,4 +61,88 @@ WindowEffect resolveWindowEffect(WindowEffectType type) {
     case WindowEffectType.transparent:
       return WindowEffect.transparent;
   }
+}
+
+/// Everything the native backend has to be told to render one theme.
+///
+/// [alphaValue] is the argument for `Window.setWindowAlphaValue`, or null when
+/// that call must not be made at all — it is not a no-op, so passing 1.0
+/// instead of skipping it would forcibly undo a transparency the theme never
+/// asked to change.
+typedef WindowEffectPlan = ({
+  WindowEffect effect,
+  Color color,
+  bool dark,
+  double? alphaValue,
+});
+
+/// The floor a blur's tint is held at.
+///
+/// Below this the tint stops reading as the theme colour and the window turns
+/// into an unlabelled sheet of blur. Transparency is exempt: there, low really
+/// does mean see-through, which is the point of the effect.
+const double _minTintOpacity = 0.15;
+
+/// Turns a theme into the exact calls the backend needs.
+///
+/// This is separate from making those calls so the decision can be tested:
+/// `Window.setEffect` is a static plugin call into native code and cannot be
+/// observed from a Dart test. The three places that used to apply effects
+/// (launch, the theme screen, the preset row) each decided this for themselves
+/// and had already drifted — the launch path inverted the tint opacity and
+/// dropped the transparency handling entirely, so a transparent theme came
+/// back opaque and mis-tinted after every restart.
+WindowEffectPlan planWindowEffect({
+  required WindowEffectType type,
+  required Color backgroundColor,
+  required Color surfaceColor,
+  required double effectOpacity,
+  required Brightness brightness,
+}) {
+  final resolved = resolveWindowEffect(type);
+  final dark = brightness == Brightness.dark;
+
+  // A fully transparent background colour means "remove the background
+  // colour", not "tint with nothing" — the surface colour keeps the window
+  // tinted with something of the theme instead of pure black.
+  final tintColor = backgroundColor.a == 0 ? surfaceColor : backgroundColor;
+
+  // Keyed off the resolved effect, not the requested one: on Linux a synced
+  // acrylic resolves to `disabled`, and `disabled` must not be handed the
+  // transparency treatment.
+  if (resolved == WindowEffect.transparent) {
+    if (AppPlatform.isLinux) {
+      // Linux has no window-alpha call; its backend derives translucency
+      // straight from the tint colour's alpha channel, so the requested
+      // opacity has to travel in the colour instead.
+      return (
+        effect: WindowEffect.transparent,
+        color: tintColor.withValues(alpha: effectOpacity),
+        dark: dark,
+        alphaValue: null,
+      );
+    }
+    return (
+      effect: WindowEffect.transparent,
+      color: Colors.transparent,
+      dark: dark,
+      alphaValue: effectOpacity,
+    );
+  }
+
+  final effectiveOpacity = effectOpacity < _minTintOpacity
+      ? _minTintOpacity
+      : effectOpacity;
+
+  return (
+    effect: resolved,
+    color: AppTheme.getWindowTintColor(
+      tintColor,
+      brightness,
+      effectiveOpacity,
+      type,
+    ),
+    dark: dark,
+    alphaValue: null,
+  );
 }

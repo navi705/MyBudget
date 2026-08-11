@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:my_budget_client/core/utils/platform/icon_helper.dart';
 import 'package:my_budget_client/core/utils/window/window_effect_resolver.dart';
+import 'package:my_budget_client/core/utils/window/window_effect_utils.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flex_color_picker/flex_color_picker.dart';
@@ -545,60 +546,31 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
     );
   }
 
-  void _applyWindowEffect(BuildContext context, CustomTheme theme) {
-    if (!_supportsWindowEffects) return;
+  void _applyWindowEffect(BuildContext context, CustomTheme theme) =>
+      _applyThemeWindowEffect(context, theme);
+}
 
-    final brightness = theme.themeMode == ThemeMode.system
-        ? MediaQuery.platformBrightnessOf(context)
-        : (theme.themeMode == ThemeMode.dark
-              ? Brightness.dark
-              : Brightness.light);
+/// Pushes [theme]'s window effect to the host window.
+///
+/// Shared by the effects section and the preset row, which previously held two
+/// copies of this and could drift apart from each other and from the copy that
+/// runs at launch.
+void _applyThemeWindowEffect(BuildContext context, CustomTheme theme) {
+  if (!_supportsWindowEffects) return;
 
-    final windowEffect = resolveWindowEffect(theme.windowEffectType);
+  final brightness = theme.themeMode == ThemeMode.system
+      ? MediaQuery.platformBrightnessOf(context)
+      : (theme.themeMode == ThemeMode.dark
+            ? Brightness.dark
+            : Brightness.light);
 
-    final tintColor = theme.backgroundColor.a == 0
-        ? theme.surfaceColor
-        : theme.backgroundColor;
-
-    if (theme.windowEffectType == WindowEffectType.transparent) {
-      if (AppPlatform.isLinux) {
-        // Linux has no window-alpha call; its backend derives translucency
-        // straight from the tint colour's alpha channel, so the requested
-        // opacity has to travel in the colour instead.
-        Window.setEffect(
-          effect: WindowEffect.transparent,
-          color: tintColor.withValues(alpha: theme.effectOpacity),
-          dark: brightness == Brightness.dark,
-        );
-        return;
-      }
-
-      Window.setEffect(
-        effect: WindowEffect.transparent,
-        color: Colors.transparent,
-        dark: brightness == Brightness.dark,
-      );
-      Window.setWindowAlphaValue(theme.effectOpacity);
-      return;
-    }
-
-    final effectiveOpacity = theme.effectOpacity < 0.15
-        ? 0.15
-        : theme.effectOpacity;
-
-    final finalColor = AppTheme.getWindowTintColor(
-      tintColor,
-      brightness,
-      effectiveOpacity,
-      theme.windowEffectType,
-    );
-
-    Window.setEffect(
-      effect: windowEffect,
-      color: finalColor,
-      dark: brightness == Brightness.dark,
-    );
-  }
+  WindowEffectUtils.applyTheme(
+    type: theme.windowEffectType,
+    backgroundColor: theme.backgroundColor,
+    surfaceColor: theme.surfaceColor,
+    effectOpacity: theme.effectOpacity,
+    brightness: brightness,
+  );
 }
 
 class _PresetsSection extends StatefulWidget {
@@ -619,68 +591,8 @@ class _PresetsSectionState extends State<_PresetsSection> {
     super.dispose();
   }
 
-  void _applyWindowEffect(BuildContext context, CustomTheme theme) {
-    if (!_supportsWindowEffects) return;
-
-    final brightness = theme.themeMode == ThemeMode.system
-        ? MediaQuery.platformBrightnessOf(context)
-        : (theme.themeMode == ThemeMode.dark
-              ? Brightness.dark
-              : Brightness.light);
-
-    final windowEffect = resolveWindowEffect(theme.windowEffectType);
-
-    // If background color is transparent (e.g. "Remove background color" checked),
-    // use surface color as the tint base to preserve some theme color/neutrality
-    // instead of defaulting to pure black tint.
-    final tintColor = theme.backgroundColor.a == 0
-        ? theme.surfaceColor
-        : theme.backgroundColor;
-
-    // Fix for Transparent Mode:
-    // For WindowEffect.transparent, we need to use Window.setWindowAlphaValue()
-    // instead of relying on color alpha for proper transparency control
-    if (theme.windowEffectType == WindowEffectType.transparent) {
-      if (AppPlatform.isLinux) {
-        // Linux has no window-alpha call; its backend derives translucency
-        // straight from the tint colour's alpha channel, so the requested
-        // opacity has to travel in the colour instead.
-        Window.setEffect(
-          effect: WindowEffect.transparent,
-          color: tintColor.withValues(alpha: theme.effectOpacity),
-          dark: brightness == Brightness.dark,
-        );
-        return;
-      }
-
-      Window.setEffect(
-        effect: WindowEffect.transparent,
-        color: Colors.transparent, // TEST: Fixed transparent color
-        dark: brightness == Brightness.dark,
-      );
-      // Use setWindowAlphaValue for actual transparency control
-      Window.setWindowAlphaValue(
-        theme.effectOpacity,
-      ); // 0.0 = transparent, 1.0 = opaque
-      return;
-    }
-
-    // For other modes (acrylic, mica), use color alpha with clamping
-    final effectiveOpacity = theme.effectOpacity < 0.15
-        ? 0.15
-        : theme.effectOpacity;
-
-    Window.setEffect(
-      effect: windowEffect,
-      color: AppTheme.getWindowTintColor(
-        tintColor,
-        brightness,
-        effectiveOpacity,
-        theme.windowEffectType,
-      ),
-      dark: brightness == Brightness.dark,
-    );
-  }
+  void _applyWindowEffect(BuildContext context, CustomTheme theme) =>
+      _applyThemeWindowEffect(context, theme);
 
   @override
   Widget build(BuildContext context) {

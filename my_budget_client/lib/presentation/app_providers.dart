@@ -106,19 +106,16 @@ class AppProviders extends StatelessWidget {
       return;
     }
 
-    final brightness = Theme.of(context).brightness;
-    final tintOpacity = 1.0 - theme.effectOpacity;
-
-    WindowEffectUtils.applyEffect(
-      context: context,
-      color: AppTheme.getWindowTintColor(
-        theme.backgroundColor,
-        brightness,
-        tintOpacity,
-        theme.windowEffectType,
-      ),
-      opacity: theme.effectOpacity,
+    // The tint used to be built here from `1.0 - effectOpacity`, the inverse of
+    // what the picker applies, and the transparent case was missing entirely -
+    // so an effect looked one way when chosen and another way after every
+    // restart. Both are now decided in one place.
+    WindowEffectUtils.applyTheme(
       type: theme.windowEffectType,
+      backgroundColor: theme.backgroundColor,
+      surfaceColor: theme.surfaceColor,
+      effectOpacity: theme.effectOpacity,
+      brightness: Theme.of(context).brightness,
     );
   }
 }
