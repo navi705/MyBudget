@@ -381,45 +381,219 @@ class DataImportService {
     return IoHelper.readAsString(path);
   }
 
+  /// Reads either shape of exchange-rate JSON, or refuses it by entry.
+  ///
+  /// The sibling of [_importExchangeRatesCsv], and it used to coerce just as
+  /// hard. A list entry went straight into `ExchangeRate.fromJson`, so a
+  /// hand-written file missing `modifiedAt` died on a raw
+  /// `type 'Null' is not a subtype of type 'int'`, and an unknown currency code
+  /// reached SQLite as a bare "FOREIGN KEY constraint failed" naming neither
+  /// the entry nor the code. The date-indexed shape was worse: `rateValue is
+  /// num` *skipped* everything it could not read, so a file in some other
+  /// tool's format imported zero rows and reported success, and a rate of 0,
+  /// -1, NaN or Infinity was written as-is for every conversion downstream to
+  /// multiply by.
+  ///
+  /// Two shapes are accepted:
+  ///  * a list of rate objects, which is what this app's own export writes;
+  ///  * a `{date: {currencyCode: rate}}` map keyed by date, which is the shape
+  ///    of the ECB-style `currency_history.json` (quoted against EUR).
+  ///
+  /// Anything else is refused rather than quietly doing nothing, and the whole
+  /// file is validated before a single row is written, so a refused file leaves
+  /// the existing rates exactly as they were.
   Future<void> _importExchangeRatesJson(String content) async {
-    final data = jsonDecode(content);
-    if (data is List) {
-      await _db.batch((batch) {
-        batch.insertAll(
-          _db.exchangeRates,
-          data.map((e) => ExchangeRate.fromJson(e)).toList(),
-          mode: InsertMode.insertOrReplace,
-        );
-      });
-    } else if (data is Map<String, dynamic>) {
-      // Logic for date-indexed JSON (like currency_history.json)
-      final List<ExchangeRatesCompanion> rates = [];
-      data.forEach((dateKey, dateValue) {
-        final DateTime recordDate = DateTime.parse(dateKey);
-        if (dateValue is Map) {
-          dateValue.forEach((currencyKey, rateValue) {
-            if (rateValue is num) {
-              rates.add(
-                ExchangeRatesCompanion.insert(
-                  fromCurrencyCode: 'EUR',
-                  toCurrencyCode: currencyKey.toString().toUpperCase(),
-                  rate: rateValue.toDouble(),
-                  date: recordDate,
-                  preset: 0,
-                ),
-              );
-            }
-          });
-        }
-      });
-      await _db.batch((batch) {
-        batch.insertAll(
-          _db.exchangeRates,
-          rates,
-          mode: InsertMode.insertOrReplace,
-        );
-      });
+    final dynamic data;
+    try {
+      data = jsonDecode(content);
+    } on FormatException catch (e) {
+      throw Exception(
+        'Invalid JSON: the file could not be parsed (${e.message}).',
+      );
     }
+
+    // Both code columns are foreign keys into `currencies`; see
+    // _importExchangeRatesCsv for why an unknown code has to be caught here.
+    final knownCodes = {
+      for (final currency in await _db.select(_db.currencies).get())
+        currency.code.toUpperCase(),
+    };
+
+    final List<ExchangeRatesCompanion> rates = [];
+    // Every (pair, date, preset) already read, so a file that contradicts
+    // itself is caught here rather than resolved by insert order.
+    final seen = <String, ({String where, double rate})>{};
+
+    void collect({
+      required String from,
+      required String to,
+      required double rate,
+      required DateTime date,
+      required int preset,
+      required String where,
+    }) {
+      final key = '$from>$to@${date.toIso8601String()}#$preset';
+      final earlier = seen[key];
+      if (earlier != null && earlier.rate != rate) {
+        throw Exception(
+          'Invalid JSON: $where gives $from→$to on '
+          '${date.toIso8601String()} a rate of $rate, but ${earlier.where} '
+          'already gave it ${earlier.rate}.',
+        );
+      }
+      seen[key] = (where: where, rate: rate);
+      rates.add(
+        ExchangeRatesCompanion.insert(
+          fromCurrencyCode: from,
+          toCurrencyCode: to,
+          rate: rate,
+          date: date,
+          preset: preset,
+        ),
+      );
+    }
+
+    if (data is List) {
+      for (var i = 0; i < data.length; i++) {
+        final entry = data[i];
+        final where = 'entry ${i + 1}';
+        if (entry is! Map) {
+          throw Exception(
+            'Invalid JSON: $where is a ${entry.runtimeType}, not a rate object.',
+          );
+        }
+        collect(
+          from: _rateCurrencyCode(
+            entry['fromCurrencyCode'],
+            'JSON',
+            where,
+            'fromCurrencyCode',
+            knownCodes,
+          ),
+          to: _rateCurrencyCode(
+            entry['toCurrencyCode'],
+            'JSON',
+            where,
+            'toCurrencyCode',
+            knownCodes,
+          ),
+          rate: _jsonRate(entry['rate'], where),
+          date: _jsonDate(entry['date'], where),
+          // Absent means the rates the app fetches itself, which is what a
+          // hand-written file is describing. Only the app's own export carries
+          // a preset id, and round-tripping one has to keep it.
+          preset: _jsonPreset(entry['preset'], where),
+          where: where,
+        );
+      }
+    } else if (data is Map) {
+      data.forEach((dateKey, dateValue) {
+        final dateWhere = 'the entry for "$dateKey"';
+        final date = _jsonDate(dateKey, dateWhere);
+        if (dateValue is! Map) {
+          throw Exception(
+            'Invalid JSON: $dateWhere is a ${dateValue.runtimeType}, not a set '
+            'of currency rates.',
+          );
+        }
+        dateValue.forEach((currencyKey, rateValue) {
+          final where = 'the entry for "$dateKey" ("$currencyKey")';
+          collect(
+            // This shape carries no base currency of its own: it is the ECB
+            // feed, and every column in it is quoted against EUR.
+            from: _rateCurrencyCode('EUR', 'JSON', where, 'base', knownCodes),
+            to: _rateCurrencyCode(
+              currencyKey,
+              'JSON',
+              where,
+              'currency',
+              knownCodes,
+            ),
+            rate: _jsonRate(rateValue, where),
+            date: date,
+            preset: 0,
+            where: where,
+          );
+        });
+      });
+    } else {
+      throw Exception(
+        'Invalid JSON: the file is a ${data.runtimeType}, but exchange rates '
+        'have to be a list of rate objects or a map of dates to rates.',
+      );
+    }
+
+    // An empty list, or an empty map, changed nothing while reporting success,
+    // which reads as "your rates are up to date".
+    if (rates.isEmpty) {
+      throw Exception('Invalid JSON: the file has no rates in it.');
+    }
+
+    await _db.batch((batch) {
+      batch.insertAll(
+        _db.exchangeRates,
+        rates,
+        mode: InsertMode.insertOrReplace,
+      );
+    });
+  }
+
+  /// The rate in [value], or a refusal naming [where].
+  ///
+  /// Numeric strings are accepted because plenty of exporters quote their
+  /// numbers, but `null`, an object and the word "about one" are refusals
+  /// rather than a skipped row. Non-finite, zero and negative rates are refused
+  /// for the same reason the CSV path refuses them: nothing downstream
+  /// re-checks a rate, so they turn every converted amount into NaN, infinity
+  /// or zero.
+  double _jsonRate(dynamic value, String where) {
+    final rate = value is num
+        ? value.toDouble()
+        : double.tryParse(value.toString().trim());
+    if (rate == null) {
+      throw Exception('Invalid JSON: $where has no valid rate ("$value").');
+    }
+    if (!rate.isFinite || rate <= 0) {
+      throw Exception(
+        'Invalid JSON: $where has a rate that is not a positive '
+        'number ("$value").',
+      );
+    }
+    return rate;
+  }
+
+  /// The date in [value], or a refusal naming [where].
+  ///
+  /// Drift's own `toJson` writes a DateTime as epoch milliseconds, so this
+  /// app's export is a number, while every hand-written and third-party file is
+  /// an ISO-8601 string. Both are read; `DateTime.parse` used to be called
+  /// straight on the map key and threw a bare FormatException naming nothing.
+  DateTime _jsonDate(dynamic value, String where) {
+    if (value is num && value is! String) {
+      return DateTime.fromMillisecondsSinceEpoch(value.toInt());
+    }
+    final text = value.toString().trim();
+    final parsed = DateTime.tryParse(text);
+    if (parsed == null) {
+      throw Exception('Invalid JSON: $where has no valid date ("$text").');
+    }
+    return parsed;
+  }
+
+  /// The preset id in [value], or a refusal naming [where].
+  ///
+  /// Part of the primary key, so a bad one does not fail - it silently files
+  /// the rate under a preset nobody reads.
+  int _jsonPreset(dynamic value, String where) {
+    if (value == null) return 0;
+    final preset = value is int ? value : int.tryParse(value.toString().trim());
+    if (preset == null || preset < 0) {
+      throw Exception(
+        'Invalid JSON: $where has a preset that is not a whole '
+        'number ("$value").',
+      );
+    }
+    return preset;
   }
 
   /// Reads a `Date,From,To,Rate` file, or refuses it by line number.
@@ -518,8 +692,20 @@ class DataImportService {
         );
       }
 
-      final from = _rateCurrencyCode(row[fromIdx], line, 'From', knownCodes);
-      final to = _rateCurrencyCode(row[toIdx], line, 'To', knownCodes);
+      final from = _rateCurrencyCode(
+        row[fromIdx],
+        'CSV',
+        'line $line',
+        'From',
+        knownCodes,
+      );
+      final to = _rateCurrencyCode(
+        row[toIdx],
+        'CSV',
+        'line $line',
+        'To',
+        knownCodes,
+      );
 
       // Rates are keyed by (from, to, date, preset) and inserted with
       // insertOrReplace, so two lines claiming different rates for the same
@@ -561,24 +747,30 @@ class DataImportService {
     });
   }
 
-  /// The currency code in [cell], or a refusal naming [line] and [column].
+  /// The currency code in [cell], or a refusal naming [where] and [column].
+  ///
+  /// [format] and [where] are how the refusal points at the offending spot in
+  /// whatever file this is — `'CSV'` and `'line 4'`, or `'JSON'` and
+  /// `'entry 4'` — because the JSON reader has the same foreign key to protect
+  /// and no line numbers to name.
   ///
   /// Trimmed and upper-cased, because ' eur ' is the user's spacing rather than
   /// a different currency — untrimmed it reached the foreign key as ' EUR ' and
   /// failed there, looking correct in the file the whole time.
   String _rateCurrencyCode(
     dynamic cell,
-    int line,
+    String format,
+    String where,
     String column,
     Set<String> knownCodes,
   ) {
     final code = cell.toString().trim().toUpperCase();
     if (code.isEmpty) {
-      throw Exception('Invalid CSV: line $line has an empty $column currency.');
+      throw Exception('Invalid $format: $where has an empty $column currency.');
     }
     if (!knownCodes.contains(code)) {
       throw Exception(
-        'Invalid CSV: line $line names a currency this app does not '
+        'Invalid $format: $where names a currency this app does not '
         'know ("$code" in $column).',
       );
     }
@@ -597,7 +789,9 @@ class DataImportService {
     }
     final data = decoded;
     final now = DateTime.now().millisecondsSinceEpoch;
-    debugPrint('[RESTORE] backup version: ${data['version']}, timestamp: ${data['timestamp']}');
+    debugPrint(
+      '[RESTORE] backup version: ${data['version']}, timestamp: ${data['timestamp']}',
+    );
 
     // Deduplicate asset_entries BEFORE modifiedAt update so original timestamps are used for dedup
     // Partial UNIQUE INDEX: (asset_id, date, source) WHERE source = 'custom_api'
@@ -605,7 +799,9 @@ class DataImportService {
     if (data['asset_entries'] != null) {
       final rawEntries = data['asset_entries'] as List;
       final deduped = _deduplicateAssetEntries(rawEntries);
-      debugPrint('[RESTORE] asset_entries: ${rawEntries.length} raw → ${deduped.length} after dedup');
+      debugPrint(
+        '[RESTORE] asset_entries: ${rawEntries.length} raw → ${deduped.length} after dedup',
+      );
       data['asset_entries'] = deduped;
     }
 
@@ -682,7 +878,9 @@ class DataImportService {
           await _db.batch((batch) {
             batch.insertAll(
               _db.languages,
-              list.map((e) => Language.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map((e) => Language.fromJson(e as Map<String, dynamic>))
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });
@@ -694,7 +892,9 @@ class DataImportService {
           await _db.batch((batch) {
             batch.insertAll(
               _db.styles,
-              list.map((e) => Style.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map((e) => Style.fromJson(e as Map<String, dynamic>))
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });
@@ -706,7 +906,9 @@ class DataImportService {
           await _db.batch((batch) {
             batch.insertAll(
               _db.accountTypes,
-              list.map((e) => AccountType.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map((e) => AccountType.fromJson(e as Map<String, dynamic>))
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });
@@ -718,7 +920,9 @@ class DataImportService {
           await _db.batch((batch) {
             batch.insertAll(
               _db.currencies,
-              list.map((e) => Currency.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map((e) => Currency.fromJson(e as Map<String, dynamic>))
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });
@@ -726,11 +930,18 @@ class DataImportService {
 
         if (data['currency_designations'] != null) {
           final list = data['currency_designations'] as List;
-          debugPrint('[RESTORE] Inserting ${list.length} currency_designations...');
+          debugPrint(
+            '[RESTORE] Inserting ${list.length} currency_designations...',
+          );
           await _db.batch((batch) {
             batch.insertAll(
               _db.currencyDesignations,
-              list.map((e) => CurrencyDesignation.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map(
+                    (e) =>
+                        CurrencyDesignation.fromJson(e as Map<String, dynamic>),
+                  )
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });
@@ -742,7 +953,9 @@ class DataImportService {
           await _db.batch((batch) {
             batch.insertAll(
               _db.accounts,
-              list.map((e) => DbAccount.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map((e) => DbAccount.fromJson(e as Map<String, dynamic>))
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });
@@ -754,7 +967,9 @@ class DataImportService {
           await _db.batch((batch) {
             batch.insertAll(
               _db.categories,
-              list.map((e) => Category.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map((e) => Category.fromJson(e as Map<String, dynamic>))
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });
@@ -766,7 +981,9 @@ class DataImportService {
           await _db.batch((batch) {
             batch.insertAll(
               _db.exchangeRates,
-              list.map((e) => ExchangeRate.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map((e) => ExchangeRate.fromJson(e as Map<String, dynamic>))
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });
@@ -796,7 +1013,9 @@ class DataImportService {
           await _db.batch((batch) {
             batch.insertAll(
               _db.assetEntries,
-              list.map((e) => AssetEntry.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map((e) => AssetEntry.fromJson(e as Map<String, dynamic>))
+                  .toList(),
               // insertOrIgnore: skip duplicates that violate partial UNIQUE INDEX
               mode: InsertMode.insertOrIgnore,
             );
@@ -810,7 +1029,9 @@ class DataImportService {
           await _db.batch((batch) {
             batch.insertAll(
               _db.transactions,
-              list.map((e) => Transaction.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map((e) => Transaction.fromJson(e as Map<String, dynamic>))
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });
@@ -824,7 +1045,9 @@ class DataImportService {
           await _db.batch((batch) {
             batch.insertAll(
               _db.settings,
-              list.map((e) => Setting.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map((e) => Setting.fromJson(e as Map<String, dynamic>))
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });
@@ -836,7 +1059,9 @@ class DataImportService {
           await _db.batch((batch) {
             batch.insertAll(
               _db.customThemes,
-              list.map((e) => DbCustomTheme.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map((e) => DbCustomTheme.fromJson(e as Map<String, dynamic>))
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });
@@ -844,11 +1069,17 @@ class DataImportService {
 
         if (data['custom_data_sources'] != null) {
           final list = data['custom_data_sources'] as List;
-          debugPrint('[RESTORE] Inserting ${list.length} custom_data_sources...');
+          debugPrint(
+            '[RESTORE] Inserting ${list.length} custom_data_sources...',
+          );
           await _db.batch((batch) {
             batch.insertAll(
               _db.customDataSources,
-              list.map((e) => CustomDataSource.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map(
+                    (e) => CustomDataSource.fromJson(e as Map<String, dynamic>),
+                  )
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });
@@ -860,7 +1091,13 @@ class DataImportService {
           await _db.batch((batch) {
             batch.insertAll(
               _db.apiSettingsTable,
-              list.map((e) => ApiSettingsTableData.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map(
+                    (e) => ApiSettingsTableData.fromJson(
+                      e as Map<String, dynamic>,
+                    ),
+                  )
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });
@@ -872,7 +1109,9 @@ class DataImportService {
           await _db.batch((batch) {
             batch.insertAll(
               _db.smsPresets,
-              list.map((e) => SmsPreset.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map((e) => SmsPreset.fromJson(e as Map<String, dynamic>))
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });
@@ -928,7 +1167,8 @@ class DataImportService {
           seen[key] = item;
         } else {
           // Keep the one with higher modifiedAt
-          final existingModified = (existing['modifiedAt'] as num?)?.toInt() ?? 0;
+          final existingModified =
+              (existing['modifiedAt'] as num?)?.toInt() ?? 0;
           final itemModified = (item['modifiedAt'] as num?)?.toInt() ?? 0;
           if (itemModified > existingModified) {
             seen[key] = item;
@@ -1026,15 +1266,19 @@ class DataImportService {
         final dateStr = row[dateIdx].toString().trim();
         final date = DateTime.tryParse(dateStr);
         if (date == null) {
-          throw Exception('Invalid CSV: line $line has no valid date '
-              '("$dateStr").');
+          throw Exception(
+            'Invalid CSV: line $line has no valid date '
+            '("$dateStr").',
+          );
         }
 
         final amountStr = row[amountIdx].toString().trim();
         final amount = double.tryParse(amountStr);
         if (amount == null) {
-          throw Exception('Invalid CSV: line $line has no valid amount '
-              '("$amountStr").');
+          throw Exception(
+            'Invalid CSV: line $line has no valid amount '
+            '("$amountStr").',
+          );
         }
 
         final currencyCode = currencyIdx != -1
