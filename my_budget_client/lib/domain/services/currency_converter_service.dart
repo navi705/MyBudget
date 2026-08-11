@@ -1,4 +1,4 @@
-import 'dart:collection';
+import 'dart:async';
 
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
@@ -7,18 +7,92 @@ class CurrencyConverterService {
   final CurrencyRepository _currencyRepository;
 
   // OPTIMIZATION: Simple LRU cache for exchange rate lookups.
-  // Key: "fromCode_toCode_YYYY-M-D_preset"
+  // Key: "fromCode_toCode_YYYY-M-D_preset_mainCode"
   // Caches up to 500 entries to limit memory usage while improving hit rate.
-  final _cache = LinkedHashMap<String, ExchangeRateDomain?>();
+  // A map literal is already a LinkedHashMap, so `keys.first` is the
+  // oldest-inserted entry — which is what the LRU eviction below relies on.
+  final _cache = <String, ExchangeRateDomain?>{};
   static const _maxCacheSize = 500;
 
-  CurrencyConverterService(this._currencyRepository);
+  StreamSubscription<void>? _ratesChangedSub;
 
-  String _cacheKey(String from, String to, DateTime date, int preset) =>
-      '${from}_${to}_${date.year}-${date.month}-${date.day}_$preset';
+  CurrencyConverterService(this._currencyRepository) {
+    // The cache is only sound while the underlying rate table is unchanged.
+    // Adding a manual rate, importing history or refreshing from an API all
+    // write to exchange_rates — drop the cache so the next lookup re-reads.
+    _ratesChangedSub = _currencyRepository.watchExchangeRateChanges().listen(
+      (_) => _cache.clear(),
+    );
+  }
 
-  /// Invalidates the in-memory cache. Call this when exchange rates are updated.
+  /// The main currency is part of the key because the triangular fallback
+  /// derives the rate through it — the same pair/date can resolve differently
+  /// after the user switches their main currency.
+  String _cacheKey(
+    String from,
+    String to,
+    DateTime date,
+    int preset,
+    String main,
+  ) => '${from}_${to}_${date.year}-${date.month}-${date.day}_${preset}_$main';
+
+  /// Invalidates the in-memory cache. Called automatically on any exchange
+  /// rate write; exposed for callers that mutate rates out of band.
   void invalidateCache() => _cache.clear();
+
+  /// Releases the rate-change subscription. Must be called when the service is
+  /// discarded (tests, DI reset) — otherwise the subscription outlives it.
+  Future<void> dispose() async {
+    await _ratesChangedSub?.cancel();
+    _ratesChangedSub = null;
+    _cache.clear();
+  }
+
+  /// Returns the single rate for [from]->[to] whose date is nearest [date].
+  ///
+  /// Two `LIMIT 1` probes — the newest row at-or-before the target and the
+  /// oldest row at-or-after it — instead of pulling a page of rows and
+  /// scanning it in Dart. The page-scan was both slower and *wrong*: the
+  /// repository defaults to `limit: 100`, so for a pair with years of daily
+  /// history only the 100 most recent rows were ever considered and any older
+  /// transaction silently converted at a rate hundreds of days off.
+  Future<ExchangeRateDomain?> _nearestRate(
+    String from,
+    String to,
+    DateTime date,
+    int preset,
+  ) async {
+    final probes = await Future.wait([
+      _currencyRepository.getExchangeRatesFiltered(
+        fromCurrency: from,
+        toCurrency: to,
+        presets: [preset],
+        endDate: date,
+        sortAscending: false,
+        limit: 1,
+      ),
+      _currencyRepository.getExchangeRatesFiltered(
+        fromCurrency: from,
+        toCurrency: to,
+        presets: [preset],
+        startDate: date,
+        sortAscending: true,
+        limit: 1,
+      ),
+    ]);
+
+    final before = probes[0].isEmpty ? null : probes[0].first;
+    final after = probes[1].isEmpty ? null : probes[1].first;
+
+    if (before == null) return after;
+    if (after == null) return before;
+
+    final distBefore = before.date.difference(date).abs();
+    final distAfter = after.date.difference(date).abs();
+    // Ties go to the earlier row: a rate already in effect on the target day
+    // is a better estimate than one that only came into effect later.
+    return distAfter < distBefore ? after : before;
+  }
 
   /// Finds the best exchange rate for a given pair and date using "Smart Search":
   /// 1. Direct Rate (From -> To)
@@ -42,7 +116,13 @@ class CurrencyConverterService {
     }
 
     // OPTIMIZATION: Check in-memory cache before making DB queries
-    final key = _cacheKey(fromCurrencyCode, toCurrencyCode, date, preset);
+    final key = _cacheKey(
+      fromCurrencyCode,
+      toCurrencyCode,
+      date,
+      preset,
+      mainCurrencyCode,
+    );
     if (_cache.containsKey(key)) {
       // Move to end for LRU eviction order
       final cached = _cache.remove(key);
@@ -68,77 +148,45 @@ class CurrencyConverterService {
       }
     }
 
-    // 1. Direct Fetch
-    final directRates = await _currencyRepository.getExchangeRatesFiltered(
-      fromCurrency: fromCurrencyCode,
-      toCurrency: toCurrencyCode,
-      presets: [preset],
-      sortAscending: false,
-    );
-    for (var r in directRates) {
-      tryUpdateBest(r.rate, r.date);
+    // 1./2./3. Direct, inverse and both triangular legs are independent
+    // queries — issue them together instead of serially.
+    final needsTriangular =
+        fromCurrencyCode != mainCurrencyCode &&
+        toCurrencyCode != mainCurrencyCode;
+
+    final legs = await Future.wait([
+      _nearestRate(fromCurrencyCode, toCurrencyCode, targetDate, preset),
+      _nearestRate(toCurrencyCode, fromCurrencyCode, targetDate, preset),
+      if (needsTriangular) ...[
+        _nearestRate(mainCurrencyCode, fromCurrencyCode, targetDate, preset),
+        _nearestRate(mainCurrencyCode, toCurrencyCode, targetDate, preset),
+      ],
+    ]);
+
+    final direct = legs[0];
+    if (direct != null) {
+      tryUpdateBest(direct.rate, direct.date);
     }
 
-    // 2. Inverse Fetch (To -> From)
-    final inverseRates = await _currencyRepository.getExchangeRatesFiltered(
-      fromCurrency: toCurrencyCode,
-      toCurrency: fromCurrencyCode,
-      presets: [preset],
-      sortAscending: false,
-    );
-    for (var r in inverseRates) {
-      if (r.rate != 0) {
-        tryUpdateBest(1.0 / r.rate, r.date);
-      }
+    final inverse = legs[1];
+    if (inverse != null && inverse.rate != 0) {
+      tryUpdateBest(1.0 / inverse.rate, inverse.date);
     }
 
-    // 3. Triangular Fetch (Main -> From, Main -> To)
-    // OPTIMIZATION: Parallelize independent DB queries using Future.wait()
-    if (fromCurrencyCode != mainCurrencyCode &&
-        toCurrencyCode != mainCurrencyCode) {
-      final results = await Future.wait([
-        _currencyRepository.getExchangeRatesFiltered(
-          fromCurrency: mainCurrencyCode,
-          toCurrency: fromCurrencyCode,
-          presets: [preset],
-          sortAscending: false,
-        ),
-        _currencyRepository.getExchangeRatesFiltered(
-          fromCurrency: mainCurrencyCode,
-          toCurrency: toCurrencyCode,
-          presets: [preset],
-          sortAscending: false,
-        ),
-      ]);
-      
-      final baseToFrom = results[0];
-      final baseToTo = results[1];
-
-      ExchangeRateDomain? closestBaseToFrom;
-      Duration? minDistFrom;
-      for (var r in baseToFrom) {
-        final dist = r.date.difference(targetDate).abs();
-        if (minDistFrom == null || dist < minDistFrom) {
-          minDistFrom = dist;
-          closestBaseToFrom = r;
-        }
-      }
-
-      ExchangeRateDomain? closestBaseToTo;
-      Duration? minDistTo;
-      for (var r in baseToTo) {
-        final dist = r.date.difference(targetDate).abs();
-        if (minDistTo == null || dist < minDistTo) {
-          minDistTo = dist;
-          closestBaseToTo = r;
-        }
-      }
-
-      if (closestBaseToFrom != null && closestBaseToTo != null) {
-        if (closestBaseToFrom.rate != 0) {
-          final calculatedRate = closestBaseToTo.rate / closestBaseToFrom.rate;
-          tryUpdateBest(calculatedRate, closestBaseToFrom.date);
-        }
+    if (needsTriangular) {
+      final baseToFrom = legs[2];
+      final baseToTo = legs[3];
+      if (baseToFrom != null && baseToTo != null && baseToFrom.rate != 0) {
+        final calculatedRate = baseToTo.rate / baseToFrom.rate;
+        // A triangular rate is only as fresh as its STALEST leg — ranking it
+        // by the closer leg would let a pairing of (today, three years ago)
+        // beat an honest same-week direct rate.
+        final distFrom = baseToFrom.date.difference(targetDate).abs();
+        final distTo = baseToTo.date.difference(targetDate).abs();
+        final effectiveDate = distFrom >= distTo
+            ? baseToFrom.date
+            : baseToTo.date;
+        tryUpdateBest(calculatedRate, effectiveDate);
       }
     }
 

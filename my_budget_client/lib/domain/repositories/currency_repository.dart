@@ -23,6 +23,10 @@ abstract class CurrencyRepository {
   Stream<List<CurrencyDesignation>> watchAllCurrencyDesignations();
   Future<List<CurrencyDesignation>> getAllCurrencyDesignations();
 
+  /// Fires whenever any exchange rate row is inserted/updated/deleted.
+  /// Carries no payload — consumers use it purely as an invalidation signal.
+  Stream<void> watchExchangeRateChanges();
+
   Future<List<ExchangeRateDomain>> getLatestExchangeRates(DateTime date);
   Future<List<ExchangeRateDomain>> getLatestExchangeRatesAll();
   Future<List<ExchangeRateDomain>> getLatestExchangeRatesByList(

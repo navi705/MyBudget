@@ -147,6 +147,10 @@ class LocalCurrencyRepository implements CurrencyRepository {
   }
 
   @override
+  Stream<void> watchExchangeRateChanges() =>
+      database.exchangeRatesDao.watchExchangeRateChanges();
+
+  @override
   Future<List<ExchangeRateDomain>> getExchangeRatesFiltered({
     int limit = 100,
     int offset = 0,
