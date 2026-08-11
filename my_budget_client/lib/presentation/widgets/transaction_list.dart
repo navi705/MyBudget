@@ -10,7 +10,9 @@ import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart'
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart'; // Import IconUtils
+import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/presentation/widgets/generic/grouped_paginated_list.dart';
+import 'package:my_budget_client/presentation/widgets/generic/app_state_view.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
 import 'package:my_budget_client/core/constants/app_constants.dart';
 import 'package:collection/collection.dart';
@@ -163,10 +165,14 @@ class _TransactionListState extends State<TransactionList> {
         builder: (context, state) {
           if (state.status == TransactionStatus.initial &&
               state.transactions.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppStateView.loading();
           }
           if (state.status == TransactionStatus.failure) {
-            return Center(child: Text(context.l10n.accountsLoadFailure));
+            return AppStateView.error(message: context.l10n.accountsLoadFailure);
+          }
+          if (state.status == TransactionStatus.success &&
+              state.transactions.isEmpty) {
+            return AppStateView.empty(message: context.l10n.noDataForPeriod);
           }
 
           return GestureDetector(
@@ -316,7 +322,7 @@ class _DateHeader extends StatelessWidget {
     final currencySymbol = designation?.value ?? mainCurrencyCode;
 
     final formattedSum =
-        '${NumberFormat('#,##0.00', 'en_US').format(dailySum).replaceAll(',', ' ')} $currencySymbol';
+        '${MoneyFormatter.format(dailySum, mainCurrencyCode)} $currencySymbol';
 
     return ListTile(
       title: Text(
@@ -418,8 +424,9 @@ class TransactionListItem extends StatelessWidget {
           title: Text(
             transactionCategory.category?.name ==
                     AppConstants.systemTransferCategoryName
-                ? 'Transfer'
-                : (transactionCategory.category?.name ?? 'Uncategorized'),
+                ? context.l10n.transferLabel
+                : (transactionCategory.category?.name ??
+                      context.l10n.uncategorizedLabel),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           subtitle: Column(
@@ -439,7 +446,7 @@ class TransactionListItem extends StatelessWidget {
                           2,
                         ),
                       )
-                    : '${NumberFormat('#,##0.00', 'en_US').format(transactionCategory.transaction.amount).replaceAll(',', ' ')} $currencySymbol',
+                    : '${MoneyFormatter.format(transactionCategory.transaction.amount, transactionCategory.transaction.currencyCode)} $currencySymbol',
                 style: TextStyle(color: balanceColor, fontSize: 14),
               ),
               if (transactionCategory.linkedTransaction != null &&
@@ -466,7 +473,7 @@ class TransactionListItem extends StatelessWidget {
                           ? context.l10n.quantityLabel(
                               '${linkedTx.amount > 0 ? '+' : ''}${linkedTx.amount.toStringAsFixed(2)}',
                             )
-                          : '${linkedTx.amount > 0 ? '+' : ''}${NumberFormat('#,##0.00', 'en_US').format(linkedTx.amount).replaceAll(',', ' ')} $linkedSymbol',
+                          : '${MoneyFormatter.format(linkedTx.amount, linkedTx.currencyCode, signed: true)} $linkedSymbol',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 13,

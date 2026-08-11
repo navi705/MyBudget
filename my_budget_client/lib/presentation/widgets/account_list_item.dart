@@ -3,13 +3,14 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
-import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/domain/services/finance_calculator.dart'; // Added
 
 class AccountListItem extends StatelessWidget {
@@ -89,12 +90,9 @@ class AccountListItem extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // Dynamic formatting: If small value (< 0.01) and not zero, show up to 6 decimals.
-    // Otherwise standard 2 decimals.
-    final bool isSmallValue = value.abs() < 0.01 && value.abs() > epsilon;
-    final formatter = isSmallValue
-        ? NumberFormat('#,##0.00####', 'en_US')
-        : NumberFormat('#,##0.00', 'en_US');
+    // Per-currency formatting: fiat uses ISO decimals (0 for JPY, 3 for KWD,
+    // else 2); crypto shows extra precision for tiny holdings.
+    final code = account.currencyCode;
 
     final diff = prevValue != null ? value - prevValue : 0.0;
 
@@ -109,8 +107,7 @@ class AccountListItem extends StatelessWidget {
 
     return Row(
       children: [
-        SizedBox(
-          width: 80, // Increased width slightly for labels like "Commissions"
+        Flexible(
           child: Text(
             label,
             style: TextStyle(
@@ -131,8 +128,7 @@ class AccountListItem extends StatelessWidget {
                   ),
                   children: [
                     TextSpan(
-                      text:
-                          '${formatter.format(value).replaceAll(',', ' ')} $symbol',
+                      text: '${MoneyFormatter.format(value, code)} $symbol',
                       style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.bold,
@@ -149,7 +145,7 @@ class AccountListItem extends StatelessWidget {
                             : ' ',
                       ),
                       TextSpan(
-                        text: 'Change: ',
+                        text: '${context.l10n.metricChange}: ',
                         style: TextStyle(
                           fontSize: 12,
                           color: Theme.of(
@@ -159,7 +155,7 @@ class AccountListItem extends StatelessWidget {
                       ),
                       TextSpan(
                         text:
-                            '${diff > 0 ? '+' : ''}${NumberFormat('#,##0.00', 'en_US').format(diff).replaceAll(',', ' ')} (${pct > 0 ? '+' : ''}${pct.toStringAsFixed(2)}%)',
+                            '${MoneyFormatter.format(diff, code, signed: true)} (${pct > 0 ? '+' : ''}${pct.toStringAsFixed(2)}%)',
                         style: TextStyle(
                           fontSize: 13,
                           color: diff > 0 ? Colors.green : Colors.red,
@@ -177,10 +173,10 @@ class AccountListItem extends StatelessWidget {
                       fontSize: 13,
                     ),
                     children: [
-                      const TextSpan(text: 'Real: '),
+                      TextSpan(text: '${context.l10n.metricReal}: '),
                       TextSpan(
                         text:
-                            '${formatter.format(realValue).replaceAll(',', ' ')} $symbol',
+                            '${MoneyFormatter.format(realValue, code)} $symbol',
                       ),
                     ],
                   ),
@@ -234,33 +230,10 @@ class AccountListItem extends StatelessWidget {
             } else if (account.balance < 0) {
               balanceColor = Colors.red;
             } else {
-              balanceColor = Colors.grey[600]!; // Default or specific for zero
+              balanceColor = Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant; // Default or specific for zero
             }
-
-            // Using GestureDetector inside ListTile for secondary tap if needed,
-            // or rely on visual density.
-            // Note: ListTile has onTap and onLongPress. For onSecondaryTapUp (Right Click),
-            // we typically need a Gesture detector wrapper OR InkWell.
-            // But standard ListTile doesn't support right click natively in arguments.
-            // However, wrapping the ListTile in GestureDetector might block InkWell if not careful.
-            // The best way for list item right click IS usually GestureDetector or Listener.
-            // BUT, strictly following "Categories" visual style:
-            // Categories uses: Card > ExpansionTile > ListTile (implied) OR Card > ListTile.
-            // CategoryListItem uses: Card > GestureDetector(onSecondaryTapUp...) > ListTile.
-            // The GestureDetector wraps the ListTile content but NOT the Card.
-            // Wait, CategoryListItem creates the Card around the GestureDetector?
-            // Let's re-read CategoryListItem structure from viewing context (approx line 124).
-            // It builds `listTile` = `GestureDetector(...)` which wraps `ListTile`.
-            // Then `card` = `Card(child: listTile)`.
-            // So GestureDetector IS inside Card.
-            // Correct approach: Card > GestureDetector > ListTile.
-            // To get InkWell effect (ripple), ListTile has it built-in IF onTap is not null.
-            // But if GestureDetector intercepts taps, ListTile onTap might not fire?
-            // Actually, GestureDetector executes callback and lets event propagate if behavior is translucent?
-            // No, standard GestureDetector usually competes.
-            // CategoryListItem passes `onTap` to `ListTile`.
-            // And puts `onSecondaryTapUp` in `GestureDetector` parent of `ListTile`.
-            // Let's replicate EXACTLY that.
 
             return Card(
               margin: const EdgeInsets.symmetric(
@@ -309,7 +282,7 @@ class AccountListItem extends StatelessWidget {
                       const SizedBox(height: 8),
                       _buildStatRow(
                         context,
-                        "Balance",
+                        context.l10n.metricBalance,
                         account.balance,
                         prevBalance,
                         realBalance,
@@ -321,7 +294,7 @@ class AccountListItem extends StatelessWidget {
                       if (assetStats != null) ...[
                         _buildStatRow(
                           context,
-                          "Net Bal.",
+                          context.l10n.netBalanceMetric,
                           assetStats!.netBalance,
                           null, // Not tracking history for net balance yet
                           null, // Real Net Balance? Maybe calculate: net / inflationMultiplier
@@ -332,7 +305,7 @@ class AccountListItem extends StatelessWidget {
                         const SizedBox(height: 4),
                         _buildStatRow(
                           context,
-                          "Invested",
+                          context.l10n.investedMetric,
                           assetStats!.invested,
                           null,
                           null,
@@ -343,7 +316,7 @@ class AccountListItem extends StatelessWidget {
                         const SizedBox(height: 4),
                         _buildStatRow(
                           context,
-                          "Realized",
+                          context.l10n.realizedMetric,
                           assetStats!.realized,
                           null,
                           null,
@@ -354,7 +327,7 @@ class AccountListItem extends StatelessWidget {
                         const SizedBox(height: 4),
                         _buildStatRow(
                           context,
-                          "Fees",
+                          context.l10n.feesMetric,
                           assetStats!.commissions,
                           null,
                           null,
@@ -365,7 +338,7 @@ class AccountListItem extends StatelessWidget {
                       ] else ...[
                         _buildStatRow(
                           context,
-                          "Income",
+                          context.l10n.metricIncome,
                           income ?? 0,
                           prevIncome,
                           realIncome,
@@ -376,7 +349,7 @@ class AccountListItem extends StatelessWidget {
                         const SizedBox(height: 4),
                         _buildStatRow(
                           context,
-                          "Expense",
+                          context.l10n.metricExpense,
                           expense ?? 0,
                           prevExpense,
                           null, // Hide Real Expense
