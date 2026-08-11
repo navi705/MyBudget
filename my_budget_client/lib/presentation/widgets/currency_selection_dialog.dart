@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 
 class CurrencySelectionDialog extends StatefulWidget {
@@ -49,9 +50,10 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
+    final l10n = context.l10n;
 
     return AlertDialog(
-      title: const Text('Select Currencies'),
+      title: Text(l10n.fltSelectCurrenciesLabel),
       content: SizedBox(
         width: double.maxFinite,
         height: screenHeight * 0.7,
@@ -60,11 +62,11 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
           children: [
             TextField(
               controller: _searchController,
-              decoration: const InputDecoration(
-                labelText: 'Search',
-                prefixIcon: Icon(Icons.search),
+              decoration: InputDecoration(
+                labelText: l10n.searchHint,
+                prefixIcon: const Icon(Icons.search),
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(
+                contentPadding: const EdgeInsets.symmetric(
                   vertical: 12.0,
                   horizontal: 8.0,
                 ),
@@ -101,7 +103,7 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
       ),
       actions: [
         TextButton(
-          child: const Text('Clear All'),
+          child: Text(l10n.pckClearAll),
           onPressed: () {
             setState(() {
               _tempSelectedCurrencies.clear();
@@ -109,11 +111,11 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
           },
         ),
         TextButton(
-          child: const Text('Cancel'),
+          child: Text(l10n.cancelButton),
           onPressed: () => Navigator.of(context).pop(),
         ),
         TextButton(
-          child: const Text('OK'),
+          child: Text(l10n.okButton),
           onPressed: () {
             Navigator.of(context).pop(_tempSelectedCurrencies);
           },

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import '../../core/utils/country_codes.dart';
 
 class CountryPickerDialog extends StatefulWidget {
@@ -70,9 +71,10 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
+    final l10n = context.l10n;
 
     return AlertDialog(
-      title: const Text('Select Country'),
+      title: Text(l10n.selectCountryTitle),
       content: SizedBox(
         width: double.maxFinite,
         height: screenHeight * 0.7,
@@ -81,11 +83,11 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
           children: [
             TextField(
               controller: _searchController,
-              decoration: const InputDecoration(
-                labelText: 'Search Country',
-                prefixIcon: Icon(Icons.search),
+              decoration: InputDecoration(
+                labelText: l10n.searchCountryLabel,
+                prefixIcon: const Icon(Icons.search),
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(
+                contentPadding: const EdgeInsets.symmetric(
                   vertical: 12.0,
                   horizontal: 8.0,
                 ),
@@ -120,7 +122,7 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
       ),
       actions: [
         TextButton(
-          child: const Text('Cancel'),
+          child: Text(l10n.cancelButton),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ],

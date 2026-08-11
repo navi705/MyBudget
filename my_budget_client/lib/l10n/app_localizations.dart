@@ -3908,6 +3908,336 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No matches for your search'**
   String get selectDialogNoMatches;
+
+  /// Label of the confirming button on a dialog that creates a new record, as opposed to updating an existing one
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get addButton;
+
+  /// Button on an error placeholder that re-runs the failed load
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retryButton;
+
+  /// Stand-in shown where a value is missing, for example an error with no message attached
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get unknownLabel;
+
+  /// Name for the worldwide inflation rate, the one used when a record names no specific country
+  ///
+  /// In en, this message translates to:
+  /// **'Global'**
+  String get globalLabel;
+
+  /// Row in a form showing which date the record is filed under; tapping it opens the date picker
+  ///
+  /// In en, this message translates to:
+  /// **'Date: {date}'**
+  String dateWithValueLabel(String date);
+
+  /// Title of the colour wheel dialog, naming which of the theme colours is being changed
+  ///
+  /// In en, this message translates to:
+  /// **'Select {label} Color'**
+  String selectColorTitle(String label);
+
+  /// Title of the dialog that records a new asset price or quantity, and the label of the button that opens it
+  ///
+  /// In en, this message translates to:
+  /// **'Add Asset Data'**
+  String get assetAddTitle;
+
+  /// Title of the same dialog when it is editing an asset record that already exists
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Asset Data'**
+  String get assetEditTitle;
+
+  /// Second-level tooltip text explaining what the add button on the assets tab does
+  ///
+  /// In en, this message translates to:
+  /// **'Record value or quantity of a specific asset'**
+  String get assetAddDescription;
+
+  /// Field label for the human-readable name of an asset, with an example in brackets
+  ///
+  /// In en, this message translates to:
+  /// **'Asset Name (e.g. Apple Stock)'**
+  String get assetNameLabel;
+
+  /// Field label for the ticker or symbol that identifies an asset, with an example in brackets
+  ///
+  /// In en, this message translates to:
+  /// **'Asset ID (e.g. AAPL)'**
+  String get assetIdLabel;
+
+  /// Field label for the price of one unit of the asset, as opposed to the total holding value
+  ///
+  /// In en, this message translates to:
+  /// **'Value (Price per unit)'**
+  String get assetValueLabel;
+
+  /// Field label for the free-text asset category (stock, crypto, property); may be left blank
+  ///
+  /// In en, this message translates to:
+  /// **'Asset Type (Optional)'**
+  String get assetTypeOptionalLabel;
+
+  /// Field label for the account whose balance this asset backs; may be left blank
+  ///
+  /// In en, this message translates to:
+  /// **'Linked Account (Optional)'**
+  String get assetLinkedAccountOptionalLabel;
+
+  /// Validation message under the asset name field when it was left empty on save
+  ///
+  /// In en, this message translates to:
+  /// **'Give the asset a name'**
+  String get assetNameRequiredError;
+
+  /// Validation message under the asset ID field when it was left empty on save
+  ///
+  /// In en, this message translates to:
+  /// **'Give the asset an ID, for example AAPL'**
+  String get assetIdRequiredError;
+
+  /// Validation message under the asset value field when it was empty or could not be parsed as a number
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a number, for example 150.25'**
+  String get assetValueInvalidError;
+
+  /// Empty state on the assets tab when no asset record matches the active period and filters
+  ///
+  /// In en, this message translates to:
+  /// **'No assets found.'**
+  String get assetNoAssetsFound;
+
+  /// Failure text on the assets tab, shown full-screen while the list is empty and as a snack bar otherwise
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String assetError(String error);
+
+  /// Title of the confirmation dialog shown before asset records are deleted
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Assets?'**
+  String get assetDeleteConfirmTitle;
+
+  /// Body of the asset delete confirmation, naming how many records are about to go
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete {count, plural, =1{this asset} other{{count} assets}}?'**
+  String assetDeleteConfirmMessage(num count);
+
+  /// Second-level tooltip on the delete button of the assets selection app bar, warning the removal is permanent
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently delete all selected asset records'**
+  String get assetDeleteSelectedDescription;
+
+  /// Title of the inflation dialog when it is editing a rate that already exists
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Inflation Rate'**
+  String get inflationEditRate;
+
+  /// Second-level tooltip text explaining what the add button on the inflation tab does
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a new inflation percentage for a specific date and country'**
+  String get inflationAddDescription;
+
+  /// Field label for the inflation rate itself, expressed as a percentage
+  ///
+  /// In en, this message translates to:
+  /// **'Inflation Percent (%)'**
+  String get inflationPercentLabel;
+
+  /// Placeholder inside the inflation percent field showing the expected number format
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 2.5'**
+  String get inflationPercentHint;
+
+  /// Validation message under the inflation percent field when it was empty or could not be parsed as a number
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a number, for example 2.5'**
+  String get inflationPercentInvalidError;
+
+  /// Row in the inflation dialog while no country is picked, meaning the rate applies worldwide
+  ///
+  /// In en, this message translates to:
+  /// **'Country: Global'**
+  String get inflationCountryGlobal;
+
+  /// Row in the inflation dialog naming the country the rate is filed under
+  ///
+  /// In en, this message translates to:
+  /// **'Country: {country}'**
+  String inflationCountryNamed(String country);
+
+  /// Tooltip on the button that clears the picked country so the rate applies worldwide again
+  ///
+  /// In en, this message translates to:
+  /// **'Use the worldwide rate'**
+  String get inflationUseWorldwideRate;
+
+  /// Tab in the date picker that filters by one date rather than a span of dates
+  ///
+  /// In en, this message translates to:
+  /// **'Single Date'**
+  String get pickerSingleDate;
+
+  /// Tab in the date picker that filters by a span between two dates
+  ///
+  /// In en, this message translates to:
+  /// **'Range'**
+  String get pickerRange;
+
+  /// Granularity button in the date picker: step through the data one day at a time
+  ///
+  /// In en, this message translates to:
+  /// **'Day'**
+  String get dateStepDay;
+
+  /// Granularity button in the date picker: step through the data one month at a time
+  ///
+  /// In en, this message translates to:
+  /// **'Month'**
+  String get dateStepMonth;
+
+  /// Granularity button in the date picker: step through the data one year at a time
+  ///
+  /// In en, this message translates to:
+  /// **'Year'**
+  String get dateStepYear;
+
+  /// Heading of the editor where an account's fee and tax rules are listed
+  ///
+  /// In en, this message translates to:
+  /// **'Fee Structure'**
+  String get feeStructureTitle;
+
+  /// Empty state of the fee editor when the account charges no fees at all
+  ///
+  /// In en, this message translates to:
+  /// **'No fee rules applied.'**
+  String get feeNoRulesApplied;
+
+  /// Button that opens the menu of fee rule kinds to append to an account
+  ///
+  /// In en, this message translates to:
+  /// **'Add Fee Rule'**
+  String get feeAddRule;
+
+  /// Fee rule that charges the same flat amount regardless of transaction size
+  ///
+  /// In en, this message translates to:
+  /// **'Fixed Fee'**
+  String get feeFixedFee;
+
+  /// Fee rule that charges a share of the transaction amount
+  ///
+  /// In en, this message translates to:
+  /// **'Percent Fee'**
+  String get feePercentFee;
+
+  /// Fee rule that charges tax on the gain over a cost basis
+  ///
+  /// In en, this message translates to:
+  /// **'Tax Rate'**
+  String get feeTaxRate;
+
+  /// Fallback heading for a stored fee rule of a kind this build does not recognise
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown Rule'**
+  String get feeUnknownRule;
+
+  /// Field label for the share charged by a percent fee rule
+  ///
+  /// In en, this message translates to:
+  /// **'Rate (%)'**
+  String get feeRatePercentLabel;
+
+  /// Field label for the share charged by a tax rule
+  ///
+  /// In en, this message translates to:
+  /// **'Tax Rate (%)'**
+  String get feeTaxRatePercentLabel;
+
+  /// Field label for the amount a tax rule subtracts before taxing the remainder
+  ///
+  /// In en, this message translates to:
+  /// **'Cost Basis'**
+  String get feeCostBasisLabel;
+
+  /// Title of the confirmation shown before deleting several selected accounts at once
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {count, plural, =1{this account} other{{count} accounts}}?'**
+  String deleteAccountsConfirmTitle(num count);
+
+  /// Body of the bulk account delete confirmation, warning that the transactions go too
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete the selected accounts? All associated transactions will be deleted.'**
+  String get deleteAccountsConfirmMessage;
+
+  /// Title of the dialog that reassigns the account type of several selected accounts
+  ///
+  /// In en, this message translates to:
+  /// **'Change Account Type'**
+  String get changeAccountTypeTitle;
+
+  /// Second-level tooltip on the accounts app bar's back arrow, which steps the balance date back
+  ///
+  /// In en, this message translates to:
+  /// **'Go to the previous month or year'**
+  String get accountsPreviousPeriodDescription;
+
+  /// Second-level tooltip on the accounts app bar's forward arrow, which steps the balance date on
+  ///
+  /// In en, this message translates to:
+  /// **'Go to the next month or year'**
+  String get accountsNextPeriodDescription;
+
+  /// Second-level tooltip on the accounts filter button
+  ///
+  /// In en, this message translates to:
+  /// **'Filter accounts by type or hidden status'**
+  String get accountsFilterDescription;
+
+  /// Second-level tooltip on the accounts date button, which shows balances as of a chosen day
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a specific date to view historical balances'**
+  String get accountsSelectDateDescription;
+
+  /// Second-level tooltip on the accounts sort button, which flips the balance ordering
+  ///
+  /// In en, this message translates to:
+  /// **'Switch between ascending and descending balance order'**
+  String get accountsSortDescription;
+
+  /// Field label on the SMS rule builder for the category this rule forces, which may be left unset
+  ///
+  /// In en, this message translates to:
+  /// **'Category (optional)'**
+  String get smsRuleCategoryOptional;
+
+  /// Helper text under the SMS rule category field explaining that it overrides the parsed category
+  ///
+  /// In en, this message translates to:
+  /// **'Override category for this rule'**
+  String get smsRuleCategoryHelp;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

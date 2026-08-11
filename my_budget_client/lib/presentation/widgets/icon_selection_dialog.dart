@@ -4,6 +4,7 @@ import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/add_style_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/budget_icon.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 Future<String?> showIconSelectionDialog(
   BuildContext context,
@@ -47,8 +48,9 @@ class _IconSelectionDialogState extends State<IconSelectionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AlertDialog(
-      title: const Text('Select Icon'),
+      title: Text(l10n.pckSelectIcon),
       content: SizedBox(
         width: double.maxFinite,
         height:
@@ -58,7 +60,7 @@ class _IconSelectionDialogState extends State<IconSelectionDialog> {
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                labelText: 'Search',
+                labelText: l10n.searchHint,
                 prefixIcon: const Icon(Icons.search),
                 isDense: true,
                 suffixIcon: IconButton(
@@ -84,7 +86,7 @@ class _IconSelectionDialogState extends State<IconSelectionDialog> {
                   );
                 },
                 icon: const Icon(Icons.add),
-                label: const Text('Add New Icon'),
+                label: Text(l10n.addNewIconLabel),
               ),
             ),
             const SizedBox(height: 12),
@@ -102,7 +104,7 @@ class _IconSelectionDialogState extends State<IconSelectionDialog> {
                         }).toList();
 
                         if (filteredIcons.isEmpty) {
-                          return const Center(child: Text("No icons found"));
+                          return Center(child: Text(l10n.noIconsFoundLabel));
                         }
 
                         return GridView.builder(
@@ -164,7 +166,7 @@ class _IconSelectionDialogState extends State<IconSelectionDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancelButton),
         ),
       ],
     );

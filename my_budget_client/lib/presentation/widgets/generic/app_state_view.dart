@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 /// A small, reusable widget for rendering the common loading / empty / error
 /// states of a screen or section.
@@ -96,7 +97,7 @@ class AppStateView extends StatelessWidget {
               const SizedBox(height: 8),
               TextButton(
                 onPressed: onRetry,
-                child: const Text('Retry'),
+                child: Text(context.l10n.retryButton),
               ),
             ],
           ],

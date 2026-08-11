@@ -38,7 +38,9 @@ class InflationView extends StatelessWidget {
 
         if (state.status == InflationStatus.failure && state.rates.isEmpty) {
           return Center(
-            child: Text(l10n.inflationError(state.errorMessage ?? 'Unknown')),
+            child: Text(
+              l10n.inflationError(state.errorMessage ?? l10n.unknownLabel),
+            ),
           );
         }
 
@@ -280,7 +282,8 @@ class _InflationListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final countryName = item.country ?? 'Global';
+    final l10n = context.l10n;
+    final countryName = item.country ?? l10n.globalLabel;
     final initial = countryName.isNotEmpty ? countryName[0].toUpperCase() : 'G';
 
     return Card(
@@ -303,7 +306,7 @@ class _InflationListItem extends StatelessWidget {
             child: Text(initial),
           ),
           title: Text(
-            '${item.country ?? 'Global'} (Preset: ${item.preset})',
+            '$countryName (${l10n.exchPresetValue(item.preset)})',
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
           subtitle: Text(DateFormat.yMMMMd().format(item.date)),

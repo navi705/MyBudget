@@ -2068,4 +2068,205 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get selectDialogNoMatches => 'आपकी खोज से कोई मेल नहीं मिला';
+
+  @override
+  String get addButton => 'जोड़ें';
+
+  @override
+  String get retryButton => 'पुनः प्रयास करें';
+
+  @override
+  String get unknownLabel => 'अज्ञात';
+
+  @override
+  String get globalLabel => 'वैश्विक';
+
+  @override
+  String dateWithValueLabel(String date) {
+    return 'तिथि: $date';
+  }
+
+  @override
+  String selectColorTitle(String label) {
+    return '$label रंग चुनें';
+  }
+
+  @override
+  String get assetAddTitle => 'संपत्ति डेटा जोड़ें';
+
+  @override
+  String get assetEditTitle => 'संपत्ति डेटा संपादित करें';
+
+  @override
+  String get assetAddDescription => 'किसी विशिष्ट संपत्ति का मूल्य या मात्रा दर्ज करें';
+
+  @override
+  String get assetNameLabel => 'संपत्ति का नाम (जैसे Apple स्टॉक)';
+
+  @override
+  String get assetIdLabel => 'संपत्ति आईडी (जैसे AAPL)';
+
+  @override
+  String get assetValueLabel => 'मूल्य (प्रति इकाई कीमत)';
+
+  @override
+  String get assetTypeOptionalLabel => 'संपत्ति का प्रकार (वैकल्पिक)';
+
+  @override
+  String get assetLinkedAccountOptionalLabel => 'लिंक किया गया खाता (वैकल्पिक)';
+
+  @override
+  String get assetNameRequiredError => 'संपत्ति को एक नाम दें';
+
+  @override
+  String get assetIdRequiredError => 'संपत्ति के लिए एक आईडी दें, जैसे AAPL';
+
+  @override
+  String get assetValueInvalidError => 'एक संख्या दर्ज करें, जैसे 150.25';
+
+  @override
+  String get assetNoAssetsFound => 'कोई संपत्ति नहीं मिली।';
+
+  @override
+  String assetError(String error) {
+    return 'त्रुटि: $error';
+  }
+
+  @override
+  String get assetDeleteConfirmTitle => 'संपत्तियाँ हटाएं?';
+
+  @override
+  String assetDeleteConfirmMessage(num count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+      
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString संपत्तियों',
+      one: 'इस संपत्ति',
+    );
+    return 'क्या आप वाकई $_temp0 को हटाना चाहते हैं?';
+  }
+
+  @override
+  String get assetDeleteSelectedDescription => 'चयनित सभी संपत्ति रिकॉर्ड स्थायी रूप से हटाएं';
+
+  @override
+  String get inflationEditRate => 'मुद्रास्फीति दर संपादित करें';
+
+  @override
+  String get inflationAddDescription => 'किसी विशिष्ट तिथि और देश के लिए नया मुद्रास्फीति प्रतिशत दर्ज करें';
+
+  @override
+  String get inflationPercentLabel => 'मुद्रास्फीति प्रतिशत (%)';
+
+  @override
+  String get inflationPercentHint => 'जैसे 2.5';
+
+  @override
+  String get inflationPercentInvalidError => 'एक संख्या दर्ज करें, जैसे 2.5';
+
+  @override
+  String get inflationCountryGlobal => 'देश: वैश्विक';
+
+  @override
+  String inflationCountryNamed(String country) {
+    return 'देश: $country';
+  }
+
+  @override
+  String get inflationUseWorldwideRate => 'विश्वव्यापी दर का उपयोग करें';
+
+  @override
+  String get pickerSingleDate => 'एकल तिथि';
+
+  @override
+  String get pickerRange => 'श्रेणी';
+
+  @override
+  String get dateStepDay => 'दिन';
+
+  @override
+  String get dateStepMonth => 'माह';
+
+  @override
+  String get dateStepYear => 'वर्ष';
+
+  @override
+  String get feeStructureTitle => 'शुल्क संरचना';
+
+  @override
+  String get feeNoRulesApplied => 'कोई शुल्क नियम लागू नहीं है।';
+
+  @override
+  String get feeAddRule => 'शुल्क नियम जोड़ें';
+
+  @override
+  String get feeFixedFee => 'निश्चित शुल्क';
+
+  @override
+  String get feePercentFee => 'प्रतिशत शुल्क';
+
+  @override
+  String get feeTaxRate => 'कर दर';
+
+  @override
+  String get feeUnknownRule => 'अज्ञात नियम';
+
+  @override
+  String get feeRatePercentLabel => 'दर (%)';
+
+  @override
+  String get feeTaxRatePercentLabel => 'कर दर (%)';
+
+  @override
+  String get feeCostBasisLabel => 'लागत आधार';
+
+  @override
+  String deleteAccountsConfirmTitle(num count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+      
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString खाते',
+      one: 'यह खाता',
+    );
+    return '$_temp0 हटाएं?';
+  }
+
+  @override
+  String get deleteAccountsConfirmMessage => 'क्या आप वाकई चयनित खाते हटाना चाहते हैं? सभी संबंधित लेनदेन हटा दिए जाएंगे।';
+
+  @override
+  String get changeAccountTypeTitle => 'खाता प्रकार बदलें';
+
+  @override
+  String get accountsPreviousPeriodDescription => 'पिछले माह या वर्ष पर जाएं';
+
+  @override
+  String get accountsNextPeriodDescription => 'अगले माह या वर्ष पर जाएं';
+
+  @override
+  String get accountsFilterDescription => 'खातों को प्रकार या छिपी स्थिति के अनुसार फ़िल्टर करें';
+
+  @override
+  String get accountsSelectDateDescription => 'ऐतिहासिक शेष देखने के लिए एक विशिष्ट तिथि चुनें';
+
+  @override
+  String get accountsSortDescription => 'शेष राशि के आरोही और अवरोही क्रम के बीच स्विच करें';
+
+  @override
+  String get smsRuleCategoryOptional => 'श्रेणी (वैकल्पिक)';
+
+  @override
+  String get smsRuleCategoryHelp => 'इस नियम के लिए श्रेणी अधिलेखित करें';
 }

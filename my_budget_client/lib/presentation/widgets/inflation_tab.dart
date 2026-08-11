@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/utils/country_codes.dart';
 import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/presentation/widgets/country_picker_dialog.dart';
@@ -31,6 +32,7 @@ class _InflationTabContent extends StatelessWidget {
     InflationRateDomain? rate,
   }) {
     final bloc = context.read<InflationBloc>();
+    final l10n = context.l10n;
     final percentController = TextEditingController(
       text: rate?.percent.toString() ?? '',
     );
@@ -46,7 +48,7 @@ class _InflationTabContent extends StatelessWidget {
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: Text(
-            rate == null ? 'Add Inflation Rate' : 'Edit Inflation Rate',
+            rate == null ? l10n.inflationAddRate : l10n.inflationEditRate,
           ),
           content: SingleChildScrollView(
             child: ConstrainedBox(
@@ -59,8 +61,8 @@ class _InflationTabContent extends StatelessWidget {
                     TextField(
                       controller: percentController,
                       decoration: InputDecoration(
-                        labelText: 'Inflation Percent (%)',
-                        hintText: 'e.g. 2.5',
+                        labelText: l10n.inflationPercentLabel,
+                        hintText: l10n.inflationPercentHint,
                         // Save used to be a bare `if (percent != null)` with
                         // no else, so a blank or unparseable percent made the
                         // button do nothing at all and the dialog just sat
@@ -80,15 +82,19 @@ class _InflationTabContent extends StatelessWidget {
                       contentPadding: EdgeInsets.zero,
                       title: Text(
                         selectedCountry == null
-                            ? 'Country: Global'
-                            : 'Country: '
-                                  '${getLocalizedCountryName(selectedCountry!, Localizations.localeOf(context).toString())}',
+                            ? l10n.inflationCountryGlobal
+                            : l10n.inflationCountryNamed(
+                                getLocalizedCountryName(
+                                  selectedCountry!,
+                                  Localizations.localeOf(context).toString(),
+                                ),
+                              ),
                       ),
                       trailing: selectedCountry == null
                           ? const Icon(Icons.public)
                           : IconButton(
                               icon: const Icon(Icons.clear),
-                              tooltip: 'Use the worldwide rate',
+                              tooltip: l10n.inflationUseWorldwideRate,
                               onPressed: () =>
                                   setState(() => selectedCountry = null),
                             ),
@@ -107,13 +113,17 @@ class _InflationTabContent extends StatelessWidget {
                     ),
                     TextField(
                       controller: presetController,
-                      decoration: const InputDecoration(labelText: 'Preset ID'),
+                      decoration: InputDecoration(
+                        labelText: l10n.exchPresetIdLabel,
+                      ),
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 16),
                     ListTile(
                       title: Text(
-                        'Date: ${DateFormat('MMMM yyyy').format(selectedDate)}',
+                        l10n.dateWithValueLabel(
+                          DateFormat('MMMM yyyy').format(selectedDate),
+                        ),
                       ),
                       trailing: const Icon(Icons.calendar_today),
                       onTap: () async {
@@ -139,7 +149,7 @@ class _InflationTabContent extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancelButton),
             ),
             FilledButton.tonal(
               onPressed: () {
@@ -147,7 +157,7 @@ class _InflationTabContent extends StatelessWidget {
                 final preset = int.tryParse(presetController.text) ?? 1;
                 if (percent == null) {
                   setState(
-                    () => percentError = 'Enter a number, for example 2.5',
+                    () => percentError = l10n.inflationPercentInvalidError,
                   );
                 } else {
                   final newRate = InflationRateDomain(
@@ -165,7 +175,7 @@ class _InflationTabContent extends StatelessWidget {
                   Navigator.pop(context);
                 }
               },
-              child: Text(rate == null ? 'Add' : 'Update'),
+              child: Text(rate == null ? l10n.addButton : l10n.updateButton),
             ),
           ],
         ),
@@ -186,10 +196,9 @@ class _InflationTabContent extends StatelessWidget {
                   _showAddEditInflationDialog(context, rate: rate),
             ),
             floatingActionButton: MultiLevelTooltip(
-              message: 'Add Inflation Rate',
+              message: context.l10n.inflationAddRate,
               actionId: 'add_action',
-              description:
-                  'Enter a new inflation percentage for a specific date and country',
+              description: context.l10n.inflationAddDescription,
               child: FloatingActionButton(
                 onPressed: () => _showAddEditInflationDialog(context),
                 child: const Icon(Icons.add),

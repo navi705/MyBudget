@@ -137,7 +137,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                 context,
                 color,
                 pickersEnabled: const {ColorPickerType.wheel: true},
-                title: Text('Select $label Color'),
+                title: Text(context.l10n.selectColorTitle(label)),
                 showColorCode: true,
               );
               onSelected(newColor);
@@ -245,7 +245,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                     // and edges (0.0, 1.0) are opaque, we reverse the logic here
                     for (final preset in [
                       (
-                        'Fully Transparent',
+                        context.l10n.fullyTransparentLabel,
                         0.5,
                       ), // Middle value = most transparent!
                       ('75%', 0.35), // Between middle and edge
@@ -794,7 +794,7 @@ class _PresetsSectionState extends State<_PresetsSection> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancelButton),
           ),
           FilledButton(
             onPressed: () {

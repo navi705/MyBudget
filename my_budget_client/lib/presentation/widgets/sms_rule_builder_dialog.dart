@@ -137,15 +137,15 @@ class _SmsRuleBuilderDialogState extends State<SmsRuleBuilderDialog> {
             if (widget.categories.isNotEmpty) ...[
               DropdownButtonFormField<String?>(
                 value: _selectedCategoryId,
-                decoration: const InputDecoration(
-                  labelText: 'Category (optional)',
-                  helperText: 'Override category for this rule',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l10n.smsRuleCategoryOptional,
+                  helperText: l10n.smsRuleCategoryHelp,
+                  border: const OutlineInputBorder(),
                 ),
                 items: [
-                  const DropdownMenuItem<String?>(
+                  DropdownMenuItem<String?>(
                     value: null,
-                    child: Text('— None —'),
+                    child: Text('— ${l10n.noneLabel} —'),
                   ),
                   ...widget.categories.map(
                     (cat) => DropdownMenuItem<String?>(

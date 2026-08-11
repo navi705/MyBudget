@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
@@ -16,6 +17,7 @@ class AssetView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return BlocConsumer<AssetBloc, AssetState>(
       // The failure below can only be seen while the list is empty - which,
       // for anyone who already has assets, it never is. So a failed add, edit
@@ -28,7 +30,9 @@ class AssetView extends StatelessWidget {
       listener: (context, state) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text('Error: ${state.errorMessage}')));
+          ..showSnackBar(
+            SnackBar(content: Text(l10n.assetError(state.errorMessage!))),
+          );
       },
       builder: (context, state) {
         if (state.status == AssetStatus.loading && state.assetData.isEmpty) {
@@ -36,7 +40,11 @@ class AssetView extends StatelessWidget {
         }
 
         if (state.status == AssetStatus.failure && state.assetData.isEmpty) {
-          return Center(child: Text('Error: ${state.errorMessage}'));
+          return Center(
+            child: Text(
+              l10n.assetError(state.errorMessage ?? l10n.unknownLabel),
+            ),
+          );
         }
 
         if (state.assetData.isEmpty) {
@@ -46,7 +54,7 @@ class AssetView extends StatelessWidget {
                 _showEmptyAreaContextMenu(context, details.globalPosition),
             onLongPressStart: (details) =>
                 _showEmptyAreaContextMenu(context, details.globalPosition),
-            child: const Center(child: Text('No assets found.')),
+            child: Center(child: Text(l10n.assetNoAssetsFound)),
           );
         }
 
@@ -112,6 +120,7 @@ class AssetView extends StatelessWidget {
   }
 
   void _showEmptyAreaContextMenu(BuildContext context, Offset position) async {
+    final l10n = context.l10n;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
 
@@ -122,13 +131,13 @@ class AssetView extends StatelessWidget {
         Offset.zero & overlay.size,
       ),
       items: <PopupMenuEntry<String>>[
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'add_asset',
           child: Row(
             children: [
-              Icon(Icons.add),
-              SizedBox(width: 8),
-              Text('Add Asset Data'),
+              const Icon(Icons.add),
+              const SizedBox(width: 8),
+              Text(l10n.assetAddTitle),
             ],
           ),
         ),
@@ -150,6 +159,7 @@ class AssetView extends StatelessWidget {
     final bloc = context.read<AssetBloc>();
     final state = bloc.state;
     final isSelected = state.selectedAssets.contains(item);
+    final l10n = context.l10n;
 
     showMenu(
       context: context,
@@ -171,7 +181,9 @@ class AssetView extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
               const SizedBox(width: 8),
-              Text(isSelected ? 'Deselect' : 'Select'),
+              Text(
+                isSelected ? l10n.contextMenuDeselect : l10n.contextMenuSelect,
+              ),
             ],
           ),
         ),
@@ -186,7 +198,7 @@ class AssetView extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
               const SizedBox(width: 8),
-              const Text('Select All'),
+              Text(l10n.contextMenuSelectAll),
             ],
           ),
         ),
@@ -196,14 +208,23 @@ class AssetView extends StatelessWidget {
               bloc.add(ToggleAssetSelection(item));
             }
             Future.delayed(Duration.zero, () {
-              if (context.mounted) _showDeleteConfirmation(context, bloc);
+              if (context.mounted) {
+                _showDeleteConfirmation(
+                  context,
+                  bloc,
+                  isSelected ? state.selectedAssets.length : 1,
+                );
+              }
             });
           },
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.delete, color: Colors.red),
-              SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: Colors.red)),
+              const Icon(Icons.delete, color: Colors.red),
+              const SizedBox(width: 8),
+              Text(
+                l10n.contextMenuDelete,
+                style: const TextStyle(color: Colors.red),
+              ),
             ],
           ),
         ),
@@ -211,25 +232,27 @@ class AssetView extends StatelessWidget {
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, AssetBloc bloc) {
+  void _showDeleteConfirmation(BuildContext context, AssetBloc bloc, int count) {
+    final l10n = context.l10n;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Assets?'),
-        content: Text(
-          'Are you sure you want to delete the selected assets?', // Context menu delete usually implies simple delete or selection delete
-        ),
+        title: Text(l10n.assetDeleteConfirmTitle),
+        content: Text(l10n.assetDeleteConfirmMessage(count)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
               bloc.add(DeleteSelectedAssets());
               Navigator.pop(context);
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(
+              l10n.deleteButton,
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -321,7 +344,8 @@ class _AssetListItem extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
           subtitle: Text(
-            '${item.assetType ?? 'Type'} • ${item.source} • ${DateFormat.yMMMMd().format(item.date)}',
+            '${item.assetType ?? context.l10n.typeLabel} • ${item.source} • '
+            '${DateFormat.yMMMMd().format(item.date)}',
           ),
           trailing: Text(
             '${MoneyFormatter.format(item.value, item.currency)} ${item.currency}',

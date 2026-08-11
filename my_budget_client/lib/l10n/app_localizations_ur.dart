@@ -2068,4 +2068,205 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get selectDialogNoMatches => 'آپ کی تلاش سے کوئی چیز مطابقت نہیں رکھتی';
+
+  @override
+  String get addButton => 'شامل کریں';
+
+  @override
+  String get retryButton => 'دوبارہ کوشش کریں';
+
+  @override
+  String get unknownLabel => 'نامعلوم';
+
+  @override
+  String get globalLabel => 'عالمی';
+
+  @override
+  String dateWithValueLabel(String date) {
+    return 'تاریخ: $date';
+  }
+
+  @override
+  String selectColorTitle(String label) {
+    return '$label رنگ منتخب کریں';
+  }
+
+  @override
+  String get assetAddTitle => 'اثاثے کا ڈیٹا شامل کریں';
+
+  @override
+  String get assetEditTitle => 'اثاثے کا ڈیٹا ترمیم کریں';
+
+  @override
+  String get assetAddDescription => 'کسی مخصوص اثاثے کی قیمت یا مقدار درج کریں';
+
+  @override
+  String get assetNameLabel => 'اثاثے کا نام (مثلاً ایپل اسٹاک)';
+
+  @override
+  String get assetIdLabel => 'اثاثے کی شناخت (مثلاً AAPL)';
+
+  @override
+  String get assetValueLabel => 'قیمت (فی یونٹ)';
+
+  @override
+  String get assetTypeOptionalLabel => 'اثاثے کی قسم (اختیاری)';
+
+  @override
+  String get assetLinkedAccountOptionalLabel => 'منسلک اکاؤنٹ (اختیاری)';
+
+  @override
+  String get assetNameRequiredError => 'اثاثے کو ایک نام دیں';
+
+  @override
+  String get assetIdRequiredError => 'اثاثے کے لیے شناخت درج کریں، مثلاً AAPL';
+
+  @override
+  String get assetValueInvalidError => 'ایک عدد درج کریں، مثلاً 150.25';
+
+  @override
+  String get assetNoAssetsFound => 'کوئی اثاثہ نہیں ملا۔';
+
+  @override
+  String assetError(String error) {
+    return 'خرابی: $error';
+  }
+
+  @override
+  String get assetDeleteConfirmTitle => 'اثاثے حذف کریں؟';
+
+  @override
+  String assetDeleteConfirmMessage(num count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+      
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'ان $countString اثاثوں',
+      one: 'اس اثاثے',
+    );
+    return 'کیا آپ واقعی $_temp0 کو حذف کرنا چاہتے ہیں؟';
+  }
+
+  @override
+  String get assetDeleteSelectedDescription => 'منتخب تمام اثاثہ ریکارڈ مستقل طور پر حذف کریں';
+
+  @override
+  String get inflationEditRate => 'افراط زر کی شرح میں ترمیم کریں';
+
+  @override
+  String get inflationAddDescription => 'کسی مخصوص تاریخ اور ملک کے لیے نئی افراط زر کی شرح درج کریں';
+
+  @override
+  String get inflationPercentLabel => 'افراط زر کا فیصد (%)';
+
+  @override
+  String get inflationPercentHint => 'مثلاً 2.5';
+
+  @override
+  String get inflationPercentInvalidError => 'ایک عدد درج کریں، مثلاً 2.5';
+
+  @override
+  String get inflationCountryGlobal => 'ملک: عالمی';
+
+  @override
+  String inflationCountryNamed(String country) {
+    return 'ملک: $country';
+  }
+
+  @override
+  String get inflationUseWorldwideRate => 'عالمی شرح استعمال کریں';
+
+  @override
+  String get pickerSingleDate => 'واحد تاریخ';
+
+  @override
+  String get pickerRange => 'دورانیہ';
+
+  @override
+  String get dateStepDay => 'دن';
+
+  @override
+  String get dateStepMonth => 'مہینہ';
+
+  @override
+  String get dateStepYear => 'سال';
+
+  @override
+  String get feeStructureTitle => 'فیس کا ڈھانچہ';
+
+  @override
+  String get feeNoRulesApplied => 'کوئی فیس قاعدہ لاگو نہیں ہے۔';
+
+  @override
+  String get feeAddRule => 'فیس قاعدہ شامل کریں';
+
+  @override
+  String get feeFixedFee => 'مقررہ فیس';
+
+  @override
+  String get feePercentFee => 'فیصد فیس';
+
+  @override
+  String get feeTaxRate => 'ٹیکس کی شرح';
+
+  @override
+  String get feeUnknownRule => 'نامعلوم قاعدہ';
+
+  @override
+  String get feeRatePercentLabel => 'شرح (%)';
+
+  @override
+  String get feeTaxRatePercentLabel => 'ٹیکس کی شرح (%)';
+
+  @override
+  String get feeCostBasisLabel => 'لاگت کی بنیاد';
+
+  @override
+  String deleteAccountsConfirmTitle(num count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+      
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString اکاؤنٹس',
+      one: 'یہ اکاؤنٹ',
+    );
+    return '$_temp0 حذف کریں؟';
+  }
+
+  @override
+  String get deleteAccountsConfirmMessage => 'کیا آپ واقعی منتخب اکاؤنٹس حذف کرنا چاہتے ہیں؟ تمام متعلقہ لین دین حذف ہو جائیں گے۔';
+
+  @override
+  String get changeAccountTypeTitle => 'اکاؤنٹ کی قسم تبدیل کریں';
+
+  @override
+  String get accountsPreviousPeriodDescription => 'پچھلے مہینے یا سال پر جائیں';
+
+  @override
+  String get accountsNextPeriodDescription => 'اگلے مہینے یا سال پر جائیں';
+
+  @override
+  String get accountsFilterDescription => 'اکاؤنٹس کو قسم یا پوشیدہ حالت کے مطابق فلٹر کریں';
+
+  @override
+  String get accountsSelectDateDescription => 'ماضی کے بیلنس دیکھنے کے لیے مخصوص تاریخ منتخب کریں';
+
+  @override
+  String get accountsSortDescription => 'بیلنس کی صعودی اور نزولی ترتیب کے درمیان تبدیل کریں';
+
+  @override
+  String get smsRuleCategoryOptional => 'زمرہ (اختیاری)';
+
+  @override
+  String get smsRuleCategoryHelp => 'اس قاعدے کے لیے زمرہ تبدیل کریں';
 }

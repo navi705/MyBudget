@@ -40,7 +40,7 @@ class GenericDateStepFilterBar extends StatelessWidget
 
   String _formatDate(BuildContext context) {
     if (filterMode == FilterMode.range) {
-      if (dateRange == null) return 'Select Range';
+      if (dateRange == null) return context.l10n.selectDateLabel;
       final start = DateFormat('dd.MM.yyyy').format(dateRange!.start);
       final end = DateFormat('dd.MM.yyyy').format(dateRange!.end);
       return '$start - $end';
@@ -85,7 +85,7 @@ class GenericDateStepFilterBar extends StatelessWidget
                 if (onFilterPressed != null)
                   IconButton(
                     icon: Icon(Icons.tune, color: onPrimary),
-                    tooltip: 'Filters',
+                    tooltip: context.l10n.filterTooltip,
                     onPressed: onFilterPressed,
                   ),
 
@@ -93,7 +93,7 @@ class GenericDateStepFilterBar extends StatelessWidget
                 IconButton(
                   icon: Icon(Icons.chevron_left, color: onPrimary),
                   onPressed: onPrevious,
-                  tooltip: 'Previous',
+                  tooltip: context.l10n.previousPeriodTooltip,
                 ),
 
                 // Date Title
@@ -120,7 +120,7 @@ class GenericDateStepFilterBar extends StatelessWidget
                 IconButton(
                   icon: Icon(Icons.chevron_right, color: onPrimary),
                   onPressed: onNext,
-                  tooltip: 'Next',
+                  tooltip: context.l10n.nextPeriodTooltip,
                 ),
 
                 // Sort Button
@@ -129,7 +129,7 @@ class GenericDateStepFilterBar extends StatelessWidget
                     quarterTurns: sort == Sort.ascending ? 0 : 2,
                     child: IconButton(
                       icon: Icon(Icons.sort, color: onPrimary),
-                      tooltip: 'Sort (Asc/Desc)',
+                      tooltip: context.l10n.sortOrderTooltip,
                       onPressed: onSortToggle,
                     ),
                   ),

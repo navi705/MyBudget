@@ -2068,4 +2068,205 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get selectDialogNoMatches => 'لا توجد نتائج مطابقة لبحثك';
+
+  @override
+  String get addButton => 'إضافة';
+
+  @override
+  String get retryButton => 'إعادة المحاولة';
+
+  @override
+  String get unknownLabel => 'غير معروف';
+
+  @override
+  String get globalLabel => 'عالمي';
+
+  @override
+  String dateWithValueLabel(String date) {
+    return 'التاريخ: $date';
+  }
+
+  @override
+  String selectColorTitle(String label) {
+    return 'اختر لون $label';
+  }
+
+  @override
+  String get assetAddTitle => 'إضافة بيانات الأصل';
+
+  @override
+  String get assetEditTitle => 'تعديل بيانات الأصل';
+
+  @override
+  String get assetAddDescription => 'تسجيل قيمة أصل معين أو كميته';
+
+  @override
+  String get assetNameLabel => 'اسم الأصل (مثل سهم آبل)';
+
+  @override
+  String get assetIdLabel => 'معرّف الأصل (مثل AAPL)';
+
+  @override
+  String get assetValueLabel => 'القيمة (سعر الوحدة)';
+
+  @override
+  String get assetTypeOptionalLabel => 'نوع الأصل (اختياري)';
+
+  @override
+  String get assetLinkedAccountOptionalLabel => 'الحساب المرتبط (اختياري)';
+
+  @override
+  String get assetNameRequiredError => 'أدخل اسمًا للأصل';
+
+  @override
+  String get assetIdRequiredError => 'أدخل معرّفًا للأصل، مثل AAPL';
+
+  @override
+  String get assetValueInvalidError => 'أدخل رقمًا، مثل 150.25';
+
+  @override
+  String get assetNoAssetsFound => 'لم يتم العثور على أصول.';
+
+  @override
+  String assetError(String error) {
+    return 'خطأ: $error';
+  }
+
+  @override
+  String get assetDeleteConfirmTitle => 'حذف الأصول؟';
+
+  @override
+  String assetDeleteConfirmMessage(num count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+      
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString أصول',
+      one: 'هذا الأصل',
+    );
+    return 'هل أنت متأكد من رغبتك في حذف $_temp0؟';
+  }
+
+  @override
+  String get assetDeleteSelectedDescription => 'حذف جميع سجلات الأصول المحددة نهائيًا';
+
+  @override
+  String get inflationEditRate => 'تعديل معدل التضخم';
+
+  @override
+  String get inflationAddDescription => 'أدخل نسبة تضخم جديدة لتاريخ وبلد محددين';
+
+  @override
+  String get inflationPercentLabel => 'نسبة التضخم (%)';
+
+  @override
+  String get inflationPercentHint => 'مثل 2.5';
+
+  @override
+  String get inflationPercentInvalidError => 'أدخل رقمًا، مثل 2.5';
+
+  @override
+  String get inflationCountryGlobal => 'البلد: عالمي';
+
+  @override
+  String inflationCountryNamed(String country) {
+    return 'البلد: $country';
+  }
+
+  @override
+  String get inflationUseWorldwideRate => 'استخدام المعدل العالمي';
+
+  @override
+  String get pickerSingleDate => 'تاريخ واحد';
+
+  @override
+  String get pickerRange => 'نطاق';
+
+  @override
+  String get dateStepDay => 'يوم';
+
+  @override
+  String get dateStepMonth => 'شهر';
+
+  @override
+  String get dateStepYear => 'سنة';
+
+  @override
+  String get feeStructureTitle => 'هيكل الرسوم';
+
+  @override
+  String get feeNoRulesApplied => 'لم تُطبَّق أي قواعد رسوم.';
+
+  @override
+  String get feeAddRule => 'إضافة قاعدة رسوم';
+
+  @override
+  String get feeFixedFee => 'رسوم ثابتة';
+
+  @override
+  String get feePercentFee => 'رسوم بالنسبة المئوية';
+
+  @override
+  String get feeTaxRate => 'معدل الضريبة';
+
+  @override
+  String get feeUnknownRule => 'قاعدة غير معروفة';
+
+  @override
+  String get feeRatePercentLabel => 'المعدل (%)';
+
+  @override
+  String get feeTaxRatePercentLabel => 'معدل الضريبة (%)';
+
+  @override
+  String get feeCostBasisLabel => 'أساس التكلفة';
+
+  @override
+  String deleteAccountsConfirmTitle(num count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+      
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString حسابات',
+      one: 'هذا الحساب',
+    );
+    return 'حذف $_temp0؟';
+  }
+
+  @override
+  String get deleteAccountsConfirmMessage => 'هل تريد بالتأكيد حذف الحسابات المحددة؟ ستُحذف جميع المعاملات المرتبطة بها.';
+
+  @override
+  String get changeAccountTypeTitle => 'تغيير نوع الحساب';
+
+  @override
+  String get accountsPreviousPeriodDescription => 'الانتقال إلى الشهر أو السنة السابقة';
+
+  @override
+  String get accountsNextPeriodDescription => 'الانتقال إلى الشهر أو السنة التالية';
+
+  @override
+  String get accountsFilterDescription => 'تصفية الحسابات حسب النوع أو حالة الإخفاء';
+
+  @override
+  String get accountsSelectDateDescription => 'اختر تاريخًا محددًا لعرض الأرصدة السابقة';
+
+  @override
+  String get accountsSortDescription => 'التبديل بين ترتيب الأرصدة تصاعديًا وتنازليًا';
+
+  @override
+  String get smsRuleCategoryOptional => 'الفئة (اختياري)';
+
+  @override
+  String get smsRuleCategoryHelp => 'تجاوز الفئة لهذه القاعدة';
 }

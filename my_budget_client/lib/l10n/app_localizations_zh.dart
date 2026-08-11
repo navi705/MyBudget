@@ -2068,4 +2068,205 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get selectDialogNoMatches => '没有符合搜索的结果';
+
+  @override
+  String get addButton => '添加';
+
+  @override
+  String get retryButton => '重试';
+
+  @override
+  String get unknownLabel => '未知';
+
+  @override
+  String get globalLabel => '全球';
+
+  @override
+  String dateWithValueLabel(String date) {
+    return '日期：$date';
+  }
+
+  @override
+  String selectColorTitle(String label) {
+    return '选择$label颜色';
+  }
+
+  @override
+  String get assetAddTitle => '添加资产数据';
+
+  @override
+  String get assetEditTitle => '编辑资产数据';
+
+  @override
+  String get assetAddDescription => '记录某项资产的价值或数量';
+
+  @override
+  String get assetNameLabel => '资产名称（例如 苹果股票）';
+
+  @override
+  String get assetIdLabel => '资产代码（例如 AAPL）';
+
+  @override
+  String get assetValueLabel => '价值（单价）';
+
+  @override
+  String get assetTypeOptionalLabel => '资产类型（可选）';
+
+  @override
+  String get assetLinkedAccountOptionalLabel => '关联账户（可选）';
+
+  @override
+  String get assetNameRequiredError => '请为该资产填写名称';
+
+  @override
+  String get assetIdRequiredError => '请为该资产填写代码，例如 AAPL';
+
+  @override
+  String get assetValueInvalidError => '请输入数字，例如 150.25';
+
+  @override
+  String get assetNoAssetsFound => '未找到资产。';
+
+  @override
+  String assetError(String error) {
+    return '错误：$error';
+  }
+
+  @override
+  String get assetDeleteConfirmTitle => '删除资产？';
+
+  @override
+  String assetDeleteConfirmMessage(num count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+      
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '这 $countString 项资产',
+      one: '这项资产',
+    );
+    return '您确定要删除$_temp0吗？';
+  }
+
+  @override
+  String get assetDeleteSelectedDescription => '永久删除所有选中的资产记录';
+
+  @override
+  String get inflationEditRate => '编辑通胀率';
+
+  @override
+  String get inflationAddDescription => '为指定日期和国家输入新的通胀百分比';
+
+  @override
+  String get inflationPercentLabel => '通胀百分比 (%)';
+
+  @override
+  String get inflationPercentHint => '例如 2.5';
+
+  @override
+  String get inflationPercentInvalidError => '请输入数字，例如 2.5';
+
+  @override
+  String get inflationCountryGlobal => '国家：全球';
+
+  @override
+  String inflationCountryNamed(String country) {
+    return '国家：$country';
+  }
+
+  @override
+  String get inflationUseWorldwideRate => '使用全球通用比率';
+
+  @override
+  String get pickerSingleDate => '单个日期';
+
+  @override
+  String get pickerRange => '日期范围';
+
+  @override
+  String get dateStepDay => '日';
+
+  @override
+  String get dateStepMonth => '月';
+
+  @override
+  String get dateStepYear => '年';
+
+  @override
+  String get feeStructureTitle => '费用结构';
+
+  @override
+  String get feeNoRulesApplied => '未应用任何费用规则。';
+
+  @override
+  String get feeAddRule => '添加费用规则';
+
+  @override
+  String get feeFixedFee => '固定费用';
+
+  @override
+  String get feePercentFee => '百分比费用';
+
+  @override
+  String get feeTaxRate => '税率';
+
+  @override
+  String get feeUnknownRule => '未知规则';
+
+  @override
+  String get feeRatePercentLabel => '费率 (%)';
+
+  @override
+  String get feeTaxRatePercentLabel => '税率 (%)';
+
+  @override
+  String get feeCostBasisLabel => '成本基础';
+
+  @override
+  String deleteAccountsConfirmTitle(num count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+      
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString 个账户',
+      one: '此账户',
+    );
+    return '删除$_temp0？';
+  }
+
+  @override
+  String get deleteAccountsConfirmMessage => '确定要删除所选账户吗？所有关联的交易都将被删除。';
+
+  @override
+  String get changeAccountTypeTitle => '更改账户类型';
+
+  @override
+  String get accountsPreviousPeriodDescription => '转到上一个月或上一年';
+
+  @override
+  String get accountsNextPeriodDescription => '转到下一个月或下一年';
+
+  @override
+  String get accountsFilterDescription => '按类型或隐藏状态筛选账户';
+
+  @override
+  String get accountsSelectDateDescription => '选择具体日期以查看历史余额';
+
+  @override
+  String get accountsSortDescription => '在余额升序和降序之间切换';
+
+  @override
+  String get smsRuleCategoryOptional => '类别（可选）';
+
+  @override
+  String get smsRuleCategoryHelp => '为此规则覆盖类别';
 }

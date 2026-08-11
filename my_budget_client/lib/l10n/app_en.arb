@@ -650,5 +650,262 @@
     "selectDialogNoMatches": "No matches for your search",
     "@selectDialogNoMatches": {
         "description": "Shown inside a single-select picker when the list has items but the search text matches none of them"
+    },
+    "addButton": "Add",
+    "@addButton": {
+        "description": "Label of the confirming button on a dialog that creates a new record, as opposed to updating an existing one"
+    },
+    "retryButton": "Retry",
+    "@retryButton": {
+        "description": "Button on an error placeholder that re-runs the failed load"
+    },
+    "unknownLabel": "Unknown",
+    "@unknownLabel": {
+        "description": "Stand-in shown where a value is missing, for example an error with no message attached"
+    },
+    "globalLabel": "Global",
+    "@globalLabel": {
+        "description": "Name for the worldwide inflation rate, the one used when a record names no specific country"
+    },
+    "dateWithValueLabel": "Date: {date}",
+    "@dateWithValueLabel": {
+        "description": "Row in a form showing which date the record is filed under; tapping it opens the date picker",
+        "placeholders": {
+            "date": {
+                "type": "String",
+                "example": "14 Mar 2025"
+            }
+        }
+    },
+    "selectColorTitle": "Select {label} Color",
+    "@selectColorTitle": {
+        "description": "Title of the colour wheel dialog, naming which of the theme colours is being changed",
+        "placeholders": {
+            "label": {
+                "type": "String",
+                "example": "Primary"
+            }
+        }
+    },
+    "assetAddTitle": "Add Asset Data",
+    "@assetAddTitle": {
+        "description": "Title of the dialog that records a new asset price or quantity, and the label of the button that opens it"
+    },
+    "assetEditTitle": "Edit Asset Data",
+    "@assetEditTitle": {
+        "description": "Title of the same dialog when it is editing an asset record that already exists"
+    },
+    "assetAddDescription": "Record value or quantity of a specific asset",
+    "@assetAddDescription": {
+        "description": "Second-level tooltip text explaining what the add button on the assets tab does"
+    },
+    "assetNameLabel": "Asset Name (e.g. Apple Stock)",
+    "@assetNameLabel": {
+        "description": "Field label for the human-readable name of an asset, with an example in brackets"
+    },
+    "assetIdLabel": "Asset ID (e.g. AAPL)",
+    "@assetIdLabel": {
+        "description": "Field label for the ticker or symbol that identifies an asset, with an example in brackets"
+    },
+    "assetValueLabel": "Value (Price per unit)",
+    "@assetValueLabel": {
+        "description": "Field label for the price of one unit of the asset, as opposed to the total holding value"
+    },
+    "assetTypeOptionalLabel": "Asset Type (Optional)",
+    "@assetTypeOptionalLabel": {
+        "description": "Field label for the free-text asset category (stock, crypto, property); may be left blank"
+    },
+    "assetLinkedAccountOptionalLabel": "Linked Account (Optional)",
+    "@assetLinkedAccountOptionalLabel": {
+        "description": "Field label for the account whose balance this asset backs; may be left blank"
+    },
+    "assetNameRequiredError": "Give the asset a name",
+    "@assetNameRequiredError": {
+        "description": "Validation message under the asset name field when it was left empty on save"
+    },
+    "assetIdRequiredError": "Give the asset an ID, for example AAPL",
+    "@assetIdRequiredError": {
+        "description": "Validation message under the asset ID field when it was left empty on save"
+    },
+    "assetValueInvalidError": "Enter a number, for example 150.25",
+    "@assetValueInvalidError": {
+        "description": "Validation message under the asset value field when it was empty or could not be parsed as a number"
+    },
+    "assetNoAssetsFound": "No assets found.",
+    "@assetNoAssetsFound": {
+        "description": "Empty state on the assets tab when no asset record matches the active period and filters"
+    },
+    "assetError": "Error: {error}",
+    "@assetError": {
+        "description": "Failure text on the assets tab, shown full-screen while the list is empty and as a snack bar otherwise",
+        "placeholders": {
+            "error": {
+                "type": "String",
+                "example": "database is locked"
+            }
+        }
+    },
+    "assetDeleteConfirmTitle": "Delete Assets?",
+    "@assetDeleteConfirmTitle": {
+        "description": "Title of the confirmation dialog shown before asset records are deleted"
+    },
+    "assetDeleteConfirmMessage": "Are you sure you want to delete {count, plural, =1{this asset} other{{count} assets}}?",
+    "@assetDeleteConfirmMessage": {
+        "description": "Body of the asset delete confirmation, naming how many records are about to go",
+        "placeholders": {
+            "count": {
+                "type": "num",
+                "format": "compact"
+            }
+        }
+    },
+    "assetDeleteSelectedDescription": "Permanently delete all selected asset records",
+    "@assetDeleteSelectedDescription": {
+        "description": "Second-level tooltip on the delete button of the assets selection app bar, warning the removal is permanent"
+    },
+    "inflationEditRate": "Edit Inflation Rate",
+    "@inflationEditRate": {
+        "description": "Title of the inflation dialog when it is editing a rate that already exists"
+    },
+    "inflationAddDescription": "Enter a new inflation percentage for a specific date and country",
+    "@inflationAddDescription": {
+        "description": "Second-level tooltip text explaining what the add button on the inflation tab does"
+    },
+    "inflationPercentLabel": "Inflation Percent (%)",
+    "@inflationPercentLabel": {
+        "description": "Field label for the inflation rate itself, expressed as a percentage"
+    },
+    "inflationPercentHint": "e.g. 2.5",
+    "@inflationPercentHint": {
+        "description": "Placeholder inside the inflation percent field showing the expected number format"
+    },
+    "inflationPercentInvalidError": "Enter a number, for example 2.5",
+    "@inflationPercentInvalidError": {
+        "description": "Validation message under the inflation percent field when it was empty or could not be parsed as a number"
+    },
+    "inflationCountryGlobal": "Country: Global",
+    "@inflationCountryGlobal": {
+        "description": "Row in the inflation dialog while no country is picked, meaning the rate applies worldwide"
+    },
+    "inflationCountryNamed": "Country: {country}",
+    "@inflationCountryNamed": {
+        "description": "Row in the inflation dialog naming the country the rate is filed under",
+        "placeholders": {
+            "country": {
+                "type": "String",
+                "example": "Germany"
+            }
+        }
+    },
+    "inflationUseWorldwideRate": "Use the worldwide rate",
+    "@inflationUseWorldwideRate": {
+        "description": "Tooltip on the button that clears the picked country so the rate applies worldwide again"
+    },
+    "pickerSingleDate": "Single Date",
+    "@pickerSingleDate": {
+        "description": "Tab in the date picker that filters by one date rather than a span of dates"
+    },
+    "pickerRange": "Range",
+    "@pickerRange": {
+        "description": "Tab in the date picker that filters by a span between two dates"
+    },
+    "dateStepDay": "Day",
+    "@dateStepDay": {
+        "description": "Granularity button in the date picker: step through the data one day at a time"
+    },
+    "dateStepMonth": "Month",
+    "@dateStepMonth": {
+        "description": "Granularity button in the date picker: step through the data one month at a time"
+    },
+    "dateStepYear": "Year",
+    "@dateStepYear": {
+        "description": "Granularity button in the date picker: step through the data one year at a time"
+    },
+    "feeStructureTitle": "Fee Structure",
+    "@feeStructureTitle": {
+        "description": "Heading of the editor where an account's fee and tax rules are listed"
+    },
+    "feeNoRulesApplied": "No fee rules applied.",
+    "@feeNoRulesApplied": {
+        "description": "Empty state of the fee editor when the account charges no fees at all"
+    },
+    "feeAddRule": "Add Fee Rule",
+    "@feeAddRule": {
+        "description": "Button that opens the menu of fee rule kinds to append to an account"
+    },
+    "feeFixedFee": "Fixed Fee",
+    "@feeFixedFee": {
+        "description": "Fee rule that charges the same flat amount regardless of transaction size"
+    },
+    "feePercentFee": "Percent Fee",
+    "@feePercentFee": {
+        "description": "Fee rule that charges a share of the transaction amount"
+    },
+    "feeTaxRate": "Tax Rate",
+    "@feeTaxRate": {
+        "description": "Fee rule that charges tax on the gain over a cost basis"
+    },
+    "feeUnknownRule": "Unknown Rule",
+    "@feeUnknownRule": {
+        "description": "Fallback heading for a stored fee rule of a kind this build does not recognise"
+    },
+    "feeRatePercentLabel": "Rate (%)",
+    "@feeRatePercentLabel": {
+        "description": "Field label for the share charged by a percent fee rule"
+    },
+    "feeTaxRatePercentLabel": "Tax Rate (%)",
+    "@feeTaxRatePercentLabel": {
+        "description": "Field label for the share charged by a tax rule"
+    },
+    "feeCostBasisLabel": "Cost Basis",
+    "@feeCostBasisLabel": {
+        "description": "Field label for the amount a tax rule subtracts before taxing the remainder"
+    },
+    "deleteAccountsConfirmTitle": "Delete {count, plural, =1{this account} other{{count} accounts}}?",
+    "@deleteAccountsConfirmTitle": {
+        "description": "Title of the confirmation shown before deleting several selected accounts at once",
+        "placeholders": {
+            "count": {
+                "type": "num",
+                "format": "compact",
+                "example": "3"
+            }
+        }
+    },
+    "deleteAccountsConfirmMessage": "Are you sure you want to delete the selected accounts? All associated transactions will be deleted.",
+    "@deleteAccountsConfirmMessage": {
+        "description": "Body of the bulk account delete confirmation, warning that the transactions go too"
+    },
+    "changeAccountTypeTitle": "Change Account Type",
+    "@changeAccountTypeTitle": {
+        "description": "Title of the dialog that reassigns the account type of several selected accounts"
+    },
+    "accountsPreviousPeriodDescription": "Go to the previous month or year",
+    "@accountsPreviousPeriodDescription": {
+        "description": "Second-level tooltip on the accounts app bar's back arrow, which steps the balance date back"
+    },
+    "accountsNextPeriodDescription": "Go to the next month or year",
+    "@accountsNextPeriodDescription": {
+        "description": "Second-level tooltip on the accounts app bar's forward arrow, which steps the balance date on"
+    },
+    "accountsFilterDescription": "Filter accounts by type or hidden status",
+    "@accountsFilterDescription": {
+        "description": "Second-level tooltip on the accounts filter button"
+    },
+    "accountsSelectDateDescription": "Choose a specific date to view historical balances",
+    "@accountsSelectDateDescription": {
+        "description": "Second-level tooltip on the accounts date button, which shows balances as of a chosen day"
+    },
+    "accountsSortDescription": "Switch between ascending and descending balance order",
+    "@accountsSortDescription": {
+        "description": "Second-level tooltip on the accounts sort button, which flips the balance ordering"
+    },
+    "smsRuleCategoryOptional": "Category (optional)",
+    "@smsRuleCategoryOptional": {
+        "description": "Field label on the SMS rule builder for the category this rule forces, which may be left unset"
+    },
+    "smsRuleCategoryHelp": "Override category for this rule",
+    "@smsRuleCategoryHelp": {
+        "description": "Helper text under the SMS rule category field explaining that it overrides the parsed category"
     }
 }

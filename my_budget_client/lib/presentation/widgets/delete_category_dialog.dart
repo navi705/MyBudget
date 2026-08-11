@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 
@@ -34,12 +35,13 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final availableCategories = widget.allCategories
         .where((c) => c.id != widget.categoryToDelete.id)
         .toList();
 
     return AlertDialog(
-      title: Text('Delete ${widget.categoryToDelete.name}?'),
+      title: Text(l10n.deleteCategoryConfirmTitle(widget.categoryToDelete.name)),
       content: RadioGroup<DeleteCategoryOption>(
         groupValue: _selectedOption,
         onChanged: (value) {
@@ -50,11 +52,9 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'This category has associated transactions. What would you like to do?',
-            ),
+            Text(l10n.deleteCategoryMessage),
             ListTile(
-              title: const Text('Reassign transactions to another category'),
+              title: Text(l10n.deleteCategoryReassign),
               leading: Radio<DeleteCategoryOption>(
                 value: DeleteCategoryOption.reassign,
               ),
@@ -77,10 +77,12 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
                     _newCategoryId = value;
                   });
                 },
-                decoration: const InputDecoration(labelText: 'New Category'),
+                decoration: InputDecoration(
+                  labelText: l10n.deleteCategoryNewCategory,
+                ),
               ),
             ListTile(
-              title: const Text('Delete all associated transactions'),
+              title: Text(l10n.deleteCategoryDeleteAll),
               leading: Radio<DeleteCategoryOption>(
                 value: DeleteCategoryOption.delete,
               ),
@@ -96,7 +98,7 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancelButton),
         ),
         FilledButton.tonal(
           onPressed: () {
@@ -115,7 +117,7 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
             );
             Navigator.of(context).pop();
           },
-          child: const Text('Confirm'),
+          child: Text(l10n.confirmButton),
         ),
       ],
     );

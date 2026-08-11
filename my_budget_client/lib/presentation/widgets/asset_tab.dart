@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
@@ -35,6 +36,7 @@ class _AssetTabContent extends StatelessWidget {
     AssetDataDomain? asset,
   }) async {
     final bloc = context.read<AssetBloc>();
+    final l10n = context.l10n;
     final nameController = TextEditingController(text: asset?.name ?? '');
     final assetIdController = TextEditingController(text: asset?.assetId ?? '');
     final valueController = TextEditingController(
@@ -70,7 +72,9 @@ class _AssetTabContent extends StatelessWidget {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: Text(asset == null ? 'Add Asset Data' : 'Edit Asset Data'),
+          title: Text(
+            asset == null ? l10n.assetAddTitle : l10n.assetEditTitle,
+          ),
           content: SingleChildScrollView(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 250),
@@ -82,7 +86,7 @@ class _AssetTabContent extends StatelessWidget {
                     TextField(
                       controller: nameController,
                       decoration: InputDecoration(
-                        labelText: 'Asset Name (e.g. Apple Stock)',
+                        labelText: l10n.assetNameLabel,
                         // Save used to be a bare `if (...)` with no else, so
                         // any of these three left blank or unparseable made
                         // the button do nothing at all and the dialog just
@@ -93,14 +97,14 @@ class _AssetTabContent extends StatelessWidget {
                     TextField(
                       controller: assetIdController,
                       decoration: InputDecoration(
-                        labelText: 'Asset ID (e.g. AAPL)',
+                        labelText: l10n.assetIdLabel,
                         errorText: assetIdError,
                       ),
                     ),
                     TextField(
                       controller: valueController,
                       decoration: InputDecoration(
-                        labelText: 'Value (Price per unit)',
+                        labelText: l10n.assetValueLabel,
                         errorText: valueError,
                       ),
                       keyboardType: const TextInputType.numberWithOptions(
@@ -109,21 +113,23 @@ class _AssetTabContent extends StatelessWidget {
                     ),
                     TextField(
                       controller: quantityController,
-                      decoration: const InputDecoration(labelText: 'Quantity'),
+                      decoration: InputDecoration(
+                        labelText: l10n.quantityFormLabel,
+                      ),
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
                     ),
                     TextField(
                       controller: assetTypeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Asset Type (Optional)',
+                      decoration: InputDecoration(
+                        labelText: l10n.assetTypeOptionalLabel,
                       ),
                     ),
                     TextField(
                       controller: descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Description (Optional)',
+                      decoration: InputDecoration(
+                        labelText: l10n.descriptionOptionalLabel,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -132,7 +138,7 @@ class _AssetTabContent extends StatelessWidget {
                         final account = await showSingleSelectDialog<Account>(
                           context: context,
                           items: accounts,
-                          title: 'Select Linked Account',
+                          title: l10n.selectLinkedAccountTitle,
                           selectedItem: selectedAccount,
                           itemBuilder: (account) => Text(account.name),
                           stringGetter: (account) => account.name,
@@ -140,18 +146,20 @@ class _AssetTabContent extends StatelessWidget {
                         setState(() => selectedAccount = account);
                       },
                       child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Linked Account (Optional)',
-                          suffixIcon: Icon(Icons.arrow_drop_down),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l10n.assetLinkedAccountOptionalLabel,
+                          suffixIcon: const Icon(Icons.arrow_drop_down),
+                          border: const OutlineInputBorder(),
                         ),
-                        child: Text(selectedAccount?.name ?? 'None'),
+                        child: Text(selectedAccount?.name ?? l10n.noneLabel),
                       ),
                     ),
                     const SizedBox(height: 16),
                     ListTile(
                       title: Text(
-                        'Date: ${DateFormat('dd MMM yyyy').format(selectedDate)}',
+                        l10n.dateWithValueLabel(
+                          DateFormat('dd MMM yyyy').format(selectedDate),
+                        ),
                       ),
                       trailing: const Icon(Icons.calendar_today),
                       onTap: () async {
@@ -174,7 +182,7 @@ class _AssetTabContent extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancelButton),
             ),
             FilledButton.tonal(
               onPressed: () {
@@ -186,12 +194,14 @@ class _AssetTabContent extends StatelessWidget {
 
                 if (value == null || name.isEmpty || assetId.isEmpty) {
                   setState(() {
-                    nameError = name.isEmpty ? 'Give the asset a name' : null;
+                    nameError = name.isEmpty
+                        ? l10n.assetNameRequiredError
+                        : null;
                     assetIdError = assetId.isEmpty
-                        ? 'Give the asset an ID, for example AAPL'
+                        ? l10n.assetIdRequiredError
                         : null;
                     valueError = value == null
-                        ? 'Enter a number, for example 150.25'
+                        ? l10n.assetValueInvalidError
                         : null;
                   });
                 } else {
@@ -220,7 +230,7 @@ class _AssetTabContent extends StatelessWidget {
                   Navigator.pop(context);
                 }
               },
-              child: Text(asset == null ? 'Add' : 'Update'),
+              child: Text(asset == null ? l10n.addButton : l10n.updateButton),
             ),
           ],
         ),
@@ -242,9 +252,9 @@ class _AssetTabContent extends StatelessWidget {
             floatingActionButton: state.isSelectionModeActive
                 ? null
                 : MultiLevelTooltip(
-                    message: 'Add Asset Data',
+                    message: context.l10n.assetAddTitle,
                     actionId: 'add_action',
-                    description: 'Record value or quantity of a specific asset',
+                    description: context.l10n.assetAddDescription,
                     child: FloatingActionButton(
                       onPressed: () => _showAddEditAssetDialog(context),
                       child: const Icon(Icons.add),

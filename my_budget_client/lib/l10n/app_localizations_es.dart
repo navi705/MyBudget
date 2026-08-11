@@ -2068,4 +2068,205 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get selectDialogNoMatches => 'No hay resultados para su búsqueda';
+
+  @override
+  String get addButton => 'Añadir';
+
+  @override
+  String get retryButton => 'Reintentar';
+
+  @override
+  String get unknownLabel => 'Desconocido';
+
+  @override
+  String get globalLabel => 'Global';
+
+  @override
+  String dateWithValueLabel(String date) {
+    return 'Fecha: $date';
+  }
+
+  @override
+  String selectColorTitle(String label) {
+    return 'Seleccionar color $label';
+  }
+
+  @override
+  String get assetAddTitle => 'Añadir datos del activo';
+
+  @override
+  String get assetEditTitle => 'Editar datos del activo';
+
+  @override
+  String get assetAddDescription => 'Registrar el valor o la cantidad de un activo concreto';
+
+  @override
+  String get assetNameLabel => 'Nombre del activo (p. ej. acciones de Apple)';
+
+  @override
+  String get assetIdLabel => 'ID del activo (p. ej. AAPL)';
+
+  @override
+  String get assetValueLabel => 'Valor (precio por unidad)';
+
+  @override
+  String get assetTypeOptionalLabel => 'Tipo de activo (opcional)';
+
+  @override
+  String get assetLinkedAccountOptionalLabel => 'Cuenta vinculada (opcional)';
+
+  @override
+  String get assetNameRequiredError => 'Ponle un nombre al activo';
+
+  @override
+  String get assetIdRequiredError => 'Indica un ID para el activo, por ejemplo AAPL';
+
+  @override
+  String get assetValueInvalidError => 'Introduce un número, por ejemplo 150,25';
+
+  @override
+  String get assetNoAssetsFound => 'No se encontraron activos.';
+
+  @override
+  String assetError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get assetDeleteConfirmTitle => '¿Eliminar activos?';
+
+  @override
+  String assetDeleteConfirmMessage(num count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+      
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString activos',
+      one: 'este activo',
+    );
+    return '¿Está seguro de que desea eliminar $_temp0?';
+  }
+
+  @override
+  String get assetDeleteSelectedDescription => 'Eliminar definitivamente todos los registros de activos seleccionados';
+
+  @override
+  String get inflationEditRate => 'Editar tasa de inflación';
+
+  @override
+  String get inflationAddDescription => 'Introduce un nuevo porcentaje de inflación para una fecha y un país concretos';
+
+  @override
+  String get inflationPercentLabel => 'Porcentaje de inflación (%)';
+
+  @override
+  String get inflationPercentHint => 'p. ej. 2,5';
+
+  @override
+  String get inflationPercentInvalidError => 'Introduce un número, por ejemplo 2,5';
+
+  @override
+  String get inflationCountryGlobal => 'País: global';
+
+  @override
+  String inflationCountryNamed(String country) {
+    return 'País: $country';
+  }
+
+  @override
+  String get inflationUseWorldwideRate => 'Usar la tasa mundial';
+
+  @override
+  String get pickerSingleDate => 'Fecha única';
+
+  @override
+  String get pickerRange => 'Rango';
+
+  @override
+  String get dateStepDay => 'Día';
+
+  @override
+  String get dateStepMonth => 'Mes';
+
+  @override
+  String get dateStepYear => 'Año';
+
+  @override
+  String get feeStructureTitle => 'Estructura de comisiones';
+
+  @override
+  String get feeNoRulesApplied => 'No se aplican reglas de comisión.';
+
+  @override
+  String get feeAddRule => 'Añadir regla de comisión';
+
+  @override
+  String get feeFixedFee => 'Comisión fija';
+
+  @override
+  String get feePercentFee => 'Comisión porcentual';
+
+  @override
+  String get feeTaxRate => 'Tasa impositiva';
+
+  @override
+  String get feeUnknownRule => 'Regla desconocida';
+
+  @override
+  String get feeRatePercentLabel => 'Tasa (%)';
+
+  @override
+  String get feeTaxRatePercentLabel => 'Tasa impositiva (%)';
+
+  @override
+  String get feeCostBasisLabel => 'Coste base';
+
+  @override
+  String deleteAccountsConfirmTitle(num count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+      
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString cuentas',
+      one: 'esta cuenta',
+    );
+    return '¿Eliminar $_temp0?';
+  }
+
+  @override
+  String get deleteAccountsConfirmMessage => '¿Seguro que quieres eliminar las cuentas seleccionadas? Se eliminarán todas las transacciones asociadas.';
+
+  @override
+  String get changeAccountTypeTitle => 'Cambiar tipo de cuenta';
+
+  @override
+  String get accountsPreviousPeriodDescription => 'Ir al mes o año anterior';
+
+  @override
+  String get accountsNextPeriodDescription => 'Ir al mes o año siguiente';
+
+  @override
+  String get accountsFilterDescription => 'Filtrar cuentas por tipo o por estado oculto';
+
+  @override
+  String get accountsSelectDateDescription => 'Elige una fecha concreta para ver los saldos históricos';
+
+  @override
+  String get accountsSortDescription => 'Alternar entre orden ascendente y descendente del saldo';
+
+  @override
+  String get smsRuleCategoryOptional => 'Categoría (opcional)';
+
+  @override
+  String get smsRuleCategoryHelp => 'Sustituir la categoría para esta regla';
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 
@@ -40,19 +41,18 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final availableAccounts = widget.allAccounts
         .where((a) => a.id != widget.accountToDelete.id)
         .toList();
 
     return AlertDialog(
-      title: Text('Delete ${widget.accountToDelete.name}?'),
+      title: Text(l10n.deleteAccountConfirmTitle(widget.accountToDelete.name)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'This account may have associated transactions. What would you like to do?',
-            ),
+            Text(l10n.deleteAccountMessage),
             const SizedBox(height: 16),
             RadioGroup<DeleteAccountOption>(
               groupValue: _selectedOption,
@@ -65,9 +65,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
                 children: [
                   if (availableAccounts.isNotEmpty) ...[
                     RadioListTile<DeleteAccountOption>(
-                      title: const Text(
-                        'Reassign transactions to another account',
-                      ),
+                      title: Text(l10n.deleteAccountReassign),
                       value: DeleteAccountOption.reassign,
                     ),
                     if (_selectedOption == DeleteAccountOption.reassign)
@@ -88,15 +86,15 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
                               _newAccountId = value;
                             });
                           },
-                          decoration: const InputDecoration(
-                            labelText: 'New Account',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l10n.deleteAccountNewAccount,
+                            border: const OutlineInputBorder(),
                           ),
                         ),
                       ),
                   ],
                   RadioListTile<DeleteAccountOption>(
-                    title: const Text('Delete all associated transactions'),
+                    title: Text(l10n.deleteAccountDeleteAll),
                     value: DeleteAccountOption.delete,
                   ),
                 ],
@@ -108,7 +106,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancelButton),
         ),
         FilledButton.tonal(
           onPressed: () {
@@ -132,7 +130,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
             Navigator.of(context).pop();
           },
           child: Text(
-            'Delete',
+            l10n.deleteButton,
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
         ),

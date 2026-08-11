@@ -57,7 +57,7 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   String _formatDate(BuildContext context) {
     if (state.filterMode == FilterMode.range) {
-      if (state.activeDateRange == null) return 'Select Range';
+      if (state.activeDateRange == null) return context.l10n.selectDateLabel;
       final start = MaterialLocalizations.of(
         context,
       ).formatShortDate(state.activeDateRange!.start);
@@ -99,6 +99,7 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final bloc = context.read<AssetBloc>();
     final onSurface = Theme.of(context).colorScheme.onSurface;
+    final l10n = context.l10n;
 
     if (state.isSelectionModeActive) {
       return _SelectionAppBar(
@@ -125,9 +126,9 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
       mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
       children: [
         MultiLevelTooltip(
-          message: 'Previous Period',
+          message: l10n.previousPeriodTooltip,
           actionId: 'prev_period',
-          description: 'Move back by one day, month, or year',
+          description: l10n.previousPeriodDescription,
           child: IconButton(
             icon: Icon(Icons.chevron_left, color: onSurface),
             onPressed: () => _navigate(bloc, -1),
@@ -135,13 +136,13 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
         if (isMobile)
           IconButton(
-            tooltip: context.l10n.filterTooltip,
+            tooltip: l10n.filterTooltip,
             icon: Icon(Icons.tune, color: onSurface),
             onPressed: () => showAssetFilterDialog(context),
           )
         else if (!isMobile) ...[
           IconButton(
-            tooltip: context.l10n.filterTooltip,
+            tooltip: l10n.filterTooltip,
             icon: Icon(Icons.tune, color: onSurface),
             onPressed: () => showAssetFilterDialog(context),
           ),
@@ -155,9 +156,9 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
         Flexible(
           fit: isMobile ? FlexFit.tight : FlexFit.loose,
           child: MultiLevelTooltip(
-            message: 'Select Date',
+            message: l10n.selectDateTooltip,
             actionId: 'asset_pick_date',
-            description: 'Change the active period or date range',
+            description: l10n.selectDateDescription,
             child: InkWell(
               onTap: () => _showCustomCalendar(context),
               child: Container(
@@ -181,9 +182,9 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
           RotatedBox(
             quarterTurns: state.sort == Sort.ascending ? 2 : 0,
             child: MultiLevelTooltip(
-              message: 'Sort Order',
+              message: l10n.sortOrderTooltip,
               actionId: 'asset_sort',
-              description: 'Toggle between ascending and descending order',
+              description: l10n.sortOrderDescription,
               child: IconButton(
                 icon: Icon(Icons.sort, color: onSurface),
                 onPressed: () {
@@ -203,9 +204,9 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
           RotatedBox(
             quarterTurns: state.sort == Sort.ascending ? 2 : 0,
             child: MultiLevelTooltip(
-              message: 'Sort Order',
+              message: l10n.sortOrderTooltip,
               actionId: 'asset_sort',
-              description: 'Toggle between ascending and descending order',
+              description: l10n.sortOrderDescription,
               child: IconButton(
                 icon: Icon(Icons.sort, color: onSurface),
                 onPressed: () {
@@ -220,9 +221,9 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
           const SizedBox(width: 8),
         ],
         MultiLevelTooltip(
-          message: 'Next Period',
+          message: l10n.nextPeriodTooltip,
           actionId: 'next_period',
-          description: 'Move forward by one day, month, or year',
+          description: l10n.nextPeriodDescription,
           child: IconButton(
             icon: Icon(Icons.chevron_right, color: onSurface),
             onPressed: () => _navigate(bloc, 1),
@@ -233,29 +234,33 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     return GenericFilterAppBar(
       centerWidget: centerWidget,
-      totalCountText: 'Total: ${state.totalCount}',
+      totalCountText: l10n.totalCountLabel(state.totalCount),
     );
   }
 
   void _showDeleteConfirmation(BuildContext context, AssetBloc bloc) {
+    final l10n = context.l10n;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Selected Assets?'),
+        title: Text(l10n.assetDeleteConfirmTitle),
         content: Text(
-          'Are you sure you want to delete ${state.selectedAssets.length} assets?',
+          l10n.assetDeleteConfirmMessage(state.selectedAssets.length),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
               bloc.add(DeleteSelectedAssets());
               Navigator.pop(context);
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(
+              l10n.deleteButton,
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -280,6 +285,7 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final isAllSelected = selectionCount == totalCount && totalCount > 0;
 
     return AppBar(
@@ -287,14 +293,16 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
         icon: const Icon(Icons.close),
         onPressed: onClearSelection,
       ),
-      title: Text('$selectionCount selected'),
+      title: Text(l10n.selectedCountLabel(selectionCount)),
       actions: [
         MultiLevelTooltip(
-          message: isAllSelected ? 'Deselect All' : 'Select All',
+          message: isAllSelected
+              ? l10n.deselectAllButton
+              : l10n.selectAllButton,
           actionId: 'asset_selection_all',
           description: isAllSelected
-              ? 'Clear all selections'
-              : 'Select all visible assets',
+              ? l10n.contextMenuDeselectAll
+              : l10n.contextMenuSelectAll,
           child: IconButton(
             icon: Icon(
               isAllSelected
@@ -306,9 +314,9 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
         if (selectionCount > 0)
           MultiLevelTooltip(
-            message: 'Delete Selected',
+            message: l10n.deleteSelectedButton,
             actionId: 'asset_selection_delete',
-            description: 'Remove the selected asset records from the database',
+            description: l10n.assetDeleteSelectedDescription,
             child: IconButton(
               icon: const Icon(Icons.delete),
               onPressed: onDelete,

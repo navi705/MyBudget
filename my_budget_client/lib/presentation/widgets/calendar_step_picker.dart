@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_date_pickers/flutter_date_pickers.dart' as date_pickers;
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
 enum PickerVisibility { visible, hidden }
 
@@ -178,7 +179,7 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
                   );
                   Navigator.of(context).pop();
                 },
-                child: const Text('Clear'),
+                child: Text(context.l10n.clearButton),
               ),
               const SizedBox(width: 8),
               FilledButton.tonal(
@@ -200,7 +201,7 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Apply'),
+                child: Text(context.l10n.applyButton),
               ),
             ],
           ),
@@ -213,9 +214,9 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text(
-          'Select Date',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        Text(
+          context.l10n.selectDateLabel,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         IconButton(
           icon: const Icon(Icons.close),
@@ -237,7 +238,7 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildTabButton(
-              label: 'Single Date',
+              label: context.l10n.pickerSingleDate,
               isSelected: _currentFilterMode == FilterMode.date,
               onTap: () {
                 setState(() {
@@ -252,7 +253,7 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
               color: Theme.of(context).dividerColor,
             ),
             _buildTabButton(
-              label: 'Range',
+              label: context.l10n.pickerRange,
               isSelected: _currentFilterMode == FilterMode.range,
               onTap: () => setState(() {
                 _currentFilterMode = FilterMode.range;
@@ -280,19 +281,19 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildStepButton('Day', DateStep.day),
+            _buildStepButton(context.l10n.dateStepDay, DateStep.day),
             Container(
               width: 1,
               height: 40,
               color: Theme.of(context).dividerColor,
             ),
-            _buildStepButton('Month', DateStep.month),
+            _buildStepButton(context.l10n.dateStepMonth, DateStep.month),
             Container(
               width: 1,
               height: 40,
               color: Theme.of(context).dividerColor,
             ),
-            _buildStepButton('Year', DateStep.year),
+            _buildStepButton(context.l10n.dateStepYear, DateStep.year),
           ],
         ),
       ),

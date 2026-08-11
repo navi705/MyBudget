@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 typedef GroupHeaderBuilder<K> =
@@ -143,7 +144,7 @@ class _GroupedPaginatedListState<T, K>
   @override
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) {
-      return const Center(child: Text('No items found.'));
+      return Center(child: Text(context.l10n.noItemsFound));
     }
 
     return NotificationListener<ScrollNotification>(

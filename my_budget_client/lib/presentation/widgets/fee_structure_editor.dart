@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/domain/services/fee_calculator.dart';
 
 class FeeStructureEditor extends StatefulWidget {
@@ -84,18 +85,19 @@ class _FeeStructureEditorState extends State<FeeStructureEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Fee Structure',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        Text(
+          l10n.feeStructureTitle,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         if (_rules.isEmpty)
-          const Text(
-            'No fee rules applied.',
-            style: TextStyle(color: Colors.grey),
+          Text(
+            l10n.feeNoRulesApplied,
+            style: const TextStyle(color: Colors.grey),
           ),
         ..._rules.asMap().entries.map((entry) {
           final index = entry.key;
@@ -130,19 +132,19 @@ class _FeeStructureEditorState extends State<FeeStructureEditor> {
           onSelected: _addRule,
           child: FilledButton.tonal(
             onPressed: null, // To use the popup menu as the button
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.add),
-                SizedBox(width: 8),
-                Text('Add Fee Rule'),
+                const Icon(Icons.add),
+                const SizedBox(width: 8),
+                Text(l10n.feeAddRule),
               ],
             ),
           ),
           itemBuilder: (context) => [
-            const PopupMenuItem(value: 'fixed', child: Text('Fixed Fee')),
-            const PopupMenuItem(value: 'percent', child: Text('Percent Fee')),
-            const PopupMenuItem(value: 'tax', child: Text('Tax Rate')),
+            PopupMenuItem(value: 'fixed', child: Text(l10n.feeFixedFee)),
+            PopupMenuItem(value: 'percent', child: Text(l10n.feePercentFee)),
+            PopupMenuItem(value: 'tax', child: Text(l10n.feeTaxRate)),
           ],
         ),
       ],
@@ -150,17 +152,19 @@ class _FeeStructureEditorState extends State<FeeStructureEditor> {
   }
 
   String _getRuleName(FeeRule rule) {
-    if (rule is FixedFee) return 'Fixed Fee';
-    if (rule is PercentFee) return 'Percent Fee';
-    if (rule is TaxRate) return 'Tax Rate';
-    return 'Unknown Rule';
+    final l10n = context.l10n;
+    if (rule is FixedFee) return l10n.feeFixedFee;
+    if (rule is PercentFee) return l10n.feePercentFee;
+    if (rule is TaxRate) return l10n.feeTaxRate;
+    return l10n.feeUnknownRule;
   }
 
   Widget _buildRuleEditor(int index, FeeRule rule) {
+    final l10n = context.l10n;
     if (rule is FixedFee) {
       return TextFormField(
         initialValue: rule.amount.toString(),
-        decoration: const InputDecoration(labelText: 'Amount'),
+        decoration: InputDecoration(labelText: l10n.amountLabel),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         onChanged: (value) {
           final amount = double.tryParse(value) ?? 0.0;
@@ -170,7 +174,7 @@ class _FeeStructureEditorState extends State<FeeStructureEditor> {
     } else if (rule is PercentFee) {
       return TextFormField(
         initialValue: (rule.rate * 100).toString(),
-        decoration: const InputDecoration(labelText: 'Rate (%)'),
+        decoration: InputDecoration(labelText: l10n.feeRatePercentLabel),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         onChanged: (value) {
           final rate = (double.tryParse(value) ?? 0.0) / 100;
@@ -182,7 +186,9 @@ class _FeeStructureEditorState extends State<FeeStructureEditor> {
         children: [
           TextFormField(
             initialValue: (rule.rate * 100).toString(),
-            decoration: const InputDecoration(labelText: 'Tax Rate (%)'),
+            decoration: InputDecoration(
+              labelText: l10n.feeTaxRatePercentLabel,
+            ),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (value) {
               final rate = (double.tryParse(value) ?? 0.0) / 100;
@@ -191,7 +197,7 @@ class _FeeStructureEditorState extends State<FeeStructureEditor> {
           ),
           TextFormField(
             initialValue: rule.costBasis.toString(),
-            decoration: const InputDecoration(labelText: 'Cost Basis'),
+            decoration: InputDecoration(labelText: l10n.feeCostBasisLabel),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (value) {
               final costBasis = double.tryParse(value) ?? 0.0;
