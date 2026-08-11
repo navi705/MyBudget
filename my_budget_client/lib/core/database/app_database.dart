@@ -1854,6 +1854,29 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     };
   }
 
+  /// Sum of transaction amounts strictly AFTER [cutoff], grouped by account.
+  ///
+  /// Unlike [getFutureSumsGrouped], this uses the exact [cutoff] instant rather
+  /// than snapping to end-of-day, so it exactly mirrors the reverse-balance
+  /// rule in FinanceCalculator (`tx.date.isAfter(date)`): for a standard
+  /// account, balanceAt(cutoff) == storedBalance - result[accountId].
+  Future<Map<String, double>> getFutureSumsExact(DateTime cutoff) async {
+    final amountExp = transactions.amount.sum();
+    final query = selectOnly(transactions)
+      ..addColumns([transactions.accountId, amountExp])
+      ..where(
+        transactions.date.isBiggerThanValue(cutoff) &
+            transactions.isDeleted.equals(false),
+      )
+      ..groupBy([transactions.accountId]);
+
+    final rows = await query.get();
+    return {
+      for (var row in rows)
+        row.read(transactions.accountId)!: row.read(amountExp) ?? 0.0,
+    };
+  }
+
   Future<List<GroupedTransactionTotal>> getTransactionTotalsGrouped({
     DateTime? dateFrom,
     DateTime? dateTo,
@@ -2176,6 +2199,49 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     final preset = updatedRate.preset.value;
     final recordId = '${from}_${to}_${date}_$preset';
     await _logChange(recordId, 'upsert');
+  }
+
+  /// Replaces an existing exchange rate by deleting the ORIGINAL row (matched
+  /// on its composite primary key from/to/date/preset) and inserting the
+  /// updated row, atomically. This prevents orphaned duplicates when the user
+  /// edits key fields (from/to/date/preset) of an existing rate.
+  Future<void> replaceExchangeRate(
+    ExchangeRateDomain original,
+    ExchangeRatesCompanion updated,
+  ) async {
+    final toInsert = updated.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+
+    await transaction(() async {
+      // Delete the ORIGINAL row by its composite primary key.
+      await (delete(exchangeRates)..where(
+            (t) =>
+                t.fromCurrencyCode.equals(original.fromCurrencyCode) &
+                t.toCurrencyCode.equals(original.toCurrencyCode) &
+                t.date.equals(original.date) &
+                t.preset.equals(original.preset),
+          ))
+          .go();
+
+      // Insert the updated row.
+      await into(
+        exchangeRates,
+      ).insert(toInsert, mode: InsertMode.insertOrReplace);
+    });
+
+    // Sync bookkeeping.
+    final originalDate = DateFormat('yyyy-MM-dd').format(original.date);
+    final originalId =
+        '${original.fromCurrencyCode}_${original.toCurrencyCode}_${originalDate}_${original.preset}';
+    final newDate = DateFormat('yyyy-MM-dd').format(toInsert.date.value);
+    final newId =
+        '${toInsert.fromCurrencyCode.value}_${toInsert.toCurrencyCode.value}_${newDate}_${toInsert.preset.value}';
+
+    if (originalId != newId) {
+      await _logChange(originalId, 'delete');
+    }
+    await _logChange(newId, 'upsert');
   }
 
   Future<void> insertAllExchangeRates(

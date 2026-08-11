@@ -270,119 +270,27 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final assets = results[5] as List<AssetDataDomain>;
       final categories = results[6] as List<Category>; // Added
 
-      // Fetch ALL transactions for proper calculation (FinanceCalculator needs history)
-      // Note: For large datasets we might need optimization, but FinanceCalculator is designed for full history.
-      // However, we can optimize by only fetching if standard account logic triggers.
-      // But FinanceCalculator expects the full snapshot.
+      // Transaction loading is scoped to exactly what each calculation needs,
+      // instead of pulling the full history into Dart:
+      //  * standard-account balances come from SQL future-sum aggregates
+      //    (storedBalance - SUM(amount after cutoff)) computed in the DB;
+      //  * asset accounts still need their own transaction history (quantity
+      //    accumulation) plus any linked cash transactions for asset stats;
+      //  * period stats only need transactions within the visible period range.
 
-      // OPTIMIZATION: Skip redundant pre-sort — account IDs are order-independent
-      // for the transaction fetch. The sort is applied later on accountsWithBalances.
-      final accountIds = accounts
-          .map((e) => e.id)
-          .whereType<String>()
-          .toList();
-
-      // OPTIMIZATION: Start both futures in parallel to overlap I/O wait times.
-      // getSetting is a cheap DB call that can run concurrently with the heavier
-      // transaction fetch.
-      final txFuture = _transactionRepository.getTransactionsWithFilters(
-        filters: TransactionFilters(accountId: accountIds),
-        limit: 1000000,
-      );
-      final settingFuture = _settingsRepository.getSetting(
+      final defaultCountrySetting = await _settingsRepository.getSetting(
         'default_inflation_country',
       );
-
-      PerformanceLogger().start('Accounts: getTransactionsWithFilters');
-      final allTransactions = await txFuture;
-      await PerformanceLogger().stop('Accounts: getTransactionsWithFilters');
-
-      final defaultCountrySetting = await settingFuture;
       final defaultCountry =
           defaultCountrySetting?.value ?? 'SRB'; // Default to Serbia
 
-      // Construct Snapshot
-      final snapshot = FinancialSnapshot(
-        accounts: accounts,
-        transactions: allTransactions,
-        assetData: assets,
-        categories: categories, // Added
-        exchangeRates: exchangeRates,
-        inflationRates: inflationRates,
-        date: currentState.activeDate,
-        dateStep: currentState.dateStep,
-        baseCurrency: 'EUR', // Should likely get this from User Settings
-      );
-
-      PerformanceLogger().start('FinanceCalculator: Calculations');
-
-      // Nominal balances are computed once here and threaded into the derived
-      // calculations (real balances, asset stats) via the `balances:` parameter,
-      // so calculateBalances() runs a single O(A×T) pass per snapshot instead of
-      // three. The not-yet-created zeroing below is applied before threading, so
-      // derived values stay consistent with the grid.
-
-      // 1. Calculate Nominal Balances (handles Asset Binding)
-      final nominalBalances = _financeCalculator.calculateBalances(snapshot);
-
-      // FIX: Force 0 balance for accounts not created yet
-      for (final account in accounts) {
-        if (snapshot.date.isBefore(account.creationDate)) {
-          nominalBalances[account.id!] = 0.0;
-        }
-      }
-
-      // Update Account Objects with Calculated Balances (for Grid)
-      final accountsWithBalances = accounts.map((a) {
-        if (nominalBalances.containsKey(a.id)) {
-          return a.copyWith(balance: nominalBalances[a.id]!);
-        }
-        return a;
-      }).toList();
-
-      // Sort with updated balances
-      final sortedAccounts = _sortAccounts(
-        accountsWithBalances,
-        exchangeRates,
-        filters.sort == Sort.ascending,
-      );
-
-      // 2. Calculate Real Balances (Inflation Adjusted)
-      final realBalances = _financeCalculator.calculateRealBalances(
-        snapshot,
-        defaultCountry: defaultCountry,
-        balances: nominalBalances,
-      );
-
-      // FIX: Force 0 real balance for accounts not created yet
-      for (final account in accounts) {
-        if (snapshot.date.isBefore(account.creationDate)) {
-          realBalances[account.id!] = 0.0;
-        }
-      }
-
-      // 3. Asset Stats (Added)
-      final assetStats = _financeCalculator.calculateAssetStats(
-        snapshot,
-        balances: nominalBalances,
-      );
-
-      // 3. Asset Values (Already computed in calculateBalances logic, but AccountsState expects a separate map)
-      // We can reuse nominalBalances for this if account is asset-bound.
-      // Or we can ask Calculator for specific asset breakdown?
-      // FinanceCalculator doesn't expose asset map directly, but calculateBalances returns AccountId -> Value.
-      // For legacy compatibility, we can pass nominalBalances as assetValues for asset-bound accounts.
-
-      // 4. Period Stats (Current)
-      // We need to define the period manually if snapshot doesn't auto-derive from DateStep
-      // FinanceCalculator helper needed? 'calculatePeriodStats' takes a DatePeriod.
-
+      // --- Period boundaries (depend only on activeDate + dateStep) ---
       DateTime periodStart;
-      DateTime periodEnd = currentState.activeDate; // Inclusive end usually?
-
+      DateTime periodEnd;
       switch (currentState.dateStep) {
         case DateStep.day:
           periodStart = currentState.activeDate;
+          periodEnd = currentState.activeDate;
           break;
         case DateStep.month:
           periodStart = DateTime(
@@ -390,9 +298,6 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
             currentState.activeDate.month,
             1,
           );
-          // Set end to last second of month? Or just strict range.
-          // FinanceCalculator logic: start <= t < end or start <= t <= end.
-          // Let's rely on standard period construction.
           periodEnd = DateTime(
             currentState.activeDate.year,
             currentState.activeDate.month + 1,
@@ -414,24 +319,13 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           );
           break;
       }
-      // Override periodEnd to 'activeDate' if we want 'upto now'?
-      // Usually "Period Stats" means "For this entire Month".
-      // Let's use the full natural period for the step.
 
-      final currentStats = _financeCalculator.calculatePeriodStats(
-        snapshot,
-        DatePeriod(periodStart, periodEnd),
-        defaultCountry: defaultCountry,
-      );
-
-      // 5. Period Stats (Previous)
       DateTime prevStart;
       DateTime prevEnd;
-
       switch (currentState.dateStep) {
         case DateStep.day:
           prevStart = periodStart.subtract(const Duration(days: 1));
-          prevEnd = prevStart; // Single day
+          prevEnd = prevStart;
           break;
         case DateStep.month:
           final p = DateTime(periodStart.year, periodStart.month - 1, 1);
@@ -444,8 +338,143 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
           break;
       }
 
+      final assetAccountIds = accounts
+          .where((a) => a.assetId != null && a.id != null)
+          .map((a) => a.id!)
+          .toList();
+
+      // --- Targeted transaction loads (replace the full-history fetch) ---
+      PerformanceLogger().start('Accounts: getTransactionsWithFilters');
+      final futureSums = await _transactionRepository.getFutureSumsExact(
+        currentState.activeDate,
+      );
+      final prevFutureSums = await _transactionRepository.getFutureSumsExact(
+        prevEnd,
+      );
+      // Period-range transactions cover both current and previous period
+      // (prevStart..periodEnd); used for income/expense stats only.
+      final periodTransactions = await _transactionRepository
+          .getTransactionsWithFilters(
+            filters: TransactionFilters(dateFrom: prevStart, dateTo: periodEnd),
+            limit: 1000000,
+          );
+      // Asset accounts need their own history plus any linked cash transactions
+      // (which may live on other accounts) for asset stats.
+      List<Transaction> assetTransactions = const [];
+      if (assetAccountIds.isNotEmpty) {
+        assetTransactions = await _transactionRepository
+            .getTransactionsWithFilters(
+              filters: TransactionFilters(accountId: assetAccountIds),
+              limit: 1000000,
+            );
+        final linkedIds = assetTransactions
+            .map((t) => t.linkedTransactionId)
+            .whereType<String>()
+            .toList();
+        if (linkedIds.isNotEmpty) {
+          final linked = await _transactionRepository.getTransactionsByIds(
+            linkedIds,
+          );
+          assetTransactions = [...assetTransactions, ...linked];
+        }
+      }
+      await PerformanceLogger().stop('Accounts: getTransactionsWithFilters');
+
+      // Snapshots carry only the transactions each calculation actually reads.
+      final baseSnapshot = FinancialSnapshot(
+        accounts: accounts,
+        transactions: const [],
+        assetData: assets,
+        categories: categories,
+        exchangeRates: exchangeRates,
+        inflationRates: inflationRates,
+        date: currentState.activeDate,
+        dateStep: currentState.dateStep,
+        baseCurrency: 'EUR', // Should likely get this from User Settings
+      );
+      final assetSnapshot = baseSnapshot.copyWith(
+        transactions: assetTransactions,
+      );
+      final periodSnapshot = baseSnapshot.copyWith(
+        transactions: periodTransactions,
+      );
+
+      PerformanceLogger().start('FinanceCalculator: Calculations');
+
+      // 1. Nominal balances.
+      //    Standard accounts: storedBalance - SUM(amount strictly after the
+      //    active date), computed by SQL — exactly the reverse-calc rule, with
+      //    no history walked in Dart.
+      //    Asset accounts: keep the FinanceCalculator asset valuation, fed only
+      //    the asset accounts' own transactions.
+      final nominalBalances = <String, double>{};
+      for (final account in accounts) {
+        if (account.assetId == null) {
+          nominalBalances[account.id!] =
+              account.balance - (futureSums[account.id] ?? 0.0);
+        }
+      }
+      if (assetAccountIds.isNotEmpty) {
+        final assetBalances = _financeCalculator.calculateBalances(
+          assetSnapshot,
+        );
+        for (final id in assetAccountIds) {
+          nominalBalances[id] = assetBalances[id] ?? 0.0;
+        }
+      }
+
+      // FIX: Force 0 balance for accounts not created yet
+      for (final account in accounts) {
+        if (baseSnapshot.date.isBefore(account.creationDate)) {
+          nominalBalances[account.id!] = 0.0;
+        }
+      }
+
+      // Update Account Objects with Calculated Balances (for Grid)
+      final accountsWithBalances = accounts.map((a) {
+        if (nominalBalances.containsKey(a.id)) {
+          return a.copyWith(balance: nominalBalances[a.id]!);
+        }
+        return a;
+      }).toList();
+
+      // Sort with updated balances
+      final sortedAccounts = _sortAccounts(
+        accountsWithBalances,
+        exchangeRates,
+        filters.sort == Sort.ascending,
+      );
+
+      // 2. Calculate Real Balances (Inflation Adjusted) — reuse nominal map.
+      final realBalances = _financeCalculator.calculateRealBalances(
+        baseSnapshot,
+        defaultCountry: defaultCountry,
+        balances: nominalBalances,
+      );
+
+      // FIX: Force 0 real balance for accounts not created yet
+      for (final account in accounts) {
+        if (baseSnapshot.date.isBefore(account.creationDate)) {
+          realBalances[account.id!] = 0.0;
+        }
+      }
+
+      // 3. Asset Stats — asset accounts only, fed asset + linked transactions.
+      final assetStats = _financeCalculator.calculateAssetStats(
+        assetSnapshot,
+        balances: nominalBalances,
+      );
+
+      // 4. Period Stats (current + previous) from the period-range transactions.
+      //    Period boundaries were computed above (before the targeted loads).
+      final currentStats = _financeCalculator.calculatePeriodStats(
+        periodSnapshot,
+        DatePeriod(periodStart, periodEnd),
+        defaultCountry: defaultCountry,
+      );
+
       final prevStats = _financeCalculator.calculatePeriodStats(
-        snapshot,
+        periodSnapshot,
         DatePeriod(prevStart, prevEnd),
         defaultCountry: defaultCountry,
       );
@@ -467,25 +496,32 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
 
       await PerformanceLogger().stop('FinanceCalculator: Calculations');
 
-      // Previous Period Balances (Snapshot at T-1)
-      // We need a new snapshot for previous date reference?
-      // Or just use calculateBalances with a different date override?
-      // FinanceCalculator doesn't allow 'date' override in methods efficiently without recreating snapshot.
-      // We can Re-create snapshot or add 'date' param to calculateBalances?
-      // Defined: calculateBalances(FinancialSnapshot data). Data has .date.
-      final prevSnapshot = snapshot.copyWith(
-        date: prevEnd,
-      ); // Use end of prev period
-      final prevBalances = _financeCalculator.calculateBalances(prevSnapshot);
+      // Previous Period Balances (at prevEnd) — same standard/asset split:
+      // standard via SQL future-sums at prevEnd, asset via FinanceCalculator.
+      final prevBalances = <String, double>{};
+      for (final account in accounts) {
+        if (account.assetId == null) {
+          prevBalances[account.id!] =
+              account.balance - (prevFutureSums[account.id] ?? 0.0);
+        }
+      }
+      if (assetAccountIds.isNotEmpty) {
+        final prevAssetBalances = _financeCalculator.calculateBalances(
+          assetSnapshot.copyWith(date: prevEnd),
+        );
+        for (final id in assetAccountIds) {
+          prevBalances[id] = prevAssetBalances[id] ?? 0.0;
+        }
+      }
       final prevRealBalances = _financeCalculator.calculateRealBalances(
-        prevSnapshot,
+        baseSnapshot.copyWith(date: prevEnd),
         defaultCountry: defaultCountry,
         balances: prevBalances,
       );
 
       // FIX: Force 0 previous balances for accounts not created yet
       for (final account in accounts) {
-        if (prevSnapshot.date.isBefore(account.creationDate)) {
+        if (prevEnd.isBefore(account.creationDate)) {
           prevBalances[account.id!] = 0.0;
           prevRealBalances[account.id!] = 0.0;
         }

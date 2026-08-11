@@ -302,6 +302,11 @@ class LocalTransactionRepository implements TransactionRepository {
   }
 
   @override
+  Future<Map<String, double>> getFutureSumsExact(DateTime cutoff) {
+    return database.transactionsDao.getFutureSumsExact(cutoff);
+  }
+
+  @override
   Future<Map<String, double>> getCategoryTotalsInMainCurrency({
     DateTime? dateFrom,
     DateTime? dateTo,

@@ -42,6 +42,11 @@ abstract class TransactionRepository {
     DateTime? dateTo,
   });
 
+  /// Sum of transaction amounts strictly after [cutoff], grouped by account id.
+  /// For a standard account: balanceAt(cutoff) == storedBalance - result[id].
+  /// Used to derive balances via SQL instead of a full-history Dart pass.
+  Future<Map<String, double>> getFutureSumsExact(DateTime cutoff);
+
   /// OPTIMIZATION: Get category totals already converted to main currency
   /// Uses SQL aggregation with exchange rates to avoid expensive Dart computation
   Future<Map<String, double>> getCategoryTotalsInMainCurrency({
