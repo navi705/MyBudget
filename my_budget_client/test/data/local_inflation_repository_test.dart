@@ -1,16 +1,20 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart'
-    show BooleanExpressionOperators, InsertMode, InvalidDataException, Value;
+    show BooleanExpressionOperators, InsertMode, Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_inflation_repository.dart';
 import 'package:my_budget_client/domain/entities/inflation_rate.dart';
+import 'package:sqlite3/sqlite3.dart' as sqlite3;
 
 /// `inflation_rates` has no `isDeleted` column: rows are hard-deleted, so there
 /// is no soft-delete surface here. What is worth pinning instead is the
-/// composite primary key `(date, country, preset)` with a *nullable* `country`,
-/// the paging/filter arguments the inflation screen passes straight through,
-/// and the sync bookkeeping (which is currently broken on the write paths).
+/// composite primary key `(date, country, preset)` — where a worldwide rate is
+/// stored under [globalInflationCountry] and surfaces as a null country above
+/// the mapper — the paging/filter arguments the inflation screen passes
+/// straight through, and the sync bookkeeping on every write path.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -33,9 +37,10 @@ void main() {
       (db.select(db.syncLog)..where((l) => l.changedTableName.equals(table)))
           .get();
 
-  /// Seeds a row without going through `addInflationRate`, which currently
-  /// throws (see the characterization test below) and would take every other
-  /// test down with it.
+  /// Seeds a row without going through `addInflationRate`, so that the reading
+  /// and filtering groups do not depend on the write path they are not
+  /// exercising. A null [country] is left absent so the column default is what
+  /// decides where a worldwide rate lands.
   Future<void> seed({
     required DateTime date,
     String? country,
@@ -49,7 +54,7 @@ void main() {
           date: date,
           percent: percent,
           preset: preset,
-          country: Value(country),
+          country: country == null ? const Value.absent() : Value(country),
           modifiedAt: Value(modifiedAt),
         ),
         mode: InsertMode.insertOrReplace,
@@ -71,9 +76,7 @@ void main() {
       (db.select(db.inflationRates)..where(
             (t) =>
                 t.date.equals(date) &
-                (country == null
-                    ? t.country.isNull()
-                    : t.country.equals(country)) &
+                t.country.equals(country ?? globalInflationCountry) &
                 t.preset.equals(preset),
           ))
           .getSingleOrNull();
@@ -82,7 +85,7 @@ void main() {
     test('getInflationRates returns every stored rate', () async {
       await seed(date: DateTime(2024, 1, 1), country: 'US');
       await seed(date: DateTime(2024, 2, 1), country: 'DE');
-      await seed(date: DateTime(2024, 3, 1)); // global, country == null
+      await seed(date: DateTime(2024, 3, 1)); // worldwide
 
       final all = await repo.getInflationRates();
 
@@ -106,11 +109,11 @@ void main() {
       expect(rate.preset, 42);
     });
 
-    test('a rate with no country round-trips as null, not as an empty '
-        'string', () async {
-      // The UI distinguishes "global inflation" (null) from a country row. If
-      // the mapper ever coerced null to '' the global series would show up as a
-      // country named nothing in the country filter.
+    test('a rate with no country round-trips as null, not as the stored '
+        'sentinel', () async {
+      // The UI distinguishes "global inflation" from a country row by the null.
+      // If the sentinel leaked through the mapper the worldwide series would
+      // show up as a country named 'global' in the country filter.
       await seed(date: DateTime(2024, 4, 4));
 
       expect((await repo.getInflationRates()).single.country, isNull);
@@ -128,7 +131,7 @@ void main() {
       await seed(date: DateTime(2024, 2, 10), country: 'US', preset: 2, percent: 2);
       await seed(date: DateTime(2024, 3, 10), country: 'DE', preset: 1, percent: 3);
       await seed(date: DateTime(2024, 4, 10), country: 'DE', preset: 2, percent: 4);
-      await seed(date: DateTime(2024, 5, 10), preset: 1, percent: 5); // global
+      await seed(date: DateTime(2024, 5, 10), preset: 1, percent: 5); // worldwide
     });
 
     test('rates come back newest first by default', () async {
@@ -214,14 +217,18 @@ void main() {
       expect(rates.every((r) => r.country == 'DE'), isTrue);
     });
 
-    test('a country filter cannot select the global (null-country) '
-        'rate', () async {
-      // `country IN (...)` is never true for NULL. Worth pinning because it
-      // means the global series is only reachable with no country filter at
-      // all - there is no value the caller can pass to ask for it.
-      final rates = await repo.getInflationRatesFiltered(countries: ['US', 'DE']);
+    test('the worldwide series is addressable through the country filter by '
+        'its sentinel', () async {
+      final countryRates = await repo.getInflationRatesFiltered(
+        countries: ['US', 'DE'],
+      );
+      expect(countryRates.map((r) => r.country), everyElement(isNotNull));
 
-      expect(rates.map((r) => r.country), everyElement(isNotNull));
+      final worldwide = await repo.getInflationRatesFiltered(
+        countries: [globalInflationCountry],
+      );
+      expect(worldwide.single.date, DateTime(2024, 5, 10));
+      expect(worldwide.single.country, isNull);
     });
 
     test('presets filters to the listed presets only', () async {
@@ -324,9 +331,9 @@ void main() {
       expect(countries, containsAll(['US', 'DE']));
     });
 
-    test('getAvailableCountries omits the global rate rather than '
-        'listing a null country', () async {
-      await seed(date: DateTime(2024, 1, 1)); // country == null
+    test('getAvailableCountries omits the worldwide series rather than '
+        'listing its sentinel', () async {
+      await seed(date: DateTime(2024, 1, 1)); // worldwide
       await seed(date: DateTime(2024, 2, 1), country: 'US');
 
       expect(await repo.getAvailableCountries(), ['US']);
@@ -360,37 +367,37 @@ void main() {
   });
 
   group('writing', () {
-    test('CHARACTERIZATION: addInflationRate stores the rate and then throws '
-        'because its sync_log row is invalid', () async {
-      // BUG. `InflationRatesDao._logChange` builds a `SyncLogCompanion` with
-      // changedTableName/recordId/action but no `timestamp`, and `timestamp`
-      // is a non-nullable column with no default, so the insert is rejected.
-      // The rate insert is not inside a transaction, so the row survives while
-      // the caller sees an exception: the UI reports "failed to add" for a rate
-      // that is now in the table, and no sync_log row is written either.
-      // Correct behaviour: `_logChange` should pass
-      // `timestamp: Value(DateTime.now().millisecondsSinceEpoch)` like every
-      // other DAO does, and the write plus its log should be one transaction.
-      await expectLater(
-        repo.addInflationRate(
-          domainRate(date: DateTime(2024, 8, 1), country: 'US'),
-        ),
-        throwsA(isA<InvalidDataException>()),
+    test('addInflationRate stores the rate and queues it for sync', () async {
+      await repo.addInflationRate(
+        domainRate(date: DateTime(2024, 8, 1), country: 'US'),
       );
 
       expect(await rowFor(DateTime(2024, 8, 1), 'US', 1), isNotNull);
-      expect(await logsFor('inflation_rates'), isEmpty);
+
+      final log = (await logsFor('inflation_rates')).single;
+      expect(log.action, 'upsert');
+      expect(log.recordId, '2024-08-01_US_1');
+      expect(log.timestamp, greaterThan(0));
+      expect(log.exported, isFalse);
     });
 
-    test('CHARACTERIZATION: addInflationRate stamps modifiedAt before it '
-        'fails', () async {
-      // Pinned separately so that fixing the `_logChange` crash above does not
-      // accidentally drop the modifiedAt stamp: last-write-wins sync compares
-      // this field, and a rate left at 0 loses to any remote copy.
+    test('a worldwide rate is queued for sync under its sentinel', () async {
+      await repo.addInflationRate(domainRate(date: DateTime(2024, 8, 3)));
+
+      expect(
+        (await logsFor('inflation_rates')).single.recordId,
+        '2024-08-03_global_1',
+      );
+    });
+
+    test('addInflationRate stamps modifiedAt so the write wins the next '
+        'sync', () async {
+      // Last-write-wins sync compares this field, and a rate left at 0 loses
+      // to any remote copy.
       final before = DateTime.now().millisecondsSinceEpoch;
-      await repo
-          .addInflationRate(domainRate(date: DateTime(2024, 8, 2), country: 'US'))
-          .catchError((Object _) {});
+      await repo.addInflationRate(
+        domainRate(date: DateTime(2024, 8, 2), country: 'US'),
+      );
 
       final row = await rowFor(DateTime(2024, 8, 2), 'US', 1);
       expect(row!.modifiedAt, greaterThanOrEqualTo(before));
@@ -398,37 +405,34 @@ void main() {
 
     test('re-adding a rate with the same date, country and preset replaces '
         'the old percent instead of duplicating it', () async {
-      await repo
-          .addInflationRate(
-            domainRate(date: DateTime(2024, 9, 1), country: 'US', percent: 1.0),
-          )
-          .catchError((Object _) {});
-      await repo
-          .addInflationRate(
-            domainRate(date: DateTime(2024, 9, 1), country: 'US', percent: 2.0),
-          )
-          .catchError((Object _) {});
+      await repo.addInflationRate(
+        domainRate(date: DateTime(2024, 9, 1), country: 'US', percent: 1.0),
+      );
+      await repo.addInflationRate(
+        domainRate(date: DateTime(2024, 9, 1), country: 'US', percent: 2.0),
+      );
 
       final all = await repo.getInflationRates();
       expect(all, hasLength(1));
       expect(all.single.percent, 2.0);
     });
 
-    test('CHARACTERIZATION: re-adding a global rate duplicates it instead of '
-        'replacing it', () async {
-      // BUG (schema). The primary key is (date, country, preset) but `country`
-      // is nullable, and SQLite does not enforce uniqueness across NULLs in a
-      // rowid table's PRIMARY KEY. So INSERT OR REPLACE finds no conflict and
-      // appends. Refreshing global inflation from the provider therefore grows
-      // the table forever and the chart shows the same month several times.
-      // Correct behaviour: store 'global' (as the sync record id already does)
-      // instead of NULL, or add a unique index that treats NULL as a value.
-      await seed(date: DateTime(2024, 10, 1), percent: 1.0);
-      await seed(date: DateTime(2024, 10, 1), percent: 2.0);
+    test('re-adding a worldwide rate replaces it instead of duplicating '
+        'it', () async {
+      // The sentinel exists for exactly this: SQLite does not enforce
+      // uniqueness across NULLs in a rowid table's PRIMARY KEY, so a nullable
+      // country let a re-fetch of the worldwide series grow the table forever.
+      await repo.addInflationRate(
+        domainRate(date: DateTime(2024, 10, 1), percent: 1.0),
+      );
+      await repo.addInflationRate(
+        domainRate(date: DateTime(2024, 10, 1), percent: 2.0),
+      );
 
       final all = await repo.getInflationRates();
-      expect(all, hasLength(2));
-      expect(all.map((r) => r.percent), containsAll([1.0, 2.0]));
+      expect(all, hasLength(1));
+      expect(all.single.percent, 2.0);
+      expect(all.single.country, isNull);
     });
 
     test('updateInflationRate overwrites the percent of the matching '
@@ -461,40 +465,33 @@ void main() {
       expect(row!.modifiedAt, greaterThanOrEqualTo(before));
     });
 
-    test('CHARACTERIZATION: updating a global rate throws instead of editing '
-        'it', () async {
-      // BUG. `updateInflationRate` uses drift's `replace`, whose WHERE clause
-      // is built from the primary key. `country` is part of that key and is
-      // null for a global rate, so drift refuses the statement outright with
-      // "Tried to find a row with a matching primary key that has a null
-      // value". In a debug/profile build the user sees the edit blow up; with
-      // asserts off the generated `country = NULL` matches nothing, so the
-      // edit silently reverts on the next read. Either way the row is never
-      // touched. Correct behaviour: match on `country IS NULL` (or store
-      // 'global' instead of NULL, as the sync record id already does).
+    test('updateInflationRate edits the worldwide rate', () async {
+      // `replace` builds its WHERE clause from the primary key, which a
+      // nullable country cannot express.
       await seed(date: DateTime(2024, 11, 3), percent: 1.0);
 
-      await expectLater(
-        repo.updateInflationRate(
-          domainRate(date: DateTime(2024, 11, 3), percent: 8.0),
-        ),
-        throwsA(isA<AssertionError>()),
+      await repo.updateInflationRate(
+        domainRate(date: DateTime(2024, 11, 3), percent: 8.0),
       );
 
-      expect((await repo.getInflationRates()).single.percent, 1.0);
+      final rate = (await repo.getInflationRates()).single;
+      expect(rate.percent, 8.0);
+      expect(rate.country, isNull);
     });
 
-    test('CHARACTERIZATION: updateInflationRate writes no sync_log row', () async {
-      // BUG. An edited rate never reaches the other devices: they keep the old
-      // percent until something else re-fetches the whole series. Every other
-      // edit path in this database appends an `upsert` row here.
+    test('updateInflationRate writes a sync_log row', () async {
+      // Without it an edited rate never reaches the other devices: they keep
+      // the old percent until something else re-fetches the whole series.
       await seed(date: DateTime(2024, 11, 4), country: 'US', preset: 1);
 
       await repo.updateInflationRate(
         domainRate(date: DateTime(2024, 11, 4), country: 'US', percent: 6),
       );
 
-      expect(await logsFor('inflation_rates'), isEmpty);
+      final log = (await logsFor('inflation_rates')).single;
+      expect(log.action, 'upsert');
+      expect(log.recordId, '2024-11-04_US_1');
+      expect(log.timestamp, greaterThan(0));
     });
 
     test('deleteInflationRate removes only the addressed rate', () async {
@@ -509,7 +506,7 @@ void main() {
       expect(await rowFor(DateTime(2024, 12, 1), 'US', 1), isNull);
     });
 
-    test('deleteInflationRate can address the global rate by passing a null '
+    test('deleteInflationRate can address the worldwide rate by passing a null '
         'country', () async {
       await seed(date: DateTime(2024, 12, 2), preset: 1);
       await seed(date: DateTime(2024, 12, 2), country: 'US', preset: 1);
@@ -525,17 +522,20 @@ void main() {
       await repo.deleteInflationRate(DateTime(2030, 1, 1), 'US', 1);
 
       expect(await repo.getInflationRates(), hasLength(1));
+      expect(await logsFor('inflation_rates'), isEmpty);
     });
 
-    test('CHARACTERIZATION: deleteInflationRate writes no sync_log '
-        'row', () async {
-      // BUG. A deleted rate is resurrected on the next sync from any device
-      // that still has it, because no `delete` row is queued for it.
+    test('deleteInflationRate writes a sync_log row', () async {
+      // Without it a deleted rate is resurrected on the next sync from any
+      // device that still has it.
       await seed(date: DateTime(2024, 12, 4), country: 'US', preset: 1);
 
       await repo.deleteInflationRate(DateTime(2024, 12, 4), 'US', 1);
 
-      expect(await logsFor('inflation_rates'), isEmpty);
+      final log = (await logsFor('inflation_rates')).single;
+      expect(log.action, 'delete');
+      expect(log.recordId, '2024-12-04_US_1');
+      expect(log.timestamp, greaterThan(0));
     });
 
     test('deleteInflationRates removes every rate in the list', () async {
@@ -557,18 +557,154 @@ void main() {
       await repo.deleteInflationRates([]);
 
       expect(await repo.getInflationRates(), hasLength(1));
+      expect(await logsFor('inflation_rates'), isEmpty);
     });
 
-    test('CHARACTERIZATION: deleteInflationRates writes no sync_log '
-        'rows', () async {
-      // BUG, same as the single delete: a bulk clear from the inflation screen
-      // stays local and every deleted rate comes back on the next sync.
+    test('deleteInflationRates writes one sync_log row per rate', () async {
+      // Same reason as the single delete: a bulk clear from the inflation
+      // screen would otherwise stay local and come back on the next sync.
       await seed(date: DateTime(2025, 3, 1), country: 'US', preset: 1);
+      await seed(date: DateTime(2025, 3, 2), preset: 1);
       final all = await repo.getInflationRates();
 
       await repo.deleteInflationRates(all);
 
-      expect(await logsFor('inflation_rates'), isEmpty);
+      final logs = await logsFor('inflation_rates');
+      expect(logs, hasLength(2));
+      expect(logs.every((l) => l.action == 'delete'), isTrue);
+      expect(
+        logs.map((l) => l.recordId),
+        containsAll(['2025-03-01_US_1', '2025-03-02_global_1']),
+      );
+    });
+  });
+
+  group('the v9 -> v10 migration onto the global sentinel', () {
+    // Same approach as test/core/database/schema_migrations_test.dart: this
+    // repo has no `test/drift_schemas/` fixtures and no `drift_dev schema
+    // dump` setup, so the v9 database is hand-built with plain
+    // `package:sqlite3` in a real temp file (two connections have to see the
+    // same database) and then handed to `AppDatabase`, which observes
+    // `PRAGMA user_version` < `schemaVersion` and runs the real `onUpgrade`.
+    // v9 == the current schema with a nullable `inflation_rates.country`.
+    const createV9Sql = '''
+      CREATE TABLE "languages" ("language" TEXT NOT NULL, "language_code" TEXT NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("language_code"));
+      CREATE TABLE "currencies" ("name" TEXT NOT NULL UNIQUE, "code" TEXT NOT NULL, "language_code" TEXT NOT NULL REFERENCES languages (language_code), "type" INTEGER NOT NULL DEFAULT 6, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("code"));
+      CREATE TABLE "currency_designations" ("id" TEXT NOT NULL, "value" TEXT NOT NULL, "currency_code" TEXT NOT NULL REFERENCES currencies (code), "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "account_types" ("id" TEXT NOT NULL, "name" TEXT NOT NULL UNIQUE, "language_code" TEXT NOT NULL REFERENCES languages (language_code), "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "styles" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "icon_name" TEXT NOT NULL, "color_hex" TEXT NOT NULL, "icon_type" INTEGER NOT NULL DEFAULT 0, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "categories" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "parent_id" TEXT NULL REFERENCES categories (id), "style_id" TEXT NULL REFERENCES styles (id), "type" INTEGER NOT NULL DEFAULT 0, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "accounts" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "description" TEXT NULL, "balance" REAL NOT NULL, "currency_code" TEXT NOT NULL REFERENCES currencies (code), "currency_designation_id" TEXT NOT NULL REFERENCES currency_designations (id), "style_id" TEXT NULL REFERENCES styles (id), "account_type_id" TEXT NOT NULL REFERENCES account_types (id), "creation_date" INTEGER NOT NULL, "country" TEXT NULL, "asset_id" TEXT NULL, "asset_quantity" REAL NOT NULL DEFAULT 0.0, "fee_structure" TEXT NULL, "balance_minor" INTEGER NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "transactions" ("id" TEXT NOT NULL, "description" TEXT NOT NULL, "amount" REAL NOT NULL, "date" INTEGER NOT NULL, "account_id" TEXT NOT NULL REFERENCES accounts (id), "category_id" TEXT NOT NULL REFERENCES categories (id), "currency_code" TEXT NOT NULL REFERENCES currencies (code), "exchange_rate" REAL NULL, "exchange_rate_preset" INTEGER NULL, "fee" REAL NOT NULL DEFAULT 0.0, "linked_transaction_id" TEXT NULL, "amount_minor" INTEGER NULL, "fee_minor" INTEGER NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "exchange_rates" ("from_currency_code" TEXT NOT NULL REFERENCES currencies (code), "to_currency_code" TEXT NOT NULL REFERENCES currencies (code), "rate" REAL NOT NULL, "preset" INTEGER NOT NULL, "date" INTEGER NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "source_id" TEXT NULL, PRIMARY KEY ("from_currency_code", "to_currency_code", "date", "preset"));
+      CREATE TABLE "inflation_rates" ("date" INTEGER NOT NULL, "percent" REAL NOT NULL, "country" TEXT NULL, "preset" INTEGER NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "source_id" TEXT NULL, PRIMARY KEY ("date", "country", "preset"));
+      CREATE TABLE "asset_entries" ("id" TEXT NOT NULL, "asset_id" TEXT NOT NULL, "name" TEXT NOT NULL, "date" INTEGER NOT NULL, "value" REAL NOT NULL, "quantity" REAL NOT NULL DEFAULT 1.0, "asset_type" TEXT NULL, "description" TEXT NULL, "currency_code" TEXT NOT NULL REFERENCES currencies (code), "account_id" TEXT NULL REFERENCES accounts (id), "source" TEXT NOT NULL, "preset" INTEGER NOT NULL DEFAULT 1, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "source_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "settings" ("key" TEXT NOT NULL, "value" TEXT NOT NULL, "device" TEXT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("key"));
+      CREATE TABLE "custom_themes" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "primary_color_hex" TEXT NOT NULL, "secondary_color_hex" TEXT NOT NULL, "surface_color_hex" TEXT NOT NULL, "background_color_hex" TEXT NOT NULL, "background_image_path" TEXT NULL, "background_image_opacity" REAL NOT NULL DEFAULT 1.0, "background_image_blur" REAL NOT NULL DEFAULT 0.0, "window_effect_type" INTEGER NOT NULL, "effect_opacity" REAL NOT NULL DEFAULT 1.0, "surface_opacity" REAL NOT NULL DEFAULT 1.0, "theme_mode" INTEGER NOT NULL, "is_preset" INTEGER NOT NULL DEFAULT 0, "is_active" INTEGER NOT NULL DEFAULT 0, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "sync_log" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "changed_table_name" TEXT NOT NULL, "record_id" TEXT NOT NULL, "action" TEXT NOT NULL, "timestamp" INTEGER NOT NULL, "exported" INTEGER NOT NULL DEFAULT 0);
+      CREATE TABLE "conflict_history" ("id" TEXT NOT NULL, "changed_table_name" TEXT NOT NULL, "record_id" TEXT NOT NULL, "rejected_data" TEXT NOT NULL, "rejected_at" INTEGER NOT NULL, "rejected_device" TEXT NULL, PRIMARY KEY ("id"));
+      CREATE TABLE "custom_data_sources" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "url" TEXT NOT NULL, "data_type" INTEGER NOT NULL, "enabled" INTEGER NOT NULL DEFAULT 1, "auto_fetch" INTEGER NOT NULL DEFAULT 0, "last_fetch_at" INTEGER NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "api_settings_table" ("id" TEXT NOT NULL, "enabled" INTEGER NOT NULL DEFAULT 1, "auto_fetch" INTEGER NOT NULL DEFAULT 0, "last_fetch_at" INTEGER NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("id"));
+      CREATE TABLE "api_fetch_statuses" ("id" TEXT NOT NULL, "attempts" INTEGER NOT NULL DEFAULT 0, "last_attempt" INTEGER NULL, "status" TEXT NOT NULL DEFAULT 'pending', PRIMARY KEY ("id"));
+      CREATE TABLE "sms_presets" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "sender_filter" TEXT NOT NULL, "is_built_in" INTEGER NOT NULL DEFAULT 0, "is_enabled" INTEGER NOT NULL DEFAULT 1, "default_account_id" TEXT NULL, "default_category_id" TEXT NULL, "rules_json" TEXT NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "sync_processed_files" ("file_name" TEXT NOT NULL, "processed_at" INTEGER NOT NULL, "device_id" TEXT NOT NULL, PRIMARY KEY ("file_name"));
+    ''';
+
+    // `date` is stored the way drift stores a DateTimeColumn: unix seconds.
+    const januarySeconds = 1704067200; // 2024-01-01T00:00:00Z
+    const februarySeconds = 1706745600; // 2024-02-01T00:00:00Z
+    final january = DateTime.fromMillisecondsSinceEpoch(januarySeconds * 1000);
+
+    // Three worldwide rows for the same month - the pile-up a nullable country
+    // allowed - plus a country row for that month that must survive untouched.
+    const seedSql = '''
+      INSERT INTO inflation_rates (date, percent, country, preset, modified_at) VALUES ($januarySeconds, 1.0, NULL, 1, 100);
+      INSERT INTO inflation_rates (date, percent, country, preset, modified_at) VALUES ($januarySeconds, 2.0, NULL, 1, 300);
+      INSERT INTO inflation_rates (date, percent, country, preset, modified_at) VALUES ($januarySeconds, 3.0, NULL, 1, 200);
+      INSERT INTO inflation_rates (date, percent, country, preset, modified_at) VALUES ($januarySeconds, 9.0, 'US', 1, 50);
+      INSERT INTO inflation_rates (date, percent, country, preset, modified_at) VALUES ($februarySeconds, 4.0, NULL, 2, 10);
+    ''';
+
+    late Directory tempDir;
+    late AppDatabase migrated;
+    late LocalInflationRepository migratedRepo;
+
+    setUpAll(() async {
+      tempDir = Directory.systemTemp.createTempSync('mybudget_inflation_v10');
+      final file = File('${tempDir.path}/v9.sqlite');
+      final raw = sqlite3.sqlite3.open(file.path);
+      raw.execute(createV9Sql);
+      raw.execute(seedSql);
+      raw.execute('PRAGMA user_version = 9;');
+      raw.dispose();
+
+      migrated = AppDatabase.forTesting(NativeDatabase(file));
+      migratedRepo = LocalInflationRepository(migrated.inflationRatesDao);
+      // Force the migration to run by touching the db.
+      await migrated.customSelect('SELECT 1').get();
+    });
+
+    tearDownAll(() async {
+      await migrated.close();
+      if (tempDir.existsSync()) {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('completes v9->v10 and lands on schemaVersion 10', () async {
+      final versionRow = await migrated
+          .customSelect('PRAGMA user_version')
+          .getSingle();
+      expect(versionRow.data['user_version'], 10);
+    });
+
+    test('country ends up NOT NULL with the global default', () async {
+      final columns = await migrated
+          .customSelect("PRAGMA table_info('inflation_rates')")
+          .get();
+      final country = columns.firstWhere(
+        (r) => r.data['name'] == 'country',
+      );
+
+      expect(country.data['notnull'], 1);
+      expect(country.data['dflt_value'], "'global'");
+      expect(country.data['pk'], isNot(0)); // still part of the primary key
+    });
+
+    test('rows that were only distinct by NULL-ness collapse to the newest '
+        'modified_at', () async {
+      final worldwide = await migratedRepo.getInflationRatesFiltered(
+        countries: [globalInflationCountry],
+        dateFrom: january,
+        dateTo: january,
+      );
+
+      expect(worldwide, hasLength(1));
+      expect(worldwide.single.percent, 2.0);
+    });
+
+    test('a migrated worldwide rate reads back with no country, and the '
+        'country row beside it is untouched', () async {
+      final rates = await migratedRepo.getInflationRates();
+
+      expect(rates, hasLength(3));
+      expect(rates.where((r) => r.country == null), hasLength(2));
+      expect(rates.singleWhere((r) => r.country == 'US').percent, 9.0);
+    });
+
+    test('a worldwide month can no longer be inserted twice after the '
+        'migration', () async {
+      await migratedRepo.addInflationRate(
+        InflationRateDomain(date: january, preset: 1, percent: 7.0),
+      );
+
+      final worldwide = await migratedRepo.getInflationRatesFiltered(
+        countries: [globalInflationCountry],
+        dateFrom: january,
+        dateTo: january,
+      );
+      expect(worldwide, hasLength(1));
+      expect(worldwide.single.percent, 7.0);
     });
   });
 }

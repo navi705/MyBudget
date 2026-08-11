@@ -173,7 +173,7 @@ void main() {
     });
   });
 
-  group('v2 -> v9 migration (chain covering the v3..v9 upgrade steps)', () {
+  group('v2 -> current migration (chain covering every v3+ upgrade step)', () {
     // Starts from v2, not v1: the v1->v2 `_migrateToStableIds` step is the
     // only one this chain skips, and it needs a whole extra pre-stable-id
     // fixture to model. Every other upgrade step is exercised (v3 sync
@@ -237,7 +237,7 @@ void main() {
     late AppDatabase db;
 
     setUpAll(() async {
-      // One shared migration for the whole group: the v2->v9 chain re-runs
+      // One shared migration for the whole group: the chain re-runs
       // the ~283k-row exchange-rate reseed (the v4->v5 step calls
       // `_seedData` again), so it is materially slower than the other
       // migration tests here; running it once and asserting many things
@@ -259,11 +259,15 @@ void main() {
       await db.close();
     });
 
-    test('completes v2->v9 without throwing and lands on schemaVersion 9',
+    // Asserted against `db.schemaVersion` rather than a literal: the point is
+    // that the chain arrives at whatever the current schema is, and a literal
+    // here only ever means "someone added a migration" - it went stale the
+    // first time one was added.
+    test('completes the chain without throwing and lands on schemaVersion',
         () async {
       final versionRow =
           await db.customSelect('PRAGMA user_version').getSingle();
-      expect(versionRow.data['user_version'], 9);
+      expect(versionRow.data['user_version'], db.schemaVersion);
     });
 
     test('final schema has the columns the v8 Dart tables expect', () async {

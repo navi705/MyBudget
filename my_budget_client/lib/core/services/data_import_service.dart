@@ -14,6 +14,19 @@ import 'package:my_budget_client/core/services/server_sync_service.dart'
     show serverPullCursorKey;
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Rewrites a backed-up inflation row's missing country to the sentinel the
+/// column stores the worldwide series under as of schema v10.
+///
+/// Before v10 the worldwide series was a null country. The generated
+/// `InflationRate.fromJson` now deserialises that field as a non-null String
+/// and throws on null, and the restore runs as one transaction - so a single
+/// pre-v10 worldwide row would abort the entire restore, not just its table.
+Map<String, dynamic> withGlobalInflationCountry(Map<String, dynamic> row) {
+  final country = row['country'];
+  if (country is String && country.isNotEmpty) return row;
+  return {...row, 'country': globalInflationCountry};
+}
+
 class DataImportService {
   final AppDatabase _db;
   final AndroidFilePickerService _androidFilePicker;
@@ -398,7 +411,13 @@ class DataImportService {
           await _db.batch((batch) {
             batch.insertAll(
               _db.inflationRates,
-              list.map((e) => InflationRate.fromJson(e as Map<String, dynamic>)).toList(),
+              list
+                  .map(
+                    (e) => InflationRate.fromJson(
+                      withGlobalInflationCountry(e as Map<String, dynamic>),
+                    ),
+                  )
+                  .toList(),
               mode: InsertMode.insertOrIgnore,
             );
           });

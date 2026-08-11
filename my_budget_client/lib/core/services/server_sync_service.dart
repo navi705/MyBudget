@@ -1777,7 +1777,15 @@ class ServerSyncService {
 
   Future<void> _upsertInflationRate(Map<String, dynamic> json) async {
     final date = DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now();
-    final country = json['country'] as String?;
+    // `country` is part of the primary key and NOT NULL as of schema v10, where
+    // the worldwide series is spelled with the `globalInflationCountry`
+    // sentinel. A peer still on v9, or a server row written by one, sends null
+    // for it - binding that straight in would fail the constraint and abort the
+    // whole pull.
+    final rawCountry = json['country'] as String?;
+    final country = (rawCountry == null || rawCountry.isEmpty)
+        ? globalInflationCountry
+        : rawCountry;
 
     await _database.customInsert(
       '''INSERT INTO inflation_rates (date, percent, country, preset, modified_at, device_id, source_id)

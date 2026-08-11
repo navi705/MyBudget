@@ -629,6 +629,14 @@ class MockTransactionRepository extends _i1.Mock
           as _i3.Future<Map<String, double>>);
 
   @override
+  _i3.Future<Map<String, int>> getFutureSumsExactMinor(DateTime? cutoff) =>
+      (super.noSuchMethod(
+            Invocation.method(#getFutureSumsExactMinor, [cutoff]),
+            returnValue: _i3.Future<Map<String, int>>.value(<String, int>{}),
+          )
+          as _i3.Future<Map<String, int>>);
+
+  @override
   _i3.Future<Map<String, double>> getCategoryTotalsInMainCurrency({
     DateTime? dateFrom,
     DateTime? dateTo,
@@ -790,6 +798,14 @@ class MockCurrencyRepository extends _i1.Mock
             ),
           )
           as _i3.Future<List<_i14.CurrencyDesignation>>);
+
+  @override
+  _i3.Stream<void> watchExchangeRateChanges() =>
+      (super.noSuchMethod(
+            Invocation.method(#watchExchangeRateChanges, []),
+            returnValue: _i3.Stream<void>.empty(),
+          )
+          as _i3.Stream<void>);
 
   @override
   _i3.Future<List<_i15.ExchangeRateDomain>> getLatestExchangeRates(

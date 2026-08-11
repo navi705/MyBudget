@@ -244,10 +244,19 @@ class ExchangeRates extends Table {
   };
 }
 
+/// Marks a rate that applies worldwide rather than to a single country.
+///
+/// SQLite counts NULLs in a rowid table's PRIMARY KEY as distinct, so a
+/// nullable [InflationRates.country] let the same worldwide month be inserted
+/// over and over instead of replacing itself. The sentinel is what the sync
+/// record id has always used for these rows.
+const globalInflationCountry = 'global';
+
 class InflationRates extends Table {
   DateTimeColumn get date => dateTime()();
   RealColumn get percent => real()();
-  TextColumn get country => text().nullable()();
+  TextColumn get country =>
+      text().withDefault(const Constant(globalInflationCountry))();
   IntColumn get preset => integer()();
 
   // Sync fields
@@ -2768,17 +2777,20 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> insertInflationRate(InflationRatesCompanion rate) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final toInsert = rate.copyWith(modifiedAt: Value(now));
+    final toInsert = _withResolvedCountry(rate).copyWith(modifiedAt: Value(now));
     await into(
       inflationRates,
     ).insert(toInsert, mode: InsertMode.insertOrReplace);
 
     // Log change for sync
-    final date = DateFormat('yyyy-MM-dd').format(toInsert.date.value);
-    final country = toInsert.country.value ?? 'global';
-    final preset = toInsert.preset.value;
-    final recordId = '${date}_${country}_$preset';
-    await _logChange(recordId, 'upsert');
+    await _logChange(
+      _recordId(
+        toInsert.date.value,
+        toInsert.country.value,
+        toInsert.preset.value,
+      ),
+      'upsert',
+    );
   }
 
   Future<void> insertAllInflationRates(
@@ -2790,7 +2802,7 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
       for (final r in rates) {
         batch.insert(
           inflationRates,
-          r.copyWith(modifiedAt: Value(now)),
+          _withResolvedCountry(r).copyWith(modifiedAt: Value(now)),
           mode: InsertMode.insertOrReplace,
         );
       }
@@ -2803,46 +2815,74 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> insertSyncedInflationRate(InflationRatesCompanion rate) =>
-      into(inflationRates).insert(rate, mode: InsertMode.insertOrReplace);
+      into(
+        inflationRates,
+      ).insert(_withResolvedCountry(rate), mode: InsertMode.insertOrReplace);
 
-  Future<void> deleteInflationRate(DateTime date, String? country, int preset) {
-    return (delete(inflationRates)..where(
-          (tbl) =>
-              tbl.date.equals(date) &
-              (country == null
-                  ? tbl.country.isNull()
-                  : tbl.country.equals(country)) &
-              tbl.preset.equals(preset),
-        ))
-        .go();
+  Future<void> deleteInflationRate(
+    DateTime date,
+    String? country,
+    int preset,
+  ) async {
+    final resolved = _resolveCountry(country);
+    final count =
+        await (delete(inflationRates)..where(
+              (tbl) =>
+                  tbl.date.equals(date) &
+                  tbl.country.equals(resolved) &
+                  tbl.preset.equals(preset),
+            ))
+            .go();
+
+    if (count > 0) {
+      await _logChange(_recordId(date, resolved, preset), 'delete');
+    }
   }
 
-  Future<bool> updateInflationRate(InflationRatesCompanion rate) {
-    final updatedRate = rate.copyWith(
+  Future<bool> updateInflationRate(InflationRatesCompanion rate) async {
+    final updatedRate = _withResolvedCountry(rate).copyWith(
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
-    return update(inflationRates).replace(updatedRate);
+    final result = await update(inflationRates).replace(updatedRate);
+    await _logChange(
+      _recordId(
+        updatedRate.date.value,
+        updatedRate.country.value,
+        updatedRate.preset.value,
+      ),
+      'upsert',
+    );
+    return result;
   }
 
   Future<void> deleteInflationRates(List<InflationRateDomain> rates) async {
+    final countries = [for (final rate in rates) _resolveCountry(rate.country)];
+
     await batch((batch) {
-      for (final rate in rates) {
+      for (var i = 0; i < rates.length; i++) {
         batch.delete(
           inflationRates,
           InflationRatesCompanion(
-            date: Value(rate.date),
-            country: Value(rate.country),
-            preset: Value(rate.preset),
+            date: Value(rates[i].date),
+            country: Value(countries[i]),
+            preset: Value(rates[i].preset),
           ),
         );
       }
     });
+
+    await _logChanges([
+      for (var i = 0; i < rates.length; i++)
+        _recordId(rates[i].date, countries[i], rates[i].preset),
+    ], 'delete');
   }
 
   Future<List<String>> getAvailableCountries() async {
+    // The worldwide series is not a country, so it must not reach the country
+    // filter or the default-country picker.
     final query = selectOnly(inflationRates, distinct: true)
       ..addColumns([inflationRates.country])
-      ..where(inflationRates.country.isNotNull());
+      ..where(inflationRates.country.isNotValue(globalInflationCountry));
 
     final results = await query
         .map((row) => row.read(inflationRates.country))
@@ -2892,14 +2932,50 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
     return results.whereType<int>().toList();
   }
 
+  /// The UI models a worldwide rate as an absent country; the column stores
+  /// [globalInflationCountry] so the primary key can actually catch a repeat.
+  static String _resolveCountry(String? country) =>
+      country == null || country.isEmpty ? globalInflationCountry : country;
+
+  static InflationRatesCompanion _withResolvedCountry(
+    InflationRatesCompanion rate,
+  ) => rate.copyWith(
+    country: Value(
+      _resolveCountry(rate.country.present ? rate.country.value : null),
+    ),
+  );
+
+  static String _recordId(DateTime date, String country, int preset) =>
+      '${DateFormat('yyyy-MM-dd').format(date)}_${country}_$preset';
+
   Future<void> _logChange(String recordId, String action) async {
     await into(db.syncLog).insert(
       SyncLogCompanion(
         changedTableName: const Value('inflation_rates'),
         recordId: Value(recordId),
         action: Value(action),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
       ),
     );
+  }
+
+  Future<void> _logChanges(List<String> recordIds, String action) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    await batch((batch) {
+      batch.insertAll(
+        db.syncLog,
+        recordIds
+            .map(
+              (id) => SyncLogCompanion(
+                changedTableName: const Value('inflation_rates'),
+                recordId: Value(id),
+                action: Value(action),
+                timestamp: Value(timestamp),
+              ),
+            )
+            .toList(),
+      );
+    });
   }
 }
 
@@ -3309,7 +3385,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration {
@@ -3516,6 +3592,37 @@ class AppDatabase extends _$AppDatabase {
             'ON exchange_rates (from_currency_code, to_currency_code, date)',
           );
           debugPrint('[DB_MIGRATION] v8→v9: complete');
+        }
+
+        if (from < 10) {
+          // `country` was nullable and sits in the primary key, and SQLite
+          // counts NULLs there as distinct, so every refresh of the worldwide
+          // series appended a row instead of replacing one. Those pile-ups
+          // become genuine key collisions once they all read 'global', so they
+          // have to be collapsed first — newest `modified_at` wins, which is
+          // the row last-write-wins sync would have kept anyway.
+          debugPrint('[DB_MIGRATION] v9→v10: collapsing duplicate worldwide inflation rates...');
+          await customStatement(
+            '''DELETE FROM inflation_rates
+               WHERE (country IS NULL OR country = 'global')
+               AND rowid NOT IN (
+                 SELECT rowid FROM (
+                   SELECT rowid, MAX(modified_at)
+                   FROM inflation_rates
+                   WHERE country IS NULL OR country = 'global'
+                   GROUP BY date, preset
+                 )
+               )''',
+          );
+          debugPrint('[DB_MIGRATION] v9→v10: dedup DELETE complete');
+
+          debugPrint('[DB_MIGRATION] v9→v10: pointing NULL countries at the global sentinel...');
+          await customStatement(
+            "UPDATE inflation_rates SET country = 'global' WHERE country IS NULL",
+          );
+          debugPrint('[DB_MIGRATION] v9→v10: rebuilding inflation_rates with a NOT NULL country...');
+          await m.alterTable(TableMigration(inflationRates));
+          debugPrint('[DB_MIGRATION] v9→v10: complete');
         }
 
         debugPrint('[DB_MIGRATION] onUpgrade complete: from=$from to=$to');

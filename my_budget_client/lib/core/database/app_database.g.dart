@@ -5260,9 +5260,10 @@ class $InflationRatesTable extends InflationRates
   late final GeneratedColumn<String> country = GeneratedColumn<String>(
     'country',
     aliasedName,
-    true,
+    false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultValue: const Constant(globalInflationCountry),
   );
   static const VerificationMeta _presetMeta = const VerificationMeta('preset');
   @override
@@ -5397,7 +5398,7 @@ class $InflationRatesTable extends InflationRates
       country: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}country'],
-      ),
+      )!,
       preset: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}preset'],
@@ -5426,7 +5427,7 @@ class $InflationRatesTable extends InflationRates
 class InflationRate extends DataClass implements Insertable<InflationRate> {
   final DateTime date;
   final double percent;
-  final String? country;
+  final String country;
   final int preset;
   final int modifiedAt;
   final String? deviceId;
@@ -5434,7 +5435,7 @@ class InflationRate extends DataClass implements Insertable<InflationRate> {
   const InflationRate({
     required this.date,
     required this.percent,
-    this.country,
+    required this.country,
     required this.preset,
     required this.modifiedAt,
     this.deviceId,
@@ -5445,9 +5446,7 @@ class InflationRate extends DataClass implements Insertable<InflationRate> {
     final map = <String, Expression>{};
     map['date'] = Variable<DateTime>(date);
     map['percent'] = Variable<double>(percent);
-    if (!nullToAbsent || country != null) {
-      map['country'] = Variable<String>(country);
-    }
+    map['country'] = Variable<String>(country);
     map['preset'] = Variable<int>(preset);
     map['modified_at'] = Variable<int>(modifiedAt);
     if (!nullToAbsent || deviceId != null) {
@@ -5463,9 +5462,7 @@ class InflationRate extends DataClass implements Insertable<InflationRate> {
     return InflationRatesCompanion(
       date: Value(date),
       percent: Value(percent),
-      country: country == null && nullToAbsent
-          ? const Value.absent()
-          : Value(country),
+      country: Value(country),
       preset: Value(preset),
       modifiedAt: Value(modifiedAt),
       deviceId: deviceId == null && nullToAbsent
@@ -5485,7 +5482,7 @@ class InflationRate extends DataClass implements Insertable<InflationRate> {
     return InflationRate(
       date: serializer.fromJson<DateTime>(json['date']),
       percent: serializer.fromJson<double>(json['percent']),
-      country: serializer.fromJson<String?>(json['country']),
+      country: serializer.fromJson<String>(json['country']),
       preset: serializer.fromJson<int>(json['preset']),
       modifiedAt: serializer.fromJson<int>(json['modifiedAt']),
       deviceId: serializer.fromJson<String?>(json['deviceId']),
@@ -5498,7 +5495,7 @@ class InflationRate extends DataClass implements Insertable<InflationRate> {
     return <String, dynamic>{
       'date': serializer.toJson<DateTime>(date),
       'percent': serializer.toJson<double>(percent),
-      'country': serializer.toJson<String?>(country),
+      'country': serializer.toJson<String>(country),
       'preset': serializer.toJson<int>(preset),
       'modifiedAt': serializer.toJson<int>(modifiedAt),
       'deviceId': serializer.toJson<String?>(deviceId),
@@ -5509,7 +5506,7 @@ class InflationRate extends DataClass implements Insertable<InflationRate> {
   InflationRate copyWith({
     DateTime? date,
     double? percent,
-    Value<String?> country = const Value.absent(),
+    String? country,
     int? preset,
     int? modifiedAt,
     Value<String?> deviceId = const Value.absent(),
@@ -5517,7 +5514,7 @@ class InflationRate extends DataClass implements Insertable<InflationRate> {
   }) => InflationRate(
     date: date ?? this.date,
     percent: percent ?? this.percent,
-    country: country.present ? country.value : this.country,
+    country: country ?? this.country,
     preset: preset ?? this.preset,
     modifiedAt: modifiedAt ?? this.modifiedAt,
     deviceId: deviceId.present ? deviceId.value : this.deviceId,
@@ -5577,7 +5574,7 @@ class InflationRate extends DataClass implements Insertable<InflationRate> {
 class InflationRatesCompanion extends UpdateCompanion<InflationRate> {
   final Value<DateTime> date;
   final Value<double> percent;
-  final Value<String?> country;
+  final Value<String> country;
   final Value<int> preset;
   final Value<int> modifiedAt;
   final Value<String?> deviceId;
@@ -5630,7 +5627,7 @@ class InflationRatesCompanion extends UpdateCompanion<InflationRate> {
   InflationRatesCompanion copyWith({
     Value<DateTime>? date,
     Value<double>? percent,
-    Value<String?>? country,
+    Value<String>? country,
     Value<int>? preset,
     Value<int>? modifiedAt,
     Value<String?>? deviceId,
@@ -16799,7 +16796,7 @@ typedef $$InflationRatesTableCreateCompanionBuilder =
     InflationRatesCompanion Function({
       required DateTime date,
       required double percent,
-      Value<String?> country,
+      Value<String> country,
       required int preset,
       Value<int> modifiedAt,
       Value<String?> deviceId,
@@ -16810,7 +16807,7 @@ typedef $$InflationRatesTableUpdateCompanionBuilder =
     InflationRatesCompanion Function({
       Value<DateTime> date,
       Value<double> percent,
-      Value<String?> country,
+      Value<String> country,
       Value<int> preset,
       Value<int> modifiedAt,
       Value<String?> deviceId,
@@ -16976,7 +16973,7 @@ class $$InflationRatesTableTableManager
               ({
                 Value<DateTime> date = const Value.absent(),
                 Value<double> percent = const Value.absent(),
-                Value<String?> country = const Value.absent(),
+                Value<String> country = const Value.absent(),
                 Value<int> preset = const Value.absent(),
                 Value<int> modifiedAt = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
@@ -16996,7 +16993,7 @@ class $$InflationRatesTableTableManager
               ({
                 required DateTime date,
                 required double percent,
-                Value<String?> country = const Value.absent(),
+                Value<String> country = const Value.absent(),
                 required int preset,
                 Value<int> modifiedAt = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
