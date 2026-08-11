@@ -143,6 +143,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
   ) async {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
+      String? failure;
       try {
         debugPrint(
           '[CategoriesDebug] Deleting multiple categories: ${event.categoryIds}',
@@ -150,17 +151,22 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
         for (final id in event.categoryIds) {
           await _categoryRepository.deleteCategory(id);
         }
-        if (isShuttingDown) return;
-        emit(
-          currentState.copyWith(
-            selectedCategoryIds: {},
-            isSelectionModeActive: false,
-          ),
-        );
-        add(LoadCategories());
       } catch (e) {
-        // Handle error
+        failure = e.toString();
       }
+      if (isShuttingDown) return;
+      emit(
+        currentState.copyWith(
+          selectedCategoryIds: {},
+          isSelectionModeActive: false,
+          error: failure,
+          clearError: failure == null,
+        ),
+      );
+      // The loop is not atomic: a throw halfway leaves the earlier ids deleted,
+      // so the reload has to run on the failure path too or the list keeps
+      // showing rows that are already gone.
+      add(LoadCategories());
     }
   }
 
@@ -170,6 +176,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
   ) async {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
+      String? failure;
       try {
         final categoriesToUpdate = await _categoryRepository.getCategoriesByIds(
           event.categoryIds,
@@ -180,17 +187,20 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
             category.copyWith(type: event.newType),
           );
         }
-        if (isShuttingDown) return;
-        emit(
-          currentState.copyWith(
-            selectedCategoryIds: {},
-            isSelectionModeActive: false,
-          ),
-        );
-        add(LoadCategories());
       } catch (e) {
-        // Handle error
+        failure = e.toString();
       }
+      if (isShuttingDown) return;
+      emit(
+        currentState.copyWith(
+          selectedCategoryIds: {},
+          isSelectionModeActive: false,
+          error: failure,
+          clearError: failure == null,
+        ),
+      );
+      // Same partial-write exposure as the bulk delete above.
+      add(LoadCategories());
     }
   }
 
@@ -417,6 +427,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
             filters: filters,
             mainCurrencyCode: mainCurrencyCode,
             currencyDesignations: currencyDesignations,
+            clearError: true,
           ),
         );
       } else {

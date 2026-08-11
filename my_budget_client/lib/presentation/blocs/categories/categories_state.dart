@@ -42,6 +42,10 @@ class CategoriesLoadSuccess extends CategoriesState {
   final Set<String> selectedCategoryIds;
   final Category? recentlyDeletedCategory;
 
+  /// Message for an operation that failed while the list itself is still
+  /// usable, so the screen can report it without replacing the list.
+  final String? error;
+
   const CategoriesLoadSuccess({
     this.categoriesWithTotals = const [],
     this.allCategories = const [],
@@ -57,6 +61,7 @@ class CategoriesLoadSuccess extends CategoriesState {
     this.isSelectionModeActive = false,
     this.selectedCategoryIds = const {},
     this.recentlyDeletedCategory,
+    this.error,
   });
 
   CategoriesLoadSuccess copyWith({
@@ -75,6 +80,8 @@ class CategoriesLoadSuccess extends CategoriesState {
     Set<String>? selectedCategoryIds,
     Category? recentlyDeletedCategory,
     bool clearRecentlyDeletedCategory = false,
+    String? error,
+    bool clearError = false,
   }) {
     return CategoriesLoadSuccess(
       categoriesWithTotals: categoriesWithTotals ?? this.categoriesWithTotals,
@@ -96,6 +103,9 @@ class CategoriesLoadSuccess extends CategoriesState {
       recentlyDeletedCategory: clearRecentlyDeletedCategory
           ? null
           : (recentlyDeletedCategory ?? this.recentlyDeletedCategory),
+      // Without an explicit clear a message outlives the failure that set it,
+      // and the next identical failure is indistinguishable from the stale one.
+      error: clearError ? null : (error ?? this.error),
     );
   }
 
@@ -115,6 +125,7 @@ class CategoriesLoadSuccess extends CategoriesState {
     isSelectionModeActive,
     selectedCategoryIds,
     recentlyDeletedCategory,
+    error,
   ];
 }
 

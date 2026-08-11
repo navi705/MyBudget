@@ -255,12 +255,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       if (isSelected && state.selectedCategoryIds.length > 1) {
         _showDeleteConfirmationDialog(context, bloc, selectedIds);
       } else {
-        _showDeleteConfirmationDialog(
-          context,
-          bloc,
-          [category.id!],
-          onConfirm: () => bloc.add(DeleteCategory(category.id!)),
-        );
+        _showDeleteConfirmationDialog(context, bloc, [
+          category.id!,
+        ], onConfirm: () => bloc.add(DeleteCategory(category.id!)));
       }
     } else if (value == 'change_type') {
       _showChangeCategoryTypeDialog(
@@ -327,6 +324,30 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 ),
               );
             }
+          },
+        ),
+        BlocListener<CategoriesBloc, CategoriesState>(
+          listenWhen: (previous, current) {
+            final prevError = previous is CategoriesLoadSuccess
+                ? previous.error
+                : null;
+            final currError = current is CategoriesLoadSuccess
+                ? current.error
+                : null;
+            return prevError != currError && currError != null;
+          },
+          listener: (context, state) {
+            // A bulk operation can fail after deleting or updating part of the
+            // selection, so the list stays on screen and only the message is
+            // new - a full-screen failure would hide categories that are still
+            // there.
+            final error = state is CategoriesLoadSuccess ? state.error : null;
+            if (error == null) return;
+            ScaffoldMessenger.of(context)
+              ..removeCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(content: Text(l10n.importErrorLabel(error))),
+              );
           },
         ),
         BlocListener<CategoriesBloc, CategoriesState>(
