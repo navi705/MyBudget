@@ -247,8 +247,9 @@ class FinanceCalculator {
   Map<String, double> calculateRealBalances(
     FinancialSnapshot data, {
     String? defaultCountry,
+    Map<String, double>? balances,
   }) {
-    final balances = calculateBalances(data);
+    balances ??= calculateBalances(data);
     final realBalances = <String, double>{};
     // Optimisation: Pre-calculate multipliers per country
     // Group inflation rates by country
@@ -350,8 +351,11 @@ class FinanceCalculator {
   /// Returns Total Net Worth in Base Currency
   ///
   /// Sum of all (Real or Nominal?) balances converted to [data.baseCurrency]
-  double calculateTotalNetWorth(FinancialSnapshot data) {
-    final balances = calculateBalances(data);
+  double calculateTotalNetWorth(
+    FinancialSnapshot data, {
+    Map<String, double>? balances,
+  }) {
+    balances ??= calculateBalances(data);
     double total = 0.0;
 
     // Finding #3: Build account lookup map once for O(1) access.
@@ -377,8 +381,11 @@ class FinanceCalculator {
     return total;
   }
 
-  Map<String, double> calculateCurrencyBreakdown(FinancialSnapshot data) {
-    final balances = calculateBalances(data);
+  Map<String, double> calculateCurrencyBreakdown(
+    FinancialSnapshot data, {
+    Map<String, double>? balances,
+  }) {
+    balances ??= calculateBalances(data);
     final breakdown = <String, double>{};
 
     // Finding #3: Build account lookup map once for O(1) access.
@@ -599,9 +606,12 @@ class FinanceCalculator {
 
   /// Returns map of AccountId -> AssetStats
   /// Calculates Net Balance (Post-Exit), Invested, Realized, and Commissions.
-  Map<String, AssetStats> calculateAssetStats(FinancialSnapshot data) {
+  Map<String, AssetStats> calculateAssetStats(
+    FinancialSnapshot data, {
+    Map<String, double>? balances,
+  }) {
     final stats = <String, AssetStats>{};
-    final balances = calculateBalances(data);
+    balances ??= calculateBalances(data);
 
     // Group transactions by account
     final transactionsByAccount = <String, List<Transaction>>{};

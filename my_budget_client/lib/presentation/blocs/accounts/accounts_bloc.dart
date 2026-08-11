@@ -316,16 +316,11 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
 
       PerformanceLogger().start('FinanceCalculator: Calculations');
 
-      // NOTE: Finding #5 Optimization Limitation
-      // The following calls to FinanceCalculator have internal redundancy:
-      // - calculateRealBalances() internally calls calculateBalances() again
-      // - calculateAssetStats() internally calls calculateBalances() again
-      // This results in calculateBalances() being called 3 times for the same snapshot.
-      // To eliminate this redundancy would require modifying FinanceCalculator to accept
-      // pre-computed balances as parameters. For now, the snapshot is built once and
-      // reused across all calls, which is the minimum safe optimization.
-      // The snapshot itself is cheap to create (just references), but calculateBalances()
-      // does O(A×T) work each time it's called.
+      // Nominal balances are computed once here and threaded into the derived
+      // calculations (real balances, asset stats) via the `balances:` parameter,
+      // so calculateBalances() runs a single O(A×T) pass per snapshot instead of
+      // three. The not-yet-created zeroing below is applied before threading, so
+      // derived values stay consistent with the grid.
 
       // 1. Calculate Nominal Balances (handles Asset Binding)
       final nominalBalances = _financeCalculator.calculateBalances(snapshot);
@@ -356,6 +351,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final realBalances = _financeCalculator.calculateRealBalances(
         snapshot,
         defaultCountry: defaultCountry,
+        balances: nominalBalances,
       );
 
       // FIX: Force 0 real balance for accounts not created yet
@@ -366,7 +362,10 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       }
 
       // 3. Asset Stats (Added)
-      final assetStats = _financeCalculator.calculateAssetStats(snapshot);
+      final assetStats = _financeCalculator.calculateAssetStats(
+        snapshot,
+        balances: nominalBalances,
+      );
 
       // 3. Asset Values (Already computed in calculateBalances logic, but AccountsState expects a separate map)
       // We can reuse nominalBalances for this if account is asset-bound.
@@ -481,6 +480,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final prevRealBalances = _financeCalculator.calculateRealBalances(
         prevSnapshot,
         defaultCountry: defaultCountry,
+        balances: prevBalances,
       );
 
       // FIX: Force 0 previous balances for accounts not created yet
@@ -628,6 +628,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         final newRealBalances = _financeCalculator.calculateRealBalances(
           snapshotForNew,
           defaultCountry: defaultCountry,
+          balances: newNominalBalances,
         );
 
         // FIX: Force 0 for new accounts if not created yet
@@ -640,6 +641,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
 
         final newAssetStats = _financeCalculator.calculateAssetStats(
           snapshotForNew,
+          balances: newNominalBalances,
         );
 
         // Period Stats for New
@@ -687,6 +689,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
         final prevRealBalances = _financeCalculator.calculateRealBalances(
           snapshotPrev,
           defaultCountry: defaultCountry,
+          balances: prevNominalBalances,
         );
 
         // FIX: Force 0 for prev period if not created yet
@@ -1062,6 +1065,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final realBalances = _financeCalculator.calculateRealBalances(
         snapshot,
         defaultCountry: defaultCountry,
+        balances: nominalBalances,
       );
 
       // FIX: Force 0 real balance for accounts not created yet
@@ -1072,7 +1076,10 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       }
 
       // 3. Asset Stats (Added)
-      final assetStats = _financeCalculator.calculateAssetStats(snapshot);
+      final assetStats = _financeCalculator.calculateAssetStats(
+        snapshot,
+        balances: nominalBalances,
+      );
 
       // 3. Period Stats (Current)
       final period = snapshot.currentPeriod;
@@ -1126,6 +1133,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState> {
       final prevRealBalances = _financeCalculator.calculateRealBalances(
         prevSnapshot,
         defaultCountry: defaultCountry,
+        balances: prevBalances,
       );
 
       // FIX: Force 0 previous balances for accounts not created yet
