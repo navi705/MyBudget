@@ -25,10 +25,42 @@ class CurrencyPrecision {
     'BHD', 'IQD', 'JOD', 'KWD', 'LYD', 'OMR', 'TND',
   };
 
+  /// Codes that are NOT integer-minor-unit money: the seeded crypto (133) and
+  /// commodity (4) currencies. Their native precision (BTC 8, ETH 18 decimals)
+  /// and holding sizes overflow integer minor units, so they stay a raw double.
+  ///
+  /// Kept in sync with `lib/data/seed_data/currencies_data.dart` (type crypto /
+  /// commoditity); a test cross-checks the count. A user-defined currency not in
+  /// this set defaults to fiat (integer minor units, 2 decimals).
+  static const Set<String> nonFiat = {
+    // Commodities (troy-ounce priced, fractional holdings)
+    'XAU', 'XAG', 'XPT', 'XPD',
+    // Crypto
+    '1INCH', 'AAVE', 'AGIX', 'ADA', 'AKT', 'ALGO', 'AMP', 'APE', 'APT', 'AR',
+    'ARB', 'ATOM', 'AVAX', 'AXS', 'BAKE', 'BAT', 'BCH', 'BNB', 'BSV', 'BSW',
+    'BTC', 'BTCB', 'BTG', 'BTT', 'BUSD', 'CAKE', 'CELO', 'CFX', 'CHZ', 'COMP',
+    'CRO', 'CRV', 'CSPR', 'CVX', 'DAI', 'DASH', 'DCR', 'DFI', 'DOGE', 'DOT',
+    'DYDX', 'EGLD', 'ENJ', 'EOS', 'ETC', 'ETH', 'EURC', 'FEI', 'FIL', 'FLOW',
+    'FLR', 'FRAX', 'FTT', 'GALA', 'GMX', 'GNO', 'GRT', 'GT', 'GUSD', 'HBAR',
+    'HNT', 'HOT', 'HT', 'ICP', 'IMX', 'INJ', 'KAS', 'KAVA', 'KCS', 'KDA',
+    'KNC', 'KSM', 'LDO', 'LEO', 'LINK', 'LRC', 'LTC', 'LUNA', 'LUNC', 'MANA',
+    'MBX', 'MINA', 'MKR', 'NEAR', 'NEO', 'NEXO', 'NFT', 'OKB', 'ONE', 'OP',
+    'ORDI', 'PAXG', 'PEPE', 'PI', 'POL', 'QNT', 'QTUM', 'RPL', 'RUNE', 'RVN',
+    'SAND', 'SHIB', 'SNX', 'SOL', 'STX', 'SUI', 'THETA', 'TON', 'TRX', 'TUSD',
+    'TWT', 'UNI', 'USDC', 'USDD', 'USDP', 'USDT', 'VET', 'WAVES', 'WEMIX',
+    'WOO', 'XAUT', 'XBT', 'XCG', 'XCH', 'XDC', 'XEC', 'XEM', 'XLM', 'XMR',
+    'XRP', 'XTZ', 'ZEC', 'ZIL',
+  };
+
   /// Whether amounts in a currency of [type] are stored as integer minor units
   /// (true, fiat only) or as a raw fractional double (false — crypto,
   /// commodities, stocks, real assets, obligations, other).
   static bool isMinorUnit(TypeCurrency type) => type == TypeCurrency.currency;
+
+  /// Code-based counterpart of [isMinorUnit], for the data layer where only the
+  /// currency code is at hand. Unknown codes default to fiat (minor units).
+  static bool isMinorUnitCode(String code) =>
+      !nonFiat.contains(code.toUpperCase());
 
   /// Minor-unit decimal places for a fiat currency [code]. Defaults to 2.
   /// Only meaningful when the currency's type [isMinorUnit].

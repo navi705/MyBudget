@@ -22,6 +22,31 @@ sealed class Amount {
     return FiatAmount(toMinorUnits(major, decimals), decimals);
   }
 
+  /// Same as [fromMajor] but resolves fiat/non-fiat from the [code] alone (data
+  /// layer). Used to turn a major-unit value — legacy stored double or parsed
+  /// input — into the right [Amount] variant.
+  factory Amount.fromMajorCode(double major, String code) {
+    if (!CurrencyPrecision.isMinorUnitCode(code)) return RawAmount(major);
+    final decimals = CurrencyPrecision.decimalsFor(code);
+    return FiatAmount(toMinorUnits(major, decimals), decimals);
+  }
+
+  /// Decode a value stored in the POST-migration convention: fiat is an integer
+  /// minor-unit count (held in the RealColumn as a whole-valued double), non-fiat
+  /// is a raw major-unit double.
+  factory Amount.decode(double stored, String code) {
+    if (!CurrencyPrecision.isMinorUnitCode(code)) return RawAmount(stored);
+    return FiatAmount(stored.round(), CurrencyPrecision.decimalsFor(code));
+  }
+
+  /// The value to persist under the post-migration convention: fiat stores its
+  /// integer minor units, non-fiat stores its raw major-unit double. Kept as a
+  /// [double] because the column stays a Drift RealColumn (decision A).
+  double encode() => switch (this) {
+        FiatAmount(:final minorUnits) => minorUnits.toDouble(),
+        RawAmount(:final value) => value,
+      };
+
   /// Value in major units (currency's natural scale), for conversion/display
   /// math where a [double] is acceptable. Storage/summation stays exact via the
   /// [FiatAmount.minorUnits] integer.

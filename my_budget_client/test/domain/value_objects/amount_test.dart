@@ -131,6 +131,57 @@ void main() {
     });
   });
 
+  group('CurrencyPrecision.isMinorUnitCode', () {
+    test('fiat codes are minor-unit, crypto/commodity are not', () {
+      expect(CurrencyPrecision.isMinorUnitCode('EUR'), isTrue);
+      expect(CurrencyPrecision.isMinorUnitCode('JPY'), isTrue);
+      expect(CurrencyPrecision.isMinorUnitCode('BTC'), isFalse);
+      expect(CurrencyPrecision.isMinorUnitCode('ETH'), isFalse);
+      expect(CurrencyPrecision.isMinorUnitCode('SHIB'), isFalse);
+      expect(CurrencyPrecision.isMinorUnitCode('XAU'), isFalse); // gold
+    });
+
+    test('unknown / user-defined codes default to fiat', () {
+      expect(CurrencyPrecision.isMinorUnitCode('ZZZ'), isTrue);
+      expect(CurrencyPrecision.isMinorUnitCode('MYCOIN'), isTrue);
+    });
+
+    test('nonFiat set matches the seeded 133 crypto + 4 commodity', () {
+      expect(CurrencyPrecision.nonFiat.length, 137);
+    });
+  });
+
+  group('Amount.fromMajorCode / decode / encode', () {
+    test('fromMajorCode scales fiat, keeps crypto raw', () {
+      expect(
+        (Amount.fromMajorCode(123.45, 'EUR') as FiatAmount).minorUnits,
+        12345,
+      );
+      expect((Amount.fromMajorCode(0.5, 'BTC') as RawAmount).value, 0.5);
+    });
+
+    test('decode reads stored minor units for fiat', () {
+      final a = Amount.decode(12345, 'EUR');
+      expect(a, isA<FiatAmount>());
+      expect((a as FiatAmount).minorUnits, 12345);
+      expect(a.major, 123.45);
+    });
+
+    test('decode keeps stored double for crypto', () {
+      final a = Amount.decode(0.5, 'BTC');
+      expect(a, isA<RawAmount>());
+      expect((a as RawAmount).value, 0.5);
+    });
+
+    test('encode round-trips both variants', () {
+      expect(const FiatAmount(12345, 2).encode(), 12345.0);
+      expect(const RawAmount(0.5).encode(), 0.5);
+      // full round-trip through the stored double
+      final fiat = Amount.fromMajorCode(99.99, 'USD');
+      expect(Amount.decode(fiat.encode(), 'USD'), fiat);
+    });
+  });
+
   group('FiatAmount arithmetic', () {
     test('addition and subtraction stay exact', () {
       const a = FiatAmount(1010, 2); // 10.10
