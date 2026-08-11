@@ -14,3 +14,7 @@ build/
 
 # Test related files
 coverage/
+
+# Holds SYNC_TOKEN, which is the only thing guarding the whole budget.
+.env
+.env.*
