@@ -74,6 +74,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
     AccountsBloc bloc,
     List<String> accountIds,
   ) {
+    final l10n = context.l10n;
+
     if (accountIds.length == 1) {
       final accountId = accountIds.first;
       final state = bloc.state;
@@ -95,14 +97,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
       context: context,
       resizeToAvoidBottomInset: false,
       child: AlertDialog(
-        title: Text('Delete ${accountIds.length} accounts?'),
-        content: const Text(
-          'Are you sure you want to delete the selected accounts? All associated transactions will be deleted.',
-        ),
+        title: Text(l10n.deleteAccountsConfirmTitle(accountIds.length)),
+        content: Text(l10n.deleteAccountsConfirmMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
@@ -110,7 +110,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
               bloc.add(DeleteMultipleAccounts(accountIds));
               Navigator.of(context, rootNavigator: true).pop();
             },
-            child: const Text('Delete All'),
+            child: Text(l10n.deleteAllButton),
           ),
         ],
       ),
@@ -123,6 +123,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
     List<String> accountIds,
     List<AccountType> accountTypes,
   ) {
+    final l10n = context.l10n;
+
     String? selectedTypeId = accountTypes.first.id;
     DialogUtils.showAppDialog(
       context: context,
@@ -130,7 +132,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
       child: StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            title: const Text('Change Account Type'),
+            title: Text(l10n.changeAccountTypeTitle),
             content: DropdownButton<String>(
               value: selectedTypeId,
               // Without isExpanded the selected item is an inflexible row child
@@ -153,11 +155,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
             ),
             actions: [
               TextButton(
-                child: const Text('Cancel'),
+                child: Text(l10n.cancelButton),
                 onPressed: () => Navigator.of(context).pop(),
               ),
               TextButton(
-                child: const Text('Change'),
+                child: Text(l10n.changeButton),
                 onPressed: () {
                   if (selectedTypeId != null) {
                     bloc.add(
@@ -875,6 +877,7 @@ class _AccountsDateAppBar extends StatelessWidget
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final bloc = context.read<AccountsBloc>();
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final isMobile = MediaQuery.of(context).size.width < kMobileBreakpoint;
@@ -886,9 +889,9 @@ class _AccountsDateAppBar extends StatelessWidget
       mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
       children: [
         MultiLevelTooltip(
-          message: 'Previous Period',
+          message: l10n.previousPeriodTooltip,
           actionId: 'prev_period',
-          description: 'Go to the previous month or year',
+          description: l10n.accountsPreviousPeriodDescription,
           child: IconButton(
             icon: Icon(Icons.chevron_left, color: onSurface),
             onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
@@ -896,9 +899,9 @@ class _AccountsDateAppBar extends StatelessWidget
         ),
         if (isMobile)
           MultiLevelTooltip(
-            message: 'Filter',
+            message: l10n.filterTooltip,
             actionId: 'filter_accounts',
-            description: 'Filter accounts by type or hidden status',
+            description: l10n.accountsFilterDescription,
             child: IconButton(
               icon: Icon(Icons.tune, color: onSurface),
               onPressed: () {
@@ -908,9 +911,9 @@ class _AccountsDateAppBar extends StatelessWidget
           )
         else if (!isMobile) ...[
           MultiLevelTooltip(
-            message: 'Filter',
+            message: l10n.filterTooltip,
             actionId: 'filter_accounts',
-            description: 'Filter accounts by type or hidden status',
+            description: l10n.accountsFilterDescription,
             child: IconButton(
               icon: Icon(Icons.tune, color: onSurface),
               onPressed: () {
@@ -923,9 +926,9 @@ class _AccountsDateAppBar extends StatelessWidget
         Expanded(
           flex: isMobile ? 1 : 0,
           child: MultiLevelTooltip(
-            message: 'Select Date',
+            message: l10n.selectDateTooltip,
             actionId: 'accounts_pick_date',
-            description: 'Choose a specific date to view historical balances',
+            description: l10n.accountsSelectDateDescription,
             child: InkWell(
               onTap: () => _showCustomCalendar(context, state),
               child: Container(
@@ -945,10 +948,9 @@ class _AccountsDateAppBar extends StatelessWidget
         ),
         if (isMobile)
           MultiLevelTooltip(
-            message: 'Sort Order',
+            message: l10n.sortOrderTooltip,
             actionId: 'accounts_sort',
-            description:
-                'Switch between ascending and descending balance order',
+            description: l10n.accountsSortDescription,
             child: RotatedBox(
               quarterTurns: state.sortAscending ? 2 : 0,
               child: IconButton(
@@ -967,10 +969,9 @@ class _AccountsDateAppBar extends StatelessWidget
         if (!isMobile) ...[
           const SizedBox(width: 8),
           MultiLevelTooltip(
-            message: 'Sort Order',
+            message: l10n.sortOrderTooltip,
             actionId: 'accounts_sort',
-            description:
-                'Switch between ascending and descending balance order',
+            description: l10n.accountsSortDescription,
             child: RotatedBox(
               quarterTurns: state.sortAscending ? 2 : 0,
               child: IconButton(
@@ -986,9 +987,9 @@ class _AccountsDateAppBar extends StatelessWidget
           const SizedBox(width: 8),
         ],
         MultiLevelTooltip(
-          message: 'Next Period',
+          message: l10n.nextPeriodTooltip,
           actionId: 'next_period',
-          description: 'Go to the next month or year',
+          description: l10n.accountsNextPeriodDescription,
           child: IconButton(
             icon: Icon(Icons.chevron_right, color: onSurface),
             onPressed: () => bloc.add(const DatePeriodNavigated(1)),
@@ -999,7 +1000,7 @@ class _AccountsDateAppBar extends StatelessWidget
 
     return GenericFilterAppBar(
       centerWidget: centerWidget,
-      totalCountText: 'Total: ${state.totalCount}',
+      totalCountText: l10n.totalCountLabel(state.totalCount),
     );
   }
 }
