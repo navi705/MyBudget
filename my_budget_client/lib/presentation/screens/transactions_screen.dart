@@ -24,11 +24,17 @@ class TransactionsScreen extends StatelessWidget {
 
   /// True once the accounts have actually loaded and there are none.
   ///
-  /// Every other [AccountsState] reports an empty list while the load is still
-  /// running, so treating "empty" as "no accounts" everywhere would flip the
+  /// Every other [AccountsState] reports no accounts while the load is still
+  /// running, so treating that as "no accounts" everywhere would flip the
   /// button under the user on the first frame of a normal launch.
+  ///
+  /// The unfiltered count, not `state.accounts`: that list is the accounts
+  /// screen's page after its type/currency/name filter, and the transaction
+  /// form's account picker is fed from the whole table. Reading it sent the
+  /// user to "create an account first" whenever a filter left the accounts
+  /// grid empty - with the accounts sitting right there.
   static bool _hasNoAccounts(AccountsState state) =>
-      state is AccountsLoadSuccess && state.accounts.isEmpty;
+      state is AccountsLoadSuccess && state.unfilteredAccountCount == 0;
 
   /// The "+" entry point, shared by the button and the hotkey.
   ///

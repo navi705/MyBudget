@@ -46,6 +46,26 @@ AccountsState _loaded(List<Account> accounts) => AccountsLoadSuccess(
   activeDate: DateTime(2024, 1, 1),
 );
 
+/// A loaded state whose visible list and whose real table disagree.
+///
+/// [accounts] is what the accounts screen's type/currency/name filter left on
+/// screen; [unfilteredAccountCount] is what the database actually holds. Only a
+/// state built this way can catch a guard that reads the filtered list: with
+/// the two kept in step, as [_loaded] keeps them, both readings agree.
+AccountsState _filteredDownTo(
+  List<Account> accounts, {
+  required int unfilteredAccountCount,
+}) => AccountsLoadSuccess(
+  accounts: accounts,
+  accountTypes: const [],
+  hasReachedMax: true,
+  totalCount: accounts.length,
+  exchangeRates: const [],
+  activeDate: DateTime(2024, 1, 1),
+  unfilteredAccountCount: unfilteredAccountCount,
+  unfilteredTransferableAccountCount: unfilteredAccountCount,
+);
+
 AccountsBloc _accountsBloc(AccountsState state) {
   final bloc = MockAccountsBloc();
   whenListen(bloc, const Stream<AccountsState>.empty(), initialState: state);
@@ -171,6 +191,54 @@ void main() {
 
       expect(_fabTooltip(tester).message, l10n.contextMenuAddTransaction);
       expect(_fabTooltip(tester).description, l10n.addTransactionDescription);
+    });
+  });
+
+  group('TransactionsScreen add button through an account filter', () {
+    // The accounts screen's filter is remembered in the same bloc this screen
+    // reads, so a filter narrow enough to empty the accounts grid used to make
+    // the "+" here offer account creation to a user who already owns accounts.
+    testWidgets('opens the transaction form when the filter hides every '
+        'account', (tester) async {
+      await _pumpTransactions(
+        tester,
+        accounts: _filteredDownTo(const [], unfilteredAccountCount: 1),
+      );
+
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+
+      expect(find.text(_formMarker), findsOneWidget);
+      expect(find.byType(AddAccountDialog), findsNothing);
+    });
+
+    testWidgets('advertises adding a transaction when the filter hides every '
+        'account', (tester) async {
+      final l10n = await loadL10n();
+      await _pumpTransactions(
+        tester,
+        accounts: _filteredDownTo(const [], unfilteredAccountCount: 1),
+      );
+
+      expect(_fabTooltip(tester).message, l10n.contextMenuAddTransaction);
+      expect(_fabTooltip(tester).description, l10n.addTransactionDescription);
+    });
+
+    // The other direction: a filter that hides nothing because there is
+    // nothing to hide still has to reach account creation.
+    testWidgets('still opens account creation on an empty table', (
+      tester,
+    ) async {
+      await _pumpTransactions(
+        tester,
+        accounts: _filteredDownTo(const [], unfilteredAccountCount: 0),
+      );
+
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AddAccountDialog), findsOneWidget);
+      expect(find.text(_formMarker), findsNothing);
     });
   });
 
