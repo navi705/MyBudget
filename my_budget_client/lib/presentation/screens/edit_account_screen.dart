@@ -118,8 +118,20 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     if (_isSaving) return;
     if (_formKey.currentState!.validate()) {
       // Guard against force-unwrap crash if currency/designation unresolved.
+      //
+      // The designation is looked up by currency code, so a currency with no
+      // designation row leaves it null - and this used to return in silence,
+      // making Save look like a dead button with nothing marked and nothing
+      // said. Name the field that is stopping the save.
       if (_selectedCurrencyCode == null ||
           _selectedCurrencyDesignationId == null) {
+        ScaffoldMessenger.of(context)
+          ..removeCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(context.l10n.formValidationPleaseSelectCurrency),
+            ),
+          );
         return;
       }
       _isSaving = true;

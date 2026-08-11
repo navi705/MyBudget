@@ -150,8 +150,15 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                               decoration: InputDecoration(
                                 labelText: l10n.currencyLabel,
                               ),
+                              // The designation is looked up by currency code,
+                              // so a currency with no designation row left
+                              // this field valid and Save inert - the button
+                              // ran, hit the guard below and returned with
+                              // nothing marked. Fail here instead, so the
+                              // user can pick a currency that works.
                               validator: (value) =>
-                                  _selectedCurrencyCode == null
+                                  _selectedCurrencyCode == null ||
+                                      _selectedCurrencyDesignationId == null
                                   ? l10n.formValidationPleaseSelectCurrency
                                   : null,
                             ),
@@ -168,6 +175,21 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                         if (_selectedAccountTypeId == null &&
                             state.accountTypes.isNotEmpty) {
                           _selectedAccountTypeId = state.accountTypes.first.id;
+                        }
+                        if (_selectedAccountTypeId == null) {
+                          // The picker is hidden because a type is normally
+                          // auto-assigned - but with no account type to assign
+                          // Save just returned, leaving a dialog that could
+                          // never be submitted and never said why.
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              l10n.formValidationPleaseSelectAccountType,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          );
                         }
                         return const SizedBox.shrink(); // Hide Account Type
                       }
