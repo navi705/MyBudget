@@ -18,13 +18,24 @@ enum SyncTableId {
   customDataSources(10),
   apiSettings(11),
   accountTypes(12),
-  currencyDesignations(13);
+  currencyDesignations(13),
+  currencies(14);
 
   const SyncTableId(this.value);
   final int value;
 
-  static SyncTableId fromValue(int value) =>
-      SyncTableId.values.firstWhere((e) => e.value == value);
+  /// Null for a table this build does not know about.
+  ///
+  /// Wire values are append-only, so a newer peer can send an id this build
+  /// has never heard of. Throwing here (the previous `firstWhere`) failed the
+  /// decode of the whole packet, losing every other change in it; the decoder
+  /// skips the one unknown block instead.
+  static SyncTableId? fromValue(int value) {
+    for (final id in SyncTableId.values) {
+      if (id.value == value) return id;
+    }
+    return null;
+  }
 }
 
 /// Action types for sync changes
@@ -35,8 +46,14 @@ enum SyncAction {
   const SyncAction(this.value);
   final int value;
 
-  static SyncAction fromValue(int value) =>
-      SyncAction.values.firstWhere((e) => e.value == value);
+  /// Null for an action this build does not know about; see
+  /// [SyncTableId.fromValue] for why an unknown value is skipped, not thrown.
+  static SyncAction? fromValue(int value) {
+    for (final action in SyncAction.values) {
+      if (action.value == value) return action;
+    }
+    return null;
+  }
 }
 
 /// Represents a single change record for sync
@@ -164,6 +181,10 @@ class SyncBinaryFormat {
     offset += 4;
 
     // Changes
+    //
+    // Every block is length-prefixed, so an unrecognised table or action can
+    // be stepped over without losing sync with the byte stream. That keeps a
+    // packet from a newer peer usable instead of failing whole.
     final changes = <SyncChange>[];
     for (int i = 0; i < changeCount; i++) {
       // Table ID
@@ -192,6 +213,8 @@ class SyncBinaryFormat {
         data = jsonDecode(utf8.decode(dataBytes)) as Map<String, dynamic>;
         offset += dataLen;
       }
+
+      if (tableId == null || action == null) continue;
 
       changes.add(
         SyncChange(

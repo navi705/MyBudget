@@ -27,6 +27,18 @@ part 'app_database.g.dart';
 
 const _uuid = Uuid();
 
+/// Splits [values] into slices small enough to pass to `isIn`.
+///
+/// `isIn` binds one SQL variable per element and SQLite refuses a statement
+/// with more than 999 of them (`SqliteException(1): too many SQL variables`).
+/// The sync exporter hands these helpers every pending record id at once, so
+/// the list is routinely far past that limit.
+Iterable<List<T>> _sqlChunks<T>(List<T> values, {int size = 500}) sync* {
+  for (var i = 0; i < values.length; i += size) {
+    yield values.sublist(i, i + size < values.length ? i + size : values.length);
+  }
+}
+
 class CategoryWithTotal {
   final Category category;
   final double total;
@@ -461,9 +473,15 @@ class CurrencyDesignationsDao extends DatabaseAccessor<AppDatabase>
   Future<List<CurrencyDesignation>> getDesignationsByIds(
     List<String> ids,
   ) async {
-    final query = select(currencyDesignations)
-      ..where((t) => t.id.isIn(ids) & t.isDeleted.equals(false));
-    return query.get();
+    final results = <CurrencyDesignation>[];
+    for (final chunk in _sqlChunks(ids)) {
+      results.addAll(
+        await (select(currencyDesignations)
+              ..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false)))
+            .get(),
+      );
+    }
+    return results;
   }
 
   Future<void> insertDesignation(
@@ -609,6 +627,21 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
     await into(currencies).insert(toInsert);
     await _logChange(toInsert.code.value, 'upsert');
   }
+
+  /// Bulk lookup for the sync exporter, which keys currencies by their code.
+  Future<List<Currency>> getCurrenciesByCodes(List<String> codes) async {
+    final results = <Currency>[];
+    for (final chunk in _sqlChunks(codes)) {
+      results.addAll(
+        await (select(currencies)..where((t) => t.code.isIn(chunk))).get(),
+      );
+    }
+    return results;
+  }
+
+  /// Apply a peer's currency without re-logging it as a local change.
+  Future<void> insertSyncedCurrency(CurrenciesCompanion currency) =>
+      into(currencies).insert(currency, mode: InsertMode.insertOrReplace);
 
   Future<void> insertAllCurrencies(List<CurrenciesCompanion> currencies) {
     return batch((batch) {
@@ -1116,9 +1149,15 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
           .getSingleOrNull();
 
   Future<List<AccountType>> getAccountTypesByIds(List<String> ids) async {
-    final query = select(accountTypes)
-      ..where((t) => t.id.isIn(ids) & t.isDeleted.equals(false));
-    return query.get();
+    final results = <AccountType>[];
+    for (final chunk in _sqlChunks(ids)) {
+      results.addAll(
+        await (select(accountTypes)
+              ..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false)))
+            .get(),
+      );
+    }
+    return results;
   }
 
   Future<void> insertAccountType(AccountTypesCompanion accountType) async {
@@ -1254,9 +1293,17 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
           .getSingleOrNull();
 
   // OPTIMIZATION: Bulk fetch accounts by IDs (O(1) vs O(n) sequential calls)
-  Future<List<DbAccount>> getAccountsByIds(List<String> ids) => (select(
-    accounts,
-  )..where((tbl) => tbl.id.isIn(ids) & tbl.isDeleted.equals(false))).get();
+  Future<List<DbAccount>> getAccountsByIds(List<String> ids) async {
+    final results = <DbAccount>[];
+    for (final chunk in _sqlChunks(ids)) {
+      results.addAll(
+        await (select(accounts)
+              ..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false)))
+            .get(),
+      );
+    }
+    return results;
+  }
 
   Stream<List<DbAccount>> watchAllAccounts() =>
       (select(accounts)..where((t) => t.isDeleted.equals(false))).watch();
@@ -1881,10 +1928,16 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     return count ?? 0;
   }
 
-  Future<List<Transaction>> getTransactionsByIds(List<String> ids) {
-    return (select(
-      transactions,
-    )..where((tbl) => tbl.id.isIn(ids) & tbl.isDeleted.equals(false))).get();
+  Future<List<Transaction>> getTransactionsByIds(List<String> ids) async {
+    final results = <Transaction>[];
+    for (final chunk in _sqlChunks(ids)) {
+      results.addAll(
+        await (select(transactions)
+              ..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false)))
+            .get(),
+      );
+    }
+    return results;
   }
 
   Future<void> deleteMultipleTransactions(List<String> ids) async {
@@ -2430,19 +2483,16 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
       }
     });
 
-    // Log changes for sync (especially useful if fetched from custom API)
-    final List<String> recordIds = ratesWithTimestamp.map((r) {
-      // For exchange rates, the unique ID for sync log is a composite string
-      // but since record_id is a single text column, we use a stable format:
-      // from_to_date_preset
-      final from = r.fromCurrencyCode.value;
-      final to = r.toCurrencyCode.value;
-      final date = DateFormat('yyyy-MM-dd').format(r.date.value);
-      final preset = r.preset.value;
-      return '${from}_${to}_${date}_$preset';
-    }).toList();
-
-    await _logChanges(recordIds, 'upsert');
+    // Deliberately not written to sync_log. This is the bulk path used by the
+    // seed data and by every rate-provider refresh, so one launch enqueues
+    // hundreds of thousands of rows - and the file-sync engine cannot deliver
+    // a single one of them: SyncService has no exchangeRates case in
+    // _getBulkRecordData/_insertRecord, so each row is fetched, found to have
+    // no payload, and dropped ("Data null for exchangeRates:... (skipping)").
+    // The only effect was an export that re-walked the entire backlog every
+    // cycle. Every device fetches the same rates from the same provider, so
+    // there is nothing here a peer needs shipped to it. Manually entered rates
+    // still log through addExchangeRate/updateExchangeRate/replaceExchangeRate.
   }
 
   Future<void> deleteExchangeRates(List<ExchangeRateDomain> rates) {
@@ -2504,22 +2554,6 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
-  Future<void> _logChanges(List<String> recordIds, String action) async {
-    final now = DateTime.now();
-    await batch((batch) {
-      for (final id in recordIds) {
-        batch.insert(
-          db.syncLog,
-          SyncLogCompanion(
-            changedTableName: const Value('exchange_rates'),
-            recordId: Value(id),
-            action: Value(action),
-            timestamp: Value(now.millisecondsSinceEpoch),
-          ),
-        );
-      }
-    });
-  }
 }
 
 @DriftAccessor(tables: [CustomThemes])
@@ -2750,24 +2784,22 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
   Future<void> insertAllInflationRates(
     List<InflationRatesCompanion> rates,
   ) async {
-    final List<String> recordIds = [];
     final now = DateTime.now().millisecondsSinceEpoch;
 
     await batch((batch) {
       for (final r in rates) {
-        final withTs = r.copyWith(modifiedAt: Value(now));
-        batch.insert(inflationRates, withTs, mode: InsertMode.insertOrReplace);
-
-        final date = DateFormat('yyyy-MM-dd').format(withTs.date.value);
-        final country = withTs.country.value ?? 'global';
-        final preset = withTs.preset.value;
-        recordIds.add('${date}_${country}_$preset');
+        batch.insert(
+          inflationRates,
+          r.copyWith(modifiedAt: Value(now)),
+          mode: InsertMode.insertOrReplace,
+        );
       }
     });
 
-    for (final id in recordIds) {
-      await _logChange(id, 'upsert');
-    }
+    // Not written to sync_log, for the same reason as insertAllExchangeRates:
+    // provider data every device fetches for itself, which the file-sync
+    // engine has no inflationRates case to deliver anyway. This loop also ran
+    // one INSERT round trip per rate.
   }
 
   Future<void> insertSyncedInflationRate(InflationRatesCompanion rate) =>
@@ -2886,9 +2918,17 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
             ..where((t) => t.id.equals(id) & t.isDeleted.equals(false)))
           .getSingleOrNull();
 
-  Future<List<AssetEntry>> getAssetEntriesByIds(List<String> ids) => (select(
-    assetEntries,
-  )..where((t) => t.id.isIn(ids) & t.isDeleted.equals(false))).get();
+  Future<List<AssetEntry>> getAssetEntriesByIds(List<String> ids) async {
+    final results = <AssetEntry>[];
+    for (final chunk in _sqlChunks(ids)) {
+      results.addAll(
+        await (select(assetEntries)
+              ..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false)))
+            .get(),
+      );
+    }
+    return results;
+  }
 
   Future<List<AssetEntry>> getAssetData({
     int limit = 50,
@@ -4031,11 +4071,23 @@ class SyncLogDao extends DatabaseAccessor<AppDatabase> with _$SyncLogDaoMixin {
   Future<List<SyncLogData>> getPendingChanges() =>
       (select(syncLog)..where((t) => t.exported.equals(false))).get();
 
-  /// Mark changes as exported
+  /// Mark changes as exported.
+  ///
+  /// Written in chunks because `isIn` binds one SQL variable per id and SQLite
+  /// caps a statement at 999 of them. A single statement over a large backlog
+  /// threw `SqliteException(1): too many SQL variables`, which the export path
+  /// swallowed - so no row was ever marked exported, the log grew without
+  /// bound, and every later export re-walked the whole backlog.
   Future<void> markExported(List<int> ids) async {
-    await (update(syncLog)..where((t) => t.id.isIn(ids))).write(
-      const SyncLogCompanion(exported: Value(true)),
-    );
+    if (ids.isEmpty) return;
+    const chunkSize = 500;
+    await transaction(() async {
+      for (var i = 0; i < ids.length; i += chunkSize) {
+        final end = (i + chunkSize < ids.length) ? i + chunkSize : ids.length;
+        await (update(syncLog)..where((t) => t.id.isIn(ids.sublist(i, end))))
+            .write(const SyncLogCompanion(exported: Value(true)));
+      }
+    });
   }
 
   /// Clear old exported entries

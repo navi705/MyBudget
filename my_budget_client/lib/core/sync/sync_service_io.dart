@@ -7,6 +7,10 @@ import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/core/sync/sync_binary_format.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
+// `show` because the entity library also declares a `Currency` class, which
+// would collide with the drift row class of the same name.
+import 'package:my_budget_client/domain/entities/currency.dart'
+    show TypeCurrency;
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:path/path.dart' as p;
 
@@ -658,6 +662,10 @@ class SyncService {
       return SyncTableId.currencyDesignations;
     }
     if (name == 'custom_data_sources') return SyncTableId.customDataSources;
+    // Import auto-creates a currency for any code the CSV uses that the seed
+    // does not have. Without this entry its sync_log row was dropped here and
+    // the peer received transactions referencing a currency it does not know.
+    if (name == 'currencies') return SyncTableId.currencies;
 
     return null;
   }
@@ -724,6 +732,12 @@ class SyncService {
           result[r.id] = _apiSettingsToJson(r);
         }
         break;
+      case SyncTableId.currencies:
+        final records = await _db.currenciesDao.getCurrenciesByCodes(ids);
+        for (final r in records) {
+          result[r.code] = _currencyToJson(r);
+        }
+        break;
       default:
         break;
     }
@@ -766,6 +780,9 @@ class SyncService {
       case SyncTableId.apiSettings:
         final record = await _db.apiSettingsDao.getSettingById(recordId);
         return record != null ? _apiSettingsToJson(record) : null;
+      case SyncTableId.currencies:
+        final record = await _db.currenciesDao.getCurrencyByCode(recordId);
+        return record != null ? _currencyToJson(record) : null;
       default:
         return null;
     }
@@ -815,6 +832,9 @@ class SyncService {
           _apiSettingsFromJson(data),
         );
         break;
+      case SyncTableId.currencies:
+        await _db.currenciesDao.insertSyncedCurrency(_currencyFromJson(data));
+        break;
       default:
         break;
     }
@@ -863,6 +883,9 @@ class SyncService {
         await _db.apiSettingsDao.insertSyncedApiSetting(
           _apiSettingsFromJson(data),
         );
+        break;
+      case SyncTableId.currencies:
+        await _db.currenciesDao.insertSyncedCurrency(_currencyFromJson(data));
         break;
       default:
         break;
@@ -1302,6 +1325,34 @@ class SyncService {
       modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
+    );
+  }
+
+  /// Keyed by `code`, which is the table's primary key and the value every
+  /// account and transaction stores, so the record id on the wire is the code.
+  Map<String, dynamic> _currencyToJson(Currency c) {
+    return {
+      'code': c.code,
+      'name': c.name,
+      'languageCode': c.languageCode,
+      'type': c.type.index,
+      'modifiedAt': c.modifiedAt,
+      'deviceId': c.deviceId,
+    };
+  }
+
+  CurrenciesCompanion _currencyFromJson(Map<String, dynamic> json) {
+    final code = json['code'] as String;
+    return CurrenciesCompanion(
+      code: Value(code),
+      // The table has a unique index on `name`, so falling back to the code
+      // keeps a payload with a missing name from colliding with every other
+      // name-less currency.
+      name: Value(json['name'] as String? ?? code),
+      languageCode: Value(json['languageCode'] as String? ?? 'en'),
+      type: Value(TypeCurrency.values[(json['type'] as int?) ?? 0]),
+      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      deviceId: Value(json['deviceId'] as String?),
     );
   }
 
