@@ -1363,6 +1363,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get syncConnectionFailed => 'Ошибка соединения. Проверьте URL и токен.';
 
   @override
+  String get syncConnectionUnauthorized => 'Сервер отклонил токен. Проверьте токен, а не адрес.';
+
+  @override
+  String get syncServerNotConfigured => 'На сервере не задан токен синхронизации, поэтому он отклоняет все устройства. Задайте SYNC_TOKEN на сервере и укажите то же значение здесь.';
+
+  @override
   String get syncCompleted => 'Синхронизация успешно завершена';
 
   @override

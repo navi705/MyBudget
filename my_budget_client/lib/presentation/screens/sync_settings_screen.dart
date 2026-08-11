@@ -245,16 +245,24 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     FocusScope.of(context).unfocus();
 
     try {
-      final success = await _serverSyncService.testConnection(
+      final status = await _serverSyncService.testConnection(
         url: _serverUrlController.text,
         token: _serverTokenController.text,
       );
 
       if (mounted) {
-        if (success) {
-          _showSnackbar(l10n.syncConnectionSuccessful);
-        } else {
-          _showSnackbar(l10n.syncConnectionFailed, isError: true);
+        // Each failure points at the one thing that is actually wrong. A
+        // single "connection failed" for all three sent the user editing the
+        // URL when the server had simply rejected the token.
+        switch (status) {
+          case SyncConnectionStatus.ok:
+            _showSnackbar(l10n.syncConnectionSuccessful);
+          case SyncConnectionStatus.unauthorized:
+            _showSnackbar(l10n.syncConnectionUnauthorized, isError: true);
+          case SyncConnectionStatus.serverNotConfigured:
+            _showSnackbar(l10n.syncServerNotConfigured, isError: true);
+          case SyncConnectionStatus.failed:
+            _showSnackbar(l10n.syncConnectionFailed, isError: true);
         }
       }
     } catch (e) {

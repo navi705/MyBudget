@@ -414,6 +414,8 @@
     "syncSettingsSaved": "সার্ভার সেটিংস সংরক্ষিত হয়েছে",
     "syncConnectionSuccessful": "সংযোগ সফল হয়েছে!",
     "syncConnectionFailed": "সংযোগ ব্যর্থ হয়েছে। URL এবং টোকেন পরীক্ষা করুন।",
+    "syncConnectionUnauthorized": "সার্ভার টোকেন প্রত্যাখ্যান করেছে। ঠিকানা নয়, টোকেন পরীক্ষা করুন।",
+    "syncServerNotConfigured": "সার্ভারে কোনো সিঙ্ক টোকেন কনফিগার করা নেই, তাই এটি সব ডিভাইস প্রত্যাখ্যান করছে। সার্ভারে SYNC_TOKEN সেট করুন এবং এখানে একই মান ব্যবহার করুন।",
     "syncCompleted": "সিঙ্ক সফলভাবে সম্পন্ন হয়েছে",
     "syncFailed": "সিঙ্ক ব্যর্থ হয়েছে: {error}",
     "smsRuleAddTitle": "নিয়ম যোগ করুন",

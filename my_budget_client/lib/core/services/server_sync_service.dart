@@ -9,6 +9,26 @@ import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 
+/// Why a connection test succeeded or failed.
+///
+/// A single bool made every failure look like a bad URL, so the one thing the
+/// user could actually fix — a token that does not match the server's — sent
+/// them editing the address instead.
+enum SyncConnectionStatus {
+  /// The server answered and accepted the token.
+  ok,
+
+  /// The server is running but rejected the token (HTTP 401).
+  unauthorized,
+
+  /// The server is running but has no `SYNC_TOKEN` configured, so it refuses
+  /// everyone (HTTP 503). Nothing the user can do in the app fixes this.
+  serverNotConfigured,
+
+  /// Unreachable, timed out, or answered with something else entirely.
+  failed,
+}
+
 class ServerSyncService {
   final AppDatabase _database;
   final SettingsRepository _settingsRepository;
@@ -68,9 +88,14 @@ class ServerSyncService {
     return setting?.value ?? 'http://localhost:58080';
   }
 
+  /// Empty when the user has not configured a token. Deliberately not a
+  /// placeholder like `dev_token`: a placeholder that happens to match a
+  /// server's real token would authenticate by accident, and an empty
+  /// credential fails the same way a wrong one does — with a 401 the user can
+  /// act on.
   Future<String> _getAuthToken() async {
     final setting = await _settingsRepository.getSetting('server_sync_token');
-    return setting?.value ?? 'dev_token';
+    return setting?.value ?? '';
   }
 
   /// This device's stable identity, as stored in the settings table and shared
@@ -157,11 +182,24 @@ class ServerSyncService {
       // Ensure ws:// or wss:// scheme
       final wsParams = baseUrl.replaceFirst(RegExp(r'^http'), 'ws');
       final deviceId = await _getLocalDeviceId();
-      final wsUrl = deviceId == null
+      // The token travels as a query parameter here, not as an Authorization
+      // header: a browser's WebSocket API cannot set request headers, and the
+      // web build has to reach the same endpoint as every other platform. The
+      // HTTP routes still use the header — a token in an HTTP URL would be
+      // written into access and proxy logs on every request.
+      final authToken = await _getAuthToken();
+      final query = <String>[
+        if (deviceId != null)
+          'device_id=${Uri.encodeQueryComponent(deviceId)}',
+        if (authToken.isNotEmpty)
+          'token=${Uri.encodeQueryComponent(authToken)}',
+      ];
+      final wsUrl = query.isEmpty
           ? '$wsParams/ws/sync'
-          : '$wsParams/ws/sync?device_id=${Uri.encodeQueryComponent(deviceId)}';
+          : '$wsParams/ws/sync?${query.join('&')}';
 
-      debugPrint('[WS_CLIENT] Connecting to: $wsUrl');
+      // Logs the endpoint, never the query string — it carries the token.
+      debugPrint('[WS_CLIENT] Connecting to: $wsParams/ws/sync');
 
       // Cancel ping timer
       _pingTimer?.cancel();
@@ -329,7 +367,10 @@ class ServerSyncService {
     stop();
   }
 
-  Future<bool> testConnection({String? url, String? token}) async {
+  Future<SyncConnectionStatus> testConnection({
+    String? url,
+    String? token,
+  }) async {
     try {
       final baseUrl = url ?? await _getBaseUrl();
       final authToken = token ?? await _getAuthToken();
@@ -341,17 +382,22 @@ class ServerSyncService {
           .get(uri, headers: {'Authorization': 'Bearer $authToken'})
           .timeout(const Duration(seconds: 10)); // Short timeout for testing
 
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        debugPrint(
-          '[ServerSync] Test connection failed: ${response.statusCode}',
-        );
-        return false;
+      switch (response.statusCode) {
+        case 200:
+          return SyncConnectionStatus.ok;
+        case 401:
+          return SyncConnectionStatus.unauthorized;
+        case 503:
+          return SyncConnectionStatus.serverNotConfigured;
+        default:
+          debugPrint(
+            '[ServerSync] Test connection failed: ${response.statusCode}',
+          );
+          return SyncConnectionStatus.failed;
       }
     } catch (e) {
       debugPrint('[ServerSync] Test connection error: $e');
-      return false;
+      return SyncConnectionStatus.failed;
     }
   }
 

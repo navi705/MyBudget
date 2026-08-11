@@ -414,6 +414,8 @@
     "syncSettingsSaved": "تم حفظ إعدادات الخادم",
     "syncConnectionSuccessful": "تم الاتصال بنجاح!",
     "syncConnectionFailed": "فشل الاتصال. تحقق من URL والرمز.",
+    "syncConnectionUnauthorized": "رفض الخادم الرمز. تحقق من الرمز وليس العنوان.",
+    "syncServerNotConfigured": "لم يتم تكوين رمز مزامنة على الخادم وهو يرفض جميع الأجهزة. عيّن SYNC_TOKEN على الخادم واستخدم القيمة نفسها هنا.",
     "syncCompleted": "اكتملت المزامنة بنجاح",
     "syncFailed": "فشلت المزامنة: {error}",
     "smsRuleAddTitle": "إضافة قاعدة",

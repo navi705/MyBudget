@@ -414,6 +414,8 @@
     "syncSettingsSaved": "Настройки сервера сохранены",
     "syncConnectionSuccessful": "Соединение успешно установлено!",
     "syncConnectionFailed": "Ошибка соединения. Проверьте URL и токен.",
+    "syncConnectionUnauthorized": "Сервер отклонил токен. Проверьте токен, а не адрес.",
+    "syncServerNotConfigured": "На сервере не задан токен синхронизации, поэтому он отклоняет все устройства. Задайте SYNC_TOKEN на сервере и укажите то же значение здесь.",
     "syncCompleted": "Синхронизация успешно завершена",
     "syncFailed": "Синхронизация не удалась: {error}",
     "smsRuleAddTitle": "Добавить правило",

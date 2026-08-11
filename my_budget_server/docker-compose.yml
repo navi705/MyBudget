@@ -9,6 +9,12 @@ services:
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/my_budget
       - DART_FROG_ENV=production
+      # The shared secret every device must present. Set it in a .env file
+      # next to this compose file (SYNC_TOKEN=...), or export it before
+      # `docker compose up`. Generate one with `openssl rand -hex 32`.
+      # Without it the server answers 503 to every /api and /ws request
+      # rather than serving the budget to anyone who finds the port.
+      - SYNC_TOKEN=${SYNC_TOKEN:?set SYNC_TOKEN, e.g. openssl rand -hex 32}
     depends_on:
       db:
         condition: service_healthy
@@ -21,7 +27,13 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: my_budget
     ports:
-      - '5432:5432'
+      # Bound to loopback deliberately. `5432:5432` publishes PostgreSQL on
+      # every interface with the default postgres/postgres credentials, which
+      # hands the whole budget to anyone who can reach the host — the sync
+      # token in front of the API would be beside the point. The server
+      # container reaches the database over the compose network, not this
+      # mapping; this line only exists for psql from the host itself.
+      - '127.0.0.1:5432:5432'
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:

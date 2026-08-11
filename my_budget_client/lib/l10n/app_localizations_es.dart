@@ -1363,6 +1363,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncConnectionFailed => 'Conexión fallida. Compruebe la URL y el Token.';
 
   @override
+  String get syncConnectionUnauthorized => 'El servidor rechazó el token. Revise el token, no la dirección.';
+
+  @override
+  String get syncServerNotConfigured => 'El servidor no tiene un token de sincronización configurado y rechaza todos los dispositivos. Defina SYNC_TOKEN en el servidor y use el mismo valor aquí.';
+
+  @override
   String get syncCompleted => 'Sincronización completada con éxito';
 
   @override

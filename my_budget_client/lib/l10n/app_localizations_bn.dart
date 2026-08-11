@@ -1363,6 +1363,12 @@ class AppLocalizationsBn extends AppLocalizations {
   String get syncConnectionFailed => 'সংযোগ ব্যর্থ হয়েছে। URL এবং টোকেন পরীক্ষা করুন।';
 
   @override
+  String get syncConnectionUnauthorized => 'সার্ভার টোকেন প্রত্যাখ্যান করেছে। ঠিকানা নয়, টোকেন পরীক্ষা করুন।';
+
+  @override
+  String get syncServerNotConfigured => 'সার্ভারে কোনো সিঙ্ক টোকেন কনফিগার করা নেই, তাই এটি সব ডিভাইস প্রত্যাখ্যান করছে। সার্ভারে SYNC_TOKEN সেট করুন এবং এখানে একই মান ব্যবহার করুন।';
+
+  @override
   String get syncCompleted => 'সিঙ্ক সফলভাবে সম্পন্ন হয়েছে';
 
   @override

@@ -414,6 +414,8 @@
     "syncSettingsSaved": "Configurações do servidor salvas",
     "syncConnectionSuccessful": "Conexão bem-sucedida!",
     "syncConnectionFailed": "Falha na conexão. Verifique a URL e o Token.",
+    "syncConnectionUnauthorized": "Token rejeitado pelo servidor. Verifique o token, não o endereço.",
+    "syncServerNotConfigured": "O servidor não tem um token de sincronização configurado e está recusando todos os dispositivos. Defina SYNC_TOKEN no servidor e use o mesmo valor aqui.",
     "syncCompleted": "Sincronização concluída com sucesso",
     "syncFailed": "Falha na sincronização: {error}",
     "smsRuleAddTitle": "Adicionar Regra",

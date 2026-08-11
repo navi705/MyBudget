@@ -1363,6 +1363,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syncConnectionFailed => '连接失败。请检查 URL 和令牌。';
 
   @override
+  String get syncConnectionUnauthorized => '服务器拒绝了该令牌。请检查令牌，而非地址。';
+
+  @override
+  String get syncServerNotConfigured => '服务器未配置同步令牌，因此拒绝所有设备。请在服务器上设置 SYNC_TOKEN，并在此处填入相同的值。';
+
+  @override
   String get syncCompleted => '同步成功完成';
 
   @override

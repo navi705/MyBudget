@@ -1363,6 +1363,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get syncConnectionFailed => 'Échec de la connexion. Vérifiez l\'URL et le Jeton.';
 
   @override
+  String get syncConnectionUnauthorized => 'Jeton refusé par le serveur. Vérifiez le jeton, pas l\'adresse.';
+
+  @override
+  String get syncServerNotConfigured => 'Aucun jeton de synchronisation n\'est configuré sur le serveur, qui refuse donc tous les appareils. Définissez SYNC_TOKEN sur le serveur et saisissez la même valeur ici.';
+
+  @override
   String get syncCompleted => 'Sync terminée avec succès';
 
   @override

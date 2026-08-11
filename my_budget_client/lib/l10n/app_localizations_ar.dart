@@ -1363,6 +1363,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get syncConnectionFailed => 'فشل الاتصال. تحقق من URL والرمز.';
 
   @override
+  String get syncConnectionUnauthorized => 'رفض الخادم الرمز. تحقق من الرمز وليس العنوان.';
+
+  @override
+  String get syncServerNotConfigured => 'لم يتم تكوين رمز مزامنة على الخادم وهو يرفض جميع الأجهزة. عيّن SYNC_TOKEN على الخادم واستخدم القيمة نفسها هنا.';
+
+  @override
   String get syncCompleted => 'اكتملت المزامنة بنجاح';
 
   @override

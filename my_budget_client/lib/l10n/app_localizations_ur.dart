@@ -1363,6 +1363,12 @@ class AppLocalizationsUr extends AppLocalizations {
   String get syncConnectionFailed => 'کنکشن ناکام ہوگیا۔ URL اور ٹوکن چیک کریں۔';
 
   @override
+  String get syncConnectionUnauthorized => 'سرور نے ٹوکن مسترد کر دیا۔ پتہ نہیں، ٹوکن جانچیں۔';
+
+  @override
+  String get syncServerNotConfigured => 'سرور پر کوئی سنک ٹوکن ترتیب نہیں دیا گیا، اس لیے وہ تمام ڈیوائسز مسترد کر رہا ہے۔ سرور پر SYNC_TOKEN مقرر کریں اور یہاں وہی قدر استعمال کریں۔';
+
+  @override
   String get syncCompleted => 'مطابقت پذیری کامیابی سے مکمل ہوگئی';
 
   @override

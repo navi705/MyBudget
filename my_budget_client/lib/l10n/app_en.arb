@@ -414,6 +414,8 @@
     "syncSettingsSaved": "Server settings saved",
     "syncConnectionSuccessful": "Connection successful!",
     "syncConnectionFailed": "Connection failed. Check URL and Token.",
+    "syncConnectionUnauthorized": "Token rejected by the server. Check the token, not the address.",
+    "syncServerNotConfigured": "The server has no sync token configured and is refusing every device. Set SYNC_TOKEN on the server and use the same value here.",
     "syncCompleted": "Sync completed successfully",
     "syncFailed": "Sync failed: {error}",
     "smsRuleAddTitle": "Add Rule",

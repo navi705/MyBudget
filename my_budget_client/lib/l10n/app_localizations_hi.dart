@@ -1363,6 +1363,12 @@ class AppLocalizationsHi extends AppLocalizations {
   String get syncConnectionFailed => 'कनेक्शन विफल। URL और टोकन की जाँच करें।';
 
   @override
+  String get syncConnectionUnauthorized => 'सर्वर ने टोकन अस्वीकार कर दिया। पता नहीं, टोकन जाँचें।';
+
+  @override
+  String get syncServerNotConfigured => 'सर्वर पर कोई सिंक टोकन कॉन्फ़िगर नहीं है, इसलिए वह सभी डिवाइस अस्वीकार कर रहा है। सर्वर पर SYNC_TOKEN सेट करें और यहाँ वही मान डालें।';
+
+  @override
   String get syncCompleted => 'सिंक सफलतापूर्वक पूरा हुआ';
 
   @override

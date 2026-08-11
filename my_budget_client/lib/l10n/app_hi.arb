@@ -414,6 +414,8 @@
     "syncSettingsSaved": "सर्वर सेटिंग्स सहेजी गईं",
     "syncConnectionSuccessful": "कनेक्शन सफल!",
     "syncConnectionFailed": "कनेक्शन विफल। URL और टोकन की जाँच करें।",
+    "syncConnectionUnauthorized": "सर्वर ने टोकन अस्वीकार कर दिया। पता नहीं, टोकन जाँचें।",
+    "syncServerNotConfigured": "सर्वर पर कोई सिंक टोकन कॉन्फ़िगर नहीं है, इसलिए वह सभी डिवाइस अस्वीकार कर रहा है। सर्वर पर SYNC_TOKEN सेट करें और यहाँ वही मान डालें।",
     "syncCompleted": "सिंक सफलतापूर्वक पूरा हुआ",
     "syncFailed": "सिंक विफल: {error}",
     "smsRuleAddTitle": "नियम जोड़ें",

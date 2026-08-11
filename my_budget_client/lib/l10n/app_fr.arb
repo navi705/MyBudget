@@ -414,6 +414,8 @@
     "syncSettingsSaved": "Paramètres serveur enregistrés",
     "syncConnectionSuccessful": "Connexion réussie !",
     "syncConnectionFailed": "Échec de la connexion. Vérifiez l'URL et le Jeton.",
+    "syncConnectionUnauthorized": "Jeton refusé par le serveur. Vérifiez le jeton, pas l'adresse.",
+    "syncServerNotConfigured": "Aucun jeton de synchronisation n'est configuré sur le serveur, qui refuse donc tous les appareils. Définissez SYNC_TOKEN sur le serveur et saisissez la même valeur ici.",
     "syncCompleted": "Sync terminée avec succès",
     "syncFailed": "Échec de la sync: {error}",
     "smsRuleAddTitle": "Ajouter une Règle",

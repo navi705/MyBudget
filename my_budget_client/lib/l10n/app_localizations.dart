@@ -2595,6 +2595,18 @@ abstract class AppLocalizations {
   /// **'Connection failed. Check URL and Token.'**
   String get syncConnectionFailed;
 
+  /// No description provided for @syncConnectionUnauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Token rejected by the server. Check the token, not the address.'**
+  String get syncConnectionUnauthorized;
+
+  /// No description provided for @syncServerNotConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'The server has no sync token configured and is refusing every device. Set SYNC_TOKEN on the server and use the same value here.'**
+  String get syncServerNotConfigured;
+
   /// No description provided for @syncCompleted.
   ///
   /// In en, this message translates to:

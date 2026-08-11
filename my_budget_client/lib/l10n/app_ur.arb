@@ -414,6 +414,8 @@
     "syncSettingsSaved": "سرور کی ترتیبات محفوظ ہو گئیں",
     "syncConnectionSuccessful": "کنکشن کامیاب رہا!",
     "syncConnectionFailed": "کنکشن ناکام ہوگیا۔ URL اور ٹوکن چیک کریں۔",
+    "syncConnectionUnauthorized": "سرور نے ٹوکن مسترد کر دیا۔ پتہ نہیں، ٹوکن جانچیں۔",
+    "syncServerNotConfigured": "سرور پر کوئی سنک ٹوکن ترتیب نہیں دیا گیا، اس لیے وہ تمام ڈیوائسز مسترد کر رہا ہے۔ سرور پر SYNC_TOKEN مقرر کریں اور یہاں وہی قدر استعمال کریں۔",
     "syncCompleted": "مطابقت پذیری کامیابی سے مکمل ہوگئی",
     "syncFailed": "مطابقت پذیری ناکام ہوگئی: {error}",
     "smsRuleAddTitle": "اصول (Rule) شامل کریں",
