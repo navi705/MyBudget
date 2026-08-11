@@ -9,6 +9,7 @@ import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/core/utils/import_utils.dart';
 import 'package:my_budget_client/data/seed_data/styles_data.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
+import 'package:my_budget_client/domain/value_objects/currency_precision.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
 import 'package:my_budget_client/domain/entities/transaction_type_filter.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
@@ -1951,12 +1952,14 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     DateTime? dateTo,
   }) async {
     final amountExp = transactions.amount.sum();
+    final amountMinorExp = transactions.amountMinor.sum();
     final query = selectOnly(transactions)
       ..addColumns([
         transactions.categoryId,
         transactions.currencyCode,
         transactions.date,
         amountExp,
+        amountMinorExp,
       ])
       ..where(transactions.isDeleted.equals(false));
 
@@ -1975,11 +1978,20 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
 
     final rows = await query.get();
     return rows.map((row) {
+      final code = row.read(transactions.currencyCode)!;
+      // Each group is a single currency, so prefer the exact integer sum for
+      // fiat (drift-free), dividing by the currency scale once. Crypto groups
+      // have a NULL minor sum and fall back to the double.
+      final minorSum = row.read(amountMinorExp);
+      final total = minorSum != null && CurrencyPrecision.isMinorUnitCode(code)
+          ? minorSum /
+                CurrencyPrecision.scaleFor(CurrencyPrecision.decimalsFor(code))
+          : (row.read(amountExp) ?? 0.0);
       return GroupedTransactionTotal(
         categoryId: row.read(transactions.categoryId)!,
-        currencyCode: row.read(transactions.currencyCode)!,
+        currencyCode: code,
         date: row.read(transactions.date)!,
-        total: row.read(amountExp) ?? 0.0,
+        total: total,
       );
     }).toList();
   }

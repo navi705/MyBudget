@@ -99,4 +99,19 @@ void main() {
     expect(await txMinor('t1'), (1010, 5));
     expect(await txMinor('t2'), (null, null));
   });
+
+  test('getTransactionTotalsGrouped subtotals are exact for fiat', () async {
+    await account('eur', 'EUR', 0);
+    await tx('a', 'eur', 'EUR', 0.1, 0.0);
+    await tx('b', 'eur', 'EUR', 0.2, 0.0);
+    await db.backfillMinorUnits();
+
+    final totals = await db.transactionsDao.getTransactionTotalsGrouped();
+    final eur =
+        totals.where((t) => t.currencyCode == 'EUR').fold<double>(0, (s, t) => s + t.total);
+
+    // 0.1 + 0.2 via integer minor units == exactly 0.3 (double SUM would be
+    // 0.30000000000000004).
+    expect(eur, 0.3);
+  });
 }
