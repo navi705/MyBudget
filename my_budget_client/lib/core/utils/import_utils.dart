@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:my_budget_client/core/utils/platform/io_helper.dart';
 import 'package:csv/csv.dart';
+import 'package:csv/csv_settings_autodetection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
@@ -102,10 +103,18 @@ class ImportDataUtils {
         fileContent = await IoHelper.readAsString(file.path!);
       }
 
+      // The parser was pinned to `eol: '\n'`, which does not mean "accept LF" -
+      // it means "\r is ordinary text". OneMoney, Excel and every other
+      // spreadsheet write CRLF, so the last cell of every row arrived with a
+      // `\r` welded to it: the header check below compares the last cell
+      // against "ЗАМЕТКИ"/"NOTES" and read "ЗАМЕТКИ\r", so a perfectly valid
+      // export was rejected outright as "headers do not match".
       const converter = CsvToListConverter(
         fieldDelimiter: ',',
         textDelimiter: '"',
-        eol: '\n',
+        csvSettingsDetector: FirstOccurrenceSettingsDetector(
+          eols: ['\r\n', '\n'],
+        ),
       );
 
       final List<List<dynamic>> csvData = converter.convert(fileContent);
@@ -122,8 +131,11 @@ class ImportDataUtils {
         rawHeaders[0] = (rawHeaders[0] as String).substring(1);
       }
 
+      // Trimmed: the comparison below is exact, so one trailing space anywhere
+      // in the header line - which a spreadsheet adds without asking - failed
+      // the whole file.
       final headers = rawHeaders
-          .map((e) => e.toString().toUpperCase())
+          .map((e) => e.toString().trim().toUpperCase())
           .toList();
 
       List<String> expectedHeaders;

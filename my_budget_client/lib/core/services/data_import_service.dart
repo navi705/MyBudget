@@ -4,15 +4,38 @@ import 'package:my_budget_client/core/utils/platform/io_helper.dart';
 import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 
 import 'package:csv/csv.dart';
+import 'package:csv/csv_settings_autodetection.dart';
 import 'package:drift/drift.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
+import 'package:my_budget_client/domain/value_objects/amount.dart';
 import 'package:uuid/uuid.dart';
 import 'package:my_budget_client/core/services/android_file_picker_service.dart';
 import 'package:my_budget_client/core/services/server_sync_service.dart'
     show serverPullCursorKey;
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Parses CSV without assuming a line ending.
+///
+/// The parser was pinned to `eol: '\n'`, which does not mean "accept LF" — it
+/// means "\r is ordinary text". Every CRLF file (Excel, most banks, and this
+/// app's own export, which writes the RFC-conform \r\n) therefore arrived with
+/// a `\r` welded onto the last column of every row: an account named `Cash`
+/// read as `Cash\r` and was imported as a second, different account, and the
+/// exchange-rate importer rejected valid files outright because its last
+/// header cell read `rate\r`.
+const _csvConverter = CsvToListConverter(
+  csvSettingsDetector: FirstOccurrenceSettingsDetector(eols: ['\r\n', '\n']),
+);
+
+/// Exact integer minor units for a fiat [major] amount in [code], or null for
+/// crypto/commodity, whose minor columns stay NULL. Mirrors the transaction and
+/// account mappers, the app's single definition of the money encoding.
+int? _minorOrNull(double major, String code) {
+  final amount = Amount.fromMajorCode(major, code);
+  return amount is FiatAmount ? amount.minorUnits : null;
+}
 
 /// Rewrites a backed-up inflation row's missing country to the sentinel the
 /// column stores the worldwide series under as of schema v10.
@@ -25,6 +48,181 @@ Map<String, dynamic> withGlobalInflationCountry(Map<String, dynamic> row) {
   final country = row['country'];
   if (country is String && country.isNotEmpty) return row;
   return {...row, 'country': globalInflationCountry};
+}
+
+/// Every table a backup document can carry, in the order the restore has to
+/// insert them (a table's foreign keys point only at tables before it).
+const _backupTableKeys = <String>[
+  'languages',
+  'styles',
+  'account_types',
+  'currencies',
+  'currency_designations',
+  'accounts',
+  'categories',
+  'exchange_rates',
+  'inflation_rates',
+  'asset_entries',
+  'transactions',
+  'settings',
+  'custom_themes',
+  'custom_data_sources',
+  'api_settings',
+  'sms_presets',
+];
+
+/// The backup tables whose rows are keyed by a single `id` column.
+const _idKeyedBackupTables = <String>[
+  'styles',
+  'account_types',
+  'currency_designations',
+  'accounts',
+  'categories',
+  'asset_entries',
+  'transactions',
+  'custom_themes',
+  'custom_data_sources',
+  'sms_presets',
+];
+
+/// Values for columns that did not exist yet when an older backup was written.
+///
+/// The generated `fromJson` factories read every non-nullable column through
+/// `serializer.fromJson<T>`, where an absent key arrives as `null as T` and
+/// throws — and the restore is a single transaction, so one column added after
+/// the backup was written aborts every other table with it.
+/// `accounts.openingBalance` (schema v11) is the live case: without this, no
+/// backup taken before v11 could be restored at all, and the failure named a
+/// type cast rather than the missing column.
+///
+/// Each value is that column's own SQL default, and only an absent (or null)
+/// key is filled, so a row that carries the column is never touched.
+const _backupColumnDefaults = <String, Map<String, Object>>{
+  'transactions': {'fee': 0.0, 'isDeleted': false},
+  'accounts': {'openingBalance': 0.0, 'assetQuantity': 0.0, 'isDeleted': false},
+  'categories': {'type': 0, 'isDeleted': false},
+  'styles': {'iconType': 0, 'isDeleted': false},
+  'account_types': {'isDeleted': false},
+  'currencies': {'type': 6},
+  'currency_designations': {'isDeleted': false},
+  'asset_entries': {'quantity': 1.0, 'preset': 1, 'isDeleted': false},
+  'custom_themes': {
+    'backgroundImageOpacity': 1.0,
+    'backgroundImageBlur': 0.0,
+    'effectOpacity': 1.0,
+    'surfaceOpacity': 1.0,
+    'isPreset': false,
+    'isActive': false,
+    'isDeleted': false,
+  },
+  'custom_data_sources': {
+    'enabled': true,
+    'autoFetch': false,
+    'isDeleted': false,
+  },
+  'api_settings': {'enabled': true, 'autoFetch': false},
+  'sms_presets': {'isBuiltIn': false, 'isEnabled': true, 'isDeleted': false},
+};
+
+/// Fills in [_backupColumnDefaults] on every row of [data], in place.
+@visibleForTesting
+void applyBackupColumnDefaults(Map<String, dynamic> data) {
+  _backupColumnDefaults.forEach((tableKey, defaults) {
+    final rows = data[tableKey];
+    if (rows is! List) return;
+    for (final row in rows) {
+      if (row is! Map<String, dynamic>) continue;
+      defaults.forEach((column, value) => row[column] ??= value);
+    }
+  });
+}
+
+/// Rejects a backup that cannot be restored intact — while the user's existing
+/// database is still untouched.
+///
+/// The restore turns foreign keys off for its duration (it wipes and refills
+/// the tables, so they are inconsistent in the middle) and inserts with
+/// `insertOrIgnore`. Neither of those says anything when a row is wrong: a
+/// transaction naming an account the file does not contain was written anyway,
+/// leaving a row no screen can resolve and every balance quietly skips, and a
+/// second row reusing an id was dropped on the floor. A restore is
+/// all-or-nothing, so both are refused here by name instead.
+@visibleForTesting
+void validateBackup(Map<String, dynamic> data) {
+  final problems = <String>[];
+
+  for (final key in _backupTableKeys) {
+    final value = data[key];
+    if (value == null) continue;
+    if (value is! List) {
+      problems.add("'$key' is a ${value.runtimeType}, not a list of rows");
+    } else if (value.any((row) => row is! Map<String, dynamic>)) {
+      problems.add("'$key' contains an entry that is not a row");
+    }
+  }
+  // The checks below read fields, so they only run on a well-shaped document.
+  if (problems.isEmpty) {
+    for (final key in _idKeyedBackupTables) {
+      final seen = <String>{};
+      final duplicates = <String>{};
+      for (final row in _backupRows(data, key)) {
+        final id = row['id'];
+        if (id is String && !seen.add(id)) duplicates.add(id);
+      }
+      if (duplicates.isNotEmpty) {
+        problems.add(
+          "'$key' reuses ${duplicates.length} id(s): ${_sample(duplicates)}",
+        );
+      }
+    }
+
+    _checkReferences(problems, data, 'accountId', 'accounts');
+    _checkReferences(problems, data, 'categoryId', 'categories');
+  }
+
+  if (problems.isNotEmpty) {
+    throw Exception('This backup cannot be restored: ${problems.join('; ')}.');
+  }
+}
+
+/// Flags transactions whose [field] names a row the backup does not contain.
+///
+/// Only checked when the backup carries [targetTable] at all: a document
+/// without that key leaves the existing table in place, so its rows are still
+/// there to resolve against.
+void _checkReferences(
+  List<String> problems,
+  Map<String, dynamic> data,
+  String field,
+  String targetTable,
+) {
+  if (data[targetTable] == null) return;
+  final known = {
+    for (final row in _backupRows(data, targetTable))
+      if (row['id'] is String) row['id'] as String,
+  };
+  final missing = <String>{};
+  for (final row in _backupRows(data, 'transactions')) {
+    final ref = row[field];
+    if (ref is String && !known.contains(ref)) missing.add(ref);
+  }
+  if (missing.isNotEmpty) {
+    problems.add(
+      "'transactions' reference ${missing.length} $targetTable row(s) that the "
+      'backup does not contain: ${_sample(missing)}',
+    );
+  }
+}
+
+List<Map<String, dynamic>> _backupRows(Map<String, dynamic> data, String key) {
+  final value = data[key];
+  if (value is! List) return const [];
+  return value.whereType<Map<String, dynamic>>().toList();
+}
+
+String _sample(Iterable<String> ids) {
+  final shown = ids.take(3).join(', ');
+  return ids.length > 3 ? '$shown, …' : shown;
 }
 
 class DataImportService {
@@ -77,18 +275,27 @@ class DataImportService {
         );
       }
 
-      if (content.trim().isEmpty) {
-        throw Exception('The selected file is empty.');
-      }
-
-      if (isCsv) {
-        await _importCsv(content);
-      } else {
-        await _importJson(content);
-      }
+      await importContent(content, isCsv: isCsv);
       return true;
     }
     return false;
+  }
+
+  /// Imports an already-read file body.
+  ///
+  /// This is everything [importData] does once the native picker has handed
+  /// back a file, split out so the formats can be driven without one.
+  @visibleForTesting
+  Future<void> importContent(String content, {required bool isCsv}) async {
+    if (content.trim().isEmpty) {
+      throw Exception('The selected file is empty.');
+    }
+
+    if (isCsv) {
+      await _importCsv(content);
+    } else {
+      await _importJson(content);
+    }
   }
 
   Future<void> importExchangeRates({String? title}) async {
@@ -202,7 +409,7 @@ class DataImportService {
   }
 
   Future<void> _importExchangeRatesCsv(String content) async {
-    final rows = const CsvToListConverter().convert(content, eol: '\n');
+    final rows = _csvConverter.convert(content);
     if (rows.isEmpty) return;
 
     final header = rows.first
@@ -250,7 +457,14 @@ class DataImportService {
   Future<void> _importJson(String content) async {
     debugPrint('[RESTORE] _importJson: parsing JSON...');
     // RESTORE STRATEGY: Wipe and Replace
-    final data = jsonDecode(content) as Map<String, dynamic>;
+    final decoded = jsonDecode(content);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception(
+        'This is not a My Budget backup: the file is a '
+        '${decoded.runtimeType}, not a JSON object.',
+      );
+    }
+    final data = decoded;
     final now = DateTime.now().millisecondsSinceEpoch;
     debugPrint('[RESTORE] backup version: ${data['version']}, timestamp: ${data['timestamp']}');
 
@@ -275,32 +489,54 @@ class DataImportService {
       }
     });
 
+    // Fill in columns that did not exist yet when the backup was written, and
+    // reject a file that cannot be restored - both BEFORE the wipe, so a bad
+    // backup costs the user nothing.
+    applyBackupColumnDefaults(data);
+    validateBackup(data);
+
     // PRAGMA foreign_keys must be set outside transaction in SQLite
     await _db.customStatement('PRAGMA foreign_keys = OFF');
 
     try {
       await _db.transaction(() async {
-        // 1. Delete all existing data (including technical tables)
+        // 1. Delete the existing data this backup is going to replace.
+        //
+        // A table the backup does not carry at all is left alone. Wiping it
+        // regardless is what made an older backup destructive beyond its own
+        // contents: a v1 file has no `languages` key, so the restore emptied
+        // that table and then re-inserted every currency pointing at a
+        // language row that no longer existed.
         debugPrint('[RESTORE] Deleting existing data...');
         // Business Tables
-        await _db.delete(_db.transactions).go();
-        await _db.delete(_db.accounts).go();
-        await _db.delete(_db.categories).go();
-        await _db.delete(_db.exchangeRates).go();
-        await _db.delete(_db.inflationRates).go();
-        await _db.delete(_db.assetEntries).go();
-        await _db.delete(_db.currencyDesignations).go();
-        await _db.delete(_db.currencies).go();
-        await _db.delete(_db.accountTypes).go();
-        await _db.delete(_db.styles).go();
-        await _db.delete(_db.languages).go();
+        await _deleteIfPresent(data, 'transactions', _db.transactions);
+        await _deleteIfPresent(data, 'accounts', _db.accounts);
+        await _deleteIfPresent(data, 'categories', _db.categories);
+        await _deleteIfPresent(data, 'exchange_rates', _db.exchangeRates);
+        await _deleteIfPresent(data, 'inflation_rates', _db.inflationRates);
+        await _deleteIfPresent(data, 'asset_entries', _db.assetEntries);
+        await _deleteIfPresent(
+          data,
+          'currency_designations',
+          _db.currencyDesignations,
+        );
+        await _deleteIfPresent(data, 'currencies', _db.currencies);
+        await _deleteIfPresent(data, 'account_types', _db.accountTypes);
+        await _deleteIfPresent(data, 'styles', _db.styles);
+        await _deleteIfPresent(data, 'languages', _db.languages);
 
         // Technical/Other Tables
-        await _db.delete(_db.settings).go();
-        await _db.delete(_db.customThemes).go();
-        await _db.delete(_db.customDataSources).go();
-        await _db.delete(_db.apiSettingsTable).go();
-        await _db.delete(_db.smsPresets).go();
+        await _deleteIfPresent(data, 'settings', _db.settings);
+        await _deleteIfPresent(data, 'custom_themes', _db.customThemes);
+        await _deleteIfPresent(
+          data,
+          'custom_data_sources',
+          _db.customDataSources,
+        );
+        await _deleteIfPresent(data, 'api_settings', _db.apiSettingsTable);
+        await _deleteIfPresent(data, 'sms_presets', _db.smsPresets);
+
+        // Local bookkeeping, never carried in a backup: always reset.
         await _db.delete(_db.syncLog).go();
         await _db.delete(_db.conflictHistory).go();
         await _db.delete(_db.apiFetchStatuses).go();
@@ -529,6 +765,19 @@ class DataImportService {
     }
   }
 
+  /// Empties [table] only when the backup actually carries [key].
+  ///
+  /// A key the document does not have at all is not "an empty table", it is a
+  /// table this backup says nothing about.
+  Future<void> _deleteIfPresent(
+    Map<String, dynamic> data,
+    String key,
+    TableInfo<Table, dynamic> table,
+  ) async {
+    if (data[key] == null) return;
+    await _db.delete(table).go();
+  }
+
   /// Deduplicate asset_entries from backup.
   /// Partial UNIQUE INDEX: (asset_id, date, source) WHERE source = 'custom_api'
   /// Old backups may contain duplicates created before the index existed.
@@ -572,10 +821,7 @@ class DataImportService {
   Future<void> _importCsv(String content) async {
     // APPEND STRATEGY
     // Expected Columns: Date, Amount, Currency, Description, Category, Account, Type
-    List<List<dynamic>> rows = const CsvToListConverter().convert(
-      content,
-      eol: '\n',
-    );
+    List<List<dynamic>> rows = _csvConverter.convert(content);
     if (rows.isEmpty) return;
 
     // Determine indices from header
@@ -622,15 +868,46 @@ class DataImportService {
     final uuid = const Uuid();
 
     await _db.transaction(() async {
-      for (var row in rows) {
-        if (row.length < header.length) continue; // Skip malformed rows
+      for (var i = 0; i < rows.length; i++) {
+        final row = rows[i];
+        // Header is line 1, so the first data row is line 2.
+        final line = i + 2;
 
-        final dateStr = row[dateIdx].toString();
-        final date = DateTime.tryParse(dateStr) ?? DateTime.now();
+        if (row.every((c) => c == null || c.toString().trim().isEmpty)) {
+          continue; // Blank separator line, not data.
+        }
 
-        final amount = double.tryParse(row[amountIdx].toString()) ?? 0.0;
+        // A row that does not line up with the header is not importable, and
+        // guessing is worse than refusing: `continue` dropped it without a
+        // word, so a file whose middle rows were malformed imported as a
+        // shorter history that looked complete.
+        if (row.length < header.length) {
+          throw Exception(
+            'Invalid CSV: line $line has ${row.length} columns, '
+            'but the header declares ${header.length}.',
+          );
+        }
+
+        // Same for the two fields that carry the meaning of the row. An
+        // unparseable date used to become "now" and an unparseable amount
+        // became 0.00 - both silently, so a mangled file imported as a pile of
+        // today-dated, zero-value transactions that the user had to spot alone.
+        final dateStr = row[dateIdx].toString().trim();
+        final date = DateTime.tryParse(dateStr);
+        if (date == null) {
+          throw Exception('Invalid CSV: line $line has no valid date '
+              '("$dateStr").');
+        }
+
+        final amountStr = row[amountIdx].toString().trim();
+        final amount = double.tryParse(amountStr);
+        if (amount == null) {
+          throw Exception('Invalid CSV: line $line has no valid amount '
+              '("$amountStr").');
+        }
+
         final currencyCode = currencyIdx != -1
-            ? row[currencyIdx].toString().toUpperCase()
+            ? row[currencyIdx].toString().trim().toUpperCase()
             : 'EUR';
         final description = descIdx != -1 ? row[descIdx].toString() : '';
 
@@ -671,6 +948,12 @@ class DataImportService {
               balance: const Value(
                 0.0,
               ), // Initial balance, can be updated later? Or assume transaction affects it.
+              // Fiat money lives in the integer minor-unit columns; leaving
+              // them NULL on a fiat row is not "no value yet", it is a row the
+              // exact-sum SQL skips (SUM ignores NULL), so the account's
+              // balance silently came out short of its own transactions.
+              balanceMinor: Value(_minorOrNull(0.0, currencyCode)),
+              openingBalanceMinor: Value(_minorOrNull(0.0, currencyCode)),
               description: const Value('Imported'),
               creationDate: Value(DateTime.now()),
             ),
@@ -683,10 +966,12 @@ class DataImportService {
           TransactionsCompanion(
             date: Value(date),
             amount: Value(amount),
+            amountMinor: Value(_minorOrNull(amount, currencyCode)),
             currencyCode: Value(currencyCode),
             description: Value(description),
             categoryId: Value(categoryId),
             accountId: Value(accountId),
+            feeMinor: Value(_minorOrNull(0.0, currencyCode)),
           ),
         );
       }
