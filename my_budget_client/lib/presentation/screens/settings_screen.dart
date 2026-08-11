@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:get_it/get_it.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 import 'package:my_budget_client/data/repositories/db_repository.dart';
 import 'package:my_budget_client/core/services/data_export_service.dart';
 import 'package:my_budget_client/core/services/data_import_service.dart';
@@ -43,6 +44,15 @@ class SettingsScreen extends StatelessWidget {
                   settingsState.settings['default_inflation_country'] ?? 'SRB';
 
               final l10n = context.l10n;
+              // Whether the shell is currently showing its bottom NavigationBar
+              // rather than the side rail. MainScreen makes that call on the
+              // window width it is given, and MediaQuery reports that same
+              // width here (this screen sits inside the shell, but the rail
+              // only narrows the *pane*, not the window). Anything the rail
+              // drops at this size has to be offered from inside Settings
+              // instead — see the Data row below.
+              final isMobileLayout =
+                  MediaQuery.sizeOf(context).width < kMobileBreakpoint;
               return ListView(
                 children: [
                   // Appearance
@@ -162,7 +172,16 @@ class SettingsScreen extends StatelessWidget {
                   const Divider(),
 
                   // Feature-specific & External Data
-                  if (AppPlatform.isAndroid || AppPlatform.isIOS)
+                  //
+                  // The Data screen has no navigation destination of its own
+                  // while the shell is in bottom-bar mode, so this row is its
+                  // only entry point there. Gating it on Android/iOS instead
+                  // made it unreachable for everyone else that lands in that
+                  // mode: a phone browser (every AppPlatform flag is false on
+                  // web) and a desktop window dragged below 600dp both lost
+                  // /exchange-rates entirely — no rail destination, no settings
+                  // row. The gate belongs on the same width MainScreen uses.
+                  if (isMobileLayout)
                     ListTile(
                       leading: const Icon(Icons.bar_chart),
                       title: Text(l10n.dataLabel),
@@ -262,8 +281,10 @@ class SettingsScreen extends StatelessWidget {
                     subtitle: Text(l10n.resetDataSubtitle),
                     onTap: () => _confirmResetData(context),
                   ),
-                  if (kDebugMode &&
-                      (AppPlatform.isAndroid || AppPlatform.isIOS))
+                  // Same reasoning as the Data row: MainScreen only adds the
+                  // Debug destination to the rail, so in bottom-bar mode this
+                  // row is the only way in regardless of the host OS.
+                  if (kDebugMode && isMobileLayout)
                     ListTile(
                       leading: const Icon(
                         Icons.bug_report,
@@ -395,7 +416,14 @@ class SettingsScreen extends StatelessWidget {
     context.read<SettingsBloc>().add(LoadSettings());
     context.read<StylesBloc>().add(LoadStyles());
     context.read<TransactionsBloc>().add(const InitialLoadTransactions());
-    context.read<SmsBloc>().add(LoadSmsPresets());
+    // SmsBloc is only provided on Android (AppProviders gates it the same way),
+    // so this read has to be gated identically. Unconditionally it threw
+    // ProviderNotFoundException on every other platform — after the database
+    // had already been wiped — and the catch in _performReset reported the
+    // reset as failed even though it had succeeded.
+    if (!kIsWeb && AppPlatform.isAndroid) {
+      context.read<SmsBloc>().add(LoadSmsPresets());
+    }
   }
 
   String _getLanguageName(String? code, BuildContext context) {

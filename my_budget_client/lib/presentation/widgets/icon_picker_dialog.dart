@@ -3,6 +3,7 @@ import 'package:my_budget_client/core/utils/platform/io_helper.dart';
 import 'package:my_budget_client/core/utils/platform/icon_helper.dart';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:flutter_svg/svg.dart';
@@ -50,6 +51,7 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
     iconData.forEach((key, value) {
       categories[key] = List<String>.from(value);
     });
+    if (!mounted) return;
     setState(() {
       _materialIconCategories = categories;
     });
@@ -62,13 +64,21 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
         .where((String key) => key.startsWith('lib/icons/'))
         .toList();
 
-    final appDir = await getApplicationDocumentsDirectory();
-    final iconsDirPath = p.join(appDir.path, 'icons');
-    if (await IoHelper.exists(iconsDirPath)) {
-      final userIcons = await IoHelper.listFiles(iconsDirPath);
-      imagePaths.addAll(userIcons);
+    // path_provider ships no web implementation, so this call raises a
+    // MissingPluginException in a browser. It used to run unguarded from
+    // initState, which meant opening the picker on web threw before the
+    // setState below and left the Custom tab permanently empty - the bundled
+    // icons above never made it into the list either.
+    if (!kIsWeb) {
+      final appDir = await getApplicationDocumentsDirectory();
+      final iconsDirPath = p.join(appDir.path, 'icons');
+      if (await IoHelper.exists(iconsDirPath)) {
+        final userIcons = await IoHelper.listFiles(iconsDirPath);
+        imagePaths.addAll(userIcons);
+      }
     }
 
+    if (!mounted) return;
     setState(() {
       _customIconPaths = imagePaths;
     });
@@ -266,15 +276,24 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
         ),
         // Directional so the FAB lands in the trailing corner of the grid for
         // RTL locales (ar/ur) instead of on top of the first icons.
-        PositionedDirectional(
-          bottom: 16,
-          end: 16,
-          child: FloatingActionButton(
-            onPressed: _addNewIcon,
-            tooltip: context.l10n.addNewIconLabel,
-            child: const Icon(Icons.add),
+        //
+        // Not offered on web: a custom icon is stored as a path into the
+        // documents directory, and IoHelper's web stub throws rather than
+        // pretend to write there. The button was reachable but inert - the
+        // picker returns bytes with a null path in a browser, so the handler
+        // fell straight through its `path != null` check and nothing happened.
+        // Restoring it means keeping the bytes in the database instead of a
+        // path; until then an absent button beats a dead one.
+        if (!kIsWeb)
+          PositionedDirectional(
+            bottom: 16,
+            end: 16,
+            child: FloatingActionButton(
+              onPressed: _addNewIcon,
+              tooltip: context.l10n.addNewIconLabel,
+              child: const Icon(Icons.add),
+            ),
           ),
-        ),
       ],
     );
   }

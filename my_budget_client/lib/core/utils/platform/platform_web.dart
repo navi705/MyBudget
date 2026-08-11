@@ -1,11 +1,17 @@
 // Stub for web: AppPlatform class that mocks dart:io Platform
+import 'platform_override.dart';
+
 class AppPlatform {
-  static const bool isLinux = false;
-  static const bool isMacOS = false;
-  static const bool isWindows = false;
-  static const bool isAndroid = false;
-  static const bool isIOS = false;
-  static const bool isFuchsia = false;
+  /// No OS flag is ever true in a browser, so each one answers `false` unless a
+  /// test has pinned a platform through [debugAppPlatformOverride].
+  static bool _is(AppPlatformKind kind) => debugAppPlatformOverride == kind;
+
+  static bool get isLinux => _is(AppPlatformKind.linux);
+  static bool get isMacOS => _is(AppPlatformKind.macOS);
+  static bool get isWindows => _is(AppPlatformKind.windows);
+  static bool get isAndroid => _is(AppPlatformKind.android);
+  static bool get isIOS => _is(AppPlatformKind.iOS);
+  static bool get isFuchsia => _is(AppPlatformKind.fuchsia);
 
   // Add other properties if needed
   static Map<String, String> get environment => {};
