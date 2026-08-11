@@ -1,7 +1,15 @@
 import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as drift;
 import 'package:my_budget_client/domain/entities/transaction.dart';
+import 'package:my_budget_client/domain/value_objects/amount.dart';
 import 'package:uuid/uuid.dart';
+
+/// Exact minor units for a fiat [major] value in [code], or null for non-fiat
+/// (crypto/commodity), whose minor column stays NULL.
+int? _minorOrNull(double major, String code) {
+  final a = Amount.fromMajorCode(major, code);
+  return a is FiatAmount ? a.minorUnits : null;
+}
 
 extension TransactionMapper on drift.Transaction {
   Transaction toDomain() {
@@ -27,6 +35,7 @@ extension TransactionCompanionMapper on Transaction {
       id: Value(id ?? const Uuid().v4()),
       description: Value(description),
       amount: Value(amount),
+      amountMinor: Value(_minorOrNull(amount, currencyCode)),
       date: Value(date),
       accountId: Value(accountId),
       categoryId: Value(categoryId),
@@ -34,6 +43,7 @@ extension TransactionCompanionMapper on Transaction {
       exchangeRate: Value(exchangeRate),
       exchangeRatePreset: Value(exchangeRatePreset),
       fee: Value(fee),
+      feeMinor: Value(_minorOrNull(fee, currencyCode)),
       linkedTransactionId: Value(linkedTransactionId),
     );
   }
