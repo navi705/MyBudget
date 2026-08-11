@@ -197,19 +197,44 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     );
   }
 
+  /// Records a write that did not take, leaving the painted theme alone.
+  ///
+  /// The four write handlers below had no catch at all, so a repository that
+  /// could not answer left the tap looking like it had simply been ignored -
+  /// the tile did not move, the slider snapped back, and nothing said why.
+  /// Clearing the message at the start of each handler is what makes the same
+  /// failure twice reach the screen twice.
+  ThemeState _actionFailed(Object error) {
+    debugPrint('[THEME_DEBUG] Theme action failed: $error');
+    return state.copyWith(actionError: error.toString());
+  }
+
   Future<void> _onSelectThemePreset(
     SelectThemePreset event,
     Emitter<ThemeState> emit,
   ) async {
-    await _themeRepository.setActiveTheme(event.presetId);
-    final themes = await _themeRepository.getAllThemes();
-    final activeTheme = themes.firstWhere((t) => t.id == event.presetId);
+    emit(state.copyWith(clearActionError: true));
+    try {
+      await _themeRepository.setActiveTheme(event.presetId);
+      final themes = await _themeRepository.getAllThemes();
+      // A preset another device deleted between this list being drawn and the
+      // tile being tapped is not there to read back. The `firstWhere` here
+      // carried no orElse, so that race arrived as an unhandled StateError
+      // rather than as a message.
+      final matches = themes.where((t) => t.id == event.presetId);
+      if (matches.isEmpty) {
+        throw StateError('Theme "${event.presetId}" no longer exists');
+      }
+      final activeTheme = matches.first;
 
-    // Also sync the old settings for backward compatibility if any parts still use them
-    await _settingsRepository.saveSetting('active_theme_id', event.presetId);
-    await _settingsRepository.setThemeMode(activeTheme.themeMode, 'all');
+      // Also sync the old settings for backward compatibility if any parts still use them
+      await _settingsRepository.saveSetting('active_theme_id', event.presetId);
+      await _settingsRepository.setThemeMode(activeTheme.themeMode, 'all');
 
-    emit(state.copyWith(activeTheme: activeTheme, presets: themes));
+      emit(state.copyWith(activeTheme: activeTheme, presets: themes));
+    } catch (e) {
+      emit(_actionFailed(e));
+    }
   }
 
   Future<void> _onUpdateThemeProperty(
@@ -217,6 +242,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     Emitter<ThemeState> emit,
   ) async {
     if (state.activeTheme == null) return;
+    emit(state.copyWith(clearActionError: true));
 
     String? bgPath = event.backgroundImagePath;
 
@@ -280,11 +306,19 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     }
 
     if (event.persist) {
-      await _themeRepository.saveTheme(updatedTheme);
-      await _themeRepository.setActiveTheme(updatedTheme.id);
+      try {
+        await _themeRepository.saveTheme(updatedTheme);
+        await _themeRepository.setActiveTheme(updatedTheme.id);
 
-      final themes = await _themeRepository.getAllThemes();
-      emit(state.copyWith(activeTheme: updatedTheme, presets: themes));
+        final themes = await _themeRepository.getAllThemes();
+        emit(state.copyWith(activeTheme: updatedTheme, presets: themes));
+      } catch (e) {
+        // The preview has already been painted by the un-persisted emits this
+        // screen sends while a slider is dragged, so a failure here means the
+        // app looks changed and the database does not agree. Saying so is the
+        // only way the user learns the look will not survive a restart.
+        emit(_actionFailed(e));
+      }
     } else {
       emit(state.copyWith(activeTheme: updatedTheme));
     }
@@ -295,6 +329,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     Emitter<ThemeState> emit,
   ) async {
     if (state.activeTheme == null) return;
+    emit(state.copyWith(clearActionError: true));
 
     final newId = DateTime.now().millisecondsSinceEpoch.toString();
     final newPreset = state.activeTheme!.copyWith(
@@ -304,14 +339,35 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
       isActive: true,
     );
 
-    await _themeRepository.saveTheme(newPreset);
-    await _themeRepository.setActiveTheme(newId);
+    try {
+      await _themeRepository.saveTheme(newPreset);
+      await _themeRepository.setActiveTheme(newId);
 
-    final themes = await _themeRepository.getAllThemes();
-    emit(state.copyWith(activeTheme: newPreset, presets: themes));
+      final themes = await _themeRepository.getAllThemes();
+      emit(state.copyWith(activeTheme: newPreset, presets: themes));
+    } catch (e) {
+      // The dialog that collects the name closes on submit, so a failure with
+      // nothing to show it leaves the user believing the preset they just
+      // named is in the list.
+      emit(_actionFailed(e));
+    }
   }
 
   Future<void> _onDeleteThemePreset(
+    DeleteThemePreset event,
+    Emitter<ThemeState> emit,
+  ) async {
+    emit(state.copyWith(clearActionError: true));
+    try {
+      await _deleteThemePreset(event, emit);
+    } catch (e) {
+      // A delete that throws used to leave the tile on screen with no
+      // explanation, which reads as "the button does nothing".
+      emit(_actionFailed(e));
+    }
+  }
+
+  Future<void> _deleteThemePreset(
     DeleteThemePreset event,
     Emitter<ThemeState> emit,
   ) async {

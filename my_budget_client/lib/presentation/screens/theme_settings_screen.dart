@@ -43,32 +43,54 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
     return EscapeBackHandler(
       child: Scaffold(
         appBar: AppBar(title: Text(context.l10n.themeSettingsTitle)),
-        body: BlocBuilder<ThemeBloc, ThemeState>(
-          builder: (context, state) {
-            if (!state.isLoaded || state.activeTheme == null) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final theme = state.activeTheme!;
-
-            return ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _buildPresetsSection(context, state),
-                const SizedBox(height: 24),
-                _buildColorsSection(context, theme),
-                const SizedBox(height: 24),
-                _buildWindowEffectsSection(context, theme),
-                const SizedBox(height: 24),
-                _buildSurfaceSection(context, theme),
-                const SizedBox(height: 24),
-                _buildBackgroundImageSection(context, theme),
-                const SizedBox(height: 32),
-                _buildModeSection(context, theme),
-                const SizedBox(height: 48),
-              ],
-            );
+        body: BlocListener<ThemeBloc, ThemeState>(
+          // Both error fields were written by the bloc and rendered by nobody.
+          // A theme that could not be stored left the tile unmoved and the
+          // slider snapped back, which reads as a control that does nothing;
+          // a theme that could not be read left the app painting a built-in
+          // preset with no hint that the user's own was still there.
+          //
+          // The bloc clears the message before each attempt, so a second
+          // identical failure is a new state and shows again.
+          listenWhen: (previous, current) =>
+              previous.actionError != current.actionError ||
+              previous.loadError != current.loadError,
+          listener: (context, state) {
+            final error = state.actionError ?? state.loadError;
+            if (error == null) return;
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(content: Text(context.l10n.importErrorLabel(error))),
+              );
           },
+          child: BlocBuilder<ThemeBloc, ThemeState>(
+            builder: (context, state) {
+              if (!state.isLoaded || state.activeTheme == null) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final theme = state.activeTheme!;
+
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildPresetsSection(context, state),
+                  const SizedBox(height: 24),
+                  _buildColorsSection(context, theme),
+                  const SizedBox(height: 24),
+                  _buildWindowEffectsSection(context, theme),
+                  const SizedBox(height: 24),
+                  _buildSurfaceSection(context, theme),
+                  const SizedBox(height: 24),
+                  _buildBackgroundImageSection(context, theme),
+                  const SizedBox(height: 32),
+                  _buildModeSection(context, theme),
+                  const SizedBox(height: 48),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

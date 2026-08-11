@@ -103,6 +103,23 @@ class _NoActiveThemeRepository extends _FakeThemeRepository {
   Future<CustomTheme?> getActiveTheme() async => null;
 }
 
+/// Reads fine, refuses every write - a read-only database file, a disk that
+/// filled up, a row another device is holding.
+class _UnwritableThemeRepository extends _FakeThemeRepository {
+  _UnwritableThemeRepository(super.seed);
+
+  final writeFailure = Exception('database is locked');
+
+  @override
+  Future<void> saveTheme(CustomTheme theme) async => throw writeFailure;
+
+  @override
+  Future<void> setActiveTheme(String id) async => throw writeFailure;
+
+  @override
+  Future<void> deleteTheme(String id) async => throw writeFailure;
+}
+
 CustomTheme _theme(
   String id, {
   String name = 'Theme',
@@ -351,6 +368,122 @@ void main() {
       // Emitting no active theme is not an option: the shell and the theme
       // screen both render a permanent spinner without one.
       verify: (bloc) => expect(bloc.state.activeTheme, isNotNull),
+    );
+  });
+
+  // The load path was given a fallback and a loadError, but every write handler
+  // was still bare: a repository that could not answer escaped the handler as an
+  // unhandled bloc error and reached no widget at all. The tile did not move,
+  // the slider snapped back, and nothing said why.
+  group('write failures', () {
+    final mine = _theme('mine', name: 'Mine', isActive: true);
+    final other = _theme('other', name: 'Other');
+
+    ThemeState seeded() => ThemeState(
+      activeTheme: mine,
+      presets: [mine, other],
+      isLoaded: true,
+    );
+
+    Matcher reportsFailure() => isA<ThemeState>()
+        .having(
+          (s) => s.actionError,
+          'actionError',
+          contains('database is locked'),
+        )
+        // The app keeps painting what it was painting: a write that failed
+        // changed nothing, and blanking the theme is a dead app.
+        .having((s) => s.activeTheme, 'activeTheme', isNotNull);
+
+    blocTest<ThemeBloc, ThemeState>(
+      'a preset that cannot be made active says so',
+      build: () => ThemeBloc(
+        settingsRepository: settingsRepository,
+        themeRepository: _UnwritableThemeRepository([mine, other]),
+      ),
+      seed: seeded,
+      act: (bloc) => bloc.add(const SelectThemePreset('other')),
+      errors: () => isEmpty,
+      expect: () => [reportsFailure()],
+    );
+
+    blocTest<ThemeBloc, ThemeState>(
+      'a preset deleted from under the picker is reported, not thrown',
+      build: () {
+        // Another device removed it between this list being drawn and the tile
+        // being tapped. The old `firstWhere` had no orElse.
+        themeRepository = _FakeThemeRepository([mine]);
+        return build();
+      },
+      seed: seeded,
+      act: (bloc) => bloc.add(const SelectThemePreset('other')),
+      errors: () => isEmpty,
+      expect: () => [
+        isA<ThemeState>()
+            .having((s) => s.actionError, 'actionError', contains('other'))
+            .having((s) => s.activeTheme?.id, 'activeTheme', 'mine'),
+      ],
+    );
+
+    blocTest<ThemeBloc, ThemeState>(
+      'a customisation that cannot be stored does not pass for a saved one',
+      build: () => ThemeBloc(
+        settingsRepository: settingsRepository,
+        themeRepository: _UnwritableThemeRepository([mine, other]),
+      ),
+      seed: seeded,
+      act: (bloc) =>
+          bloc.add(const UpdateThemeProperty(primaryColor: Color(0xFFFF0000))),
+      errors: () => isEmpty,
+      expect: () => [reportsFailure()],
+    );
+
+    blocTest<ThemeBloc, ThemeState>(
+      'a named preset that was never written is not left in the list',
+      build: () => ThemeBloc(
+        settingsRepository: settingsRepository,
+        themeRepository: _UnwritableThemeRepository([mine, other]),
+      ),
+      seed: seeded,
+      act: (bloc) => bloc.add(const SaveThemePreset('My look')),
+      errors: () => isEmpty,
+      expect: () => [reportsFailure()],
+      // The dialog closes on submit, so this message is the only thing that can
+      // tell the user the name they typed went nowhere.
+    );
+
+    blocTest<ThemeBloc, ThemeState>(
+      'a delete that fails is reported instead of looking like a dead button',
+      build: () => ThemeBloc(
+        settingsRepository: settingsRepository,
+        themeRepository: _UnwritableThemeRepository([mine, other]),
+      ),
+      seed: seeded,
+      act: (bloc) => bloc.add(const DeleteThemePreset('other')),
+      errors: () => isEmpty,
+      expect: () => [reportsFailure()],
+    );
+
+    blocTest<ThemeBloc, ThemeState>(
+      'the same failure twice is reported twice',
+      build: () => ThemeBloc(
+        settingsRepository: settingsRepository,
+        themeRepository: _UnwritableThemeRepository([mine, other]),
+      ),
+      seed: seeded,
+      act: (bloc) async {
+        bloc.add(const SelectThemePreset('other'));
+        await Future<void>.delayed(Duration.zero);
+        bloc.add(const SelectThemePreset('other'));
+      },
+      // The retry clears the message before it runs, so the second failure is a
+      // new state rather than an equal one bloc would drop - and the screen,
+      // which shows a message once per occurrence, sees the null in between.
+      expect: () => [
+        reportsFailure(),
+        isA<ThemeState>().having((s) => s.actionError, 'actionError', isNull),
+        reportsFailure(),
+      ],
     );
   });
 }

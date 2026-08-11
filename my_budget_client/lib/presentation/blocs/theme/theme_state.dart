@@ -15,11 +15,22 @@ class ThemeState extends Equatable {
   /// theme is unreadable.
   final String? loadError;
 
+  /// Why the last theme the user asked to select, save, edit or delete did not
+  /// take, or null when nothing has failed since.
+  ///
+  /// Separate from [loadError]: that one describes the theme the app is
+  /// painting with, this one describes an action the user just took. Every
+  /// write handler used to let a repository failure escape as an unhandled
+  /// bloc error, so tapping a preset that could not be stored looked exactly
+  /// like tapping one that could - the tile just did not move.
+  final String? actionError;
+
   const ThemeState({
     this.activeTheme,
     this.presets = const [],
     this.isLoaded = false,
     this.loadError,
+    this.actionError,
   });
 
   ThemeState copyWith({
@@ -28,6 +39,8 @@ class ThemeState extends Equatable {
     bool? isLoaded,
     String? loadError,
     bool clearLoadError = false,
+    String? actionError,
+    bool clearActionError = false,
   }) {
     return ThemeState(
       // Deliberately no `clearActiveTheme`: both the app shell and the theme
@@ -38,9 +51,16 @@ class ThemeState extends Equatable {
       presets: presets ?? this.presets,
       isLoaded: isLoaded ?? this.isLoaded,
       loadError: clearLoadError ? null : (loadError ?? this.loadError),
+      actionError: clearActionError ? null : (actionError ?? this.actionError),
     );
   }
 
   @override
-  List<Object?> get props => [activeTheme, presets, isLoaded, loadError];
+  List<Object?> get props => [
+    activeTheme,
+    presets,
+    isLoaded,
+    loadError,
+    actionError,
+  ];
 }
