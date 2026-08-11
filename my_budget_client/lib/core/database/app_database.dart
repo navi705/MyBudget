@@ -1164,6 +1164,17 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
   }
 }
 
+/// SQL CASE yielding 10^decimals (the minor-unit scale) for a `currency_code`
+/// column, mirroring CurrencyPrecision: 0 for JPY/…, 3 for KWD/…, else 2.
+/// Shared by the v7->v8 backfill and the balance-adjust statements so exact
+/// minor-unit balances are maintained without threading a delta through Dart.
+const String kMinorScaleCase = '''
+      CASE
+        WHEN currency_code IN ('BIF','CLP','DJF','GNF','ISK','JPY','KMF','KRW','PYG','RWF','UGX','VND','VUV','XAF','XOF','XPF') THEN 1
+        WHEN currency_code IN ('BHD','IQD','JOD','KWD','LYD','OMR','TND') THEN 1000
+        ELSE 100
+      END''';
+
 @DriftAccessor(tables: [Accounts, Transactions, SyncLog])
 class AccountsDao extends DatabaseAccessor<AppDatabase>
     with _$AccountsDaoMixin {
@@ -1297,9 +1308,19 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> adjustBalance(String accountId, double amount) {
     final now = DateTime.now().millisecondsSinceEpoch;
+    // Also maintain the exact integer balance_minor: scale the delta by the
+    // account's own currency and round. Crypto rows have balance_minor NULL, so
+    // NULL + x stays NULL and they remain on the double.
     return customUpdate(
-      'UPDATE accounts SET balance = balance + ?, modified_at = ? WHERE id = ?',
-      variables: [Variable(amount), Variable(now), Variable(accountId)],
+      'UPDATE accounts SET balance = balance + ?, '
+      'balance_minor = balance_minor + CAST(ROUND(? * ($kMinorScaleCase)) AS INTEGER), '
+      'modified_at = ? WHERE id = ?',
+      variables: [
+        Variable(amount),
+        Variable(amount),
+        Variable(now),
+        Variable(accountId),
+      ],
       updates: {accounts},
     );
   }
@@ -1311,16 +1332,21 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
 
     final accountIds = amountChanges.keys.toList();
     final caseClauses = <String>[];
-    final variables = <Variable>[];
-
-    // Build CASE clauses and their variables
-    for (final accountId in accountIds) {
+    for (final _ in accountIds) {
       caseClauses.add('WHEN ? THEN ?');
-      variables.add(Variable(accountId));
-      variables.add(Variable(amountChanges[accountId]!));
+    }
+    final deltaCase = 'CASE id ${caseClauses.join(' ')} END';
+
+    final variables = <Variable>[];
+    // The delta CASE appears twice (balance + balance_minor), so its id/delta
+    // variables are bound twice in the same order.
+    for (var pass = 0; pass < 2; pass++) {
+      for (final accountId in accountIds) {
+        variables.add(Variable(accountId));
+        variables.add(Variable(amountChanges[accountId]!));
+      }
     }
 
-    // Build IN clause variables
     final idsInClause = List.filled(accountIds.length, '?').join(', ');
     final now = DateTime.now().millisecondsSinceEpoch;
     variables.add(Variable(now));
@@ -1329,10 +1355,13 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       variables.add(Variable(accountId));
     }
 
+    // balance_minor scales the same delta by the account's currency and rounds;
+    // crypto rows keep NULL (NULL + x == NULL) and stay on the double.
     final sql =
         '''
       UPDATE accounts
-      SET balance = balance + (CASE id ${caseClauses.join(' ')} END),
+      SET balance = balance + ($deltaCase),
+          balance_minor = balance_minor + CAST(ROUND(($deltaCase) * ($kMinorScaleCase)) AS INTEGER),
           modified_at = ?
       WHERE id IN ($idsInClause)
     ''';

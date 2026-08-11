@@ -2,6 +2,13 @@ import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as drift;
 import 'package:my_budget_client/domain/entities/account.dart'
     as domain_account;
+import 'package:my_budget_client/domain/value_objects/amount.dart';
+
+/// Exact minor units for a fiat [major] value in [code], or null for non-fiat.
+int? _minorOrNull(double major, String code) {
+  final a = Amount.fromMajorCode(major, code);
+  return a is FiatAmount ? a.minorUnits : null;
+}
 
 extension AccountMapper on drift.DbAccount {
   domain_account.Account toDomain() {
@@ -32,6 +39,7 @@ extension AccountCompanionMapper on domain_account.Account {
           ? const Value.absent()
           : Value(description),
       balance: Value(balance),
+      balanceMinor: Value(_minorOrNull(balance, currencyCode)),
       currencyCode: Value(currencyCode),
       currencyDesignationId: Value(currencyDesignationId),
       styleId: styleId == null && nullToAbsent
