@@ -26,6 +26,18 @@ import 'package:my_budget_client/domain/entities/account.dart';
 
 // Navigator keys now handled by AppNavigator
 
+/// Where `/edit-account` goes when the account it was meant to edit is not in
+/// [extra].
+///
+/// `extra` is in-memory only, so a web reload, a deep link or route
+/// restoration all reach that route without it. The route also sits outside
+/// the shell, so the fallback this replaces - a bare "Account not found!" -
+/// had no AppBar, no back button and no navigation of any kind: the user was
+/// stranded. Send them to the list they would have been editing from.
+@visibleForTesting
+String? editAccountRedirect(Object? extra) =>
+    extra is Account ? null : AppRoutes.accounts;
+
 /// The router configuration.
 final GoRouter router = GoRouter(
   initialLocation: AppRoutes.dashboard,
@@ -95,15 +107,9 @@ final GoRouter router = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.editAccount,
-      pageBuilder: (context, state) {
-        final account = state.extra as Account?;
-        if (account == null) {
-          return _buildPage(
-            const Scaffold(body: Center(child: Text('Account not found!'))),
-          );
-        }
-        return _buildPage(EditAccountScreen(account: account));
-      },
+      redirect: (context, state) => editAccountRedirect(state.extra),
+      pageBuilder: (context, state) =>
+          _buildPage(EditAccountScreen(account: state.extra! as Account)),
     ),
     GoRoute(
       path: AppRoutes.editAccountStyle,
