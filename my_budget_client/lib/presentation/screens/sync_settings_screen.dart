@@ -3,7 +3,6 @@ import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/core/sync/sync_service.dart';
@@ -23,7 +22,6 @@ class SyncSettingsScreen extends StatefulWidget {
 class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   late final SyncService _syncService;
   late final ServerSyncService _serverSyncService;
-  late final AppDatabase _db;
   late final SettingsRepository _settingsRepository;
 
   final _serverUrlController = TextEditingController();
@@ -40,7 +38,6 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _db = sl<AppDatabase>();
     _syncService = sl<SyncService>();
     _serverSyncService = sl<ServerSyncService>();
     _settingsRepository = sl<SettingsRepository>();
@@ -85,7 +82,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     // Calculate pending CHANGES AFTER we know which mode is enabled
     final pending = _isServerEnabled
         ? await _serverSyncService.getPendingChangesCount()
-        : (await _db.syncLogDao.getPendingChanges()).length;
+        : await _syncService.getPendingChangesCount();
     if (!mounted) return;
 
     setState(() {
@@ -296,7 +293,7 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
       // Refresh counts after sync
       final pending = _isServerEnabled
           ? await _serverSyncService.getPendingChangesCount()
-          : (await _db.syncLogDao.getPendingChanges()).length;
+          : await _syncService.getPendingChangesCount();
       final incoming = await _syncService.getIncomingFileCount();
 
       if (!mounted) return;

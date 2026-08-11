@@ -227,6 +227,18 @@ class SyncService {
     }
   }
 
+  /// How many local writes are still waiting to be exported.
+  ///
+  /// Exists so the settings screen can show the number without reaching into
+  /// `AppDatabase.syncLogDao` itself — the server-sync path already exposes the
+  /// same figure through [ServerSyncService.getPendingChangesCount], and a UI
+  /// that queries one of them through a service and the other through a DAO
+  /// will drift the moment either definition of "pending" changes.
+  Future<int> getPendingChangesCount() async {
+    final pending = await _db.syncLogDao.getPendingChanges();
+    return pending.length;
+  }
+
   /// Export pending changes to a .sync file
   Future<void> _exportPendingChanges() async {
     try {

@@ -52,5 +52,15 @@ class SyncService {
   Future<void> exportNow() async {}
   Future<void> importNow() async {}
   Future<int> getIncomingFileCount() async => 0;
+
+  /// The count is real even though file sync itself is not available on web:
+  /// the rows are in the same local database, and the server-sync path on this
+  /// platform exports exactly those. Returning 0 here would tell a web user
+  /// their unsynced work had already left the browser.
+  Future<int> getPendingChangesCount() async {
+    final pending = await _db.syncLogDao.getPendingChanges();
+    return pending.length;
+  }
+
   Future<int> clearSyncFolder() async => 0;
 }
