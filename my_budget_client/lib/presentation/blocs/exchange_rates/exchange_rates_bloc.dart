@@ -159,6 +159,7 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
           designations: designations,
           hasReachedMax: rates.length < limit,
           totalCount: totalCount,
+          clearError: true,
         ),
       );
     } catch (e) {
@@ -179,7 +180,15 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
       await _currencyRepository.addExchangeRate(event.exchangeRate);
       add(const LoadExchangeRates(isRefresh: true));
     } catch (e) {
-      emit(state.copyWith(error: e.toString()));
+      // The screen only renders `error` while the status is `failure`, and
+      // copyWith leaves the status alone - so without this the dialog closed
+      // over an unchanged list and the user was told nothing at all.
+      emit(
+        state.copyWith(
+          status: ExchangeRatesStatus.failure,
+          error: e.toString(),
+        ),
+      );
     }
   }
 
@@ -197,7 +206,12 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
       );
       add(const LoadExchangeRates(isRefresh: true));
     } catch (e) {
-      emit(state.copyWith(error: e.toString()));
+      emit(
+        state.copyWith(
+          status: ExchangeRatesStatus.failure,
+          error: e.toString(),
+        ),
+      );
     }
   }
 
@@ -285,7 +299,12 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
       add(const ClearSelection());
       add(const ToggleSelectionMode(false));
     } catch (e) {
-      emit(state.copyWith(error: e.toString()));
+      emit(
+        state.copyWith(
+          status: ExchangeRatesStatus.failure,
+          error: e.toString(),
+        ),
+      );
     }
   }
 
@@ -306,7 +325,12 @@ class ExchangeRatesBloc extends Bloc<ExchangeRatesEvent, ExchangeRatesState> {
       add(const ClearSelection());
       add(const ToggleSelectionMode(false));
     } catch (e) {
-      emit(state.copyWith(error: e.toString()));
+      emit(
+        state.copyWith(
+          status: ExchangeRatesStatus.failure,
+          error: e.toString(),
+        ),
+      );
     }
   }
 }

@@ -56,6 +56,7 @@ class ExchangeRatesState extends Equatable {
     List<int>? presetFilters,
     bool clearFromCurrencyFilter = false,
     bool clearToCurrencyFilter = false,
+    bool clearError = false,
     List<Currency>? currencies,
     List<CurrencyDesignation>? designations,
     String? error,
@@ -81,7 +82,10 @@ class ExchangeRatesState extends Equatable {
       presetFilters: presetFilters ?? this.presetFilters,
       currencies: currencies ?? this.currencies,
       designations: designations ?? this.designations,
-      error: error ?? this.error,
+      // Without a way to clear it, one failed edit left `error` set forever and
+      // the next failure - identical message or not - could not be told apart
+      // from the stale one still sitting in the state.
+      error: clearError ? null : (error ?? this.error),
       hasReachedMax: hasReachedMax ?? this.hasReachedMax,
       totalCount: totalCount ?? this.totalCount,
       isSelectionModeActive:

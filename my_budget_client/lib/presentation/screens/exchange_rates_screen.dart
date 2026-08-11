@@ -112,7 +112,23 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ExchangeRatesBloc, ExchangeRatesState>(
+    return BlocConsumer<ExchangeRatesBloc, ExchangeRatesState>(
+      // A failed add/edit/delete used to close its dialog over an unchanged
+      // list and say nothing. The body can only report a failure while the
+      // list is empty, so anything else has to come through here.
+      listenWhen: (previous, current) =>
+          current.error != null &&
+          current.error != previous.error &&
+          current.exchangeRates.isNotEmpty,
+      listener: (context, state) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(context.l10n.importErrorLabel('${state.error}')),
+            ),
+          );
+      },
       builder: (context, state) {
         final body = _buildBody(context, state);
         final bloc = context.read<ExchangeRatesBloc>();
@@ -205,7 +221,10 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
         state.exchangeRates.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (state.status == ExchangeRatesStatus.failure) {
+    // Only take the whole screen when there is nothing else to show: a failed
+    // edit must not hide the rates the user still has.
+    if (state.status == ExchangeRatesStatus.failure &&
+        state.exchangeRates.isEmpty) {
       return Center(child: Text(context.l10n.importErrorLabel('${state.error}')));
     }
     if (state.exchangeRates.isEmpty &&
