@@ -1,5 +1,5 @@
 import 'package:my_budget_client/core/utils/device_utils.dart' as dev_utils;
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
@@ -137,6 +137,10 @@ class Accounts extends Table {
   TextColumn get name => text().withLength(min: 1, max: 50)();
   TextColumn get description => text().nullable()();
   RealColumn get balance => real()();
+  // Exact integer minor units of [balance] for fiat currencies (see
+  // CurrencyPrecision). NULL for crypto/commodity accounts, which stay on the
+  // [balance] double. Kept in sync with [balance] by the balance-adjust DAO.
+  IntColumn get balanceMinor => integer().nullable()();
   TextColumn get currencyCode => text().references(Currencies, #code)();
   TextColumn get currencyDesignationId =>
       text().references(CurrencyDesignations, #id)();
@@ -173,6 +177,11 @@ class Transactions extends Table {
   TextColumn get id => text().clientDefault(() => _uuid.v4())();
   TextColumn get description => text().withLength(min: 1, max: 100)();
   RealColumn get amount => real()();
+  // Exact integer minor units of [amount] for fiat currencies (see
+  // CurrencyPrecision). NULL for crypto/commodity, which stay on the [amount]
+  // double. Single-currency SQL aggregates (balances, per-currency subtotals)
+  // sum this column so no floating-point drift accumulates.
+  IntColumn get amountMinor => integer().nullable()();
   DateTimeColumn get date => dateTime()();
   TextColumn get accountId => text().references(Accounts, #id)();
   TextColumn get categoryId => text().references(Categories, #id)();
@@ -181,6 +190,8 @@ class Transactions extends Table {
   IntColumn get exchangeRatePreset => integer().nullable()(); // Added
   RealColumn get fee =>
       real().withDefault(const Constant(0.0))(); // Added: Fee/Commission
+  // Exact integer minor units of [fee] for fiat currencies; NULL for non-fiat.
+  IntColumn get feeMinor => integer().nullable()();
   TextColumn get linkedTransactionId =>
       text().nullable()(); // Added: ID of the linked transaction
 
@@ -3052,7 +3063,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration {
@@ -3223,6 +3234,16 @@ class AppDatabase extends _$AppDatabase {
           debugPrint('[DB_MIGRATION] v6→v7: complete');
         }
 
+        if (from < 8) {
+          debugPrint('[DB_MIGRATION] v7→v8: adding minor-unit columns...');
+          await m.addColumn(transactions, transactions.amountMinor);
+          await m.addColumn(transactions, transactions.feeMinor);
+          await m.addColumn(accounts, accounts.balanceMinor);
+          debugPrint('[DB_MIGRATION] v7→v8: backfilling minor units for fiat...');
+          await backfillMinorUnits();
+          debugPrint('[DB_MIGRATION] v7→v8: complete');
+        }
+
         debugPrint('[DB_MIGRATION] onUpgrade complete: from=$from to=$to');
       },
       beforeOpen: (details) async {
@@ -3240,6 +3261,36 @@ class AppDatabase extends _$AppDatabase {
         );
         debugPrint('[DB_MIGRATION] beforeOpen END: corrupted modified_at repaired');
       },
+    );
+  }
+
+  /// Backfill the integer minor-unit columns from the legacy [amount]/[fee]/
+  /// [balance] doubles, for fiat rows only (currencies.type = 0 == currency).
+  /// Non-fiat rows keep NULL minor columns and stay on the double. The per-
+  /// currency scale mirrors CurrencyPrecision (0 for JPY/…, 3 for KWD/…, else 2).
+  @visibleForTesting
+  Future<void> backfillMinorUnits() async {
+    // SQL CASE yielding 10^decimals for a `currency_code` column.
+    const scaleCase = '''
+      CASE
+        WHEN currency_code IN ('BIF','CLP','DJF','GNF','ISK','JPY','KMF','KRW','PYG','RWF','UGX','VND','VUV','XAF','XOF','XPF') THEN 1
+        WHEN currency_code IN ('BHD','IQD','JOD','KWD','LYD','OMR','TND') THEN 1000
+        ELSE 100
+      END''';
+    const fiatFilter =
+        "currency_code IN (SELECT code FROM currencies WHERE type = 0)";
+
+    await customStatement(
+      'UPDATE transactions SET amount_minor = '
+      'CAST(ROUND(amount * ($scaleCase)) AS INTEGER) WHERE $fiatFilter',
+    );
+    await customStatement(
+      'UPDATE transactions SET fee_minor = '
+      'CAST(ROUND(fee * ($scaleCase)) AS INTEGER) WHERE $fiatFilter',
+    );
+    await customStatement(
+      'UPDATE accounts SET balance_minor = '
+      'CAST(ROUND(balance * ($scaleCase)) AS INTEGER) WHERE $fiatFilter',
     );
   }
 
