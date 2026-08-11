@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
-import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
@@ -323,12 +323,6 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
       if (label != "Balance") return const SizedBox.shrink();
     }
 
-    // Dynamic formatting
-    final bool isSmallValue = nominal.abs() < 0.01 && nominal.abs() > epsilon;
-    final formatter = isSmallValue
-        ? NumberFormat('#,##0.00####', 'en_US')
-        : NumberFormat('#,##0.00', 'en_US');
-
     final nominalDiff = nominal - prevNominal;
     final realDiff = (real != null && prevReal != null) ? real - prevReal : 0.0;
 
@@ -354,8 +348,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
             ),
             children: [
               TextSpan(
-                text:
-                    '${formatter.format(nominal).replaceAll(',', ' ')} $symbol',
+                text: '${MoneyFormatter.format(nominal, symbol)} $symbol',
                 style: TextStyle(fontWeight: FontWeight.bold, color: color),
               ),
               if (nominalDiff.abs() >= 0.01) ...[
@@ -370,7 +363,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                 ),
                 TextSpan(
                   text:
-                      '${nominalDiff > 0 ? '+' : ''}${NumberFormat('#,##0.00', 'en_US').format(nominalDiff).replaceAll(',', ' ')} $symbol (${nominalPct > 0 ? '+' : ''}${nominalPct.toStringAsFixed(2)}%)',
+                      '${MoneyFormatter.format(nominalDiff, symbol, signed: true)} $symbol (${nominalPct > 0 ? '+' : ''}${nominalPct.toStringAsFixed(2)}%)',
                   style: TextStyle(
                     fontSize: 14,
                     color: nominalDiff > 0 ? Colors.green : Colors.red,
@@ -392,14 +385,13 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
               children: [
                 TextSpan(text: '${l10n.metricReal}: '),
                 TextSpan(
-                  text:
-                      '${formatter.format(real).replaceAll(',', ' ')} $symbol',
+                  text: '${MoneyFormatter.format(real, symbol)} $symbol',
                 ),
                 if (realDiff.abs() >= 0.01) ...[
                   const TextSpan(text: ' '),
                   TextSpan(
                     text:
-                        '${realDiff > 0 ? '+' : ''}${formatter.format(realDiff).replaceAll(',', ' ')} $symbol (${realPct > 0 ? '+' : ''}${realPct.toStringAsFixed(2)}%)',
+                        '${MoneyFormatter.format(realDiff, symbol, signed: true)} $symbol (${realPct > 0 ? '+' : ''}${realPct.toStringAsFixed(2)}%)',
                     style: TextStyle(
                       fontSize: 12,
                       color: realDiff > 0 ? Colors.green : Colors.red,

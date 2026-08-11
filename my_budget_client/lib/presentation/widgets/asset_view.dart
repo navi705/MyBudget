@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_event.dart';
@@ -310,7 +311,7 @@ class _AssetListItem extends StatelessWidget {
             '${item.assetType ?? 'Type'} • ${item.source} • ${DateFormat.yMMMMd().format(item.date)}',
           ),
           trailing: Text(
-            '${item.value.toStringAsFixed(2)} ${item.currency}',
+            '${MoneyFormatter.format(item.value, item.currency)} ${item.currency}',
             style: theme.textTheme.bodyLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),

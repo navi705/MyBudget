@@ -1,7 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/core/utils/chart_color_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
@@ -459,7 +459,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '${e.key} ${percentage.toStringAsFixed(2)}% (${NumberFormat('#,##0.00', 'en_US').format(e.value).replaceAll(',', ' ')} ${widget.currencyCode})',
+                  '${e.key} ${percentage.toStringAsFixed(2)}% (${MoneyFormatter.format(e.value, widget.currencyCode)} ${widget.currencyCode})',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
@@ -489,6 +489,6 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
   }
 
   String _formatCurrency(double amount, String code) {
-    return '${NumberFormat('#,##0.00', 'en_US').format(amount).replaceAll(',', ' ')} $code';
+    return '${MoneyFormatter.format(amount, code)} $code';
   }
 }
