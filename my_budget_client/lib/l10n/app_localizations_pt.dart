@@ -687,6 +687,16 @@ class AppLocalizationsPt extends AppLocalizations {
   String get apiManagementTitle => 'Gerenciamento de API';
 
   @override
+  String apiErrorLabel(String error) {
+    return 'Erro: $error';
+  }
+
+  @override
+  String apiLastFetchLabel(String date) {
+    return 'Data: $date';
+  }
+
+  @override
   String get apiCategoriesSection => 'Categorias de API';
 
   @override
@@ -737,6 +747,9 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get steamIdLabel => 'ID da Steam (64 bits)';
+
+  @override
+  String get steamIdHint => 'ex.: 76561198085715972';
 
   @override
   String get preferredGameLabel => 'Jogo Preferido';
@@ -814,6 +827,9 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get addressFormatsHelp => 'Formatos de Endereço:\n• 192.168.1.10 (IP)\n• localhost ou api.my.com\n• http://myserver.com';
+
+  @override
+  String get customSourceNameHint => 'Meu Servidor Doméstico';
 
   @override
   String get urlIpLabel => 'URL / IP';

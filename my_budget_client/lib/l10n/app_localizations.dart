@@ -1395,6 +1395,18 @@ abstract class AppLocalizations {
   /// **'API Management'**
   String get apiManagementTitle;
 
+  /// Snackbar shown on the API management screen when a fetch or a connection test reports a failure
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String apiErrorLabel(String error);
+
+  /// Subtitle of an API card, carrying the timestamp of the last successful fetch (or the 'None' label when it has never run)
+  ///
+  /// In en, this message translates to:
+  /// **'Date: {date}'**
+  String apiLastFetchLabel(String date);
+
   /// No description provided for @apiCategoriesSection.
   ///
   /// In en, this message translates to:
@@ -1490,6 +1502,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Steam ID (64-bit)'**
   String get steamIdLabel;
+
+  /// Example 64-bit Steam ID shown inside the empty Steam ID field; the digits stay as they are, only the 'e.g.' wording is translated
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 76561198085715972'**
+  String get steamIdHint;
 
   /// No description provided for @preferredGameLabel.
   ///
@@ -1628,6 +1646,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Address Formats:\n• 192.168.1.10 (IP)\n• localhost or api.my.com\n• http://myserver.com'**
   String get addressFormatsHelp;
+
+  /// Example name shown inside the empty name field of the custom data source dialog
+  ///
+  /// In en, this message translates to:
+  /// **'My Home Server'**
+  String get customSourceNameHint;
 
   /// No description provided for @urlIpLabel.
   ///

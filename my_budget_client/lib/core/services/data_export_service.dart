@@ -122,7 +122,7 @@ class DataExportService {
       'Linked Transaction ID',
     ]);
 
-    final dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
+    final dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss', 'en');
 
     for (var t in transactions) {
       rows.add([

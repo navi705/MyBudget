@@ -214,6 +214,24 @@
     "debugMenuLabel": "Debug Menu",
     "debugMenuSubtitle": "Internal developer tools",
     "apiManagementTitle": "API Management",
+    "apiErrorLabel": "Error: {error}",
+    "@apiErrorLabel": {
+        "description": "Snackbar shown on the API management screen when a fetch or a connection test reports a failure",
+        "placeholders": {
+            "error": {
+                "type": "String"
+            }
+        }
+    },
+    "apiLastFetchLabel": "Date: {date}",
+    "@apiLastFetchLabel": {
+        "description": "Subtitle of an API card, carrying the timestamp of the last successful fetch (or the 'None' label when it has never run)",
+        "placeholders": {
+            "date": {
+                "type": "String"
+            }
+        }
+    },
     "apiCategoriesSection": "API Categories",
     "manualUtilitiesSection": "Manual Utilities",
     "startupDataSyncLabel": "Startup Data Sync",
@@ -230,6 +248,10 @@
     "fetchDataForCountryButton": "Fetch Data for {country}",
     "steamSettingsTitle": "Steam Settings",
     "steamIdLabel": "Steam ID (64-bit)",
+    "steamIdHint": "e.g. 76561198085715972",
+    "@steamIdHint": {
+        "description": "Example 64-bit Steam ID shown inside the empty Steam ID field; the digits stay as they are, only the 'e.g.' wording is translated"
+    },
     "preferredGameLabel": "Preferred Game",
     "fetchInventoryNowButton": "Fetch Inventory Now",
     "manualExchangeRatesTitle": "Manual Exchange Rates Fetch",
@@ -253,6 +275,10 @@
     "editCustomSourceTitle": "Edit Custom Source",
     "addCustomSourceTitle": "Add Custom Source",
     "addressFormatsHelp": "Address Formats:\n• 192.168.1.10 (IP)\n• localhost or api.my.com\n• http://myserver.com",
+    "customSourceNameHint": "My Home Server",
+    "@customSourceNameHint": {
+        "description": "Example name shown inside the empty name field of the custom data source dialog"
+    },
     "urlIpLabel": "URL / IP",
     "urlIpHint": "192.168.1.10:8080",
     "dataTypeLabel": "Data Type",

@@ -29,7 +29,7 @@ class ExchangeRateApiService {
   static const String _attemptsKey = 'attempts';
 
   Future<void> fetchRatesForDate(DateTime date) async {
-    final dateKey = DateFormat('yyyy-MM-dd').format(date);
+    final dateKey = DateFormat('yyyy-MM-dd', 'en').format(date);
 
     final ratesInDb = await (_exchangeRatesDao.select(
       _exchangeRatesDao.exchangeRates,

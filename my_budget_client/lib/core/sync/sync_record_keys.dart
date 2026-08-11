@@ -29,7 +29,14 @@ import 'package:intl/intl.dart';
 /// Reused rather than reimplemented with `padLeft` so the formatting side stays
 /// byte-identical to `app_database.dart`: an id this file formats differently
 /// from the one the DAO wrote would silently never match on export or import.
-final DateFormat _recordIdDateFormat = DateFormat('yyyy-MM-dd');
+///
+/// The locale is pinned because this is a key, not a label. An unqualified
+/// `DateFormat` follows `Intl.defaultLocale`, which the app now points at the
+/// language the user reads in, and `bn` is a shipped locale whose CLDR data
+/// carries native digits — so a Bengali device would have written
+/// `EUR_USD_২০২৬-০৮-১২_0` and matched nothing any other device (or its own
+/// parser, on the next language change) ever wrote.
+final DateFormat _recordIdDateFormat = DateFormat('yyyy-MM-dd', 'en');
 
 /// Formats [date] the way a `sync_log` record id spells a day.
 ///

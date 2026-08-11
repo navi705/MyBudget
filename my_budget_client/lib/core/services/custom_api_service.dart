@@ -145,7 +145,7 @@ class CustomApiService {
 
       // Deterministic ID based on (assetId, date, source) — prevents duplicates
       // on repeated fetches. Same (code, date, 'custom_api') always yields same UUID.
-      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      final dateStr = DateFormat('yyyy-MM-dd', 'en').format(date);
       final deterministicId = _uuid.v5(Uuid.NAMESPACE_URL, '$code|$dateStr|custom_api');
 
       await _assetEntriesDao.upsertAssetData(

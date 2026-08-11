@@ -22,7 +22,7 @@ class SteamInventoryApiService {
     GameApiSteam game,
   ) async {
     final date = DateTime.now();
-    final dateKey = DateFormat('yyyy-MM-dd').format(date);
+    final dateKey = DateFormat('yyyy-MM-dd', 'en').format(date);
     final assetId = 'steam_${accountId}_${game.name}';
 
     // Check JSON file existence first

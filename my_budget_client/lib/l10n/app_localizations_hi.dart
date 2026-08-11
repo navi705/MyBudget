@@ -687,6 +687,16 @@ class AppLocalizationsHi extends AppLocalizations {
   String get apiManagementTitle => 'एपीआई प्रबंधन';
 
   @override
+  String apiErrorLabel(String error) {
+    return 'त्रुटि: $error';
+  }
+
+  @override
+  String apiLastFetchLabel(String date) {
+    return 'दिनांक: $date';
+  }
+
+  @override
   String get apiCategoriesSection => 'एपीआई श्रेणियां';
 
   @override
@@ -737,6 +747,9 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get steamIdLabel => 'स्टीम आईडी (64-बिट)';
+
+  @override
+  String get steamIdHint => 'जैसे 76561198085715972';
 
   @override
   String get preferredGameLabel => 'पसंदीदा खेल';
@@ -814,6 +827,9 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get addressFormatsHelp => 'पता प्रारूप:\n• 192.168.1.10 (आईपी)\n• localhost या api.my.com\n• http://myserver.com';
+
+  @override
+  String get customSourceNameHint => 'मेरा होम सर्वर';
 
   @override
   String get urlIpLabel => 'URL / IP';

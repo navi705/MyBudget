@@ -687,6 +687,16 @@ class AppLocalizationsBn extends AppLocalizations {
   String get apiManagementTitle => 'API ব্যবস্থাপনা';
 
   @override
+  String apiErrorLabel(String error) {
+    return 'ত্রুটি: $error';
+  }
+
+  @override
+  String apiLastFetchLabel(String date) {
+    return 'তারিখ: $date';
+  }
+
+  @override
   String get apiCategoriesSection => 'API বিভাগসমূহ';
 
   @override
@@ -737,6 +747,9 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get steamIdLabel => 'Steam ID (64-bit)';
+
+  @override
+  String get steamIdHint => 'যেমন 76561198085715972';
 
   @override
   String get preferredGameLabel => 'পছন্দসই গেম';
@@ -814,6 +827,9 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get addressFormatsHelp => 'ঠিকানা বিন্যাস:\n• 192.168.1.10 (IP)\n• localhost অথবা api.my.com\n• http://myserver.com';
+
+  @override
+  String get customSourceNameHint => 'আমার হোম সার্ভার';
 
   @override
   String get urlIpLabel => 'URL / IP';

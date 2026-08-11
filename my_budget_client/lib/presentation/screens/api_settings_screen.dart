@@ -58,9 +58,15 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 child: BlocConsumer<ApiSettingsBloc, ApiSettingsState>(
                   listener: (context, state) {
                     if (state is ApiSettingsLoadSuccess) {
-                      if (state.lastError != null) {
+                      // Read into a local first: `lastError` is a public field,
+                      // so it is not promoted by the null check and the
+                      // localized message needs a non-nullable String.
+                      final lastError = state.lastError;
+                      if (lastError != null) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error: ${state.lastError}')),
+                          SnackBar(
+                            content: Text(context.l10n.apiErrorLabel(lastError)),
+                          ),
                         );
                       }
                       // Initialize local controllers/state when data loads
@@ -83,14 +89,20 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                         padding: const EdgeInsets.all(16.0),
                         children: [
                           _buildMasterSyncSwitch(context, state),
-                          _buildSectionTitle(context, 'API Categories'),
+                          _buildSectionTitle(
+                            context,
+                            context.l10n.apiCategoriesSection,
+                          ),
                           const SizedBox(height: 8),
                           ...state.apiSettings.map(
                             (setting) =>
                                 _buildApiSettingCard(context, setting, state),
                           ),
                           const SizedBox(height: 16),
-                          _buildSectionTitle(context, 'Manual Utilities'),
+                          _buildSectionTitle(
+                            context,
+                            context.l10n.manualUtilitiesSection,
+                          ),
                           const SizedBox(height: 8),
                           _buildExchangeRatesUtil(context, state),
                           _buildSteamUtil(context, state),
@@ -189,7 +201,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
         key: ValueKey('exp_state_tile_${setting.id}'),
         leading: Icon(_getApiIcon(setting.id)),
         title: Text(title),
-        subtitle: Text('${context.l10n.dateLabel}: $lastFetch'),
+        subtitle: Text(context.l10n.apiLastFetchLabel(lastFetch)),
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(
@@ -246,7 +258,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                   Row(
                     children: [
                       Text(
-                        'Individual Custom Sources',
+                        context.l10n.individualCustomSourcesTitle,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -263,11 +275,11 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                     ],
                   ),
                   if (customSourcesOfType.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.0),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: Text(
-                        'No custom sources added.',
-                        style: TextStyle(
+                        context.l10n.noCustomSourcesAdded,
+                        style: const TextStyle(
                           fontStyle: FontStyle.italic,
                           fontSize: 13,
                         ),
@@ -304,7 +316,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
       ),
       subtitle: Text(
-        enabled ? subtitle : 'Disabled by Global Sync',
+        enabled ? subtitle : context.l10n.disabledByGlobalSync,
         style: Theme.of(context).textTheme.bodySmall,
       ),
       value: value,
@@ -412,7 +424,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
             controller: _steamIdController,
             decoration: InputDecoration(
               labelText: context.l10n.steamIdLabel,
-              hintText: 'e.g. 76561198085715972',
+              hintText: context.l10n.steamIdHint,
               border: const OutlineInputBorder(),
               isDense: true,
             ),
@@ -587,7 +599,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<GameApiSteam>(
                   value: _selectedGame,
-                  hint: const Text('Select Game'),
+                  hint: Text(context.l10n.selectGameHint),
                   items: GameApiSteam.values
                       .map(
                         (g) => DropdownMenuItem(
@@ -621,7 +633,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                     icon: state.isOperationInProgress
                         ? const _MiniLoading()
                         : const Icon(Icons.sync),
-                    label: const Text('Fetch Value'),
+                    label: Text(context.l10n.fetchValueButton),
                   ),
                 ),
               ],
@@ -784,8 +796,8 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                       Flexible(
                         child: Text(
                           state.testResults[source.url]!
-                              ? 'Connection OK'
-                              : 'Connection Failed',
+                              ? context.l10n.connectionOk
+                              : context.l10n.connectionFailed,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: state.testResults[source.url]!
@@ -811,7 +823,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                   icon: state.isOperationInProgress
                       ? const _MiniLoading()
                       : const Icon(Icons.network_check, size: 18),
-                  label: const Text('Test Connection'),
+                  label: Text(context.l10n.testConnectionButton),
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit, color: Colors.blueAccent),
@@ -878,7 +890,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                   controller: nameCtrl,
                   decoration: InputDecoration(
                     labelText: context.l10n.categoryNameLabel,
-                    hintText: 'My Home Server',
+                    hintText: context.l10n.customSourceNameHint,
                   ),
                 ),
                 const SizedBox(height: 16),

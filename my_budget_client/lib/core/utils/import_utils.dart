@@ -142,13 +142,18 @@ class ImportDataUtils {
       DateFormat dateFormat;
       bool isRussian = false;
 
+      // 'en' on a parser, not a label: these read the digits in somebody
+      // else's export file, which are ASCII whatever language this app is
+      // being read in. An unqualified DateFormat follows Intl.defaultLocale,
+      // so on a Bengali device it would expect native digits and refuse every
+      // date in the file.
       if (listEquals(_expectedHeadersRu, headers)) {
         expectedHeaders = _expectedHeadersRu;
-        dateFormat = DateFormat('dd.MM.yyyy');
+        dateFormat = DateFormat('dd.MM.yyyy', 'en');
         isRussian = true;
       } else if (listEquals(_expectedHeadersEn, headers)) {
         expectedHeaders = _expectedHeadersEn;
-        dateFormat = DateFormat('MM/dd/yy');
+        dateFormat = DateFormat('MM/dd/yy', 'en');
       } else {
         throw FormatException(
           "CSV headers do not match the expected format. Expected: $_expectedHeadersRu or $_expectedHeadersEn, but got: ${rawHeaders.map((e) => e.toString()).toList()}",
@@ -266,7 +271,7 @@ class ImportDataUtils {
 
   static Future<void> getCurrenciesInitial() async {
     try {
-      final DateFormat keyFormatter = DateFormat('yyyy-MM-dd');
+      final DateFormat keyFormatter = DateFormat('yyyy-MM-dd', 'en');
       final currenciesRep = di.sl<CurrencyRepository>();
 
       // 1. Get existing dates from DB (preset=1 means seeded data)
@@ -521,7 +526,7 @@ class ImportDataUtils {
     DateTime startDate = DateTime(2024, 4, 1);
     DateTime endDate = DateTime.now();
     DateTime currentDate = startDate;
-    final DateFormat keyFormatter = DateFormat('yyyy-MM-dd');
+    final DateFormat keyFormatter = DateFormat('yyyy-MM-dd', 'en');
 
     Map<String, Map<String, double>> fullHistory = {};
 

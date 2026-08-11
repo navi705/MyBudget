@@ -45,7 +45,7 @@ class ExternalData {
   ) async {
     final uri = Uri.https(
       "cdn.jsdelivr.net",
-      "/npm/@fawazahmed0/currency-api@${DateFormat('yyyy-MM-dd').format(date)}/v1/currencies/eur.json",
+      "/npm/@fawazahmed0/currency-api@${DateFormat('yyyy-MM-dd', 'en').format(date)}/v1/currencies/eur.json",
     );
     try {
       final response = await http.get(uri);

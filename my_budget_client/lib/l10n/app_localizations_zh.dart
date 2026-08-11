@@ -687,6 +687,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get apiManagementTitle => 'API 管理';
 
   @override
+  String apiErrorLabel(String error) {
+    return '错误: $error';
+  }
+
+  @override
+  String apiLastFetchLabel(String date) {
+    return '日期: $date';
+  }
+
+  @override
   String get apiCategoriesSection => 'API 类别';
 
   @override
@@ -737,6 +747,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get steamIdLabel => 'Steam ID (64位)';
+
+  @override
+  String get steamIdHint => '例如 76561198085715972';
 
   @override
   String get preferredGameLabel => '首选游戏';
@@ -814,6 +827,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get addressFormatsHelp => '地址格式：\n• 192.168.1.10 (IP)\n• localhost 或 api.my.com\n• http://myserver.com';
+
+  @override
+  String get customSourceNameHint => '我的家庭服务器';
 
   @override
   String get urlIpLabel => 'URL / IP';

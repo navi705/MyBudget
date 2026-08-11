@@ -2725,7 +2725,7 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
 
     final from = toInsert.fromCurrencyCode.value;
     final to = toInsert.toCurrencyCode.value;
-    final date = DateFormat('yyyy-MM-dd').format(toInsert.date.value);
+    final date = DateFormat('yyyy-MM-dd', 'en').format(toInsert.date.value);
     final preset = toInsert.preset.value;
     final recordId = '${from}_${to}_${date}_$preset';
     await _logChange(recordId, 'upsert');
@@ -2742,7 +2742,7 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
 
     final from = updatedRate.fromCurrencyCode.value;
     final to = updatedRate.toCurrencyCode.value;
-    final date = DateFormat('yyyy-MM-dd').format(updatedRate.date.value);
+    final date = DateFormat('yyyy-MM-dd', 'en').format(updatedRate.date.value);
     final preset = updatedRate.preset.value;
     final recordId = '${from}_${to}_${date}_$preset';
     await _logChange(recordId, 'upsert');
@@ -2778,10 +2778,10 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     });
 
     // Sync bookkeeping.
-    final originalDate = DateFormat('yyyy-MM-dd').format(original.date);
+    final originalDate = DateFormat('yyyy-MM-dd', 'en').format(original.date);
     final originalId =
         '${original.fromCurrencyCode}_${original.toCurrencyCode}_${originalDate}_${original.preset}';
-    final newDate = DateFormat('yyyy-MM-dd').format(toInsert.date.value);
+    final newDate = DateFormat('yyyy-MM-dd', 'en').format(toInsert.date.value);
     final newId =
         '${toInsert.fromCurrencyCode.value}_${toInsert.toCurrencyCode.value}_${newDate}_${toInsert.preset.value}';
 
@@ -3272,7 +3272,7 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
   );
 
   static String _recordId(DateTime date, String country, int preset) =>
-      '${DateFormat('yyyy-MM-dd').format(date)}_${country}_$preset';
+      '${DateFormat('yyyy-MM-dd', 'en').format(date)}_${country}_$preset';
 
   Future<void> _logChange(String recordId, String action) async {
     await into(db.syncLog).insert(

@@ -4,6 +4,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/theme/app_theme.dart';
 import 'package:my_budget_client/domain/entities/custom_theme.dart';
@@ -120,6 +122,69 @@ double backgroundLayerAlpha(CustomTheme theme) {
     }
   }
   return 0.0;
+}
+
+/// Loads intl's date symbols for the locales this app ships.
+///
+/// `DateFormat` carries no data of its own: for anything but `en_US` it looks
+/// the locale up in a table that stays empty until this runs, and throws
+/// `LocaleDataException` when the entry is not there. Nothing in this app ever
+/// called it. It got away with that only because
+/// `GlobalMaterialLocalizations.load` fills the same table as a side effect -
+/// which happens somewhere in the first frames, well after `main()`, and never
+/// at all for a date formatted outside the widget tree (start-up sync, an
+/// import, the database's own date keys). Awaiting it here makes the data a
+/// precondition of the app rather than a coincidence of the first localization
+/// load.
+///
+/// intl ignores the locale argument - `initializeDateFormatting` installs the
+/// whole CLDR table in a single pass - so calling it once per supported locale
+/// would just rebuild that (large) table ten times at start-up. The debug-only
+/// check below is what actually ties the locales the app ships to the data
+/// being present, so adding a locale intl has never heard of fails here rather
+/// than at the first date the user looks at.
+Future<void> initializeAppDateFormatting() async {
+  await initializeDateFormatting();
+  assert(() {
+    final probe = DateTime(2000, 1, 2);
+    for (final locale in AppLocalizations.supportedLocales) {
+      DateFormat.yMMMMd(locale.toString()).format(probe);
+    }
+    return true;
+  }());
+}
+
+/// Points `Intl.defaultLocale` at the locale the app is actually rendering in.
+///
+/// A `DateFormat` built without an explicit locale formats in
+/// `Intl.defaultLocale`, and falls back to the system locale when that is
+/// unset - which is why every date in this app came out in English however the
+/// user had set the language. The locale here is a *setting*: it changes while
+/// the app runs, so a one-shot assignment in `main()` would be stale the first
+/// time someone switched language. This sits below [Localizations] instead, so
+/// it sees the same locale the widgets do - including the one
+/// `localeResolutionCallback` picked for a user who never chose explicitly -
+/// and re-runs whenever that changes.
+///
+/// A caution for the next `DateFormat` added to this codebase: this makes
+/// every *unqualified* `DateFormat` locale-sensitive, machine-facing ones
+/// included. `bn` is the shipped locale whose CLDR data carries native digits,
+/// so under Bengali `DateFormat('yyyy-MM-dd').format(...)` renders
+/// `২০২৬-০৮-১২`. Anything whose output becomes a database key, a URL, a file
+/// name or a cache key must name its locale explicitly.
+class IntlLocaleSync extends StatelessWidget {
+  const IntlLocaleSync({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    // Assigned during build, not from a listener: the descendants that do the
+    // formatting are built after this returns, so they must see the new value
+    // in the very frame the locale changes.
+    Intl.defaultLocale = Localizations.localeOf(context).toString();
+    return child;
+  }
 }
 
 class App extends StatelessWidget {
@@ -244,53 +309,55 @@ class _AppShellState extends State<_AppShell> {
                   );
                 }
 
-                return Container(
-                  color: theme.backgroundColor.withValues(
-                    alpha: backgroundLayerAlpha(theme),
-                  ),
-                  child: Stack(
-                    children: [
-                      // Optimized Background Layer
-                      Positioned.fill(
-                        child: RepaintBoundary(
-                          child: OverflowBox(
-                            minHeight: staticBackgroundHeight,
-                            maxHeight: staticBackgroundHeight,
-                            alignment: Alignment.topCenter,
-                            child: Stack(
-                              children: [
-                                if (backgroundImage != null)
-                                  Positioned.fill(
-                                    child: Opacity(
-                                      opacity: theme.backgroundImageOpacity,
-                                      child: theme.backgroundImageBlur > 0
-                                          ? ImageFiltered(
-                                              imageFilter: ImageFilter.blur(
-                                                sigmaX:
-                                                    theme.backgroundImageBlur,
-                                                sigmaY:
-                                                    theme.backgroundImageBlur,
-                                              ),
-                                              child: Image(
+                return IntlLocaleSync(
+                  child: Container(
+                    color: theme.backgroundColor.withValues(
+                      alpha: backgroundLayerAlpha(theme),
+                    ),
+                    child: Stack(
+                      children: [
+                        // Optimized Background Layer
+                        Positioned.fill(
+                          child: RepaintBoundary(
+                            child: OverflowBox(
+                              minHeight: staticBackgroundHeight,
+                              maxHeight: staticBackgroundHeight,
+                              alignment: Alignment.topCenter,
+                              child: Stack(
+                                children: [
+                                  if (backgroundImage != null)
+                                    Positioned.fill(
+                                      child: Opacity(
+                                        opacity: theme.backgroundImageOpacity,
+                                        child: theme.backgroundImageBlur > 0
+                                            ? ImageFiltered(
+                                                imageFilter: ImageFilter.blur(
+                                                  sigmaX:
+                                                      theme.backgroundImageBlur,
+                                                  sigmaY:
+                                                      theme.backgroundImageBlur,
+                                                ),
+                                                child: Image(
+                                                  image: backgroundImage,
+                                                  fit: BoxFit.cover,
+                                                  gaplessPlayback: true,
+                                                ),
+                                              )
+                                            : Image(
                                                 image: backgroundImage,
                                                 fit: BoxFit.cover,
                                                 gaplessPlayback: true,
                                               ),
-                                            )
-                                          : Image(
-                                              image: backgroundImage,
-                                              fit: BoxFit.cover,
-                                              gaplessPlayback: true,
-                                            ),
+                                      ),
                                     ),
-                                  ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      if (content != null) content,
-                    ],
+                        if (content != null) content,
+                      ],
+                    ),
                   ),
                 );
               },
