@@ -19,18 +19,12 @@ import 'package:my_budget_client/domain/entities/icon_type.dart';
 /// mappers claim to carry (see sync_service_io.dart) is asserted here,
 /// including fields deliberately left null.
 ///
-/// EXCEPTION, called out explicitly: `Transactions.amountMinor`,
-/// `Transactions.feeMinor` and `Accounts.balanceMinor` are set on device A's
-/// rows below (so the test data matches how the app actually creates fiat
-/// records) but are NOT asserted after import. sync_service_io.dart's
-/// `_transactionToJson`/`_accountToJson` (~line 1184-1241) never include
-/// these keys, and `_transactionFromJson`/`_accountFromJson` (~line
-/// 1203-1268) never read them, so every P2P-synced transaction/account
-/// silently loses its exact minor-unit value (reset to NULL by
-/// `insertOrReplace` against a nullable column with no default). Asserting
-/// the current behaviour here would mean asserting a bug is correct; this is
-/// reported as a production bug instead, not encoded as a passing
-/// expectation.
+/// The exact minor units (`Transactions.amountMinor`, `Transactions.feeMinor`,
+/// `Accounts.balanceMinor`) get particular attention: they are the money the
+/// fiat side of the app actually sums, they are nullable with no default, and
+/// the peer applies a packet with `InsertMode.insertOrReplace`, so any key the
+/// packet does not carry lands on the peer as NULL - a silent downgrade to the
+/// legacy double that no other assertion in this file would catch.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -158,7 +152,7 @@ void main() {
         currencyDesignationId: 'cd_usd',
         accountTypeId: accountTypeId,
         description: const Value('desc'),
-        balanceMinor: const Value(10050), // set on A; deliberately not asserted on B, see file header.
+        balanceMinor: const Value(10050), // $100.50 in exact cents.
         styleId: const Value('style1'),
         creationDate: Value(DateTime(2023, 5, 5)),
         country: const Value('US'),
@@ -191,9 +185,9 @@ void main() {
         accountId: 'acc_fiat',
         categoryId: 'cat1',
         currencyCode: 'USD',
-        amountMinor: const Value(1234), // set on A; deliberately not asserted on B, see file header.
+        amountMinor: const Value(1234), // $12.34 in exact cents.
         fee: const Value(0.5),
-        feeMinor: const Value(50), // set on A; deliberately not asserted on B, see file header.
+        feeMinor: const Value(50), // $0.50 in exact cents.
       ),
     );
 
@@ -298,7 +292,7 @@ void main() {
     expect(onB.preset, 2);
   });
 
-  test('fiat account round trips all fields except the known-dropped balanceMinor', () async {
+  test('fiat account round trips all fields including exact balanceMinor', () async {
     final onA = await dbA.accountsDao.getAccountById('acc_fiat');
     final onB = await dbB.accountsDao.getAccountById('acc_fiat');
     expect(onB, isNot(null));
@@ -315,7 +309,12 @@ void main() {
     expect(onB.assetQuantity, 0.0);
     expect(onB.feeStructure, '{"type":"flat"}');
     expect(onB.modifiedAt, onA.modifiedAt);
-    // balanceMinor deliberately not asserted - see file header (production bug).
+    expect(onA.balanceMinor, 10050);
+    expect(
+      onB.balanceMinor,
+      10050,
+      reason: 'exact cents must survive the packet, not decay to NULL',
+    );
   });
 
   test('crypto account round trips with balanceMinor genuinely null on both ends', () async {
@@ -329,13 +328,13 @@ void main() {
     expect(onB.styleId, null);
     expect(onB.assetId, 'BTC');
     expect(onB.assetQuantity, 0.75);
-    // For crypto, balanceMinor is correctly null on both sides - this is the
-    // one case where the missing-column bug happens not to be observable.
+    // A crypto account's minor column is NULL by design: the double is its
+    // source of truth, and the packet must not turn that into a number.
     expect(onA!.balanceMinor, null);
     expect(onB.balanceMinor, null);
   });
 
-  test('fiat transaction round trips all fields except the known-dropped amountMinor/feeMinor', () async {
+  test('fiat transaction round trips all fields including exact amountMinor/feeMinor', () async {
     final onA = await dbA.transactionsDao.getTransactionById('tx_fiat');
     final onB = await dbB.transactionsDao.getTransactionById('tx_fiat');
     expect(onB, isNot(null));
@@ -350,7 +349,14 @@ void main() {
     expect(onB.fee, 0.5);
     expect(onB.linkedTransactionId, null);
     expect(onB.modifiedAt, onA!.modifiedAt);
-    // amountMinor/feeMinor deliberately not asserted - see file header (production bug).
+    expect(onA.amountMinor, 1234);
+    expect(onA.feeMinor, 50);
+    expect(
+      onB.amountMinor,
+      1234,
+      reason: 'exact cents must survive the packet, not decay to NULL',
+    );
+    expect(onB.feeMinor, 50);
   });
 
   test('crypto transaction round trips with amountMinor/feeMinor genuinely null on both ends', () async {

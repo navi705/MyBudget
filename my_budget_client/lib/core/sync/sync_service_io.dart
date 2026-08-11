@@ -12,6 +12,7 @@ import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/entities/currency.dart'
     show TypeCurrency;
 import 'package:my_budget_client/domain/entities/icon_type.dart';
+import 'package:my_budget_client/domain/value_objects/amount.dart';
 import 'package:path/path.dart' as p;
 
 /// Service for P2P synchronization via Syncthing
@@ -302,8 +303,17 @@ class SyncService {
         final tableId = _tableNameToId(log.changedTableName);
         if (tableId == null) continue;
 
+        final isDelete = log.action == 'delete';
+
         Map<String, dynamic>? data;
-        if (log.action == 'upsert') {
+        if (isDelete) {
+          // The delete leaves no row for a peer to read a clock from, and the
+          // batch below is written up to one export interval after the fact.
+          // Leaving the peer to compare against that batch clock let a delete
+          // beat an undo the user made after it, so the moment the delete
+          // actually happened travels with the change.
+          data = {'modifiedAt': log.timestamp};
+        } else {
           data = tableDataMaps[tableId]?[log.recordId];
           // If data is null for an upsert, the record might have been deleted later
           if (data == null) {
@@ -318,9 +328,7 @@ class SyncService {
           SyncChange(
             tableId: tableId,
             recordId: log.recordId,
-            action: log.action == 'delete'
-                ? SyncAction.delete
-                : SyncAction.upsert,
+            action: isDelete ? SyncAction.delete : SyncAction.upsert,
             data: data,
           ),
         );
@@ -466,8 +474,8 @@ class SyncService {
       await _db.customStatement('PRAGMA foreign_keys = OFF;');
 
       try {
-        // Process each change. Deletes carry no payload, so the packet
-        // timestamp is the only clock a delete has.
+        // The packet timestamp is only a fallback clock for a delete sent by a
+        // peer that does not stamp its own; see _applyChange.
         for (final change in packet.changes) {
           await _applyChange(change, packet.deviceId, packet.timestamp);
         }
@@ -507,8 +515,8 @@ class SyncService {
 
   /// Apply a single change with conflict resolution
   ///
-  /// [packetTimestamp] is the clock of the packet the change arrived in. A
-  /// delete carries no payload, so that is the only timestamp it has.
+  /// [packetTimestamp] is the clock of the batch the change arrived in, which a
+  /// delete falls back to only when the sender did not stamp it with its own.
   Future<void> _applyChange(
     SyncChange change,
     String fromDevice,
@@ -520,20 +528,27 @@ class SyncService {
     final incomingModifiedAt = change.data?['modifiedAt'] as int? ?? 0;
 
     if (change.action == SyncAction.delete) {
+      // The moment the delete happened, which is what every comparison below
+      // has to weigh a local edit against. A peer on a build that stamps only
+      // the batch leaves this to the packet clock, which is that delete's
+      // closest available upper bound.
+      final deleteTimestamp =
+          (change.data?['modifiedAt'] as int?) ?? packetTimestamp;
+
       if (localData != null) {
         // Same last-write-wins rule the upsert path below uses: the incoming
         // change only wins when it is strictly newer, so a stale delete can no
         // longer wipe out a newer local edit.
-        if (packetTimestamp > localModifiedAt) {
+        if (deleteTimestamp > localModifiedAt) {
           await _softDeleteRecord(
             change.tableId,
             change.recordId,
-            packetTimestamp,
+            deleteTimestamp,
           );
         } else {
           debugPrint(
             '[SYNC_DEBUG] Ignoring incoming delete for: ${change.recordId} '
-            '(Local newer: $localModifiedAt >= $packetTimestamp)',
+            '(Local newer: $localModifiedAt >= $deleteTimestamp)',
           );
         }
         return;
@@ -548,11 +563,11 @@ class SyncService {
       if (deletedAt != null) {
         // Already deleted - keep the newest delete clock so that older upserts
         // arriving later keep losing the comparison.
-        if (packetTimestamp > deletedAt) {
+        if (deleteTimestamp > deletedAt) {
           await _softDeleteRecord(
             change.tableId,
             change.recordId,
-            packetTimestamp,
+            deleteTimestamp,
           );
         }
         return;
@@ -561,7 +576,7 @@ class SyncService {
       // Unknown record: record a tombstone so an older upsert for it that is
       // processed later (files are imported in directory order, not timestamp
       // order) loses last-write-wins instead of resurrecting the row.
-      await _insertTombstone(change.tableId, change.recordId, packetTimestamp);
+      await _insertTombstone(change.tableId, change.recordId, deleteTimestamp);
       return;
     }
 
@@ -892,13 +907,13 @@ class SyncService {
     }
   }
 
-  /// Apply a peer's delete as a soft delete, stamped with the packet's own
-  /// timestamp.
+  /// Apply a peer's delete as a soft delete, stamped with the clock the delete
+  /// arrived with.
   ///
-  /// [modifiedAt] must come from the packet, never from `DateTime.now()`:
-  /// re-stamping with the local clock made a stale delete look like the newest
-  /// change to every other peer, so it kept winning and ping-ponging around the
-  /// network.
+  /// [modifiedAt] must come from the incoming change, never from
+  /// `DateTime.now()`: re-stamping with the local clock made a stale delete look
+  /// like the newest change to every other peer, so it kept winning and
+  /// ping-ponging around the network.
   ///
   /// The DAO `update*` helpers are deliberately bypassed here. They overwrite
   /// `modifiedAt` with `DateTime.now()`, re-log the delete as a local `upsert`,
@@ -1056,7 +1071,7 @@ class SyncService {
   ///
   /// Files are imported in directory order rather than timestamp order, so an
   /// older upsert packet for the same record can still be processed after this
-  /// delete. Writing a tombstone stamped with the packet timestamp makes that
+  /// delete. Writing a tombstone stamped with the delete's own clock makes that
   /// late upsert lose the last-write-wins comparison instead of resurrecting
   /// the row.
   ///
@@ -1216,11 +1231,37 @@ class SyncService {
 
   // --- JSON serialization helpers ---
 
+  /// Exact minor units to store for the money column carried under [key], whose
+  /// major-unit value is [major] in currency [code].
+  ///
+  /// A packet written before these keys existed carries the double alone, and
+  /// the peer applies it with `InsertMode.insertOrReplace`, so a column not
+  /// supplied here is written as NULL. Re-deriving from the double is the only
+  /// reading of such a packet that cannot invent a number: [Amount.fromMajorCode]
+  /// yields minor units for fiat and nothing for crypto/commodity, whose double
+  /// is the source of truth and whose column must stay NULL. A key that is
+  /// present is taken exactly as sent, null included - that is the sender
+  /// stating the row has no minor units, not an absence of information.
+  int? _minorUnits(
+    Map<String, dynamic> json,
+    String key,
+    double major,
+    String code,
+  ) {
+    if (json.containsKey(key)) return (json[key] as num?)?.toInt();
+    final amount = Amount.fromMajorCode(major, code);
+    return amount is FiatAmount ? amount.minorUnits : null;
+  }
+
   Map<String, dynamic> _transactionToJson(Transaction t) {
     return {
       'id': t.id,
       'description': t.description,
       'amount': t.amount,
+      // Exact minor units for fiat, NULL for crypto/commodity, where the double
+      // above is the source of truth. Never coerced to 0 - a 0 here would claim
+      // the row is worth nothing.
+      'amountMinor': t.amountMinor,
       'date': t.date.toIso8601String(),
       'accountId': t.accountId,
       'categoryId': t.categoryId,
@@ -1228,6 +1269,7 @@ class SyncService {
       'exchangeRate': t.exchangeRate,
       'exchangeRatePreset': t.exchangeRatePreset,
       'fee': t.fee,
+      'feeMinor': t.feeMinor,
       'linkedTransactionId': t.linkedTransactionId,
       'modifiedAt': t.modifiedAt,
       'deviceId': t.deviceId,
@@ -1236,17 +1278,24 @@ class SyncService {
   }
 
   TransactionsCompanion _transactionFromJson(Map<String, dynamic> json) {
+    final amount = (json['amount'] as num).toDouble();
+    final fee = (json['fee'] as num?)?.toDouble() ?? 0.0;
+    final currencyCode = json['currencyCode'] as String? ?? 'USD';
     return TransactionsCompanion(
       id: Value(json['id'] as String),
       description: Value(json['description'] as String? ?? ''),
-      amount: Value((json['amount'] as num).toDouble()),
+      amount: Value(amount),
+      amountMinor: Value(
+        _minorUnits(json, 'amountMinor', amount, currencyCode),
+      ),
       date: Value(DateTime.parse(json['date'] as String)),
       accountId: Value(json['accountId'] as String? ?? ''),
       categoryId: Value(json['categoryId'] as String? ?? ''),
-      currencyCode: Value(json['currencyCode'] as String? ?? 'USD'),
+      currencyCode: Value(currencyCode),
       exchangeRate: Value(json['exchangeRate'] as double?),
       exchangeRatePreset: Value(json['exchangeRatePreset'] as int?),
-      fee: Value((json['fee'] as num?)?.toDouble() ?? 0.0),
+      fee: Value(fee),
+      feeMinor: Value(_minorUnits(json, 'feeMinor', fee, currencyCode)),
       linkedTransactionId: Value(json['linkedTransactionId'] as String?),
       modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
@@ -1260,6 +1309,9 @@ class SyncService {
       'name': a.name,
       'description': a.description,
       'balance': a.balance,
+      // See _transactionToJson: exact minor units for fiat, NULL for
+      // crypto/commodity accounts.
+      'balanceMinor': a.balanceMinor,
       'currencyCode': a.currencyCode,
       'currencyDesignationId': a.currencyDesignationId,
       'accountTypeId': a.accountTypeId,
@@ -1276,12 +1328,17 @@ class SyncService {
   }
 
   AccountsCompanion _accountFromJson(Map<String, dynamic> json) {
+    final balance = (json['balance'] as num).toDouble();
+    final currencyCode = json['currencyCode'] as String? ?? 'USD';
     return AccountsCompanion(
       id: Value(json['id'] as String),
       name: Value(json['name'] as String? ?? 'Account'),
       description: Value(json['description'] as String?),
-      balance: Value((json['balance'] as num).toDouble()),
-      currencyCode: Value(json['currencyCode'] as String? ?? 'USD'),
+      balance: Value(balance),
+      balanceMinor: Value(
+        _minorUnits(json, 'balanceMinor', balance, currencyCode),
+      ),
+      currencyCode: Value(currencyCode),
       currencyDesignationId: Value(
         json['currencyDesignationId'] as String? ?? '',
       ),

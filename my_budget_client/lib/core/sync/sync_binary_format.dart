@@ -61,7 +61,11 @@ class SyncChange {
   final SyncTableId tableId;
   final String recordId;
   final SyncAction action;
-  final Map<String, dynamic>? data; // null for delete
+
+  /// The record's fields for an upsert. A delete has no row left to describe,
+  /// so it carries at most the clock it happened at, under the same
+  /// `modifiedAt` key an upsert uses.
+  final Map<String, dynamic>? data;
 
   SyncChange({
     required this.tableId,
@@ -82,7 +86,7 @@ class SyncChange {
 ///   [RECORD_ID_LEN: 1 byte]
 ///   [RECORD_ID: variable bytes]
 ///   [ACTION: 1 byte]
-///   [DATA_LEN: 4 bytes uint32] (0 for delete)
+///   [DATA_LEN: 4 bytes uint32] (0 when the change carries no payload)
 ///   [DATA: JSON bytes]
 class SyncBinaryFormat {
   static const List<int> _header = [0x53, 0x59, 0x4E, 0x43]; // "SYNC"
@@ -125,8 +129,10 @@ class SyncBinaryFormat {
       // Action (1 byte)
       builder.addByte(change.action.value);
 
-      // Data (length + JSON bytes)
-      if (change.data != null && change.action == SyncAction.upsert) {
+      // Data (length + JSON bytes). The block is written for a delete too, so
+      // its clock reaches the peer; the layout is unchanged, so a build that
+      // reads only an upsert's payload steps over it exactly as before.
+      if (change.data != null) {
         final dataBytes = utf8.encode(jsonEncode(change.data));
         builder.add(_uint32ToBytes(dataBytes.length));
         builder.add(dataBytes);

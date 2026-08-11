@@ -120,18 +120,23 @@ void main() {
     await serviceB.importNow();
   }
 
-  // Deletes carry no payload over the wire (sync_service_io.dart _applyChange
-  // docs: "Deletes carry no payload, so the packet timestamp is the only
-  // clock a delete has") - the receiving side's LWW comparison for a delete
-  // uses the *packet's* export-time timestamp (real DateTime.now(), captured
-  // in _exportPendingChanges at sync_service_io.dart:340), never the deleted
-  // row's own modifiedAt column. A customStatement override of the row's
-  // modifiedAt before exporting a delete has no effect on what travels or on
-  // what a peer compares against - only the export's real wall-clock moment
-  // matters. That timestamp is recoverable after the fact from the written
-  // filename ('${deviceId}_$timestamp.sync', sync_service_io.dart:351), which
-  // is how the tests below pin down the exact value a delete was compared
-  // and stamped with, instead of guessing at a hand-picked integer.
+  // A delete travels with the clock of the sync_log row that recorded it -
+  // when the user deleted, not when the batch happened to be written. That
+  // row survives the export (it is only flagged `exported`), so reading it
+  // back gives the exact value a peer compared against and stamped its
+  // tombstone with, instead of guessing at a hand-picked integer.
+  Future<int> deleteLogTimestamp(String recordId) async {
+    final log = await (dbA.select(dbA.syncLog)..where(
+      (t) => t.recordId.equals(recordId) & t.action.equals('delete'),
+    )).getSingle();
+    return log.timestamp;
+  }
+
+  // The batch clock: the moment the .sync file was written (real
+  // DateTime.now(), captured in _exportPendingChanges), recoverable from the
+  // file name '${deviceId}_$timestamp.sync'. It is always at or after every
+  // delete in the batch, which is exactly why a delete may not be judged by
+  // it.
   Future<int> latestExportTimestamp() async {
     final files = await syncFolder
         .list()
@@ -198,10 +203,10 @@ void main() {
 
   group('delete vs local state', () {
     test('delete older than the local row is ignored', () async {
-      // The delete's comparable clock is the export's real wall-clock time
-      // (see latestExportTimestamp() doc above), so "local row is newer"
-      // has to be simulated by stamping B's row into the future, well past
-      // whatever DateTime.now() is when A exports the delete moments later.
+      // The delete's comparable clock is real wall-clock time (see
+      // deleteLogTimestamp() above), so "local row is newer" has to be
+      // simulated by stamping B's row into the future, well past whatever
+      // DateTime.now() is when A deletes moments later.
       final future = DateTime.now().millisecondsSinceEpoch + 10000000;
       await insertStyleOnB('s1', 'Local Name', future);
       await insertStyleOnA('s1', 'To Delete', 1000);
@@ -218,13 +223,13 @@ void main() {
       await insertStyleOnB('s1', 'Local Name', 1000);
       await insertStyleOnA('s1', 'To Delete', 1000);
       await dbA.stylesDao.deleteStyle(StylesCompanion(id: const Value('s1')));
+      final deletedAt = await deleteLogTimestamp('s1');
 
       await syncAToB();
-      final exportedAt = await latestExportTimestamp();
 
       final style = await styleOnB('s1');
       expect(style.isDeleted, isTrue);
-      expect(style.modifiedAt, exportedAt);
+      expect(style.modifiedAt, deletedAt);
     });
 
     test('delete of a record never seen locally inserts a tombstone', () async {
@@ -232,9 +237,9 @@ void main() {
       await dbA.stylesDao.deleteStyle(
         StylesCompanion(id: const Value('s-ghost')),
       );
+      final deletedAt = await deleteLogTimestamp('s-ghost');
 
       await syncAToB();
-      final exportedAt = await latestExportTimestamp();
 
       // getStyleById filters isDeleted = false, so read the raw row directly
       // to see the tombstone.
@@ -243,20 +248,72 @@ void main() {
       )..where((t) => t.id.equals('s-ghost'))).getSingleOrNull();
       expect(tombstone, isNotNull);
       expect(tombstone!.isDeleted, isTrue);
-      expect(tombstone.modifiedAt, exportedAt);
+      expect(tombstone.modifiedAt, deletedAt);
+    });
+
+    test('a delete is stamped with when it happened, not when its batch was written', () async {
+      await insertStyleOnB('s1', 'Local Name', 1000);
+      await insertStyleOnA('s1', 'To Delete', 1000);
+      await dbA.stylesDao.deleteStyle(StylesCompanion(id: const Value('s1')));
+      // Pin the delete far enough back that the batch clock cannot be mistaken
+      // for it: the export happens at real wall-clock time, ~1.7e12 ms.
+      await dbA.customStatement(
+        "UPDATE sync_log SET timestamp = 4000 WHERE record_id = 's1' AND action = 'delete'",
+      );
+
+      await syncAToB();
+      final exportedAt = await latestExportTimestamp();
+
+      final style = await styleOnB('s1');
+      expect(style.isDeleted, isTrue);
+      expect(
+        style.modifiedAt,
+        4000,
+        reason: 'the delete, not the batch, is what the peer must be told about',
+      );
+      expect(exportedAt, greaterThan(4000));
+    });
+
+    test('a delete undone before the batch goes out loses to the undo on the peer', () async {
+      // Delete, then undo, then export: all three land in the same batch, so
+      // the batch clock is later than both. Judged by it, the delete would win
+      // and the peer would lose a row the user still has.
+      await insertStyleOnA('s1', 'Live', 1000);
+      await dbA.stylesDao.deleteStyle(StylesCompanion(id: const Value('s1')));
+      await dbA.customStatement(
+        "UPDATE sync_log SET timestamp = 2000 WHERE record_id = 's1' AND action = 'delete'",
+      );
+      await dbA.stylesDao.updateStyle(
+        StylesCompanion(
+          id: const Value('s1'),
+          name: const Value('Undeleted'),
+          iconName: const Value('star'),
+          colorHex: const Value('#111111'),
+          isDeleted: const Value(false),
+          modifiedAt: const Value(3000),
+        ),
+      );
+
+      await syncAToB();
+      final exportedAt = await latestExportTimestamp();
+
+      expect(exportedAt, greaterThan(3000), reason: 'the batch clock must be the later one for this test to mean anything');
+      final style = await styleOnB('s1');
+      expect(style.isDeleted, isFalse);
+      expect(style.name, 'Undeleted');
+      expect(style.modifiedAt, 3000);
     });
 
     test('an older upsert arriving after a tombstone is rejected, not resurrected', () async {
-      // First sync: B learns the record was deleted. The tombstone's clock
-      // is the delete packet's real export timestamp (see
-      // latestExportTimestamp() doc above), not any hand-picked integer, so
-      // it has to be read back from the written file before it can be beaten
-      // or missed on purpose below.
+      // First sync: B learns the record was deleted. The tombstone's clock is
+      // the delete's own real wall-clock moment (see deleteLogTimestamp()
+      // above), not any hand-picked integer, so it has to be read back before
+      // it can be beaten or missed on purpose below.
       await insertStyleOnA('s1', 'Deleted Elsewhere', 1000);
       await dbA.stylesDao.deleteStyle(StylesCompanion(id: const Value('s1')));
+      final deletedAt = await deleteLogTimestamp('s1');
       await syncAToB();
       expect((await styleOnBOrNull('s1'))!.isDeleted, isTrue);
-      final deletedAt = await latestExportTimestamp();
 
       // Second sync: A produces a stale upsert (modifiedAt < deletedAt) for
       // the same id - e.g. a third device's older edit propagating late.
@@ -283,9 +340,9 @@ void main() {
     test('a newer upsert arriving after a tombstone does resurrect the record', () async {
       await insertStyleOnA('s1', 'Deleted Elsewhere', 1000);
       await dbA.stylesDao.deleteStyle(StylesCompanion(id: const Value('s1')));
+      final deletedAt = await deleteLogTimestamp('s1');
       await syncAToB();
       expect((await styleOnBOrNull('s1'))!.isDeleted, isTrue);
-      final deletedAt = await latestExportTimestamp();
 
       // A already has this row locally (soft-deleted above); resurrect it via
       // an update, not another insertStyle() - see the sibling test above for
