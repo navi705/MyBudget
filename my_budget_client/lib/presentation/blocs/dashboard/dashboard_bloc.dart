@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:my_budget_client/core/enums/filter_enums.dart'; // Added
@@ -98,7 +99,12 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
        _settingsRepository = settingsRepository,
        _assetRepository = assetRepository, // Added
        super(DashboardInitial()) {
-    on<LoadDashboard>(_onLoadDashboard);
+    // restartable(): _onLoadDashboard holds a combineLatest pipeline open for
+    // as long as the handler runs, so two concurrent runs would mean two
+    // permanent pipelines feeding the same bloc — every downstream change
+    // computed twice, and the two racing to emit. Restarting cancels the
+    // previous run's emitter, which tears its pipeline down.
+    on<LoadDashboard>(_onLoadDashboard, transformer: restartable());
     on<ChangeTab>(_onChangeTab);
     on<ChangeDateRange>(_onChangeDateRange);
     on<SelectDay>(_onSelectDay);
@@ -140,6 +146,16 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     // Awaited: an unawaited cancel leaves the old subscription able to fire
     // into the params subject at the same time as the new one.
     await _stylesSubscription?.cancel();
+    await _categoriesSubscription?.cancel();
+
+    // A superseded run stops here. It was cancelled while awaiting above, so
+    // the run that replaced it already owns these two fields; a handle stored
+    // on top of that one would be unreachable — neither the next reload's
+    // cancel nor close() would ever see it, and it would keep pushing into
+    // _paramsSubject for the life of the bloc. Both assignments below are in
+    // one synchronous block for the same reason.
+    if (emit.isDone) return;
+
     _stylesSubscription = _styleRepository.watchAllStyles().skip(1).listen((
       styles,
     ) {
@@ -151,7 +167,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       );
     });
 
-    await _categoriesSubscription?.cancel();
     _categoriesSubscription = _categoryRepository
         .watchCategories()
         .skip(1)
@@ -343,6 +358,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
               if (c.id != null) c.id!: c.type,
           };
 
+          // Taken once per pass: the walk-back starts from the current day, so
+          // the day is as much an input to the result as the data is.
+          final now = DateTime.now();
+
           final computeParams = _DashboardComputeParams(
             accounts: accounts,
             transactions: transactions,
@@ -352,9 +371,11 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             dateRangeEnd: params.dateRangeEnd, // Added
             selectedDay: params.selectedDay,
             categoryTypeMap: categoryTypeMap,
+            dataVersion: params.dataVersion,
             converter: _cachedConverter!, // Pass cached converter
             assetData: assetData, // Added for asset-linked accounts
             dateStep: params.dateStep, // OPTIMIZATION: for yearly granularity
+            today: DateTime(now.year, now.month, now.day),
           );
 
           // Converted balances are now computed in _calculateDashboardData to match historical state exactly
@@ -388,6 +409,18 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           // Drift streams reuse the same list object when only params change
           // (e.g. tab switch, currency change). In those cases, skip the ~27ms
           // walk-back and return the cached result.
+          //
+          // The result is a pure function of _DashboardComputeParams, so the
+          // key has to cover every field of it. categoryTypeMap is the one
+          // field that cannot be compared as itself: it is rebuilt from
+          // _cachedCategories on every pass, so it is never the same object,
+          // and walking it entry by entry would cost on the order of what the
+          // walk-back it guards costs. dataVersion stands in for it — the only
+          // code that replaces _cachedCategories bumps dataVersion in the same
+          // callback, so a category edit (a type flipped between expense,
+          // income and transfer above all) always arrives with a version this
+          // key has not seen. The counter also moves on style-only changes,
+          // which buys one redundant walk-back and never a stale one.
           _DashboardComputeResults computeResults;
           if (_lastComputeParams != null &&
               _lastComputeResults != null &&
@@ -398,6 +431,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
               _lastComputeParams!.dateRangeEnd == computeParams.dateRangeEnd &&
               _lastComputeParams!.selectedDay == computeParams.selectedDay &&
               _lastComputeParams!.dateStep == computeParams.dateStep &&
+              _lastComputeParams!.today == computeParams.today &&
+              _lastComputeParams!.dataVersion == computeParams.dataVersion &&
               identical(
                 _lastComputeParams!.transactions,
                 computeParams.transactions,
@@ -409,6 +444,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
               identical(
                 _lastComputeParams!.assetData,
                 computeParams.assetData,
+              ) &&
+              identical(
+                _lastComputeParams!.converter,
+                computeParams.converter,
               ) &&
               identical(_lastComputeParams!.rates, computeParams.rates)) {
             debugPrint('COMPUTE: Cache hit — reusing previous walk-back results');
@@ -557,6 +596,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     await _stylesSubscription?.cancel();
     await _categoriesSubscription?.cancel();
     await _paramsSubject.close();
+    // The combineLatest pipeline belongs to the awaited emit.forEach in
+    // _onLoadDashboard, so it is cancelled with that emitter by super.close()
+    // — there is no third subscription field to cancel here.
     return super.close();
   }
 }
@@ -632,9 +674,16 @@ class _DashboardComputeParams {
   final DateTime dateRangeEnd; // Added
   final DateTime selectedDay;
   final Map<String, CategoryType> categoryTypeMap;
+  // Version of the category/style caches [categoryTypeMap] was built from.
+  // Carried so the memo in the bloc has a cheap stand-in for the map itself.
+  final int dataVersion;
   final CurrencyConverter converter; // OPTIMIZATION: Pre-built converter
   final List<AssetDataDomain> assetData; // Added for asset-linked accounts
   final DateStep dateStep; // OPTIMIZATION: for yearly granularity
+  // Normalized day the walk-back starts from. Passed in rather than read off
+  // the clock inside the walk so that the results are a function of the params
+  // alone and cannot be memoized past the day they describe.
+  final DateTime today;
 
   _DashboardComputeParams({
     required this.accounts,
@@ -645,9 +694,11 @@ class _DashboardComputeParams {
     required this.dateRangeEnd, // Added
     required this.selectedDay,
     required this.categoryTypeMap,
+    required this.dataVersion,
     required this.converter,
     required this.assetData, // Added for asset-linked accounts
     required this.dateStep, // OPTIMIZATION: for yearly granularity
+    required this.today,
   });
 }
 
@@ -811,10 +862,9 @@ _DashboardComputeResults _calculateDashboardData(
 
   // Section 4: Net Worth walk-back (THE BOTTLENECK)
   sectionStopwatch.start();
-  final today = DateTime.now();
   final start = params.dateRangeStart;
 
-  var iterDate = DateTime(today.year, today.month, today.day);
+  var iterDate = params.today;
   final historyLimit = DateTime(start.year, start.month, start.day);
   final selectedDayNormalized = DateTime(
     params.selectedDay.year,
