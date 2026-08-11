@@ -62,6 +62,7 @@ class InflationState extends Equatable {
     bool? isSelectionModeActive,
     bool forceNullCountryFilters = false,
     bool forceNullPresetFilters = false,
+    bool forceNullErrorMessage = false,
   }) {
     return InflationState(
       status: status ?? this.status,
@@ -75,7 +76,12 @@ class InflationState extends Equatable {
       activeDate: activeDate ?? this.activeDate,
       activeDateRange: activeDateRange ?? this.activeDateRange,
       sort: sort ?? this.sort,
-      errorMessage: errorMessage ?? this.errorMessage,
+      // Without a way to clear it the message outlived the failure that set
+      // it, so a second identical failure could not be told apart from the
+      // stale one still in the state.
+      errorMessage: forceNullErrorMessage
+          ? null
+          : (errorMessage ?? this.errorMessage),
       totalCount: totalCount ?? this.totalCount,
       countryFilters: forceNullCountryFilters
           ? null

@@ -16,7 +16,20 @@ class AssetView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AssetBloc, AssetState>(
+    return BlocConsumer<AssetBloc, AssetState>(
+      // The failure below can only be seen while the list is empty - which,
+      // for anyone who already has assets, it never is. So a failed add, edit
+      // or delete showed nothing at all: the dialog popped and the list sat
+      // there unchanged.
+      listenWhen: (previous, current) =>
+          current.errorMessage != null &&
+          current.errorMessage != previous.errorMessage &&
+          current.assetData.isNotEmpty,
+      listener: (context, state) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text('Error: ${state.errorMessage}')));
+      },
       builder: (context, state) {
         if (state.status == AssetStatus.loading && state.assetData.isEmpty) {
           return const Center(child: CircularProgressIndicator());

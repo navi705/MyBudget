@@ -15,7 +15,22 @@ class InflationView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return BlocBuilder<InflationBloc, InflationState>(
+    return BlocConsumer<InflationBloc, InflationState>(
+      // The failure below can only be seen while the list is empty - which,
+      // for anyone who already has rates, it never is. So a failed add, edit
+      // or delete showed nothing at all: the dialog popped and the list sat
+      // there unchanged.
+      listenWhen: (previous, current) =>
+          current.errorMessage != null &&
+          current.errorMessage != previous.errorMessage &&
+          current.rates.isNotEmpty,
+      listener: (context, state) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text(l10n.inflationError(state.errorMessage!))),
+          );
+      },
       builder: (context, state) {
         if (state.status == InflationStatus.loading && state.rates.isEmpty) {
           return const Center(child: CircularProgressIndicator());

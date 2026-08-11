@@ -93,6 +93,7 @@ class AssetState extends Equatable {
     bool forceNullMinValue = false,
     bool forceNullMaxValue = false,
     bool forceNullSelectedAssetId = false,
+    bool forceNullErrorMessage = false,
   }) {
     return AssetState(
       status: status ?? this.status,
@@ -106,7 +107,12 @@ class AssetState extends Equatable {
       activeDate: activeDate ?? this.activeDate,
       activeDateRange: activeDateRange ?? this.activeDateRange,
       sort: sort ?? this.sort,
-      errorMessage: errorMessage ?? this.errorMessage,
+      // Without a way to clear it the message outlived the failure that set
+      // it, so a second identical failure could not be told apart from the
+      // stale one still in the state.
+      errorMessage: forceNullErrorMessage
+          ? null
+          : (errorMessage ?? this.errorMessage),
       totalCount: totalCount ?? this.totalCount,
       selectedAssetId: forceNullSelectedAssetId
           ? null

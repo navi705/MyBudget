@@ -73,6 +73,7 @@ class InflationBloc extends Bloc<InflationEvent, InflationState>
         offset: event.rates.length,
         hasMore: false,
         totalCount: event.totalCount,
+        forceNullErrorMessage: true,
       ),
     );
   }

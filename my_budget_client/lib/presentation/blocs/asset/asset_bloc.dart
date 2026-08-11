@@ -111,6 +111,7 @@ class AssetBloc extends Bloc<AssetEvent, AssetState>
         hasMore: event.data.length == state.limit,
         totalCount: count,
         isLoadingMore: false,
+        forceNullErrorMessage: true,
       ),
     );
   }
