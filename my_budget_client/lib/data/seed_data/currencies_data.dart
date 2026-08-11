@@ -161,7 +161,7 @@ final List<CurrenciesCompanion> defaultCurrencies = [
     modifiedAt: const Value(1),
   ),
   CurrenciesCompanion.insert(
-    name: 'Dutch Guilder',
+    name: 'Netherlands Antillean Guilder',
     code: 'ANG',
     languageCode: 'en',
     type: Value(TypeCurrency.currency),
@@ -441,7 +441,7 @@ final List<CurrenciesCompanion> defaultCurrencies = [
     modifiedAt: const Value(1),
   ),
   CurrenciesCompanion.insert(
-    name: 'Belarusian Ruble',
+    name: 'Belarusian Ruble (2000-2016)',
     code: 'BYR',
     languageCode: 'en',
     type: Value(TypeCurrency.currency),
@@ -840,7 +840,7 @@ final List<CurrenciesCompanion> defaultCurrencies = [
     modifiedAt: const Value(1),
   ),
   CurrenciesCompanion.insert(
-    name: 'Ghanaian Cedi',
+    name: 'Ghanaian Cedi (1979-2007)',
     code: 'GHC',
     languageCode: 'en',
     type: Value(TypeCurrency.currency),
@@ -1393,7 +1393,7 @@ final List<CurrenciesCompanion> defaultCurrencies = [
     modifiedAt: const Value(1),
   ),
   CurrenciesCompanion.insert(
-    name: 'Mauritanian Ouguiya',
+    name: 'Mauritanian Ouguiya (1973-2017)',
     code: 'MRO',
     languageCode: 'en',
     type: Value(TypeCurrency.currency),
@@ -1456,7 +1456,7 @@ final List<CurrenciesCompanion> defaultCurrencies = [
     modifiedAt: const Value(1),
   ),
   CurrenciesCompanion.insert(
-    name: 'Mozambican Metical',
+    name: 'Mozambican Metical (1980-2006)',
     code: 'MZM',
     languageCode: 'en',
     type: Value(TypeCurrency.currency),
@@ -1687,7 +1687,7 @@ final List<CurrenciesCompanion> defaultCurrencies = [
     modifiedAt: const Value(1),
   ),
   CurrenciesCompanion.insert(
-    name: 'Romanian Leu',
+    name: 'Romanian Leu (1952-2005)',
     code: 'ROL',
     languageCode: 'en',
     type: Value(TypeCurrency.currency),
@@ -1820,7 +1820,7 @@ final List<CurrenciesCompanion> defaultCurrencies = [
     modifiedAt: const Value(1),
   ),
   CurrenciesCompanion.insert(
-    name: 'Sierra Leonean Leone',
+    name: 'Sierra Leonean Leone (1964-2022)',
     code: 'SLL',
     languageCode: 'en',
     type: Value(TypeCurrency.currency),
@@ -1876,7 +1876,7 @@ final List<CurrenciesCompanion> defaultCurrencies = [
     modifiedAt: const Value(1),
   ),
   CurrenciesCompanion.insert(
-    name: 'Sao Tomean Dobra',
+    name: 'Sao Tomean Dobra (1977-2017)',
     code: 'STD',
     languageCode: 'en',
     type: Value(TypeCurrency.currency),
@@ -1946,7 +1946,7 @@ final List<CurrenciesCompanion> defaultCurrencies = [
     modifiedAt: const Value(1),
   ),
   CurrenciesCompanion.insert(
-    name: 'Turkmenistani Manat',
+    name: 'Turkmenistani Manat (1993-2009)',
     code: 'TMM',
     languageCode: 'en',
     type: Value(TypeCurrency.currency),
@@ -2114,7 +2114,7 @@ final List<CurrenciesCompanion> defaultCurrencies = [
     modifiedAt: const Value(1),
   ),
   CurrenciesCompanion.insert(
-    name: 'Venezuelan Bolívar',
+    name: 'Venezuelan Bolívar (1871-2008)',
     code: 'VEB',
     languageCode: 'en',
     type: Value(TypeCurrency.currency),
@@ -2128,7 +2128,7 @@ final List<CurrenciesCompanion> defaultCurrencies = [
     modifiedAt: const Value(1),
   ),
   CurrenciesCompanion.insert(
-    name: 'Venezuelan Bolívar',
+    name: 'Venezuelan Bolívar (2008-2018)',
     code: 'VEF',
     languageCode: 'en',
     type: Value(TypeCurrency.currency),
@@ -2359,7 +2359,7 @@ final List<CurrenciesCompanion> defaultCurrencies = [
     modifiedAt: const Value(1),
   ),
   CurrenciesCompanion.insert(
-    name: 'Zambian Kwacha',
+    name: 'Zambian Kwacha (1968-2012)',
     code: 'ZMK',
     languageCode: 'en',
     type: Value(TypeCurrency.currency),
@@ -2373,7 +2373,7 @@ final List<CurrenciesCompanion> defaultCurrencies = [
     modifiedAt: const Value(1),
   ),
   CurrenciesCompanion.insert(
-    name: 'Zimbabwean Dollar',
+    name: 'Zimbabwean Dollar (1980-2008)',
     code: 'ZWD',
     languageCode: 'en',
     type: Value(TypeCurrency.currency),

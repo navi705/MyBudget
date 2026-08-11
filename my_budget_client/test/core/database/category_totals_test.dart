@@ -315,4 +315,90 @@ void main() {
       },
     );
   });
+
+  group('getCategoriesWithTotals', () {
+    // Own categories, own date window (2027) and an own name prefix, so this
+    // group's assertions are unaffected by the fixtures above.
+    setUpAll(() async {
+      for (final c in [
+        CategoriesCompanion.insert(
+          id: const Value('gcwt_live'),
+          name: 'GCWT Live',
+        ),
+        CategoriesCompanion.insert(
+          id: const Value('gcwt_gone'),
+          name: 'GCWT Gone',
+        ),
+      ]) {
+        await db.into(db.categories).insert(c);
+      }
+
+      Future<void> tx({
+        required String id,
+        required String category,
+        required double amount,
+        bool isDeleted = false,
+      }) {
+        return db.into(db.transactions).insert(
+          TransactionsCompanion.insert(
+            id: Value(id),
+            description: id,
+            amount: amount,
+            date: DateTime(2027, 1, 15),
+            accountId: 'acc1',
+            categoryId: category,
+            currencyCode: eurCode,
+            isDeleted: Value(isDeleted),
+          ),
+        );
+      }
+
+      await tx(id: 'gcwt_a', category: 'gcwt_live', amount: -10.0);
+      await tx(id: 'gcwt_b', category: 'gcwt_live', amount: -5.0);
+      await tx(
+        id: 'gcwt_deleted',
+        category: 'gcwt_live',
+        amount: -1000.0,
+        isDeleted: true,
+      );
+      await tx(id: 'gcwt_c', category: 'gcwt_gone', amount: -3.0);
+
+      await db.categoriesDao.deleteCategory(
+        CategoriesCompanion(id: const Value('gcwt_gone')),
+      );
+    });
+
+    test('excludes soft-deleted transactions from the total', () async {
+      final results = await db.categoriesDao.getCategoriesWithTotals(
+        name: 'GCWT Live',
+        dateFrom: DateTime(2027, 1, 1),
+        dateTo: DateTime(2027, 1, 31),
+      );
+      final live = results.singleWhere((r) => r.category.id == 'gcwt_live');
+      // The subquery had no is_deleted filter, so the -1000.0 row the user
+      // had already deleted was still inflating the Categories screen:
+      // -1015.0 instead of -15.0.
+      expect(live.total, closeTo(-15.0, 1e-9));
+    });
+
+    test('excludes soft-deleted categories from the result rows', () async {
+      final results = await db.categoriesDao.getCategoriesWithTotals(
+        name: 'GCWT',
+        dateFrom: DateTime(2027, 1, 1),
+        dateTo: DateTime(2027, 1, 31),
+      );
+      expect(results.map((r) => r.category.id), ['gcwt_live']);
+    });
+
+    test('a category with no transaction in range still appears, with 0.0 '
+        '(the LEFT JOIN is load-bearing)', () async {
+      final results = await db.categoriesDao.getCategoriesWithTotals(
+        name: 'GCWT Live',
+        dateFrom: DateTime(2028, 1, 1),
+        dateTo: DateTime(2028, 1, 31),
+      );
+      final live = results.singleWhere((r) => r.category.id == 'gcwt_live');
+      expect(live.total, 0.0);
+    });
+  });
 }

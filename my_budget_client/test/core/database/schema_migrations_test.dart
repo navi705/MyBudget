@@ -173,16 +173,13 @@ void main() {
     });
   });
 
-  group('v2 -> v8 migration (chain covering the v3..v8 upgrade steps)', () {
-    // IMPORTANT: this deliberately starts from v2, not v1. A true v1
-    // fixture was attempted first and reproducibly crashes partway through
-    // the real onUpgrade code with a *pre-existing production bug*
-    // unrelated to this test's fixture data - see the "KNOWN BUG" note
-    // below and the final report. Starting at v2 skips only the v1->v2
-    // `_migrateToStableIds` step (which cannot be exercised without
-    // triggering that crash) while still exercising every other upgrade
-    // step (v3 sync columns, v3/v4 new tables, v5 full reseed, v6 composite
-    // indexes, v7 dedup index + backfill precursor, v8 minor units).
+  group('v2 -> v9 migration (chain covering the v3..v9 upgrade steps)', () {
+    // Starts from v2, not v1: the v1->v2 `_migrateToStableIds` step is the
+    // only one this chain skips, and it needs a whole extra pre-stable-id
+    // fixture to model. Every other upgrade step is exercised (v3 sync
+    // columns, v3/v4 new tables, v5 full reseed, v6 composite indexes, v7
+    // dedup index + backfill precursor, v8 minor units, v9 backfilled
+    // @TableIndex indexes).
     //
     // v2 baseline: v1 schema + the three sync columns v1->v2 adds to
     // styles/account_types/currency_designations (id churn from
@@ -240,7 +237,7 @@ void main() {
     late AppDatabase db;
 
     setUpAll(() async {
-      // One shared migration for the whole group: the v2->v8 chain re-runs
+      // One shared migration for the whole group: the v2->v9 chain re-runs
       // the ~283k-row exchange-rate reseed (the v4->v5 step calls
       // `_seedData` again), so it is materially slower than the other
       // migration tests here; running it once and asserting many things
@@ -262,11 +259,11 @@ void main() {
       await db.close();
     });
 
-    test('completes v2->v8 without throwing and lands on schemaVersion 8',
+    test('completes v2->v9 without throwing and lands on schemaVersion 9',
         () async {
       final versionRow =
           await db.customSelect('PRAGMA user_version').getSingle();
-      expect(versionRow.data['user_version'], 8);
+      expect(versionRow.data['user_version'], 9);
     });
 
     test('final schema has the columns the v8 Dart tables expect', () async {
@@ -336,6 +333,30 @@ void main() {
         ]),
       );
     });
+
+    test(
+      'backfills the five @TableIndex indexes, which only ever existed on '
+      'fresh installs: m.createAll() builds them in onCreate and no upgrade '
+      'step did, so every upgraded device ran without them',
+      () async {
+        final indexes = await db
+            .customSelect(
+              "SELECT name FROM sqlite_master WHERE type = 'index'",
+            )
+            .get();
+        final names = indexes.map((r) => r.data['name'] as String).toSet();
+        expect(
+          names,
+          containsAll([
+            'idx_transactions_date',
+            'idx_transactions_account',
+            'idx_transactions_category',
+            'idx_exchange_rates_date',
+            'idx_exchange_rates_composite',
+          ]),
+        );
+      },
+    );
 
     test(
       'MONEY: fiat account balance and transaction amount/fee are byte-exact '

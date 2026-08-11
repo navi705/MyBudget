@@ -13,24 +13,11 @@ import 'package:my_budget_client/core/database/app_database.dart'
 /// (someone adding a raw `update(...)...write(...)` without the
 /// `_logChange` call, as already happened elsewhere — see below) is caught.
 ///
-/// Deliberately NOT covered here — confirmed real sync-log gaps, reported
-/// instead of pinned as "correct" per task constraints (lib/ is read-only
-/// for this agent):
-///  - AccountsDao.updateAccountTypeForMultipleAccounts
-///    (app_database.dart ~1473-1480): raw bulk `update(...)...write(...)`,
-///    no `_logChange`/`_logChanges` call, doesn't even bump `modifiedAt`.
-///    Reachable from AccountsBloc (accounts_bloc.dart:1349) -> real bug.
-///  - CustomThemesDao (app_database.dart ~2461-2548): insertTheme,
-///    insertAllThemes, updateTheme, deleteTheme, setActiveTheme never call
-///    `_logChange` anywhere in the class. Reachable from
-///    local_theme_repository.dart (insertTheme/deleteTheme/setActiveTheme)
-///    -> real bug, custom themes never sync.
-///  - CurrenciesDao.insertCurrency (app_database.dart ~603-604): no
-///    `_logChange` call (the whole DAO has none; @DriftAccessor doesn't
-///    even list SyncLog). Reachable via ImportBloc
-///    (import_bloc.dart:354, `_currencyRepository.addCurrency`) when a CSV
-///    import references a currency code with no existing row -> real bug,
-///    currencies auto-created during import never sync.
+/// The four gaps this file used to only *describe* are now fixed in the DAOs
+/// and pinned by the `regression fixes` groups at the bottom:
+/// AccountsDao.updateAccountTypeForMultipleAccounts, the whole of
+/// CustomThemesDao, CurrenciesDao.insertCurrency, and the two
+/// CategoriesDao.deleteCategory*Transactions methods.
 ///
 /// Checked and NOT a bug (by design / unreachable, not reported):
 ///  - LanguageDao.insertLanguage/updateLanguage/deleteLanguage: no
@@ -438,5 +425,249 @@ void main() {
       expect(logs.length, 1);
       expect(logs.single.action, 'upsert');
     });
+  });
+
+  // --- regression fixes: mutations that used to reach no other device ---
+
+  group('AccountsDao.updateAccountTypeForMultipleAccounts', () {
+    setUpAll(() async {
+      await db.accountsDao.insertAllAccounts([
+        for (final i in [1, 2])
+          AccountsCompanion.insert(
+            id: Value('sl_acc_type_$i'),
+            name: 'Retype Acc $i',
+            balance: 0.0,
+            currencyCode: eurCode,
+            currencyDesignationId: designationId,
+            accountTypeId: accountTypeId,
+          ),
+      ]);
+      await db.accountTypesDao.insertAccountType(
+        AccountTypesCompanion.insert(
+          id: const Value('sl_at_retype'),
+          name: 'Retype Target',
+          languageCode: languageCode,
+        ),
+      );
+      await db.accountsDao.updateAccountTypeForMultipleAccounts([
+        'sl_acc_type_1',
+        'sl_acc_type_2',
+      ], 'sl_at_retype');
+    });
+
+    test('logs one upsert row per account id', () async {
+      // Was a bare `update(...)...write(...)` with no log at all, so the
+      // retyped accounts stayed on their old type on every other device.
+      for (final id in ['sl_acc_type_1', 'sl_acc_type_2']) {
+        expect(
+          (await logsFor('accounts', id))
+              .where((l) => l.action == 'upsert')
+              .length,
+          2, // 1 from insertAllAccounts + 1 from the retype
+        );
+      }
+    });
+
+    test('bumps modifiedAt, without which last-write-wins discards the '
+        'change even once it is logged', () async {
+      final acc = await db.accountsDao.getAccountById('sl_acc_type_1');
+      expect(acc!.accountTypeId, 'sl_at_retype');
+      expect(acc.modifiedAt, greaterThan(0));
+    });
+  });
+
+  group('CustomThemesDao', () {
+    CustomThemesCompanion theme(String id, String name) =>
+        CustomThemesCompanion.insert(
+          id: Value(id),
+          name: name,
+          primaryColorHex: '#111111',
+          secondaryColorHex: '#222222',
+          surfaceColorHex: '#333333',
+          backgroundColorHex: '#444444',
+          windowEffectType: 0,
+          themeMode: 0,
+        );
+
+    test('insertTheme / updateTheme / deleteTheme each log', () async {
+      await db.customThemesDao.insertTheme(theme('sl_theme_1', 'SL Theme'));
+      expect(
+        (await logsFor('custom_themes', 'sl_theme_1')).single.action,
+        'upsert',
+      );
+
+      final stored = await db.customThemesDao.getThemeById('sl_theme_1');
+      await db.customThemesDao.updateTheme(
+        stored!.toCompanion(true).copyWith(name: const Value('SL Renamed')),
+      );
+      expect(
+        (await logsFor('custom_themes', 'sl_theme_1'))
+            .where((l) => l.action == 'upsert')
+            .length,
+        2,
+      );
+
+      await db.customThemesDao.deleteTheme('sl_theme_1');
+      expect(
+        (await logsFor(
+          'custom_themes',
+          'sl_theme_1',
+        )).any((l) => l.action == 'delete'),
+        isTrue,
+      );
+    });
+
+    test('insertAllThemes (bulk) logs one upsert row per theme', () async {
+      await db.customThemesDao.insertAllThemes([
+        theme('sl_theme_bulk_1', 'SL Bulk 1'),
+        theme('sl_theme_bulk_2', 'SL Bulk 2'),
+      ]);
+      expect((await logsFor('custom_themes', 'sl_theme_bulk_1')).length, 1);
+      expect((await logsFor('custom_themes', 'sl_theme_bulk_2')).length, 1);
+    });
+
+    test(
+      'setActiveTheme logs the theme it deactivates as well as the one it '
+      'activates - a peer told only about the winner keeps two active themes',
+      () async {
+        await db.customThemesDao.insertTheme(theme('sl_theme_a', 'SL A'));
+        await db.customThemesDao.insertTheme(theme('sl_theme_b', 'SL B'));
+        await db.customThemesDao.setActiveTheme('sl_theme_a');
+        await db.customThemesDao.setActiveTheme('sl_theme_b');
+
+        // sl_theme_a: 1 insert + 1 activation + 1 deactivation.
+        expect((await logsFor('custom_themes', 'sl_theme_a')).length, 3);
+        // sl_theme_b: 1 insert + 1 activation.
+        expect((await logsFor('custom_themes', 'sl_theme_b')).length, 2);
+      },
+    );
+  });
+
+  group('CurrenciesDao.insertCurrency', () {
+    setUpAll(() async {
+      // What ImportBloc does when a CSV names a currency code with no row.
+      await db.currenciesDao.insertCurrency(
+        CurrenciesCompanion.insert(
+          name: 'SL Imported Currency',
+          code: 'SLQ',
+          languageCode: languageCode,
+        ),
+      );
+    });
+
+    test('logs an upsert row keyed by the currency code (the table has no '
+        'id column)', () async {
+      final logs = await logsFor('currencies', 'SLQ');
+      expect(logs.length, 1);
+      expect(logs.single.action, 'upsert');
+    });
+
+    test('bumps modifiedAt, which is what ServerSyncService pushes on', () async {
+      final currency = await db.currenciesDao.getCurrencyByCode('SLQ');
+      // Left at the column default of 0, the row is older than every push
+      // cutoff and no server sync ever picks it up.
+      expect(currency!.modifiedAt, greaterThan(0));
+    });
+  });
+
+  group('CategoriesDao bulk category deletes', () {
+    late String accId;
+
+    setUpAll(() async {
+      accId = 'sl_catdel_acc';
+      await db.accountsDao.insertAccount(
+        AccountsCompanion.insert(
+          id: Value(accId),
+          name: 'SL CatDel Account',
+          balance: 0.0,
+          currencyCode: eurCode,
+          currencyDesignationId: designationId,
+          accountTypeId: accountTypeId,
+        ),
+      );
+    });
+
+    Future<void> addTx(String id, String categoryId) {
+      return db.transactionsDao.insertTransaction(
+        TransactionsCompanion.insert(
+          id: Value(id),
+          description: id,
+          amount: -1.0,
+          date: DateTime(2025, 2, 2),
+          accountId: accId,
+          categoryId: categoryId,
+          currencyCode: eurCode,
+        ),
+      );
+    }
+
+    test(
+      'deleteCategoryWithTransactions logs a delete for every transaction it '
+      'soft-deletes, not just for the category',
+      () async {
+        await db.categoriesDao.insertCategory(
+          CategoriesCompanion.insert(
+            id: const Value('sl_catdel_with'),
+            name: 'SL CatDel With',
+          ),
+        );
+        await addTx('sl_catdel_tx_1', 'sl_catdel_with');
+        await addTx('sl_catdel_tx_2', 'sl_catdel_with');
+
+        await db.categoriesDao.deleteCategoryWithTransactions(
+          'sl_catdel_with',
+        );
+
+        expect(
+          (await logsFor(
+            'categories',
+            'sl_catdel_with',
+          )).any((l) => l.action == 'delete'),
+          isTrue,
+        );
+        for (final id in ['sl_catdel_tx_1', 'sl_catdel_tx_2']) {
+          expect(
+            (await logsFor('transactions', id)).any((l) => l.action == 'delete'),
+            isTrue,
+            reason: '$id was soft-deleted locally but never announced',
+          );
+        }
+      },
+    );
+
+    test(
+      'deleteCategoryAndReassignTransactions logs the moved transactions as '
+      'upserts (they survive, they only changed category)',
+      () async {
+        await db.categoriesDao.insertCategory(
+          CategoriesCompanion.insert(
+            id: const Value('sl_catdel_from'),
+            name: 'SL CatDel From',
+          ),
+        );
+        await db.categoriesDao.insertCategory(
+          CategoriesCompanion.insert(
+            id: const Value('sl_catdel_to'),
+            name: 'SL CatDel To',
+          ),
+        );
+        await addTx('sl_catmove_tx_1', 'sl_catdel_from');
+        await addTx('sl_catmove_tx_2', 'sl_catdel_from');
+
+        await db.categoriesDao.deleteCategoryAndReassignTransactions(
+          'sl_catdel_from',
+          'sl_catdel_to',
+        );
+
+        for (final id in ['sl_catmove_tx_1', 'sl_catmove_tx_2']) {
+          final logs = await logsFor('transactions', id);
+          // 1 from insertTransaction + 1 from the reassignment.
+          expect(logs.where((l) => l.action == 'upsert').length, 2);
+          expect(logs.any((l) => l.action == 'delete'), isFalse);
+          final tx = await db.transactionsDao.getTransactionById(id);
+          expect(tx!.categoryId, 'sl_catdel_to');
+        }
+      },
+    );
   });
 }

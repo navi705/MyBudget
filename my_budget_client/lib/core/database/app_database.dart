@@ -600,8 +600,16 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
   Future<Currency?> getCurrencyByCode(String code) => (select(
     currencies,
   )..where((tbl) => tbl.code.equals(code))).getSingleOrNull();
-  Future<void> insertCurrency(CurrenciesCompanion currency) =>
-      into(currencies).insert(currency);
+  Future<void> insertCurrency(CurrenciesCompanion currency) async {
+    // Import auto-creates currencies for unmapped CSV codes; without a fresh
+    // modifiedAt the row sorts as never-modified and no peer ever pulls it.
+    final toInsert = currency.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    await into(currencies).insert(toInsert);
+    await _logChange(toInsert.code.value, 'upsert');
+  }
+
   Future<void> insertAllCurrencies(List<CurrenciesCompanion> currencies) {
     return batch((batch) {
       batch.insertAll(
@@ -616,6 +624,18 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
       update(currencies).replace(currency);
   Future<int> deleteCurrency(CurrenciesCompanion currency) =>
       delete(currencies).delete(currency);
+
+  Future<void> _logChange(String recordId, String action) async {
+    await into(db.syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('currencies'),
+        recordId: Value(recordId),
+        action: Value(action),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+        exported: const Value(false),
+      ),
+    );
+  }
 }
 
 @DriftAccessor(tables: [Categories, Transactions, SyncLog])
@@ -762,6 +782,11 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   Future<void> deleteCategoryWithTransactions(String categoryId) {
     return db.transaction(() async {
       final now = DateTime.now().millisecondsSinceEpoch;
+      // Captured before the write: afterwards nothing links these rows to the
+      // category any more, and a peer told only about the category would keep
+      // showing every transaction that hung off it.
+      final txIds = await _transactionIdsInCategory(categoryId);
+
       await (update(
         db.transactions,
       )..where((t) => t.categoryId.equals(categoryId))).write(
@@ -777,6 +802,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
         ),
       );
       await _logChange(categoryId, 'delete');
+      if (txIds.isNotEmpty) await _logTransactionChanges(txIds, 'delete');
     });
   }
 
@@ -786,6 +812,8 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   ) {
     return db.transaction(() async {
       final now = DateTime.now().millisecondsSinceEpoch;
+      final txIds = await _transactionIdsInCategory(categoryId);
+
       await (update(
         db.transactions,
       )..where((t) => t.categoryId.equals(categoryId))).write(
@@ -801,6 +829,40 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
         ),
       );
       await _logChange(categoryId, 'delete');
+      // The rows survive, they only moved category: 'upsert', not 'delete'.
+      if (txIds.isNotEmpty) await _logTransactionChanges(txIds, 'upsert');
+    });
+  }
+
+  Future<List<String>> _transactionIdsInCategory(String categoryId) async {
+    final rows = await (select(
+      db.transactions,
+    )..where((t) => t.categoryId.equals(categoryId))).get();
+    return rows.map((t) => t.id).toList();
+  }
+
+  /// Log transaction-table changes made as a side effect of a category
+  /// mutation ([_logChanges] is hard-coded to the `categories` table).
+  Future<void> _logTransactionChanges(
+    List<String> recordIds,
+    String action,
+  ) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    await batch((batch) {
+      batch.insertAll(
+        syncLog,
+        recordIds
+            .map(
+              (id) => SyncLogCompanion(
+                changedTableName: const Value('transactions'),
+                recordId: Value(id),
+                action: Value(action),
+                timestamp: Value(timestamp),
+                exported: const Value(false),
+              ),
+            )
+            .toList(),
+      );
     });
   }
 
@@ -843,7 +905,9 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
     ''';
 
     List<Variable> variables = [];
-    List<String> whereClauses = [];
+    // Soft-deleted rows are hidden everywhere else; leaving them in here made
+    // the Categories screen total money the user had already thrown away.
+    List<String> whereClauses = ['is_deleted = 0'];
 
     if (dateFrom != null) {
       whereClauses.add('date >= ?');
@@ -854,16 +918,14 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
       variables.add(Variable.withDateTime(dateTo));
     }
 
-    if (whereClauses.isNotEmpty) {
-      sql += ' WHERE ${whereClauses.join(' AND ')}';
-    }
+    sql += ' WHERE ${whereClauses.join(' AND ')}';
 
     sql += '''
         GROUP BY category_id
       ) t ON t.category_id = c.id
     ''';
 
-    List<String> outerWhereClauses = [];
+    List<String> outerWhereClauses = ['c.is_deleted = 0'];
     if (name != null && name.isNotEmpty) {
       outerWhereClauses.add('c.name LIKE ?');
       variables.add(Variable('%$name%'));
@@ -873,9 +935,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
       variables.add(Variable(type.index));
     }
 
-    if (outerWhereClauses.isNotEmpty) {
-      sql += ' WHERE ${outerWhereClauses.join(' AND ')}';
-    }
+    sql += ' WHERE ${outerWhereClauses.join(' AND ')}';
 
     sql += ' ORDER BY c.name ${sort == OrderingMode.asc ? 'ASC' : 'DESC'}';
     sql += ' LIMIT ? OFFSET ?';
@@ -1473,10 +1533,15 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateAccountTypeForMultipleAccounts(
     List<String> ids,
     String accountTypeId,
-  ) {
-    return (update(accounts)..where((tbl) => tbl.id.isIn(ids))).write(
-      AccountsCompanion(accountTypeId: Value(accountTypeId)),
+  ) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await (update(accounts)..where((tbl) => tbl.id.isIn(ids))).write(
+      AccountsCompanion(
+        accountTypeId: Value(accountTypeId),
+        modifiedAt: Value(now),
+      ),
     );
+    await _logChanges(ids, 'upsert');
   }
 
   Future<void> deleteAccountWithTransactions(String accountId) {
@@ -2475,7 +2540,7 @@ class CustomThemesDao extends DatabaseAccessor<AppDatabase>
           ))
           .getSingleOrNull();
 
-  Future<void> insertTheme(CustomThemesCompanion theme) {
+  Future<void> insertTheme(CustomThemesCompanion theme) async {
     var toInsert = theme.id.present
         ? theme
         : theme.copyWith(id: Value(_uuid.v4()));
@@ -2483,52 +2548,69 @@ class CustomThemesDao extends DatabaseAccessor<AppDatabase>
     toInsert = toInsert.copyWith(
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
-    return into(
+    await into(
       customThemes,
     ).insert(toInsert, mode: InsertMode.insertOrReplace);
+    await _logChange(toInsert.id.value, 'upsert');
   }
 
   Future<void> insertSyncedTheme(CustomThemesCompanion theme) =>
       into(customThemes).insert(theme, mode: InsertMode.insertOrReplace);
 
-  Future<void> insertAllThemes(List<CustomThemesCompanion> themes) {
-    return batch((batch) {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final themesWithIds = themes.map((t) {
-        var companion = t;
-        if (!companion.id.present) {
-          companion = companion.copyWith(id: Value(_uuid.v4()));
-        }
-        return companion.copyWith(modifiedAt: Value(now));
-      }).toList();
+  Future<void> insertAllThemes(List<CustomThemesCompanion> themes) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final themesWithIds = themes.map((t) {
+      var companion = t;
+      if (!companion.id.present) {
+        companion = companion.copyWith(id: Value(_uuid.v4()));
+      }
+      return companion.copyWith(modifiedAt: Value(now));
+    }).toList();
+
+    await batch((batch) {
       batch.insertAll(
         customThemes,
         themesWithIds,
         mode: InsertMode.insertOrReplace,
       );
     });
+    await _logChanges(themesWithIds.map((t) => t.id.value).toList(), 'upsert');
   }
 
-  Future<bool> updateTheme(CustomThemesCompanion theme) {
+  Future<bool> updateTheme(CustomThemesCompanion theme) async {
     final updatedTheme = theme.copyWith(
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
-    return update(customThemes).replace(updatedTheme);
+    final result = await update(customThemes).replace(updatedTheme);
+    await _logChange(theme.id.value, 'upsert');
+    return result;
   }
 
   Future<int> deleteTheme(String id) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    return (update(customThemes)..where((t) => t.id.equals(id))).write(
-      CustomThemesCompanion(
-        isDeleted: const Value(true),
-        modifiedAt: Value(now),
-      ),
-    );
+    final count = await (update(customThemes)..where((t) => t.id.equals(id)))
+        .write(
+          CustomThemesCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(now),
+          ),
+        );
+
+    if (count > 0) {
+      await _logChange(id, 'delete');
+    }
+    return count;
   }
 
   Future<void> setActiveTheme(String id) {
     return transaction(() async {
       final now = DateTime.now().millisecondsSinceEpoch;
+      // The rows losing `is_active` change too, so a peer that only heard
+      // about [id] would end up with two active themes.
+      final deactivated = await (select(
+        customThemes,
+      )..where((tbl) => tbl.isActive.equals(true))).get();
+
       await (update(
         customThemes,
       )..where((tbl) => tbl.isActive.equals(true))).write(
@@ -2542,6 +2624,41 @@ class CustomThemesDao extends DatabaseAccessor<AppDatabase>
           isActive: const Value(true),
           modifiedAt: Value(now),
         ),
+      );
+
+      final ids = {...deactivated.map((t) => t.id), id}.toList();
+      await _logChanges(ids, 'upsert');
+    });
+  }
+
+  Future<void> _logChange(String recordId, String action) async {
+    await into(db.syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('custom_themes'),
+        recordId: Value(recordId),
+        action: Value(action),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+        exported: const Value(false),
+      ),
+    );
+  }
+
+  Future<void> _logChanges(List<String> recordIds, String action) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    await batch((batch) {
+      batch.insertAll(
+        db.syncLog,
+        recordIds
+            .map(
+              (id) => SyncLogCompanion(
+                changedTableName: const Value('custom_themes'),
+                recordId: Value(id),
+                action: Value(action),
+                timestamp: Value(timestamp),
+                exported: const Value(false),
+              ),
+            )
+            .toList(),
       );
     });
   }
@@ -3152,7 +3269,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration {
@@ -3331,6 +3448,34 @@ class AppDatabase extends _$AppDatabase {
           debugPrint('[DB_MIGRATION] v7→v8: backfilling minor units for fiat...');
           await backfillMinorUnits();
           debugPrint('[DB_MIGRATION] v7→v8: complete');
+        }
+
+        if (from < 9) {
+          // These five are declared with @TableIndex, so m.createAll() only
+          // ever built them on fresh installs — every device that arrived
+          // here by upgrade has been querying without them since v1.
+          debugPrint('[DB_MIGRATION] v8→v9: creating the @TableIndex indexes missing on upgraded databases...');
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_transactions_date '
+            'ON transactions (date)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_transactions_account '
+            'ON transactions (account_id)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_transactions_category '
+            'ON transactions (category_id)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_date '
+            'ON exchange_rates (date)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_exchange_rates_composite '
+            'ON exchange_rates (from_currency_code, to_currency_code, date)',
+          );
+          debugPrint('[DB_MIGRATION] v8→v9: complete');
         }
 
         debugPrint('[DB_MIGRATION] onUpgrade complete: from=$from to=$to');
