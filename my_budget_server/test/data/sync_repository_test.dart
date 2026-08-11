@@ -329,6 +329,60 @@ void main() {
     });
   });
 
+  group('the worldwide inflation series is always named', () {
+    Map<String, dynamic> inflationRow({Object? country}) => {
+          'date': '2025-03-01T00:00:00.000',
+          'percent': 2.5,
+          'country': country,
+          'preset': 1,
+          'modifiedAt': 100,
+          'deviceId': 'd1',
+          'sourceId': null,
+        };
+
+    // `country` is part of the primary key, so Postgres has it as NOT NULL,
+    // and a push is one transaction: a single null would abort the whole
+    // batch, and a client still on the old schema would then fail every push
+    // it ever made.
+    test('a null country becomes the sentinel', () async {
+      await repository.upsertBatch({
+        'inflation_rates': [inflationRow(country: null)],
+      });
+
+      expect(recorder.withKey('percent')!['country'], 'global');
+    });
+
+    test('an empty country becomes the sentinel', () async {
+      await repository.upsertBatch({
+        'inflation_rates': [inflationRow(country: '')],
+      });
+
+      expect(recorder.withKey('percent')!['country'], 'global');
+    });
+
+    test('a real country is left alone', () async {
+      await repository.upsertBatch({
+        'inflation_rates': [inflationRow(country: 'RS')],
+      });
+
+      expect(recorder.withKey('percent')!['country'], 'RS');
+    });
+
+    test('the bulk path names it too', () async {
+      // Over fifty rows takes a different statement builder, and it is the one
+      // a first sync of a whole inflation history goes through.
+      await repository.upsertBatch({
+        'inflation_rates': [
+          for (var i = 0; i < 60; i++) inflationRow(country: null),
+        ],
+      });
+
+      final params = recorder.withKey('cnt_0')!;
+      expect(params['cnt_0'], 'global');
+      expect(params['cnt_59'], 'global');
+    });
+  });
+
   group('pull cursor', () {
     /// Queues one result per table query, in the order getChanges issues them
     /// (map order of its table config), and answers an empty page for the rest.

@@ -19,6 +19,24 @@ class SyncRepository {
   /// every push uses the same one and nothing else in the database picks it.
   static const int _pushLockId = 795118301;
 
+  /// The country an inflation rate that applies worldwide is stored under.
+  ///
+  /// Must match `globalInflationCountry` on the client.
+  static const String _globalInflationCountry = 'global';
+
+  /// Names the worldwide series for a client that still sends it as a null
+  /// country.
+  ///
+  /// `country` is part of `inflation_rates`' primary key, so Postgres has it as
+  /// NOT NULL. A push carries every table in one transaction, so a single such
+  /// row would not merely be dropped — it would abort the whole batch, and that
+  /// client would then fail every push it ever makes with nothing on its side
+  /// reporting why.
+  static String _inflationCountry(Object? raw) {
+    if (raw is String && raw.isNotEmpty) return raw;
+    return _globalInflationCountry;
+  }
+
   Future<void> upsertBatch(Map<String, dynamic> data) async {
     final tablesList = [
       'settings',
@@ -238,7 +256,7 @@ class SyncRepository {
             '(@date$suffix, @pct$suffix, @cnt$suffix, @pre$suffix, @ma$suffix, @did$suffix, @sid$suffix)');
         params['date$suffix'] = _parseDate(row['date']);
         params['pct$suffix'] = _round(row['percent']);
-        params['cnt$suffix'] = row['country'];
+        params['cnt$suffix'] = _inflationCountry(row['country']);
         params['pre$suffix'] = row['preset'];
         params['ma$suffix'] = row['modifiedAt'];
         params['did$suffix'] = row['deviceId'];
@@ -918,7 +936,7 @@ class SyncRepository {
     await session.execute(Sql.named(sql), parameters: {
       'date': date,
       'percent': _round(row['percent']),
-      'country': row['country'],
+      'country': _inflationCountry(row['country']),
       'preset': row['preset'],
       'modifiedAt': row['modifiedAt'],
       'deviceId': row['deviceId'],
