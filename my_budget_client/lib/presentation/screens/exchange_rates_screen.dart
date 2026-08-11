@@ -226,9 +226,12 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
           _showEmptyAreaContextMenu(context, details.globalPosition),
       onLongPressStart: (details) =>
           _showEmptyAreaContextMenu(context, details.globalPosition),
+      // No itemExtent: 88dp left the ListTile only 72dp after the card margins,
+      // which its title + subtitle outgrow once the system font scale passes
+      // ~1.4. Letting the rows measure themselves costs a little scroll-extent
+      // precision but never clips the text.
       child: ListView.builder(
         controller: _scrollController,
-        itemExtent: 88.0,
         itemCount: state.hasReachedMax
             ? state.exchangeRates.length
             : state.exchangeRates.length + 1,
@@ -773,6 +776,11 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
                 alignment: Alignment.center,
                 child: Text(
                   _formatDate(context),
+                  // The four icon buttons eat most of the app bar on a phone, so
+                  // a range like "01.08.2026 - 31.08.2026" would wrap to several
+                  // lines inside a fixed kToolbarHeight box without this clamp.
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: onSurface,
                     fontSize: isMobile ? 16 : 18,

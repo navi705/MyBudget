@@ -9,6 +9,12 @@ class AppLocalizationsFr extends AppLocalizations {
   AppLocalizationsFr([String locale = 'fr']) : super(locale);
 
   @override
+  String get collapseMenuTooltip => 'Réduire le Menu';
+
+  @override
+  String get expandMenuTooltip => 'Développer le Menu';
+
+  @override
   String get helloWorld => 'Bonjour le monde!';
 
   @override

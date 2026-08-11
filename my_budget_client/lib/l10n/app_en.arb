@@ -1,5 +1,7 @@
 {
     "@@locale": "en",
+    "collapseMenuTooltip": "Collapse Menu",
+    "expandMenuTooltip": "Expand Menu",
     "helloWorld": "Hello World!",
     "accountsAppBarTitle": "Accounts",
     "accountsBalanceLabel": "Balance: {balance}",

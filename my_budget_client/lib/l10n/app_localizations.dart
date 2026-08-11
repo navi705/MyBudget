@@ -111,6 +111,18 @@ abstract class AppLocalizations {
     Locale('zh')
   ];
 
+  /// No description provided for @collapseMenuTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Collapse Menu'**
+  String get collapseMenuTooltip;
+
+  /// No description provided for @expandMenuTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Expand Menu'**
+  String get expandMenuTooltip;
+
   /// No description provided for @helloWorld.
   ///
   /// In en, this message translates to:

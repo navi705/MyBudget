@@ -95,7 +95,15 @@ class AppProviders extends StatelessWidget {
   }
 
   void _applyWindowEffect(BuildContext context, CustomTheme theme) {
-    if (kIsWeb || !AppPlatform.isWindows) return;
+    // Reapplying on launch has to cover every desktop platform the effect can
+    // be saved on, not just Windows - otherwise a macOS or Linux user picks an
+    // effect, it applies once, and comes back missing after every restart.
+    if (kIsWeb ||
+        (!AppPlatform.isWindows &&
+            !AppPlatform.isMacOS &&
+            !AppPlatform.isLinux)) {
+      return;
+    }
 
     final brightness = Theme.of(context).brightness;
     final tintOpacity = 1.0 - theme.effectOpacity;

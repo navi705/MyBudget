@@ -151,7 +151,12 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
           }
         },
         child: Scaffold(
-          resizeToAvoidBottomInset: false,
+          // The body is a plain SingleChildScrollView, so the viewport has to
+          // shrink with the keyboard. With `false` the viewport kept the full
+          // screen height, the max scroll extent ignored the inset and the last
+          // ~300dp (Date field, Save button) stayed parked under the keyboard
+          // with no way to scroll to it.
+          resizeToAvoidBottomInset: true,
           appBar: AppBar(
             title: BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
               builder: (context, state) {
@@ -973,8 +978,15 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                    // Up to four labelled buttons live here. Side by side they
+                    // need ~390dp, but a 360dp phone only offers ~296dp inside
+                    // the form padding, so a Row overflowed in every locale.
+                    // Wrap lets the row break onto a second line and supplies
+                    // the gap the manual SizedBox spacers used to add.
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 4,
                       children: [
                         if (state.selectedExchangeRate != null &&
                             state.selectedExchangeRate!.preset != 1)
@@ -1007,7 +1019,6 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                             },
                           ),
 
-                        const SizedBox(width: 8),
                         TextButton.icon(
                           icon: const Icon(Icons.bookmark_border, size: 16),
                           label: Text(context.l10n.defaultLabel),
@@ -1018,7 +1029,6 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                           },
                         ),
 
-                        const SizedBox(width: 8),
                         TextButton.icon(
                           icon: const Icon(Icons.add, size: 16),
                           label: Text(context.l10n.newPresetButton),
@@ -1082,15 +1092,35 @@ class _ConvertedAmountDisplay extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  targetLabel,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                // Both sides are unbounded: a translated sentence on the left
+                // and a currency code plus an arbitrarily long amount on the
+                // right. Together they exceed the ~304dp inner width of this
+                // banner on a 360dp phone (in English too, once the amount
+                // reaches seven digits). Both are loose Flexibles so each only
+                // takes the width it needs and spaceBetween still pushes them
+                // apart; the 2:3 weighting means the amount - the point of the
+                // banner - is the last thing to be ellipsised.
+                Flexible(
+                  flex: 2,
+                  child: Text(
+                    targetLabel,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
-                Text(
-                  '$targetCurrency ${MoneyFormatter.format(converted, targetCurrency ?? '')}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                const SizedBox(width: 8),
+                Flexible(
+                  flex: 3,
+                  child: Text(
+                    '$targetCurrency ${MoneyFormatter.format(converted, targetCurrency ?? '')}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
                   ),
                 ),
               ],

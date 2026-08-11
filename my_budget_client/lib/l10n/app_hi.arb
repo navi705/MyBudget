@@ -1,5 +1,7 @@
 {
     "@@locale": "hi",
+    "collapseMenuTooltip": "मेनू संक्षिप्त करें",
+    "expandMenuTooltip": "मेनू विस्तृत करें",
     "helloWorld": "नमस्ते दुनिया!",
     "accountsAppBarTitle": "खाते",
     "accountsBalanceLabel": "शेष राशि: {balance}",

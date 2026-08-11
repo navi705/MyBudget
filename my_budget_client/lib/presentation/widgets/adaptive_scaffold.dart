@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/navigation/navigator_keys.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
+import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/widgets/navigation_item.dart';
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 
@@ -21,9 +24,8 @@ class AdaptiveScaffold extends StatefulWidget {
 class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
   bool _isExtended = true;
 
-  int _calculateSelectedIndex(BuildContext context) {
+  int _calculateSelectedIndex(BuildContext context, {required bool isMobile}) {
     final String location = GoRouterState.of(context).uri.toString();
-    final isMobile = MediaQuery.of(context).size.width < 600;
 
     // Find the best match. Longer routes are more specific.
     int bestMatchIndex = -1;
@@ -51,9 +53,12 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
     // If no match was found and we are on /exchange-rates, find Settings index.
     if (bestMatchIndex < 0 &&
         isMobile &&
-        location.startsWith('/exchange-rates')) {
+        location.startsWith(AppRoutes.exchangeRates)) {
       for (int i = 0; i < widget.destinations.length; i++) {
-        if (widget.destinations[i].label == 'Settings') {
+        // Match on the route, never the label: labels come from l10n, so an
+        // English literal silently stops matching in the other nine locales
+        // and the highlight falls back to the first destination instead.
+        if (widget.destinations[i].route == AppRoutes.settings) {
           return i;
         }
       }
@@ -70,15 +75,26 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedIndex = _calculateSelectedIndex(context);
-
     // Get the primary color from the current theme
     final primaryColor = Theme.of(context).primaryColor;
     final colorScheme = Theme.of(context).colorScheme;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 600) {
+        // The layout follows the width this shell was actually given, not the
+        // host OS: a half-width desktop window has to behave like a phone, and
+        // a tablet like a desktop. `constraints` rather than MediaQuery.size
+        // matters for everything nested inside the rail branch below, where the
+        // content pane is 73dp narrower than the window (72dp rail + 1dp
+        // divider) — mixing the two makes callers disagree about the breakpoint
+        // right in the band where the layout flips.
+        final isMobile = constraints.maxWidth < kMobileBreakpoint;
+        final selectedIndex = _calculateSelectedIndex(
+          context,
+          isMobile: isMobile,
+        );
+
+        if (isMobile) {
           return Scaffold(
             resizeToAvoidBottomInset:
                 false, // Prevent keyboard animation & layout thrashing
@@ -160,15 +176,21 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
                             _isExtended = !_isExtended;
                           });
                         },
-                        // Dynamic icon based on state
+                        // Dynamic icon based on state. The rail sits on the
+                        // start edge, so under RTL collapsing moves the panel
+                        // right — the arrow has to follow the text direction
+                        // or it points at the screen edge it opens away from.
                         icon: Icon(
-                          _isExtended
-                              ? Icons.keyboard_double_arrow_left
-                              : Icons.keyboard_double_arrow_right,
+                          _isExtended == (Directionality.of(context) ==
+                                  TextDirection.rtl)
+                              ? Icons.keyboard_double_arrow_right
+                              : Icons.keyboard_double_arrow_left,
                           color: colorScheme.onSurface,
                           size: _isExtended ? 24.0 : 20.0,
                         ),
-                        tooltip: _isExtended ? 'Collapse Menu' : 'Expand Menu',
+                        tooltip: _isExtended
+                            ? context.l10n.collapseMenuTooltip
+                            : context.l10n.expandMenuTooltip,
                       ),
                       const SizedBox(height: 8),
                     ],

@@ -107,7 +107,13 @@ class AccountListItem extends StatelessWidget {
 
     return Row(
       children: [
-        Flexible(
+        // A Flexible label beside an Expanded value split the ~164dp subtitle
+        // evenly: the label shrink-wrapped and left its unused half as dead
+        // space, while the value was capped at half regardless and wrapped
+        // mid-number. Capping the label instead keeps it inflexible, so
+        // whatever it does not use falls through to the value.
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 96),
           child: Text(
             label,
             style: TextStyle(
@@ -116,6 +122,7 @@ class AccountListItem extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

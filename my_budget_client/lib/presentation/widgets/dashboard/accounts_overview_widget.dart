@@ -130,30 +130,45 @@ class AccountsOverviewWidget extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          children: data.map((e) {
-            final percentage = total > 0 ? (e.value / total) * 100 : 0.0;
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: _getRandomColor(e.key.hashCode),
-                    shape: BoxShape.circle,
+        // A Wrap measures every child against unbounded width, so a legend
+        // entry built from a user-named account plus its percentage never
+        // wrapped or ellipsised and simply ran off the card. LayoutBuilder
+        // supplies the one thing the Wrap will not: the width a single line
+        // actually has.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: data.map((e) {
+                final percentage = total > 0 ? (e.value / total) * 100 : 0.0;
+                return ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: _getRandomColor(e.key.hashCode),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          '${e.key} (${percentage.toStringAsFixed(2)}%)',
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${e.key} (${percentage.toStringAsFixed(2)}%)',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+                );
+              }).toList(),
             );
-          }).toList(),
+          },
         ),
       ],
     );

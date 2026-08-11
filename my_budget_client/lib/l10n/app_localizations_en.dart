@@ -9,6 +9,12 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get collapseMenuTooltip => 'Collapse Menu';
+
+  @override
+  String get expandMenuTooltip => 'Expand Menu';
+
+  @override
   String get helloWorld => 'Hello World!';
 
   @override

@@ -136,19 +136,16 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
                   Tab(text: context.l10n.pckCustomIcons),
                 ],
               ),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final screenHeight = MediaQuery.of(context).size.height;
-                  return SizedBox(
-                    height: screenHeight * 0.5, // 50% of screen height
-                    child: TabBarView(
-                      children: [
-                        _buildMaterialIconList(),
-                        _buildCustomIconGrid(),
-                      ],
-                    ),
-                  );
-                },
+              // Expanded instead of a screen-height fraction: AlertDialog already
+              // bounds its content to the space left after the title, the actions
+              // and the keyboard insets, so half the *screen* height regularly
+              // exceeds what the dialog actually has. TabBarView cannot
+              // shrink-wrap, so it needs a bounded height and Expanded gives it
+              // exactly the height the dialog can spare.
+              Expanded(
+                child: TabBarView(
+                  children: [_buildMaterialIconList(), _buildCustomIconGrid()],
+                ),
               ),
             ],
           ),
@@ -267,9 +264,11 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
             );
           },
         ),
-        Positioned(
+        // Directional so the FAB lands in the trailing corner of the grid for
+        // RTL locales (ar/ur) instead of on top of the first icons.
+        PositionedDirectional(
           bottom: 16,
-          right: 16,
+          end: 16,
           child: FloatingActionButton(
             onPressed: _addNewIcon,
             tooltip: context.l10n.addNewIconLabel,

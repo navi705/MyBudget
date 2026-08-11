@@ -137,8 +137,10 @@ class CategoryListItem extends StatelessWidget {
             title: listTile,
             children: children
                 .map(
+                  // Directional inset: sub-categories must indent away from the
+                  // start of the line, which is the right-hand side in ar / ur.
                   (child) => Padding(
-                    padding: const EdgeInsets.only(left: 16.0),
+                    padding: const EdgeInsetsDirectional.only(start: 16.0),
                     child: CategoryListItem(
                       key: ValueKey(child.category.id),
                       categoryWithTotal: child,

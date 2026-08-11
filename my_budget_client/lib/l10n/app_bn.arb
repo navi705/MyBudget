@@ -1,5 +1,7 @@
 {
     "@@locale": "bn",
+    "collapseMenuTooltip": "মেনু সংকুচিত করুন",
+    "expandMenuTooltip": "মেনু প্রসারিত করুন",
     "helloWorld": "ওহে বিশ্ব!",
     "accountsAppBarTitle": "অ্যাকাউন্ট",
     "accountsBalanceLabel": "ব্যালেন্স: {balance}",

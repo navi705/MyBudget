@@ -532,11 +532,12 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
     if (_currentFilterMode == FilterMode.range) {
       date_pickers.DatePickerRangeStyles styles =
           date_pickers.DatePickerRangeStyles(
+            // Directional radii: the rounded cap belongs on the side the range
+            // starts/ends at, which flips in RTL locales (ar/ur).
             selectedPeriodStartDecoration: BoxDecoration(
               color: primaryColor,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(10.0),
-                bottomLeft: Radius.circular(10.0),
+              borderRadius: const BorderRadiusDirectional.horizontal(
+                start: Radius.circular(10.0),
               ),
             ),
             selectedPeriodMiddleDecoration: BoxDecoration(
@@ -544,9 +545,8 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
             ),
             selectedPeriodLastDecoration: BoxDecoration(
               color: primaryColor,
-              borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(10.0),
-                bottomRight: Radius.circular(10.0),
+              borderRadius: const BorderRadiusDirectional.horizontal(
+                end: Radius.circular(10.0),
               ),
             ),
             selectedDateStyle: TextStyle(

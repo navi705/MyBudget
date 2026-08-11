@@ -15,6 +15,64 @@ import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/presentation/blocs/theme/theme_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
+/// Whether flutter_acrylic has a native backend on the running platform.
+///
+/// It ships one for all three desktop platforms; web and mobile have no host
+/// window to decorate at all.
+bool get _supportsWindowEffects =>
+    !kIsWeb &&
+    (AppPlatform.isWindows || AppPlatform.isMacOS || AppPlatform.isLinux);
+
+/// Whether [type] is worth offering to the user on the running platform.
+///
+/// The picker must never list an effect the backend would silently swap for
+/// something else, otherwise the selection reads as broken.
+bool _effectAvailableOnPlatform(WindowEffectType type) {
+  if (AppPlatform.isLinux) {
+    // The GTK backend implements only "off" and "see-through"; every other
+    // effect is rejected outright by the native plugin.
+    return type == WindowEffectType.none ||
+        type == WindowEffectType.transparent;
+  }
+  if (AppPlatform.isMacOS) return true;
+  return type != WindowEffectType.vibrancy && type != WindowEffectType.aero;
+}
+
+/// Maps a stored effect choice onto an effect the running platform's backend
+/// can actually render.
+///
+/// This clamping is not cosmetic: flutter_acrylic forwards the raw enum index
+/// to the native side without validating it, so an unsupported value is not a
+/// graceful no-op. The Windows plugin casts it straight to an ACCENT_STATE and
+/// the Linux plugin answers anything above index 2 with a NOT_SUPPORTED_ON_LINUX
+/// platform exception.
+WindowEffect _resolveWindowEffect(WindowEffectType type) {
+  if (AppPlatform.isLinux) {
+    return type == WindowEffectType.none
+        ? WindowEffect.disabled
+        : WindowEffect.transparent;
+  }
+
+  switch (type) {
+    case WindowEffectType.none:
+      return WindowEffect.disabled;
+    case WindowEffectType.acrylic:
+      return WindowEffect.acrylic;
+    case WindowEffectType.mica:
+      return WindowEffect.mica;
+    case WindowEffectType.aero:
+      return WindowEffect.aero;
+    case WindowEffectType.vibrancy:
+      // Vibrancy is the macOS blur, and `sidebar` is the WindowEffect that
+      // flutter_acrylic converts to NSVisualEffectViewMaterial.sidebar. It has
+      // no Windows counterpart - its index would land on an undefined
+      // ACCENT_STATE there - so Windows falls back to its closest blur.
+      return AppPlatform.isMacOS ? WindowEffect.sidebar : WindowEffect.acrylic;
+    case WindowEffectType.transparent:
+      return WindowEffect.transparent;
+  }
+}
+
 class ThemeSettingsScreen extends StatefulWidget {
   const ThemeSettingsScreen({super.key});
 
@@ -148,9 +206,10 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
   }
 
   Widget _buildWindowEffectsSection(BuildContext context, CustomTheme theme) {
-    // Window effects only apply on Windows/macOS; on Linux they are a no-op,
-    // so hide the section there.
-    if (kIsWeb || (!AppPlatform.isWindows && !AppPlatform.isMacOS)) {
+    // Hide the whole section where no native backend exists; the platforms that
+    // do have one differ only in how many effects they can render, which
+    // _effectAvailableOnPlatform filters below.
+    if (!_supportsWindowEffects) {
       return const SizedBox.shrink();
     }
 
@@ -168,14 +227,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
             DropdownButtonFormField<WindowEffectType>(
               initialValue:
                   WindowEffectType.values
-                      .where((e) {
-                        if (AppPlatform.isMacOS) return true;
-                        if (e == WindowEffectType.vibrancy ||
-                            e == WindowEffectType.aero) {
-                          return false;
-                        }
-                        return true;
-                      })
+                      .where(_effectAvailableOnPlatform)
                       .contains(theme.windowEffectType)
                   ? theme.windowEffectType
                   : WindowEffectType.none,
@@ -184,15 +236,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                 border: const OutlineInputBorder(),
               ),
               items: WindowEffectType.values
-                  .where((e) {
-                    if (AppPlatform.isMacOS) return true;
-                    // Filter Check
-                    if (e == WindowEffectType.vibrancy ||
-                        e == WindowEffectType.aero) {
-                      return false;
-                    }
-                    return true;
-                  })
+                  .where(_effectAvailableOnPlatform)
                   .map(
                     (e) =>
                         DropdownMenuItem(value: e, child: Text(e.displayName)),
@@ -201,7 +245,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
               onChanged: (v) {
                 if (v != null) {
                   _update(context, windowEffectType: v);
-                  if (AppPlatform.isWindows && !kIsWeb) {
+                  if (_supportsWindowEffects) {
                     _applyWindowEffect(
                       context,
                       theme.copyWith(windowEffectType: v),
@@ -264,7 +308,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                         onSelected: (selected) {
                           if (selected) {
                             _update(context, effectOpacity: preset.$2);
-                            if (AppPlatform.isWindows) {
+                            if (_supportsWindowEffects) {
                               _applyWindowEffect(
                                 context,
                                 theme.copyWith(effectOpacity: preset.$2),
@@ -287,7 +331,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                   onChanged: (v) {
                     setState(() => _localEffectOpacity = v);
                     _update(context, effectOpacity: v, persist: false);
-                    if (AppPlatform.isWindows) {
+                    if (_supportsWindowEffects) {
                       _applyWindowEffect(
                         context,
                         theme.copyWith(effectOpacity: v),
@@ -551,7 +595,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
   }
 
   void _applyWindowEffect(BuildContext context, CustomTheme theme) {
-    if (kIsWeb || !AppPlatform.isWindows) return;
+    if (!_supportsWindowEffects) return;
 
     final brightness = theme.themeMode == ThemeMode.system
         ? MediaQuery.platformBrightnessOf(context)
@@ -559,33 +603,25 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
               ? Brightness.dark
               : Brightness.light);
 
-    WindowEffect windowEffect;
-    switch (theme.windowEffectType) {
-      case WindowEffectType.none:
-        windowEffect = WindowEffect.disabled;
-        break;
-      case WindowEffectType.acrylic:
-        windowEffect = WindowEffect.acrylic;
-        break;
-      case WindowEffectType.mica:
-        windowEffect = WindowEffect.mica;
-        break;
-      case WindowEffectType.aero:
-        windowEffect = WindowEffect.aero;
-        break;
-      case WindowEffectType.vibrancy:
-        windowEffect = WindowEffect.disabled; // Not on Windows
-        break;
-      case WindowEffectType.transparent:
-        windowEffect = WindowEffect.transparent;
-        break;
-    }
+    final windowEffect = _resolveWindowEffect(theme.windowEffectType);
 
     final tintColor = theme.backgroundColor.a == 0
         ? theme.surfaceColor
         : theme.backgroundColor;
 
     if (theme.windowEffectType == WindowEffectType.transparent) {
+      if (AppPlatform.isLinux) {
+        // Linux has no window-alpha call; its backend derives translucency
+        // straight from the tint colour's alpha channel, so the requested
+        // opacity has to travel in the colour instead.
+        Window.setEffect(
+          effect: WindowEffect.transparent,
+          color: tintColor.withValues(alpha: theme.effectOpacity),
+          dark: brightness == Brightness.dark,
+        );
+        return;
+      }
+
       Window.setEffect(
         effect: WindowEffect.transparent,
         color: Colors.transparent,
@@ -633,7 +669,7 @@ class _PresetsSectionState extends State<_PresetsSection> {
   }
 
   void _applyWindowEffect(BuildContext context, CustomTheme theme) {
-    if (kIsWeb || !AppPlatform.isWindows) return;
+    if (!_supportsWindowEffects) return;
 
     final brightness = theme.themeMode == ThemeMode.system
         ? MediaQuery.platformBrightnessOf(context)
@@ -641,27 +677,7 @@ class _PresetsSectionState extends State<_PresetsSection> {
               ? Brightness.dark
               : Brightness.light);
 
-    WindowEffect windowEffect;
-    switch (theme.windowEffectType) {
-      case WindowEffectType.none:
-        windowEffect = WindowEffect.disabled;
-        break;
-      case WindowEffectType.acrylic:
-        windowEffect = WindowEffect.acrylic;
-        break;
-      case WindowEffectType.mica:
-        windowEffect = WindowEffect.mica;
-        break;
-      case WindowEffectType.aero:
-        windowEffect = WindowEffect.aero;
-        break;
-      case WindowEffectType.vibrancy:
-        windowEffect = WindowEffect.disabled;
-        break;
-      case WindowEffectType.transparent:
-        windowEffect = WindowEffect.transparent;
-        break;
-    }
+    final windowEffect = _resolveWindowEffect(theme.windowEffectType);
 
     // If background color is transparent (e.g. "Remove background color" checked),
     // use surface color as the tint base to preserve some theme color/neutrality
@@ -674,6 +690,18 @@ class _PresetsSectionState extends State<_PresetsSection> {
     // For WindowEffect.transparent, we need to use Window.setWindowAlphaValue()
     // instead of relying on color alpha for proper transparency control
     if (theme.windowEffectType == WindowEffectType.transparent) {
+      if (AppPlatform.isLinux) {
+        // Linux has no window-alpha call; its backend derives translucency
+        // straight from the tint colour's alpha channel, so the requested
+        // opacity has to travel in the colour instead.
+        Window.setEffect(
+          effect: WindowEffect.transparent,
+          color: tintColor.withValues(alpha: theme.effectOpacity),
+          dark: brightness == Brightness.dark,
+        );
+        return;
+      }
+
       Window.setEffect(
         effect: WindowEffect.transparent,
         color: Colors.transparent, // TEST: Fixed transparent color
@@ -757,7 +785,7 @@ class _PresetsSectionState extends State<_PresetsSection> {
                       context.read<ThemeBloc>().add(
                         SelectThemePreset(preset.id),
                       );
-                      if (AppPlatform.isWindows) {
+                      if (_supportsWindowEffects) {
                         _applyWindowEffect(context, preset);
                       }
                     },
@@ -810,9 +838,9 @@ class _PresetsSectionState extends State<_PresetsSection> {
                             ),
                           ),
                           if (!preset.isPreset)
-                            Positioned(
+                            PositionedDirectional(
                               top: 4,
-                              right: 4,
+                              end: 4,
                               child: IconButton(
                                 icon: const Icon(
                                   Icons.delete,

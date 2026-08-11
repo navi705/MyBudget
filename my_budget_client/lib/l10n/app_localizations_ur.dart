@@ -9,6 +9,12 @@ class AppLocalizationsUr extends AppLocalizations {
   AppLocalizationsUr([String locale = 'ur']) : super(locale);
 
   @override
+  String get collapseMenuTooltip => 'مینو سکیڑیں';
+
+  @override
+  String get expandMenuTooltip => 'مینو پھیلائیں';
+
+  @override
   String get helloWorld => 'ہیلو دنیا!';
 
   @override

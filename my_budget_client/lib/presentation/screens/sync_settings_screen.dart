@@ -316,7 +316,15 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     if (foundation.kIsWeb) {
-      return Center(child: Text(l10n.syncWebNotAvailable));
+      // /settings/sync is registered unconditionally and, on web, every route is
+      // reachable by typing its URL. A bare Center() would land those visitors
+      // on an unstyled page with no title and no way back, so this branch keeps
+      // the same Scaffold + AppBar shell as the unsupported-platform notice in
+      // SmsSettingsScreen.
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.syncScreenTitle)),
+        body: Center(child: Text(l10n.syncWebNotAvailable)),
+      );
     }
     return Scaffold(
       resizeToAvoidBottomInset: false,

@@ -12,6 +12,26 @@ import 'package:my_budget_client/presentation/routes/app_router.dart';
 
 import 'l10n/app_localizations.dart';
 
+/// Scroll behaviour applied to the whole app.
+///
+/// Flutter's default `dragDevices` deliberately leaves out
+/// [PointerDeviceKind.mouse] so that desktop users scroll with the wheel only.
+/// This app is also driven by touch-first layouts that expose no scrollbars on
+/// short lists, so without the mouse here a desktop or web user has content
+/// they can see but cannot reach by dragging. Re-adding it costs nothing on
+/// mobile, where no mouse pointer exists.
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  const _AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => const {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+  };
+}
+
 class App extends StatelessWidget {
   const App({super.key});
 
@@ -59,6 +79,7 @@ class App extends StatelessWidget {
                   'app_locale_${settingsState.locale?.languageCode ?? 'system'}',
                 ),
                 title: 'MyBudget',
+                scrollBehavior: const _AppScrollBehavior(),
                 theme: lightThemeData,
                 darkTheme: darkThemeData,
                 themeMode: theme.themeMode,
@@ -74,7 +95,12 @@ class App extends StatelessWidget {
                       }
                     }
                   }
-                  return supportedLocales.first;
+                  // Never fall back to `supportedLocales.first`: that list is
+                  // alphabetical, so its head is `ar` and every user with an
+                  // unsupported system locale would be dropped into a
+                  // right-to-left Arabic UI. English is the authored source
+                  // language and the only safe default.
+                  return const Locale('en');
                 },
                 routerConfig: router,
                 debugShowCheckedModeBanner: false,

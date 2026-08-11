@@ -1,5 +1,7 @@
 {
     "@@locale": "es",
+    "collapseMenuTooltip": "Contraer Menú",
+    "expandMenuTooltip": "Expandir Menú",
     "helloWorld": "¡Hola Mundo!",
     "accountsAppBarTitle": "Cuentas",
     "accountsBalanceLabel": "Saldo: {balance}",

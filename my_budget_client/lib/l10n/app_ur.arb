@@ -1,5 +1,7 @@
 {
     "@@locale": "ur",
+    "collapseMenuTooltip": "مینو سکیڑیں",
+    "expandMenuTooltip": "مینو پھیلائیں",
     "helloWorld": "ہیلو دنیا!",
     "accountsAppBarTitle": "اکاؤنٹس",
     "accountsBalanceLabel": "بیلنس: {balance}",

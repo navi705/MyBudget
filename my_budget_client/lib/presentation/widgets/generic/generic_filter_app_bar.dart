@@ -71,22 +71,12 @@ class GenericFilterAppBar extends StatelessWidget
                   ),
 
                   // Right side
-                  if (actions != null && actions!.isNotEmpty && !isMobile)
-                    Row(mainAxisSize: MainAxisSize.min, children: actions!)
-                  else if (hasNavigation)
-                    IconButton(
-                      tooltip: context.l10n.nextPeriodTooltip,
-                      icon: Icon(
-                        Icons.arrow_forward_ios,
-                        color: onSurface,
-                        size: 20,
-                      ),
-                      onPressed: onNavigateNext,
-                    )
-                  else if (!isMobile)
-                    const SizedBox(width: 48)
-                  else
-                    const SizedBox(width: 0),
+                  ..._buildTrailing(
+                    context,
+                    isMobile: isMobile,
+                    hasNavigation: hasNavigation,
+                    onSurface: onSurface,
+                  ),
                 ],
               ),
             ),
@@ -94,5 +84,59 @@ class GenericFilterAppBar extends StatelessWidget
         );
       },
     );
+  }
+
+  /// Builds the trailing slot.
+  ///
+  /// A narrow bar has no room for a row of action buttons, but the previous
+  /// answer to that was to render nothing at all, which left filter/sort/add
+  /// with no reachable entry point anywhere on a phone. Collapsing them into an
+  /// overflow menu keeps every action available while costing one icon of
+  /// width.
+  List<Widget> _buildTrailing(
+    BuildContext context, {
+    required bool isMobile,
+    required bool hasNavigation,
+    required Color onSurface,
+  }) {
+    final trailing = <Widget>[];
+
+    if (actions != null && actions!.isNotEmpty) {
+      if (isMobile) {
+        trailing.add(
+          PopupMenuButton<int>(
+            // No `tooltip:` on purpose — PopupMenuButton falls back to
+            // MaterialLocalizations' own "Show menu" string, which is already
+            // translated for every locale and needs no new ARB key.
+            icon: Icon(Icons.more_vert, color: onSurface, size: 20),
+            itemBuilder: (context) => [
+              for (var i = 0; i < actions!.length; i++)
+                // The action widgets are self-contained controls that carry
+                // their own gesture handling, so the item is only a container
+                // for them and deliberately declares no onTap of its own.
+                PopupMenuItem<int>(value: i, child: actions![i]),
+            ],
+          ),
+        );
+      } else {
+        trailing.add(Row(mainAxisSize: MainAxisSize.min, children: actions!));
+      }
+    }
+
+    if (hasNavigation) {
+      trailing.add(
+        IconButton(
+          tooltip: context.l10n.nextPeriodTooltip,
+          icon: Icon(Icons.arrow_forward_ios, color: onSurface, size: 20),
+          onPressed: onNavigateNext,
+        ),
+      );
+    } else if (trailing.isEmpty && !isMobile) {
+      // Nothing to show, so reserve the width of the leading total-count text's
+      // counterpart to keep the centre widget optically centred.
+      trailing.add(const SizedBox(width: 48));
+    }
+
+    return trailing;
   }
 }

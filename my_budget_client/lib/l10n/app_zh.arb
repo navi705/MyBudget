@@ -1,5 +1,7 @@
 {
     "@@locale": "zh",
+    "collapseMenuTooltip": "收起菜单",
+    "expandMenuTooltip": "展开菜单",
     "helloWorld": "你好，世界！",
     "accountsAppBarTitle": "账户",
     "accountsBalanceLabel": "余额: {balance}",

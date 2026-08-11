@@ -16,8 +16,9 @@ class DataExportService {
   DataExportService(this._db);
 
   /// Exports the data and returns whether it was actually delivered
-  /// (file written on desktop, or share sheet invoked on mobile).
-  /// Returns `false` for user cancellation or unsupported platforms (web).
+  /// (file written on desktop, share sheet invoked on mobile, or browser
+  /// download started on web).
+  /// Returns `false` when the user cancels.
   Future<bool> exportData(bool isCsv) async {
     if (isCsv) {
       return _exportCsv();
@@ -120,15 +121,20 @@ class DataExportService {
 
   /// Persists [content] to a file for the user.
   ///
-  /// Returns `true` when the file is written (desktop) or the share sheet is
-  /// invoked (mobile), `false` on user cancellation or on web where file
-  /// export is not supported.
+  /// Returns `true` when the file is written (desktop), the share sheet is
+  /// invoked (mobile) or the browser download is started (web); `false` on
+  /// user cancellation.
   Future<bool> _saveFile(String content, String fileName) async {
     if (kIsWeb) {
-      // Web file export is not supported without extra packages / dart:html.
-      // Report as unsupported instead of fabricating success.
-      debugPrint('LOG: File export requested on Web (unsupported): $fileName');
-      return false;
+      // file_picker's web backend wraps the bytes in a Blob and clicks a
+      // hidden download anchor. The browser owns the destination from there,
+      // so `saveFile` resolves to null even on success — unlike desktop, a
+      // null result here must not be read as a cancellation.
+      await FilePicker.platform.saveFile(
+        fileName: fileName,
+        bytes: utf8.encode(content),
+      );
+      return true;
     }
 
     if (AppPlatform.isWindows || AppPlatform.isLinux || AppPlatform.isMacOS) {

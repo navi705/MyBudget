@@ -236,90 +236,125 @@ class _PresetCard extends StatelessWidget {
           children: [
             Text(context.l10n.smsFilterLabel(preset.senderFilter)),
             const SizedBox(height: 4),
+            // Leading icon, delete button and Switch leave the subtitle only
+            // ~130dp; both halves below are user-named account / category text
+            // of any length, so each has to be loosely flexible and ellipsised
+            // or the row overflows.
             Row(
               children: [
-                BlocBuilder<AccountsBloc, AccountsState>(
-                  builder: (context, accState) {
-                    if (accState is AccountsLoadSuccess) {
-                      final account = accState.accounts.firstWhereOrNull(
-                        (a) => a.id == preset.defaultAccountId,
-                      );
-                      if (account != null) {
-                        return BlocBuilder<StylesBloc, StylesState>(
-                          builder: (context, styleState) {
-                            if (styleState is StylesLoadSuccess) {
-                              final style = styleState.styles.firstWhereOrNull(
-                                (s) => s.id == account.styleId,
-                              );
-                              return Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (style != null)
-                                    Padding(
-                                      padding: const EdgeInsetsDirectional.only(end: 4),
-                                      child: BudgetIcon(
-                                        style: style,
-                                        radius: 8,
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: BlocBuilder<AccountsBloc, AccountsState>(
+                    builder: (context, accState) {
+                      if (accState is AccountsLoadSuccess) {
+                        final account = accState.accounts.firstWhereOrNull(
+                          (a) => a.id == preset.defaultAccountId,
+                        );
+                        if (account != null) {
+                          return BlocBuilder<StylesBloc, StylesState>(
+                            builder: (context, styleState) {
+                              if (styleState is StylesLoadSuccess) {
+                                final style = styleState.styles
+                                    .firstWhereOrNull(
+                                      (s) => s.id == account.styleId,
+                                    );
+                                return Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (style != null)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsetsDirectional.only(
+                                              end: 4,
+                                            ),
+                                        child: BudgetIcon(
+                                          style: style,
+                                          radius: 8,
+                                        ),
+                                      ),
+                                    Flexible(
+                                      child: Text(
+                                        account.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
                                       ),
                                     ),
-                                  Text(
-                                    account.name,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                  ),
-                                  const SizedBox(width: 8),
-                                ],
+                                    const SizedBox(width: 8),
+                                  ],
+                                );
+                              }
+                              return Text(
+                                account.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               );
-                            }
-                            return Text(account.name);
-                          },
-                        );
+                            },
+                          );
+                        }
                       }
-                    }
-                    return const SizedBox.shrink();
-                  },
+                      return const SizedBox.shrink();
+                    },
+                  ),
                 ),
-                BlocBuilder<CategoriesBloc, CategoriesState>(
-                  builder: (context, catState) {
-                    if (catState is CategoriesLoadSuccess) {
-                      final category = catState.allCategories.firstWhereOrNull(
-                        (c) => c.id == preset.defaultCategoryId,
-                      );
-                      if (category != null) {
-                        return BlocBuilder<StylesBloc, StylesState>(
-                          builder: (context, styleState) {
-                            if (styleState is StylesLoadSuccess) {
-                              final style = styleState.styles.firstWhereOrNull(
-                                (s) => s.id == category.styleId,
-                              );
-                              return Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (style != null)
-                                    Padding(
-                                      padding: const EdgeInsetsDirectional.only(end: 4),
-                                      child: BudgetIcon(
-                                        style: style,
-                                        radius: 8,
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: BlocBuilder<CategoriesBloc, CategoriesState>(
+                    builder: (context, catState) {
+                      if (catState is CategoriesLoadSuccess) {
+                        final category = catState.allCategories
+                            .firstWhereOrNull(
+                              (c) => c.id == preset.defaultCategoryId,
+                            );
+                        if (category != null) {
+                          return BlocBuilder<StylesBloc, StylesState>(
+                            builder: (context, styleState) {
+                              if (styleState is StylesLoadSuccess) {
+                                final style = styleState.styles
+                                    .firstWhereOrNull(
+                                      (s) => s.id == category.styleId,
+                                    );
+                                return Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (style != null)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsetsDirectional.only(
+                                              end: 4,
+                                            ),
+                                        child: BudgetIcon(
+                                          style: style,
+                                          radius: 8,
+                                        ),
+                                      ),
+                                    Flexible(
+                                      child: Text(
+                                        category.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
                                       ),
                                     ),
-                                  Text(
-                                    category.name,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                  ),
-                                ],
+                                  ],
+                                );
+                              }
+                              return Text(
+                                category.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               );
-                            }
-                            return Text(category.name);
-                          },
-                        );
+                            },
+                          );
+                        }
                       }
-                    }
-                    return const SizedBox.shrink();
-                  },
+                      return const SizedBox.shrink();
+                    },
+                  ),
                 ),
               ],
             ),
@@ -754,12 +789,20 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                           if (ruleCategory != null) ...[
                             const Text(' • ',
                                 style: TextStyle(color: Colors.grey)),
-                            Text(
-                              ruleCategory.name,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(color: Colors.grey),
+                            // Only ~184dp is left after the leading icon and
+                            // the delete button; the type prefix is fixed
+                            // width, so the user-named category is the part
+                            // that has to give way.
+                            Flexible(
+                              child: Text(
+                                ruleCategory.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(color: Colors.grey),
+                              ),
                             ),
                           ],
                         ],
@@ -944,37 +987,51 @@ class _KeywordRuleDialogState extends State<_KeywordRuleDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(context.l10n.smsAddKeywordRule),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _keywordController,
-            decoration: InputDecoration(
-              labelText: context.l10n.smsKeyword,
-              hintText: context.l10n.smsKeywordHint,
-              helperText: context.l10n.smsKeywordHelper,
+      // The dialog is shown with resizeToAvoidBottomInset, and the keyword
+      // field autofocuses, so the keyboard is up the moment it opens and the
+      // available height drops below this Column's ~150dp minimum. Scrolling
+      // the content keeps both fields reachable, matching SmsRuleBuilderDialog.
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _keywordController,
+              decoration: InputDecoration(
+                labelText: context.l10n.smsKeyword,
+                hintText: context.l10n.smsKeywordHint,
+                helperText: context.l10n.smsKeywordHelper,
+              ),
+              autofocus: true,
             ),
-            autofocus: true,
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            value: _selectedCategoryId,
-            decoration: InputDecoration(
-              labelText: context.l10n.categoryLabel,
-              border: const OutlineInputBorder(),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _selectedCategoryId,
+              // Without isExpanded the item is measured against unbounded
+              // width next to the arrow, so a long category name overflows
+              // the field instead of being clipped to it.
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: context.l10n.categoryLabel,
+                border: const OutlineInputBorder(),
+              ),
+              hint: Text(context.l10n.smsSelectCategoryHint),
+              items: widget.categories
+                  .map(
+                    (c) => DropdownMenuItem(
+                      value: c.id,
+                      child: Text(
+                        c.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedCategoryId = v),
             ),
-            hint: Text(context.l10n.smsSelectCategoryHint),
-            items: widget.categories
-                .map(
-                  (c) => DropdownMenuItem(
-                    value: c.id,
-                    child: Text(c.name),
-                  ),
-                )
-                .toList(),
-            onChanged: (v) => setState(() => _selectedCategoryId = v),
-          ),
-        ],
+          ],
+        ),
       ),
       actions: [
         TextButton(

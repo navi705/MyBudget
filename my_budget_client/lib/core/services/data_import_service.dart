@@ -32,10 +32,13 @@ class DataImportService {
       result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: [expectedExt],
+        // The browser never hands back a usable filesystem path, so the picked
+        // file is only reachable through its in-memory bytes — and file_picker
+        // skips loading them unless asked. On the other platforms a real path
+        // exists, so we leave this off and read from disk instead of holding a
+        // whole backup in memory twice.
+        withData: kIsWeb,
       );
-      if (result != null && result.files.isNotEmpty) {
-        pickedPaths = [result.files.single.path!];
-      }
     }
 
     if ((pickedPaths != null && pickedPaths.isNotEmpty) ||
@@ -46,11 +49,7 @@ class DataImportService {
       if (result != null && result.files.isNotEmpty) {
         final platformFile = result.files.first;
         extension = platformFile.name.split('.').last.toLowerCase();
-        if (platformFile.bytes != null) {
-          content = utf8.decode(platformFile.bytes!);
-        } else {
-          content = await IoHelper.readAsString(platformFile.path!);
-        }
+        content = await _readPickedFile(platformFile);
       } else {
         final pickedPath = pickedPaths!.first;
         extension = pickedPath.split('.').last.toLowerCase();
@@ -90,10 +89,9 @@ class DataImportService {
       result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv', 'json'],
+        // See importData: bytes are the only readable source on web.
+        withData: kIsWeb,
       );
-      if (result != null && result.files.isNotEmpty) {
-        pickedPaths = [result.files.single.path!];
-      }
     }
 
     if ((pickedPaths != null && pickedPaths.isNotEmpty) ||
@@ -104,11 +102,7 @@ class DataImportService {
       if (result != null && result.files.isNotEmpty) {
         final platformFile = result.files.first;
         extension = platformFile.name.split('.').last.toLowerCase();
-        if (platformFile.bytes != null) {
-          content = utf8.decode(platformFile.bytes!);
-        } else {
-          content = await IoHelper.readAsString(platformFile.path!);
-        }
+        content = await _readPickedFile(platformFile);
       } else {
         final pickedPath = pickedPaths!.first;
         extension = pickedPath.split('.').last.toLowerCase();
@@ -129,6 +123,26 @@ class DataImportService {
         await _importExchangeRatesJson(content);
       }
     }
+  }
+
+  /// Decodes a file returned by [FilePicker] as UTF-8 text.
+  ///
+  /// `bytes` is only populated when the picker was asked for it (web), while
+  /// `path` is only meaningful where a filesystem exists. Web fills `path`
+  /// with a `data:`/`blob:` URL that the dart:io layer cannot open, so it must
+  /// never be handed to [IoHelper] — dereferencing it used to be how the whole
+  /// web import died.
+  Future<String> _readPickedFile(PlatformFile platformFile) async {
+    final bytes = platformFile.bytes;
+    if (bytes != null) {
+      return utf8.decode(bytes);
+    }
+
+    final path = platformFile.path;
+    if (kIsWeb || path == null) {
+      throw Exception('Could not read the selected file.');
+    }
+    return IoHelper.readAsString(path);
   }
 
   Future<void> _importExchangeRatesJson(String content) async {

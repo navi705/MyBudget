@@ -9,6 +9,12 @@ class AppLocalizationsRu extends AppLocalizations {
   AppLocalizationsRu([String locale = 'ru']) : super(locale);
 
   @override
+  String get collapseMenuTooltip => 'Свернуть меню';
+
+  @override
+  String get expandMenuTooltip => 'Развернуть меню';
+
+  @override
   String get helloWorld => 'Привет, мир!';
 
   @override

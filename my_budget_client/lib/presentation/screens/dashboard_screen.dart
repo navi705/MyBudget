@@ -1,6 +1,6 @@
-import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 import 'package:my_budget_client/presentation/widgets/navigation/navigation_tab_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
@@ -53,22 +53,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Scaffold(
               // AppBar removed to maximize space
               body: SafeArea(
-                child: Column(
-                  children: [
-                    if (AppPlatform.isWindows ||
-                        AppPlatform.isLinux ||
-                        AppPlatform.isMacOS)
-                      const SizedBox(height: 10),
-                    if (!(AppPlatform.isWindows ||
-                        AppPlatform.isLinux ||
-                        AppPlatform.isMacOS))
-                      _buildTabBar(context, state),
-                    Expanded(child: _buildBody(state)),
-                    if (AppPlatform.isWindows ||
-                        AppPlatform.isLinux ||
-                        AppPlatform.isMacOS)
-                      _buildTabBar(context, state),
-                  ],
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // The tab bar sits at the bottom only when the shell put its
+                    // own navigation in a side rail. Keying that off the OS meant
+                    // a narrow desktop window — where the shell falls back to a
+                    // bottom NavigationBar — stacked two bottom bars on top of
+                    // each other. Same breakpoint, measured on this pane's own
+                    // box, keeps the two decisions in agreement.
+                    final isWide = constraints.maxWidth >= kMobileBreakpoint;
+                    return Column(
+                      children: [
+                        if (isWide) const SizedBox(height: 10),
+                        if (!isWide) _buildTabBar(context, state),
+                        Expanded(child: _buildBody(state, isWide: isWide)),
+                        if (isWide) _buildTabBar(context, state),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -101,12 +103,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     context.read<DashboardBloc>().add(SelectDay(newDate));
   }
 
-  Widget _buildBody(DashboardLoadSuccess state) {
+  Widget _buildBody(DashboardLoadSuccess state, {required bool isWide}) {
     switch (state.activeTabIndex) {
       case 0:
         return _buildCalendarView(state);
       case 1:
-        return _buildCategoryView(state);
+        return _buildCategoryView(state, isWide: isWide);
       case 2:
         return _buildBalanceView(state);
       default:
@@ -204,16 +206,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildCategoryView(DashboardLoadSuccess state) {
+  Widget _buildCategoryView(
+    DashboardLoadSuccess state, {
+    required bool isWide,
+  }) {
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        16.0,
-        (AppPlatform.isWindows || AppPlatform.isLinux || AppPlatform.isMacOS)
-            ? 0.0
-            : 16.0,
-        16.0,
-        16.0,
-      ),
+      // Wide layouts already get a 10dp gap above this pane from the tab bar
+      // being moved to the bottom, so only narrow ones need their own top pad.
+      padding: EdgeInsets.fromLTRB(16.0, isWide ? 0.0 : 16.0, 16.0, 16.0),
       child: Column(
         children: [
           DashboardHeader(

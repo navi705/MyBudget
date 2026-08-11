@@ -9,6 +9,12 @@ class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
 
   @override
+  String get collapseMenuTooltip => 'طي القائمة';
+
+  @override
+  String get expandMenuTooltip => 'توسيع القائمة';
+
+  @override
   String get helloWorld => 'أهلاً بالعالم!';
 
   @override

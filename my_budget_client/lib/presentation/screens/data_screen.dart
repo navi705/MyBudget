@@ -1,6 +1,6 @@
-import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 import 'package:my_budget_client/presentation/widgets/navigation/navigation_tab_bar.dart';
 import 'package:my_budget_client/presentation/screens/exchange_rates_screen.dart';
 import 'package:my_budget_client/presentation/widgets/asset_tab.dart';
@@ -18,9 +18,6 @@ class DataScreen extends StatefulWidget {
 class _DataScreenState extends State<DataScreen> {
   @override
   Widget build(BuildContext context) {
-    final isDesktop =
-        AppPlatform.isWindows || AppPlatform.isLinux || AppPlatform.isMacOS;
-
     return DefaultTabController(
       length: 3,
       initialIndex: widget.initialTabIndex,
@@ -37,21 +34,31 @@ class _DataScreenState extends State<DataScreen> {
               },
             },
             child: SafeArea(
-              child: Column(
-                children: [
-                  if (!isDesktop) _buildTabBar(context),
-                  const Expanded(
-                    child: TabBarView(
-                      physics: NeverScrollableScrollPhysics(),
-                      children: [
-                        ExchangeRatesScreen(isStandalone: false),
-                        InflationTab(),
-                        AssetTab(),
-                      ],
-                    ),
-                  ),
-                  if (isDesktop) _buildTabBar(context),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Bottom placement is only safe when the shell moved its own
+                  // navigation into a side rail. Deciding that by OS put this
+                  // tab bar directly on top of the shell's bottom NavigationBar
+                  // in a narrow desktop window, so measure the pane instead —
+                  // the same test AdaptiveScaffold uses.
+                  final isWide = constraints.maxWidth >= kMobileBreakpoint;
+                  return Column(
+                    children: [
+                      if (!isWide) _buildTabBar(context),
+                      const Expanded(
+                        child: TabBarView(
+                          physics: NeverScrollableScrollPhysics(),
+                          children: [
+                            ExchangeRatesScreen(isStandalone: false),
+                            InflationTab(),
+                            AssetTab(),
+                          ],
+                        ),
+                      ),
+                      if (isWide) _buildTabBar(context),
+                    ],
+                  );
+                },
               ),
             ),
           );

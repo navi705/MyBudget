@@ -9,6 +9,12 @@ class AppLocalizationsHi extends AppLocalizations {
   AppLocalizationsHi([String locale = 'hi']) : super(locale);
 
   @override
+  String get collapseMenuTooltip => 'मेनू संक्षिप्त करें';
+
+  @override
+  String get expandMenuTooltip => 'मेनू विस्तृत करें';
+
+  @override
   String get helloWorld => 'नमस्ते दुनिया!';
 
   @override

@@ -98,8 +98,13 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
               ),
             ],
             if (!isMobile) const SizedBox(width: 8),
-            Expanded(
-              flex: isMobile ? 1 : 0,
+            // Loose Flexible, not Expanded: with flex 0 the date was laid out
+            // unbounded and could push the row past the app bar, and with the
+            // tight fit of Expanded a long range string wrapped to two lines
+            // inside a fixed-height bar. Loose lets it shrink to the space left
+            // by the icon buttons and ellipsize instead.
+            Flexible(
+              fit: FlexFit.loose,
               child: MultiLevelTooltip(
                 message: context.l10n.selectDateTooltip,
                 actionId: 'filter_pick_date',
@@ -111,6 +116,8 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
                     alignment: Alignment.center,
                     child: Text(
                       _formatDate(state, context),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: onSurface,
                         fontSize: isMobile ? 16 : 18,

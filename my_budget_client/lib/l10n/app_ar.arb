@@ -1,5 +1,7 @@
 {
     "@@locale": "ar",
+    "collapseMenuTooltip": "طي القائمة",
+    "expandMenuTooltip": "توسيع القائمة",
     "helloWorld": "أهلاً بالعالم!",
     "accountsAppBarTitle": "الحسابات",
     "accountsBalanceLabel": "الرصيد: {balance}",

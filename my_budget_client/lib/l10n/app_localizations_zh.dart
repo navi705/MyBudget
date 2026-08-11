@@ -9,6 +9,12 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get collapseMenuTooltip => '收起菜单';
+
+  @override
+  String get expandMenuTooltip => '展开菜单';
+
+  @override
   String get helloWorld => '你好，世界！';
 
   @override

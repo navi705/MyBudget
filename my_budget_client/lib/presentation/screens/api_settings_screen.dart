@@ -756,32 +756,47 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Row(
+            // Wrap, not Row: once a test has run, the status text plus the test
+            // button and the two 48dp icon buttons need more width than a phone
+            // card has, so the controls have to be allowed to move to a new line.
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                if (state.testResults.containsKey(source.url)) ...[
-                  Icon(
-                    state.testResults[source.url]!
-                        ? Icons.check_circle
-                        : Icons.error,
-                    color: state.testResults[source.url]!
-                        ? Colors.green
-                        : Colors.red,
-                    size: 20,
+                if (state.testResults.containsKey(source.url))
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        state.testResults[source.url]!
+                            ? Icons.check_circle
+                            : Icons.error,
+                        color: state.testResults[source.url]!
+                            ? Colors.green
+                            : Colors.red,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      // Flexible + ellipsis so a long status line shrinks rather
+                      // than pushing this row past the width Wrap gave it.
+                      Flexible(
+                        child: Text(
+                          state.testResults[source.url]!
+                              ? 'Connection OK'
+                              : 'Connection Failed',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: state.testResults[source.url]!
+                                ? Colors.green
+                                : Colors.red,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    state.testResults[source.url]!
-                        ? 'Connection OK'
-                        : 'Connection Failed',
-                    style: TextStyle(
-                      color: state.testResults[source.url]!
-                          ? Colors.green
-                          : Colors.red,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const Spacer(),
-                ],
                 OutlinedButton.icon(
                   onPressed: state.isOperationInProgress
                       ? null
@@ -798,7 +813,6 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                       : const Icon(Icons.network_check, size: 18),
                   label: const Text('Test Connection'),
                 ),
-                const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.edit, color: Colors.blueAccent),
                   tooltip: context.l10n.editCustomSourceTitle,

@@ -9,6 +9,12 @@ class AppLocalizationsPt extends AppLocalizations {
   AppLocalizationsPt([String locale = 'pt']) : super(locale);
 
   @override
+  String get collapseMenuTooltip => 'Recolher Menu';
+
+  @override
+  String get expandMenuTooltip => 'Expandir Menu';
+
+  @override
   String get helloWorld => 'Olá Mundo!';
 
   @override

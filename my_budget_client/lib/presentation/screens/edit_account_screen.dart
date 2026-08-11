@@ -169,7 +169,11 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
           }
         },
         child: Scaffold(
-          resizeToAvoidBottomInset: false,
+          // The form below is a plain SingleChildScrollView: unless the
+          // viewport shrinks with the keyboard its max scroll extent still
+          // assumes the full screen height, leaving the fee-rule / asset
+          // quantity fields and the Save button permanently under the keyboard.
+          resizeToAvoidBottomInset: true,
           appBar: AppBar(
             title: Text(l10n.editAccountTitle(_initialAccount.name)),
             actions: const [],

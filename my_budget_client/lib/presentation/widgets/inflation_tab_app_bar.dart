@@ -148,8 +148,13 @@ class InflationTabAppBar extends StatelessWidget
           ),
         ],
         if (!isMobile) const SizedBox(width: 8),
-        Expanded(
-          flex: isMobile ? 1 : 0,
+        // `flex: 0` made this child inflexible *and* unbounded, so a long
+        // localised date range wrapped onto a second line inside a bar of
+        // fixed height. A loose Flexible still shrink-wraps on desktop but
+        // caps the child at the space actually left over; on mobile a tight
+        // fit reproduces the old Expanded behaviour.
+        Flexible(
+          fit: isMobile ? FlexFit.tight : FlexFit.loose,
           child: MultiLevelTooltip(
             message: l10n.selectDateTooltip,
             actionId: 'inflation_pick_date',
@@ -161,6 +166,8 @@ class InflationTabAppBar extends StatelessWidget
                 alignment: Alignment.center,
                 child: Text(
                   _formatDate(context),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: onSurface,
                     fontSize: isMobile ? 16 : 18,

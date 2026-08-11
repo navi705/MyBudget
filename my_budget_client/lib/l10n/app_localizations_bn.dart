@@ -9,6 +9,12 @@ class AppLocalizationsBn extends AppLocalizations {
   AppLocalizationsBn([String locale = 'bn']) : super(locale);
 
   @override
+  String get collapseMenuTooltip => 'মেনু সংকুচিত করুন';
+
+  @override
+  String get expandMenuTooltip => 'মেনু প্রসারিত করুন';
+
+  @override
   String get helloWorld => 'ওহে বিশ্ব!';
 
   @override

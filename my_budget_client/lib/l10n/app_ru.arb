@@ -1,5 +1,7 @@
 {
     "@@locale": "ru",
+    "collapseMenuTooltip": "Свернуть меню",
+    "expandMenuTooltip": "Развернуть меню",
     "helloWorld": "Привет, мир!",
     "accountsAppBarTitle": "Счета",
     "accountsBalanceLabel": "Баланс: {balance}",

@@ -126,6 +126,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
             title: const Text('Change Account Type'),
             content: DropdownButton<String>(
               value: selectedTypeId,
+              // Without isExpanded the selected item is an inflexible row child
+              // laid out unbounded, so any type name wider than the dialog's
+              // content box overflows instead of ellipsizing.
+              isExpanded: true,
               onChanged: (newValue) {
                 setState(() {
                   selectedTypeId = newValue;
@@ -135,7 +139,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   .map(
                     (type) => DropdownMenuItem(
                       value: type.id,
-                      child: Text(type.name),
+                      child: Text(type.name, overflow: TextOverflow.ellipsis),
                     ),
                   )
                   .toList(),

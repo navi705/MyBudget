@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
-import 'package:my_budget_client/core/theme/app_spacing.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 
 class PeriodSummaryWidget extends StatelessWidget {
@@ -118,8 +117,6 @@ class PeriodSummaryWidget extends StatelessWidget {
       text = '+$text';
     }
 
-    final isMobile = MediaQuery.of(context).size.width < kMobileBreakpoint;
-
     final textWidget = Text(
       text,
       style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -128,18 +125,24 @@ class PeriodSummaryWidget extends StatelessWidget {
       ),
     );
 
-    return Column(
-      children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 4),
-        if (isMobile)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 100),
-            child: FittedBox(fit: BoxFit.scaleDown, child: textWidget),
-          )
-        else
-          textWidget,
-      ],
+    // Three of these share one Row with no horizontal padding around the card,
+    // so a fixed 100dp cap on mobile still overflowed (3 x 100 > the ~280dp
+    // usable) and the desktop branch was uncapped entirely - and neither
+    // branch bounded the translated label above the amount. Taking an equal
+    // third of whatever the Row has and scaling down inside it holds for every
+    // width and locale; scaleDown never enlarges, so short values still render
+    // at their natural size.
+    return Expanded(
+      child: Column(
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(fit: BoxFit.scaleDown, child: textWidget),
+        ],
+      ),
     );
   }
 }

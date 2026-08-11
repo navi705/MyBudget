@@ -339,8 +339,13 @@ class _ImportViewState extends State<_ImportView> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                      // Wrap, not Row: the two labels together are wider than a
+                      // 360dp phone card in the longer locales, and a Row would
+                      // just overflow instead of moving the second button down.
+                      Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           OutlinedButton(
                             onPressed: () async {
@@ -472,8 +477,13 @@ class _ImportViewState extends State<_ImportView> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                      // Wrap, not Row: the two labels together are wider than a
+                      // 360dp phone card in the longer locales, and a Row would
+                      // just overflow instead of moving the second button down.
+                      Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           OutlinedButton(
                             onPressed: () async {
@@ -547,7 +557,6 @@ class _ImportViewState extends State<_ImportView> {
                             },
                             child: Text(context.l10n.importMapToExisting),
                           ),
-                          const SizedBox(width: 8),
                           FilledButton.tonal(
                             onPressed: () {
                               context.read<ImportBloc>().add(
@@ -607,8 +616,13 @@ class _ImportViewState extends State<_ImportView> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                      // Wrap, not Row: the two labels together are wider than a
+                      // 360dp phone card in the longer locales, and a Row would
+                      // just overflow instead of moving the second button down.
+                      Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           OutlinedButton(
                             onPressed: () async {
@@ -636,7 +650,6 @@ class _ImportViewState extends State<_ImportView> {
                             },
                             child: Text(context.l10n.importMapToExisting),
                           ),
-                          const SizedBox(width: 8),
                           FilledButton.tonal(
                             onPressed: () {
                               context.read<ImportBloc>().add(
@@ -728,8 +741,13 @@ class _ImportViewState extends State<_ImportView> {
                       ),
                       const SizedBox(height: 16),
                       if (resolution == null)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
+                        // Wrap, not Row: the two labels together are wider than a
+                        // 360dp phone card in the longer locales, and a Row would
+                        // just overflow instead of moving the second button down.
+                        Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 8,
+                          runSpacing: 8,
                           children: [
                             OutlinedButton(
                               onPressed: () {
@@ -739,7 +757,6 @@ class _ImportViewState extends State<_ImportView> {
                               },
                               child: Text(context.l10n.importSkip),
                             ),
-                            const SizedBox(width: 8),
                             FilledButton.tonal(
                               onPressed: () {
                                 context.read<ImportBloc>().add(

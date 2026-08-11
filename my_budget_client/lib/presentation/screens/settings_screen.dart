@@ -290,14 +290,20 @@ class SettingsScreen extends StatelessWidget {
       final db = GetIt.I<AppDatabase>();
       final service = DataExportService(db);
       final success = await service.exportData(isCsv);
-      // Only report success when the export actually happened. A `false`
-      // result means the user cancelled or the platform (web) is unsupported,
-      // so we avoid fabricating a success snackbar.
-      if (context.mounted && success) {
-        final l10n = context.l10n;
+      if (!context.mounted) return;
+      final l10n = context.l10n;
+      // Only report success when the export actually happened, but never leave
+      // the tap silent: a `false` result (cancelled save dialog / dismissed
+      // share sheet) used to produce no feedback at all, which is
+      // indistinguishable from a dead button.
+      if (success) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(l10n.exportSuccessMessage)));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.exportFailedMessage(l10n.cancelButton))),
+        );
       }
     } catch (e) {
       if (context.mounted) {

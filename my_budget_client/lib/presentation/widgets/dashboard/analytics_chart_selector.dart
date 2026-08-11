@@ -134,9 +134,11 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
               });
             },
             selectedItemBuilder: (BuildContext context) {
+              // Directional alignment: `centerLeft` would pin the label to the
+              // physical left even in the ar / ur layouts.
               return [
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: Text(
                     context.l10n.allLabel,
                     style: TextStyle(
@@ -147,7 +149,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
                 ),
                 ...widget.accounts.map((acc) {
                   return Align(
-                    alignment: Alignment.centerLeft,
+                    alignment: AlignmentDirectional.centerStart,
                     child: Text(
                       acc.name,
                       style: TextStyle(
@@ -174,12 +176,21 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
                 return DropdownMenuItem<String?>(
                   value: acc.id,
                   child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        acc.name,
-                        style: TextStyle(color: colorScheme.onSurface),
+                      // The menu item is width-bounded by the dropdown, so a
+                      // long account name has to ellipsise rather than push
+                      // the balance out of the item. A Spacer cannot do that:
+                      // it only eats leftover space, it never yields any.
+                      Expanded(
+                        child: Text(
+                          acc.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: colorScheme.onSurface),
+                        ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 8),
                       Text(
                         _formatCurrency(acc.balance, acc.currencyCode),
                         style: TextStyle(
@@ -416,38 +427,54 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
           ),
         ),
         const SizedBox(height: 24),
-        Wrap(
-          spacing: 16,
-          runSpacing: 8,
-          alignment: WrapAlignment.center,
-          children: data.asMap().entries.map((item) {
-            final index = item.key;
-            final e = item.value;
-            final percentage = total > 0 ? (e.value / total) * 100 : 0.0;
-            final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-            final color = ChartColorUtils.getAdaptiveColor(
-              ChartColorUtils.getPaletteColor(index),
-              isDarkTheme,
-            );
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
+        // A Wrap measures every child against unbounded width, so the legend
+        // label - which concatenates an account/currency name, a percentage,
+        // an amount and a currency code - never wrapped or ellipsised and just
+        // ran off the card. LayoutBuilder supplies the one thing the Wrap
+        // will not: the width a single line actually has.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: data.asMap().entries.map((item) {
+                final index = item.key;
+                final e = item.value;
+                final percentage = total > 0 ? (e.value / total) * 100 : 0.0;
+                final isDarkTheme =
+                    Theme.of(context).brightness == Brightness.dark;
+                final color = ChartColorUtils.getAdaptiveColor(
+                  ChartColorUtils.getPaletteColor(index),
+                  isDarkTheme,
+                );
+                return ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          '${e.key} ${percentage.toStringAsFixed(2)}% (${MoneyFormatter.format(e.value, widget.currencyCode)} ${widget.currencyCode})',
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '${e.key} ${percentage.toStringAsFixed(2)}% (${MoneyFormatter.format(e.value, widget.currencyCode)} ${widget.currencyCode})',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
+                );
+              }).toList(),
             );
-          }).toList(),
+          },
         ),
       ],
     );

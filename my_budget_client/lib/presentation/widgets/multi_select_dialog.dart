@@ -71,8 +71,12 @@ class _MultiSelectDialogState<T, K> extends State<MultiSelectDialog<T, K>> {
                 ),
               ),
             ),
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.5,
+            // Flexible instead of a screen-height fraction: the search field is
+            // autofocused, so the keyboard immediately shrinks the dialog through
+            // viewInsets while MediaQuery.size.height stays at the full screen.
+            // Letting AlertDialog's own Flexible bound us keeps the list inside
+            // whatever height is actually left above the keyboard.
+            Flexible(
               child: ListView.builder(
                 shrinkWrap: true,
                 itemCount: filteredItems.length,
