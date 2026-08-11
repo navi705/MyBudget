@@ -1759,287 +1759,287 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hkActionDataSelectionChangePreset => '数据: 更改预设';
 
   @override
-  String get styNotFound => 'Style not found.';
+  String get styNotFound => '未找到样式。';
 
   @override
-  String get stySaveChanges => 'Save Changes';
+  String get stySaveChanges => '保存更改';
 
   @override
-  String get styAddIcon => 'Add Icon';
+  String get styAddIcon => '添加图标';
 
   @override
-  String get smsOnlyAndroid => 'SMS import is only available on Android';
+  String get smsOnlyAndroid => '短信导入仅在 Android 上可用';
 
   @override
-  String get smsImportSms => 'Import SMS';
+  String get smsImportSms => '导入短信';
 
   @override
-  String get smsPermissionRequired => 'SMS Permission Required';
+  String get smsPermissionRequired => '需要短信权限';
 
   @override
-  String get smsPermissionRationale => 'To import transactions from SMS, we need permission to read your messages.';
+  String get smsPermissionRationale => '要从短信导入交易，我们需要读取您短信的权限。';
 
   @override
-  String get smsGrantPermission => 'Grant Permission';
+  String get smsGrantPermission => '授予权限';
 
   @override
-  String get smsNoPresets => 'No presets configured. Tap + to add one.';
+  String get smsNoPresets => '尚未配置预设。点击 + 添加一个。';
 
   @override
-  String get smsImportDescription => 'Import transactions from SMS messages. Choose a time range:';
+  String get smsImportDescription => '从短信导入交易。请选择时间范围：';
 
   @override
-  String get smsLast7Days => 'Last 7 Days';
+  String get smsLast7Days => '最近 7 天';
 
   @override
-  String get smsAllTime => 'All Time';
+  String get smsAllTime => '全部时间';
 
   @override
   String smsFilterLabel(Object filter) {
-    return 'Filter: $filter';
+    return '筛选: $filter';
   }
 
   @override
-  String get smsEditPreset => 'Edit Preset';
+  String get smsEditPreset => '编辑预设';
 
   @override
-  String get smsNewPreset => 'New Preset';
+  String get smsNewPreset => '新预设';
 
   @override
-  String get smsPresetNameHint => 'e.g., My Bank';
+  String get smsPresetNameHint => '例如，我的银行';
 
   @override
-  String get smsSenderFilter => 'Sender Filter';
+  String get smsSenderFilter => '发件人筛选';
 
   @override
-  String get smsSenderFilterHint => 'e.g., ALTA or +381...';
+  String get smsSenderFilterHint => '例如，ALTA 或 +381...';
 
   @override
-  String get smsSenderFilterHelper => 'Filter SMS by sender name or phone number';
+  String get smsSenderFilterHelper => '按发件人名称或电话号码筛选短信';
 
   @override
-  String get smsDefaults => 'Defaults';
+  String get smsDefaults => '默认值';
 
   @override
-  String get smsDefaultAccount => 'Default Account';
+  String get smsDefaultAccount => '默认账户';
 
   @override
-  String get smsDefaultCategory => 'Default Category';
+  String get smsDefaultCategory => '默认分类';
 
   @override
-  String get smsImportMessages => 'Import Messages';
+  String get smsImportMessages => '导入消息';
 
   @override
-  String get smsSelectDefaultsFirst => 'Select defaults first';
+  String get smsSelectDefaultsFirst => '请先选择默认值';
 
   @override
-  String get smsCustomRange => 'Custom Range';
+  String get smsCustomRange => '自定义范围';
 
   @override
   String smsImportSuccessCount(Object count) {
-    return 'Success: $count transactions imported';
+    return '成功: 已导入 $count 笔交易';
   }
 
   @override
-  String get smsParsingRules => 'Parsing Rules';
+  String get smsParsingRules => '解析规则';
 
   @override
-  String get smsNoRules => 'No rules defined. Tap + to add one.';
+  String get smsNoRules => '尚未定义规则。点击 + 添加一个。';
 
   @override
   String smsMatchLabel(Object pattern) {
-    return 'Match: $pattern';
+    return '匹配: $pattern';
   }
 
   @override
-  String get smsNameSenderRequired => 'Name and sender filter are required';
+  String get smsNameSenderRequired => '名称和发件人筛选为必填项';
 
   @override
-  String get smsCategoryKeywords => 'Category Keywords';
+  String get smsCategoryKeywords => '分类关键词';
 
   @override
-  String get smsCategoryKeywordsSubtitle => 'Map keywords in SMS body to categories';
+  String get smsCategoryKeywordsSubtitle => '将短信内容中的关键词映射到分类';
 
   @override
-  String get smsNoKeywordRules => 'No keyword rules. Tap + to add one.';
+  String get smsNoKeywordRules => '没有关键词规则。点击 + 添加一个。';
 
   @override
-  String get smsAddKeywordRule => 'Add Keyword Rule';
+  String get smsAddKeywordRule => '添加关键词规则';
 
   @override
-  String get smsKeyword => 'Keyword';
+  String get smsKeyword => '关键词';
 
   @override
-  String get smsKeywordHint => 'e.g., Grocery, Netflix';
+  String get smsKeywordHint => '例如，杂货, Netflix';
 
   @override
-  String get smsKeywordHelper => 'Case-insensitive substring to match in SMS body';
+  String get smsKeywordHelper => '在短信内容中匹配的子字符串（不区分大小写）';
 
   @override
-  String get smsSelectCategoryHint => 'Select category';
+  String get smsSelectCategoryHint => '选择分类';
 
   @override
-  String get dshSelectDateDescription => 'Open calendar to pick a specific date or range';
+  String get dshSelectDateDescription => '打开日历以选择特定日期或范围';
 
   @override
-  String get dshCurrencyDescription => 'Select the primary currency for display';
+  String get dshCurrencyDescription => '选择显示的主货币';
 
   @override
-  String get dshChangeViewTooltip => 'Change View';
+  String get dshChangeViewTooltip => '更改视图';
 
   @override
-  String get dshChangeViewDescription => 'Switch between Monthly and Yearly views';
+  String get dshChangeViewDescription => '在月度视图和年度视图之间切换';
 
   @override
-  String get dshMonthlyAbbreviation => 'M';
+  String get dshMonthlyAbbreviation => '月';
 
   @override
-  String get dshYearlyAbbreviation => 'Y';
+  String get dshYearlyAbbreviation => '年';
 
   @override
   String dshBalancesOnDate(Object date) {
-    return 'Balances on $date';
+    return '$date 的余额';
   }
 
   @override
-  String get dshSearchCurrency => 'Search Currency';
+  String get dshSearchCurrency => '搜索货币';
 
   @override
-  String get dshUnknownCategory => 'Unknown';
+  String get dshUnknownCategory => '未知';
 
   @override
-  String get pckSelectItem => 'Select Item';
+  String get pckSelectItem => '选择项目';
 
   @override
-  String get pckSelectItems => 'Select Items';
+  String get pckSelectItems => '选择多个项目';
 
   @override
-  String get pckClearAll => 'Clear All';
+  String get pckClearAll => '全部清除';
 
   @override
-  String get pckSelectIcon => 'Select Icon';
+  String get pckSelectIcon => '选择图标';
 
   @override
-  String get pckMaterialIcons => 'Material Icons';
+  String get pckMaterialIcons => 'Material 图标';
 
   @override
-  String get pckCustomIcons => 'Custom Icons';
+  String get pckCustomIcons => '自定义图标';
 
   @override
-  String get fltAmountFrom => 'Amount From';
+  String get fltAmountFrom => '金额从';
 
   @override
-  String get fltAmountTo => 'Amount To';
+  String get fltAmountTo => '金额至';
 
   @override
-  String get fltSelectRange => 'Select Range';
+  String get fltSelectRange => '选择范围';
 
   @override
-  String get fltAdvancedFilterTooltip => 'Advanced Filter';
+  String get fltAdvancedFilterTooltip => '高级筛选';
 
   @override
-  String get fltAdvancedFilterDescription => 'Filter transactions by account, category, or amount';
+  String get fltAdvancedFilterDescription => '按账户、分类或金额筛选交易';
 
   @override
-  String get fltSortOrderDescription => 'Toggle between ascending and descending order';
+  String get fltSortOrderDescription => '在升序和降序之间切换';
 
   @override
-  String get fltAccountFiltersTitle => 'Account Filters';
+  String get fltAccountFiltersTitle => '账户筛选';
 
   @override
-  String get fltNameLabel => 'Name';
+  String get fltNameLabel => '名称';
 
   @override
-  String get fltAccountTypesLabel => 'Account Types';
+  String get fltAccountTypesLabel => '账户类型';
 
   @override
-  String get fltFilterCurrenciesLabel => 'Filter Currencies';
+  String get fltFilterCurrenciesLabel => '筛选货币';
 
   @override
-  String get fltSelectCurrenciesLabel => 'Select Currencies';
+  String get fltSelectCurrenciesLabel => '选择货币';
 
   @override
-  String get fltFilterCategoriesTitle => 'Filter Categories';
+  String get fltFilterCategoriesTitle => '筛选分类';
 
   @override
-  String get exchAddExchangeRate => 'Add Exchange Rate';
+  String get exchAddExchangeRate => '添加汇率';
 
   @override
-  String get exchEditExchangeRate => 'Edit Exchange Rate';
+  String get exchEditExchangeRate => '编辑汇率';
 
   @override
-  String get exchAddRateDescription => 'Manually enter a conversion rate between two currencies';
+  String get exchAddRateDescription => '手动输入两种货币之间的换算汇率';
 
   @override
-  String get exchNoRatesFound => 'No exchange rates found.';
+  String get exchNoRatesFound => '未找到汇率。';
 
   @override
-  String get exchChangePreset => 'Change Preset';
+  String get exchChangePreset => '更改预设';
 
   @override
-  String get exchFromCurrency => 'From Currency';
+  String get exchFromCurrency => '源货币';
 
   @override
-  String get exchToCurrency => 'To Currency';
+  String get exchToCurrency => '目标货币';
 
   @override
-  String get exchRate => 'Rate';
+  String get exchRate => '汇率';
 
   @override
-  String get exchPresetIdLabel => 'Preset ID';
+  String get exchPresetIdLabel => '预设 ID';
 
   @override
   String exchPresetValue(Object preset) {
-    return 'Preset: $preset';
+    return '预设: $preset';
   }
 
   @override
-  String get exchSelectRange => 'Select Range';
+  String get exchSelectRange => '选择范围';
 
   @override
-  String get exchPreviousPeriodDescription => 'Go to the previous day, month, or year';
+  String get exchPreviousPeriodDescription => '转到上一天、上个月或上一年';
 
   @override
-  String get exchNextPeriodDescription => 'Go to the next day, month, or year';
+  String get exchNextPeriodDescription => '转到下一天、下个月或下一年';
 
   @override
-  String get exchFilterDescription => 'Filter rates by from/to currency and preset ID';
+  String get exchFilterDescription => '按源/目标货币和预设 ID 筛选汇率';
 
   @override
-  String get exchSelectDateDescription => 'Choose a specific date or range to view historical rates';
+  String get exchSelectDateDescription => '选择特定日期或范围以查看历史汇率';
 
   @override
-  String get exchSortOrderDescription => 'Switch between ascending and descending date/rate order';
+  String get exchSortOrderDescription => '按日期/汇率切换升序和降序';
 
   @override
-  String get exchFilterExchangeRates => 'Filter Exchange Rates';
+  String get exchFilterExchangeRates => '筛选汇率';
 
   @override
-  String get exchExitSelectionDescription => 'Exit exchange rate selection mode';
+  String get exchExitSelectionDescription => '退出汇率选择模式';
 
   @override
-  String get exchSelectAllDescription => 'Select all listed exchange rates';
+  String get exchSelectAllDescription => '选择所有列出的汇率';
 
   @override
-  String get exchDeselectAllDescription => 'Unselect all rates';
+  String get exchDeselectAllDescription => '取消选择所有汇率';
 
   @override
-  String get exchChangePresetDescription => 'Update the preset ID for all selected exchange rates';
+  String get exchChangePresetDescription => '更新所有选中汇率的预设 ID';
 
   @override
-  String get exchDeleteSelectedDescription => 'Permanently delete all selected exchange rates';
+  String get exchDeleteSelectedDescription => '永久删除所有选中汇率';
 
   @override
-  String get exchDeleteExchangeRatesTitle => 'Delete Exchange Rates';
+  String get exchDeleteExchangeRatesTitle => '删除汇率';
 
   @override
   String exchDeleteConfirmMessage(Object count) {
-    return 'Are you sure you want to delete $count exchange rates?';
+    return '您确定要删除这 $count 个汇率吗？';
   }
 
   @override
-  String get exchUpdatePresetTitle => 'Update Preset';
+  String get exchUpdatePresetTitle => '更新预设';
 
   @override
-  String get exchUpdatePresetMessage => 'Enter the new preset ID for the selected items:';
+  String get exchUpdatePresetMessage => '为选中的项目输入新的预设 ID:';
 }

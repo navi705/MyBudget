@@ -1759,287 +1759,287 @@ class AppLocalizationsUr extends AppLocalizations {
   String get hkActionDataSelectionChangePreset => 'ڈیٹا: پیش سیٹ تبدیل کریں';
 
   @override
-  String get styNotFound => 'Style not found.';
+  String get styNotFound => 'اسٹائل نہیں ملا۔';
 
   @override
-  String get stySaveChanges => 'Save Changes';
+  String get stySaveChanges => 'تبدیلیاں محفوظ کریں';
 
   @override
-  String get styAddIcon => 'Add Icon';
+  String get styAddIcon => 'آئیکن شامل کریں';
 
   @override
-  String get smsOnlyAndroid => 'SMS import is only available on Android';
+  String get smsOnlyAndroid => 'ایس ایم ایس درآمد صرف Android پر دستیاب ہے';
 
   @override
-  String get smsImportSms => 'Import SMS';
+  String get smsImportSms => 'ایس ایم ایس درآمد کریں';
 
   @override
-  String get smsPermissionRequired => 'SMS Permission Required';
+  String get smsPermissionRequired => 'ایس ایم ایس کی اجازت درکار ہے';
 
   @override
-  String get smsPermissionRationale => 'To import transactions from SMS, we need permission to read your messages.';
+  String get smsPermissionRationale => 'ایس ایم ایس سے لین دین درآمد کرنے کے لیے، ہمیں آپ کے پیغامات پڑھنے کی اجازت درکار ہے۔';
 
   @override
-  String get smsGrantPermission => 'Grant Permission';
+  String get smsGrantPermission => 'اجازت دیں';
 
   @override
-  String get smsNoPresets => 'No presets configured. Tap + to add one.';
+  String get smsNoPresets => 'کوئی پیش سیٹ ترتیب نہیں دیا گیا۔ شامل کرنے کے لیے + دبائیں۔';
 
   @override
-  String get smsImportDescription => 'Import transactions from SMS messages. Choose a time range:';
+  String get smsImportDescription => 'ایس ایم ایس پیغامات سے لین دین درآمد کریں۔ ایک مدت منتخب کریں:';
 
   @override
-  String get smsLast7Days => 'Last 7 Days';
+  String get smsLast7Days => 'پچھلے 7 دن';
 
   @override
-  String get smsAllTime => 'All Time';
+  String get smsAllTime => 'تمام وقت';
 
   @override
   String smsFilterLabel(Object filter) {
-    return 'Filter: $filter';
+    return 'فلٹر: $filter';
   }
 
   @override
-  String get smsEditPreset => 'Edit Preset';
+  String get smsEditPreset => 'پیش سیٹ میں ترمیم کریں';
 
   @override
-  String get smsNewPreset => 'New Preset';
+  String get smsNewPreset => 'نیا پیش سیٹ';
 
   @override
-  String get smsPresetNameHint => 'e.g., My Bank';
+  String get smsPresetNameHint => 'مثلاً: میرا بینک';
 
   @override
-  String get smsSenderFilter => 'Sender Filter';
+  String get smsSenderFilter => 'بھیجنے والے کا فلٹر';
 
   @override
-  String get smsSenderFilterHint => 'e.g., ALTA or +381...';
+  String get smsSenderFilterHint => 'مثلاً: ALTA یا +381...';
 
   @override
-  String get smsSenderFilterHelper => 'Filter SMS by sender name or phone number';
+  String get smsSenderFilterHelper => 'بھیجنے والے کے نام یا فون نمبر سے ایس ایم ایس فلٹر کریں';
 
   @override
-  String get smsDefaults => 'Defaults';
+  String get smsDefaults => 'ڈیفالٹ';
 
   @override
-  String get smsDefaultAccount => 'Default Account';
+  String get smsDefaultAccount => 'ڈیفالٹ اکاؤنٹ';
 
   @override
-  String get smsDefaultCategory => 'Default Category';
+  String get smsDefaultCategory => 'ڈیفالٹ زمرہ';
 
   @override
-  String get smsImportMessages => 'Import Messages';
+  String get smsImportMessages => 'پیغامات درآمد کریں';
 
   @override
-  String get smsSelectDefaultsFirst => 'Select defaults first';
+  String get smsSelectDefaultsFirst => 'پہلے ڈیفالٹ منتخب کریں';
 
   @override
-  String get smsCustomRange => 'Custom Range';
+  String get smsCustomRange => 'حسب ضرورت رینج';
 
   @override
   String smsImportSuccessCount(Object count) {
-    return 'Success: $count transactions imported';
+    return 'کامیاب: $count لین دین درآمد ہوئے';
   }
 
   @override
-  String get smsParsingRules => 'Parsing Rules';
+  String get smsParsingRules => 'تجزیہ کے اصول';
 
   @override
-  String get smsNoRules => 'No rules defined. Tap + to add one.';
+  String get smsNoRules => 'کوئی اصول متعین نہیں۔ شامل کرنے کے لیے + دبائیں۔';
 
   @override
   String smsMatchLabel(Object pattern) {
-    return 'Match: $pattern';
+    return 'میچ: $pattern';
   }
 
   @override
-  String get smsNameSenderRequired => 'Name and sender filter are required';
+  String get smsNameSenderRequired => 'نام اور بھیجنے والے کا فلٹر درکار ہیں';
 
   @override
-  String get smsCategoryKeywords => 'Category Keywords';
+  String get smsCategoryKeywords => 'زمرہ کے کلیدی الفاظ';
 
   @override
-  String get smsCategoryKeywordsSubtitle => 'Map keywords in SMS body to categories';
+  String get smsCategoryKeywordsSubtitle => 'ایس ایم ایس متن کے کلیدی الفاظ کو زمروں سے جوڑیں';
 
   @override
-  String get smsNoKeywordRules => 'No keyword rules. Tap + to add one.';
+  String get smsNoKeywordRules => 'کوئی کلیدی لفظ کا اصول نہیں۔ شامل کرنے کے لیے + دبائیں۔';
 
   @override
-  String get smsAddKeywordRule => 'Add Keyword Rule';
+  String get smsAddKeywordRule => 'کلیدی لفظ کا اصول شامل کریں';
 
   @override
-  String get smsKeyword => 'Keyword';
+  String get smsKeyword => 'کلیدی لفظ';
 
   @override
-  String get smsKeywordHint => 'e.g., Grocery, Netflix';
+  String get smsKeywordHint => 'مثلاً: گروسری، Netflix';
 
   @override
-  String get smsKeywordHelper => 'Case-insensitive substring to match in SMS body';
+  String get smsKeywordHelper => 'ایس ایم ایس متن میں ملانے کے لیے حروف سے بے نیاز جزوی لفظ';
 
   @override
-  String get smsSelectCategoryHint => 'Select category';
+  String get smsSelectCategoryHint => 'زمرہ منتخب کریں';
 
   @override
-  String get dshSelectDateDescription => 'Open calendar to pick a specific date or range';
+  String get dshSelectDateDescription => 'مخصوص تاریخ یا رینج منتخب کرنے کے لیے کیلنڈر کھولیں';
 
   @override
-  String get dshCurrencyDescription => 'Select the primary currency for display';
+  String get dshCurrencyDescription => 'ڈسپلے کے لیے بنیادی کرنسی منتخب کریں';
 
   @override
-  String get dshChangeViewTooltip => 'Change View';
+  String get dshChangeViewTooltip => 'ویو تبدیل کریں';
 
   @override
-  String get dshChangeViewDescription => 'Switch between Monthly and Yearly views';
+  String get dshChangeViewDescription => 'ماہانہ اور سالانہ ویو کے درمیان سوئچ کریں';
 
   @override
-  String get dshMonthlyAbbreviation => 'M';
+  String get dshMonthlyAbbreviation => 'م';
 
   @override
-  String get dshYearlyAbbreviation => 'Y';
+  String get dshYearlyAbbreviation => 'س';
 
   @override
   String dshBalancesOnDate(Object date) {
-    return 'Balances on $date';
+    return '$date کے بیلنس';
   }
 
   @override
-  String get dshSearchCurrency => 'Search Currency';
+  String get dshSearchCurrency => 'کرنسی تلاش کریں';
 
   @override
-  String get dshUnknownCategory => 'Unknown';
+  String get dshUnknownCategory => 'نامعلوم';
 
   @override
-  String get pckSelectItem => 'Select Item';
+  String get pckSelectItem => 'آئٹم منتخب کریں';
 
   @override
-  String get pckSelectItems => 'Select Items';
+  String get pckSelectItems => 'آئٹمز منتخب کریں';
 
   @override
-  String get pckClearAll => 'Clear All';
+  String get pckClearAll => 'سب صاف کریں';
 
   @override
-  String get pckSelectIcon => 'Select Icon';
+  String get pckSelectIcon => 'آئیکن منتخب کریں';
 
   @override
-  String get pckMaterialIcons => 'Material Icons';
+  String get pckMaterialIcons => 'Material آئیکنز';
 
   @override
-  String get pckCustomIcons => 'Custom Icons';
+  String get pckCustomIcons => 'حسب ضرورت آئیکنز';
 
   @override
-  String get fltAmountFrom => 'Amount From';
+  String get fltAmountFrom => 'رقم سے';
 
   @override
-  String get fltAmountTo => 'Amount To';
+  String get fltAmountTo => 'رقم تک';
 
   @override
-  String get fltSelectRange => 'Select Range';
+  String get fltSelectRange => 'رینج منتخب کریں';
 
   @override
-  String get fltAdvancedFilterTooltip => 'Advanced Filter';
+  String get fltAdvancedFilterTooltip => 'اعلی درجے کا فلٹر';
 
   @override
-  String get fltAdvancedFilterDescription => 'Filter transactions by account, category, or amount';
+  String get fltAdvancedFilterDescription => 'اکاؤنٹ، زمرہ یا رقم کے لحاظ سے لین دین فلٹر کریں';
 
   @override
-  String get fltSortOrderDescription => 'Toggle between ascending and descending order';
+  String get fltSortOrderDescription => 'صعودی اور نزولی ترتیب کے درمیان سوئچ کریں';
 
   @override
-  String get fltAccountFiltersTitle => 'Account Filters';
+  String get fltAccountFiltersTitle => 'اکاؤنٹ کے فلٹرز';
 
   @override
-  String get fltNameLabel => 'Name';
+  String get fltNameLabel => 'نام';
 
   @override
-  String get fltAccountTypesLabel => 'Account Types';
+  String get fltAccountTypesLabel => 'اکاؤنٹ کی اقسام';
 
   @override
-  String get fltFilterCurrenciesLabel => 'Filter Currencies';
+  String get fltFilterCurrenciesLabel => 'کرنسیاں فلٹر کریں';
 
   @override
-  String get fltSelectCurrenciesLabel => 'Select Currencies';
+  String get fltSelectCurrenciesLabel => 'کرنسیاں منتخب کریں';
 
   @override
-  String get fltFilterCategoriesTitle => 'Filter Categories';
+  String get fltFilterCategoriesTitle => 'زمرہ جات فلٹر کریں';
 
   @override
-  String get exchAddExchangeRate => 'Add Exchange Rate';
+  String get exchAddExchangeRate => 'شرح تبادلہ شامل کریں';
 
   @override
-  String get exchEditExchangeRate => 'Edit Exchange Rate';
+  String get exchEditExchangeRate => 'شرح تبادلہ میں ترمیم کریں';
 
   @override
-  String get exchAddRateDescription => 'Manually enter a conversion rate between two currencies';
+  String get exchAddRateDescription => 'دو کرنسیوں کے درمیان تبادلے کی شرح دستی طور پر درج کریں';
 
   @override
-  String get exchNoRatesFound => 'No exchange rates found.';
+  String get exchNoRatesFound => 'کوئی شرح تبادلہ نہیں ملی۔';
 
   @override
-  String get exchChangePreset => 'Change Preset';
+  String get exchChangePreset => 'پیش سیٹ تبدیل کریں';
 
   @override
-  String get exchFromCurrency => 'From Currency';
+  String get exchFromCurrency => 'کرنسی سے';
 
   @override
-  String get exchToCurrency => 'To Currency';
+  String get exchToCurrency => 'کرنسی میں';
 
   @override
-  String get exchRate => 'Rate';
+  String get exchRate => 'شرح';
 
   @override
-  String get exchPresetIdLabel => 'Preset ID';
+  String get exchPresetIdLabel => 'پیش سیٹ آئی ڈی';
 
   @override
   String exchPresetValue(Object preset) {
-    return 'Preset: $preset';
+    return 'پیش سیٹ: $preset';
   }
 
   @override
-  String get exchSelectRange => 'Select Range';
+  String get exchSelectRange => 'رینج منتخب کریں';
 
   @override
-  String get exchPreviousPeriodDescription => 'Go to the previous day, month, or year';
+  String get exchPreviousPeriodDescription => 'پچھلے دن، مہینے یا سال پر جائیں';
 
   @override
-  String get exchNextPeriodDescription => 'Go to the next day, month, or year';
+  String get exchNextPeriodDescription => 'اگلے دن، مہینے یا سال پر جائیں';
 
   @override
-  String get exchFilterDescription => 'Filter rates by from/to currency and preset ID';
+  String get exchFilterDescription => 'کرنسی سے/تک اور پیش سیٹ آئی ڈی کے لحاظ سے شرحیں فلٹر کریں';
 
   @override
-  String get exchSelectDateDescription => 'Choose a specific date or range to view historical rates';
+  String get exchSelectDateDescription => 'تاریخی شرحیں دیکھنے کے لیے مخصوص تاریخ یا رینج منتخب کریں';
 
   @override
-  String get exchSortOrderDescription => 'Switch between ascending and descending date/rate order';
+  String get exchSortOrderDescription => 'تاریخ/شرح کی صعودی اور نزولی ترتیب کے درمیان سوئچ کریں';
 
   @override
-  String get exchFilterExchangeRates => 'Filter Exchange Rates';
+  String get exchFilterExchangeRates => 'شرح تبادلہ فلٹر کریں';
 
   @override
-  String get exchExitSelectionDescription => 'Exit exchange rate selection mode';
+  String get exchExitSelectionDescription => 'شرح تبادلہ کے انتخاب کے موڈ سے باہر نکلیں';
 
   @override
-  String get exchSelectAllDescription => 'Select all listed exchange rates';
+  String get exchSelectAllDescription => 'درج تمام شرح تبادلہ منتخب کریں';
 
   @override
-  String get exchDeselectAllDescription => 'Unselect all rates';
+  String get exchDeselectAllDescription => 'تمام شرحیں غیر منتخب کریں';
 
   @override
-  String get exchChangePresetDescription => 'Update the preset ID for all selected exchange rates';
+  String get exchChangePresetDescription => 'تمام منتخب شرح تبادلہ کے لیے پیش سیٹ آئی ڈی اپ ڈیٹ کریں';
 
   @override
-  String get exchDeleteSelectedDescription => 'Permanently delete all selected exchange rates';
+  String get exchDeleteSelectedDescription => 'تمام منتخب شرح تبادلہ مستقل طور پر حذف کریں';
 
   @override
-  String get exchDeleteExchangeRatesTitle => 'Delete Exchange Rates';
+  String get exchDeleteExchangeRatesTitle => 'شرح تبادلہ حذف کریں';
 
   @override
   String exchDeleteConfirmMessage(Object count) {
-    return 'Are you sure you want to delete $count exchange rates?';
+    return 'کیا آپ واقعی $count شرح تبادلہ حذف کرنا چاہتے ہیں؟';
   }
 
   @override
-  String get exchUpdatePresetTitle => 'Update Preset';
+  String get exchUpdatePresetTitle => 'پیش سیٹ اپ ڈیٹ کریں';
 
   @override
-  String get exchUpdatePresetMessage => 'Enter the new preset ID for the selected items:';
+  String get exchUpdatePresetMessage => 'منتخب آئٹمز کے لیے نئی پیش سیٹ آئی ڈی درج کریں:';
 }

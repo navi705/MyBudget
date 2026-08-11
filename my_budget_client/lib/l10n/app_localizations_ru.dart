@@ -1761,287 +1761,287 @@ class AppLocalizationsRu extends AppLocalizations {
   String get hkActionDataSelectionChangePreset => 'Данные: Изменить пресет';
 
   @override
-  String get styNotFound => 'Style not found.';
+  String get styNotFound => 'Стиль не найден.';
 
   @override
-  String get stySaveChanges => 'Save Changes';
+  String get stySaveChanges => 'Сохранить изменения';
 
   @override
-  String get styAddIcon => 'Add Icon';
+  String get styAddIcon => 'Добавить иконку';
 
   @override
-  String get smsOnlyAndroid => 'SMS import is only available on Android';
+  String get smsOnlyAndroid => 'Импорт SMS доступен только на Android';
 
   @override
-  String get smsImportSms => 'Import SMS';
+  String get smsImportSms => 'Импорт SMS';
 
   @override
-  String get smsPermissionRequired => 'SMS Permission Required';
+  String get smsPermissionRequired => 'Требуется разрешение на SMS';
 
   @override
-  String get smsPermissionRationale => 'To import transactions from SMS, we need permission to read your messages.';
+  String get smsPermissionRationale => 'Для импорта транзакций из SMS нам нужно разрешение на чтение ваших сообщений.';
 
   @override
-  String get smsGrantPermission => 'Grant Permission';
+  String get smsGrantPermission => 'Предоставить разрешение';
 
   @override
-  String get smsNoPresets => 'No presets configured. Tap + to add one.';
+  String get smsNoPresets => 'Пресеты не настроены. Нажмите +, чтобы добавить.';
 
   @override
-  String get smsImportDescription => 'Import transactions from SMS messages. Choose a time range:';
+  String get smsImportDescription => 'Импорт транзакций из SMS-сообщений. Выберите период:';
 
   @override
-  String get smsLast7Days => 'Last 7 Days';
+  String get smsLast7Days => 'Последние 7 дней';
 
   @override
-  String get smsAllTime => 'All Time';
+  String get smsAllTime => 'За всё время';
 
   @override
   String smsFilterLabel(Object filter) {
-    return 'Filter: $filter';
+    return 'Фильтр: $filter';
   }
 
   @override
-  String get smsEditPreset => 'Edit Preset';
+  String get smsEditPreset => 'Редактировать пресет';
 
   @override
-  String get smsNewPreset => 'New Preset';
+  String get smsNewPreset => 'Новый пресет';
 
   @override
-  String get smsPresetNameHint => 'e.g., My Bank';
+  String get smsPresetNameHint => 'напр., Мой банк';
 
   @override
-  String get smsSenderFilter => 'Sender Filter';
+  String get smsSenderFilter => 'Фильтр отправителя';
 
   @override
-  String get smsSenderFilterHint => 'e.g., ALTA or +381...';
+  String get smsSenderFilterHint => 'напр., ALTA или +381...';
 
   @override
-  String get smsSenderFilterHelper => 'Filter SMS by sender name or phone number';
+  String get smsSenderFilterHelper => 'Фильтровать SMS по имени отправителя или номеру телефона';
 
   @override
-  String get smsDefaults => 'Defaults';
+  String get smsDefaults => 'По умолчанию';
 
   @override
-  String get smsDefaultAccount => 'Default Account';
+  String get smsDefaultAccount => 'Счет по умолчанию';
 
   @override
-  String get smsDefaultCategory => 'Default Category';
+  String get smsDefaultCategory => 'Категория по умолчанию';
 
   @override
-  String get smsImportMessages => 'Import Messages';
+  String get smsImportMessages => 'Импортировать сообщения';
 
   @override
-  String get smsSelectDefaultsFirst => 'Select defaults first';
+  String get smsSelectDefaultsFirst => 'Сначала выберите значения по умолчанию';
 
   @override
-  String get smsCustomRange => 'Custom Range';
+  String get smsCustomRange => 'Свой диапазон';
 
   @override
   String smsImportSuccessCount(Object count) {
-    return 'Success: $count transactions imported';
+    return 'Успешно: импортировано $count транзакций';
   }
 
   @override
-  String get smsParsingRules => 'Parsing Rules';
+  String get smsParsingRules => 'Правила разбора';
 
   @override
-  String get smsNoRules => 'No rules defined. Tap + to add one.';
+  String get smsNoRules => 'Правила не заданы. Нажмите +, чтобы добавить.';
 
   @override
   String smsMatchLabel(Object pattern) {
-    return 'Match: $pattern';
+    return 'Совпадение: $pattern';
   }
 
   @override
-  String get smsNameSenderRequired => 'Name and sender filter are required';
+  String get smsNameSenderRequired => 'Требуются название и фильтр отправителя';
 
   @override
-  String get smsCategoryKeywords => 'Category Keywords';
+  String get smsCategoryKeywords => 'Ключевые слова категорий';
 
   @override
-  String get smsCategoryKeywordsSubtitle => 'Map keywords in SMS body to categories';
+  String get smsCategoryKeywordsSubtitle => 'Сопоставление ключевых слов в тексте SMS с категориями';
 
   @override
-  String get smsNoKeywordRules => 'No keyword rules. Tap + to add one.';
+  String get smsNoKeywordRules => 'Нет правил по ключевым словам. Нажмите +, чтобы добавить.';
 
   @override
-  String get smsAddKeywordRule => 'Add Keyword Rule';
+  String get smsAddKeywordRule => 'Добавить правило ключевого слова';
 
   @override
-  String get smsKeyword => 'Keyword';
+  String get smsKeyword => 'Ключевое слово';
 
   @override
-  String get smsKeywordHint => 'e.g., Grocery, Netflix';
+  String get smsKeywordHint => 'напр., Продукты, Netflix';
 
   @override
-  String get smsKeywordHelper => 'Case-insensitive substring to match in SMS body';
+  String get smsKeywordHelper => 'Подстрока для поиска в тексте SMS (без учета регистра)';
 
   @override
-  String get smsSelectCategoryHint => 'Select category';
+  String get smsSelectCategoryHint => 'Выберите категорию';
 
   @override
-  String get dshSelectDateDescription => 'Open calendar to pick a specific date or range';
+  String get dshSelectDateDescription => 'Открыть календарь для выбора даты или диапазона';
 
   @override
-  String get dshCurrencyDescription => 'Select the primary currency for display';
+  String get dshCurrencyDescription => 'Выбрать основную валюту для отображения';
 
   @override
-  String get dshChangeViewTooltip => 'Change View';
+  String get dshChangeViewTooltip => 'Изменить вид';
 
   @override
-  String get dshChangeViewDescription => 'Switch between Monthly and Yearly views';
+  String get dshChangeViewDescription => 'Переключение между месячным и годовым видом';
 
   @override
-  String get dshMonthlyAbbreviation => 'M';
+  String get dshMonthlyAbbreviation => 'М';
 
   @override
-  String get dshYearlyAbbreviation => 'Y';
+  String get dshYearlyAbbreviation => 'Г';
 
   @override
   String dshBalancesOnDate(Object date) {
-    return 'Balances on $date';
+    return 'Балансы на $date';
   }
 
   @override
-  String get dshSearchCurrency => 'Search Currency';
+  String get dshSearchCurrency => 'Поиск валюты';
 
   @override
-  String get dshUnknownCategory => 'Unknown';
+  String get dshUnknownCategory => 'Неизвестно';
 
   @override
-  String get pckSelectItem => 'Select Item';
+  String get pckSelectItem => 'Выберите элемент';
 
   @override
-  String get pckSelectItems => 'Select Items';
+  String get pckSelectItems => 'Выберите элементы';
 
   @override
-  String get pckClearAll => 'Clear All';
+  String get pckClearAll => 'Очистить все';
 
   @override
-  String get pckSelectIcon => 'Select Icon';
+  String get pckSelectIcon => 'Выберите иконку';
 
   @override
-  String get pckMaterialIcons => 'Material Icons';
+  String get pckMaterialIcons => 'Иконки Material';
 
   @override
-  String get pckCustomIcons => 'Custom Icons';
+  String get pckCustomIcons => 'Пользовательские иконки';
 
   @override
-  String get fltAmountFrom => 'Amount From';
+  String get fltAmountFrom => 'Сумма от';
 
   @override
-  String get fltAmountTo => 'Amount To';
+  String get fltAmountTo => 'Сумма до';
 
   @override
-  String get fltSelectRange => 'Select Range';
+  String get fltSelectRange => 'Выбрать диапазон';
 
   @override
-  String get fltAdvancedFilterTooltip => 'Advanced Filter';
+  String get fltAdvancedFilterTooltip => 'Расширенный фильтр';
 
   @override
-  String get fltAdvancedFilterDescription => 'Filter transactions by account, category, or amount';
+  String get fltAdvancedFilterDescription => 'Фильтровать транзакции по счету, категории или сумме';
 
   @override
-  String get fltSortOrderDescription => 'Toggle between ascending and descending order';
+  String get fltSortOrderDescription => 'Переключение между возрастающим и убывающим порядком';
 
   @override
-  String get fltAccountFiltersTitle => 'Account Filters';
+  String get fltAccountFiltersTitle => 'Фильтры счетов';
 
   @override
-  String get fltNameLabel => 'Name';
+  String get fltNameLabel => 'Название';
 
   @override
-  String get fltAccountTypesLabel => 'Account Types';
+  String get fltAccountTypesLabel => 'Типы счетов';
 
   @override
-  String get fltFilterCurrenciesLabel => 'Filter Currencies';
+  String get fltFilterCurrenciesLabel => 'Фильтр валют';
 
   @override
-  String get fltSelectCurrenciesLabel => 'Select Currencies';
+  String get fltSelectCurrenciesLabel => 'Выберите валюты';
 
   @override
-  String get fltFilterCategoriesTitle => 'Filter Categories';
+  String get fltFilterCategoriesTitle => 'Фильтр категорий';
 
   @override
-  String get exchAddExchangeRate => 'Add Exchange Rate';
+  String get exchAddExchangeRate => 'Добавить курс валют';
 
   @override
-  String get exchEditExchangeRate => 'Edit Exchange Rate';
+  String get exchEditExchangeRate => 'Редактировать курс валют';
 
   @override
-  String get exchAddRateDescription => 'Manually enter a conversion rate between two currencies';
+  String get exchAddRateDescription => 'Ввести курс конвертации между двумя валютами вручную';
 
   @override
-  String get exchNoRatesFound => 'No exchange rates found.';
+  String get exchNoRatesFound => 'Курсы валют не найдены.';
 
   @override
-  String get exchChangePreset => 'Change Preset';
+  String get exchChangePreset => 'Изменить пресет';
 
   @override
-  String get exchFromCurrency => 'From Currency';
+  String get exchFromCurrency => 'Из валюты';
 
   @override
-  String get exchToCurrency => 'To Currency';
+  String get exchToCurrency => 'В валюту';
 
   @override
-  String get exchRate => 'Rate';
+  String get exchRate => 'Курс';
 
   @override
-  String get exchPresetIdLabel => 'Preset ID';
+  String get exchPresetIdLabel => 'ID пресета';
 
   @override
   String exchPresetValue(Object preset) {
-    return 'Preset: $preset';
+    return 'Пресет: $preset';
   }
 
   @override
-  String get exchSelectRange => 'Select Range';
+  String get exchSelectRange => 'Выбрать диапазон';
 
   @override
-  String get exchPreviousPeriodDescription => 'Go to the previous day, month, or year';
+  String get exchPreviousPeriodDescription => 'Перейти к предыдущему дню, месяцу или году';
 
   @override
-  String get exchNextPeriodDescription => 'Go to the next day, month, or year';
+  String get exchNextPeriodDescription => 'Перейти к следующему дню, месяцу или году';
 
   @override
-  String get exchFilterDescription => 'Filter rates by from/to currency and preset ID';
+  String get exchFilterDescription => 'Фильтровать курсы по валютам и ID пресета';
 
   @override
-  String get exchSelectDateDescription => 'Choose a specific date or range to view historical rates';
+  String get exchSelectDateDescription => 'Выбрать дату или диапазон для просмотра исторических курсов';
 
   @override
-  String get exchSortOrderDescription => 'Switch between ascending and descending date/rate order';
+  String get exchSortOrderDescription => 'Переключение между возрастающим и убывающим порядком по дате/курсу';
 
   @override
-  String get exchFilterExchangeRates => 'Filter Exchange Rates';
+  String get exchFilterExchangeRates => 'Фильтр курсов валют';
 
   @override
-  String get exchExitSelectionDescription => 'Exit exchange rate selection mode';
+  String get exchExitSelectionDescription => 'Выйти из режима выбора курсов';
 
   @override
-  String get exchSelectAllDescription => 'Select all listed exchange rates';
+  String get exchSelectAllDescription => 'Выбрать все показанные курсы валют';
 
   @override
-  String get exchDeselectAllDescription => 'Unselect all rates';
+  String get exchDeselectAllDescription => 'Снять выделение со всех курсов';
 
   @override
-  String get exchChangePresetDescription => 'Update the preset ID for all selected exchange rates';
+  String get exchChangePresetDescription => 'Обновить ID пресета для всех выбранных курсов';
 
   @override
-  String get exchDeleteSelectedDescription => 'Permanently delete all selected exchange rates';
+  String get exchDeleteSelectedDescription => 'Безвозвратно удалить все выбранные курсы';
 
   @override
-  String get exchDeleteExchangeRatesTitle => 'Delete Exchange Rates';
+  String get exchDeleteExchangeRatesTitle => 'Удалить курсы валют';
 
   @override
   String exchDeleteConfirmMessage(Object count) {
-    return 'Are you sure you want to delete $count exchange rates?';
+    return 'Вы уверены, что хотите удалить $count курсов валют?';
   }
 
   @override
-  String get exchUpdatePresetTitle => 'Update Preset';
+  String get exchUpdatePresetTitle => 'Обновить пресет';
 
   @override
-  String get exchUpdatePresetMessage => 'Enter the new preset ID for the selected items:';
+  String get exchUpdatePresetMessage => 'Введите новый ID пресета для выбранных элементов:';
 }

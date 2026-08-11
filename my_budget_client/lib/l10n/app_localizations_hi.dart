@@ -1759,287 +1759,287 @@ class AppLocalizationsHi extends AppLocalizations {
   String get hkActionDataSelectionChangePreset => 'डेटा: प्रीसेट बदलें';
 
   @override
-  String get styNotFound => 'Style not found.';
+  String get styNotFound => 'शैली नहीं मिली।';
 
   @override
-  String get stySaveChanges => 'Save Changes';
+  String get stySaveChanges => 'परिवर्तन सहेजें';
 
   @override
-  String get styAddIcon => 'Add Icon';
+  String get styAddIcon => 'आइकन जोड़ें';
 
   @override
-  String get smsOnlyAndroid => 'SMS import is only available on Android';
+  String get smsOnlyAndroid => 'एसएमएस आयात केवल Android पर उपलब्ध है';
 
   @override
-  String get smsImportSms => 'Import SMS';
+  String get smsImportSms => 'एसएमएस आयात करें';
 
   @override
-  String get smsPermissionRequired => 'SMS Permission Required';
+  String get smsPermissionRequired => 'एसएमएस अनुमति आवश्यक';
 
   @override
-  String get smsPermissionRationale => 'To import transactions from SMS, we need permission to read your messages.';
+  String get smsPermissionRationale => 'एसएमएस से लेन-देन आयात करने के लिए, हमें आपके संदेश पढ़ने की अनुमति चाहिए।';
 
   @override
-  String get smsGrantPermission => 'Grant Permission';
+  String get smsGrantPermission => 'अनुमति दें';
 
   @override
-  String get smsNoPresets => 'No presets configured. Tap + to add one.';
+  String get smsNoPresets => 'कोई प्रीसेट कॉन्फ़िगर नहीं किया गया। जोड़ने के लिए + पर टैप करें।';
 
   @override
-  String get smsImportDescription => 'Import transactions from SMS messages. Choose a time range:';
+  String get smsImportDescription => 'एसएमएस संदेशों से लेन-देन आयात करें। एक समय सीमा चुनें:';
 
   @override
-  String get smsLast7Days => 'Last 7 Days';
+  String get smsLast7Days => 'पिछले 7 दिन';
 
   @override
-  String get smsAllTime => 'All Time';
+  String get smsAllTime => 'सभी समय';
 
   @override
   String smsFilterLabel(Object filter) {
-    return 'Filter: $filter';
+    return 'फ़िल्टर: $filter';
   }
 
   @override
-  String get smsEditPreset => 'Edit Preset';
+  String get smsEditPreset => 'प्रीसेट संपादित करें';
 
   @override
-  String get smsNewPreset => 'New Preset';
+  String get smsNewPreset => 'नया प्रीसेट';
 
   @override
-  String get smsPresetNameHint => 'e.g., My Bank';
+  String get smsPresetNameHint => 'उदा., मेरा बैंक';
 
   @override
-  String get smsSenderFilter => 'Sender Filter';
+  String get smsSenderFilter => 'प्रेषक फ़िल्टर';
 
   @override
-  String get smsSenderFilterHint => 'e.g., ALTA or +381...';
+  String get smsSenderFilterHint => 'उदा., ALTA या +381...';
 
   @override
-  String get smsSenderFilterHelper => 'Filter SMS by sender name or phone number';
+  String get smsSenderFilterHelper => 'प्रेषक नाम या फ़ोन नंबर द्वारा एसएमएस फ़िल्टर करें';
 
   @override
-  String get smsDefaults => 'Defaults';
+  String get smsDefaults => 'डिफ़ॉल्ट';
 
   @override
-  String get smsDefaultAccount => 'Default Account';
+  String get smsDefaultAccount => 'डिफ़ॉल्ट खाता';
 
   @override
-  String get smsDefaultCategory => 'Default Category';
+  String get smsDefaultCategory => 'डिफ़ॉल्ट श्रेणी';
 
   @override
-  String get smsImportMessages => 'Import Messages';
+  String get smsImportMessages => 'संदेश आयात करें';
 
   @override
-  String get smsSelectDefaultsFirst => 'Select defaults first';
+  String get smsSelectDefaultsFirst => 'पहले डिफ़ॉल्ट चुनें';
 
   @override
-  String get smsCustomRange => 'Custom Range';
+  String get smsCustomRange => 'कस्टम रेंज';
 
   @override
   String smsImportSuccessCount(Object count) {
-    return 'Success: $count transactions imported';
+    return 'सफल: $count लेन-देन आयात किए गए';
   }
 
   @override
-  String get smsParsingRules => 'Parsing Rules';
+  String get smsParsingRules => 'पार्सिंग नियम';
 
   @override
-  String get smsNoRules => 'No rules defined. Tap + to add one.';
+  String get smsNoRules => 'कोई नियम परिभाषित नहीं। जोड़ने के लिए + पर टैप करें।';
 
   @override
   String smsMatchLabel(Object pattern) {
-    return 'Match: $pattern';
+    return 'मैच: $pattern';
   }
 
   @override
-  String get smsNameSenderRequired => 'Name and sender filter are required';
+  String get smsNameSenderRequired => 'नाम और प्रेषक फ़िल्टर आवश्यक हैं';
 
   @override
-  String get smsCategoryKeywords => 'Category Keywords';
+  String get smsCategoryKeywords => 'श्रेणी कीवर्ड';
 
   @override
-  String get smsCategoryKeywordsSubtitle => 'Map keywords in SMS body to categories';
+  String get smsCategoryKeywordsSubtitle => 'एसएमएस के मुख्य भाग के कीवर्ड को श्रेणियों से मैप करें';
 
   @override
-  String get smsNoKeywordRules => 'No keyword rules. Tap + to add one.';
+  String get smsNoKeywordRules => 'कोई कीवर्ड नियम नहीं। जोड़ने के लिए + पर टैप करें।';
 
   @override
-  String get smsAddKeywordRule => 'Add Keyword Rule';
+  String get smsAddKeywordRule => 'कीवर्ड नियम जोड़ें';
 
   @override
-  String get smsKeyword => 'Keyword';
+  String get smsKeyword => 'कीवर्ड';
 
   @override
-  String get smsKeywordHint => 'e.g., Grocery, Netflix';
+  String get smsKeywordHint => 'उदा., किराना, Netflix';
 
   @override
-  String get smsKeywordHelper => 'Case-insensitive substring to match in SMS body';
+  String get smsKeywordHelper => 'एसएमएस के मुख्य भाग में मिलान के लिए सबस्ट्रिंग (केस-असंवेदनशील)';
 
   @override
-  String get smsSelectCategoryHint => 'Select category';
+  String get smsSelectCategoryHint => 'श्रेणी चुनें';
 
   @override
-  String get dshSelectDateDescription => 'Open calendar to pick a specific date or range';
+  String get dshSelectDateDescription => 'विशिष्ट दिनांक या सीमा चुनने के लिए कैलेंडर खोलें';
 
   @override
-  String get dshCurrencyDescription => 'Select the primary currency for display';
+  String get dshCurrencyDescription => 'प्रदर्शन के लिए मुख्य मुद्रा चुनें';
 
   @override
-  String get dshChangeViewTooltip => 'Change View';
+  String get dshChangeViewTooltip => 'दृश्य बदलें';
 
   @override
-  String get dshChangeViewDescription => 'Switch between Monthly and Yearly views';
+  String get dshChangeViewDescription => 'मासिक और वार्षिक दृश्य के बीच स्विच करें';
 
   @override
-  String get dshMonthlyAbbreviation => 'M';
+  String get dshMonthlyAbbreviation => 'मा';
 
   @override
-  String get dshYearlyAbbreviation => 'Y';
+  String get dshYearlyAbbreviation => 'व';
 
   @override
   String dshBalancesOnDate(Object date) {
-    return 'Balances on $date';
+    return '$date को शेष राशि';
   }
 
   @override
-  String get dshSearchCurrency => 'Search Currency';
+  String get dshSearchCurrency => 'मुद्रा खोजें';
 
   @override
-  String get dshUnknownCategory => 'Unknown';
+  String get dshUnknownCategory => 'अज्ञात';
 
   @override
-  String get pckSelectItem => 'Select Item';
+  String get pckSelectItem => 'एक आइटम चुनें';
 
   @override
-  String get pckSelectItems => 'Select Items';
+  String get pckSelectItems => 'आइटम चुनें';
 
   @override
-  String get pckClearAll => 'Clear All';
+  String get pckClearAll => 'सभी साफ़ करें';
 
   @override
-  String get pckSelectIcon => 'Select Icon';
+  String get pckSelectIcon => 'आइकन चुनें';
 
   @override
-  String get pckMaterialIcons => 'Material Icons';
+  String get pckMaterialIcons => 'Material आइकन';
 
   @override
-  String get pckCustomIcons => 'Custom Icons';
+  String get pckCustomIcons => 'कस्टम आइकन';
 
   @override
-  String get fltAmountFrom => 'Amount From';
+  String get fltAmountFrom => 'राशि से';
 
   @override
-  String get fltAmountTo => 'Amount To';
+  String get fltAmountTo => 'राशि तक';
 
   @override
-  String get fltSelectRange => 'Select Range';
+  String get fltSelectRange => 'रेंज चुनें';
 
   @override
-  String get fltAdvancedFilterTooltip => 'Advanced Filter';
+  String get fltAdvancedFilterTooltip => 'उन्नत फ़िल्टर';
 
   @override
-  String get fltAdvancedFilterDescription => 'Filter transactions by account, category, or amount';
+  String get fltAdvancedFilterDescription => 'खाता, श्रेणी या राशि द्वारा लेन-देन फ़िल्टर करें';
 
   @override
-  String get fltSortOrderDescription => 'Toggle between ascending and descending order';
+  String get fltSortOrderDescription => 'आरोही और अवरोही क्रम के बीच स्विच करें';
 
   @override
-  String get fltAccountFiltersTitle => 'Account Filters';
+  String get fltAccountFiltersTitle => 'खाता फ़िल्टर';
 
   @override
-  String get fltNameLabel => 'Name';
+  String get fltNameLabel => 'नाम';
 
   @override
-  String get fltAccountTypesLabel => 'Account Types';
+  String get fltAccountTypesLabel => 'खाता प्रकार';
 
   @override
-  String get fltFilterCurrenciesLabel => 'Filter Currencies';
+  String get fltFilterCurrenciesLabel => 'मुद्राएं फ़िल्टर करें';
 
   @override
-  String get fltSelectCurrenciesLabel => 'Select Currencies';
+  String get fltSelectCurrenciesLabel => 'मुद्राएं चुनें';
 
   @override
-  String get fltFilterCategoriesTitle => 'Filter Categories';
+  String get fltFilterCategoriesTitle => 'श्रेणियां फ़िल्टर करें';
 
   @override
-  String get exchAddExchangeRate => 'Add Exchange Rate';
+  String get exchAddExchangeRate => 'विनिमय दर जोड़ें';
 
   @override
-  String get exchEditExchangeRate => 'Edit Exchange Rate';
+  String get exchEditExchangeRate => 'विनिमय दर संपादित करें';
 
   @override
-  String get exchAddRateDescription => 'Manually enter a conversion rate between two currencies';
+  String get exchAddRateDescription => 'दो मुद्राओं के बीच रूपांतरण दर मैन्युअल रूप से दर्ज करें';
 
   @override
-  String get exchNoRatesFound => 'No exchange rates found.';
+  String get exchNoRatesFound => 'कोई विनिमय दर नहीं मिली।';
 
   @override
-  String get exchChangePreset => 'Change Preset';
+  String get exchChangePreset => 'प्रीसेट बदलें';
 
   @override
-  String get exchFromCurrency => 'From Currency';
+  String get exchFromCurrency => 'स्रोत मुद्रा';
 
   @override
-  String get exchToCurrency => 'To Currency';
+  String get exchToCurrency => 'लक्ष्य मुद्रा';
 
   @override
-  String get exchRate => 'Rate';
+  String get exchRate => 'दर';
 
   @override
-  String get exchPresetIdLabel => 'Preset ID';
+  String get exchPresetIdLabel => 'प्रीसेट आईडी';
 
   @override
   String exchPresetValue(Object preset) {
-    return 'Preset: $preset';
+    return 'प्रीसेट: $preset';
   }
 
   @override
-  String get exchSelectRange => 'Select Range';
+  String get exchSelectRange => 'रेंज चुनें';
 
   @override
-  String get exchPreviousPeriodDescription => 'Go to the previous day, month, or year';
+  String get exchPreviousPeriodDescription => 'पिछले दिन, महीने या साल पर जाएं';
 
   @override
-  String get exchNextPeriodDescription => 'Go to the next day, month, or year';
+  String get exchNextPeriodDescription => 'अगले दिन, महीने या साल पर जाएं';
 
   @override
-  String get exchFilterDescription => 'Filter rates by from/to currency and preset ID';
+  String get exchFilterDescription => 'स्रोत/लक्ष्य मुद्रा और प्रीसेट आईडी द्वारा दरें फ़िल्टर करें';
 
   @override
-  String get exchSelectDateDescription => 'Choose a specific date or range to view historical rates';
+  String get exchSelectDateDescription => 'ऐतिहासिक दरें देखने के लिए विशिष्ट दिनांक या सीमा चुनें';
 
   @override
-  String get exchSortOrderDescription => 'Switch between ascending and descending date/rate order';
+  String get exchSortOrderDescription => 'दिनांक/दर के अनुसार आरोही और अवरोही क्रम के बीच स्विच करें';
 
   @override
-  String get exchFilterExchangeRates => 'Filter Exchange Rates';
+  String get exchFilterExchangeRates => 'विनिमय दरें फ़िल्टर करें';
 
   @override
-  String get exchExitSelectionDescription => 'Exit exchange rate selection mode';
+  String get exchExitSelectionDescription => 'विनिमय दर चयन मोड से बाहर निकलें';
 
   @override
-  String get exchSelectAllDescription => 'Select all listed exchange rates';
+  String get exchSelectAllDescription => 'सूचीबद्ध सभी विनिमय दरें चुनें';
 
   @override
-  String get exchDeselectAllDescription => 'Unselect all rates';
+  String get exchDeselectAllDescription => 'सभी दरें अचयनित करें';
 
   @override
-  String get exchChangePresetDescription => 'Update the preset ID for all selected exchange rates';
+  String get exchChangePresetDescription => 'सभी चयनित विनिमय दरों के लिए प्रीसेट आईडी अपडेट करें';
 
   @override
-  String get exchDeleteSelectedDescription => 'Permanently delete all selected exchange rates';
+  String get exchDeleteSelectedDescription => 'सभी चयनित विनिमय दरें स्थायी रूप से हटाएं';
 
   @override
-  String get exchDeleteExchangeRatesTitle => 'Delete Exchange Rates';
+  String get exchDeleteExchangeRatesTitle => 'विनिमय दरें हटाएं';
 
   @override
   String exchDeleteConfirmMessage(Object count) {
-    return 'Are you sure you want to delete $count exchange rates?';
+    return 'क्या आप वाकई $count विनिमय दरें हटाना चाहते हैं?';
   }
 
   @override
-  String get exchUpdatePresetTitle => 'Update Preset';
+  String get exchUpdatePresetTitle => 'प्रीसेट अपडेट करें';
 
   @override
-  String get exchUpdatePresetMessage => 'Enter the new preset ID for the selected items:';
+  String get exchUpdatePresetMessage => 'चयनित आइटम के लिए नया प्रीसेट आईडी दर्ज करें:';
 }
