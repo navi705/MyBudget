@@ -202,8 +202,14 @@ class _AccountsScreenState extends State<AccountsScreen> {
   /// Both account fields on the transfer form drop asset accounts, so a wallet
   /// plus a gold holding is still only one usable account and the form's second
   /// picker would have nothing in it.
+  ///
+  /// Counted over every account, not over `state.accounts`: that list is the
+  /// grid's page *after* the type/currency/name filter, while the form's
+  /// pickers are fed from the whole table. Reading the filtered list refused a
+  /// transfer between two perfectly good accounts as soon as a filter hid one
+  /// of them.
   static int _transferableAccountCount(AccountsLoadSuccess state) =>
-      state.accounts.where((a) => a.assetId == null).length;
+      state.unfilteredTransferableAccountCount;
 
   /// True once the categories have actually loaded and there are none.
   ///

@@ -40,6 +40,25 @@ abstract class AccountsState extends Equatable {
     bool clearError = false,
   });
 
+  /// How many accounts exist at all, ignoring [filters].
+  ///
+  /// [accounts] is the list *after* [AccountFilters] were applied, so counting
+  /// it answers "how many match the current filter" - not "does this user own
+  /// an account". A guard that asks the second question and reads the first
+  /// list refuses to open a form whenever a type/currency/name filter happens
+  /// to hide everything, even though the accounts are right there.
+  ///
+  /// States that never loaded anything report 0, which is why every guard also
+  /// has to check for [AccountsLoadSuccess] before believing this.
+  int get unfilteredAccountCount => accounts.length;
+
+  /// Of [unfilteredAccountCount], how many a transfer can actually use.
+  ///
+  /// Both account fields on the transfer form drop asset accounts, so a wallet
+  /// plus a gold holding is still only one usable account.
+  int get unfilteredTransferableAccountCount =>
+      accounts.where((a) => a.assetId == null).length;
+
   // Default values for properties that are common across states
   List<Account> get accounts => [];
   List<AccountType> get accountTypes => [];
@@ -153,6 +172,24 @@ class AccountsLoadSuccess extends AccountsState {
   final double income;
   final double expense;
 
+  /// The unfiltered counts as the repository reported them, or null when this
+  /// state was built without them.
+  ///
+  /// Null falls back to counting [accounts] - the filtered page - which is
+  /// exactly what the guards read before this field existed. A construction
+  /// site that forgets to pass them therefore degrades to the old behaviour
+  /// instead of claiming the user owns no accounts at all.
+  final int? _unfilteredAccountCount;
+  final int? _unfilteredTransferableAccountCount;
+
+  @override
+  int get unfilteredAccountCount => _unfilteredAccountCount ?? accounts.length;
+
+  @override
+  int get unfilteredTransferableAccountCount =>
+      _unfilteredTransferableAccountCount ??
+      accounts.where((a) => a.assetId == null).length;
+
   const AccountsLoadSuccess({
     required this.accounts,
     required this.accountTypes,
@@ -186,7 +223,10 @@ class AccountsLoadSuccess extends AccountsState {
     this.income = 0.0,
     this.expense = 0.0,
     super.error,
-  });
+    int? unfilteredAccountCount,
+    int? unfilteredTransferableAccountCount,
+  }) : _unfilteredAccountCount = unfilteredAccountCount,
+       _unfilteredTransferableAccountCount = unfilteredTransferableAccountCount;
 
   @override
   AccountsLoadSuccess copyWith({
@@ -224,8 +264,17 @@ class AccountsLoadSuccess extends AccountsState {
     double? expense,
     String? error,
     bool clearError = false,
+    int? unfilteredAccountCount,
+    int? unfilteredTransferableAccountCount,
   }) {
     return AccountsLoadSuccess(
+      // The *raw* fields are carried over, not the getters: a state that was
+      // built without them must keep tracking whatever `accounts` it is copied
+      // with, rather than freezing the old fallback into place.
+      unfilteredAccountCount: unfilteredAccountCount ?? _unfilteredAccountCount,
+      unfilteredTransferableAccountCount:
+          unfilteredTransferableAccountCount ??
+          _unfilteredTransferableAccountCount,
       accounts: accounts ?? this.accounts,
       accountTypes: accountTypes ?? this.accountTypes,
       hasReachedMax: hasReachedMax ?? this.hasReachedMax,
@@ -306,6 +355,8 @@ class AccountsLoadSuccess extends AccountsState {
     // Without this the second failed save in a row emits an equal state and
     // bloc drops it, so the SnackBar never comes back.
     error,
+    _unfilteredAccountCount,
+    _unfilteredTransferableAccountCount,
   ];
 }
 

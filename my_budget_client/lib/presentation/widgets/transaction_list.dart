@@ -43,11 +43,16 @@ class _TransactionListState extends State<TransactionList> {
 
   /// True once the accounts have actually loaded and there are none.
   ///
-  /// Every other [AccountsState] reports an empty list while the load is still
-  /// running, so treating "empty" as "no accounts" everywhere would refuse taps
-  /// on the first frame of a normal launch.
+  /// Every other [AccountsState] reports no accounts while the load is still
+  /// running, so treating that as "no accounts" everywhere would refuse taps on
+  /// the first frame of a normal launch.
+  ///
+  /// The unfiltered count, not `state.accounts`: that list is the accounts
+  /// screen's page after its type/currency/name filter, and the form's account
+  /// picker is fed from the whole table. Reading it refused the form whenever a
+  /// filter left the accounts grid empty.
   static bool _hasNoAccounts(AccountsState state) =>
-      state is AccountsLoadSuccess && state.accounts.isEmpty;
+      state is AccountsLoadSuccess && state.unfilteredAccountCount == 0;
 
   /// The single door to the transaction form for this list.
   ///

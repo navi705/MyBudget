@@ -289,6 +289,12 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
         _inflationRepository.getInflationRates(),
         _assetRepository.getAssetData(), // Include assets in initial fetch
         _categoryRepository.getCategories(), // Added
+        // Every account, with no AccountFilters applied. The paginated fetch
+        // above is what the grid shows, so counting it answers "how many match
+        // the filter" - screens that refuse to open a form until an account
+        // exists need "how many exist", which an active filter must not change.
+        // Runs inside this same Future.wait, so it costs no extra latency.
+        _accountRepository.getAccounts(),
       ]);
       await PerformanceLogger().stop('Accounts: Future.wait');
 
@@ -299,6 +305,15 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
       final inflationRates = results[4] as List<InflationRateDomain>;
       final assets = results[5] as List<AssetDataDomain>;
       final categories = results[6] as List<Category>; // Added
+      final unfilteredAccounts = results[7] as List<Account>;
+
+      // Only the two counts are kept: the list itself would be a second copy of
+      // data the grid already holds, and the guards only ever ask "any?" and
+      // "at least two transferable?".
+      final unfilteredAccountCount = unfilteredAccounts.length;
+      final unfilteredTransferableAccountCount = unfilteredAccounts
+          .where((a) => a.assetId == null)
+          .length;
 
       // Transaction loading is scoped to exactly what each calculation needs,
       // instead of pulling the full history into Dart:
@@ -605,6 +620,11 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
           income: income,
           expense: expense,
           recentlyDeletedAccount: state.recentlyDeletedAccount,
+          // The only place an AccountsLoadSuccess is built from scratch; every
+          // other emit goes through copyWith, which carries these forward.
+          unfilteredAccountCount: unfilteredAccountCount,
+          unfilteredTransferableAccountCount:
+              unfilteredTransferableAccountCount,
         ),
       );
       await PerformanceLogger().stop('Accounts Screen Load');
