@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dart_frog/dart_frog.dart';
 import 'package:my_budget_server/data/sync_repository.dart';
+import 'package:my_budget_server/http/api_responses.dart';
 
 Future<Response> onRequest(RequestContext context) async {
   if (context.request.method != HttpMethod.get) {
@@ -20,9 +21,7 @@ Future<Response> onRequest(RequestContext context) async {
       'server_timestamp': result.lastTimestamp,
       'has_more': result.hasMore,
     });
-  } catch (e) {
-    return Response.json(
-        statusCode: HttpStatus.internalServerError,
-        body: {'error': e.toString()});
+  } catch (e, stackTrace) {
+    return internalError('GET /api/sync/full', e, stackTrace);
   }
 }

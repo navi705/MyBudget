@@ -11,6 +11,9 @@ dependencies:
   postgres: ^3.4.4
   uuid: ^4.5.1
   dart_frog_web_socket: ^1.0.1
+  # lib/ws/sync_controller.dart imports WebSocketChannel directly, so it is a
+  # direct dependency, not one borrowed from dart_frog_web_socket.
+  web_socket_channel: ^3.0.3
 
 dev_dependencies:
   dart_frog_lint: ^0.1.0

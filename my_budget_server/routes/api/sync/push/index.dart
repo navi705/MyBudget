@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dart_frog/dart_frog.dart';
 import 'package:my_budget_server/data/sync_repository.dart';
+import 'package:my_budget_server/http/api_responses.dart';
 import 'package:my_budget_server/ws/sync_controller.dart';
 
 Future<Response> onRequest(RequestContext context) async {
@@ -43,9 +44,7 @@ Future<Response> onRequest(RequestContext context) async {
       'success': true,
       'timestamp': DateTime.now().millisecondsSinceEpoch
     });
-  } catch (e) {
-    return Response.json(
-        statusCode: HttpStatus.internalServerError,
-        body: {'error': e.toString()});
+  } catch (e, stackTrace) {
+    return internalError('POST /api/sync/push', e, stackTrace);
   }
 }

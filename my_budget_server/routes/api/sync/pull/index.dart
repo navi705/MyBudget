@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dart_frog/dart_frog.dart';
 import 'package:my_budget_server/data/sync_repository.dart';
+import 'package:my_budget_server/http/api_responses.dart';
 
 Future<Response> onRequest(RequestContext context) async {
   if (context.request.method != HttpMethod.get) {
@@ -10,14 +11,12 @@ Future<Response> onRequest(RequestContext context) async {
   }
 
   final params = context.request.uri.queryParameters;
-  final lastSyncStr = params['last_sync'];
-  final lastSync = lastSyncStr != null ? int.tryParse(lastSyncStr) ?? 0 : 0;
+  final lastSync = parseLastSync(params['last_sync']);
 
   final repo = context.read<SyncRepository>();
 
   try {
-    final limitStr = params['limit'];
-    final limit = limitStr != null ? int.tryParse(limitStr) ?? 5000 : 5000;
+    final limit = parsePullLimit(params['limit']);
 
     final result = await repo.getChanges(lastSync, limit: limit);
 
@@ -26,9 +25,7 @@ Future<Response> onRequest(RequestContext context) async {
       'server_timestamp': result.lastTimestamp,
       'has_more': result.hasMore,
     });
-  } catch (e) {
-    return Response.json(
-        statusCode: HttpStatus.internalServerError,
-        body: {'error': e.toString()});
+  } catch (e, stackTrace) {
+    return internalError('GET /api/sync/pull', e, stackTrace);
   }
 }
