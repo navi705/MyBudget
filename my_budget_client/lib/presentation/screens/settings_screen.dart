@@ -53,6 +53,16 @@ class SettingsScreen extends StatelessWidget {
               // instead — see the Data row below.
               final isMobileLayout =
                   MediaQuery.sizeOf(context).width < kMobileBreakpoint;
+              // Whether there is a keyboard to bind anything to. AppPlatform
+              // reads dart:io, so every flag is false in a browser and a phone
+              // browser was offered a screen for recording keyboard shortcuts
+              // it has no way to press. Theme.of(context).platform falls back
+              // to defaultTargetPlatform, which the web build derives from the
+              // user agent, so it names the real device in both builds.
+              final platform = Theme.of(context).platform;
+              final hasPhysicalKeyboard =
+                  platform != TargetPlatform.android &&
+                  platform != TargetPlatform.iOS;
               return ListView(
                 children: [
                   // Appearance
@@ -161,7 +171,7 @@ class SettingsScreen extends StatelessWidget {
                   //     },
                   //   ),
                   // ),
-                  if (!AppPlatform.isAndroid && !AppPlatform.isIOS)
+                  if (hasPhysicalKeyboard)
                     ListTile(
                       leading: const Icon(Icons.keyboard),
                       title: Text(l10n.hotKeysLabel),
