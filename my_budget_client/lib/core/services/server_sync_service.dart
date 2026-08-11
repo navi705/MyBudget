@@ -29,6 +29,23 @@ enum SyncConnectionStatus {
   failed,
 }
 
+/// Thrown when the server refuses the device's credentials.
+///
+/// Separate from a plain [Exception] because retrying changes nothing: the
+/// same token will be rejected in thirty seconds and in five minutes, so the
+/// callers back off instead of hammering, and the UI can say which of the two
+/// fixable things is wrong instead of "sync failed".
+class SyncAuthException implements Exception {
+  SyncAuthException(this.status);
+
+  /// Either [SyncConnectionStatus.unauthorized] or
+  /// [SyncConnectionStatus.serverNotConfigured].
+  final SyncConnectionStatus status;
+
+  @override
+  String toString() => 'SyncAuthException(${status.name})';
+}
+
 class ServerSyncService {
   final AppDatabase _database;
   final SettingsRepository _settingsRepository;
@@ -367,6 +384,16 @@ class ServerSyncService {
     stop();
   }
 
+  /// Maps the two status codes the server uses to refuse a device, or null for
+  /// anything else. 401: this device's token is wrong. 503: the server has no
+  /// token configured and is refusing everyone.
+  static SyncConnectionStatus? _authStatusFor(int statusCode) =>
+      switch (statusCode) {
+        401 => SyncConnectionStatus.unauthorized,
+        503 => SyncConnectionStatus.serverNotConfigured,
+        _ => null,
+      };
+
   Future<SyncConnectionStatus> testConnection({
     String? url,
     String? token,
@@ -454,6 +481,15 @@ class ServerSyncService {
           );
           try {
             await sync();
+          } on SyncAuthException catch (e) {
+            // No retry: the same token will be refused again in thirty
+            // seconds, and again five minutes later. Retrying only buries the
+            // one line that says what is actually wrong under a repeating
+            // failure the user cannot distinguish from a flaky network.
+            debugPrint(
+              '[ServerSync] Auto-sync refused by the server (${e.status.name}). '
+              'Not retrying — check the sync token in Settings.',
+            );
           } catch (e) {
             debugPrint(
               '[ServerSync] Auto-sync failed: $e. Scheduling retry...',
@@ -489,6 +525,11 @@ class ServerSyncService {
         debugPrint('[ServerSync] Periodic sync triggered (5-min fallback).');
         try {
           await sync();
+        } on SyncAuthException catch (e) {
+          debugPrint(
+            '[ServerSync] Periodic sync refused by the server '
+            '(${e.status.name}). Check the sync token in Settings.',
+          );
         } catch (e) {
           debugPrint('[ServerSync] Periodic sync failed: $e');
         }
@@ -628,6 +669,11 @@ class ServerSyncService {
 
         // Secondary stop: server explicitly says no more data
         if (!hasMore) break;
+      } else if (_authStatusFor(response.statusCode) != null) {
+        // Body deliberately not logged: on 401 it is the server telling us the
+        // credentials are wrong, and there is nothing in it worth printing next
+        // to a token.
+        throw SyncAuthException(_authStatusFor(response.statusCode)!);
       } else {
         debugPrint('[ServerSync] Pull failed body: ${response.body}');
         throw Exception('Pull failed: ${response.statusCode} ${response.body}');
@@ -967,6 +1013,8 @@ class ServerSyncService {
 
         // Safety break if we receive exactly 0 or something weird
         if (records.length < batchSize) break;
+      } else if (_authStatusFor(response.statusCode) != null) {
+        throw SyncAuthException(_authStatusFor(response.statusCode)!);
       } else {
         throw Exception(
           'Push for $tableName failed: ${response.statusCode} ${response.body}',

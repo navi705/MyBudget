@@ -304,6 +304,17 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
       });
 
       _showSnackbar(l10n.syncCompleted);
+    } on SyncAuthException catch (e) {
+      // The raw exception would read "SyncAuthException(unauthorized)" inside
+      // "Sync failed: ...", which tells the user nothing they can act on.
+      if (mounted) {
+        _showSnackbar(
+          e.status == SyncConnectionStatus.serverNotConfigured
+              ? l10n.syncServerNotConfigured
+              : l10n.syncConnectionUnauthorized,
+          isError: true,
+        );
+      }
     } catch (e) {
       debugPrint('Manual sync error: $e');
       if (mounted) {
