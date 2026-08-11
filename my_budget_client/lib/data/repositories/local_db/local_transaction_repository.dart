@@ -28,8 +28,16 @@ class LocalTransactionRepository implements TransactionRepository {
 
   @override
   Future<void> addTransaction(Transaction transaction) async {
-    await database.transactionsDao.insertTransaction(transaction.toCompanion());
-    await _updateAccountBalance(transaction.accountId, transaction.amount);
+    // The insert and the balance adjustment are one unit of work: if the
+    // balance update throws (bad account id, FK failure), a committed insert
+    // would leave the account balance permanently short by this amount with
+    // nothing in the UI to point at.
+    await database.transaction(() async {
+      await database.transactionsDao.insertTransaction(
+        transaction.toCompanion(),
+      );
+      await _updateAccountBalance(transaction.accountId, transaction.amount);
+    });
   }
 
   @override
@@ -190,9 +198,16 @@ class LocalTransactionRepository implements TransactionRepository {
 
   @override
   Future<void> updateTransaction(Transaction transaction) async {
-    // We need to use `transaction.id!` because we know for an update, the id must exist.
-    final oldTransaction = await getTransactionById(transaction.id!);
-    if (oldTransaction != null) {
+    // Read-then-write: the row must be re-read and both balance legs adjusted
+    // inside one transaction. Outside one, a concurrent writer (a sync pull
+    // applying a remote edit, or a second bloc) can commit between the read and
+    // the balance adjustment, and the delta is then computed against a stale
+    // `oldTransaction` — the balance drifts and nothing reports it.
+    await database.transaction(() async {
+      // We need to use `transaction.id!` because we know for an update, the id must exist.
+      final oldTransaction = await getTransactionById(transaction.id!);
+      if (oldTransaction == null) return;
+
       // Update the transaction in the database first
       await database.transactionsDao.updateTransaction(
         transaction.toCompanion(),
@@ -212,7 +227,7 @@ class LocalTransactionRepository implements TransactionRepository {
         final amountDifference = transaction.amount - oldTransaction.amount;
         await _updateAccountBalance(transaction.accountId, amountDifference);
       }
-    }
+    });
   }
 
   Future<void> _updateAccountBalance(String accountId, double amount) async {
