@@ -449,6 +449,9 @@ class AppLocalizationsHi extends AppLocalizations {
   String get linkedAccountDeletedError => 'आपके द्वारा चुना गया लिंक किया गया खाता हटा दिया गया है। कृपया दूसरा खाता चुनें।';
 
   @override
+  String get enterExchangeRateError => 'कृपया एक विनिमय दर दर्ज करें। यह हस्तांतरण दो मुद्राओं के बीच किया जा रहा है और उनके लिए कोई विनिमय दर सहेजी नहीं गई है।';
+
+  @override
   String get currencyLockedMessage => 'स्रोत खाते की मुद्रा में लॉक किया गया';
 
   @override

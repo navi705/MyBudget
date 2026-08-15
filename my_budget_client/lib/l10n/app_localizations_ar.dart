@@ -449,6 +449,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get linkedAccountDeletedError => 'تم حذف الحساب المرتبط الذي حددته. يرجى تحديد حساب آخر.';
 
   @override
+  String get enterExchangeRateError => 'يرجى إدخال سعر الصرف. يتم هذا التحويل بين عملتين ولا يوجد سعر صرف محفوظ لهما.';
+
+  @override
   String get currencyLockedMessage => 'مغلق على عملة حساب المصدر';
 
   @override

@@ -140,6 +140,7 @@
     "selectDateError": "Por favor, selecione uma data",
     "accountDeletedError": "A conta que você havia selecionado foi excluída. Por favor, selecione outra.",
     "linkedAccountDeletedError": "A conta vinculada que você havia selecionado foi excluída. Por favor, selecione outra.",
+    "enterExchangeRateError": "Por favor, insira uma taxa de câmbio. Esta transferência é feita entre duas moedas e não há nenhuma taxa de câmbio registrada para elas.",
     "currencyLockedMessage": "Bloqueado na moeda da Conta de Origem",
     "totalValueLabel": "Valor Total",
     "feeLabel": "Taxa",

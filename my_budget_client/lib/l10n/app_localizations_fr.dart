@@ -449,6 +449,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get linkedAccountDeletedError => 'Le compte lié que vous aviez sélectionné a été supprimé. Veuillez en sélectionner un autre.';
 
   @override
+  String get enterExchangeRateError => 'Veuillez entrer un taux de change. Ce transfert s\'effectue entre deux devises et aucun taux de change n\'est enregistré pour celles-ci.';
+
+  @override
   String get currencyLockedMessage => 'Verrouillé sur la devise du compte source';
 
   @override

@@ -449,6 +449,9 @@ class AppLocalizationsBn extends AppLocalizations {
   String get linkedAccountDeletedError => 'আপনার নির্বাচিত সংযুক্ত অ্যাকাউন্টটি মুছে ফেলা হয়েছে। অনুগ্রহ করে অন্য একটি নির্বাচন করুন।';
 
   @override
+  String get enterExchangeRateError => 'অনুগ্রহ করে একটি বিনিময় হার লিখুন। এই স্থানান্তরটি দুটি মুদ্রার মধ্যে করা হচ্ছে এবং সেগুলির জন্য কোনো বিনিময় হার সংরক্ষিত নেই।';
+
+  @override
   String get currencyLockedMessage => 'উৎস অ্যাকাউন্টের মুদ্রায় লক করা হয়েছে';
 
   @override

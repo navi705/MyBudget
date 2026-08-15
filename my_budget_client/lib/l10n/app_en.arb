@@ -146,6 +146,10 @@
     "@linkedAccountDeletedError": {
         "description": "Shown on the transaction form when the linked account - the To account of a transfer, or the cash account of an asset buy or sell - was deleted while the form was open. The selection is cleared so the other leg of the transaction cannot be written to a deleted account"
     },
+    "enterExchangeRateError": "Please enter an exchange rate. This transfer moves money between two currencies and no rate is on file for them.",
+    "@enterExchangeRateError": {
+        "description": "Shown when saving a transfer between two accounts in different currencies with the exchange rate field empty. The two legs are written in their own accounts' currencies and both count towards the balances, so with no rate the amount that leaves is the amount that arrives and the difference is invented. The rate field is empty because the currency pair has no stored rate at all - the user has to supply one"
+    },
     "currencyLockedMessage": "Locked to From Account currency",
     "totalValueLabel": "Total Value",
     "feeLabel": "Fee",

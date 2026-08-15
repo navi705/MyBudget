@@ -140,6 +140,7 @@
     "selectDateError": "يرجى تحديد تاريخ",
     "accountDeletedError": "تم حذف الحساب الذي حددته. يرجى تحديد حساب آخر.",
     "linkedAccountDeletedError": "تم حذف الحساب المرتبط الذي حددته. يرجى تحديد حساب آخر.",
+    "enterExchangeRateError": "يرجى إدخال سعر الصرف. يتم هذا التحويل بين عملتين ولا يوجد سعر صرف محفوظ لهما.",
     "currencyLockedMessage": "مغلق على عملة حساب المصدر",
     "totalValueLabel": "إجمالي القيمة",
     "feeLabel": "الرسوم",

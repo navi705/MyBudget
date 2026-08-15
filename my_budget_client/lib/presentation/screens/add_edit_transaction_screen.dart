@@ -136,6 +136,12 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                   l10n.accountDeletedError,
               'The linked account you selected has been deleted':
                   l10n.linkedAccountDeletedError,
+              // Emitted by _onSubmitted when a cross-currency transfer has no
+              // rate to convert the receiving leg at - the pair has none
+              // stored and none was typed. Same reason as the two rows above:
+              // without this row the sentinel reaches the user as untranslated
+              // English through the importErrorLabel fallback below.
+              'Please enter an exchange rate': l10n.enterExchangeRateError,
             };
 
             _shownValidationError = validationError;

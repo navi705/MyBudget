@@ -449,6 +449,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get linkedAccountDeletedError => '您选择的关联账户已被删除，请另选一个。';
 
   @override
+  String get enterExchangeRateError => '请输入汇率。此转账在两种货币之间进行，但系统中没有它们之间的汇率记录。';
+
+  @override
   String get currencyLockedMessage => '锁定为源账户货币';
 
   @override

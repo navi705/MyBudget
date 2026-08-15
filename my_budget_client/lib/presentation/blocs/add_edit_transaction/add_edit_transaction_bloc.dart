@@ -678,6 +678,39 @@ class AddEditTransactionBloc
         }
       }
 
+      // A cross-currency transfer is the one shape where "no rate" cannot be
+      // written down honestly. The standard path can: it leaves the foreign
+      // code on the row, and `adjustBalance` counts a row only against an
+      // account of the same currency, so an unconverted transaction is
+      // recorded in full and simply not counted until it is restated - which
+      // is the codebase's stated policy (see the same reasoning spelled out in
+      // SmsBloc, which points at this handler as its reference).
+      //
+      // A transfer has no such fallback. Its two legs are written in their own
+      // accounts' currencies, so BOTH are counted, and the receiving leg falls
+      // back to `amount.abs()` unmultiplied - 1000 leaves a USD account and
+      // 1000 arrives in a EUR one. Nothing downstream can catch it, because
+      // each leg agrees with the account it lands on; net worth simply grows
+      // by the spread. So this is refused at the only point that can see both
+      // legs at once, and the user is asked for the rate the form could not
+      // find for them.
+      // Zero is refused alongside null: it parses, so it passes every check
+      // that only asks whether a rate is present, and it converts the
+      // receiving leg to nothing at all - 1000 leaves the USD account and 0
+      // arrives in the EUR one, which loses more than the unconverted case it
+      // is standing in for. No exchange rate is ever legitimately zero.
+      if (state.isTransferMode &&
+          state.isForeignCurrency &&
+          (finalExchangeRate == null || finalExchangeRate == 0)) {
+        emit(
+          state.copyWith(
+            isSaving: false,
+            validationError: 'Please enter an exchange rate',
+          ),
+        );
+        return;
+      }
+
       debugPrint(
         'DEBUG SAVE: isAssetTransaction=${state.isAssetTransaction}, isTransferMode=${state.isTransferMode}, isEditing=${state.isEditing}',
       );
@@ -1301,12 +1334,30 @@ class AddEditTransactionBloc
       }
 
       var newManualRateStr = state.manualExchangeRate;
-      if (shouldUpdateManualRate && selectedRate != null) {
-        double rateToDisplay = selectedRate.rate;
-        if (state.isRateInputInverted && rateToDisplay != 0) {
-          rateToDisplay = 1 / rateToDisplay;
+      if (shouldUpdateManualRate) {
+        if (selectedRate != null) {
+          double rateToDisplay = selectedRate.rate;
+          if (state.isRateInputInverted && rateToDisplay != 0) {
+            rateToDisplay = 1 / rateToDisplay;
+          }
+          newManualRateStr = rateToDisplay.toString();
+        } else {
+          // `shouldUpdateManualRate` means "the field no longer describes this
+          // lookup, resync it" - and it is set by `forceSync`, which is passed
+          // by exactly the events that change the currency pair (currency,
+          // account and linked-account changes). Resyncing used to be skipped
+          // when the new pair resolved no rate at all, so the field kept the
+          // PREVIOUS pair's number - and _onSubmitted reads this field verbatim
+          // as the rate to convert at, with nothing checking which pair it came
+          // from. The field is the answer for the pair on screen or it is
+          // nothing; the user can still type a rate for a pair that has none,
+          // which is precisely when typing one is the right thing to do.
+          //
+          // A refetch that did NOT force a sync - a date change, or the initial
+          // load - leaves a non-empty field alone exactly as before, so a rate
+          // typed by hand for a pair with no presets survives moving the date.
+          newManualRateStr = '';
         }
-        newManualRateStr = rateToDisplay.toString();
       }
 
       var finalState = state.copyWith(

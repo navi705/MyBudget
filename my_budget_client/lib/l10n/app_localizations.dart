@@ -951,6 +951,12 @@ abstract class AppLocalizations {
   /// **'The linked account you selected has been deleted. Please choose another one.'**
   String get linkedAccountDeletedError;
 
+  /// Shown when saving a transfer between two accounts in different currencies with the exchange rate field empty. The two legs are written in their own accounts' currencies and both count towards the balances, so with no rate the amount that leaves is the amount that arrives and the difference is invented. The rate field is empty because the currency pair has no stored rate at all - the user has to supply one
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter an exchange rate. This transfer moves money between two currencies and no rate is on file for them.'**
+  String get enterExchangeRateError;
+
   /// No description provided for @currencyLockedMessage.
   ///
   /// In en, this message translates to:

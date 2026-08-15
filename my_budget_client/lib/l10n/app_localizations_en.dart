@@ -449,6 +449,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get linkedAccountDeletedError => 'The linked account you selected has been deleted. Please choose another one.';
 
   @override
+  String get enterExchangeRateError => 'Please enter an exchange rate. This transfer moves money between two currencies and no rate is on file for them.';
+
+  @override
   String get currencyLockedMessage => 'Locked to From Account currency';
 
   @override

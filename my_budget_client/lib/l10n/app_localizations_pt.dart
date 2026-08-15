@@ -449,6 +449,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get linkedAccountDeletedError => 'A conta vinculada que você havia selecionado foi excluída. Por favor, selecione outra.';
 
   @override
+  String get enterExchangeRateError => 'Por favor, insira uma taxa de câmbio. Esta transferência é feita entre duas moedas e não há nenhuma taxa de câmbio registrada para elas.';
+
+  @override
   String get currencyLockedMessage => 'Bloqueado na moeda da Conta de Origem';
 
   @override

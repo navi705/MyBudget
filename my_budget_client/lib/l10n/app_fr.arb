@@ -140,6 +140,7 @@
     "selectDateError": "Veuillez sélectionner une date",
     "accountDeletedError": "Le compte que vous aviez sélectionné a été supprimé. Veuillez en sélectionner un autre.",
     "linkedAccountDeletedError": "Le compte lié que vous aviez sélectionné a été supprimé. Veuillez en sélectionner un autre.",
+    "enterExchangeRateError": "Veuillez entrer un taux de change. Ce transfert s'effectue entre deux devises et aucun taux de change n'est enregistré pour celles-ci.",
     "currencyLockedMessage": "Verrouillé sur la devise du compte source",
     "totalValueLabel": "Valeur Totale",
     "feeLabel": "Frais",

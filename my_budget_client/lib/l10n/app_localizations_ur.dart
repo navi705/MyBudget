@@ -449,6 +449,9 @@ class AppLocalizationsUr extends AppLocalizations {
   String get linkedAccountDeletedError => 'آپ کا منتخب کردہ منسلک اکاؤنٹ حذف کر دیا گیا ہے۔ براہ کرم دوسرا منتخب کریں۔';
 
   @override
+  String get enterExchangeRateError => 'براہ کرم شرح تبادلہ درج کریں۔ یہ منتقلی دو کرنسیوں کے درمیان ہو رہی ہے اور ان کے لیے کوئی شرح تبادلہ محفوظ نہیں ہے۔';
+
+  @override
   String get currencyLockedMessage => 'ماخذ اکاؤنٹ کی کرنسی پر مقفل';
 
   @override
