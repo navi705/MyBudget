@@ -374,6 +374,83 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     }
   }
 
+  /// The state a selection action may act on, or null when the selection app
+  /// bar that carries its button is not on screen.
+  ///
+  /// Read from the bloc at press time rather than captured, because a hotkey
+  /// callback outlives the build that registered it: the selection it acts on
+  /// has to be the one the user is looking at now, not the one that happened to
+  /// be current when the callback was created.
+  /// `CategoryDeletionConfirmationNeeded` is unwrapped rather than rejected,
+  /// the way `build` unwraps it to paint this very app bar: while the delete
+  /// dialog is up - or after it is cancelled, which dispatches nothing and
+  /// leaves the bloc in that state - all four buttons are still on screen, and
+  /// a guard that dropped them there would make them dead to the eye.
+  static CategoriesLoadSuccess? _activeSelection(BuildContext context) {
+    final state = context.read<CategoriesBloc>().state;
+    final success = state is CategoryDeletionConfirmationNeeded
+        ? state.lastSuccessState
+        : state;
+    return success is CategoriesLoadSuccess && success.isSelectionModeActive
+        ? success
+        : null;
+  }
+
+  // The four methods below are the bodies of the selection app bar's buttons,
+  // shared with the hotkeys of the same name so the two can never drift apart.
+  //
+  // Each opens with the selection guard, which is free for the buttons - they
+  // only exist while the selection app bar is up - and load-bearing for the
+  // keys, because the hot keys screen offers these ids unconditionally and the
+  // binding therefore stays live over the plain date app bar and the loading
+  // spinner, where none of the buttons is on screen.
+
+  /// Leaves selection mode.
+  void _closeSelection(BuildContext context) {
+    if (_activeSelection(context) == null) return;
+    context.read<CategoriesBloc>().add(const ToggleSelectionMode(false));
+  }
+
+  /// Selects every category, or clears the selection once it already holds all
+  /// of them - the same condition the button swaps its icon on.
+  void _toggleSelectAll(BuildContext context) {
+    final state = _activeSelection(context);
+    if (state == null) return;
+    final allCount = state.categoriesWithTotals.length;
+    final isAllSelected =
+        state.selectedCategoryIds.length == allCount && allCount > 0;
+    context.read<CategoriesBloc>().add(
+      isAllSelected ? ClearSelection() : SelectAllCategories(),
+    );
+  }
+
+  /// Asks about deleting the whole selection.
+  ///
+  /// The empty-selection check is not an extra restriction: the app bar hides
+  /// this button at `selectedCount == 0`, and a confirmation offering to delete
+  /// nothing is what the key would otherwise open.
+  void _deleteSelection(BuildContext context) {
+    final state = _activeSelection(context);
+    if (state == null || state.selectedCategoryIds.isEmpty) return;
+    _showDeleteConfirmationDialog(
+      context,
+      context.read<CategoriesBloc>(),
+      state.selectedCategoryIds.toList(),
+    );
+  }
+
+  /// Retypes the whole selection; hidden alongside delete while nothing is
+  /// selected.
+  void _changeSelectionType(BuildContext context) {
+    final state = _activeSelection(context);
+    if (state == null || state.selectedCategoryIds.isEmpty) return;
+    _showChangeCategoryTypeDialog(
+      context,
+      context.read<CategoriesBloc>(),
+      state.selectedCategoryIds.toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -492,6 +569,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               context.read<CategoriesBloc>().add(const DatePeriodNavigated(-1)),
           'next_period': () =>
               context.read<CategoriesBloc>().add(const DatePeriodNavigated(1)),
+          // The selection app bar's four buttons, reached by key. Without these
+          // entries ScreenShortcuts builds no binding at all for the ids, so
+          // the key the hot keys screen let the user pick did nothing.
+          'categories_selection_close': () => _closeSelection(context),
+          'categories_selection_all': () => _toggleSelectAll(context),
+          'categories_selection_delete': () => _deleteSelection(context),
+          'categories_selection_change_type': () =>
+              _changeSelectionType(context),
         },
         child: Scaffold(
           appBar: widget.isStandalone
@@ -514,16 +599,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         if (successState.isSelectionModeActive) {
                           return _SelectionAppBar(
                             state: successState,
-                            onDelete: () => _showDeleteConfirmationDialog(
-                              context,
-                              bloc,
-                              successState!.selectedCategoryIds.toList(),
-                            ),
-                            onChangeType: () => _showChangeCategoryTypeDialog(
-                              context,
-                              bloc,
-                              successState!.selectedCategoryIds.toList(),
-                            ),
+                            onClose: () => _closeSelection(context),
+                            onSelectAll: () => _toggleSelectAll(context),
+                            onDelete: () => _deleteSelection(context),
+                            onChangeType: () => _changeSelectionType(context),
                           );
                         }
                         return _CategoriesDateAppBar(state: successState);
@@ -888,18 +967,24 @@ class _CategoriesDateAppBar extends StatelessWidget {
 
 class _SelectionAppBar extends StatelessWidget {
   final CategoriesLoadSuccess state;
+
+  /// Every button's body lives on the screen state, because the hotkey of the
+  /// same name has to run that identical body.
+  final VoidCallback onClose;
+  final VoidCallback onSelectAll;
   final VoidCallback onDelete;
   final VoidCallback onChangeType;
 
   const _SelectionAppBar({
     required this.state,
+    required this.onClose,
+    required this.onSelectAll,
     required this.onDelete,
     required this.onChangeType,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bloc = context.read<CategoriesBloc>();
     final selectedCount = state.selectedCategoryIds.length;
     final allCount = state.categoriesWithTotals.length;
     final isAllSelected = selectedCount == allCount && allCount > 0;
@@ -910,10 +995,7 @@ class _SelectionAppBar extends StatelessWidget {
         message: l10n.closeSelectionTooltip,
         actionId: 'categories_selection_close',
         description: l10n.exitSelectionDescription,
-        child: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => bloc.add(const ToggleSelectionMode(false)),
-        ),
+        child: IconButton(icon: const Icon(Icons.close), onPressed: onClose),
       ),
       title: Text(l10n.selectedCountLabel(selectedCount.toString())),
       actions: [
@@ -931,13 +1013,7 @@ class _SelectionAppBar extends StatelessWidget {
                   ? Icons.deselect_outlined
                   : Icons.select_all_outlined,
             ),
-            onPressed: () {
-              if (isAllSelected) {
-                bloc.add(ClearSelection());
-              } else {
-                bloc.add(SelectAllCategories());
-              }
-            },
+            onPressed: onSelectAll,
           ),
         ),
         if (selectedCount > 0) ...[

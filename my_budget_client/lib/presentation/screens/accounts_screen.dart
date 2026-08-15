@@ -179,6 +179,71 @@ class _AccountsScreenState extends State<AccountsScreen> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // The selection bar's four actions.
+  //
+  // One body each, shared by the buttons on [_SelectionAppBar] and by the four
+  // hot keys the settings screen has always advertised for them
+  // (`accounts_selection_close`, `_all`, `_delete`, `_change_type`). Those ids
+  // appeared in no `actions` map at all until now, so a key bound to any of
+  // them did nothing; a hotkey that re-implemented its button instead of
+  // calling it would simply be free to drift away from it later.
+  // ---------------------------------------------------------------------------
+
+  void _closeSelection(AccountsBloc bloc) =>
+      bloc.add(const ToggleSelectionMode(false));
+
+  void _toggleSelectAll(AccountsBloc bloc, AccountsLoadSuccess state) =>
+      bloc.add(_isAllSelected(state) ? ClearSelection() : SelectAllAccounts());
+
+  void _deleteSelection(
+    BuildContext context,
+    AccountsBloc bloc,
+    AccountsLoadSuccess state,
+  ) => _showDeleteConfirmationDialog(
+    context,
+    bloc,
+    state.selectedAccountIds.toList(),
+  );
+
+  void _changeTypeOfSelection(
+    BuildContext context,
+    AccountsBloc bloc,
+    AccountsLoadSuccess state,
+  ) => _showChangeAccountTypeDialog(
+    context,
+    bloc,
+    state.selectedAccountIds.toList(),
+    state.accountTypes,
+  );
+
+  /// Runs one of the four actions above on behalf of a hot key - or does
+  /// nothing at all.
+  ///
+  /// The hot keys screen offers these ids unconditionally and a bound key stays
+  /// live for as long as this screen is, while the buttons they copy only exist
+  /// on the selection app bar - and delete and change-type only once something
+  /// is actually selected. `AccountsBloc` empties the selection whenever
+  /// selection mode goes off, so delete and change-type would find nothing to
+  /// act on anyway; select-all is the one that needs this, because off the
+  /// selection bar it would otherwise fill a selection with no bar to show it.
+  /// The guards here are exactly the buttons' own visibility conditions, no
+  /// more and no less: the key should do what the mouse can do.
+  ///
+  /// The state is read here rather than captured: the `actions` map is built
+  /// once, above the builder that follows the selection, so a closed-over state
+  /// would be whatever happened to be selected when the screen was last built.
+  void _runSelectionAction(
+    void Function(AccountsBloc bloc, AccountsLoadSuccess state) action, {
+    bool requiresSelection = false,
+  }) {
+    final bloc = context.read<AccountsBloc>();
+    final state = bloc.state;
+    if (state is! AccountsLoadSuccess || !state.isSelectionModeActive) return;
+    if (requiresSelection && state.selectedAccountIds.isEmpty) return;
+    action(bloc, state);
+  }
+
   /// Account creation, reached from the button, the hotkey, the empty-area menu
   /// and from any entry point refused for want of an account.
   ///
@@ -434,6 +499,23 @@ class _AccountsScreenState extends State<AccountsScreen> {
             context.read<AccountsBloc>().add(const DatePeriodNavigated(-1)),
         'next_period': () =>
             context.read<AccountsBloc>().add(const DatePeriodNavigated(1)),
+
+        // The same four bodies the selection app bar's buttons run, guarded on
+        // the bar being on screen at all - see [_runSelectionAction].
+        'accounts_selection_close': () =>
+            _runSelectionAction((bloc, _) => _closeSelection(bloc)),
+        'accounts_selection_all': () => _runSelectionAction(_toggleSelectAll),
+        // Delete and change-type additionally need something selected: their
+        // buttons are absent at zero, so a key that opened their dialogs on an
+        // empty selection would offer an action the app bar never does.
+        'accounts_selection_delete': () => _runSelectionAction(
+          (bloc, state) => _deleteSelection(context, bloc, state),
+          requiresSelection: true,
+        ),
+        'accounts_selection_change_type': () => _runSelectionAction(
+          (bloc, state) => _changeTypeOfSelection(context, bloc, state),
+          requiresSelection: true,
+        ),
       },
       child: Scaffold(
         appBar: PreferredSize(
@@ -451,17 +533,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
               if (state.isSelectionModeActive) {
                 return _SelectionAppBar(
                   state: state,
-                  onDelete: () => _showDeleteConfirmationDialog(
-                    context,
-                    bloc,
-                    state.selectedAccountIds.toList(),
-                  ),
-                  onChangeType: () => _showChangeAccountTypeDialog(
-                    context,
-                    bloc,
-                    state.selectedAccountIds.toList(),
-                    state.accountTypes,
-                  ),
+                  onClose: () => _closeSelection(bloc),
+                  onSelectAll: () => _toggleSelectAll(bloc, state),
+                  onDelete: () => _deleteSelection(context, bloc, state),
+                  onChangeType: () =>
+                      _changeTypeOfSelection(context, bloc, state),
                 );
               }
 
@@ -718,8 +794,21 @@ class _AccountsScreenState extends State<AccountsScreen> {
   }
 }
 
+/// True once every account on the list is selected.
+///
+/// Chooses the select-all control's icon, its label and what it dispatches, so
+/// the picture the user sees and the event the button - or its hot key - sends
+/// cannot disagree.
+bool _isAllSelected(AccountsLoadSuccess state) =>
+    state.accounts.isNotEmpty &&
+    state.selectedAccountIds.length == state.accounts.length;
+
 class _SelectionAppBar extends StatelessWidget {
   final AccountsLoadSuccess state;
+
+  final VoidCallback onClose;
+
+  final VoidCallback onSelectAll;
 
   final VoidCallback onDelete;
 
@@ -727,6 +816,10 @@ class _SelectionAppBar extends StatelessWidget {
 
   const _SelectionAppBar({
     required this.state,
+
+    required this.onClose,
+
+    required this.onSelectAll,
 
     required this.onDelete,
 
@@ -736,23 +829,17 @@ class _SelectionAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final bloc = context.read<AccountsBloc>();
 
     final selectedCount = state.selectedAccountIds.length;
 
-    final allCount = state.accounts.length;
-
-    final isAllSelected = selectedCount == allCount && allCount > 0;
+    final isAllSelected = _isAllSelected(state);
 
     return AppBar(
       leading: MultiLevelTooltip(
         message: l10n.closeSelectionTooltip,
         actionId: 'accounts_selection_close',
         description: l10n.exitSelectionDescription,
-        child: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => bloc.add(const ToggleSelectionMode(false)),
-        ),
+        child: IconButton(icon: const Icon(Icons.close), onPressed: onClose),
       ),
       title: Text(l10n.selectedCountLabel(selectedCount)),
       actions: [
@@ -770,13 +857,7 @@ class _SelectionAppBar extends StatelessWidget {
                   ? Icons.deselect_outlined
                   : Icons.select_all_outlined,
             ),
-            onPressed: () {
-              if (isAllSelected) {
-                bloc.add(ClearSelection());
-              } else {
-                bloc.add(SelectAllAccounts());
-              }
-            },
+            onPressed: onSelectAll,
           ),
         ),
         if (selectedCount > 0) ...[
