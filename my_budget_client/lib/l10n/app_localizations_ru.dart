@@ -1690,10 +1690,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get hkCategoryNavigation => 'Навигация';
 
   @override
-  String get hkCategoryDashboardTabs => 'Вкладки дашборда (Ctrl + 1/2/3)';
+  String get hkCategoryDashboardTabs => 'Вкладки дашборда';
 
   @override
-  String get hkCategoryDataTabs => 'Вкладки данных (Ctrl + 1/2/3)';
+  String get hkCategoryDataTabs => 'Вкладки данных';
 
   @override
   String get hkCategoryPeriodControl => 'Управление периодом';

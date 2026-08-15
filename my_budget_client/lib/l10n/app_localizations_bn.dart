@@ -1688,10 +1688,10 @@ class AppLocalizationsBn extends AppLocalizations {
   String get hkCategoryNavigation => 'ন্যাভিগেশন';
 
   @override
-  String get hkCategoryDashboardTabs => 'ড্যাশবোর্ড ট্যাব (Ctrl + 1/2/3)';
+  String get hkCategoryDashboardTabs => 'ড্যাশবোর্ড ট্যাব';
 
   @override
-  String get hkCategoryDataTabs => 'তথ্য ট্যাব (Ctrl + 1/2/3)';
+  String get hkCategoryDataTabs => 'তথ্য ট্যাব';
 
   @override
   String get hkCategoryPeriodControl => 'সময়ের নিয়ন্ত্রণ (Period Control)';

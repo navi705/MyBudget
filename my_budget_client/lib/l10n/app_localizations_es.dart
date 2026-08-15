@@ -1688,10 +1688,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get hkCategoryNavigation => 'Navegación';
 
   @override
-  String get hkCategoryDashboardTabs => 'Pestañas del Panel (Ctrl + 1/2/3)';
+  String get hkCategoryDashboardTabs => 'Pestañas del Panel';
 
   @override
-  String get hkCategoryDataTabs => 'Pestañas de Datos (Ctrl + 1/2/3)';
+  String get hkCategoryDataTabs => 'Pestañas de Datos';
 
   @override
   String get hkCategoryPeriodControl => 'Control de Periodo';

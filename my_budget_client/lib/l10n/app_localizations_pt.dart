@@ -1688,10 +1688,10 @@ class AppLocalizationsPt extends AppLocalizations {
   String get hkCategoryNavigation => 'Navegação';
 
   @override
-  String get hkCategoryDashboardTabs => 'Abas do Painel (Ctrl + 1/2/3)';
+  String get hkCategoryDashboardTabs => 'Abas do Painel';
 
   @override
-  String get hkCategoryDataTabs => 'Abas de Dados (Ctrl + 1/2/3)';
+  String get hkCategoryDataTabs => 'Abas de Dados';
 
   @override
   String get hkCategoryPeriodControl => 'Controle de Período';

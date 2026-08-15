@@ -66,9 +66,9 @@ const _eur = Currency(
 
 /// A loaded dashboard sitting on [tab] with the period granularity at [step].
 ///
-/// Tab 1 (Categories) and tab 2 (Balance) are the two that build
-/// `DashboardHeader`; tab 0 draws the calendar instead and carries none of
-/// these three ids.
+/// All three tabs build a `DashboardHeader`: Categories and Balance build one
+/// directly, and the Calendar tab gets the same widget through
+/// `DashboardCalendar`.
 DashboardLoadSuccess _loaded({int tab = 1, DateStep step = DateStep.month}) =>
     DashboardLoadSuccess(
       activeTabIndex: tab,
@@ -310,10 +310,20 @@ void main() {
     });
   });
 
-  group('dashboard: the header keys off the header', () {
-    testWidgets('all three do nothing on the Calendar tab', (tester) async {
-      // Tab 0 draws `DashboardCalendar`, which carries none of these three ids,
-      // so none of the three buttons is on screen and the keys must follow.
+  group('dashboard: the header keys on the Calendar tab', () {
+    // Tab 0 draws `DashboardCalendar`, which builds the same `DashboardHeader`
+    // with the same three callbacks - so the same three buttons, carrying the
+    // same three ids, are on screen. The guard used to exclude this tab, which
+    // left the badges advertising keys that did nothing.
+    testWidgets('the three buttons are on screen', (tester) async {
+      await _pumpDashboard(tester, state: _loaded(tab: 0));
+
+      expect(_buttonFor('pick_date'), findsOneWidget);
+      expect(_buttonFor('dashboard_currency'), findsOneWidget);
+      expect(_buttonFor('dashboard_switch_view'), findsOneWidget);
+    });
+
+    testWidgets('all three keys work there too', (tester) async {
       final bloc = await _pumpDashboard(
         tester,
         state: _loaded(tab: 0),
@@ -321,9 +331,61 @@ void main() {
       );
       final l10n = await loadL10n();
 
+      await tester.sendKeyEvent(_viewKey);
+      await tester.pumpAndSettle();
+      expect(_headerEvents(bloc), [const ChangeDateStep(DateStep.year)]);
+
+      await tester.sendKeyEvent(_dateKey);
+      await tester.pumpAndSettle();
+      expect(find.byType(CalendarStepPicker), findsOneWidget);
+      await tester.tapAt(const Offset(600, 20)); // dismiss the sheet
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(_currencyKey);
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.dshSearchCurrency), findsOneWidget);
+    });
+  });
+
+  group('dashboard: the header keys before the dashboard loads', () {
+    testWidgets('all three do nothing while the screen is still loading', (
+      tester,
+    ) async {
+      // Every state other than DashboardLoadSuccess draws a spinner and no
+      // header at all, so the keys have to follow the buttons off the screen.
+      // `pump`, not `pumpAndSettle`: the spinner animates forever.
+      final bloc = _RecordingDashboardBloc();
+      whenListen(
+        bloc,
+        const Stream<DashboardState>.empty(),
+        initialState: DashboardLoadInProgress(),
+      );
+      setSurfaceSize(tester, const Size(1200, 1000));
+      await tester.pumpWidget(
+        BlocProvider<ThemeBloc>.value(
+          value: _themeBloc(),
+          child: wrapWithBlocs(
+            MaterialApp(
+              locale: const Locale('en'),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: const DashboardScreen(),
+            ),
+            settingsBloc: createSettingsBloc(
+              state: SettingsState(hotkeys: _hotkeys),
+            ),
+            currencyBloc: createCurrencyBloc(),
+            stylesBloc: createStylesBloc(),
+            dashboardBloc: bloc,
+          ),
+        ),
+      );
+      await tester.pump();
+      final l10n = await loadL10n();
+
       for (final key in [_dateKey, _currencyKey, _viewKey]) {
         await tester.sendKeyEvent(key);
-        await tester.pumpAndSettle();
+        await tester.pump();
       }
 
       expect(find.byType(CalendarStepPicker), findsNothing);

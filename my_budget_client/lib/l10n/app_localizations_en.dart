@@ -1688,10 +1688,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hkCategoryNavigation => 'Navigation';
 
   @override
-  String get hkCategoryDashboardTabs => 'Dashboard Tabs (Ctrl + 1/2/3)';
+  String get hkCategoryDashboardTabs => 'Dashboard Tabs';
 
   @override
-  String get hkCategoryDataTabs => 'Data Tabs (Ctrl + 1/2/3)';
+  String get hkCategoryDataTabs => 'Data Tabs';
 
   @override
   String get hkCategoryPeriodControl => 'Period Control';

@@ -1688,10 +1688,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get hkCategoryNavigation => 'Navigation';
 
   @override
-  String get hkCategoryDashboardTabs => 'Onglets Tableau de Bord (Ctrl + 1/2/3)';
+  String get hkCategoryDashboardTabs => 'Onglets Tableau de Bord';
 
   @override
-  String get hkCategoryDataTabs => 'Onglets Données (Ctrl + 1/2/3)';
+  String get hkCategoryDataTabs => 'Onglets Données';
 
   @override
   String get hkCategoryPeriodControl => 'Contrôle de Période';

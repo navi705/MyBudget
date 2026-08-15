@@ -1688,10 +1688,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get hkCategoryNavigation => 'التنقل';
 
   @override
-  String get hkCategoryDashboardTabs => 'تبويبات لوحة المعلومات (Ctrl + 1/2/3)';
+  String get hkCategoryDashboardTabs => 'تبويبات لوحة المعلومات';
 
   @override
-  String get hkCategoryDataTabs => 'تبويبات البيانات (Ctrl + 1/2/3)';
+  String get hkCategoryDataTabs => 'تبويبات البيانات';
 
   @override
   String get hkCategoryPeriodControl => 'التحكم في الفترة';

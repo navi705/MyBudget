@@ -141,18 +141,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   /// or does nothing at all.
   ///
   /// The Hot Keys screen offers the three ids unconditionally and a bound key
-  /// stays live for as long as this screen is, but [DashboardHeader] is only
-  /// built by the Categories and Balance tabs: the Calendar tab draws its own
-  /// controls inside [DashboardCalendar] and carries none of these ids. The
-  /// guard is exactly the buttons' own visibility condition, no more and no
-  /// less - the key should do what the mouse can do.
+  /// stays live for as long as this screen is, so the guard has to be exactly
+  /// the buttons' own visibility condition. That is "the screen has loaded",
+  /// nothing more: all three tabs draw a [DashboardHeader] - Categories and
+  /// Balance build one directly, and the Calendar tab gets the same widget
+  /// through [DashboardCalendar], with the same three callbacks. Excluding the
+  /// Calendar tab left its header showing shortcut badges for keys that did
+  /// nothing.
   ///
   /// The state is read from the bloc rather than closed over so the action runs
   /// against the tab that is showing when the key is pressed.
   void _runHeaderAction(void Function(DashboardLoadSuccess state) action) {
     final state = context.read<DashboardBloc>().state;
     if (state is! DashboardLoadSuccess) return;
-    if (state.activeTabIndex != 1 && state.activeTabIndex != 2) return;
     action(state);
   }
 

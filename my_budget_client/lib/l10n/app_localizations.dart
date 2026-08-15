@@ -3168,13 +3168,13 @@ abstract class AppLocalizations {
   /// No description provided for @hkCategoryDashboardTabs.
   ///
   /// In en, this message translates to:
-  /// **'Dashboard Tabs (Ctrl + 1/2/3)'**
+  /// **'Dashboard Tabs'**
   String get hkCategoryDashboardTabs;
 
   /// No description provided for @hkCategoryDataTabs.
   ///
   /// In en, this message translates to:
-  /// **'Data Tabs (Ctrl + 1/2/3)'**
+  /// **'Data Tabs'**
   String get hkCategoryDataTabs;
 
   /// No description provided for @hkCategoryPeriodControl.

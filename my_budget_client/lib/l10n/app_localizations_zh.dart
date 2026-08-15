@@ -1688,10 +1688,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hkCategoryNavigation => '导航';
 
   @override
-  String get hkCategoryDashboardTabs => '仪表板标签 (Ctrl + 1/2/3)';
+  String get hkCategoryDashboardTabs => '仪表板标签';
 
   @override
-  String get hkCategoryDataTabs => '数据标签 (Ctrl + 1/2/3)';
+  String get hkCategoryDataTabs => '数据标签';
 
   @override
   String get hkCategoryPeriodControl => '周期控制';

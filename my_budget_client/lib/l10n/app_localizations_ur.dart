@@ -1688,10 +1688,10 @@ class AppLocalizationsUr extends AppLocalizations {
   String get hkCategoryNavigation => 'نیویگیشن';
 
   @override
-  String get hkCategoryDashboardTabs => 'ڈیش بورڈ ٹیبز (Ctrl + 1/2/3)';
+  String get hkCategoryDashboardTabs => 'ڈیش بورڈ ٹیبز';
 
   @override
-  String get hkCategoryDataTabs => 'ڈیٹا ٹیبز (Ctrl + 1/2/3)';
+  String get hkCategoryDataTabs => 'ڈیٹا ٹیبز';
 
   @override
   String get hkCategoryPeriodControl => 'مدت کا کنٹرول';
