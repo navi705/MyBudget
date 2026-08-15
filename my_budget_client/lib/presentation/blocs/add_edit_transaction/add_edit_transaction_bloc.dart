@@ -1312,12 +1312,22 @@ class AddEditTransactionBloc
       var finalState = state.copyWith(
         availableExchangeRates: finalRates,
         selectedExchangeRate: selectedRate,
+        // copyWith treats a null selectedExchangeRate/editingExchangeRate as
+        // "no change", not "clear it" - without these flags a currency pair
+        // with zero derivable rates (no direct, reversed, or triangular rate)
+        // would leave both fields pointing at the PREVIOUS pair's rate. The
+        // preset chips (built from availableExchangeRates, which correctly
+        // went empty) would then vanish while the Update/Delete buttons
+        // (gated on editingExchangeRate) stayed on screen, silently wired to
+        // a different currency pair's stored rate.
+        clearSelectedExchangeRate: selectedRate == null,
         // A refresh always resolves a fresh answer to "what preset is this",
         // so the Update/Delete target is re-synced here too, the same way
         // selectedExchangeRate just was above - it only diverges from
         // selectedExchangeRate while the user is mid-typing, and typing never
         // calls _fetchRates.
         editingExchangeRate: selectedRate,
+        clearEditingExchangeRate: selectedRate == null,
         manualExchangeRate: newManualRateStr,
         isLoadingRates: false,
       );
