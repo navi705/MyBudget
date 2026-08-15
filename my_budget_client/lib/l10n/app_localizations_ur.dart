@@ -1763,6 +1763,18 @@ class AppLocalizationsUr extends AppLocalizations {
   String get hkActionAccountsSelectionChangeType => 'اکاؤنٹس: قسم تبدیل کریں';
 
   @override
+  String get hkActionTransactionsSelectionClose => 'ترسیلات: بند کریں';
+
+  @override
+  String get hkActionTransactionsSelectionDelete => 'ترسیلات: حذف کریں';
+
+  @override
+  String get hkActionTransactionsSelectionChangeDate => 'ترسیلات: تاریخ تبدیل کریں';
+
+  @override
+  String get hkActionTransactionsSelectionChangeCategory => 'ترسیلات: زمرہ تبدیل کریں';
+
+  @override
   String get hkActionCategoriesSelectionClose => 'زمرہ جات: بند کریں';
 
   @override

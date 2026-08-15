@@ -1763,6 +1763,18 @@ class AppLocalizationsHi extends AppLocalizations {
   String get hkActionAccountsSelectionChangeType => 'खाते: प्रकार बदलें';
 
   @override
+  String get hkActionTransactionsSelectionClose => 'लेन-देन: बंद करें';
+
+  @override
+  String get hkActionTransactionsSelectionDelete => 'लेन-देन: हटाएं';
+
+  @override
+  String get hkActionTransactionsSelectionChangeDate => 'लेन-देन: दिनांक बदलें';
+
+  @override
+  String get hkActionTransactionsSelectionChangeCategory => 'लेन-देन: श्रेणी बदलें';
+
+  @override
   String get hkActionCategoriesSelectionClose => 'श्रेणियां: बंद करें';
 
   @override

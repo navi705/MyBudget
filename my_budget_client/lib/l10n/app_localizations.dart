@@ -3315,6 +3315,30 @@ abstract class AppLocalizations {
   /// **'Accounts: Change Type'**
   String get hkActionAccountsSelectionChangeType;
 
+  /// No description provided for @hkActionTransactionsSelectionClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Transactions: Close'**
+  String get hkActionTransactionsSelectionClose;
+
+  /// No description provided for @hkActionTransactionsSelectionDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Transactions: Delete'**
+  String get hkActionTransactionsSelectionDelete;
+
+  /// No description provided for @hkActionTransactionsSelectionChangeDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Transactions: Change Date'**
+  String get hkActionTransactionsSelectionChangeDate;
+
+  /// No description provided for @hkActionTransactionsSelectionChangeCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Transactions: Change Category'**
+  String get hkActionTransactionsSelectionChangeCategory;
+
   /// No description provided for @hkActionCategoriesSelectionClose.
   ///
   /// In en, this message translates to:

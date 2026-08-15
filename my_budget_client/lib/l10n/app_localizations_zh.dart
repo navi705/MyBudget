@@ -1763,6 +1763,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hkActionAccountsSelectionChangeType => '账户: 更改类型';
 
   @override
+  String get hkActionTransactionsSelectionClose => '交易: 关闭';
+
+  @override
+  String get hkActionTransactionsSelectionDelete => '交易: 删除';
+
+  @override
+  String get hkActionTransactionsSelectionChangeDate => '交易: 更改日期';
+
+  @override
+  String get hkActionTransactionsSelectionChangeCategory => '交易: 更改分类';
+
+  @override
   String get hkActionCategoriesSelectionClose => '分类: 关闭';
 
   @override

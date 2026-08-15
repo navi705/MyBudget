@@ -1763,6 +1763,18 @@ class AppLocalizationsAr extends AppLocalizations {
   String get hkActionAccountsSelectionChangeType => 'الحسابات: تغيير النوع';
 
   @override
+  String get hkActionTransactionsSelectionClose => 'المعاملات: إغلاق';
+
+  @override
+  String get hkActionTransactionsSelectionDelete => 'المعاملات: حذف';
+
+  @override
+  String get hkActionTransactionsSelectionChangeDate => 'المعاملات: تغيير التاريخ';
+
+  @override
+  String get hkActionTransactionsSelectionChangeCategory => 'المعاملات: تغيير الفئة';
+
+  @override
   String get hkActionCategoriesSelectionClose => 'الفئات: إغلاق';
 
   @override

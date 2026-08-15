@@ -1763,6 +1763,18 @@ class AppLocalizationsFr extends AppLocalizations {
   String get hkActionAccountsSelectionChangeType => 'Comptes: Changer le Type';
 
   @override
+  String get hkActionTransactionsSelectionClose => 'Transactions: Fermer';
+
+  @override
+  String get hkActionTransactionsSelectionDelete => 'Transactions: Supprimer';
+
+  @override
+  String get hkActionTransactionsSelectionChangeDate => 'Transactions: Modifier la Date';
+
+  @override
+  String get hkActionTransactionsSelectionChangeCategory => 'Transactions: Changer de Catégorie';
+
+  @override
   String get hkActionCategoriesSelectionClose => 'Catégories: Fermer';
 
   @override

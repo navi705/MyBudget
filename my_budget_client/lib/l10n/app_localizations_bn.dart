@@ -1763,6 +1763,18 @@ class AppLocalizationsBn extends AppLocalizations {
   String get hkActionAccountsSelectionChangeType => 'অ্যাকাউন্ট: ধরণ পরিবর্তন';
 
   @override
+  String get hkActionTransactionsSelectionClose => 'লেনদেন: বন্ধ';
+
+  @override
+  String get hkActionTransactionsSelectionDelete => 'লেনদেন: মুছে ফেলুন';
+
+  @override
+  String get hkActionTransactionsSelectionChangeDate => 'লেনদেন: তারিখ পরিবর্তন';
+
+  @override
+  String get hkActionTransactionsSelectionChangeCategory => 'লেনদেন: বিভাগ পরিবর্তন';
+
+  @override
   String get hkActionCategoriesSelectionClose => 'বিভাগ: বন্ধ';
 
   @override

@@ -110,6 +110,26 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
                   'id': 'accounts_selection_change_type',
                   'label': context.l10n.hkActionAccountsSelectionChangeType,
                 },
+                // Transactions offers no "select all": its selection bar has
+                // never carried that button, and listing an id here would make
+                // it bindable without anything to bind it to.
+                {
+                  'id': 'transactions_selection_close',
+                  'label': context.l10n.hkActionTransactionsSelectionClose,
+                },
+                {
+                  'id': 'transactions_selection_delete',
+                  'label': context.l10n.hkActionTransactionsSelectionDelete,
+                },
+                {
+                  'id': 'transactions_selection_change_date',
+                  'label': context.l10n.hkActionTransactionsSelectionChangeDate,
+                },
+                {
+                  'id': 'transactions_selection_change_category',
+                  'label':
+                      context.l10n.hkActionTransactionsSelectionChangeCategory,
+                },
                 {
                   'id': 'categories_selection_close',
                   'label': context.l10n.hkActionCategoriesSelectionClose,

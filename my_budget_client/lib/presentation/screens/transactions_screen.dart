@@ -50,6 +50,81 @@ class TransactionsScreen extends StatelessWidget {
     context.push(AppRoutes.addEditTransaction);
   }
 
+  /// The selection bar's three destructive/bulk actions, lifted out of the
+  /// [AppBar] so the hotkeys can reach the same code the buttons run.
+  ///
+  /// Each one takes the state it acts on rather than reading it back: the
+  /// selection is the whole subject of the action, and the only copy that can
+  /// be trusted is the one the frame was built from.
+  void _confirmDeleteSelected(BuildContext context, TransactionsState state) {
+    final l10n = context.l10n;
+    final selectedCount = state.selectedTransactionIds.length;
+    DialogUtils.showAppDialog(
+      context: context,
+      resizeToAvoidBottomInset: false,
+      child: AlertDialog(
+        title: Text(l10n.deleteTransactionsConfirmationTitle),
+        content: Text(
+          l10n.deleteTransactionsConfirmationMessage(selectedCount.toString()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+            child: Text(l10n.cancelButton),
+          ),
+          TextButton(
+            onPressed: () {
+              context.read<TransactionsBloc>().add(
+                DeleteMultipleTransactions(
+                  state.selectedTransactionIds.toList(),
+                ),
+              );
+              Navigator.of(context, rootNavigator: true).pop();
+            },
+            child: Text(l10n.deleteButton),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _changeDateForSelected(
+    BuildContext context,
+    TransactionsState state,
+  ) async {
+    final newDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (newDate != null && context.mounted) {
+      context.read<TransactionsBloc>().add(
+        UpdateDateForMultipleTransactions(
+          state.selectedTransactionIds.toList(),
+          newDate,
+        ),
+      );
+    }
+  }
+
+  void _changeCategoryForSelected(
+    BuildContext context,
+    TransactionsState state,
+  ) {
+    showCategoryPickerDialog(
+      context,
+      onCategorySelected: (categoryId) {
+        context.read<TransactionsBloc>().add(
+          UpdateCategoryForMultipleTransactions(
+            state.selectedTransactionIds.toList(),
+            categoryId,
+          ),
+        );
+      },
+    );
+  }
+
   void _showAddAccountDialog(BuildContext context) {
     DialogUtils.showAppDialog(
       context: context,
@@ -78,7 +153,7 @@ class TransactionsScreen extends StatelessWidget {
               ? AppBar(
                   leading: MultiLevelTooltip(
                     message: l10n.closeSelectionTooltip,
-                    actionId: 'selection_close',
+                    actionId: 'transactions_selection_close',
                     description: l10n.exitTransactionsSelectionDescription,
                     child: IconButton(
                       icon: const Icon(Icons.close),
@@ -95,94 +170,30 @@ class TransactionsScreen extends StatelessWidget {
                   actions: [
                     MultiLevelTooltip(
                       message: l10n.contextMenuDelete,
-                      actionId: 'selection_delete',
+                      actionId: 'transactions_selection_delete',
                       description: l10n.deleteTransactionsDescription,
                       child: IconButton(
                         icon: const Icon(Icons.delete),
-                        onPressed: () {
-                          DialogUtils.showAppDialog(
-                            context: context,
-                            resizeToAvoidBottomInset: false,
-                            child: AlertDialog(
-                              title: Text(
-                                l10n.deleteTransactionsConfirmationTitle,
-                              ),
-                              content: Text(
-                                l10n.deleteTransactionsConfirmationMessage(
-                                  selectedCount.toString(),
-                                ),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(
-                                    context,
-                                    rootNavigator: true,
-                                  ).pop(),
-                                  child: Text(l10n.cancelButton),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    context.read<TransactionsBloc>().add(
-                                      DeleteMultipleTransactions(
-                                        state.selectedTransactionIds.toList(),
-                                      ),
-                                    );
-                                    Navigator.of(
-                                      context,
-                                      rootNavigator: true,
-                                    ).pop();
-                                  },
-                                  child: Text(l10n.deleteButton),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+                        onPressed: () => _confirmDeleteSelected(context, state),
                       ),
                     ),
                     MultiLevelTooltip(
                       message: l10n.changeDateTooltip,
-                      actionId: 'selection_change_date',
+                      actionId: 'transactions_selection_change_date',
                       description: l10n.changeDateDescription,
                       child: IconButton(
                         icon: const Icon(Icons.calendar_today),
-                        onPressed: () async {
-                          final newDate = await showDatePicker(
-                            context: context,
-                            initialDate: DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
-                          );
-                          if (newDate != null && context.mounted) {
-                            context.read<TransactionsBloc>().add(
-                              UpdateDateForMultipleTransactions(
-                                state.selectedTransactionIds.toList(),
-                                newDate,
-                              ),
-                            );
-                          }
-                        },
+                        onPressed: () => _changeDateForSelected(context, state),
                       ),
                     ),
                     MultiLevelTooltip(
                       message: l10n.changeCategoryTooltip,
-                      actionId: 'selection_change_category',
+                      actionId: 'transactions_selection_change_category',
                       description: l10n.changeCategoryDescription,
                       child: IconButton(
                         icon: const Icon(Icons.category),
-                        onPressed: () {
-                          showCategoryPickerDialog(
-                            context,
-                            onCategorySelected: (categoryId) {
-                              context.read<TransactionsBloc>().add(
-                                UpdateCategoryForMultipleTransactions(
-                                  state.selectedTransactionIds.toList(),
-                                  categoryId,
-                                ),
-                              );
-                            },
-                          );
-                        },
+                        onPressed: () =>
+                            _changeCategoryForSelected(context, state),
                       ),
                     ),
                   ],
@@ -280,6 +291,30 @@ class TransactionsScreen extends StatelessWidget {
             'next_period': () => context.read<TransactionsBloc>().add(
               const DatePeriodNavigated(1),
             ),
+            // The four buttons of the selection bar. The Hot Keys screen offers
+            // them unconditionally, so selection mode has to be checked here:
+            // it is what puts those buttons on screen, and a press off a normal
+            // list would delete or re-date rows with no selection in sight.
+            //
+            // No further guard on the count, because the buttons carry none
+            // either - whatever a mouse can do to an empty selection, the
+            // hotkey does too, rather than inventing a second rule.
+            'transactions_selection_close': () {
+              if (isSelectionMode) {
+                context.read<TransactionsBloc>().add(
+                  const ToggleSelectionMode(false),
+                );
+              }
+            },
+            'transactions_selection_delete': () {
+              if (isSelectionMode) _confirmDeleteSelected(context, state);
+            },
+            'transactions_selection_change_date': () {
+              if (isSelectionMode) _changeDateForSelected(context, state);
+            },
+            'transactions_selection_change_category': () {
+              if (isSelectionMode) _changeCategoryForSelected(context, state);
+            },
           },
           child: scaffold,
         );

@@ -1765,6 +1765,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get hkActionAccountsSelectionChangeType => 'Счета: Изменить тип';
 
   @override
+  String get hkActionTransactionsSelectionClose => 'Транзакции: Закрыть';
+
+  @override
+  String get hkActionTransactionsSelectionDelete => 'Транзакции: Удалить';
+
+  @override
+  String get hkActionTransactionsSelectionChangeDate => 'Транзакции: Изменить дату';
+
+  @override
+  String get hkActionTransactionsSelectionChangeCategory => 'Транзакции: Изменить категорию';
+
+  @override
   String get hkActionCategoriesSelectionClose => 'Категории: Закрыть';
 
   @override
