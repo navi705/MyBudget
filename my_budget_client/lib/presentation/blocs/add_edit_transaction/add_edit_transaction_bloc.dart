@@ -1007,255 +1007,260 @@ class AddEditTransactionBloc
         // Cache hit: reuse previously computed rates, skip all DB queries
         finalRates = _ratesCache[cacheKey]!;
       } else {
-      // Cache miss: perform DB queries to find the best rate
+        // Cache miss: perform DB queries to find the best rate
 
-      // --- STRATEGY: Find Best "System" Rate (Virtual Preset 1) ---
-      // We look for:
-      // 1. Direct Rate (From -> To)
-      // 2. Inverse Rate (To -> From) => 1/Rate
-      // 3. Triangular (Base -> From, Base -> To) => Rate(Base->To) / Rate(Base->From)
+        // --- STRATEGY: Find Best "System" Rate (Virtual Preset 1) ---
+        // We look for:
+        // 1. Direct Rate (From -> To)
+        // 2. Inverse Rate (To -> From) => 1/Rate
+        // 3. Triangular (Base -> From, Base -> To) => Rate(Base->To) / Rate(Base->From)
 
-      ExchangeRateDomain? derivedPreset1;
-      double? bestDerivedRateValue;
-      DateTime? bestDerivedDate;
+        ExchangeRateDomain? derivedPreset1;
+        double? bestDerivedRateValue;
+        DateTime? bestDerivedDate;
 
-      // Helper to update best derived rate if this one is "closer" to target date
-      void tryUpdateBest(double rate, DateTime rateDate) {
-        if (bestDerivedDate == null) {
-          bestDerivedRateValue = rate;
-          bestDerivedDate = rateDate;
-        } else {
-          final distCurrent = bestDerivedDate!.difference(targetDate).abs();
-          final distNew = rateDate.difference(targetDate).abs();
-          if (distNew < distCurrent) {
+        // Helper to update best derived rate if this one is "closer" to target date
+        void tryUpdateBest(double rate, DateTime rateDate) {
+          if (bestDerivedDate == null) {
             bestDerivedRateValue = rate;
             bestDerivedDate = rateDate;
-          }
-        }
-      }
-
-      // 1. Direct Fetch
-      final directRates = await _currencyRepository.getExchangeRatesFiltered(
-        fromCurrency: fromCurrency.code,
-        toCurrency: toCurrencyCode,
-        sortAscending: false,
-      );
-      // Look for Preset 1 specifically or any rate?
-      // User wants "Preset 1" to be this smart logic.
-      // We'll scan ALL history for this pair to find closest date.
-      for (var r in directRates) {
-        // We prioritize Preset 1 records if they exist, but generally any record works for history?
-        // Actually, user said "Preset 1 goes by this logic".
-        // Let's assume we use ANY preset's history to find the market rate?
-        // Or strictly Preset 1?
-        // "I want simply to write value EUR->RSD... in Preset 1 I have logic... others as usual."
-        // So Preset 1 is the "Market/Derived" preset.
-        if (r.preset == 1) {
-          tryUpdateBest(r.rate, r.date);
-        }
-      }
-
-      // 2. Inverse Fetch (To -> From)
-      final inverseRates = await _currencyRepository.getExchangeRatesFiltered(
-        fromCurrency: toCurrencyCode,
-        toCurrency: fromCurrency.code,
-        sortAscending: false,
-      );
-      for (var r in inverseRates) {
-        if (r.preset == 1) {
-          if (r.rate != 0) {
-            tryUpdateBest(1.0 / r.rate, r.date);
-          }
-        }
-      }
-
-      // 3. Triangular Fetch (Base -> From, Base -> To)
-      // Helper to attempt triangular calculation via a pivot currency
-      Future<void> attemptTriangular(String pivotCode) async {
-        // If pivot is one of the currencies, it's just a direct rate (already checked)
-        if (fromCurrency.code == pivotCode || toCurrencyCode == pivotCode) {
-          return;
-        }
-
-        // -- Leg 1: Pivot <-> From --
-        double? ratePivotToFrom;
-        DateTime? datePivotToFrom;
-        int? presetPivotToFrom;
-
-        void updateLeg1(double r, DateTime d, int p) {
-          if (datePivotToFrom == null) {
-            ratePivotToFrom = r;
-            datePivotToFrom = d;
-            presetPivotToFrom = p;
           } else {
-            // Prioritize Preset 1
-            final isCurrentP1 = presetPivotToFrom == 1;
-            final isNewP1 = p == 1;
+            final distCurrent = bestDerivedDate!.difference(targetDate).abs();
+            final distNew = rateDate.difference(targetDate).abs();
+            if (distNew < distCurrent) {
+              bestDerivedRateValue = rate;
+              bestDerivedDate = rateDate;
+            }
+          }
+        }
 
-            if (isNewP1 && !isCurrentP1) {
+        // 1. Direct Fetch
+        final directRates = await _currencyRepository.getExchangeRatesFiltered(
+          fromCurrency: fromCurrency.code,
+          toCurrency: toCurrencyCode,
+          sortAscending: false,
+        );
+        // Look for Preset 1 specifically or any rate?
+        // User wants "Preset 1" to be this smart logic.
+        // We'll scan ALL history for this pair to find closest date.
+        for (var r in directRates) {
+          // We prioritize Preset 1 records if they exist, but generally any record works for history?
+          // Actually, user said "Preset 1 goes by this logic".
+          // Let's assume we use ANY preset's history to find the market rate?
+          // Or strictly Preset 1?
+          // "I want simply to write value EUR->RSD... in Preset 1 I have logic... others as usual."
+          // So Preset 1 is the "Market/Derived" preset.
+          if (r.preset == 1) {
+            tryUpdateBest(r.rate, r.date);
+          }
+        }
+
+        // 2. Inverse Fetch (To -> From)
+        final inverseRates = await _currencyRepository.getExchangeRatesFiltered(
+          fromCurrency: toCurrencyCode,
+          toCurrency: fromCurrency.code,
+          sortAscending: false,
+        );
+        for (var r in inverseRates) {
+          if (r.preset == 1) {
+            if (r.rate != 0) {
+              tryUpdateBest(1.0 / r.rate, r.date);
+            }
+          }
+        }
+
+        // 3. Triangular Fetch (Base -> From, Base -> To)
+        // Helper to attempt triangular calculation via a pivot currency
+        Future<void> attemptTriangular(String pivotCode) async {
+          // If pivot is one of the currencies, it's just a direct rate (already checked)
+          if (fromCurrency.code == pivotCode || toCurrencyCode == pivotCode) {
+            return;
+          }
+
+          // -- Leg 1: Pivot <-> From --
+          double? ratePivotToFrom;
+          DateTime? datePivotToFrom;
+          int? presetPivotToFrom;
+
+          void updateLeg1(double r, DateTime d, int p) {
+            if (datePivotToFrom == null) {
               ratePivotToFrom = r;
               datePivotToFrom = d;
               presetPivotToFrom = p;
-            } else if (isNewP1 == isCurrentP1) {
-              final distCurrent = datePivotToFrom!.difference(targetDate).abs();
-              final distNew = d.difference(targetDate).abs();
-              if (distNew < distCurrent) {
+            } else {
+              // Prioritize Preset 1
+              final isCurrentP1 = presetPivotToFrom == 1;
+              final isNewP1 = p == 1;
+
+              if (isNewP1 && !isCurrentP1) {
                 ratePivotToFrom = r;
                 datePivotToFrom = d;
                 presetPivotToFrom = p;
+              } else if (isNewP1 == isCurrentP1) {
+                final distCurrent = datePivotToFrom!
+                    .difference(targetDate)
+                    .abs();
+                final distNew = d.difference(targetDate).abs();
+                if (distNew < distCurrent) {
+                  ratePivotToFrom = r;
+                  datePivotToFrom = d;
+                  presetPivotToFrom = p;
+                }
               }
             }
           }
-        }
 
-        // Fetch Pivot -> From
-        final directLeg1 = await _currencyRepository.getExchangeRatesFiltered(
-          fromCurrency: pivotCode,
-          toCurrency: fromCurrency.code,
-          sortAscending: false,
-          limit: 1000,
-        );
-        for (var r in directLeg1) updateLeg1(r.rate, r.date, r.preset);
+          // Fetch Pivot -> From
+          final directLeg1 = await _currencyRepository.getExchangeRatesFiltered(
+            fromCurrency: pivotCode,
+            toCurrency: fromCurrency.code,
+            sortAscending: false,
+            limit: 1000,
+          );
+          for (var r in directLeg1) updateLeg1(r.rate, r.date, r.preset);
 
-        // Fetch From -> Pivot
-        final inverseLeg1 = await _currencyRepository.getExchangeRatesFiltered(
-          fromCurrency: fromCurrency.code,
-          toCurrency: pivotCode,
-          sortAscending: false,
-          limit: 1000,
-        );
-        for (var r in inverseLeg1) {
-          if (r.rate != 0) updateLeg1(1.0 / r.rate, r.date, r.preset);
-        }
+          // Fetch From -> Pivot
+          final inverseLeg1 = await _currencyRepository
+              .getExchangeRatesFiltered(
+                fromCurrency: fromCurrency.code,
+                toCurrency: pivotCode,
+                sortAscending: false,
+                limit: 1000,
+              );
+          for (var r in inverseLeg1) {
+            if (r.rate != 0) updateLeg1(1.0 / r.rate, r.date, r.preset);
+          }
 
-        // -- Leg 2: Pivot <-> To --
-        double? ratePivotToTo;
-        DateTime? datePivotToTo;
-        int? presetPivotToTo;
+          // -- Leg 2: Pivot <-> To --
+          double? ratePivotToTo;
+          DateTime? datePivotToTo;
+          int? presetPivotToTo;
 
-        void updateLeg2(double r, DateTime d, int p) {
-          if (datePivotToTo == null) {
-            ratePivotToTo = r;
-            datePivotToTo = d;
-            presetPivotToTo = p;
-          } else {
-            final isCurrentP1 = presetPivotToTo == 1;
-            final isNewP1 = p == 1;
-
-            if (isNewP1 && !isCurrentP1) {
+          void updateLeg2(double r, DateTime d, int p) {
+            if (datePivotToTo == null) {
               ratePivotToTo = r;
               datePivotToTo = d;
               presetPivotToTo = p;
-            } else if (isNewP1 == isCurrentP1) {
-              final distCurrent = datePivotToTo!.difference(targetDate).abs();
-              final distNew = d.difference(targetDate).abs();
-              if (distNew < distCurrent) {
+            } else {
+              final isCurrentP1 = presetPivotToTo == 1;
+              final isNewP1 = p == 1;
+
+              if (isNewP1 && !isCurrentP1) {
                 ratePivotToTo = r;
                 datePivotToTo = d;
                 presetPivotToTo = p;
+              } else if (isNewP1 == isCurrentP1) {
+                final distCurrent = datePivotToTo!.difference(targetDate).abs();
+                final distNew = d.difference(targetDate).abs();
+                if (distNew < distCurrent) {
+                  ratePivotToTo = r;
+                  datePivotToTo = d;
+                  presetPivotToTo = p;
+                }
+              }
+            }
+          }
+
+          // Fetch Pivot -> To
+          final directLeg2 = await _currencyRepository.getExchangeRatesFiltered(
+            fromCurrency: pivotCode,
+            toCurrency: toCurrencyCode,
+            sortAscending: false,
+            limit: 1000,
+          );
+          for (var r in directLeg2) updateLeg2(r.rate, r.date, r.preset);
+
+          // Fetch To -> Pivot
+          final inverseLeg2 = await _currencyRepository
+              .getExchangeRatesFiltered(
+                fromCurrency: toCurrencyCode,
+                toCurrency: pivotCode,
+                sortAscending: false,
+                limit: 1000,
+              );
+          for (var r in inverseLeg2) {
+            if (r.rate != 0) updateLeg2(1.0 / r.rate, r.date, r.preset);
+          }
+
+          // Calculate
+          if (ratePivotToFrom != null && ratePivotToTo != null) {
+            // Rate = (Pivot->To) / (Pivot->From)
+            if (ratePivotToFrom != 0) {
+              final calculatedRate = ratePivotToTo! / ratePivotToFrom!;
+              final representativeDate =
+                  datePivotToFrom!.isBefore(datePivotToTo!)
+                  ? datePivotToFrom!
+                  : datePivotToTo!;
+              tryUpdateBest(calculatedRate, representativeDate);
+            }
+          }
+        }
+
+        // 1. Try Main Currency Payload
+        await attemptTriangular(state.mainCurrencyCode);
+
+        // 2. Try EUR (if not already tried)
+        if (bestDerivedRateValue == null && state.mainCurrencyCode != 'EUR') {
+          await attemptTriangular('EUR');
+        }
+
+        // 3. Try USD (if not already tried)
+        // 3. Try USD (if not already tried)
+        if (bestDerivedRateValue == null &&
+            state.mainCurrencyCode != 'USD' &&
+            state.mainCurrencyCode != 'EUR') {
+          await attemptTriangular('USD');
+        }
+
+        // Create the Virtual Preset 1 if we have a derived value
+        if (bestDerivedRateValue != null) {
+          derivedPreset1 = ExchangeRateDomain(
+            fromCurrencyCode: fromCurrency.code,
+            toCurrencyCode: toCurrencyCode,
+            rate: bestDerivedRateValue!,
+            date: bestDerivedDate!,
+            preset: 1,
+          );
+        } else {
+          // Fallback if absolutely no history found: Default to 1.0 (or leave null?)
+          // User hated "Default 1.0", so leave null if not found.
+        }
+
+        // --- END SMART LOGIC ---
+
+        // Now prepare list for UI.
+        // We include the "Direct" rates from DB for other Presets (2, 3, etc.)
+        // AND our Virtual/Derived Preset 1.
+
+        final Map<int, ExchangeRateDomain> validPresets = {};
+
+        // Add Direct rates (only custom presets or if we want to show raw DB preset 1?)
+        // User said: "Preset 1 goes by this logic". So we overwrite DB Preset 1 with Smart Preset 1.
+        for (var r in directRates) {
+          if (r.preset != 1) {
+            final current = validPresets[r.preset];
+            if (current == null) {
+              validPresets[r.preset] = r;
+            } else {
+              // Closeness check
+              final distCurrent = current.date.difference(targetDate).abs();
+              final distNew = r.date.difference(targetDate).abs();
+              if (distNew < distCurrent) {
+                validPresets[r.preset] = r;
               }
             }
           }
         }
 
-        // Fetch Pivot -> To
-        final directLeg2 = await _currencyRepository.getExchangeRatesFiltered(
-          fromCurrency: pivotCode,
-          toCurrency: toCurrencyCode,
-          sortAscending: false,
-          limit: 1000,
-        );
-        for (var r in directLeg2) updateLeg2(r.rate, r.date, r.preset);
-
-        // Fetch To -> Pivot
-        final inverseLeg2 = await _currencyRepository.getExchangeRatesFiltered(
-          fromCurrency: toCurrencyCode,
-          toCurrency: pivotCode,
-          sortAscending: false,
-          limit: 1000,
-        );
-        for (var r in inverseLeg2) {
-          if (r.rate != 0) updateLeg2(1.0 / r.rate, r.date, r.preset);
+        if (derivedPreset1 != null) {
+          validPresets[1] = derivedPreset1;
         }
 
-        // Calculate
-        if (ratePivotToFrom != null && ratePivotToTo != null) {
-          // Rate = (Pivot->To) / (Pivot->From)
-          if (ratePivotToFrom != 0) {
-            final calculatedRate = ratePivotToTo! / ratePivotToFrom!;
-            final representativeDate = datePivotToFrom!.isBefore(datePivotToTo!)
-                ? datePivotToFrom!
-                : datePivotToTo!;
-            tryUpdateBest(calculatedRate, representativeDate);
-          }
-        }
-      }
+        finalRates = validPresets.values.toList();
+        finalRates.sort((a, b) => a.preset.compareTo(b.preset));
 
-      // 1. Try Main Currency Payload
-      await attemptTriangular(state.mainCurrencyCode);
-
-      // 2. Try EUR (if not already tried)
-      if (bestDerivedRateValue == null && state.mainCurrencyCode != 'EUR') {
-        await attemptTriangular('EUR');
-      }
-
-      // 3. Try USD (if not already tried)
-      // 3. Try USD (if not already tried)
-      if (bestDerivedRateValue == null &&
-          state.mainCurrencyCode != 'USD' &&
-          state.mainCurrencyCode != 'EUR') {
-        await attemptTriangular('USD');
-      }
-
-      // Create the Virtual Preset 1 if we have a derived value
-      if (bestDerivedRateValue != null) {
-        derivedPreset1 = ExchangeRateDomain(
-          fromCurrencyCode: fromCurrency.code,
-          toCurrencyCode: toCurrencyCode,
-          rate: bestDerivedRateValue!,
-          date: bestDerivedDate!,
-          preset: 1,
-        );
-      } else {
-        // Fallback if absolutely no history found: Default to 1.0 (or leave null?)
-        // User hated "Default 1.0", so leave null if not found.
-      }
-
-      // --- END SMART LOGIC ---
-
-      // Now prepare list for UI.
-      // We include the "Direct" rates from DB for other Presets (2, 3, etc.)
-      // AND our Virtual/Derived Preset 1.
-
-      final Map<int, ExchangeRateDomain> validPresets = {};
-
-      // Add Direct rates (only custom presets or if we want to show raw DB preset 1?)
-      // User said: "Preset 1 goes by this logic". So we overwrite DB Preset 1 with Smart Preset 1.
-      for (var r in directRates) {
-        if (r.preset != 1) {
-          final current = validPresets[r.preset];
-          if (current == null) {
-            validPresets[r.preset] = r;
-          } else {
-            // Closeness check
-            final distCurrent = current.date.difference(targetDate).abs();
-            final distNew = r.date.difference(targetDate).abs();
-            if (distNew < distCurrent) {
-              validPresets[r.preset] = r;
-            }
-          }
-        }
-      }
-
-      if (derivedPreset1 != null) {
-        validPresets[1] = derivedPreset1;
-      }
-
-      finalRates = validPresets.values.toList();
-      finalRates.sort((a, b) => a.preset.compareTo(b.preset));
-
-      // Store in cache for future calls with the same parameters
-      _ratesCache[cacheKey] = finalRates;
+        // Store in cache for future calls with the same parameters
+        _ratesCache[cacheKey] = finalRates;
       } // end cache miss branch
 
       ExchangeRateDomain? selectedRate = state.selectedExchangeRate;
@@ -1307,6 +1312,12 @@ class AddEditTransactionBloc
       var finalState = state.copyWith(
         availableExchangeRates: finalRates,
         selectedExchangeRate: selectedRate,
+        // A refresh always resolves a fresh answer to "what preset is this",
+        // so the Update/Delete target is re-synced here too, the same way
+        // selectedExchangeRate just was above - it only diverges from
+        // selectedExchangeRate while the user is mid-typing, and typing never
+        // calls _fetchRates.
+        editingExchangeRate: selectedRate,
         manualExchangeRate: newManualRateStr,
         isLoadingRates: false,
       );
@@ -1345,6 +1356,10 @@ class AddEditTransactionBloc
       // this the deselection would be dropped exactly as the manual-rate one
       // was. No caller passes null today; this keeps the event honest.
       clearSelectedExchangeRate: event.rate == null,
+      // Tapping a chip is what the Update/Delete buttons should act on next,
+      // same as selectedExchangeRate above.
+      editingExchangeRate: event.rate,
+      clearEditingExchangeRate: event.rate == null,
       manualExchangeRate: displayRate?.toString() ?? state.manualExchangeRate,
     );
 
@@ -1370,6 +1385,12 @@ class AddEditTransactionBloc
     // used to be swallowed by copyWith's `??`, leaving a chip highlighted that
     // named a rate the transaction was no longer converted at - and the saved
     // row still carried that preset number (see _onSubmitted).
+    //
+    // editingExchangeRate is deliberately left untouched: it is what the
+    // Update/Delete buttons target, and overwriting a preset's rate by typing
+    // over it is the entire point of pressing Update next. Clearing it here
+    // the way selectedExchangeRate is cleared would hide the Update button
+    // the instant its target field is edited.
     var newState = state.copyWith(
       manualExchangeRate: event.rate,
       clearSelectedExchangeRate: true,
@@ -1595,7 +1616,12 @@ class AddEditTransactionBloc
         (r) => r.preset == nextPreset,
       );
       // Keep direction preference, just select the new rate
-      emit(state.copyWith(selectedExchangeRate: createdRate));
+      emit(
+        state.copyWith(
+          selectedExchangeRate: createdRate,
+          editingExchangeRate: createdRate,
+        ),
+      );
 
       // If Asset, manually trigger calculation update too (normally _fetchAssetToCashRate does it but logic is conditional)
       // Actually _fetchAssetToCashRate updates state.
@@ -1639,7 +1665,12 @@ class AddEditTransactionBloc
       );
 
       // Re-select the updated rate, keep direction preference
-      emit(state.copyWith(selectedExchangeRate: updatedRate));
+      emit(
+        state.copyWith(
+          selectedExchangeRate: updatedRate,
+          editingExchangeRate: updatedRate,
+        ),
+      );
     } catch (e) {
       _emitRateFailure(emit, e);
     }

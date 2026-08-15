@@ -1007,8 +1007,14 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                       spacing: 8,
                       runSpacing: 4,
                       children: [
-                        if (state.selectedExchangeRate != null &&
-                            state.selectedExchangeRate!.preset != 1)
+                        // Gated on editingExchangeRate rather than
+                        // selectedExchangeRate: the latter is cleared the
+                        // moment the rate field is edited by hand (so the
+                        // chip stops claiming a conversion it no longer
+                        // describes), but typing a new rate over a preset is
+                        // exactly when these two buttons are needed.
+                        if (state.editingExchangeRate != null &&
+                            state.editingExchangeRate!.preset != 1)
                           TextButton.icon(
                             icon: const Icon(Icons.delete, size: 16),
                             label: Text(context.l10n.deleteButton),
@@ -1018,21 +1024,21 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                             onPressed: () {
                               context.read<AddEditTransactionBloc>().add(
                                 AddEditTransactionDeletePreset(
-                                  state.selectedExchangeRate!,
+                                  state.editingExchangeRate!,
                                 ),
                               );
                             },
                           ),
 
-                        if (state.selectedExchangeRate != null &&
-                            state.selectedExchangeRate!.preset != 1)
+                        if (state.editingExchangeRate != null &&
+                            state.editingExchangeRate!.preset != 1)
                           TextButton.icon(
                             icon: const Icon(Icons.edit, size: 16),
                             label: Text(context.l10n.updateButton),
                             onPressed: () {
                               context.read<AddEditTransactionBloc>().add(
                                 AddEditTransactionUpdatePreset(
-                                  state.selectedExchangeRate!,
+                                  state.editingExchangeRate!,
                                 ),
                               );
                             },

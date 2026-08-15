@@ -26,6 +26,28 @@ import '../test_app.dart';
 const Size _narrow = Size(400, 2400);
 const Size _wide = Size(1200, 2400);
 
+/// The hot keys row does not gate on [debugAppPlatformOverride] the way the
+/// SMS and sync rows do - it gates on `Theme.of(context).platform`, because
+/// `AppPlatform` reads dart:io and answers false to everything on web,
+/// which would offer keyboard shortcuts to a phone browser (see
+/// settings_hotkeys_row_test.dart, which pins that choice directly). Both
+/// levers still have to move together here, or a test that only sets the
+/// override leaves the theme's platform at whatever the harness defaults to,
+/// independent of the scenario the test claims to be driving.
+TargetPlatform? _themePlatformFor(AppPlatformKind? kind) => switch (kind) {
+  AppPlatformKind.android => TargetPlatform.android,
+  AppPlatformKind.iOS => TargetPlatform.iOS,
+  AppPlatformKind.linux => TargetPlatform.linux,
+  AppPlatformKind.macOS => TargetPlatform.macOS,
+  AppPlatformKind.windows => TargetPlatform.windows,
+  AppPlatformKind.fuchsia => TargetPlatform.fuchsia,
+  // TargetPlatform has no "web" member: a real web build derives
+  // defaultTargetPlatform from the browser's user agent instead, and a
+  // desktop browser is what this override is meant to stand in for here.
+  AppPlatformKind.web => TargetPlatform.linux,
+  null => null,
+};
+
 /// Pumps SettingsScreen with the blocs it reads while building.
 Future<AppLocalizations> _pumpSettings(
   WidgetTester tester, {
@@ -38,6 +60,7 @@ Future<AppLocalizations> _pumpSettings(
     locale: locale,
     surfaceSize: surfaceSize,
     wrapInScaffold: false,
+    platform: _themePlatformFor(debugAppPlatformOverride),
     aboveApp: (app) => wrapWithBlocs(
       app,
       settingsBloc: createSettingsBloc(),
@@ -59,7 +82,9 @@ void main() {
     // follow the same width MainScreen used to drop the destination — not the
     // host OS. Gating it on Android/iOS lost the feature on web (where every
     // AppPlatform flag is false) and in any desktop window under 600dp.
-    testWidgets('is offered on a narrow layout on a desktop OS', (tester) async {
+    testWidgets('is offered on a narrow layout on a desktop OS', (
+      tester,
+    ) async {
       debugAppPlatformOverride = AppPlatformKind.windows;
 
       final l10n = await _pumpSettings(tester, surfaceSize: _narrow);

@@ -20,6 +20,7 @@ class AddEditTransactionState extends Equatable {
     this.selectedCurrency,
     this.availableExchangeRates = const [],
     this.selectedExchangeRate,
+    this.editingExchangeRate,
     this.manualExchangeRate = '',
     this.isLoadingRates = false,
     this.isSaving = false,
@@ -49,6 +50,14 @@ class AddEditTransactionState extends Equatable {
   final Currency? selectedCurrency;
   final List<ExchangeRateDomain> availableExchangeRates;
   final ExchangeRateDomain? selectedExchangeRate;
+  // The preset the Update/Delete buttons act on. Kept separate from
+  // `selectedExchangeRate` because that field is deliberately cleared the
+  // moment the user types a rate by hand (see `_onManualRateChanged`) so the
+  // preset chip stops claiming a conversion it no longer describes - but the
+  // whole point of typing over a preset's rate is to then press Update, and a
+  // button that vanishes the instant its target field is edited can never be
+  // pressed. This field tracks the same preset without being reset by typing.
+  final ExchangeRateDomain? editingExchangeRate;
   final String manualExchangeRate;
   final bool isLoadingRates;
   final bool isSaving;
@@ -109,6 +118,8 @@ class AddEditTransactionState extends Equatable {
     // meaningful value here - "no preset chip is selected" - and a bare
     // `selectedExchangeRate ?? this.selectedExchangeRate` cannot express it.
     bool clearSelectedExchangeRate = false,
+    ExchangeRateDomain? editingExchangeRate,
+    bool clearEditingExchangeRate = false,
     String? manualExchangeRate,
     DateTime? date,
     bool? isTransferMode,
@@ -143,6 +154,9 @@ class AddEditTransactionState extends Equatable {
       selectedExchangeRate: clearSelectedExchangeRate
           ? null
           : (selectedExchangeRate ?? this.selectedExchangeRate),
+      editingExchangeRate: clearEditingExchangeRate
+          ? null
+          : (editingExchangeRate ?? this.editingExchangeRate),
       manualExchangeRate: manualExchangeRate ?? this.manualExchangeRate,
       date: date ?? this.date,
       isTransferMode: isTransferMode ?? this.isTransferMode,
@@ -179,6 +193,7 @@ class AddEditTransactionState extends Equatable {
     selectedCurrency,
     availableExchangeRates,
     selectedExchangeRate,
+    editingExchangeRate,
     manualExchangeRate,
     date,
     isTransferMode,
