@@ -112,9 +112,14 @@ CategoriesBloc _categoriesBloc() {
 /// The dialogs this screen opens go onto the root navigator, so their blocs
 /// have to be provided above the app rather than around the screen - a
 /// provider around the routed page is invisible to a sibling route.
+///
+/// [selected] overrides the rows the bar is acting on, so a test can hold the
+/// bar open over an empty selection - which is a state the user reaches by
+/// tapping the last selected row off again, not a contrived one.
 Future<_RecordingTransactionsBloc> _pumpTransactions(
   WidgetTester tester, {
   required bool selectionMode,
+  Set<String>? selected,
   Map<String, String> hotkeys = const {},
 }) async {
   setSurfaceSize(tester, const Size(900, 900));
@@ -125,7 +130,8 @@ Future<_RecordingTransactionsBloc> _pumpTransactions(
     TransactionsState(
       status: TransactionStatus.success,
       isSelectionModeActive: selectionMode,
-      selectedTransactionIds: selectionMode ? _selected : const {},
+      selectedTransactionIds:
+          selected ?? (selectionMode ? _selected : const {}),
     ),
   );
 
@@ -377,6 +383,77 @@ void main() {
       );
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.byType(DatePickerDialog), findsNothing);
+    });
+  });
+
+  group('transactions selection bar over an empty selection', () {
+    // Reachable by tapping the last selected row off again: the bloc's toggle
+    // only edits the set, it never leaves selection mode. The three actions all
+    // act on that set, so all three are hidden while it is empty - the assets
+    // and inflation bars already hide their delete button that way. Shown, they
+    // offered a "Delete 0 transactions?" dialog and two pickers whose choice
+    // was applied to nothing.
+    testWidgets('hides delete, change date and change category', (
+      tester,
+    ) async {
+      await _pumpTransactions(tester, selectionMode: true, selected: const {});
+
+      expect(find.widgetWithIcon(IconButton, Icons.delete), findsNothing);
+      expect(
+        find.widgetWithIcon(IconButton, Icons.calendar_today),
+        findsNothing,
+      );
+      expect(find.widgetWithIcon(IconButton, Icons.category), findsNothing);
+      // Close stays: it is what gets the user back out of the bar.
+      expect(find.widgetWithIcon(IconButton, Icons.close), findsOneWidget);
+    });
+
+    testWidgets('their hotkeys do nothing either', (tester) async {
+      final bloc = await _pumpTransactions(
+        tester,
+        selectionMode: true,
+        selected: const {},
+        hotkeys: _hotkeys,
+      );
+
+      for (final key in [_deleteKey, _dateKey, _categoryKey]) {
+        await tester.sendKeyEvent(key);
+        await tester.pumpAndSettle();
+      }
+
+      expect(bloc.events.whereType<DeleteMultipleTransactions>(), isEmpty);
+      expect(
+        bloc.events.whereType<UpdateDateForMultipleTransactions>(),
+        isEmpty,
+      );
+      expect(
+        bloc.events.whereType<UpdateCategoryForMultipleTransactions>(),
+        isEmpty,
+      );
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(DatePickerDialog), findsNothing);
+      expect(find.byType(CategoryPickerDialog), findsNothing);
+    });
+
+    testWidgets('close still works, by key and by button', (tester) async {
+      final byKey = await _pumpTransactions(
+        tester,
+        selectionMode: true,
+        selected: const {},
+        hotkeys: _hotkeys,
+      );
+      await tester.sendKeyEvent(_closeKey);
+      await tester.pumpAndSettle();
+      expect(byKey.events, contains(const ToggleSelectionMode(false)));
+
+      final byButton = await _pumpTransactions(
+        tester,
+        selectionMode: true,
+        selected: const {},
+      );
+      await tester.tap(find.widgetWithIcon(IconButton, Icons.close));
+      await tester.pumpAndSettle();
+      expect(byButton.events, contains(const ToggleSelectionMode(false)));
     });
   });
 }

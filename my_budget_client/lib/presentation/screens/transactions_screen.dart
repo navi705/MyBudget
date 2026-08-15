@@ -168,35 +168,46 @@ class TransactionsScreen extends StatelessWidget {
                   title: Text(
                     l10n.selectedCountLabel(selectedCount.toString()),
                   ),
+                  // All three act on the selection, so all three are hidden
+                  // while it is empty - the assets and inflation selection bars
+                  // already hide their delete button that way. Shown, they were
+                  // offering a "Delete 0 transactions?" dialog, a date picker
+                  // that updated nothing and a category picker that did the
+                  // same. Selection mode can sit at zero: tapping the last
+                  // selected row clears it and leaves the bar up.
                   actions: [
-                    MultiLevelTooltip(
-                      message: l10n.contextMenuDelete,
-                      actionId: 'transactions_selection_delete',
-                      description: l10n.deleteTransactionsDescription,
-                      child: IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () => _confirmDeleteSelected(context, state),
+                    if (selectedCount > 0) ...[
+                      MultiLevelTooltip(
+                        message: l10n.contextMenuDelete,
+                        actionId: 'transactions_selection_delete',
+                        description: l10n.deleteTransactionsDescription,
+                        child: IconButton(
+                          icon: const Icon(Icons.delete),
+                          onPressed: () =>
+                              _confirmDeleteSelected(context, state),
+                        ),
                       ),
-                    ),
-                    MultiLevelTooltip(
-                      message: l10n.changeDateTooltip,
-                      actionId: 'transactions_selection_change_date',
-                      description: l10n.changeDateDescription,
-                      child: IconButton(
-                        icon: const Icon(Icons.calendar_today),
-                        onPressed: () => _changeDateForSelected(context, state),
+                      MultiLevelTooltip(
+                        message: l10n.changeDateTooltip,
+                        actionId: 'transactions_selection_change_date',
+                        description: l10n.changeDateDescription,
+                        child: IconButton(
+                          icon: const Icon(Icons.calendar_today),
+                          onPressed: () =>
+                              _changeDateForSelected(context, state),
+                        ),
                       ),
-                    ),
-                    MultiLevelTooltip(
-                      message: l10n.changeCategoryTooltip,
-                      actionId: 'transactions_selection_change_category',
-                      description: l10n.changeCategoryDescription,
-                      child: IconButton(
-                        icon: const Icon(Icons.category),
-                        onPressed: () =>
-                            _changeCategoryForSelected(context, state),
+                      MultiLevelTooltip(
+                        message: l10n.changeCategoryTooltip,
+                        actionId: 'transactions_selection_change_category',
+                        description: l10n.changeCategoryDescription,
+                        child: IconButton(
+                          icon: const Icon(Icons.category),
+                          onPressed: () =>
+                              _changeCategoryForSelected(context, state),
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 )
               : PreferredSize(
@@ -321,9 +332,9 @@ class TransactionsScreen extends StatelessWidget {
             // it is what puts those buttons on screen, and a press off a normal
             // list would delete or re-date rows with no selection in sight.
             //
-            // No further guard on the count, because the buttons carry none
-            // either - whatever a mouse can do to an empty selection, the
-            // hotkey does too, rather than inventing a second rule.
+            // Each guard is that button's own visibility condition, no stricter
+            // and no looser: close is drawn for the whole of selection mode,
+            // the other three only once something is selected.
             'transactions_selection_close': () {
               if (isSelectionMode) {
                 context.read<TransactionsBloc>().add(
@@ -332,13 +343,19 @@ class TransactionsScreen extends StatelessWidget {
               }
             },
             'transactions_selection_delete': () {
-              if (isSelectionMode) _confirmDeleteSelected(context, state);
+              if (isSelectionMode && selectedCount > 0) {
+                _confirmDeleteSelected(context, state);
+              }
             },
             'transactions_selection_change_date': () {
-              if (isSelectionMode) _changeDateForSelected(context, state);
+              if (isSelectionMode && selectedCount > 0) {
+                _changeDateForSelected(context, state);
+              }
             },
             'transactions_selection_change_category': () {
-              if (isSelectionMode) _changeCategoryForSelected(context, state);
+              if (isSelectionMode && selectedCount > 0) {
+                _changeCategoryForSelected(context, state);
+              }
             },
           },
           child: scaffold,
