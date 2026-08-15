@@ -1751,6 +1751,15 @@ class AppLocalizationsHi extends AppLocalizations {
   String get hkActionAddAction => 'सामान्य जोड़ने की कार्रवाई';
 
   @override
+  String get hkActionPickDate => 'दिनांक चुनें';
+
+  @override
+  String get hkActionSortOrder => 'क्रमबद्ध क्रम';
+
+  @override
+  String get hkActionFilterAction => 'फ़िल्टर';
+
+  @override
   String get hkActionAccountsSelectionClose => 'खाते: बंद करें';
 
   @override

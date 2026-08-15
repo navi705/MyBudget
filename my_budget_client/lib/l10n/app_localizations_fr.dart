@@ -1751,6 +1751,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get hkActionAddAction => 'Action d\'Ajout Générique';
 
   @override
+  String get hkActionPickDate => 'Sélectionner une date';
+
+  @override
+  String get hkActionSortOrder => 'Ordre de tri';
+
+  @override
+  String get hkActionFilterAction => 'Filtrer';
+
+  @override
   String get hkActionAccountsSelectionClose => 'Comptes: Fermer';
 
   @override

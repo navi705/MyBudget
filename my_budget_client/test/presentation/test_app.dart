@@ -19,6 +19,7 @@ import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.d
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/exchange_rates/exchange_rates_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/sms/sms_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
@@ -51,6 +52,13 @@ class MockTransactionsBloc
 
 class MockDashboardBloc extends MockBloc<DashboardEvent, DashboardState>
     implements DashboardBloc {}
+
+// Not wired into `wrapWithBlocs`: the exchange rates screen builds its own bloc
+// from the service locator rather than reading one from an ancestor, so a test
+// hands this to `sl` instead of to a provider.
+class MockExchangeRatesBloc
+    extends MockBloc<ExchangeRatesEvent, ExchangeRatesState>
+    implements ExchangeRatesBloc {}
 
 class MockCurrencyConverterBloc
     extends MockBloc<CurrencyConverterEvent, CurrencyConverterState>
@@ -246,6 +254,5 @@ Future<void> pumpRouterApp(
 /// Tests must not hard-code English: the label a destination shows is chosen by
 /// the delegate, and asserting on a literal would pass in `en` and fail in the
 /// other nine locales for reasons that have nothing to do with the widget.
-Future<AppLocalizations> loadL10n([
-  Locale locale = const Locale('en'),
-]) => AppLocalizations.delegate.load(locale);
+Future<AppLocalizations> loadL10n([Locale locale = const Locale('en')]) =>
+    AppLocalizations.delegate.load(locale);

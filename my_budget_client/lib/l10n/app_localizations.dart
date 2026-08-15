@@ -3291,6 +3291,24 @@ abstract class AppLocalizations {
   /// **'Generic Add Action'**
   String get hkActionAddAction;
 
+  /// No description provided for @hkActionPickDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Date'**
+  String get hkActionPickDate;
+
+  /// No description provided for @hkActionSortOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort Order'**
+  String get hkActionSortOrder;
+
+  /// No description provided for @hkActionFilterAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter'**
+  String get hkActionFilterAction;
+
   /// No description provided for @hkActionAccountsSelectionClose.
   ///
   /// In en, this message translates to:

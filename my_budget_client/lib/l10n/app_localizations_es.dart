@@ -1751,6 +1751,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String get hkActionAddAction => 'Acción de Añadir Genérica';
 
   @override
+  String get hkActionPickDate => 'Seleccionar Fecha';
+
+  @override
+  String get hkActionSortOrder => 'Orden de Clasificación';
+
+  @override
+  String get hkActionFilterAction => 'Filtrar';
+
+  @override
   String get hkActionAccountsSelectionClose => 'Cuentas: Cerrar';
 
   @override

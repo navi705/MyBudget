@@ -138,10 +138,28 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
             'add_action': () => _showAddEditExchangeRateDialog(context),
             'prev_period': () => _navigate(bloc, state, -1),
             'next_period': () => _navigate(bloc, state, 1),
-            'exchange_rates_selection_close': () =>
-                bloc.add(const ToggleSelectionMode(false)),
-            'exchange_rates_selection_all': () =>
-                bloc.add(const SelectAllExchangeRates()),
+            // The date, sort and filter controls of the app bar. Their ids are
+            // screen-agnostic, like prev_period and add_action above: every
+            // screen carries the same three buttons, and only the focused
+            // screen's ScreenShortcuts sees the key event.
+            'pick_date': () => _showExchangeRatesCalendar(context, state),
+            'sort_order': () => _toggleExchangeRatesSort(bloc, state),
+            'filter_action': () =>
+                _showExchangeRatesFilterDialog(context, state),
+            // Selection actions only while the selection bar is on screen.
+            // Without the guard, "close" would fire a state change nothing
+            // asked for and "select all" would fill a selection the user
+            // cannot see, let alone clear.
+            'exchange_rates_selection_close': () {
+              if (state.isSelectionModeActive) {
+                bloc.add(const ToggleSelectionMode(false));
+              }
+            },
+            'exchange_rates_selection_all': () {
+              if (state.isSelectionModeActive) {
+                bloc.add(const SelectAllExchangeRates());
+              }
+            },
             'exchange_rates_selection_delete': () {
               if (state.isSelectionModeActive &&
                   state.selectedExchangeRates.isNotEmpty) {
@@ -225,7 +243,9 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
     // edit must not hide the rates the user still has.
     if (state.status == ExchangeRatesStatus.failure &&
         state.exchangeRates.isEmpty) {
-      return Center(child: Text(context.l10n.importErrorLabel('${state.error}')));
+      return Center(
+        child: Text(context.l10n.importErrorLabel('${state.error}')),
+      );
     }
     if (state.exchangeRates.isEmpty &&
         state.status == ExchangeRatesStatus.success) {
@@ -306,10 +326,15 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
         PopupMenuItem(
           value: 'select',
           child: Text(
-            isSelected ? context.l10n.contextMenuDeselect : context.l10n.selectButton,
+            isSelected
+                ? context.l10n.contextMenuDeselect
+                : context.l10n.selectButton,
           ),
         ),
-        PopupMenuItem(value: 'select_all', child: Text(context.l10n.selectAllButton)),
+        PopupMenuItem(
+          value: 'select_all',
+          child: Text(context.l10n.selectAllButton),
+        ),
         if (state.selectedExchangeRates.isNotEmpty)
           PopupMenuItem(
             value: 'deselect_all',
@@ -662,42 +687,6 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight * 1.5);
 
-  void _showCustomCalendar(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) {
-        return BlocProvider.value(
-          value: context.read<ExchangeRatesBloc>(),
-          child: CalendarStepPicker(
-            initialDate: state.activeDate,
-            initialRange: state.activeDateRange,
-            initialStep: state.dateStep,
-            initialFilterMode: state.filterMode,
-            rangeOptionVisibility: PickerVisibility.visible,
-            onApply: (date, range, step, mode) {
-              final bloc = context.read<ExchangeRatesBloc>();
-              if (state.filterMode != mode) {
-                bloc.add(ChangeExchangeRatesFilterMode(mode));
-              }
-              if (state.dateStep != step) {
-                bloc.add(ChangeExchangeRatesDateStep(step));
-              }
-              if (mode == FilterMode.range && range != null) {
-                bloc.add(ChangeExchangeRatesActiveDateRange(range));
-              } else {
-                bloc.add(ChangeExchangeRatesActiveDate(date));
-              }
-            },
-          ),
-        );
-      },
-    );
-  }
-
   String _formatDate(BuildContext context) {
     if (state.filterMode == FilterMode.range) {
       if (state.activeDateRange == null) return context.l10n.exchSelectRange;
@@ -763,21 +752,21 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
         if (isMobile)
           MultiLevelTooltip(
             message: context.l10n.filterTooltip,
-            actionId: 'filter_exchange_rates',
+            actionId: 'filter_action',
             description: context.l10n.exchFilterDescription,
             child: IconButton(
               icon: Icon(Icons.tune, color: onSurface),
-              onPressed: () => _showFilterDialog(context),
+              onPressed: () => _showExchangeRatesFilterDialog(context, state),
             ),
           )
         else if (!isMobile) ...[
           MultiLevelTooltip(
             message: context.l10n.filterTooltip,
-            actionId: 'filter_exchange_rates',
+            actionId: 'filter_action',
             description: context.l10n.exchFilterDescription,
             child: IconButton(
               icon: Icon(Icons.tune, color: onSurface),
-              onPressed: () => _showFilterDialog(context),
+              onPressed: () => _showExchangeRatesFilterDialog(context, state),
             ),
           ),
         ],
@@ -786,10 +775,10 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
           flex: isMobile ? 1 : 0,
           child: MultiLevelTooltip(
             message: context.l10n.selectDateTooltip,
-            actionId: 'exchange_rates_pick_date',
+            actionId: 'pick_date',
             description: context.l10n.exchSelectDateDescription,
             child: InkWell(
-              onTap: () => _showCustomCalendar(context),
+              onTap: () => _showExchangeRatesCalendar(context, state),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12.0),
                 alignment: Alignment.center,
@@ -813,18 +802,13 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
         if (isMobile)
           MultiLevelTooltip(
             message: context.l10n.sortOrderTooltip,
-            actionId: 'exchange_rates_sort',
+            actionId: 'sort_order',
             description: context.l10n.exchSortOrderDescription,
             child: RotatedBox(
               quarterTurns: state.sort == Sort.ascending ? 2 : 0,
               child: IconButton(
                 icon: Icon(Icons.sort, color: onSurface),
-                onPressed: () {
-                  final newSort = state.sort == Sort.ascending
-                      ? Sort.descending
-                      : Sort.ascending;
-                  bloc.add(ChangeExchangeRatesSort(newSort));
-                },
+                onPressed: () => _toggleExchangeRatesSort(bloc, state),
               ),
             ),
           )
@@ -835,18 +819,13 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
           const SizedBox(width: 8),
           MultiLevelTooltip(
             message: context.l10n.sortOrderTooltip,
-            actionId: 'exchange_rates_sort',
+            actionId: 'sort_order',
             description: context.l10n.exchSortOrderDescription,
             child: RotatedBox(
               quarterTurns: state.sort == Sort.ascending ? 2 : 0,
               child: IconButton(
                 icon: Icon(Icons.sort, color: onSurface),
-                onPressed: () {
-                  final newSort = state.sort == Sort.ascending
-                      ? Sort.descending
-                      : Sort.ascending;
-                  bloc.add(ChangeExchangeRatesSort(newSort));
-                },
+                onPressed: () => _toggleExchangeRatesSort(bloc, state),
               ),
             ),
           ),
@@ -867,17 +846,6 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
     return GenericFilterAppBar(
       centerWidget: centerWidget,
       totalCountText: context.l10n.totalCountLabel(state.totalCount),
-    );
-  }
-
-  void _showFilterDialog(BuildContext context) {
-    final repository = context.read<CurrencyRepository>();
-    showDialog(
-      context: context,
-      builder: (_) => BlocProvider.value(
-        value: context.read<ExchangeRatesBloc>(),
-        child: _ExchangeRatesFilterDialog(state: state, repository: repository),
-      ),
     );
   }
 }
@@ -963,7 +931,9 @@ class _ExchangeRatesFilterDialogState
                   subtitle: Text(
                     _selectedPresets.isEmpty
                         ? context.l10n.allLabel
-                        : context.l10n.selectedCountLabel(_selectedPresets.length),
+                        : context.l10n.selectedCountLabel(
+                            _selectedPresets.length,
+                          ),
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () async {
@@ -1127,6 +1097,76 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+}
+
+// The date picker, the filter dialog and the sort toggle are driven from the
+// date app bar, but the Hot Keys screen offers all three as bindable actions
+// and the ScreenShortcuts that has to run them sits two classes above it.
+// Hoisting the bodies to the top level - where this file already keeps the
+// dialogs shared between the list and the selection bar - lets the button and
+// the hotkey call one implementation instead of two that can drift apart.
+void _showExchangeRatesCalendar(
+  BuildContext context,
+  ExchangeRatesState state,
+) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) {
+      return BlocProvider.value(
+        value: context.read<ExchangeRatesBloc>(),
+        child: CalendarStepPicker(
+          initialDate: state.activeDate,
+          initialRange: state.activeDateRange,
+          initialStep: state.dateStep,
+          initialFilterMode: state.filterMode,
+          rangeOptionVisibility: PickerVisibility.visible,
+          onApply: (date, range, step, mode) {
+            final bloc = context.read<ExchangeRatesBloc>();
+            if (state.filterMode != mode) {
+              bloc.add(ChangeExchangeRatesFilterMode(mode));
+            }
+            if (state.dateStep != step) {
+              bloc.add(ChangeExchangeRatesDateStep(step));
+            }
+            if (mode == FilterMode.range && range != null) {
+              bloc.add(ChangeExchangeRatesActiveDateRange(range));
+            } else {
+              bloc.add(ChangeExchangeRatesActiveDate(date));
+            }
+          },
+        ),
+      );
+    },
+  );
+}
+
+void _showExchangeRatesFilterDialog(
+  BuildContext context,
+  ExchangeRatesState state,
+) {
+  final repository = context.read<CurrencyRepository>();
+  showDialog(
+    context: context,
+    builder: (_) => BlocProvider.value(
+      value: context.read<ExchangeRatesBloc>(),
+      child: _ExchangeRatesFilterDialog(state: state, repository: repository),
+    ),
+  );
+}
+
+void _toggleExchangeRatesSort(
+  ExchangeRatesBloc bloc,
+  ExchangeRatesState state,
+) {
+  bloc.add(
+    ChangeExchangeRatesSort(
+      state.sort == Sort.ascending ? Sort.descending : Sort.ascending,
+    ),
+  );
 }
 
 void _showDeleteConfirmation(

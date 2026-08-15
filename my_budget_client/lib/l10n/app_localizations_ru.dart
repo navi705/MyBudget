@@ -1753,6 +1753,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get hkActionAddAction => 'Общее добавить';
 
   @override
+  String get hkActionPickDate => 'Выбрать дату';
+
+  @override
+  String get hkActionSortOrder => 'Порядок сортировки';
+
+  @override
+  String get hkActionFilterAction => 'Фильтр';
+
+  @override
   String get hkActionAccountsSelectionClose => 'Счета: Закрыть';
 
   @override

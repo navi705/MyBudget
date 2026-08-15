@@ -1751,6 +1751,15 @@ class AppLocalizationsUr extends AppLocalizations {
   String get hkActionAddAction => 'عام شامل کرنے کا عمل';
 
   @override
+  String get hkActionPickDate => 'تاریخ منتخب کریں';
+
+  @override
+  String get hkActionSortOrder => 'ترتیب دیں';
+
+  @override
+  String get hkActionFilterAction => 'فلٹر';
+
+  @override
   String get hkActionAccountsSelectionClose => 'اکاؤنٹس: بند کریں';
 
   @override

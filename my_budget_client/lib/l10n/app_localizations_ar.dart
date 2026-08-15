@@ -1751,6 +1751,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get hkActionAddAction => 'إجراء إضافة عام';
 
   @override
+  String get hkActionPickDate => 'تحديد تاريخ';
+
+  @override
+  String get hkActionSortOrder => 'ترتيب الفرز';
+
+  @override
+  String get hkActionFilterAction => 'تصفية';
+
+  @override
   String get hkActionAccountsSelectionClose => 'الحسابات: إغلاق';
 
   @override

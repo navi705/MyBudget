@@ -1751,6 +1751,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hkActionAddAction => '通用添加操作';
 
   @override
+  String get hkActionPickDate => '选择日期';
+
+  @override
+  String get hkActionSortOrder => '排序顺序';
+
+  @override
+  String get hkActionFilterAction => '筛选';
+
+  @override
   String get hkActionAccountsSelectionClose => '账户: 关闭';
 
   @override

@@ -89,9 +89,18 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
               context.l10n.hkCategoryPeriodControl: [
                 {'id': 'prev_period', 'label': context.l10n.hkActionPrevPeriod},
                 {'id': 'next_period', 'label': context.l10n.hkActionNextPeriod},
+                // Screen-agnostic like the two above: every list screen carries
+                // the same date picker, so one binding serves all of them and
+                // the focused screen is the one that answers.
+                {'id': 'pick_date', 'label': context.l10n.hkActionPickDate},
               ],
               context.l10n.hkCategoryActions: [
                 {'id': 'add_action', 'label': context.l10n.hkActionAddAction},
+                {'id': 'sort_order', 'label': context.l10n.hkActionSortOrder},
+                {
+                  'id': 'filter_action',
+                  'label': context.l10n.hkActionFilterAction,
+                },
               ],
               context.l10n.hkCategorySelectionMode: [
                 {

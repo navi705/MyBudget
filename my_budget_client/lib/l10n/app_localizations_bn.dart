@@ -1751,6 +1751,15 @@ class AppLocalizationsBn extends AppLocalizations {
   String get hkActionAddAction => 'সাধারণ যোগ করার ক্রিয়া';
 
   @override
+  String get hkActionPickDate => 'তারিখ নির্বাচন করুন';
+
+  @override
+  String get hkActionSortOrder => 'ক্রমবিন্যাস';
+
+  @override
+  String get hkActionFilterAction => 'ফিল্টার করুন';
+
+  @override
   String get hkActionAccountsSelectionClose => 'অ্যাকাউন্ট: বন্ধ';
 
   @override
