@@ -3800,6 +3800,23 @@ class AppDatabase extends _$AppDatabase {
 
   AppDatabase.forTesting(super.connection);
 
+  /// Whether creating a database seeds the shipped exchange-rate history.
+  ///
+  /// Always true in the app: without the seed a new install has no rate for
+  /// any pair and every foreign-currency screen is empty. It is a switch only
+  /// because of what the seed costs. Each seeded database reads a 6.8 MB JSON
+  /// file, parses it in a spawned isolate and inserts roughly 283,000 rows -
+  /// tolerable once at install, ruinous in a test suite that builds a fresh
+  /// database 146 times, several of those per test rather than per file.
+  ///
+  /// `test/flutter_test_config.dart` turns it off for every test file, and the
+  /// handful of suites that actually read seeded rates turn it back on for
+  /// themselves. Those suites are the ones that pin this behaviour: a test
+  /// asserting on seeded data fails loudly with the seed off, it does not
+  /// quietly pass on an empty table.
+  @visibleForTesting
+  static bool seedExchangeRatesOnCreate = true;
+
   /// Whether [table] already has [column], so a migration step that adds it can
   /// be re-run after an upgrade that was interrupted halfway.
   Future<bool> _hasColumn(String table, String column) async {
@@ -4405,6 +4422,10 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> _seedExchangeRates(AppDatabase db) async {
+    if (!seedExchangeRatesOnCreate) {
+      debugPrint('[DB_SEED] _seedExchangeRates: skipped, seeding is off');
+      return;
+    }
     debugPrint(
       '[DB_SEED] _seedExchangeRates: calling getCurrenciesRateToSeeder...',
     );

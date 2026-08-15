@@ -21,6 +21,13 @@ void main() {
   late int syncLogRowsBeforeClear;
 
   setUpAll(() async {
+    // `test/flutter_test_config.dart` turns the exchange-rate seed off for the
+    // whole suite because of what it costs. This file is the one place that
+    // pins the reseed a clear performs, so it needs the real thing - and the
+    // "exchange rates are seeded back" test below is what would otherwise
+    // pass against an empty table.
+    AppDatabase.seedExchangeRatesOnCreate = true;
+
     db = AppDatabase.forTesting(NativeDatabase.memory());
     repo = LocalDbRepository(db);
 
@@ -113,7 +120,10 @@ void main() {
     await repo.clearAllDatabase();
   });
 
-  tearDownAll(() async => db.close());
+  tearDownAll(() async {
+    await db.close();
+    AppDatabase.seedExchangeRatesOnCreate = false;
+  });
 
   group('clearAllDatabase wipes user data', () {
     test('accounts are gone', () async {
@@ -213,26 +223,32 @@ void main() {
       );
       expect(
         deletes.any(
-          (l) => l.changedTableName == 'asset_entries' &&
-              l.recordId == 'asset-1',
+          (l) =>
+              l.changedTableName == 'asset_entries' && l.recordId == 'asset-1',
         ),
         isTrue,
       );
     });
 
-    test('no delete row is written for a record the reseed brought back',
-        () async {
-      // The default styles and categories exist again, so a tombstone for them
-      // would erase the freshly seeded rows on every other device.
-      final styleIds = (await db.select(db.styles).get()).map((s) => s.id).toSet();
-      final tombstoned = (await db.select(db.syncLog).get())
-          .where((l) => l.action == 'delete' && l.changedTableName == 'styles')
-          .map((l) => l.recordId)
-          .toSet();
+    test(
+      'no delete row is written for a record the reseed brought back',
+      () async {
+        // The default styles and categories exist again, so a tombstone for them
+        // would erase the freshly seeded rows on every other device.
+        final styleIds = (await db.select(db.styles).get())
+            .map((s) => s.id)
+            .toSet();
+        final tombstoned = (await db.select(db.syncLog).get())
+            .where(
+              (l) => l.action == 'delete' && l.changedTableName == 'styles',
+            )
+            .map((l) => l.recordId)
+            .toSet();
 
-      expect(styleIds, isNotEmpty);
-      expect(tombstoned.intersection(styleIds), isEmpty);
-    });
+        expect(styleIds, isNotEmpty);
+        expect(tombstoned.intersection(styleIds), isEmpty);
+      },
+    );
 
     test('the stale export queue for the wiped tables is dropped', () async {
       // A pre-clear upsert left in the queue would arrive after the tombstone
