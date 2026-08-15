@@ -172,25 +172,26 @@ void main() {
       expect((await repo.getCurrencyByCode('ZZ1'))!.name, 'Zeta Renamed');
     });
 
-    // BUG (characterisation): CurrenciesDao.updateCurrency
-    // (lib/core/database/app_database.dart:641-642) is a bare
+    // Was a characterised bug: CurrenciesDao.updateCurrency was a bare
     // `update(currencies).replace(currency)`. The companion built by
     // CurrencyCompanionMapper (lib/core/mappers/currency_mapper.dart:18-25)
-    // carries no modifiedAt, and drift's `replace` writes every column, so the
-    // stored modifiedAt is overwritten with the column default 0.
-    // CORRECT behaviour: stamp `DateTime.now().millisecondsSinceEpoch` like
-    // insertCurrency does. As written, renaming a currency makes it look older
-    // than every remote copy, so last-write-wins throws the rename away and the
-    // old name comes back on the next sync.
+    // carries no modifiedAt, and drift's `replace` writes the column default
+    // for every column the companion omits, so the stored modifiedAt was
+    // overwritten with 0 - the rename then looked older than every remote copy,
+    // last-write-wins threw it away and the old name came back on the next
+    // sync. It now stamps `DateTime.now().millisecondsSinceEpoch` the way
+    // insertCurrency does, and writes only the fields the caller set.
     test(
-      'updateCurrency resets modifiedAt to 0 (WRONG - it should be bumped)',
+      'updateCurrency bumps modifiedAt so the rename wins the next sync',
       () async {
         await repo.addCurrency(zz1);
-        expect((await currencyRow('ZZ1')).modifiedAt, greaterThan(0));
+        final before = (await currencyRow('ZZ1')).modifiedAt;
+        expect(before, greaterThan(0));
+        await Future<void>.delayed(const Duration(milliseconds: 5));
 
         await repo.updateCurrency(zz1.copyWith(name: 'Zeta Renamed'));
 
-        expect((await currencyRow('ZZ1')).modifiedAt, 0);
+        expect((await currencyRow('ZZ1')).modifiedAt, greaterThan(before));
       },
     );
 

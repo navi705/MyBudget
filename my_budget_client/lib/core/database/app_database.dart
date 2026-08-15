@@ -546,8 +546,18 @@ class LanguageDao extends DatabaseAccessor<AppDatabase>
   Stream<List<Language>> watchAllLanguages() => select(languages).watch();
   Future<void> insertLanguage(LanguagesCompanion lang) =>
       into(languages).insert(lang);
-  Future<bool> updateLanguage(LanguagesCompanion lang) =>
-      update(languages).replace(lang);
+  Future<bool> updateLanguage(LanguagesCompanion lang) async {
+    // `replace` writes the column default for every defaulted column the
+    // companion left out, so an update carrying only the new display name also
+    // reset `modifiedAt` to 0 - the row then sorts as never-modified and no
+    // peer ever pulls the rename. `write` ignores absent fields.
+    final count =
+        await (update(languages)
+              ..where((t) => t.languageCode.equals(lang.languageCode.value)))
+            .write(lang);
+    return count > 0;
+  }
+
   Future<int> deleteLanguage(LanguagesCompanion lang) =>
       delete(languages).delete(lang);
 
@@ -781,8 +791,22 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
-  Future<bool> updateCurrency(CurrenciesCompanion currency) =>
-      update(currencies).replace(currency);
+  Future<bool> updateCurrency(CurrenciesCompanion currency) async {
+    // CurrencyMapper.toCompanion carries no modifiedAt, and `replace` writes
+    // the column default for every column the companion omits - so renaming a
+    // currency stamped `modified_at = 0` and the rename then looked older than
+    // every remote copy, which threw it away and brought the old name back on
+    // the next sync. `write` leaves absent fields alone; the stamp is what
+    // insertCurrency already does for the same reason.
+    final updated = currency.copyWith(
+      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    );
+    final count = await (update(
+      currencies,
+    )..where((t) => t.code.equals(updated.code.value))).write(updated);
+    return count > 0;
+  }
+
   Future<int> deleteCurrency(CurrenciesCompanion currency) =>
       delete(currencies).delete(currency);
 
@@ -905,9 +929,23 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
           ? category.modifiedAt
           : Value(DateTime.now().millisecondsSinceEpoch),
     );
-    final result = await update(categories).replace(updatedCategory);
-    await _logChange(category.id.value, 'upsert');
-    return result;
+    // `replace` writes the column default for every column the companion
+    // omits, and CategoryMapper.toCompanion never sets `isDeleted`. Saving an
+    // edit to a category a sync pull had already tombstoned therefore cleared
+    // the tombstone, and because the update stamps a fresh `modifiedAt` the
+    // resurrection won last-write-wins everywhere: a category the user deleted
+    // on one device came back on all of them. `write` touches only the fields
+    // the caller actually set.
+    final count =
+        await (update(categories)
+              ..where((t) => t.id.equals(updatedCategory.id.value)))
+            .write(updatedCategory);
+    // Nothing changed means nothing for a peer to fetch; announcing the id
+    // anyway made every peer ask for a category this device does not have.
+    if (count > 0) {
+      await _logChange(category.id.value, 'upsert');
+    }
+    return count > 0;
   }
 
   Future<int> deleteCategory(CategoriesCompanion category) async {
@@ -1222,15 +1260,22 @@ class StylesDao extends DatabaseAccessor<AppDatabase> with _$StylesDaoMixin {
           ? style.modifiedAt
           : Value(DateTime.now().millisecondsSinceEpoch),
     );
-    final result = await update(styles).replace(updatedStyle);
-    // Only log what actually changed. `replace` returns false when no row
-    // matched, and announcing that id anyway makes every peer ask for a style
-    // this device does not have - a wasted round trip on the server engine, and
-    // an entry the file engine can never resolve.
-    if (result) {
+    // `replace` writes the column default for every column the companion
+    // omits, and StyleMapper.toCompanion never sets `isDeleted`. Re-saving a
+    // style that a sync pull had already tombstoned therefore un-deleted it,
+    // with a fresh `modifiedAt` that then won last-write-wins on every peer.
+    // `write` touches only the fields the caller actually set.
+    final count = await (update(
+      styles,
+    )..where((t) => t.id.equals(updatedStyle.id.value))).write(updatedStyle);
+    // Only log what actually changed. No row matched means announcing that id
+    // makes every peer ask for a style this device does not have - a wasted
+    // round trip on the server engine, and an entry the file engine can never
+    // resolve.
+    if (count > 0) {
       await _logChange(style.id.value, 'upsert');
     }
-    return result;
+    return count > 0;
   }
 
   Future<int> deleteStyle(StylesCompanion style) async {
@@ -1340,11 +1385,18 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
     final updatedAccountType = accountType.copyWith(
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
-    final result = await update(accountTypes).replace(updatedAccountType);
-    if (result) {
+    // `replace` writes the column default for every column the companion
+    // omits, and AccountTypeMapper.toCompanion never sets `isDeleted`, so
+    // renaming an account type that had been deleted brought it back into every
+    // picker - here and, via the fresh `modifiedAt`, on every peer.
+    final count =
+        await (update(accountTypes)
+              ..where((t) => t.id.equals(updatedAccountType.id.value)))
+            .write(updatedAccountType);
+    if (count > 0) {
       await _logChange(accountType.id.value, 'upsert');
     }
-    return result;
+    return count > 0;
   }
 
   Future<int> deleteAccountType(AccountTypesCompanion accountType) async {
@@ -1579,14 +1631,28 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     final updatedAccount = account.copyWith(
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
-    final result = await update(accounts).replace(updatedAccount);
+    // `replace` writes the column default for every column the companion
+    // omits, and AccountMapper.toCompanion never sets `isDeleted`. Saving an
+    // edit to an account a sync pull had already tombstoned therefore cleared
+    // the tombstone, and the fresh `modifiedAt` made that resurrection win
+    // last-write-wins on every peer - the deleted account, and every balance it
+    // contributes to, came back. (`replace` also blanked `openingBalance` to
+    // its 0.0 default, which only went unnoticed because
+    // anchorOpeningBalances below re-derives it immediately.)
+    final count =
+        await (update(accounts)
+              ..where((t) => t.id.equals(updatedAccount.id.value)))
+            .write(updatedAccount);
     // The user edits the balance, but the balance is derived; folding the edit
     // into the anchor is what keeps the edit and the transactions behind it
     // consistent, and puts the change on the column that survives a merge.
     await anchorOpeningBalances([account.id.value]);
-    // Log change for sync
-    await _logChange(account.id.value, 'upsert');
-    return result;
+    // Log change for sync - but only when a row actually changed, or the peer
+    // is told to fetch an account this device never wrote.
+    if (count > 0) {
+      await _logChange(account.id.value, 'upsert');
+    }
+    return count > 0;
   }
 
   Future<int> deleteAccount(AccountsCompanion account) async {
@@ -2182,9 +2248,20 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     final updatedTransaction = transaction.copyWith(
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
-    final result = await update(transactions).replace(updatedTransaction);
-    await _logChange(transaction.id.value, 'upsert');
-    return result;
+    // `replace` writes the column default for every column the companion
+    // omits, and TransactionMapper.toCompanion never sets `isDeleted`, so an
+    // edit aimed at a tombstoned transaction un-deleted it and - via the fresh
+    // `modifiedAt` - pushed it back onto every peer. LocalTransactionRepository
+    // happens to guard this with a filtered read first, but the DAO is called
+    // directly too and must not depend on that.
+    final count =
+        await (update(transactions)
+              ..where((t) => t.id.equals(updatedTransaction.id.value)))
+            .write(updatedTransaction);
+    if (count > 0) {
+      await _logChange(transaction.id.value, 'upsert');
+    }
+    return count > 0;
   }
 
   Future<int> deleteTransaction(TransactionsCompanion transaction) async {
@@ -3023,9 +3100,18 @@ class CustomThemesDao extends DatabaseAccessor<AppDatabase>
     final updatedTheme = theme.copyWith(
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
-    final result = await update(customThemes).replace(updatedTheme);
-    await _logChange(theme.id.value, 'upsert');
-    return result;
+    // `replace` writes the column default for every column the companion
+    // omits, so a theme companion without `isDeleted` un-deleted the row, and
+    // one without `effectOpacity`/`surfaceOpacity`/`backgroundImageOpacity`
+    // silently reset those to 1.0/1.0/1.0 - the user's tuned look snapping back
+    // to the defaults on an unrelated edit. `write` touches only what was set.
+    final count = await (update(
+      customThemes,
+    )..where((t) => t.id.equals(updatedTheme.id.value))).write(updatedTheme);
+    if (count > 0) {
+      await _logChange(theme.id.value, 'upsert');
+    }
+    return count > 0;
   }
 
   Future<int> deleteTheme(String id) async {
@@ -3642,8 +3728,17 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     final updatedData = data.copyWith(
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
-    await update(assetEntries).replace(updatedData);
-    await _logChange(data.id.value, 'upsert');
+    // `replace` writes the column default for every column the companion
+    // omits, and AssetDataMapper.toCompanion never sets `isDeleted`. The
+    // custom-API refresh at intilization_data.dart updates entries in a loop,
+    // so a single stale entry was enough to bring a deleted holding back into
+    // the portfolio - and the fresh `modifiedAt` carried it to every peer.
+    final count = await (update(
+      assetEntries,
+    )..where((t) => t.id.equals(updatedData.id.value))).write(updatedData);
+    if (count > 0) {
+      await _logChange(data.id.value, 'upsert');
+    }
   }
 
   Future<int> deleteAssetEntry(String id) async {
@@ -4938,8 +5033,17 @@ class SmsPresetsDao extends DatabaseAccessor<AppDatabase>
       (select(smsPresets)..where((t) => t.isDeleted.equals(false))).watch();
   Future<int> insertPreset(SmsPresetsCompanion preset) =>
       into(smsPresets).insert(preset);
-  Future<bool> updatePreset(SmsPresetsCompanion preset) =>
-      update(smsPresets).replace(preset);
+  Future<bool> updatePreset(SmsPresetsCompanion preset) async {
+    // `replace` writes the column default for every column the companion
+    // omits, so a partial preset edit un-deleted the row (`isDeleted`), turned
+    // it back on (`isEnabled` defaults to true) and reset `modifiedAt` to 0.
+    // `write` touches only the fields the caller actually set.
+    final count = await (update(
+      smsPresets,
+    )..where((t) => t.id.equals(preset.id.value))).write(preset);
+    return count > 0;
+  }
+
   Future<int> deletePreset(String id) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     return (update(smsPresets)..where((t) => t.id.equals(id))).write(

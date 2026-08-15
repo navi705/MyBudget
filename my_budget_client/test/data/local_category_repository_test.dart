@@ -493,21 +493,18 @@ void main() {
       );
     });
 
-    // BUG (characterisation): CategoriesDao.updateCategory
-    // (lib/core/database/app_database.dart:741-750) calls `_logChange`
-    // unconditionally, ignoring the boolean `replace` returned. Compare
-    // deleteCategory (line 763), which guards on `count > 0`.
-    // CORRECT behaviour: no row changed means nothing to announce. As written,
-    // an update aimed at an id that is not in the table still queues a sync
-    // row, so the export pass carries a record that does not exist.
+    // Was a characterised bug: CategoriesDao.updateCategory called `_logChange`
+    // unconditionally, ignoring whether the update wrote anything, so an update
+    // aimed at an id that is not in the table still queued a sync row and the
+    // export pass carried a record that does not exist. It now guards on the
+    // row count, the way deleteCategory always has.
     test(
-      'an update that matched no row is still logged as an upsert '
-      '(WRONG - nothing changed, nothing should be announced)',
+      'an update that matched no row announces nothing',
       () async {
         await repo.updateCategory(category('ghost', name: 'Nope'));
 
         expect(await repo.getCategoryById('ghost'), isNull);
-        expect((await logsFor('categories')).map((l) => l.recordId), ['ghost']);
+        expect(await logsFor('categories'), isEmpty);
       },
     );
   });
