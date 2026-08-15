@@ -155,15 +155,15 @@ void main() {
           l10n.ru.nextPeriodTooltip,
           l10n.ru.accountsNextPeriodDescription,
         ),
-        'filter_accounts': (
+        'filter_action': (
           l10n.ru.filterTooltip,
           l10n.ru.accountsFilterDescription,
         ),
-        'accounts_pick_date': (
+        'pick_date': (
           l10n.ru.selectDateTooltip,
           l10n.ru.accountsSelectDateDescription,
         ),
-        'accounts_sort': (
+        'sort_order': (
           l10n.ru.sortOrderTooltip,
           l10n.ru.accountsSortDescription,
         ),
@@ -264,14 +264,14 @@ void main() {
       );
 
       final tooltips = _tooltipsByAction(tester);
-      expect(tooltips['filter_accounts']?.message, l10n.ru.filterTooltip);
+      expect(tooltips['filter_action']?.message, l10n.ru.filterTooltip);
       expect(
-        tooltips['filter_accounts']?.description,
+        tooltips['filter_action']?.description,
         l10n.ru.accountsFilterDescription,
       );
-      expect(tooltips['accounts_sort']?.message, l10n.ru.sortOrderTooltip);
+      expect(tooltips['sort_order']?.message, l10n.ru.sortOrderTooltip);
       expect(
-        tooltips['accounts_sort']?.description,
+        tooltips['sort_order']?.description,
         l10n.ru.accountsSortDescription,
       );
     });

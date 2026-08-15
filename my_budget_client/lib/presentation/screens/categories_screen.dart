@@ -374,26 +374,47 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     }
   }
 
-  /// The state a selection action may act on, or null when the selection app
-  /// bar that carries its button is not on screen.
+  /// The loaded list an app bar action may act on, or null while the screen
+  /// shows nothing but the spinner or the load-failure message.
   ///
   /// Read from the bloc at press time rather than captured, because a hotkey
-  /// callback outlives the build that registered it: the selection it acts on
-  /// has to be the one the user is looking at now, not the one that happened to
-  /// be current when the callback was created.
+  /// callback outlives the build that registered it: the list it acts on has to
+  /// be the one the user is looking at now, not the one that happened to be
+  /// current when the callback was created.
   /// `CategoryDeletionConfirmationNeeded` is unwrapped rather than rejected,
-  /// the way `build` unwraps it to paint this very app bar: while the delete
-  /// dialog is up - or after it is cancelled, which dispatches nothing and
-  /// leaves the bloc in that state - all four buttons are still on screen, and
-  /// a guard that dropped them there would make them dead to the eye.
-  static CategoriesLoadSuccess? _activeSelection(BuildContext context) {
+  /// the way `build` unwraps it to paint the app bars: while the delete dialog
+  /// is up - or after it is cancelled, which dispatches nothing and leaves the
+  /// bloc in that state - every button is still on screen, and a guard that
+  /// dropped them there would make them dead to the eye.
+  static CategoriesLoadSuccess? _loadedState(BuildContext context) {
     final state = context.read<CategoriesBloc>().state;
     final success = state is CategoryDeletionConfirmationNeeded
         ? state.lastSuccessState
         : state;
-    return success is CategoriesLoadSuccess && success.isSelectionModeActive
-        ? success
-        : null;
+    return success is CategoriesLoadSuccess ? success : null;
+  }
+
+  /// The state a selection action may act on, or null when the selection app
+  /// bar that carries its button is not on screen.
+  static CategoriesLoadSuccess? _activeSelection(BuildContext context) {
+    final state = _loadedState(context);
+    return state != null && state.isSelectionModeActive ? state : null;
+  }
+
+  /// Runs [body] on the loaded list, for the date app bar's view controls.
+  ///
+  /// They are not selection actions and take no selection guard - the date
+  /// picker, the sort toggle and the filter dialog are offered whether or not
+  /// anything is selected. What they do need is the state itself: the date to
+  /// open the calendar on, the sort to flip, the filters to seed the dialog.
+  /// None of that exists before the first load, and the hot keys screen offers
+  /// the three ids unconditionally, so the binding is live over the spinner too.
+  void _runViewAction(
+    BuildContext context,
+    void Function(CategoriesLoadSuccess state) body,
+  ) {
+    final state = _loadedState(context);
+    if (state != null) body(state);
   }
 
   // The four methods below are the bodies of the selection app bar's buttons,
@@ -577,6 +598,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           'categories_selection_delete': () => _deleteSelection(context),
           'categories_selection_change_type': () =>
               _changeSelectionType(context),
+          // The date app bar's own three controls. Their ids are
+          // screen-agnostic, like prev_period and add_action above: every list
+          // screen carries the same three buttons, and only the focused
+          // screen's ScreenShortcuts sees the key event.
+          'pick_date': () => _runViewAction(
+            context,
+            (state) => _showCategoriesCalendar(context, state),
+          ),
+          'sort_order': () => _runViewAction(
+            context,
+            (state) =>
+                _toggleCategoriesSort(context.read<CategoriesBloc>(), state),
+          ),
+          'filter_action': () => _runViewAction(
+            context,
+            (state) => showCategoryFilterDialog(context, state.filters),
+          ),
         },
         child: Scaffold(
           appBar: widget.isStandalone
@@ -780,35 +818,6 @@ class _CategoriesDateAppBar extends StatelessWidget {
 
   const _CategoriesDateAppBar({required this.state});
 
-  void _showCustomCalendar(BuildContext context, CategoriesLoadSuccess state) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) {
-        return BlocProvider.value(
-          value: context.read<CategoriesBloc>(),
-          child: CalendarStepPicker(
-            initialDate: state.activeDate,
-            initialRange: null,
-            initialStep: state.dateStep,
-            initialFilterMode: FilterMode.date,
-            rangeOptionVisibility: PickerVisibility.hidden,
-            onApply: (date, range, step, mode) {
-              final bloc = context.read<CategoriesBloc>();
-              if (state.dateStep != step) {
-                bloc.add(DateStepChanged(step));
-              }
-              bloc.add(ActiveDateChanged(date));
-            },
-          ),
-        );
-      },
-    );
-  }
-
   String _formatDate(BuildContext context, CategoriesLoadSuccess state) {
     if (state.filterMode == FilterMode.range) {
       if (state.activeDateRange == null) return context.l10n.selectDateTooltip;
@@ -860,7 +869,7 @@ class _CategoriesDateAppBar extends StatelessWidget {
         if (isMobile)
           MultiLevelTooltip(
             message: context.l10n.filterTooltip,
-            actionId: 'filter_categories',
+            actionId: 'filter_action',
             description: context.l10n.filterCategoriesDescription,
             child: IconButton(
               icon: Icon(Icons.tune, color: onSurface),
@@ -870,7 +879,7 @@ class _CategoriesDateAppBar extends StatelessWidget {
         else if (!isMobile) ...[
           MultiLevelTooltip(
             message: l10n.filterTooltip,
-            actionId: 'filter_categories',
+            actionId: 'filter_action',
             description: l10n.filterCategoriesDescription,
             child: IconButton(
               icon: Icon(Icons.tune, color: onSurface),
@@ -883,10 +892,10 @@ class _CategoriesDateAppBar extends StatelessWidget {
           flex: isMobile ? 1 : 0,
           child: MultiLevelTooltip(
             message: l10n.selectDateTooltip,
-            actionId: 'categories_pick_date',
+            actionId: 'pick_date',
             description: context.l10n.selectDateDescription,
             child: InkWell(
-              onTap: () => _showCustomCalendar(context, state),
+              onTap: () => _showCategoriesCalendar(context, state),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12.0),
                 alignment: Alignment.center,
@@ -905,18 +914,13 @@ class _CategoriesDateAppBar extends StatelessWidget {
         if (isMobile)
           MultiLevelTooltip(
             message: context.l10n.sortOrderTooltip,
-            actionId: 'categories_sort',
+            actionId: 'sort_order',
             description: context.l10n.sortOrderDescription,
             child: RotatedBox(
               quarterTurns: state.filters.sort == Sort.ascending ? 2 : 0,
               child: IconButton(
                 icon: Icon(Icons.sort, color: onSurface),
-                onPressed: () {
-                  final newSort = state.filters.sort == Sort.ascending
-                      ? Sort.descending
-                      : Sort.ascending;
-                  context.read<CategoriesBloc>().add(SortChanged(newSort));
-                },
+                onPressed: () => _toggleCategoriesSort(bloc, state),
               ),
             ),
           )
@@ -927,18 +931,13 @@ class _CategoriesDateAppBar extends StatelessWidget {
           const SizedBox(width: 8),
           MultiLevelTooltip(
             message: l10n.sortOrderTooltip,
-            actionId: 'categories_sort',
+            actionId: 'sort_order',
             description: l10n.sortOrderDescription,
             child: RotatedBox(
               quarterTurns: state.filters.sort == Sort.ascending ? 2 : 0,
               child: IconButton(
                 icon: Icon(Icons.sort, color: onSurface),
-                onPressed: () {
-                  final newSort = state.filters.sort == Sort.ascending
-                      ? Sort.descending
-                      : Sort.ascending;
-                  context.read<CategoriesBloc>().add(SortChanged(newSort));
-                },
+                onPressed: () => _toggleCategoriesSort(bloc, state),
               ),
             ),
           ),
@@ -1039,6 +1038,53 @@ class _SelectionAppBar extends StatelessWidget {
       ],
     );
   }
+}
+
+// The date picker and the sort toggle are driven from the date app bar, but the
+// hot keys screen offers both as bindable actions and the ScreenShortcuts that
+// has to run them sits on _CategoriesScreenState, which _CategoriesDateAppBar
+// cannot reach. Hoisting the bodies to the top level lets the button and the
+// key call one implementation instead of two that drift apart. The filter
+// button needs no equivalent: `showCategoryFilterDialog` is already one shared
+// function, and both call sites use it.
+void _showCategoriesCalendar(
+  BuildContext context,
+  CategoriesLoadSuccess state,
+) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) {
+      return BlocProvider.value(
+        value: context.read<CategoriesBloc>(),
+        child: CalendarStepPicker(
+          initialDate: state.activeDate,
+          initialRange: null,
+          initialStep: state.dateStep,
+          initialFilterMode: FilterMode.date,
+          rangeOptionVisibility: PickerVisibility.hidden,
+          onApply: (date, range, step, mode) {
+            final bloc = context.read<CategoriesBloc>();
+            if (state.dateStep != step) {
+              bloc.add(DateStepChanged(step));
+            }
+            bloc.add(ActiveDateChanged(date));
+          },
+        ),
+      );
+    },
+  );
+}
+
+void _toggleCategoriesSort(CategoriesBloc bloc, CategoriesLoadSuccess state) {
+  bloc.add(
+    SortChanged(
+      state.filters.sort == Sort.ascending ? Sort.descending : Sort.ascending,
+    ),
+  );
 }
 
 class AddEditCategoryDialog extends StatefulWidget {

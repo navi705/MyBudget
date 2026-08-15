@@ -244,6 +244,20 @@ class _AccountsScreenState extends State<AccountsScreen> {
     action(bloc, state);
   }
 
+  /// Runs one of the date app bar's three view controls on behalf of a hot key.
+  ///
+  /// Unlike [_runSelectionAction] there is nothing to guard beyond the state
+  /// being loaded at all: the date, sort and filter buttons are on screen
+  /// whenever the accounts are, so the key should be too.
+  void _runViewAction(
+    void Function(AccountsBloc bloc, AccountsLoadSuccess state) action,
+  ) {
+    final bloc = context.read<AccountsBloc>();
+    final state = bloc.state;
+    if (state is! AccountsLoadSuccess) return;
+    action(bloc, state);
+  }
+
   /// Account creation, reached from the button, the hotkey, the empty-area menu
   /// and from any entry point refused for want of an account.
   ///
@@ -515,6 +529,17 @@ class _AccountsScreenState extends State<AccountsScreen> {
         'accounts_selection_change_type': () => _runSelectionAction(
           (bloc, state) => _changeTypeOfSelection(context, bloc, state),
           requiresSelection: true,
+        ),
+
+        // The date app bar's own three controls. Their ids are screen-agnostic,
+        // like prev_period and add_action above: every list screen carries the
+        // same three buttons, and only the focused screen's ScreenShortcuts
+        // sees the key event.
+        'pick_date': () =>
+            _runViewAction((_, state) => _showAccountsCalendar(context, state)),
+        'sort_order': () => _runViewAction(_toggleAccountsSort),
+        'filter_action': () => _runViewAction(
+          (_, state) => showAccountFilterDialog(context, state.filters),
         ),
       },
       child: Scaffold(
@@ -885,6 +910,55 @@ class _SelectionAppBar extends StatelessWidget {
   }
 }
 
+// The date picker and the sort toggle are drawn by the date app bar, but the
+// Hot Keys screen offers both as bindable actions and the ScreenShortcuts that
+// has to run them lives in _AccountsScreenState, several widgets above. Top
+// level functions let the button and the hotkey call one implementation
+// instead of two that can drift apart.
+void _showAccountsCalendar(BuildContext context, AccountsLoadSuccess state) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true, // Allows the modal to be taller
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) {
+      return BlocProvider.value(
+        value: context.read<AccountsBloc>(),
+        child: CalendarStepPicker(
+          initialDate: state.activeDate,
+          initialRange: null,
+          initialStep: state.dateStep,
+          initialFilterMode: FilterMode.date,
+          rangeOptionVisibility: PickerVisibility.hidden,
+          onApply: (date, range, step, mode) {
+            final bloc = context.read<AccountsBloc>();
+
+            // Adjust date to end of period if switching to Month or Year
+            DateTime adjustedDate = date;
+            if (step == DateStep.month) {
+              adjustedDate = DateTime(date.year, date.month + 1, 0, 23, 59, 59);
+            } else if (step == DateStep.year) {
+              adjustedDate = DateTime(date.year, 12, 31, 23, 59, 59);
+            }
+
+            // Single atomic event - updates both date and step
+            if (state.dateStep != step) {
+              bloc.add(ActiveDateChanged(adjustedDate, dateStep: step));
+            } else {
+              bloc.add(ActiveDateChanged(adjustedDate));
+            }
+          },
+        ),
+      );
+    },
+  );
+}
+
+void _toggleAccountsSort(AccountsBloc bloc, AccountsLoadSuccess state) {
+  bloc.add(SortAccounts(!state.sortAscending));
+}
+
 class _AccountsDateAppBar extends StatelessWidget
     implements PreferredSizeWidget {
   final AccountsLoadSuccess state;
@@ -893,53 +967,6 @@ class _AccountsDateAppBar extends StatelessWidget
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
-
-  void _showCustomCalendar(BuildContext context, AccountsLoadSuccess state) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true, // Allows the modal to be taller
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) {
-        return BlocProvider.value(
-          value: context.read<AccountsBloc>(),
-          child: CalendarStepPicker(
-            initialDate: state.activeDate,
-            initialRange: null,
-            initialStep: state.dateStep,
-            initialFilterMode: FilterMode.date,
-            rangeOptionVisibility: PickerVisibility.hidden,
-            onApply: (date, range, step, mode) {
-              final bloc = context.read<AccountsBloc>();
-
-              // Adjust date to end of period if switching to Month or Year
-              DateTime adjustedDate = date;
-              if (step == DateStep.month) {
-                adjustedDate = DateTime(
-                  date.year,
-                  date.month + 1,
-                  0,
-                  23,
-                  59,
-                  59,
-                );
-              } else if (step == DateStep.year) {
-                adjustedDate = DateTime(date.year, 12, 31, 23, 59, 59);
-              }
-
-              // Single atomic event - updates both date and step
-              if (state.dateStep != step) {
-                bloc.add(ActiveDateChanged(adjustedDate, dateStep: step));
-              } else {
-                bloc.add(ActiveDateChanged(adjustedDate));
-              }
-            },
-          ),
-        );
-      },
-    );
-  }
 
   String _formatDate(BuildContext context, AccountsLoadSuccess state) {
     switch (state.dateStep) {
@@ -981,7 +1008,7 @@ class _AccountsDateAppBar extends StatelessWidget
         if (isMobile)
           MultiLevelTooltip(
             message: l10n.filterTooltip,
-            actionId: 'filter_accounts',
+            actionId: 'filter_action',
             description: l10n.accountsFilterDescription,
             child: IconButton(
               icon: Icon(Icons.tune, color: onSurface),
@@ -993,7 +1020,7 @@ class _AccountsDateAppBar extends StatelessWidget
         else if (!isMobile) ...[
           MultiLevelTooltip(
             message: l10n.filterTooltip,
-            actionId: 'filter_accounts',
+            actionId: 'filter_action',
             description: l10n.accountsFilterDescription,
             child: IconButton(
               icon: Icon(Icons.tune, color: onSurface),
@@ -1008,10 +1035,10 @@ class _AccountsDateAppBar extends StatelessWidget
           flex: isMobile ? 1 : 0,
           child: MultiLevelTooltip(
             message: l10n.selectDateTooltip,
-            actionId: 'accounts_pick_date',
+            actionId: 'pick_date',
             description: l10n.accountsSelectDateDescription,
             child: InkWell(
-              onTap: () => _showCustomCalendar(context, state),
+              onTap: () => _showAccountsCalendar(context, state),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12.0),
                 alignment: Alignment.center,
@@ -1030,17 +1057,14 @@ class _AccountsDateAppBar extends StatelessWidget
         if (isMobile)
           MultiLevelTooltip(
             message: l10n.sortOrderTooltip,
-            actionId: 'accounts_sort',
+            actionId: 'sort_order',
             description: l10n.accountsSortDescription,
             child: RotatedBox(
               quarterTurns: state.sortAscending ? 2 : 0,
               child: IconButton(
                 icon: Icon(Icons.sort, color: onSurface),
-                onPressed: () {
-                  context.read<AccountsBloc>().add(
-                    SortAccounts(!state.sortAscending),
-                  );
-                },
+                onPressed: () =>
+                    _toggleAccountsSort(context.read<AccountsBloc>(), state),
               ),
             ),
           )
@@ -1051,17 +1075,14 @@ class _AccountsDateAppBar extends StatelessWidget
           const SizedBox(width: 8),
           MultiLevelTooltip(
             message: l10n.sortOrderTooltip,
-            actionId: 'accounts_sort',
+            actionId: 'sort_order',
             description: l10n.accountsSortDescription,
             child: RotatedBox(
               quarterTurns: state.sortAscending ? 2 : 0,
               child: IconButton(
                 icon: Icon(Icons.sort, color: onSurface),
-                onPressed: () {
-                  context.read<AccountsBloc>().add(
-                    SortAccounts(!state.sortAscending),
-                  );
-                },
+                onPressed: () =>
+                    _toggleAccountsSort(context.read<AccountsBloc>(), state),
               ),
             ),
           ),
