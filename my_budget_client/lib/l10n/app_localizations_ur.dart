@@ -1754,10 +1754,16 @@ class AppLocalizationsUr extends AppLocalizations {
   String get hkActionPickDate => 'تاریخ منتخب کریں';
 
   @override
+  String get hkActionDashboardSwitchView => 'ڈیش بورڈ: ویو تبدیل کریں';
+
+  @override
   String get hkActionSortOrder => 'ترتیب دیں';
 
   @override
   String get hkActionFilterAction => 'فلٹر';
+
+  @override
+  String get hkActionDashboardCurrency => 'ڈیش بورڈ: کرنسی';
 
   @override
   String get hkActionAccountsSelectionClose => 'اکاؤنٹس: بند کریں';

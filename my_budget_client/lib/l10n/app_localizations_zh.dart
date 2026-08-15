@@ -1754,10 +1754,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hkActionPickDate => '选择日期';
 
   @override
+  String get hkActionDashboardSwitchView => '仪表板: 更改视图';
+
+  @override
   String get hkActionSortOrder => '排序顺序';
 
   @override
   String get hkActionFilterAction => '筛选';
+
+  @override
+  String get hkActionDashboardCurrency => '仪表板: 货币';
 
   @override
   String get hkActionAccountsSelectionClose => '账户: 关闭';

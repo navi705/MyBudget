@@ -30,7 +30,12 @@ class _DashboardCurrencySelectorState extends State<DashboardCurrencySelector> {
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () => _showCurrencyPicker(context),
+        onTap: () => showDashboardCurrencyPicker(
+          context,
+          selectedCurrency: widget.selectedCurrency,
+          availableCurrencies: widget.availableCurrencies,
+          onSelected: widget.onCurrencyChanged,
+        ),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 100),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -68,19 +73,31 @@ class _DashboardCurrencySelectorState extends State<DashboardCurrencySelector> {
       ),
     );
   }
+}
 
-  void _showCurrencyPicker(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _CurrencyPickerDialog(
-        availableCurrencies: widget.availableCurrencies,
-        onSelected: widget.onCurrencyChanged,
-        currentCurrency: widget.selectedCurrency,
-      ),
-    );
-  }
+/// Opens the dashboard's currency picker.
+///
+/// Top level rather than a method on the selector's state because the
+/// `dashboard_currency` hot key has to open the very same sheet, and the
+/// `ScreenShortcuts` that runs it lives up in dashboard_screen.dart, several
+/// widgets above this one. One implementation, called from the tap and from the
+/// key, instead of two that can drift apart.
+void showDashboardCurrencyPicker(
+  BuildContext context, {
+  required String selectedCurrency,
+  required List<String> availableCurrencies,
+  required ValueChanged<String> onSelected,
+}) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => _CurrencyPickerDialog(
+      availableCurrencies: availableCurrencies,
+      onSelected: onSelected,
+      currentCurrency: selectedCurrency,
+    ),
+  );
 }
 
 class _CurrencyPickerDialog extends StatefulWidget {

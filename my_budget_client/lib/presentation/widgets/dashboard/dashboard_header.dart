@@ -72,7 +72,11 @@ class DashboardHeader extends StatelessWidget {
 
         final titleWidget = MultiLevelTooltip(
           message: context.l10n.selectDateTooltip,
-          actionId: 'dashboard_pick_date',
+          // Screen-agnostic, like `prev_period` and `next_period` above: every
+          // screen that shows a period carries the same date button, one
+          // binding serves all of them, and only the focused screen answers.
+          // The old `dashboard_pick_date` was a fourth id nothing could bind.
+          actionId: 'pick_date',
           description: context.l10n.dshSelectDateDescription,
           child: _PeriodSelector(title: title, onTap: onTitleTap),
         );

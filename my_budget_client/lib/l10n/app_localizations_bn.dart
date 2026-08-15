@@ -1754,10 +1754,16 @@ class AppLocalizationsBn extends AppLocalizations {
   String get hkActionPickDate => 'তারিখ নির্বাচন করুন';
 
   @override
+  String get hkActionDashboardSwitchView => 'ড্যাশবোর্ড: ভিউ পরিবর্তন করুন';
+
+  @override
   String get hkActionSortOrder => 'ক্রমবিন্যাস';
 
   @override
   String get hkActionFilterAction => 'ফিল্টার করুন';
+
+  @override
+  String get hkActionDashboardCurrency => 'ড্যাশবোর্ড: মুদ্রা';
 
   @override
   String get hkActionAccountsSelectionClose => 'অ্যাকাউন্ট: বন্ধ';

@@ -8,6 +8,7 @@ import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/category_pie_chart.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_calendar.dart';
+import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_currency_selector.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/day_balance_details.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/period_summary_widget.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_header.dart';
@@ -49,6 +50,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   context.read<DashboardBloc>().add(const ChangeTab(2)),
               'prev_period': () => _navigatePeriod(context, state, -1),
               'next_period': () => _navigatePeriod(context, state, 1),
+
+              // The dashboard header's own three controls. `pick_date` is
+              // screen-agnostic, like the two above; the currency picker and
+              // the month/year switch have no counterpart on any other screen,
+              // so they keep ids of their own. All three are guarded on the
+              // header being on screen at all - see [_runHeaderAction].
+              'pick_date': () => _runHeaderAction(
+                (state) => _showDashboardPeriodPicker(context, state),
+              ),
+              'dashboard_currency': () => _runHeaderAction(
+                (state) => _showDashboardCurrencyPicker(context, state),
+              ),
+              'dashboard_switch_view': () => _runHeaderAction(
+                (state) => _changeDashboardDateStep(
+                  context,
+                  _otherDashboardDateStep(state.dateStep),
+                ),
+              ),
             },
             child: Scaffold(
               // AppBar removed to maximize space
@@ -116,6 +135,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
     );
+  }
+
+  /// Runs one of the dashboard header's three controls on behalf of a hot key -
+  /// or does nothing at all.
+  ///
+  /// The Hot Keys screen offers the three ids unconditionally and a bound key
+  /// stays live for as long as this screen is, but [DashboardHeader] is only
+  /// built by the Categories and Balance tabs: the Calendar tab draws its own
+  /// controls inside [DashboardCalendar] and carries none of these ids. The
+  /// guard is exactly the buttons' own visibility condition, no more and no
+  /// less - the key should do what the mouse can do.
+  ///
+  /// The state is read from the bloc rather than closed over so the action runs
+  /// against the tab that is showing when the key is pressed.
+  void _runHeaderAction(void Function(DashboardLoadSuccess state) action) {
+    final state = context.read<DashboardBloc>().state;
+    if (state is! DashboardLoadSuccess) return;
+    if (state.activeTabIndex != 1 && state.activeTabIndex != 2) return;
+    action(state);
   }
 
   void _navigatePeriod(
@@ -206,7 +244,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               }
               context.read<DashboardBloc>().add(SelectDay(newDate));
             },
-            onTitleTap: () => _showPeriodPicker(context, state),
+            onTitleTap: () => _showDashboardPeriodPicker(context, state),
           ),
           const SizedBox(height: 16),
           Center(
@@ -279,11 +317,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     : DateTime(state.selectedDay.year + 1, 1, 1),
               ),
             ),
-            onTitleTap: () => _showPeriodPicker(context, state), // Fixed
+            onTitleTap: () =>
+                _showDashboardPeriodPicker(context, state), // Fixed
             onCurrencySelected: (currency) =>
-                context.read<DashboardBloc>().add(ChangeCurrency(currency)),
+                _selectDashboardCurrency(context, currency),
             onDateStepChanged: (step) =>
-                context.read<DashboardBloc>().add(ChangeDateStep(step)),
+                _changeDashboardDateStep(context, step),
           ),
           const SizedBox(height: 16),
           Row(
@@ -350,11 +389,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   : DateTime(state.selectedDay.year + 1, 1, 1),
             ),
           ),
-          onTitleTap: () => _showPeriodPicker(context, state),
+          onTitleTap: () => _showDashboardPeriodPicker(context, state),
           onCurrencySelected: (currency) =>
-              context.read<DashboardBloc>().add(ChangeCurrency(currency)),
-          onDateStepChanged: (step) =>
-              context.read<DashboardBloc>().add(ChangeDateStep(step)),
+              _selectDashboardCurrency(context, currency),
+          onDateStepChanged: (step) => _changeDashboardDateStep(context, step),
         ),
 
         // Flexible Balance Report
@@ -405,27 +443,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ],
     );
   }
-
-  void _showPeriodPicker(BuildContext context, DashboardLoadSuccess state) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (modalContext) => CalendarStepPicker(
-        initialDate: state.selectedDay,
-        initialStep: state.dateStep == DateStep.year
-            ? DateStep.year
-            : DateStep.month,
-        initialFilterMode: FilterMode.date,
-        rangeOptionVisibility: PickerVisibility.hidden,
-        onApply: (date, range, step, mode) {
-          final bloc = context.read<DashboardBloc>();
-          bloc.add(SelectDay(date));
-          // FIX: Also update DateStep if user selected different step in picker
-          if (step != state.dateStep && step != DateStep.day) {
-            bloc.add(ChangeDateStep(step));
-          }
-        },
-      ),
-    );
-  }
 }
+
+// The date button, the currency picker and the month/year switch are drawn by
+// DashboardHeader, several widgets below the ScreenShortcuts in
+// _DashboardScreenState, and the Hot Keys screen offers all three as bindable
+// actions. Top level functions let the button and the hotkey call one
+// implementation instead of two that can drift apart.
+
+void _showDashboardPeriodPicker(
+  BuildContext context,
+  DashboardLoadSuccess state,
+) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (modalContext) => CalendarStepPicker(
+      initialDate: state.selectedDay,
+      initialStep: state.dateStep == DateStep.year
+          ? DateStep.year
+          : DateStep.month,
+      initialFilterMode: FilterMode.date,
+      rangeOptionVisibility: PickerVisibility.hidden,
+      onApply: (date, range, step, mode) {
+        final bloc = context.read<DashboardBloc>();
+        bloc.add(SelectDay(date));
+        // FIX: Also update DateStep if user selected different step in picker
+        if (step != state.dateStep && step != DateStep.day) {
+          bloc.add(ChangeDateStep(step));
+        }
+      },
+    ),
+  );
+}
+
+void _showDashboardCurrencyPicker(
+  BuildContext context,
+  DashboardLoadSuccess state,
+) {
+  showDashboardCurrencyPicker(
+    context,
+    selectedCurrency: state.selectedCurrency,
+    availableCurrencies: state.availableCurrencies.map((e) => e.code).toList(),
+    onSelected: (code) => _selectDashboardCurrency(context, code),
+  );
+}
+
+/// Applies a currency chosen in the picker above.
+void _selectDashboardCurrency(BuildContext context, String currencyCode) =>
+    context.read<DashboardBloc>().add(ChangeCurrency(currencyCode));
+
+/// Applies a choice made on the header's month/year switch.
+void _changeDashboardDateStep(BuildContext context, DateStep step) =>
+    context.read<DashboardBloc>().add(ChangeDateStep(step));
+
+/// The step the switch's *other* segment stands for.
+///
+/// The switch has exactly two segments, so "toggle" and "tap the other one" are
+/// the same gesture. Anything that is not a month lands on month, which is also
+/// the segment the widget would draw as selected.
+DateStep _otherDashboardDateStep(DateStep current) =>
+    current == DateStep.month ? DateStep.year : DateStep.month;

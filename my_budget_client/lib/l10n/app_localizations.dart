@@ -3297,6 +3297,12 @@ abstract class AppLocalizations {
   /// **'Select Date'**
   String get hkActionPickDate;
 
+  /// No description provided for @hkActionDashboardSwitchView.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashboard: Change View'**
+  String get hkActionDashboardSwitchView;
+
   /// No description provided for @hkActionSortOrder.
   ///
   /// In en, this message translates to:
@@ -3308,6 +3314,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Filter'**
   String get hkActionFilterAction;
+
+  /// No description provided for @hkActionDashboardCurrency.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashboard: Currency'**
+  String get hkActionDashboardCurrency;
 
   /// No description provided for @hkActionAccountsSelectionClose.
   ///

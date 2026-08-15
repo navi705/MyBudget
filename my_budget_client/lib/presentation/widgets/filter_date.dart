@@ -77,7 +77,7 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
             if (isMobile)
               MultiLevelTooltip(
                 message: context.l10n.filterTooltip,
-                actionId: 'filter_advanced',
+                actionId: 'filter_action',
                 description: context.l10n.filterCategoriesDescription,
                 child: IconButton(
                   icon: Icon(Icons.tune, color: onSurface),
@@ -88,7 +88,7 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
             else if (!isMobile) ...[
               MultiLevelTooltip(
                 message: context.l10n.fltAdvancedFilterTooltip,
-                actionId: 'filter_advanced',
+                actionId: 'filter_action',
                 description: context.l10n.fltAdvancedFilterDescription,
                 child: IconButton(
                   icon: Icon(Icons.tune, color: onSurface),
@@ -107,10 +107,10 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
               fit: FlexFit.loose,
               child: MultiLevelTooltip(
                 message: context.l10n.selectDateTooltip,
-                actionId: 'filter_pick_date',
+                actionId: 'pick_date',
                 description: context.l10n.selectDateDescription,
                 child: InkWell(
-                  onTap: () => _showCustomCalendar(context, state),
+                  onTap: () => showTransactionsCalendar(context, state),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12.0),
                     alignment: Alignment.center,
@@ -133,20 +133,16 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
             if (isMobile)
               MultiLevelTooltip(
                 message: context.l10n.sortOrderTooltip,
-                actionId: 'filter_sort',
+                actionId: 'sort_order',
                 description: context.l10n.fltSortOrderDescription,
                 child: RotatedBox(
                   quarterTurns: state.sort == Sort.ascending ? 0 : 2,
                   child: IconButton(
                     icon: Icon(Icons.sort, color: onSurface),
-                    onPressed: () {
-                      final newSort = state.sort == Sort.ascending
-                          ? Sort.descending
-                          : Sort.ascending;
-                      context.read<TransactionsBloc>().add(
-                        SortChanged(newSort),
-                      );
-                    },
+                    onPressed: () => toggleTransactionsSort(
+                      context.read<TransactionsBloc>(),
+                      state,
+                    ),
                   ),
                 ),
               )
@@ -157,20 +153,16 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
               const SizedBox(width: 8),
               MultiLevelTooltip(
                 message: context.l10n.sortOrderTooltip,
-                actionId: 'filter_sort',
+                actionId: 'sort_order',
                 description: context.l10n.fltSortOrderDescription,
                 child: RotatedBox(
                   quarterTurns: state.sort == Sort.ascending ? 0 : 2,
                   child: IconButton(
                     icon: Icon(Icons.sort, color: onSurface),
-                    onPressed: () {
-                      final newSort = state.sort == Sort.ascending
-                          ? Sort.descending
-                          : Sort.ascending;
-                      context.read<TransactionsBloc>().add(
-                        SortChanged(newSort),
-                      );
-                    },
+                    onPressed: () => toggleTransactionsSort(
+                      context.read<TransactionsBloc>(),
+                      state,
+                    ),
                   ),
                 ),
               ),
@@ -199,40 +191,59 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
       },
     );
   }
+}
 
-  void _showCustomCalendar(BuildContext context, TransactionsState state) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return CalendarStepPicker(
-          initialDate: state.activeDate,
-          initialRange: state.activeDateRange,
-          initialStep: state.dateStep,
-          initialFilterMode: state.filterMode,
-          rangeOptionVisibility: PickerVisibility.visible,
-          onApply: (date, range, step, mode) {
-            final bloc = context.read<TransactionsBloc>();
+// The date picker and the sort toggle are drawn by this app bar, but the Hot
+// Keys screen offers both as bindable actions and the ScreenShortcuts that has
+// to run them lives in transactions_screen.dart, above the Scaffold this bar is
+// the appBar of. Top-level functions let the button and the hotkey call one
+// implementation instead of two that can drift apart.
+//
+// The filter button needs none: its body is already the top-level
+// `showAdvancedFilterDialog`.
+void showTransactionsCalendar(BuildContext context, TransactionsState state) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    // The sheet is a route of its own, so its builder context is a sibling of
+    // this bar rather than a descendant: the bloc is read from the context
+    // passed in, which is provably below the provider the bar itself reads.
+    builder: (_) {
+      return CalendarStepPicker(
+        initialDate: state.activeDate,
+        initialRange: state.activeDateRange,
+        initialStep: state.dateStep,
+        initialFilterMode: state.filterMode,
+        rangeOptionVisibility: PickerVisibility.visible,
+        onApply: (date, range, step, mode) {
+          final bloc = context.read<TransactionsBloc>();
 
-            if (step != state.dateStep) {
-              bloc.add(DateStepChanged(step));
-            }
+          if (step != state.dateStep) {
+            bloc.add(DateStepChanged(step));
+          }
 
-            if (mode != state.filterMode) {
-              bloc.add(FilterModeChanged(mode));
-            }
+          if (mode != state.filterMode) {
+            bloc.add(FilterModeChanged(mode));
+          }
 
-            if (mode == FilterMode.range && range != null) {
-              bloc.add(ActiveDateRangeChanged(range));
-            } else {
-              bloc.add(ActiveDateChanged(date));
-            }
-          },
-        );
-      },
-    );
-  }
+          if (mode == FilterMode.range && range != null) {
+            bloc.add(ActiveDateRangeChanged(range));
+          } else {
+            bloc.add(ActiveDateChanged(date));
+          }
+        },
+      );
+    },
+  );
+}
+
+void toggleTransactionsSort(TransactionsBloc bloc, TransactionsState state) {
+  bloc.add(
+    SortChanged(
+      state.sort == Sort.ascending ? Sort.descending : Sort.ascending,
+    ),
+  );
 }

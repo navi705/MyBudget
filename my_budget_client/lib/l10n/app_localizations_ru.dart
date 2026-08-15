@@ -1756,10 +1756,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get hkActionPickDate => 'Выбрать дату';
 
   @override
+  String get hkActionDashboardSwitchView => 'Сводка: Изменить вид';
+
+  @override
   String get hkActionSortOrder => 'Порядок сортировки';
 
   @override
   String get hkActionFilterAction => 'Фильтр';
+
+  @override
+  String get hkActionDashboardCurrency => 'Сводка: Валюта';
 
   @override
   String get hkActionAccountsSelectionClose => 'Счета: Закрыть';

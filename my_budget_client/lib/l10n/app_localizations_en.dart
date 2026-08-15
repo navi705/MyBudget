@@ -1754,10 +1754,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hkActionPickDate => 'Select Date';
 
   @override
+  String get hkActionDashboardSwitchView => 'Dashboard: Change View';
+
+  @override
   String get hkActionSortOrder => 'Sort Order';
 
   @override
   String get hkActionFilterAction => 'Filter';
+
+  @override
+  String get hkActionDashboardCurrency => 'Dashboard: Currency';
 
   @override
   String get hkActionAccountsSelectionClose => 'Accounts: Close';

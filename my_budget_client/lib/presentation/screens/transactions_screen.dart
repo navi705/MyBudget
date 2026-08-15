@@ -11,6 +11,7 @@ import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/advanced_filter_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/category_picker_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/filter_date.dart';
 import 'package:my_budget_client/presentation/widgets/transaction_list.dart';
@@ -291,6 +292,30 @@ class TransactionsScreen extends StatelessWidget {
             'next_period': () => context.read<TransactionsBloc>().add(
               const DatePeriodNavigated(1),
             ),
+            // The date bar's own three controls, running the very bodies its
+            // buttons run - see filter_date.dart. Their ids are screen-agnostic,
+            // like prev_period and add_action above: every list screen carries
+            // the same three buttons, and only the focused screen's
+            // ScreenShortcuts sees the key event.
+            //
+            // Guarded on selection mode for the one reason the buttons are: the
+            // whole [FilterDate] bar is replaced by the selection app bar while
+            // a selection is running, so none of the three is on screen and the
+            // keys must follow. Nothing stricter - the buttons themselves are
+            // drawn on every other state, in both layout branches.
+            'pick_date': () {
+              if (!isSelectionMode) showTransactionsCalendar(context, state);
+            },
+            'sort_order': () {
+              if (!isSelectionMode) {
+                toggleTransactionsSort(context.read<TransactionsBloc>(), state);
+              }
+            },
+            'filter_action': () {
+              if (!isSelectionMode) {
+                showAdvancedFilterDialog(context, state.nonDateFilters);
+              }
+            },
             // The four buttons of the selection bar. The Hot Keys screen offers
             // them unconditionally, so selection mode has to be checked here:
             // it is what puts those buttons on screen, and a press off a normal

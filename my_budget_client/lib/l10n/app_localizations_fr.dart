@@ -1754,10 +1754,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get hkActionPickDate => 'Sélectionner une date';
 
   @override
+  String get hkActionDashboardSwitchView => 'Tableau de Bord: Changer de Vue';
+
+  @override
   String get hkActionSortOrder => 'Ordre de tri';
 
   @override
   String get hkActionFilterAction => 'Filtrer';
+
+  @override
+  String get hkActionDashboardCurrency => 'Tableau de Bord: Devise';
 
   @override
   String get hkActionAccountsSelectionClose => 'Comptes: Fermer';

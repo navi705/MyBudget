@@ -93,6 +93,13 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
                 // the same date picker, so one binding serves all of them and
                 // the focused screen is the one that answers.
                 {'id': 'pick_date', 'label': context.l10n.hkActionPickDate},
+                // The dashboard header's month/year switch. Unlike the three
+                // above it has no counterpart on any other screen, so it keeps
+                // an id of its own rather than borrowing a generic one.
+                {
+                  'id': 'dashboard_switch_view',
+                  'label': context.l10n.hkActionDashboardSwitchView,
+                },
               ],
               context.l10n.hkCategoryActions: [
                 {'id': 'add_action', 'label': context.l10n.hkActionAddAction},
@@ -100,6 +107,13 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
                 {
                   'id': 'filter_action',
                   'label': context.l10n.hkActionFilterAction,
+                },
+                // Opens the dashboard header's currency picker. Only the
+                // dashboard lets the displayed currency be chosen, so this one
+                // is screen-specific too.
+                {
+                  'id': 'dashboard_currency',
+                  'label': context.l10n.hkActionDashboardCurrency,
                 },
               ],
               context.l10n.hkCategorySelectionMode: [

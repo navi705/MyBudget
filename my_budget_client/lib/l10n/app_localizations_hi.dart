@@ -1754,10 +1754,16 @@ class AppLocalizationsHi extends AppLocalizations {
   String get hkActionPickDate => 'दिनांक चुनें';
 
   @override
+  String get hkActionDashboardSwitchView => 'डैशबोर्ड: दृश्य बदलें';
+
+  @override
   String get hkActionSortOrder => 'क्रमबद्ध क्रम';
 
   @override
   String get hkActionFilterAction => 'फ़िल्टर';
+
+  @override
+  String get hkActionDashboardCurrency => 'डैशबोर्ड: मुद्रा';
 
   @override
   String get hkActionAccountsSelectionClose => 'खाते: बंद करें';

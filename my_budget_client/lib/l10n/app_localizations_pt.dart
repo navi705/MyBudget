@@ -1754,10 +1754,16 @@ class AppLocalizationsPt extends AppLocalizations {
   String get hkActionPickDate => 'Selecionar Data';
 
   @override
+  String get hkActionDashboardSwitchView => 'Painel: Alterar Vista';
+
+  @override
   String get hkActionSortOrder => 'Ordem de Classificação';
 
   @override
   String get hkActionFilterAction => 'Filtrar';
+
+  @override
+  String get hkActionDashboardCurrency => 'Painel: Moeda';
 
   @override
   String get hkActionAccountsSelectionClose => 'Contas: Fechar';

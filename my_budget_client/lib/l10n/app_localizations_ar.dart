@@ -1754,10 +1754,16 @@ class AppLocalizationsAr extends AppLocalizations {
   String get hkActionPickDate => 'تحديد تاريخ';
 
   @override
+  String get hkActionDashboardSwitchView => 'لوحة المعلومات: تغيير العرض';
+
+  @override
   String get hkActionSortOrder => 'ترتيب الفرز';
 
   @override
   String get hkActionFilterAction => 'تصفية';
+
+  @override
+  String get hkActionDashboardCurrency => 'لوحة المعلومات: العملة';
 
   @override
   String get hkActionAccountsSelectionClose => 'الحسابات: إغلاق';
