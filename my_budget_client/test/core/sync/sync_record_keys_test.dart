@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/sync/sync_record_keys.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 /// The composite `sync_log.record_id` strings for `exchange_rates` and
 /// `inflation_rates` are the only link between a pending change and the row it
@@ -18,6 +19,14 @@ import 'package:my_budget_client/core/sync/sync_record_keys.dart';
 ///   exchange_rates:  '${from}_${to}_${yyyy-MM-dd}_${preset}'
 ///   inflation_rates: '${yyyy-MM-dd}_${country}_${preset}'
 void main() {
+  // `sync_record_keys.dart` pins its DateFormat to 'en' so a record id spells
+  // the same day on every device, and a pinned locale needs its CLDR data
+  // loaded. `app.dart` does this at startup; a bare `flutter test` does not, so
+  // every id this suite formats or parses would throw LocaleDataException.
+  setUpAll(() async {
+    await initializeDateFormatting();
+  });
+
   // The exact expression app_database.dart uses, so "byte-identical" is
   // asserted against the real thing instead of a hand-written string.
   String daoDate(DateTime d) => DateFormat('yyyy-MM-dd').format(d);

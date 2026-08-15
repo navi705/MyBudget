@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_budget_client/core/database/app_database.dart'
@@ -78,7 +78,9 @@ void main() {
       CREATE UNIQUE INDEX idx_asset_entries_custom_api_dedup ON asset_entries (asset_id, date, source) WHERE source = 'custom_api';
     ''';
 
-    Future<AppDatabase> buildAndOpen({required void Function(sqlite3.Database) seed}) async {
+    Future<AppDatabase> buildAndOpen({
+      required void Function(sqlite3.Database) seed,
+    }) async {
       final file = File('${tempDir.path}/v7.sqlite');
       final raw = sqlite3.sqlite3.open(file.path);
       raw.execute(createV7Sql);
@@ -92,13 +94,11 @@ void main() {
       return db;
     }
 
-    test(
-      'fiat account balance and transaction amount/fee survive exactly; '
-      'minor columns get the right integer scale',
-      () async {
-        final db = await buildAndOpen(
-          seed: (raw) {
-            raw.execute('''
+    test('fiat account balance and transaction amount/fee survive exactly; '
+        'minor columns get the right integer scale', () async {
+      final db = await buildAndOpen(
+        seed: (raw) {
+          raw.execute('''
               INSERT INTO languages (language, language_code) VALUES ('English','en');
               INSERT INTO currencies (name, code, language_code, type) VALUES ('Euro','EUR','en',0);
               INSERT INTO currencies (name, code, language_code, type) VALUES ('Bitcoin','BTC','en',1);
@@ -114,63 +114,66 @@ void main() {
               INSERT INTO transactions (id, description, amount, date, account_id, category_id, currency_code, fee)
                 VALUES ('t2', 'Sats', 0.25, 0, 'accBtc', 'c1', 'BTC', 0.0);
             ''');
-          },
-        );
+        },
+      );
 
-        final eurAccount =
-            await (db.select(db.accounts)..where((a) => a.id.equals('accEur')))
-                .getSingle();
-        final btcAccount =
-            await (db.select(db.accounts)..where((a) => a.id.equals('accBtc')))
-                .getSingle();
+      final eurAccount = await (db.select(
+        db.accounts,
+      )..where((a) => a.id.equals('accEur'))).getSingle();
+      final btcAccount = await (db.select(
+        db.accounts,
+      )..where((a) => a.id.equals('accBtc'))).getSingle();
 
-        // The legacy double must be untouched by the migration.
-        expect(eurAccount.balance, 1234.56);
-        expect(btcAccount.balance, 0.5);
-        // The new integer column is exact and correctly scaled (2 decimals).
-        expect(eurAccount.balanceMinor, 123456);
-        // Crypto never gets a minor value: NULL, not 0.
-        expect(btcAccount.balanceMinor, isNull);
+      // The legacy double must be untouched by the migration.
+      expect(eurAccount.balance, 1234.56);
+      expect(btcAccount.balance, 0.5);
+      // The new integer column is exact and correctly scaled (2 decimals).
+      expect(eurAccount.balanceMinor, 123456);
+      // Crypto never gets a minor value: NULL, not 0.
+      expect(btcAccount.balanceMinor, isNull);
 
-        final eurTx =
-            await (db.select(db.transactions)..where((t) => t.id.equals('t1')))
-                .getSingle();
-        final btcTx =
-            await (db.select(db.transactions)..where((t) => t.id.equals('t2')))
-                .getSingle();
+      final eurTx = await (db.select(
+        db.transactions,
+      )..where((t) => t.id.equals('t1'))).getSingle();
+      final btcTx = await (db.select(
+        db.transactions,
+      )..where((t) => t.id.equals('t2'))).getSingle();
 
-        expect(eurTx.amount, 10.10);
-        expect(eurTx.fee, 0.05);
-        expect(eurTx.amountMinor, 1010);
-        expect(eurTx.feeMinor, 5);
-        expect(btcTx.amount, 0.25);
-        expect(btcTx.amountMinor, isNull);
+      expect(eurTx.amount, 10.10);
+      expect(eurTx.fee, 0.05);
+      expect(eurTx.amountMinor, 1010);
+      expect(eurTx.feeMinor, 5);
+      expect(btcTx.amount, 0.25);
+      expect(btcTx.amountMinor, isNull);
+
+      await db.close();
+    });
+
+    test(
+      'adds the minor-unit columns without dropping any other column',
+      () async {
+        final db = await buildAndOpen(seed: (_) {});
+
+        final accountCols = await db
+            .customSelect("PRAGMA table_info('accounts')")
+            .get();
+        final accountColNames = accountCols
+            .map((r) => r.data['name'] as String)
+            .toSet();
+        expect(accountColNames, contains('balance_minor'));
+        expect(accountColNames, contains('balance')); // old column intact
+        expect(accountColNames, contains('is_deleted')); // v3 column intact
+
+        final txCols = await db
+            .customSelect("PRAGMA table_info('transactions')")
+            .get();
+        final txColNames = txCols.map((r) => r.data['name'] as String).toSet();
+        expect(txColNames, containsAll(['amount_minor', 'fee_minor']));
+        expect(txColNames, contains('amount')); // old column intact
 
         await db.close();
       },
     );
-
-    test('adds the minor-unit columns without dropping any other column',
-        () async {
-      final db = await buildAndOpen(seed: (_) {});
-
-      final accountCols = await db
-          .customSelect("PRAGMA table_info('accounts')")
-          .get();
-      final accountColNames =
-          accountCols.map((r) => r.data['name'] as String).toSet();
-      expect(accountColNames, contains('balance_minor'));
-      expect(accountColNames, contains('balance')); // old column intact
-      expect(accountColNames, contains('is_deleted')); // v3 column intact
-
-      final txCols =
-          await db.customSelect("PRAGMA table_info('transactions')").get();
-      final txColNames = txCols.map((r) => r.data['name'] as String).toSet();
-      expect(txColNames, containsAll(['amount_minor', 'fee_minor']));
-      expect(txColNames, contains('amount')); // old column intact
-
-      await db.close();
-    });
   });
 
   group('v2 -> current migration (chain covering every v3+ upgrade step)', () {
@@ -242,8 +245,9 @@ void main() {
       // `_seedData` again), so it is materially slower than the other
       // migration tests here; running it once and asserting many things
       // against the result keeps this suite's runtime reasonable.
-      final tempDir =
-          Directory.systemTemp.createTempSync('mybudget_migration_v2_test');
+      final tempDir = Directory.systemTemp.createTempSync(
+        'mybudget_migration_v2_test',
+      );
       final file = File('${tempDir.path}/v2.sqlite');
       final raw = sqlite3.sqlite3.open(file.path);
       raw.execute(createV2Sql);
@@ -263,23 +267,30 @@ void main() {
     // that the chain arrives at whatever the current schema is, and a literal
     // here only ever means "someone added a migration" - it went stale the
     // first time one was added.
-    test('completes the chain without throwing and lands on schemaVersion',
-        () async {
-      final versionRow =
-          await db.customSelect('PRAGMA user_version').getSingle();
-      expect(versionRow.data['user_version'], db.schemaVersion);
-    });
+    test(
+      'completes the chain without throwing and lands on schemaVersion',
+      () async {
+        final versionRow = await db
+            .customSelect('PRAGMA user_version')
+            .getSingle();
+        expect(versionRow.data['user_version'], db.schemaVersion);
+      },
+    );
 
     test('final schema has the columns the v8 Dart tables expect', () async {
       Future<Set<String>> columnsOf(String table) async {
-        final rows =
-            await db.customSelect("PRAGMA table_info('$table')").get();
+        final rows = await db.customSelect("PRAGMA table_info('$table')").get();
         return rows.map((r) => r.data['name'] as String).toSet();
       }
 
       expect(
         await columnsOf('accounts'),
-        containsAll(['balance_minor', 'modified_at', 'device_id', 'is_deleted']),
+        containsAll([
+          'balance_minor',
+          'modified_at',
+          'device_id',
+          'is_deleted',
+        ]),
       );
       expect(
         await columnsOf('transactions'),
@@ -312,9 +323,7 @@ void main() {
     test('creates the tables introduced after v1 (sms_presets v3, '
         'sync_processed_files v4)', () async {
       final tables = await db
-          .customSelect(
-            "SELECT name FROM sqlite_master WHERE type = 'table'",
-          )
+          .customSelect("SELECT name FROM sqlite_master WHERE type = 'table'")
           .get();
       final names = tables.map((r) => r.data['name'] as String).toSet();
       expect(names, containsAll(['sms_presets', 'sync_processed_files']));
@@ -323,9 +332,7 @@ void main() {
     test('creates the composite indexes added in v6 and the dedup unique '
         'index added in v7', () async {
       final indexes = await db
-          .customSelect(
-            "SELECT name FROM sqlite_master WHERE type = 'index'",
-          )
+          .customSelect("SELECT name FROM sqlite_master WHERE type = 'index'")
           .get();
       final names = indexes.map((r) => r.data['name'] as String).toSet();
       expect(
@@ -338,29 +345,24 @@ void main() {
       );
     });
 
-    test(
-      'backfills the five @TableIndex indexes, which only ever existed on '
-      'fresh installs: m.createAll() builds them in onCreate and no upgrade '
-      'step did, so every upgraded device ran without them',
-      () async {
-        final indexes = await db
-            .customSelect(
-              "SELECT name FROM sqlite_master WHERE type = 'index'",
-            )
-            .get();
-        final names = indexes.map((r) => r.data['name'] as String).toSet();
-        expect(
-          names,
-          containsAll([
-            'idx_transactions_date',
-            'idx_transactions_account',
-            'idx_transactions_category',
-            'idx_exchange_rates_date',
-            'idx_exchange_rates_composite',
-          ]),
-        );
-      },
-    );
+    test('backfills the five @TableIndex indexes, which only ever existed on '
+        'fresh installs: m.createAll() builds them in onCreate and no upgrade '
+        'step did, so every upgraded device ran without them', () async {
+      final indexes = await db
+          .customSelect("SELECT name FROM sqlite_master WHERE type = 'index'")
+          .get();
+      final names = indexes.map((r) => r.data['name'] as String).toSet();
+      expect(
+        names,
+        containsAll([
+          'idx_transactions_date',
+          'idx_transactions_account',
+          'idx_transactions_category',
+          'idx_exchange_rates_date',
+          'idx_exchange_rates_composite',
+        ]),
+      );
+    });
 
     test(
       'MONEY: fiat account balance and transaction amount/fee are byte-exact '
@@ -375,7 +377,11 @@ void main() {
         )..where((a) => a.id.equals('accBtc'))).getSingle();
 
         expect(eurAccount.balance, 1234.56, reason: 'legacy double untouched');
-        expect(eurAccount.balanceMinor, 123456, reason: 'exact 2-decimal scale');
+        expect(
+          eurAccount.balanceMinor,
+          123456,
+          reason: 'exact 2-decimal scale',
+        );
         expect(btcAccount.balance, 0.5);
         expect(btcAccount.balanceMinor, isNull);
 
@@ -395,14 +401,16 @@ void main() {
       },
     );
 
-    test('custom (non-seed) category survives the v4->v5 reseed untouched',
-        () async {
-      final cat = await (db.select(
-        db.categories,
-      )..where((c) => c.id.equals('user_cat_custom_v1'))).getSingleOrNull();
-      expect(cat, isNotNull);
-      expect(cat!.name, 'My Custom Category');
-    });
+    test(
+      'custom (non-seed) category survives the v4->v5 reseed untouched',
+      () async {
+        final cat = await (db.select(
+          db.categories,
+        )..where((c) => c.id.equals('user_cat_custom_v1'))).getSingleOrNull();
+        expect(cat, isNotNull);
+        expect(cat!.name, 'My Custom Category');
+      },
+    );
   });
 
   group('v10 -> v11 migration (adds the opening-balance anchor)', () {
@@ -492,31 +500,31 @@ void main() {
       expect((await account('accBtc')).balance, 0.5);
     });
 
-    test('the first rebuild reproduces the balance the user had, exactly',
-        () async {
-      // The whole point of the anchor: it is only worth having if rebuilding
-      // from it is a no-op on the day it is introduced. If this drifts, every
-      // upgraded device silently restates its owner's money.
-      await db.accountsDao.recomputeBalances([
-        'accEur',
-        'accJpy',
-        'accBtc',
-      ]);
+    test(
+      'the first rebuild reproduces the balance the user had, exactly',
+      () async {
+        // The whole point of the anchor: it is only worth having if rebuilding
+        // from it is a no-op on the day it is introduced. If this drifts, every
+        // upgraded device silently restates its owner's money.
+        await db.accountsDao.recomputeBalances(['accEur', 'accJpy', 'accBtc']);
 
-      expect((await account('accEur')).balanceMinor, 123456);
-      expect((await account('accEur')).balance, 1234.56);
-      expect((await account('accJpy')).balanceMinor, 15000);
-      expect((await account('accBtc')).balance, closeTo(0.5, 1e-12));
-    });
+        expect((await account('accEur')).balanceMinor, 123456);
+        expect((await account('accEur')).balance, 1234.56);
+        expect((await account('accJpy')).balanceMinor, 15000);
+        expect((await account('accBtc')).balance, closeTo(0.5, 1e-12));
+      },
+    );
 
-    test('the anchor is the balance minus the transactions that built it',
-        () async {
-      final eur = await account('accEur');
-      // 123456 minus t1 and t2; the soft-deleted t3 was already taken out of
-      // the balance when it was deleted, and the dollar row never went in.
-      expect(eur.openingBalanceMinor, 120000);
-      expect(eur.openingBalance, 1200.0);
-    });
+    test(
+      'the anchor is the balance minus the transactions that built it',
+      () async {
+        final eur = await account('accEur');
+        // 123456 minus t1 and t2; the soft-deleted t3 was already taken out of
+        // the balance when it was deleted, and the dollar row never went in.
+        expect(eur.openingBalanceMinor, 120000);
+        expect(eur.openingBalance, 1200.0);
+      },
+    );
 
     test('a zero-decimal currency is not assumed to have cents', () async {
       final jpy = await account('accJpy');
@@ -524,12 +532,14 @@ void main() {
       expect(jpy.openingBalance, 14500.0);
     });
 
-    test('a crypto account keeps NULL minor units and anchors on the double',
-        () async {
-      final btc = await account('accBtc');
-      expect(btc.openingBalanceMinor, isNull);
-      expect(btc.openingBalance, closeTo(0.25, 1e-12));
-    });
+    test(
+      'a crypto account keeps NULL minor units and anchors on the double',
+      () async {
+        final btc = await account('accBtc');
+        expect(btc.openingBalanceMinor, isNull);
+        expect(btc.openingBalance, closeTo(0.25, 1e-12));
+      },
+    );
 
     test('adds the anchor without dropping any other column', () async {
       final cols = await db.customSelect("PRAGMA table_info('accounts')").get();
@@ -640,7 +650,10 @@ void main() {
       )..where((t) => t.id.equals('t1'))).getSingle();
       expect(tx.amountMinor, 3456);
 
-      expect(await db.customDataSourcesDao.getDataSourceById('src1'), isNotNull);
+      expect(
+        await db.customDataSourcesDao.getDataSourceById('src1'),
+        isNotNull,
+      );
     });
 
     test('lands on the current schema version', () async {
@@ -648,28 +661,201 @@ void main() {
       expect(row.data['user_version'], db.schemaVersion);
     });
 
-    test('a database that already has the column upgrades without error',
-        () async {
-      // The step is re-runnable: a device that took an interim build carrying
-      // the column must not hit "duplicate column name" and be stuck on every
-      // launch.
-      final file = File('${tempDir.path}/v11_with_column.sqlite');
+    test(
+      'a database that already has the column upgrades without error',
+      () async {
+        // The step is re-runnable: a device that took an interim build carrying
+        // the column must not hit "duplicate column name" and be stuck on every
+        // launch.
+        final file = File('${tempDir.path}/v11_with_column.sqlite');
+        final raw = sqlite3.sqlite3.open(file.path);
+        raw.execute(createV11Sql);
+        raw.execute(
+          'ALTER TABLE api_settings_table ADD COLUMN "is_deleted" INTEGER NOT '
+          'NULL DEFAULT 0;',
+        );
+        raw.execute(seedSql);
+        raw.execute('PRAGMA user_version = 11;');
+        raw.dispose();
+
+        final upgraded = AppDatabase.forTesting(NativeDatabase(file));
+        await expectLater(upgraded.customSelect('SELECT 1').get(), completes);
+        expect(
+          await upgraded.apiSettingsDao.getSettingById('exchange_rates'),
+          isNotNull,
+        );
+        await upgraded.close();
+      },
+    );
+  });
+
+  group('v12 -> v13 migration (adds the server push queue)', () {
+    // v12 == the v11 fixture plus the tombstone the v11->v12 step adds to
+    // api_settings_table, which is all that separates the two versions.
+    const createV12Sql = '''
+      CREATE TABLE "languages" ("language" TEXT NOT NULL, "language_code" TEXT NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("language_code"));
+      CREATE TABLE "currencies" ("name" TEXT NOT NULL UNIQUE, "code" TEXT NOT NULL, "language_code" TEXT NOT NULL REFERENCES languages (language_code), "type" INTEGER NOT NULL DEFAULT 6, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("code"));
+      CREATE TABLE "currency_designations" ("id" TEXT NOT NULL, "value" TEXT NOT NULL, "currency_code" TEXT NOT NULL REFERENCES currencies (code), "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "account_types" ("id" TEXT NOT NULL, "name" TEXT NOT NULL UNIQUE, "language_code" TEXT NOT NULL REFERENCES languages (language_code), "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "styles" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "icon_name" TEXT NOT NULL, "color_hex" TEXT NOT NULL, "icon_type" INTEGER NOT NULL DEFAULT 0, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "categories" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "parent_id" TEXT NULL REFERENCES categories (id), "style_id" TEXT NULL REFERENCES styles (id), "type" INTEGER NOT NULL DEFAULT 0, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "accounts" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "description" TEXT NULL, "balance" REAL NOT NULL, "balance_minor" INTEGER NULL, "opening_balance" REAL NOT NULL DEFAULT 0.0, "opening_balance_minor" INTEGER NULL, "currency_code" TEXT NOT NULL REFERENCES currencies (code), "currency_designation_id" TEXT NOT NULL REFERENCES currency_designations (id), "style_id" TEXT NULL REFERENCES styles (id), "account_type_id" TEXT NOT NULL REFERENCES account_types (id), "creation_date" INTEGER NOT NULL, "country" TEXT NULL, "asset_id" TEXT NULL, "asset_quantity" REAL NOT NULL DEFAULT 0.0, "fee_structure" TEXT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "transactions" ("id" TEXT NOT NULL, "description" TEXT NOT NULL, "amount" REAL NOT NULL, "amount_minor" INTEGER NULL, "date" INTEGER NOT NULL, "account_id" TEXT NOT NULL REFERENCES accounts (id), "category_id" TEXT NOT NULL REFERENCES categories (id), "currency_code" TEXT NOT NULL REFERENCES currencies (code), "exchange_rate" REAL NULL, "exchange_rate_preset" INTEGER NULL, "fee" REAL NOT NULL DEFAULT 0.0, "fee_minor" INTEGER NULL, "linked_transaction_id" TEXT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "exchange_rates" ("from_currency_code" TEXT NOT NULL REFERENCES currencies (code), "to_currency_code" TEXT NOT NULL REFERENCES currencies (code), "rate" REAL NOT NULL, "preset" INTEGER NOT NULL, "date" INTEGER NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "source_id" TEXT NULL, PRIMARY KEY ("from_currency_code", "to_currency_code", "date", "preset"));
+      CREATE TABLE "inflation_rates" ("date" INTEGER NOT NULL, "percent" REAL NOT NULL, "country" TEXT NOT NULL DEFAULT 'global', "preset" INTEGER NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "source_id" TEXT NULL, PRIMARY KEY ("date", "country", "preset"));
+      CREATE TABLE "asset_entries" ("id" TEXT NOT NULL, "asset_id" TEXT NOT NULL, "name" TEXT NOT NULL, "date" INTEGER NOT NULL, "value" REAL NOT NULL, "quantity" REAL NOT NULL DEFAULT 1.0, "asset_type" TEXT NULL, "description" TEXT NULL, "currency_code" TEXT NOT NULL REFERENCES currencies (code), "account_id" TEXT NULL REFERENCES accounts (id), "source" TEXT NOT NULL, "preset" INTEGER NOT NULL DEFAULT 1, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "source_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "settings" ("key" TEXT NOT NULL, "value" TEXT NOT NULL, "device" TEXT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, PRIMARY KEY ("key"));
+      CREATE TABLE "custom_themes" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "primary_color_hex" TEXT NOT NULL, "secondary_color_hex" TEXT NOT NULL, "surface_color_hex" TEXT NOT NULL, "background_color_hex" TEXT NOT NULL, "background_image_path" TEXT NULL, "background_image_opacity" REAL NOT NULL DEFAULT 1.0, "background_image_blur" REAL NOT NULL DEFAULT 0.0, "window_effect_type" INTEGER NOT NULL, "effect_opacity" REAL NOT NULL DEFAULT 1.0, "surface_opacity" REAL NOT NULL DEFAULT 1.0, "theme_mode" INTEGER NOT NULL, "is_preset" INTEGER NOT NULL DEFAULT 0, "is_active" INTEGER NOT NULL DEFAULT 0, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "sync_log" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "changed_table_name" TEXT NOT NULL, "record_id" TEXT NOT NULL, "action" TEXT NOT NULL, "timestamp" INTEGER NOT NULL, "exported" INTEGER NOT NULL DEFAULT 0);
+      CREATE TABLE "conflict_history" ("id" TEXT NOT NULL, "changed_table_name" TEXT NOT NULL, "record_id" TEXT NOT NULL, "rejected_data" TEXT NOT NULL, "rejected_at" INTEGER NOT NULL, "rejected_device" TEXT NULL, PRIMARY KEY ("id"));
+      CREATE TABLE "custom_data_sources" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "url" TEXT NOT NULL, "data_type" INTEGER NOT NULL, "enabled" INTEGER NOT NULL DEFAULT 1, "auto_fetch" INTEGER NOT NULL DEFAULT 0, "last_fetch_at" INTEGER NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "api_settings_table" ("id" TEXT NOT NULL, "enabled" INTEGER NOT NULL DEFAULT 1, "auto_fetch" INTEGER NOT NULL DEFAULT 0, "last_fetch_at" INTEGER NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "api_fetch_statuses" ("id" TEXT NOT NULL, "attempts" INTEGER NOT NULL DEFAULT 0, "last_attempt" INTEGER NULL, "status" TEXT NOT NULL DEFAULT 'pending', PRIMARY KEY ("id"));
+      CREATE TABLE "sms_presets" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "sender_filter" TEXT NOT NULL, "is_built_in" INTEGER NOT NULL DEFAULT 0, "is_enabled" INTEGER NOT NULL DEFAULT 1, "default_account_id" TEXT NULL, "default_category_id" TEXT NULL, "rules_json" TEXT NOT NULL, "modified_at" INTEGER NOT NULL DEFAULT 0, "device_id" TEXT NULL, "is_deleted" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ("id"));
+      CREATE TABLE "sync_processed_files" ("file_name" TEXT NOT NULL, "processed_at" INTEGER NOT NULL, "device_id" TEXT NOT NULL, PRIMARY KEY ("file_name"));
+    ''';
+
+    // A device that has been running for a while. `modified_at` values are
+    // deliberately tiny: under the old scheme every one of these rows sat far
+    // below `server_last_push_timestamp`, which is exactly why the upgrade has
+    // to assume none of them ever reached the server.
+    const seedSql = '''
+      INSERT INTO languages (language, language_code) VALUES ('English','en');
+      INSERT INTO currencies (name, code, language_code, type) VALUES ('Euro','EUR','en',0);
+      INSERT INTO currency_designations (id, value, currency_code) VALUES ('d1','€','EUR');
+      INSERT INTO account_types (id, name, language_code) VALUES ('at1','Checking','en');
+      INSERT INTO categories (id, name, modified_at) VALUES ('c1','Groceries',1);
+      INSERT INTO accounts (id, name, balance, currency_code, currency_designation_id, account_type_id, creation_date, modified_at)
+        VALUES ('accEur', 'Eur Wallet', 1234.56, 'EUR', 'd1', 'at1', 0, 1);
+      INSERT INTO transactions (id, description, amount, date, account_id, category_id, currency_code, modified_at)
+        VALUES ('t1', 'Weekly shop', 34.56, 0, 'accEur', 'c1', 'EUR', 1);
+      INSERT INTO exchange_rates (from_currency_code, to_currency_code, rate, preset, date, modified_at)
+        VALUES ('EUR','EUR',1.0,7,1700000000,1);
+      INSERT INTO api_settings_table (id, enabled, auto_fetch, modified_at) VALUES ('exchange_rates', 1, 1, 1);
+    ''';
+
+    late AppDatabase db;
+
+    Future<Set<String>> queuedKeysFor(AppDatabase target, String table) async {
+      final rows = await target
+          .customSelect(
+            'SELECT record_key FROM sync_push_queue '
+            'WHERE changed_table_name = ?',
+            variables: [Variable.withString(table)],
+          )
+          .get();
+      return rows.map((r) => r.read<String>('record_key')).toSet();
+    }
+
+    setUp(() async {
+      final file = File('${tempDir.path}/v12.sqlite');
       final raw = sqlite3.sqlite3.open(file.path);
-      raw.execute(createV11Sql);
-      raw.execute(
-        'ALTER TABLE api_settings_table ADD COLUMN "is_deleted" INTEGER NOT '
-        'NULL DEFAULT 0;',
-      );
+      raw.execute(createV12Sql);
       raw.execute(seedSql);
-      raw.execute('PRAGMA user_version = 11;');
+      raw.execute('PRAGMA user_version = 12;');
+      raw.dispose();
+
+      db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+    });
+
+    tearDown(() async => db.close());
+
+    test(
+      'creates sync_push_queue and lands on the current schema version',
+      () async {
+        final tables = await db
+            .customSelect("SELECT name FROM sqlite_master WHERE type = 'table'")
+            .get();
+        expect(
+          tables.map((r) => r.read<String>('name')),
+          contains('sync_push_queue'),
+        );
+
+        final version = await db
+            .customSelect('PRAGMA user_version')
+            .getSingle();
+        expect(version.data['user_version'], db.schemaVersion);
+      },
+    );
+
+    test('seeds the queue from every row the device already had', () async {
+      // The old watermark lived in SharedPreferences and is unreachable from a
+      // migration, so there is no way to tell which of these the server has.
+      // Assuming "none" costs one full push; assuming "all" would keep exactly
+      // the stranded rows stranded, forever.
+      expect(await queuedKeysFor(db, 'accounts'), {'accEur'});
+      expect(await queuedKeysFor(db, 'transactions'), {'t1'});
+      expect(await queuedKeysFor(db, 'categories'), {'c1'});
+      expect(await queuedKeysFor(db, 'api_settings_table'), {'exchange_rates'});
+      expect(await queuedKeysFor(db, 'exchange_rates'), {
+        'EUR|EUR|1700000000|7',
+      });
+    });
+
+    test('the triggers are live afterwards', () async {
+      await db.customStatement(
+        "INSERT INTO styles (id, name, color_hex, icon_name, icon_type, "
+        "modified_at, is_deleted) "
+        "VALUES ('after', 'Made later', '#000000', 'star', 0, 5, 0)",
+      );
+      expect(await queuedKeysFor(db, 'styles'), {'after'});
+
+      await db.customStatement(
+        "UPDATE styles SET name = 'Renamed', modified_at = 6 "
+        "WHERE id = 'after'",
+      );
+      final rows = await db
+          .customSelect(
+            "SELECT COUNT(*) AS c FROM sync_push_queue "
+            "WHERE changed_table_name = 'styles'",
+          )
+          .getSingle();
+      expect(rows.read<int>('c'), 2, reason: 'an edit is a change to send too');
+    });
+
+    test('a write that does not move modified_at is not queued', () async {
+      // A balance rebuild rewrites `balance` on purpose without stamping the
+      // row - every peer derives that number for itself, and the server's
+      // upsert is strict last-write-wins, so queueing it would upload a row the
+      // server is guaranteed to discard after every single pull.
+      await db.customStatement('DELETE FROM sync_push_queue');
+      await db.customStatement(
+        "UPDATE accounts SET balance = 999.0 WHERE id = 'accEur'",
+      );
+
+      expect(await queuedKeysFor(db, 'accounts'), isEmpty);
+    });
+
+    test('an upgrade that already ran does not seed the queue twice', () async {
+      // The step is re-runnable like the ones before it: a device whose
+      // upgrade died after the seed must not come back to a doubled backlog.
+      final file = File('${tempDir.path}/v12_already_seeded.sqlite');
+      final raw = sqlite3.sqlite3.open(file.path);
+      raw.execute(createV12Sql);
+      raw.execute(seedSql);
+      raw.execute(
+        'CREATE TABLE "sync_push_queue" ("id" INTEGER NOT NULL PRIMARY KEY '
+        'AUTOINCREMENT, "changed_table_name" TEXT NOT NULL, "record_key" TEXT '
+        'NOT NULL);',
+      );
+      raw.execute(
+        "INSERT INTO sync_push_queue (changed_table_name, record_key) "
+        "VALUES ('accounts', 'accEur');",
+      );
+      raw.execute('PRAGMA user_version = 12;');
       raw.dispose();
 
       final upgraded = AppDatabase.forTesting(NativeDatabase(file));
       await expectLater(upgraded.customSelect('SELECT 1').get(), completes);
-      expect(
-        await upgraded.apiSettingsDao.getSettingById('exchange_rates'),
-        isNotNull,
-      );
+      expect(await queuedKeysFor(upgraded, 'accounts'), {'accEur'});
+      final accountEntries = await upgraded
+          .customSelect(
+            "SELECT COUNT(*) AS c FROM sync_push_queue "
+            "WHERE changed_table_name = 'accounts'",
+          )
+          .getSingle();
+      expect(accountEntries.read<int>('c'), 1);
       await upgraded.close();
     });
   });

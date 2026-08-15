@@ -12,6 +12,7 @@ import 'package:my_budget_client/core/services/server_sync_service.dart';
 import 'package:my_budget_client/core/sync/sync_service.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_settings_repository.dart';
 import 'package:my_budget_client/domain/entities/settings.dart' as domain;
+import 'package:intl/date_symbol_data_local.dart';
 
 /// `api_settings_table` is the row behind each "fetch exchange rates / inflation
 /// / asset prices" toggle. It only gained an `isDeleted` column in schema v12;
@@ -19,6 +20,14 @@ import 'package:my_budget_client/domain/entities/settings.dart' as domain;
 /// removal could not survive a round trip through either sync engine. Both
 /// engines are exercised here because both had to learn the column.
 void main() {
+  // `sync_record_keys.dart` pins its DateFormat to 'en' so a record id spells
+  // the same day on every device, and a pinned locale needs its CLDR data
+  // loaded. `app.dart` does this at startup; a bare `flutter test` does not, so
+  // every id this suite formats or parses would throw LocaleDataException.
+  setUpAll(() async {
+    await initializeDateFormatting();
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('file sync (SyncService)', () {
@@ -83,9 +92,9 @@ void main() {
       [id],
     );
 
-    Future<ApiSettingsTableData?> rawOnB(String id) =>
-        (dbB.select(dbB.apiSettingsTable)..where((t) => t.id.equals(id)))
-            .getSingleOrNull();
+    Future<ApiSettingsTableData?> rawOnB(String id) => (dbB.select(
+      dbB.apiSettingsTable,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
 
     test('an edited provider reaches the peer', () async {
       await dbA.apiSettingsDao.upsertSetting(
@@ -160,7 +169,10 @@ void main() {
       await syncAToB();
 
       expect((await rawOnB('custom-provider'))!.isDeleted, isTrue);
-      expect(await dbB.apiSettingsDao.getSettingById('custom-provider'), isNull);
+      expect(
+        await dbB.apiSettingsDao.getSettingById('custom-provider'),
+        isNull,
+      );
     });
   });
 
@@ -208,9 +220,7 @@ void main() {
         settingsRepository: settingsRepository,
         httpClient: MockClient((request) async {
           if (request.method == 'POST') {
-            pushBodies.add(
-              jsonDecode(request.body) as Map<String, dynamic>,
-            );
+            pushBodies.add(jsonDecode(request.body) as Map<String, dynamic>);
             return http.Response('{"status":"ok"}', 200);
           }
           return http.Response(
@@ -223,9 +233,9 @@ void main() {
 
     tearDown(() async => db.close());
 
-    Future<ApiSettingsTableData?> raw(String id) =>
-        (db.select(db.apiSettingsTable)..where((t) => t.id.equals(id)))
-            .getSingleOrNull();
+    Future<ApiSettingsTableData?> raw(String id) => (db.select(
+      db.apiSettingsTable,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
 
     test('a pulled provider marked deleted is removed locally', () async {
       pages = [
@@ -266,33 +276,36 @@ void main() {
       expect(applied!.enabled, isFalse);
     });
 
-    test('a locally deleted provider is pushed with its tombstone flag',
-        () async {
-      await db.apiSettingsDao.deleteSetting('exchange_rates');
-      // The push window is `modifiedAt > watermark`, and the whole setUp can
-      // land in the same millisecond as the delete. Park the watermark just
-      // below the tombstone so the row is unambiguously inside the window.
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(
-        'server_last_push_timestamp',
-        (await raw('exchange_rates'))!.modifiedAt - 1,
-      );
+    test(
+      'a locally deleted provider is pushed with its tombstone flag',
+      () async {
+        await db.apiSettingsDao.deleteSetting('exchange_rates');
+        // The push window is `modifiedAt > watermark`, and the whole setUp can
+        // land in the same millisecond as the delete. Park the watermark just
+        // below the tombstone so the row is unambiguously inside the window.
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt(
+          'server_last_push_timestamp',
+          (await raw('exchange_rates'))!.modifiedAt - 1,
+        );
 
-      await service.sync();
+        await service.sync();
 
-      final pushed = pushBodies
-          .expand(
-            (b) => (b['api_settings'] as List? ?? const [])
-                .cast<Map<String, dynamic>>(),
-          )
-          .where((r) => r['id'] == 'exchange_rates');
-      expect(pushed, hasLength(1));
-      expect(
-        pushed.single['isDeleted'],
-        isTrue,
-        reason: 'a push without the flag looks like a live provider to the '
-            'server, which hands it straight back to every other device',
-      );
-    });
+        final pushed = pushBodies
+            .expand(
+              (b) => (b['api_settings'] as List? ?? const [])
+                  .cast<Map<String, dynamic>>(),
+            )
+            .where((r) => r['id'] == 'exchange_rates');
+        expect(pushed, hasLength(1));
+        expect(
+          pushed.single['isDeleted'],
+          isTrue,
+          reason:
+              'a push without the flag looks like a live provider to the '
+              'server, which hands it straight back to every other device',
+        );
+      },
+    );
   });
 }

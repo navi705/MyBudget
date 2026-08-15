@@ -35,7 +35,10 @@ const _uuid = Uuid();
 /// the list is routinely far past that limit.
 Iterable<List<T>> _sqlChunks<T>(List<T> values, {int size = 500}) sync* {
   for (var i = 0; i < values.length; i += size) {
-    yield values.sublist(i, i + size < values.length ? i + size : values.length);
+    yield values.sublist(
+      i,
+      i + size < values.length ? i + size : values.length,
+    );
   }
 }
 
@@ -194,7 +197,10 @@ class Accounts extends Table {
 // Composite indexes for dashboard queries:
 // (date, category_id) — getTransactionTotalsGrouped groups by date+category
 // (account_id, date)  — watchTransactionsFrom filters by account+date
-@TableIndex(name: 'idx_transactions_date_category', columns: {#date, #categoryId})
+@TableIndex(
+  name: 'idx_transactions_date_category',
+  columns: {#date, #categoryId},
+)
 @TableIndex(name: 'idx_transactions_account_date', columns: {#accountId, #date})
 class Transactions extends Table {
   TextColumn get id => text().clientDefault(() => _uuid.v4())();
@@ -360,6 +366,89 @@ class SyncLog extends Table {
   BoolColumn get exported => boolean().withDefault(const Constant(false))();
 }
 
+/// Rows this device still owes the HTTP sync server: one entry per change,
+/// removed only once the server has answered 200 for the row that carries it.
+///
+/// It replaces the old `modified_at > last-push-timestamp` window, which could
+/// only ever describe changes the local clock had made *since* that instant. A
+/// row arriving from a peer through the file engine carries the timestamp of
+/// the device that wrote it, and a device whose clock is set back writes rows
+/// below its own watermark — both land under the mark and were never pushed at
+/// all, with nothing anywhere reporting them as unsent.
+///
+/// Deliberately not [SyncLog]. That table's single `exported` flag belongs to
+/// the peer-to-peer file engine: a second consumer clearing it would make each
+/// engine's rows disappear from the other's queue. It is also written only by
+/// the Dart DAO helpers, so the raw-SQL write paths — a server pull's upserts,
+/// an import's `INSERT OR REPLACE` — never show up in it, which is exactly the
+/// set of rows that used to go missing.
+@TableIndex(
+  name: 'idx_sync_push_queue_table',
+  columns: {#changedTableName, #id},
+)
+class SyncPushQueue extends Table {
+  /// AUTOINCREMENT (what drift emits for [autoIncrement]), so an id is never
+  /// handed out twice. A push deletes the exact ids it read; with reused ids
+  /// that delete could land on an entry queued for a later edit of the same row
+  /// while the push was in flight, and that edit would never be sent again.
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get changedTableName => text()();
+
+  /// The row's primary key, built by [syncPushQueueKeyExpression] so the push
+  /// can find the row again — composite keys joined with `|`.
+  TextColumn get recordKey => text()();
+}
+
+/// The tables whose rows the server sync pushes, and therefore the ones the
+/// push queue has triggers on.
+const List<String> syncPushQueueTables = [
+  'settings',
+  'api_settings_table',
+  'languages',
+  'currencies',
+  'styles',
+  'custom_themes',
+  'account_types',
+  'currency_designations',
+  'categories',
+  'exchange_rates',
+  'inflation_rates',
+  'custom_data_sources',
+  'sms_presets',
+  'accounts',
+  'asset_entries',
+  'transactions',
+];
+
+/// SQL rendering a row of [table] into the text held in
+/// [SyncPushQueue.recordKey].
+///
+/// [prefix] is `NEW.` inside a trigger and empty in a plain SELECT. One
+/// function serves both because a queued key that the push cannot rebuild is a
+/// row that stays queued forever, re-read and re-skipped on every sync.
+String syncPushQueueKeyExpression(String table, {String prefix = ''}) {
+  switch (table) {
+    case 'languages':
+      return '${prefix}language_code';
+    case 'currencies':
+      return '${prefix}code';
+    case 'settings':
+      return '${prefix}key';
+    case 'exchange_rates':
+      return "${prefix}from_currency_code || '|' || ${prefix}to_currency_code "
+          "|| '|' || ${prefix}date || '|' || ${prefix}preset";
+    case 'inflation_rates':
+      // COALESCE because `country` was nullable before v10 and NULL poisons the
+      // whole concatenation — the trigger would then insert NULL into a NOT NULL
+      // column and abort the user's write, not just the bookkeeping.
+      return "${prefix}date || '|' || "
+          "COALESCE(${prefix}country, '$globalInflationCountry') || '|' || "
+          '${prefix}preset';
+    default:
+      return '${prefix}id';
+  }
+}
+
 /// Stores rejected versions during conflict resolution
 class ConflictHistory extends Table {
   TextColumn get id => text().clientDefault(() => _uuid.v4())();
@@ -503,9 +592,9 @@ class CurrencyDesignationsDao extends DatabaseAccessor<AppDatabase>
     final results = <CurrencyDesignation>[];
     for (final chunk in _sqlChunks(ids)) {
       results.addAll(
-        await (select(currencyDesignations)
-              ..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false)))
-            .get(),
+        await (select(
+          currencyDesignations,
+        )..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false))).get(),
       );
     }
     return results;
@@ -1197,9 +1286,9 @@ class AccountTypesDao extends DatabaseAccessor<AppDatabase>
     final results = <AccountType>[];
     for (final chunk in _sqlChunks(ids)) {
       results.addAll(
-        await (select(accountTypes)
-              ..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false)))
-            .get(),
+        await (select(
+          accountTypes,
+        )..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false))).get(),
       );
     }
     return results;
@@ -1391,9 +1480,9 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     final results = <DbAccount>[];
     for (final chunk in _sqlChunks(ids)) {
       results.addAll(
-        await (select(accounts)
-              ..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false)))
-            .get(),
+        await (select(
+          accounts,
+        )..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false))).get(),
       );
     }
     return results;
@@ -1634,7 +1723,8 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     }
 
     // Same reason as adjustBalance: peers cannot derive the new balance.
-    for (final accountId in amountChanges.keys.map((k) => k.accountId).toSet()) {
+    for (final accountId
+        in amountChanges.keys.map((k) => k.accountId).toSet()) {
       await _logChange(accountId, 'upsert');
     }
   }
@@ -2239,9 +2329,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     final results = <Transaction>[];
     for (final chunk in _sqlChunks(ids)) {
       results.addAll(
-        await (select(transactions)
-              ..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false)))
-            .get(),
+        await (select(
+          transactions,
+        )..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false))).get(),
       );
     }
     return results;
@@ -2550,6 +2640,7 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
 
   Future<Setting?> getSetting(String key) =>
       (select(settings)..where((tbl) => tbl.key.equals(key))).getSingleOrNull();
+
   /// Writes a setting, stamping [Settings.modifiedAt] when the caller left it
   /// out.
   ///
@@ -2873,7 +2964,6 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
       ),
     );
   }
-
 }
 
 @DriftAccessor(tables: [CustomThemes])
@@ -2902,9 +2992,7 @@ class CustomThemesDao extends DatabaseAccessor<AppDatabase>
     toInsert = toInsert.copyWith(
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
-    await into(
-      customThemes,
-    ).insert(toInsert, mode: InsertMode.insertOrReplace);
+    await into(customThemes).insert(toInsert, mode: InsertMode.insertOrReplace);
     await _logChange(toInsert.id.value, 'upsert');
   }
 
@@ -3102,7 +3190,9 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> insertInflationRate(InflationRatesCompanion rate) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final toInsert = _withResolvedCountry(rate).copyWith(modifiedAt: Value(now));
+    final toInsert = _withResolvedCountry(
+      rate,
+    ).copyWith(modifiedAt: Value(now));
     await into(
       inflationRates,
     ).insert(toInsert, mode: InsertMode.insertOrReplace);
@@ -3140,10 +3230,9 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
     // one INSERT round trip per rate.
   }
 
-  Future<void> insertSyncedInflationRate(InflationRatesCompanion rate) =>
-      into(
-        inflationRates,
-      ).insert(_withResolvedCountry(rate), mode: InsertMode.insertOrReplace);
+  Future<void> insertSyncedInflationRate(InflationRatesCompanion rate) => into(
+    inflationRates,
+  ).insert(_withResolvedCountry(rate), mode: InsertMode.insertOrReplace);
 
   Future<void> deleteInflationRate(
     DateTime date,
@@ -3166,9 +3255,9 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<bool> updateInflationRate(InflationRatesCompanion rate) async {
-    final updatedRate = _withResolvedCountry(rate).copyWith(
-      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
-    );
+    final updatedRate = _withResolvedCountry(
+      rate,
+    ).copyWith(modifiedAt: Value(DateTime.now().millisecondsSinceEpoch));
     final result = await update(inflationRates).replace(updatedRate);
     await _logChange(
       _recordId(
@@ -3324,9 +3413,9 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     final results = <AssetEntry>[];
     for (final chunk in _sqlChunks(ids)) {
       results.addAll(
-        await (select(assetEntries)
-              ..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false)))
-            .get(),
+        await (select(
+          assetEntries,
+        )..where((t) => t.id.isIn(chunk) & t.isDeleted.equals(false))).get(),
       );
     }
     return results;
@@ -3679,6 +3768,7 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
     SmsPresets,
     SyncProcessedFiles,
     SyncLog,
+    SyncPushQueue,
     ConflictHistory,
     CustomDataSources,
   ],
@@ -3717,33 +3807,95 @@ class AppDatabase extends _$AppDatabase {
     return rows.any((r) => r.read<String>('name') == column);
   }
 
+  /// The tables this database actually has right now.
+  ///
+  /// The push-queue triggers are created from a fixed list, but a database
+  /// halfway through the upgrade chain (or a fixture that only carries the
+  /// tables its test needs) may not have all of them yet, and
+  /// `CREATE TRIGGER ... ON <missing table>` fails the whole migration.
+  Future<Set<String>> _existingTables() async {
+    final rows = await customSelect(
+      "SELECT name FROM sqlite_master WHERE type = 'table'",
+    ).get();
+    return rows.map((r) => r.read<String>('name')).toSet();
+  }
+
+  /// Puts a row in [SyncPushQueue] on every insert and every real edit of a
+  /// synced table.
+  ///
+  /// Triggers rather than call sites — mirroring the `server_seq` trigger the
+  /// server stamps its own rows with — because the rows that went missing were
+  /// precisely the ones written by paths that never called the sync bookkeeping:
+  /// the pull's raw upserts, the file engine's `INSERT OR REPLACE` imports, the
+  /// importer's bulk writes. A trigger cannot be forgotten by a write path that
+  /// has not been written yet.
+  Future<void> _createSyncPushQueueTriggers() async {
+    final existing = await _existingTables();
+    for (final table in syncPushQueueTables) {
+      if (!existing.contains(table)) continue;
+      final key = syncPushQueueKeyExpression(table, prefix: 'NEW.');
+      const target =
+          'INSERT INTO sync_push_queue (changed_table_name, record_key) VALUES';
+      await customStatement(
+        'CREATE TRIGGER IF NOT EXISTS trg_push_queue_${table}_insert '
+        'AFTER INSERT ON $table BEGIN '
+        "$target ('$table', $key); END",
+      );
+      // Only when `modified_at` actually moves. A balance rebuild rewrites
+      // `balance` on purpose without stamping the row (every peer derives that
+      // number for itself), and the server's upsert is strict last-write-wins,
+      // so queueing those would upload rows the server is guaranteed to discard
+      // — after every single pull, for every account it touched.
+      await customStatement(
+        'CREATE TRIGGER IF NOT EXISTS trg_push_queue_${table}_update '
+        'AFTER UPDATE ON $table WHEN NEW.modified_at IS NOT OLD.modified_at '
+        "BEGIN $target ('$table', $key); END",
+      );
+    }
+  }
+
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
         debugPrint('[DB_MIGRATION] onCreate START');
-        debugPrint('[DB_MIGRATION] onCreate: calling m.createAll() (tables + @TableIndex indexes)...');
+        debugPrint(
+          '[DB_MIGRATION] onCreate: calling m.createAll() (tables + @TableIndex indexes)...',
+        );
         await m.createAll();
         debugPrint('[DB_MIGRATION] onCreate: m.createAll() done');
         debugPrint('[DB_MIGRATION] onCreate: calling _seedData...');
         await _seedData(this);
         debugPrint('[DB_MIGRATION] onCreate: _seedData done');
-        debugPrint('[DB_MIGRATION] onCreate: creating partial UNIQUE INDEX idx_asset_entries_custom_api_dedup...');
+        debugPrint(
+          '[DB_MIGRATION] onCreate: creating partial UNIQUE INDEX idx_asset_entries_custom_api_dedup...',
+        );
         await customStatement(
           'CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_entries_custom_api_dedup '
           'ON asset_entries (asset_id, date, source) '
           "WHERE source = 'custom_api'",
         );
+        // After the seed, not before: every install lays down the same bundled
+        // rows under the same stable ids, so queueing them would upload ~283k
+        // exchange rates the server either already has or would get, byte for
+        // byte, from any other client's copy of the same bundle. Everything the
+        // user or an API fetch does to them afterwards trips the triggers.
+        debugPrint(
+          '[DB_MIGRATION] onCreate: creating sync_push_queue triggers...',
+        );
+        await _createSyncPushQueueTriggers();
         debugPrint('[DB_MIGRATION] onCreate END');
       },
       onUpgrade: (Migrator m, int from, int to) async {
         debugPrint('[DB_MIGRATION] onUpgrade: from=$from to=$to');
 
         if (from < 2) {
-          debugPrint('[DB_MIGRATION] v1→v2: adding sync columns to styles/accountTypes/currencyDesignations...');
+          debugPrint(
+            '[DB_MIGRATION] v1→v2: adding sync columns to styles/accountTypes/currencyDesignations...',
+          );
           await m.addColumn(styles, styles.modifiedAt);
           await m.addColumn(styles, styles.deviceId);
           await m.addColumn(styles, styles.isDeleted);
@@ -3768,7 +3920,9 @@ class AppDatabase extends _$AppDatabase {
         }
 
         if (from < 3) {
-          debugPrint('[DB_MIGRATION] v2→v3: adding sync columns to all tables...');
+          debugPrint(
+            '[DB_MIGRATION] v2→v3: adding sync columns to all tables...',
+          );
           await m.addColumn(categories, categories.modifiedAt);
           await m.addColumn(categories, categories.deviceId);
           await m.addColumn(categories, categories.isDeleted);
@@ -3811,7 +3965,9 @@ class AppDatabase extends _$AppDatabase {
         }
 
         if (from < 4) {
-          debugPrint('[DB_MIGRATION] v3→v4: creating syncProcessedFiles table...');
+          debugPrint(
+            '[DB_MIGRATION] v3→v4: creating syncProcessedFiles table...',
+          );
           await m.createTable(syncProcessedFiles);
           debugPrint('[DB_MIGRATION] v3→v4: complete');
         }
@@ -3823,39 +3979,49 @@ class AppDatabase extends _$AppDatabase {
         }
 
         if (from < 6) {
-          debugPrint('[DB_MIGRATION] v5→v6: creating composite indexes on transactions...');
+          debugPrint(
+            '[DB_MIGRATION] v5→v6: creating composite indexes on transactions...',
+          );
           await customStatement(
             'CREATE INDEX IF NOT EXISTS idx_transactions_date_category '
             'ON transactions (date, category_id)',
           );
-          debugPrint('[DB_MIGRATION] v5→v6: idx_transactions_date_category created');
+          debugPrint(
+            '[DB_MIGRATION] v5→v6: idx_transactions_date_category created',
+          );
           await customStatement(
             'CREATE INDEX IF NOT EXISTS idx_transactions_account_date '
             'ON transactions (account_id, date)',
           );
-          debugPrint('[DB_MIGRATION] v5→v6: idx_transactions_account_date created');
+          debugPrint(
+            '[DB_MIGRATION] v5→v6: idx_transactions_account_date created',
+          );
           debugPrint('[DB_MIGRATION] v5→v6: complete');
         }
 
         if (from < 7) {
-          debugPrint('[DB_MIGRATION] v6→v7: deduplicating asset_entries for custom_api...');
+          debugPrint(
+            '[DB_MIGRATION] v6→v7: deduplicating asset_entries for custom_api...',
+          );
           try {
-            await customStatement(
-              '''DELETE FROM asset_entries
+            await customStatement('''DELETE FROM asset_entries
                  WHERE source = 'custom_api'
                  AND rowid NOT IN (
                    SELECT MAX(rowid)
                    FROM asset_entries
                    WHERE source = 'custom_api'
                    GROUP BY asset_id, date(date / 1000, 'unixepoch')
-                 )''',
-            );
+                 )''');
             debugPrint('[DB_MIGRATION] v6→v7: dedup DELETE complete');
           } catch (e) {
-            debugPrint('[DB_MIGRATION] v6→v7: dedup DELETE error (non-fatal, continuing): $e');
+            debugPrint(
+              '[DB_MIGRATION] v6→v7: dedup DELETE error (non-fatal, continuing): $e',
+            );
           }
 
-          debugPrint('[DB_MIGRATION] v6→v7: creating partial UNIQUE INDEX idx_asset_entries_custom_api_dedup...');
+          debugPrint(
+            '[DB_MIGRATION] v6→v7: creating partial UNIQUE INDEX idx_asset_entries_custom_api_dedup...',
+          );
           try {
             await customStatement(
               'CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_entries_custom_api_dedup '
@@ -3867,18 +4033,20 @@ class AppDatabase extends _$AppDatabase {
             debugPrint('[DB_MIGRATION] v6→v7: UNIQUE INDEX creation error: $e');
             // If index creation fails due to remaining duplicates, force-delete them
             // by keeping only the row with the MAX id (alphabetically) per (asset_id, date)
-            debugPrint('[DB_MIGRATION] v6→v7: retrying dedup with stricter DELETE...');
-            await customStatement(
-              '''DELETE FROM asset_entries
+            debugPrint(
+              '[DB_MIGRATION] v6→v7: retrying dedup with stricter DELETE...',
+            );
+            await customStatement('''DELETE FROM asset_entries
                  WHERE source = 'custom_api'
                  AND id NOT IN (
                    SELECT MAX(id)
                    FROM asset_entries
                    WHERE source = 'custom_api'
                    GROUP BY asset_id, date
-                 )''',
+                 )''');
+            debugPrint(
+              '[DB_MIGRATION] v6→v7: strict dedup complete, retrying index...',
             );
-            debugPrint('[DB_MIGRATION] v6→v7: strict dedup complete, retrying index...');
             await customStatement(
               'CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_entries_custom_api_dedup '
               'ON asset_entries (asset_id, date, source) '
@@ -3894,7 +4062,9 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(transactions, transactions.amountMinor);
           await m.addColumn(transactions, transactions.feeMinor);
           await m.addColumn(accounts, accounts.balanceMinor);
-          debugPrint('[DB_MIGRATION] v7→v8: backfilling minor units for fiat...');
+          debugPrint(
+            '[DB_MIGRATION] v7→v8: backfilling minor units for fiat...',
+          );
           await backfillMinorUnits();
           debugPrint('[DB_MIGRATION] v7→v8: complete');
         }
@@ -3903,7 +4073,9 @@ class AppDatabase extends _$AppDatabase {
           // These five are declared with @TableIndex, so m.createAll() only
           // ever built them on fresh installs — every device that arrived
           // here by upgrade has been querying without them since v1.
-          debugPrint('[DB_MIGRATION] v8→v9: creating the @TableIndex indexes missing on upgraded databases...');
+          debugPrint(
+            '[DB_MIGRATION] v8→v9: creating the @TableIndex indexes missing on upgraded databases...',
+          );
           await customStatement(
             'CREATE INDEX IF NOT EXISTS idx_transactions_date '
             'ON transactions (date)',
@@ -3934,9 +4106,10 @@ class AppDatabase extends _$AppDatabase {
           // become genuine key collisions once they all read 'global', so they
           // have to be collapsed first — newest `modified_at` wins, which is
           // the row last-write-wins sync would have kept anyway.
-          debugPrint('[DB_MIGRATION] v9→v10: collapsing duplicate worldwide inflation rates...');
-          await customStatement(
-            '''DELETE FROM inflation_rates
+          debugPrint(
+            '[DB_MIGRATION] v9→v10: collapsing duplicate worldwide inflation rates...',
+          );
+          await customStatement('''DELETE FROM inflation_rates
                WHERE (country IS NULL OR country = 'global')
                AND rowid NOT IN (
                  SELECT rowid FROM (
@@ -3945,24 +4118,31 @@ class AppDatabase extends _$AppDatabase {
                    WHERE country IS NULL OR country = 'global'
                    GROUP BY date, preset
                  )
-               )''',
-          );
+               )''');
           debugPrint('[DB_MIGRATION] v9→v10: dedup DELETE complete');
 
-          debugPrint('[DB_MIGRATION] v9→v10: pointing NULL countries at the global sentinel...');
+          debugPrint(
+            '[DB_MIGRATION] v9→v10: pointing NULL countries at the global sentinel...',
+          );
           await customStatement(
             "UPDATE inflation_rates SET country = 'global' WHERE country IS NULL",
           );
-          debugPrint('[DB_MIGRATION] v9→v10: rebuilding inflation_rates with a NOT NULL country...');
+          debugPrint(
+            '[DB_MIGRATION] v9→v10: rebuilding inflation_rates with a NOT NULL country...',
+          );
           await m.alterTable(TableMigration(inflationRates));
           debugPrint('[DB_MIGRATION] v9→v10: complete');
         }
 
         if (from < 11) {
-          debugPrint('[DB_MIGRATION] v10→v11: adding the opening-balance anchor...');
+          debugPrint(
+            '[DB_MIGRATION] v10→v11: adding the opening-balance anchor...',
+          );
           await m.addColumn(accounts, accounts.openingBalance);
           await m.addColumn(accounts, accounts.openingBalanceMinor);
-          debugPrint('[DB_MIGRATION] v10→v11: deriving opening balances from stored balances...');
+          debugPrint(
+            '[DB_MIGRATION] v10→v11: deriving opening balances from stored balances...',
+          );
           await backfillOpeningBalances();
           debugPrint('[DB_MIGRATION] v10→v11: complete');
         }
@@ -3974,29 +4154,84 @@ class AppDatabase extends _$AppDatabase {
           // a database that already carries the column (an upgrade that died
           // after the ALTER) must not fail the whole migration on
           // "duplicate column name".
-          debugPrint('[DB_MIGRATION] v11→v12: adding is_deleted to api_settings_table...');
+          debugPrint(
+            '[DB_MIGRATION] v11→v12: adding is_deleted to api_settings_table...',
+          );
           if (!await _hasColumn('api_settings_table', 'is_deleted')) {
             await m.addColumn(apiSettingsTable, apiSettingsTable.isDeleted);
           }
           debugPrint('[DB_MIGRATION] v11→v12: complete');
         }
 
+        if (from < 13) {
+          // The server push used to select rows by `modified_at > <the clock
+          // reading of the last push>`. Anything that entered this database
+          // carrying an older stamp — every row imported from a peer's sync
+          // file, everything written while the clock was skewed or set back —
+          // was born below the mark and was never offered to the server once.
+          // Guarded like the steps above so an upgrade that died halfway can be
+          // re-run.
+          debugPrint(
+            '[DB_MIGRATION] v12→v13: creating the server push queue...',
+          );
+          if (!(await _existingTables()).contains('sync_push_queue')) {
+            await m.createTable(syncPushQueue);
+          }
+          // @TableIndex indexes are only created by createAll(), so an upgraded
+          // database needs the index spelled out (same lesson as v8→v9).
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_sync_push_queue_table '
+            'ON sync_push_queue (changed_table_name, id)',
+          );
+          await _createSyncPushQueueTriggers();
+
+          // Seed the queue from every synced table. The old watermark lives in
+          // SharedPreferences and is unreachable from here, so there is no way
+          // to tell which rows the server already has; this costs one full push
+          // after the upgrade — the same one-off price the pull cursor paid —
+          // and it is what finally sends the rows the watermark had stranded.
+          debugPrint('[DB_MIGRATION] v12→v13: seeding the push queue...');
+          final queued = await customSelect(
+            'SELECT COUNT(*) AS c FROM sync_push_queue',
+          ).getSingle();
+          if (queued.read<int>('c') == 0) {
+            final existing = await _existingTables();
+            for (final table in syncPushQueueTables) {
+              if (!existing.contains(table)) continue;
+              await customStatement(
+                'INSERT INTO sync_push_queue (changed_table_name, record_key) '
+                "SELECT '$table', ${syncPushQueueKeyExpression(table)} "
+                'FROM $table',
+              );
+            }
+          }
+          debugPrint('[DB_MIGRATION] v12→v13: complete');
+        }
+
         debugPrint('[DB_MIGRATION] onUpgrade complete: from=$from to=$to');
       },
       beforeOpen: (details) async {
-        debugPrint('[DB_MIGRATION] beforeOpen START: wasCreated=${details.wasCreated} versionBefore=${details.versionBefore} versionNow=${details.versionNow}');
-        debugPrint('[DB_MIGRATION] beforeOpen: executing PRAGMA foreign_keys = ON...');
+        debugPrint(
+          '[DB_MIGRATION] beforeOpen START: wasCreated=${details.wasCreated} versionBefore=${details.versionBefore} versionNow=${details.versionNow}',
+        );
+        debugPrint(
+          '[DB_MIGRATION] beforeOpen: executing PRAGMA foreign_keys = ON...',
+        );
         await customStatement('PRAGMA foreign_keys = ON');
         debugPrint('[DB_MIGRATION] beforeOpen: PRAGMA foreign_keys = ON done');
 
         // Repair corrupted modifiedAt columns (fix for previous batchUpdateBalances bug)
         // Reset to current time to ensure they are treated as valid updates
         final now = DateTime.now().millisecondsSinceEpoch;
-        debugPrint('[DB_MIGRATION] beforeOpen: executing corrupted modified_at repair...');
+        debugPrint(
+          '[DB_MIGRATION] beforeOpen: executing corrupted modified_at repair...',
+        );
         await customStatement(
           "UPDATE accounts SET modified_at = $now WHERE typeof(modified_at) = 'text'",
         );
-        debugPrint('[DB_MIGRATION] beforeOpen END: corrupted modified_at repaired');
+        debugPrint(
+          '[DB_MIGRATION] beforeOpen END: corrupted modified_at repaired',
+        );
       },
     );
   }
@@ -4170,10 +4405,14 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> _seedExchangeRates(AppDatabase db) async {
-    debugPrint('[DB_SEED] _seedExchangeRates: calling getCurrenciesRateToSeeder...');
+    debugPrint(
+      '[DB_SEED] _seedExchangeRates: calling getCurrenciesRateToSeeder...',
+    );
     final List<ExchangeRateDomain> rates =
         await ImportDataUtils.getCurrenciesRateToSeeder();
-    debugPrint('[DB_SEED] _seedExchangeRates: got ${rates.length} rates, inserting...');
+    debugPrint(
+      '[DB_SEED] _seedExchangeRates: got ${rates.length} rates, inserting...',
+    );
     await db.exchangeRatesDao.insertAllExchangeRates(rates.toCompanionList());
     debugPrint('[DB_SEED] _seedExchangeRates: insert done');
   }
@@ -4350,7 +4589,11 @@ class AppDatabase extends _$AppDatabase {
     // arriving after the tombstone written below and undoing it. Entries for
     // tables the clear does not touch - custom themes, custom data sources, API
     // settings - are deliberately left pending.
-    final clearedTables = [...clearedIds.keys, 'exchange_rates', 'inflation_rates'];
+    final clearedTables = [
+      ...clearedIds.keys,
+      'exchange_rates',
+      'inflation_rates',
+    ];
     await (delete(
       syncLog,
     )..where((l) => l.changedTableName.isIn(clearedTables))).go();
@@ -4372,10 +4615,8 @@ class AppDatabase extends _$AppDatabase {
       final survivors = table == null
           ? const <String>{}
           : (await customSelect(
-                  'SELECT ${_idColumnForSyncName(entry.key)} AS id FROM $table',
-                ).get())
-                .map((r) => r.read<String>('id'))
-                .toSet();
+              'SELECT ${_idColumnForSyncName(entry.key)} AS id FROM $table',
+            ).get()).map((r) => r.read<String>('id')).toSet();
       for (final id in entry.value) {
         if (survivors.contains(id)) continue;
         tombstones.add(
@@ -4435,8 +4676,9 @@ class CustomDataSourcesDao extends DatabaseAccessor<AppDatabase>
   /// and treating it as free means inserting over the tombstone, which brings
   /// a deleted endpoint back and starts it fetching again.
   Future<CustomDataSource?> getDataSourceByIdIncludingDeleted(String id) =>
-      (select(customDataSources)..where((tbl) => tbl.id.equals(id)))
-          .getSingleOrNull();
+      (select(
+        customDataSources,
+      )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
 
   Future<List<CustomDataSource>> getDataSourcesByIds(List<String> ids) async {
     final query = select(customDataSources)
@@ -4453,10 +4695,9 @@ class CustomDataSourcesDao extends DatabaseAccessor<AppDatabase>
       modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
     );
 
-    await into(customDataSources).insert(
-      toInsert,
-      mode: InsertMode.insertOrReplace,
-    );
+    await into(
+      customDataSources,
+    ).insert(toInsert, mode: InsertMode.insertOrReplace);
     await _logChange(toInsert.id.value, 'upsert');
   }
 
@@ -4598,8 +4839,9 @@ class ApiSettingsDao extends DatabaseAccessor<AppDatabase>
   /// treating a deleted provider as missing means seeding it again, which is
   /// how a provider the user removed starts fetching by itself.
   Future<Set<String>> existingIds(List<String> ids) async {
-    final rows = await (select(apiSettingsTable)..where((t) => t.id.isIn(ids)))
-        .get();
+    final rows = await (select(
+      apiSettingsTable,
+    )..where((t) => t.id.isIn(ids))).get();
     return rows.map((r) => r.id).toSet();
   }
 

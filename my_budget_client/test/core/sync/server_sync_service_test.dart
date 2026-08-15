@@ -46,51 +46,59 @@ void main() {
   });
 
   group('sync() disabled path', () {
-    test('returns immediately, without a network call, when no server_sync_enabled setting exists', () async {
-      // _isEnabled() reads server_sync_enabled and treats anything other
-      // than the literal string 'true' (including a missing setting) as
-      // disabled - there is nothing here for sync() to reach the network
-      // with, so a real http call would only happen if this test hangs or
-      // throws a SocketException.
-      await expectLater(service.sync(), completes);
-    });
+    test(
+      'returns immediately, without a network call, when no server_sync_enabled setting exists',
+      () async {
+        // _isEnabled() reads server_sync_enabled and treats anything other
+        // than the literal string 'true' (including a missing setting) as
+        // disabled - there is nothing here for sync() to reach the network
+        // with, so a real http call would only happen if this test hangs or
+        // throws a SocketException.
+        await expectLater(service.sync(), completes);
+      },
+    );
 
-    test('stays disabled - and network-free - for any value other than the literal "true"', () async {
-      await settingsRepository.setSetting(
-        const domain.Settings(
-          key: 'server_sync_enabled',
-          value: 'false',
-          device: 'test-device',
-        ),
-      );
+    test(
+      'stays disabled - and network-free - for any value other than the literal "true"',
+      () async {
+        await settingsRepository.setSetting(
+          const domain.Settings(
+            key: 'server_sync_enabled',
+            value: 'false',
+            device: 'test-device',
+          ),
+        );
 
-      await expectLater(service.sync(), completes);
-    });
+        await expectLater(service.sync(), completes);
+      },
+    );
   });
 
   group('getPendingChangesCount', () {
-    Future<void> setWatermark(int value) async {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('server_last_push_timestamp', value);
+    /// Every setting written by these tests, so a count can talk about the row
+    /// under test rather than about the harness.
+    Future<int> settingEntries() async {
+      final row = await db
+          .customSelect(
+            "SELECT COUNT(*) AS c FROM sync_push_queue "
+            "WHERE changed_table_name = 'settings'",
+          )
+          .getSingle();
+      return row.read<int>('c');
     }
 
-    test('is 0 once the watermark is at least as new as everything seeded', () async {
-      // Drift opens its connection lazily: setUp()'s forcing query
-      // (db.select(db.styles).get()) is what guarantees seeding has already
-      // run by the time this watermark is captured. Without it, seeding
-      // (which stamps every row with DateTime.now() at seed time) can run
-      // *after* this watermark, making seeded rows look newer than it.
-      final watermark = DateTime.now().millisecondsSinceEpoch;
-      await setWatermark(watermark);
+    test(
+      'is 0 on a fresh database: the bundled seed is not a pending change',
+      () async {
+        // onCreate seeds ~283k exchange rates and then creates the triggers, in
+        // that order and deliberately: every install lays down the same rows, so
+        // counting them as unsent would put a six-figure backlog in front of a
+        // user who has not typed anything yet.
+        expect(await service.getPendingChangesCount(), 0);
+      },
+    );
 
-      expect(await service.getPendingChangesCount(), 0);
-    });
-
-    test('counts a row inserted after the watermark, summed across tables', () async {
-      final watermark = DateTime.now().millisecondsSinceEpoch;
-      await setWatermark(watermark);
-      expect(await service.getPendingChangesCount(), 0);
-
+    test('counts a newly written row, summed across tables', () async {
       await db.stylesDao.insertStyle(
         StylesCompanion.insert(
           id: const Value('s1'),
@@ -111,11 +119,12 @@ void main() {
       expect(
         await service.getPendingChangesCount(),
         2,
-        reason: 'the count sums matching rows across every synced table, not just one',
+        reason:
+            'the count sums matching rows across every synced table, not just one',
       );
     });
 
-    test('a row modified exactly at the watermark is not counted (comparison is strict)', () async {
+    test('counts a row once no matter how many times it was edited', () async {
       await db.stylesDao.insertStyle(
         StylesCompanion.insert(
           id: const Value('s1'),
@@ -124,10 +133,35 @@ void main() {
           colorHex: '#123456',
         ),
       );
-      final style = await db.stylesDao.getStyleById('s1');
-      await setWatermark(style!.modifiedAt);
+      for (var i = 0; i < 3; i++) {
+        await db.customStatement(
+          "UPDATE styles SET name = 'Renamed $i', modified_at = ${2000 + i} "
+          "WHERE id = 's1'",
+        );
+      }
 
-      expect(await service.getPendingChangesCount(), 0);
+      expect(
+        await service.getPendingChangesCount(),
+        1,
+        reason:
+            'four queue entries, but one row to upload - the number is '
+            'shown to a user as work outstanding, not as keystrokes',
+      );
+    });
+
+    test('a row modified below any clock watermark is still counted', () async {
+      // The point of the queue. `modifiedAt` here is older than the oldest
+      // seeded row, which is exactly the shape of a row arriving from a peer
+      // through the file engine; the old count asked
+      // `modified_at > server_last_push_timestamp` and answered 0.
+      await db.customStatement(
+        "INSERT INTO styles (id, name, color_hex, icon_name, icon_type, "
+        "modified_at, is_deleted) VALUES ('old', 'From a peer', '#000000', "
+        "'star', 0, 1, 0)",
+      );
+
+      expect(await service.getPendingChangesCount(), 1);
+      expect(await settingEntries(), 0);
     });
   });
 
@@ -213,27 +247,31 @@ void main() {
       );
     });
 
-    test('drops the pre-sequence cursor and re-pulls the budget from 0', () async {
-      // The old key held a wall-clock millisecond value. Reused as a sequence
-      // it would sit far above every server_seq the server will ever hand out,
-      // so the client would pull nothing, forever, with no error anywhere.
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('server_last_sync_timestamp', 1712345678901);
-      pages = [
-        page(serverTimestamp: 7, hasMore: false, styles: [style('s1')]),
-      ];
+    test(
+      'drops the pre-sequence cursor and re-pulls the budget from 0',
+      () async {
+        // The old key held a wall-clock millisecond value. Reused as a sequence
+        // it would sit far above every server_seq the server will ever hand out,
+        // so the client would pull nothing, forever, with no error anywhere.
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('server_last_sync_timestamp', 1712345678901);
+        pages = [
+          page(serverTimestamp: 7, hasMore: false, styles: [style('s1')]),
+        ];
 
-      await service.sync();
+        await service.sync();
 
-      expect(pulls.single.queryParameters['last_sync'], '0');
-      expect(
-        prefs.containsKey('server_last_sync_timestamp'),
-        isFalse,
-        reason: 'the legacy key must be removed, not left to be picked up again',
-      );
-      expect(prefs.getInt(serverPullCursorKey), 7);
-      expect(await db.stylesDao.getStyleById('s1'), isNotNull);
-    });
+        expect(pulls.single.queryParameters['last_sync'], '0');
+        expect(
+          prefs.containsKey('server_last_sync_timestamp'),
+          isFalse,
+          reason:
+              'the legacy key must be removed, not left to be picked up again',
+        );
+        expect(prefs.getInt(serverPullCursorKey), 7);
+        expect(await db.stylesDao.getStyleById('s1'), isNotNull);
+      },
+    );
 
     test('resumes from the stored sequence on the next sync', () async {
       pages = [
@@ -261,41 +299,47 @@ void main() {
       expect(await db.stylesDao.getStyleById('s2'), isNotNull);
     });
 
-    test('stops when the server hands back a cursor that does not advance', () async {
-      // A server that keeps replying with the same high mark while still
-      // claiming has_more would otherwise be re-asked for the identical page
-      // until the 200-iteration cap - 200 full batches applied to the DB for
-      // nothing.
-      pages = [
-        page(serverTimestamp: 5, hasMore: true, styles: [style('s1')]),
-        page(serverTimestamp: 5, hasMore: true, styles: [style('s1')]),
-      ];
+    test(
+      'stops when the server hands back a cursor that does not advance',
+      () async {
+        // A server that keeps replying with the same high mark while still
+        // claiming has_more would otherwise be re-asked for the identical page
+        // until the 200-iteration cap - 200 full batches applied to the DB for
+        // nothing.
+        pages = [
+          page(serverTimestamp: 5, hasMore: true, styles: [style('s1')]),
+          page(serverTimestamp: 5, hasMore: true, styles: [style('s1')]),
+        ];
 
-      await service.sync();
+        await service.sync();
 
-      expect(pulls.length, 2);
-    });
+        expect(pulls.length, 2);
+      },
+    );
 
-    test('sends the configured token as a bearer header, never in the URL', () async {
-      await settingsRepository.setSetting(
-        const domain.Settings(
-          key: 'server_sync_token',
-          value: 'sekret',
-          device: 'test-device',
-        ),
-      );
-      pages = [page(serverTimestamp: 0, hasMore: false)];
+    test(
+      'sends the configured token as a bearer header, never in the URL',
+      () async {
+        await settingsRepository.setSetting(
+          const domain.Settings(
+            key: 'server_sync_token',
+            value: 'sekret',
+            device: 'test-device',
+          ),
+        );
+        pages = [page(serverTimestamp: 0, hasMore: false)];
 
-      await service.sync();
+        await service.sync();
 
-      expect(pulls.single.path, '/api/sync/pull');
-      expect(pulls.single.queryParameters['limit'], '20000');
-      expect(pullHeaders.single['authorization'], 'Bearer sekret');
-      expect(
-        pulls.single.toString(),
-        isNot(contains('sekret')),
-        reason: 'a token in the URL ends up in access and proxy logs',
-      );
-    });
+        expect(pulls.single.path, '/api/sync/pull');
+        expect(pulls.single.queryParameters['limit'], '20000');
+        expect(pullHeaders.single['authorization'], 'Bearer sekret');
+        expect(
+          pulls.single.toString(),
+          isNot(contains('sekret')),
+          reason: 'a token in the URL ends up in access and proxy logs',
+        );
+      },
+    );
   });
 }

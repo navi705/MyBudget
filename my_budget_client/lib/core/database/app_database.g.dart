@@ -10279,6 +10279,273 @@ class SyncLogCompanion extends UpdateCompanion<SyncLogData> {
   }
 }
 
+class $SyncPushQueueTable extends SyncPushQueue
+    with TableInfo<$SyncPushQueueTable, SyncPushQueueData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncPushQueueTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _changedTableNameMeta = const VerificationMeta(
+    'changedTableName',
+  );
+  @override
+  late final GeneratedColumn<String> changedTableName = GeneratedColumn<String>(
+    'changed_table_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _recordKeyMeta = const VerificationMeta(
+    'recordKey',
+  );
+  @override
+  late final GeneratedColumn<String> recordKey = GeneratedColumn<String>(
+    'record_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, changedTableName, recordKey];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_push_queue';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncPushQueueData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('changed_table_name')) {
+      context.handle(
+        _changedTableNameMeta,
+        changedTableName.isAcceptableOrUnknown(
+          data['changed_table_name']!,
+          _changedTableNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_changedTableNameMeta);
+    }
+    if (data.containsKey('record_key')) {
+      context.handle(
+        _recordKeyMeta,
+        recordKey.isAcceptableOrUnknown(data['record_key']!, _recordKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_recordKeyMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncPushQueueData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncPushQueueData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      changedTableName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}changed_table_name'],
+      )!,
+      recordKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}record_key'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncPushQueueTable createAlias(String alias) {
+    return $SyncPushQueueTable(attachedDatabase, alias);
+  }
+}
+
+class SyncPushQueueData extends DataClass
+    implements Insertable<SyncPushQueueData> {
+  /// AUTOINCREMENT (what drift emits for [autoIncrement]), so an id is never
+  /// handed out twice. A push deletes the exact ids it read; with reused ids
+  /// that delete could land on an entry queued for a later edit of the same row
+  /// while the push was in flight, and that edit would never be sent again.
+  final int id;
+  final String changedTableName;
+
+  /// The row's primary key, built by [syncPushQueueKeyExpression] so the push
+  /// can find the row again — composite keys joined with `|`.
+  final String recordKey;
+  const SyncPushQueueData({
+    required this.id,
+    required this.changedTableName,
+    required this.recordKey,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['changed_table_name'] = Variable<String>(changedTableName);
+    map['record_key'] = Variable<String>(recordKey);
+    return map;
+  }
+
+  SyncPushQueueCompanion toCompanion(bool nullToAbsent) {
+    return SyncPushQueueCompanion(
+      id: Value(id),
+      changedTableName: Value(changedTableName),
+      recordKey: Value(recordKey),
+    );
+  }
+
+  factory SyncPushQueueData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncPushQueueData(
+      id: serializer.fromJson<int>(json['id']),
+      changedTableName: serializer.fromJson<String>(json['changedTableName']),
+      recordKey: serializer.fromJson<String>(json['recordKey']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'changedTableName': serializer.toJson<String>(changedTableName),
+      'recordKey': serializer.toJson<String>(recordKey),
+    };
+  }
+
+  SyncPushQueueData copyWith({
+    int? id,
+    String? changedTableName,
+    String? recordKey,
+  }) => SyncPushQueueData(
+    id: id ?? this.id,
+    changedTableName: changedTableName ?? this.changedTableName,
+    recordKey: recordKey ?? this.recordKey,
+  );
+  SyncPushQueueData copyWithCompanion(SyncPushQueueCompanion data) {
+    return SyncPushQueueData(
+      id: data.id.present ? data.id.value : this.id,
+      changedTableName: data.changedTableName.present
+          ? data.changedTableName.value
+          : this.changedTableName,
+      recordKey: data.recordKey.present ? data.recordKey.value : this.recordKey,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncPushQueueData(')
+          ..write('id: $id, ')
+          ..write('changedTableName: $changedTableName, ')
+          ..write('recordKey: $recordKey')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, changedTableName, recordKey);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncPushQueueData &&
+          other.id == this.id &&
+          other.changedTableName == this.changedTableName &&
+          other.recordKey == this.recordKey);
+}
+
+class SyncPushQueueCompanion extends UpdateCompanion<SyncPushQueueData> {
+  final Value<int> id;
+  final Value<String> changedTableName;
+  final Value<String> recordKey;
+  const SyncPushQueueCompanion({
+    this.id = const Value.absent(),
+    this.changedTableName = const Value.absent(),
+    this.recordKey = const Value.absent(),
+  });
+  SyncPushQueueCompanion.insert({
+    this.id = const Value.absent(),
+    required String changedTableName,
+    required String recordKey,
+  }) : changedTableName = Value(changedTableName),
+       recordKey = Value(recordKey);
+  static Insertable<SyncPushQueueData> custom({
+    Expression<int>? id,
+    Expression<String>? changedTableName,
+    Expression<String>? recordKey,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (changedTableName != null) 'changed_table_name': changedTableName,
+      if (recordKey != null) 'record_key': recordKey,
+    });
+  }
+
+  SyncPushQueueCompanion copyWith({
+    Value<int>? id,
+    Value<String>? changedTableName,
+    Value<String>? recordKey,
+  }) {
+    return SyncPushQueueCompanion(
+      id: id ?? this.id,
+      changedTableName: changedTableName ?? this.changedTableName,
+      recordKey: recordKey ?? this.recordKey,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (changedTableName.present) {
+      map['changed_table_name'] = Variable<String>(changedTableName.value);
+    }
+    if (recordKey.present) {
+      map['record_key'] = Variable<String>(recordKey.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncPushQueueCompanion(')
+          ..write('id: $id, ')
+          ..write('changedTableName: $changedTableName, ')
+          ..write('recordKey: $recordKey')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ConflictHistoryTable extends ConflictHistory
     with TableInfo<$ConflictHistoryTable, ConflictHistoryData> {
   @override
@@ -11354,6 +11621,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SyncProcessedFilesTable syncProcessedFiles =
       $SyncProcessedFilesTable(this);
   late final $SyncLogTable syncLog = $SyncLogTable(this);
+  late final $SyncPushQueueTable syncPushQueue = $SyncPushQueueTable(this);
   late final $ConflictHistoryTable conflictHistory = $ConflictHistoryTable(
     this,
   );
@@ -11386,6 +11654,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final Index idxExchangeRatesComposite = Index(
     'idx_exchange_rates_composite',
     'CREATE INDEX idx_exchange_rates_composite ON exchange_rates (from_currency_code, to_currency_code, date)',
+  );
+  late final Index idxSyncPushQueueTable = Index(
+    'idx_sync_push_queue_table',
+    'CREATE INDEX idx_sync_push_queue_table ON sync_push_queue (changed_table_name, id)',
   );
   late final LanguageDao languageDao = LanguageDao(this as AppDatabase);
   late final CurrencyDesignationsDao currencyDesignationsDao =
@@ -11452,6 +11724,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     smsPresets,
     syncProcessedFiles,
     syncLog,
+    syncPushQueue,
     conflictHistory,
     customDataSources,
     idxTransactionsDate,
@@ -11461,6 +11734,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     idxTransactionsAccountDate,
     idxExchangeRatesDate,
     idxExchangeRatesComposite,
+    idxSyncPushQueueTable,
   ];
 }
 
@@ -19681,6 +19955,168 @@ typedef $$SyncLogTableProcessedTableManager =
       SyncLogData,
       PrefetchHooks Function()
     >;
+typedef $$SyncPushQueueTableCreateCompanionBuilder =
+    SyncPushQueueCompanion Function({
+      Value<int> id,
+      required String changedTableName,
+      required String recordKey,
+    });
+typedef $$SyncPushQueueTableUpdateCompanionBuilder =
+    SyncPushQueueCompanion Function({
+      Value<int> id,
+      Value<String> changedTableName,
+      Value<String> recordKey,
+    });
+
+class $$SyncPushQueueTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncPushQueueTable> {
+  $$SyncPushQueueTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get changedTableName => $composableBuilder(
+    column: $table.changedTableName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recordKey => $composableBuilder(
+    column: $table.recordKey,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncPushQueueTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncPushQueueTable> {
+  $$SyncPushQueueTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get changedTableName => $composableBuilder(
+    column: $table.changedTableName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recordKey => $composableBuilder(
+    column: $table.recordKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncPushQueueTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncPushQueueTable> {
+  $$SyncPushQueueTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get changedTableName => $composableBuilder(
+    column: $table.changedTableName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get recordKey =>
+      $composableBuilder(column: $table.recordKey, builder: (column) => column);
+}
+
+class $$SyncPushQueueTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncPushQueueTable,
+          SyncPushQueueData,
+          $$SyncPushQueueTableFilterComposer,
+          $$SyncPushQueueTableOrderingComposer,
+          $$SyncPushQueueTableAnnotationComposer,
+          $$SyncPushQueueTableCreateCompanionBuilder,
+          $$SyncPushQueueTableUpdateCompanionBuilder,
+          (
+            SyncPushQueueData,
+            BaseReferences<
+              _$AppDatabase,
+              $SyncPushQueueTable,
+              SyncPushQueueData
+            >,
+          ),
+          SyncPushQueueData,
+          PrefetchHooks Function()
+        > {
+  $$SyncPushQueueTableTableManager(_$AppDatabase db, $SyncPushQueueTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncPushQueueTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncPushQueueTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncPushQueueTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> changedTableName = const Value.absent(),
+                Value<String> recordKey = const Value.absent(),
+              }) => SyncPushQueueCompanion(
+                id: id,
+                changedTableName: changedTableName,
+                recordKey: recordKey,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String changedTableName,
+                required String recordKey,
+              }) => SyncPushQueueCompanion.insert(
+                id: id,
+                changedTableName: changedTableName,
+                recordKey: recordKey,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncPushQueueTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncPushQueueTable,
+      SyncPushQueueData,
+      $$SyncPushQueueTableFilterComposer,
+      $$SyncPushQueueTableOrderingComposer,
+      $$SyncPushQueueTableAnnotationComposer,
+      $$SyncPushQueueTableCreateCompanionBuilder,
+      $$SyncPushQueueTableUpdateCompanionBuilder,
+      (
+        SyncPushQueueData,
+        BaseReferences<_$AppDatabase, $SyncPushQueueTable, SyncPushQueueData>,
+      ),
+      SyncPushQueueData,
+      PrefetchHooks Function()
+    >;
 typedef $$ConflictHistoryTableCreateCompanionBuilder =
     ConflictHistoryCompanion Function({
       Value<String> id,
@@ -20270,6 +20706,8 @@ class $AppDatabaseManager {
       $$SyncProcessedFilesTableTableManager(_db, _db.syncProcessedFiles);
   $$SyncLogTableTableManager get syncLog =>
       $$SyncLogTableTableManager(_db, _db.syncLog);
+  $$SyncPushQueueTableTableManager get syncPushQueue =>
+      $$SyncPushQueueTableTableManager(_db, _db.syncPushQueue);
   $$ConflictHistoryTableTableManager get conflictHistory =>
       $$ConflictHistoryTableTableManager(_db, _db.conflictHistory);
   $$CustomDataSourcesTableTableManager get customDataSources =>

@@ -7,6 +7,7 @@ import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/core/sync/sync_binary_format.dart';
 import 'package:my_budget_client/core/sync/sync_service.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 /// `exchange_rates`, `inflation_rates` and `custom_themes` travelling end to
 /// end over the folder-based P2P engine.
@@ -25,6 +26,14 @@ import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 /// to every peer watching the same directory: A always exports, B always
 /// imports.
 void main() {
+  // `sync_record_keys.dart` pins its DateFormat to 'en' so a record id spells
+  // the same day on every device, and a pinned locale needs its CLDR data
+  // loaded. `app.dart` does this at startup; a bare `flutter test` does not, so
+  // every id this suite formats or parses would throw LocaleDataException.
+  setUpAll(() async {
+    await initializeDateFormatting();
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late Directory syncFolder;
@@ -68,9 +77,8 @@ void main() {
     // at it. CSV import really does auto-create currencies like this.
     // insertSyncedCurrency is the non-logging variant, so this setup adds no
     // pending changes of its own.
-    final languageCode = (await dbA.select(dbA.currencies).get())
-        .first
-        .languageCode;
+    final languageCode =
+        (await dbA.select(dbA.currencies).get()).first.languageCode;
     await dbA.currenciesDao.insertSyncedCurrency(
       CurrenciesCompanion.insert(
         name: 'Lowercase Test Dollar',
@@ -173,33 +181,34 @@ void main() {
     String to,
     DateTime date,
     int preset,
-  ) => (dbB.select(dbB.exchangeRates)..where(
-        (t) =>
-            t.fromCurrencyCode.equals(from) &
-            t.toCurrencyCode.equals(to) &
-            t.date.equals(date) &
-            t.preset.equals(preset),
-      ))
-      .getSingleOrNull();
+  ) =>
+      (dbB.select(dbB.exchangeRates)..where(
+            (t) =>
+                t.fromCurrencyCode.equals(from) &
+                t.toCurrencyCode.equals(to) &
+                t.date.equals(date) &
+                t.preset.equals(preset),
+          ))
+          .getSingleOrNull();
 
   Future<InflationRate?> inflationOnB(
     DateTime date,
     String country,
     int preset,
-  ) => (dbB.select(dbB.inflationRates)..where(
-        (t) =>
-            t.date.equals(date) &
-            t.country.equals(country) &
-            t.preset.equals(preset),
-      ))
-      .getSingleOrNull();
+  ) =>
+      (dbB.select(dbB.inflationRates)..where(
+            (t) =>
+                t.date.equals(date) &
+                t.country.equals(country) &
+                t.preset.equals(preset),
+          ))
+          .getSingleOrNull();
 
   /// Raw row, bypassing `getThemeById`'s `isDeleted = false` filter, so a
   /// tombstone is visible to the assertions.
-  Future<DbCustomTheme?> themeRowOnB(String id) =>
-      (dbB.select(dbB.customThemes)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+  Future<DbCustomTheme?> themeRowOnB(String id) => (dbB.select(
+    dbB.customThemes,
+  )..where((t) => t.id.equals(id))).getSingleOrNull();
 
   ExchangeRatesCompanion rate({
     required String from,
@@ -550,7 +559,8 @@ void main() {
           'USD_EUR_2099-06-01_6',
         )?.action,
         SyncAction.delete,
-        reason: 'the delete must actually be in the packet for this to mean '
+        reason:
+            'the delete must actually be in the packet for this to mean '
             'anything',
       );
 
@@ -592,7 +602,8 @@ void main() {
       expect(
         await inflationOnB(date, 'Japan', 1),
         isNull,
-        reason: 'inflation_rates cannot hold a tombstone either, so the row '
+        reason:
+            'inflation_rates cannot hold a tombstone either, so the row '
             'itself has to go',
       );
     });
@@ -651,20 +662,25 @@ void main() {
         expect((await themeRowOnB('theme-del'))!.isDeleted, isFalse);
 
         await dbA.customThemesDao.deleteTheme('theme-del');
-        final deletedAt = await deleteLogTimestamp('custom_themes', 'theme-del');
+        final deletedAt = await deleteLogTimestamp(
+          'custom_themes',
+          'theme-del',
+        );
         await syncAToB();
 
         final tombstone = await themeRowOnB('theme-del');
         expect(
           tombstone!.isDeleted,
           isTrue,
-          reason: 'custom_themes HAS an isDeleted column, so the delete is a '
+          reason:
+              'custom_themes HAS an isDeleted column, so the delete is a '
               'soft delete like every other synced table',
         );
         expect(
           tombstone.modifiedAt,
           deletedAt,
-          reason: 'the tombstone carries the clock the delete happened at, not '
+          reason:
+              'the tombstone carries the clock the delete happened at, not '
               'the peer\'s own now()',
         );
 
@@ -693,28 +709,34 @@ void main() {
       },
     );
 
-    test('a genuinely newer upsert does resurrect a tombstoned theme', () async {
-      await dbA.customThemesDao.insertTheme(theme('theme-back', 'Original'));
-      await syncAToB();
+    test(
+      'a genuinely newer upsert does resurrect a tombstoned theme',
+      () async {
+        await dbA.customThemesDao.insertTheme(theme('theme-back', 'Original'));
+        await syncAToB();
 
-      await dbA.customThemesDao.deleteTheme('theme-back');
-      final deletedAt = await deleteLogTimestamp('custom_themes', 'theme-back');
-      await syncAToB();
-      expect((await themeRowOnB('theme-back'))!.isDeleted, isTrue);
+        await dbA.customThemesDao.deleteTheme('theme-back');
+        final deletedAt = await deleteLogTimestamp(
+          'custom_themes',
+          'theme-back',
+        );
+        await syncAToB();
+        expect((await themeRowOnB('theme-back'))!.isDeleted, isTrue);
 
-      await dbA.customThemesDao.updateTheme(
-        editedTheme('theme-back', 'Genuinely Newer'),
-      );
-      await (dbA.update(dbA.customThemes)
-            ..where((t) => t.id.equals('theme-back')))
-          .write(CustomThemesCompanion(modifiedAt: Value(deletedAt + 1000)));
+        await dbA.customThemesDao.updateTheme(
+          editedTheme('theme-back', 'Genuinely Newer'),
+        );
+        await (dbA.update(dbA.customThemes)
+              ..where((t) => t.id.equals('theme-back')))
+            .write(CustomThemesCompanion(modifiedAt: Value(deletedAt + 1000)));
 
-      await syncAToB();
+        await syncAToB();
 
-      final after = await themeRowOnB('theme-back');
-      expect(after!.isDeleted, isFalse);
-      expect(after.name, 'Genuinely Newer');
-      expect(after.modifiedAt, deletedAt + 1000);
-    });
+        final after = await themeRowOnB('theme-back');
+        expect(after!.isDeleted, isFalse);
+        expect(after.name, 'Genuinely Newer');
+        expect(after.modifiedAt, deletedAt + 1000);
+      },
+    );
   });
 }
