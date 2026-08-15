@@ -136,7 +136,11 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
                 actionId: 'sort_order',
                 description: context.l10n.fltSortOrderDescription,
                 child: RotatedBox(
-                  quarterTurns: state.sort == Sort.ascending ? 0 : 2,
+                  // Ascending turns the icon over, as it does on accounts,
+                  // categories, exchange rates, assets and inflation. This
+                  // bar had the condition inverted, so the same sort order
+                  // drew opposite arrows on two screens of one app.
+                  quarterTurns: state.sort == Sort.ascending ? 2 : 0,
                   child: IconButton(
                     icon: Icon(Icons.sort, color: onSurface),
                     onPressed: () => toggleTransactionsSort(
@@ -156,7 +160,8 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
                 actionId: 'sort_order',
                 description: context.l10n.fltSortOrderDescription,
                 child: RotatedBox(
-                  quarterTurns: state.sort == Sort.ascending ? 0 : 2,
+                  // Same rotation as the mobile branch above.
+                  quarterTurns: state.sort == Sort.ascending ? 2 : 0,
                   child: IconButton(
                     icon: Icon(Icons.sort, color: onSurface),
                     onPressed: () => toggleTransactionsSort(
