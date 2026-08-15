@@ -6,6 +6,7 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:my_budget_client/core/database/app_database.dart'
     hide Transaction;
 import 'package:my_budget_client/core/services/android_file_picker_service.dart';
@@ -32,6 +33,10 @@ void main() {
   }
 
   setUpAll(() async {
+    // Opening the database seeds exchange rates, and the CSV export/import
+    // path itself formats and parses dates with a locale-pinned DateFormat.
+    // Load its CLDR data before either runs.
+    await initializeDateFormatting();
     db = AppDatabase.forTesting(NativeDatabase.memory());
     exporter = DataExportService(db);
     importer = DataImportService(db, AndroidFilePickerService());
@@ -46,7 +51,9 @@ void main() {
   setUp(() async {
     await wipeBusinessTables();
 
-    await db.into(db.accounts).insert(
+    await db
+        .into(db.accounts)
+        .insert(
           AccountsCompanion.insert(
             id: const Value('csv_acc_eur'),
             name: 'Кошелёк 💶',
@@ -57,7 +64,9 @@ void main() {
             accountTypeId: accountTypeId,
           ),
         );
-    await db.into(db.accounts).insert(
+    await db
+        .into(db.accounts)
+        .insert(
           AccountsCompanion.insert(
             id: const Value('csv_acc_jpy'),
             name: 'Japan, Ltd "JPY"',
@@ -68,7 +77,9 @@ void main() {
             accountTypeId: accountTypeId,
           ),
         );
-    await db.into(db.accounts).insert(
+    await db
+        .into(db.accounts)
+        .insert(
           AccountsCompanion.insert(
             id: const Value('csv_acc_btc'),
             name: 'Cold wallet',
@@ -79,14 +90,18 @@ void main() {
           ),
         );
 
-    await db.into(db.categories).insert(
+    await db
+        .into(db.categories)
+        .insert(
           CategoriesCompanion.insert(
             id: const Value('csv_cat_food'),
             name: 'Продукты 🍎',
             type: const Value(CategoryType.expense),
           ),
         );
-    await db.into(db.categories).insert(
+    await db
+        .into(db.categories)
+        .insert(
           CategoriesCompanion.insert(
             id: const Value('csv_cat_income'),
             name: 'Salary',
@@ -94,7 +109,9 @@ void main() {
           ),
         );
 
-    await db.into(db.transactions).insert(
+    await db
+        .into(db.transactions)
+        .insert(
           TransactionsCompanion.insert(
             id: const Value('csv_tx_a'),
             description: 'Point one',
@@ -106,7 +123,9 @@ void main() {
             currencyCode: 'EUR',
           ),
         );
-    await db.into(db.transactions).insert(
+    await db
+        .into(db.transactions)
+        .insert(
           TransactionsCompanion.insert(
             id: const Value('csv_tx_b'),
             description: 'Two, with a "quote" and a comma',
@@ -122,7 +141,9 @@ void main() {
             linkedTransactionId: const Value('csv_tx_a'),
           ),
         );
-    await db.into(db.transactions).insert(
+    await db
+        .into(db.transactions)
+        .insert(
           TransactionsCompanion.insert(
             id: const Value('csv_tx_jpy'),
             description: 'ラーメン',
@@ -134,7 +155,9 @@ void main() {
             currencyCode: 'JPY',
           ),
         );
-    await db.into(db.transactions).insert(
+    await db
+        .into(db.transactions)
+        .insert(
           TransactionsCompanion.insert(
             id: const Value('csv_tx_btc'),
             description: 'Sats',
@@ -146,7 +169,9 @@ void main() {
           ),
         );
     // Soft-deleted: the CSV is a report of live data, so this must stay out.
-    await db.into(db.transactions).insert(
+    await db
+        .into(db.transactions)
+        .insert(
           TransactionsCompanion.insert(
             id: const Value('csv_tx_dead'),
             description: 'Deleted one',
@@ -162,20 +187,25 @@ void main() {
   });
 
   group('CSV export', () {
-    test('writes the documented header and one line per live transaction',
-        () async {
-      final csv = await exporter.buildTransactionsCsv();
-      final lines = csv.split('\r\n').where((l) => l.isNotEmpty).toList();
+    test(
+      'writes the documented header and one line per live transaction',
+      () async {
+        final csv = await exporter.buildTransactionsCsv();
+        final lines = csv.split('\r\n').where((l) => l.isNotEmpty).toList();
 
-      expect(
-        lines.first,
-        'Date,Amount,Currency,Description,Category,Account,Type,'
-        'Exchange Rate,Fee,Linked Transaction ID',
-      );
-      expect(lines.length, 5, reason: '4 live transactions plus the header');
-      expect(csv.contains('Deleted one'), isFalse,
-          reason: 'the CSV is a report, so soft-deleted rows stay out of it');
-    });
+        expect(
+          lines.first,
+          'Date,Amount,Currency,Description,Category,Account,Type,'
+          'Exchange Rate,Fee,Linked Transaction ID',
+        );
+        expect(lines.length, 5, reason: '4 live transactions plus the header');
+        expect(
+          csv.contains('Deleted one'),
+          isFalse,
+          reason: 'the CSV is a report, so soft-deleted rows stay out of it',
+        );
+      },
+    );
 
     test('writes CRLF line endings', () async {
       final csv = await exporter.buildTransactionsCsv();
@@ -189,14 +219,16 @@ void main() {
       expect(csv.contains('"Japan, Ltd ""JPY"""'), isTrue);
     });
 
-    test('names categories and accounts rather than referencing their ids',
-        () async {
-      final csv = await exporter.buildTransactionsCsv();
-      expect(csv.contains('Продукты 🍎'), isTrue);
-      expect(csv.contains('Кошелёк 💶'), isTrue);
-      expect(csv.contains('csv_cat_food'), isFalse);
-      expect(csv.contains('csv_acc_eur'), isFalse);
-    });
+    test(
+      'names categories and accounts rather than referencing their ids',
+      () async {
+        final csv = await exporter.buildTransactionsCsv();
+        expect(csv.contains('Продукты 🍎'), isTrue);
+        expect(csv.contains('Кошелёк 💶'), isTrue);
+        expect(csv.contains('csv_cat_food'), isFalse);
+        expect(csv.contains('csv_acc_eur'), isFalse);
+      },
+    );
   });
 
   group('CSV round trip', () {
@@ -220,10 +252,15 @@ void main() {
 
       final imported = await db.transactionsDao.getAllTransactions();
       expect(imported.length, 4);
-      expect(imported.map((t) => t.accountId).toSet(),
-          {'csv_acc_eur', 'csv_acc_jpy', 'csv_acc_btc'});
-      expect(imported.map((t) => t.categoryId).toSet(),
-          {'csv_cat_food', 'csv_cat_income'});
+      expect(imported.map((t) => t.accountId).toSet(), {
+        'csv_acc_eur',
+        'csv_acc_jpy',
+        'csv_acc_btc',
+      });
+      expect(imported.map((t) => t.categoryId).toSet(), {
+        'csv_cat_food',
+        'csv_cat_income',
+      });
     });
 
     test('date, amount, currency and description survive verbatim', () async {
@@ -234,17 +271,24 @@ void main() {
       final imported = await db.transactionsDao.getAllTransactions();
       final byDescription = {for (final t in imported) t.description: t};
 
-      expect(byDescription.keys, containsAll(<String>[
-        'Point one',
-        'Two, with a "quote" and a comma',
-        'ラーメン',
-        'Sats',
-      ]));
+      expect(
+        byDescription.keys,
+        containsAll(<String>[
+          'Point one',
+          'Two, with a "quote" and a comma',
+          'ラーメン',
+          'Sats',
+        ]),
+      );
 
       final a = byDescription['Point one']!;
-      expect(a.date, DateTime(2025, 3, 30, 0, 15),
-          reason: 'a transaction 15 minutes after midnight must not slide '
-              'onto the previous day');
+      expect(
+        a.date,
+        DateTime(2025, 3, 30, 0, 15),
+        reason:
+            'a transaction 15 minutes after midnight must not slide '
+            'onto the previous day',
+      );
       expect(a.amount, 0.1);
       expect(a.currencyCode, 'EUR');
 
@@ -261,14 +305,20 @@ void main() {
 
       final byDescription = {
         for (final t in await db.transactionsDao.getAllTransactions())
-          t.description: t
+          t.description: t,
       };
 
       expect(byDescription['Point one']!.amountMinor, 10);
-      expect(byDescription['ラーメン']!.amountMinor, 1234,
-          reason: 'JPY has no cents, so 1234 yen is 1234 minor units');
-      expect(byDescription['Sats']!.amountMinor, isNull,
-          reason: 'a non-fiat amount stays on the double');
+      expect(
+        byDescription['ラーメン']!.amountMinor,
+        1234,
+        reason: 'JPY has no cents, so 1234 yen is 1234 minor units',
+      );
+      expect(
+        byDescription['Sats']!.amountMinor,
+        isNull,
+        reason: 'a non-fiat amount stays on the double',
+      );
       expect(byDescription['Sats']!.amount, 0.12345678);
       // A fiat row whose minor column is NULL is silently skipped by the
       // exact-sum SQL (SUM ignores NULL), so "no fee" has to be 0, not NULL.
@@ -282,7 +332,7 @@ void main() {
       await importer.importContent(csv, isCsv: true);
 
       final accounts = {
-        for (final a in await db.select(db.accounts).get()) a.name: a
+        for (final a in await db.select(db.accounts).get()) a.name: a,
       };
       expect(accounts['Кошелёк 💶']!.balanceMinor, 0);
       expect(accounts['Кошелёк 💶']!.openingBalanceMinor, 0);
@@ -298,27 +348,31 @@ void main() {
       final names = (await db.select(db.accounts).get()).map((a) => a.name);
       expect(names, contains('Кошелёк 💶'));
       expect(names, contains('Japan, Ltd "JPY"'));
-      final categories =
-          (await db.select(db.categories).get()).map((c) => c.name);
+      final categories = (await db.select(db.categories).get()).map(
+        (c) => c.name,
+      );
       expect(categories, contains('Продукты 🍎'));
-      final descriptions = (await db.select(db.transactions).get())
-          .map((t) => t.description);
+      final descriptions = (await db.select(db.transactions).get()).map(
+        (t) => t.description,
+      );
       expect(descriptions, contains('ラーメン'));
       expect(descriptions, contains('Two, with a "quote" and a comma'));
     });
 
-    test('LF-only input parses the same as the CRLF the exporter writes',
-        () async {
-      final csv = await exporter.buildTransactionsCsv();
-      await db.delete(db.transactions).go();
-      await importer.importContent(csv.replaceAll('\r\n', '\n'), isCsv: true);
+    test(
+      'LF-only input parses the same as the CRLF the exporter writes',
+      () async {
+        final csv = await exporter.buildTransactionsCsv();
+        await db.delete(db.transactions).go();
+        await importer.importContent(csv.replaceAll('\r\n', '\n'), isCsv: true);
 
-      final imported = await db.transactionsDao.getAllTransactions();
-      expect(imported.length, 4);
-      for (final t in imported) {
-        expect(t.description.contains('\r'), isFalse);
-      }
-    });
+        final imported = await db.transactionsDao.getAllTransactions();
+        expect(imported.length, 4);
+        for (final t in imported) {
+          expect(t.description.contains('\r'), isFalse);
+        }
+      },
+    );
   });
 
   group('what the CSV format loses, by design', () {
@@ -328,8 +382,9 @@ void main() {
       await db.delete(db.transactions).go();
       await importer.importContent(csv, isCsv: true);
 
-      final ids =
-          (await db.select(db.transactions).get()).map((t) => t.id).toSet();
+      final ids = (await db.select(db.transactions).get())
+          .map((t) => t.id)
+          .toSet();
       expect(ids.contains('csv_tx_a'), isFalse);
       expect(ids.length, 4);
     });
@@ -350,24 +405,34 @@ void main() {
       expect(restored.linkedTransactionId, isNull);
     });
 
-    test('a category created by the import is always an expense category',
-        () async {
-      final csv = await exporter.buildTransactionsCsv();
-      await wipeBusinessTables();
-      await importer.importContent(csv, isCsv: true);
+    test(
+      'a category created by the import is always an expense category',
+      () async {
+        final csv = await exporter.buildTransactionsCsv();
+        await wipeBusinessTables();
+        await importer.importContent(csv, isCsv: true);
 
-      final salary = (await db.select(db.categories).get())
-          .firstWhere((c) => c.name == 'Salary');
-      expect(salary.type, CategoryType.expense,
-          reason: 'the CSV carries no category type, so the income category '
-              'comes back as an expense one');
-    });
+        final salary = (await db.select(db.categories).get()).firstWhere(
+          (c) => c.name == 'Salary',
+        );
+        expect(
+          salary.type,
+          CategoryType.expense,
+          reason:
+              'the CSV carries no category type, so the income category '
+              'comes back as an expense one',
+        );
+      },
+    );
 
     test('the CSV import appends rather than replacing', () async {
       final csv = await exporter.buildTransactionsCsv();
       await importer.importContent(csv, isCsv: true);
-      expect((await db.transactionsDao.getAllTransactions()).length, 8,
-          reason: '4 originals plus 4 appended copies');
+      expect(
+        (await db.transactionsDao.getAllTransactions()).length,
+        8,
+        reason: '4 originals plus 4 appended copies',
+      );
     });
   });
 
@@ -382,8 +447,13 @@ void main() {
     Future<void> expectRefused(String content, Matcher messageMatcher) async {
       await expectLater(
         importer.importContent(content, isCsv: true),
-        throwsA(isA<Exception>()
-            .having((e) => e.toString(), 'message', messageMatcher)),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            messageMatcher,
+          ),
+        ),
       );
       expect(
         (await db.select(db.transactions).get()).length,
@@ -437,8 +507,9 @@ void main() {
         '2025-04-01 12:00:00,2.5,EUR,Good two,Продукты 🍎,Кошелёк 💶\r\n',
         contains('line 3'),
       );
-      final descriptions =
-          (await db.select(db.transactions).get()).map((t) => t.description);
+      final descriptions = (await db.select(db.transactions).get()).map(
+        (t) => t.description,
+      );
       expect(descriptions.contains('Good one'), isFalse);
       expect(descriptions.contains('Good two'), isFalse);
     });
@@ -462,18 +533,20 @@ void main() {
       expect(imported.single.accountId, 'csv_acc_eur');
     });
 
-    test('a blank separator line is skipped, not treated as a short row',
-        () async {
-      await db.delete(db.transactions).go();
-      await importer.importContent(
-        '$header\r\n'
-        '2025-03-30 12:00:00,1.5,EUR,Lunch,Продукты 🍎,Кошелёк 💶\r\n'
-        '\r\n'
-        '2025-03-31 12:00:00,2.5,EUR,Dinner,Продукты 🍎,Кошелёк 💶\r\n',
-        isCsv: true,
-      );
-      expect((await db.transactionsDao.getAllTransactions()).length, 2);
-    });
+    test(
+      'a blank separator line is skipped, not treated as a short row',
+      () async {
+        await db.delete(db.transactions).go();
+        await importer.importContent(
+          '$header\r\n'
+          '2025-03-30 12:00:00,1.5,EUR,Lunch,Продукты 🍎,Кошелёк 💶\r\n'
+          '\r\n'
+          '2025-03-31 12:00:00,2.5,EUR,Dinner,Продукты 🍎,Кошелёк 💶\r\n',
+          isCsv: true,
+        );
+        expect((await db.transactionsDao.getAllTransactions()).length, 2);
+      },
+    );
 
     test('a lower-case header still resolves its columns', () async {
       await db.delete(db.transactions).go();

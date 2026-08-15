@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:my_budget_client/core/database/app_database.dart'
     hide Transaction;
 
@@ -19,6 +20,13 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late AppDatabase db;
+
+  // Opening the database seeds exchange rates, and each seeded row's sync
+  // record id is built with a locale-pinned DateFormat. Load its CLDR data
+  // once, before the first `setUp` opens a database.
+  setUpAll(() async {
+    await initializeDateFormatting();
+  });
 
   setUp(() async {
     db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -56,19 +64,21 @@ void main() {
   }
 
   group('SyncLogDao.markExported', () {
-    test('drains a backlog far past the 999-variable statement limit',
-        () async {
-      final ids = await seedLog(2500);
-      expect(await pendingCount(), 2500);
+    test(
+      'drains a backlog far past the 999-variable statement limit',
+      () async {
+        final ids = await seedLog(2500);
+        expect(await pendingCount(), 2500);
 
-      await db.syncLogDao.markExported(ids);
+        await db.syncLogDao.markExported(ids);
 
-      expect(
-        await pendingCount(),
-        0,
-        reason: 'an unchunked isIn() threw here and left every row pending',
-      );
-    });
+        expect(
+          await pendingCount(),
+          0,
+          reason: 'an unchunked isIn() threw here and left every row pending',
+        );
+      },
+    );
 
     test('marks exactly the ids it is given', () async {
       final ids = await seedLog(1200);
@@ -84,14 +94,16 @@ void main() {
       );
     });
 
-    test('an empty list is a no-op, not a statement with no arguments',
-        () async {
-      await seedLog(3);
+    test(
+      'an empty list is a no-op, not a statement with no arguments',
+      () async {
+        await seedLog(3);
 
-      await db.syncLogDao.markExported([]);
+        await db.syncLogDao.markExported([]);
 
-      expect(await pendingCount(), 3);
-    });
+        expect(await pendingCount(), 3);
+      },
+    );
   });
 
   group('bulk provider data stays out of the log', () {
@@ -115,9 +127,9 @@ void main() {
 
       expect(await pendingCount(), 0);
       expect(
-        await (db.select(db.exchangeRates)
-              ..where((t) => t.preset.equals(9999)))
-            .get(),
+        await (db.select(
+          db.exchangeRates,
+        )..where((t) => t.preset.equals(9999))).get(),
         hasLength(50),
       );
     });

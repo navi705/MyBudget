@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_currency_repository.dart';
 // `Currency` is both a drift row class and a domain entity, so the domain side
@@ -21,6 +22,10 @@ void main() {
   late LocalCurrencyRepository repo;
 
   setUpAll(() async {
+    // Opening the database seeds a few hundred thousand exchange rates, and
+    // every rate write below builds its composite sync id with a
+    // locale-pinned DateFormat. Load its CLDR data before either happens.
+    await initializeDateFormatting();
     db = AppDatabase.forTesting(NativeDatabase.memory());
     repo = LocalCurrencyRepository(db);
     // Seeding inserts a few hundred thousand historical rates. They are not
@@ -42,9 +47,9 @@ void main() {
     await db.delete(db.syncLog).go();
   });
 
-  Future<List<SyncLogData>> logsFor(String table) =>
-      (db.select(db.syncLog)..where((l) => l.changedTableName.equals(table)))
-          .get();
+  Future<List<SyncLogData>> logsFor(String table) => (db.select(
+    db.syncLog,
+  )..where((l) => l.changedTableName.equals(table))).get();
 
   Future<Currency> currencyRow(String code) =>
       (db.select(db.currencies)..where((c) => c.code.equals(code))).getSingle();
@@ -89,37 +94,48 @@ void main() {
       expect(read.type, domain.TypeCurrency.crypto);
     });
 
-    test('getCurrencyByCode returns null for a code that is not stored',
-        () async {
-      expect(await repo.getCurrencyByCode('ZZ9'), isNull);
-    });
+    test(
+      'getCurrencyByCode returns null for a code that is not stored',
+      () async {
+        expect(await repo.getCurrencyByCode('ZZ9'), isNull);
+      },
+    );
 
-    test('addCurrency stamps modifiedAt and logs an upsert under currencies',
-        () async {
-      final before = DateTime.now().millisecondsSinceEpoch;
+    test(
+      'addCurrency stamps modifiedAt and logs an upsert under currencies',
+      () async {
+        final before = DateTime.now().millisecondsSinceEpoch;
 
-      await repo.addCurrency(zz1);
+        await repo.addCurrency(zz1);
 
-      // Without a fresh modifiedAt the row sorts as never-modified and no peer
-      // ever pulls it.
-      expect((await currencyRow('ZZ1')).modifiedAt,
-          greaterThanOrEqualTo(before));
-      expect(
-        (await logsFor('currencies')).map((l) => '${l.recordId}:${l.action}'),
-        ['ZZ1:upsert'],
-      );
-    });
+        // Without a fresh modifiedAt the row sorts as never-modified and no peer
+        // ever pulls it.
+        expect(
+          (await currencyRow('ZZ1')).modifiedAt,
+          greaterThanOrEqualTo(before),
+        );
+        expect(
+          (await logsFor('currencies')).map((l) => '${l.recordId}:${l.action}'),
+          ['ZZ1:upsert'],
+        );
+      },
+    );
 
-    test('a new currency shows up in getCurrencies and watchCurrencies',
-        () async {
-      await repo.addCurrency(zz1);
+    test(
+      'a new currency shows up in getCurrencies and watchCurrencies',
+      () async {
+        await repo.addCurrency(zz1);
 
-      expect((await repo.getCurrencies()).map((c) => c.code), contains('ZZ1'));
-      expect(
-        (await repo.watchCurrencies().first).map((c) => c.code),
-        contains('ZZ1'),
-      );
-    });
+        expect(
+          (await repo.getCurrencies()).map((c) => c.code),
+          contains('ZZ1'),
+        );
+        expect(
+          (await repo.watchCurrencies().first).map((c) => c.code),
+          contains('ZZ1'),
+        );
+      },
+    );
 
     // BUG (characterisation): CurrenciesDao.insertAllCurrencies
     // (lib/core/database/app_database.dart:631-639) is a bare batch insert: no
@@ -210,18 +226,15 @@ void main() {
     // CORRECT behaviour: log a 'delete' so peers drop it too. As written, a
     // currency the user deleted reappears on the next sync from any other
     // device, because nothing ever told that device it was removed.
-    test(
-      'deleteCurrency writes no sync_log row '
-      '(WRONG - the delete never reaches another device)',
-      () async {
-        await repo.addCurrency(zz1);
-        await db.delete(db.syncLog).go();
+    test('deleteCurrency writes no sync_log row '
+        '(WRONG - the delete never reaches another device)', () async {
+      await repo.addCurrency(zz1);
+      await db.delete(db.syncLog).go();
 
-        await repo.deleteCurrency(zz1);
+      await repo.deleteCurrency(zz1);
 
-        expect(await logsFor('currencies'), isEmpty);
-      },
-    );
+      expect(await logsFor('currencies'), isEmpty);
+    });
   });
 
   group('currency designations', () {
@@ -252,13 +265,15 @@ void main() {
       );
     });
 
-    test('getCurrencyDesignationsForCurrency returns only that currency',
-        () async {
-      final found = await repo.getCurrencyDesignationsForCurrency('USD');
+    test(
+      'getCurrencyDesignationsForCurrency returns only that currency',
+      () async {
+        final found = await repo.getCurrencyDesignationsForCurrency('USD');
 
-      expect(found.map((d) => d.id), contains('test-usd'));
-      expect(found.every((d) => d.currencyCode == 'USD'), isTrue);
-    });
+        expect(found.map((d) => d.id), contains('test-usd'));
+        expect(found.every((d) => d.currencyCode == 'USD'), isTrue);
+      },
+    );
 
     test('watchCurrencyDesignationsForCurrency filters the same way', () async {
       final emitted = await repo
@@ -277,25 +292,29 @@ void main() {
       expect(await repo.getCurrencyDesignationById('test-eur'), isNull);
     });
 
-    test('a soft-deleted designation is not returned by the list reads',
-        () async {
-      await db.currencyDesignationsDao.deleteDesignation(
-        const CurrencyDesignationsCompanion(id: Value('test-eur')),
-      );
+    test(
+      'a soft-deleted designation is not returned by the list reads',
+      () async {
+        await db.currencyDesignationsDao.deleteDesignation(
+          const CurrencyDesignationsCompanion(id: Value('test-eur')),
+        );
 
-      expect(
-        (await repo.getAllCurrencyDesignations()).map((d) => d.id),
-        isNot(contains('test-eur')),
-      );
-      expect(
-        (await repo.getCurrencyDesignationsForCurrency('EUR')).map((d) => d.id),
-        isNot(contains('test-eur')),
-      );
-      expect(
-        (await repo.watchAllCurrencyDesignations().first).map((d) => d.id),
-        isNot(contains('test-eur')),
-      );
-    });
+        expect(
+          (await repo.getAllCurrencyDesignations()).map((d) => d.id),
+          isNot(contains('test-eur')),
+        );
+        expect(
+          (await repo.getCurrencyDesignationsForCurrency(
+            'EUR',
+          )).map((d) => d.id),
+          isNot(contains('test-eur')),
+        );
+        expect(
+          (await repo.watchAllCurrencyDesignations().first).map((d) => d.id),
+          isNot(contains('test-eur')),
+        );
+      },
+    );
   });
 
   group('exchange rates', () {
@@ -319,19 +338,21 @@ void main() {
       expect(read.date, DateTime(2024, 5, 5));
     });
 
-    test('addExchangeRate logs an upsert keyed by from_to_date_preset',
-        () async {
-      await repo.addExchangeRate(rate(date: DateTime(2024, 5, 5)));
+    test(
+      'addExchangeRate logs an upsert keyed by from_to_date_preset',
+      () async {
+        await repo.addExchangeRate(rate(date: DateTime(2024, 5, 5)));
 
-      // The rate table has a composite primary key and no id column, so this
-      // synthesised record id is the only handle a peer has on the row.
-      expect(
-        (await logsFor(
-          'exchange_rates',
-        )).map((l) => '${l.recordId}:${l.action}'),
-        ['ZZ1_ZZ2_2024-05-05_91:upsert'],
-      );
-    });
+        // The rate table has a composite primary key and no id column, so this
+        // synthesised record id is the only handle a peer has on the row.
+        expect(
+          (await logsFor(
+            'exchange_rates',
+          )).map((l) => '${l.recordId}:${l.action}'),
+          ['ZZ1_ZZ2_2024-05-05_91:upsert'],
+        );
+      },
+    );
 
     test('re-adding the same from/to/date/preset replaces instead of '
         'duplicating', () async {
@@ -343,22 +364,21 @@ void main() {
       expect(rows.single.rate, 2.5);
     });
 
-    test('addExchangeRates inserts every rate with a fresh modifiedAt',
-        () async {
-      final before = DateTime.now().millisecondsSinceEpoch;
+    test(
+      'addExchangeRates inserts every rate with a fresh modifiedAt',
+      () async {
+        final before = DateTime.now().millisecondsSinceEpoch;
 
-      await repo.addExchangeRates([
-        rate(date: DateTime(2024, 5, 5)),
-        rate(date: DateTime(2024, 5, 6)),
-      ]);
+        await repo.addExchangeRates([
+          rate(date: DateTime(2024, 5, 5)),
+          rate(date: DateTime(2024, 5, 6)),
+        ]);
 
-      final rows = await db.select(db.exchangeRates).get();
-      expect(rows.length, 2);
-      expect(
-        rows.every((r) => r.modifiedAt >= before),
-        isTrue,
-      );
-    });
+        final rows = await db.select(db.exchangeRates).get();
+        expect(rows.length, 2);
+        expect(rows.every((r) => r.modifiedAt >= before), isTrue);
+      },
+    );
 
     test('addExchangeRates deliberately writes no sync_log rows', () async {
       // This is the bulk provider/seed path. ExchangeRatesDao
@@ -372,20 +392,24 @@ void main() {
       expect(await logsFor('exchange_rates'), isEmpty);
     });
 
-    test('updateExchangeRate changes the rate, bumps modifiedAt and logs',
-        () async {
-      await repo.addExchangeRate(rate(value: 1.5));
-      final before = (await db.select(db.exchangeRates).get()).single;
-      await db.delete(db.syncLog).go();
-      await Future<void>.delayed(const Duration(milliseconds: 5));
+    test(
+      'updateExchangeRate changes the rate, bumps modifiedAt and logs',
+      () async {
+        await repo.addExchangeRate(rate(value: 1.5));
+        final before = (await db.select(db.exchangeRates).get()).single;
+        await db.delete(db.syncLog).go();
+        await Future<void>.delayed(const Duration(milliseconds: 5));
 
-      await repo.updateExchangeRate(rate(value: 9.5));
+        await repo.updateExchangeRate(rate(value: 9.5));
 
-      final after = (await db.select(db.exchangeRates).get()).single;
-      expect(after.rate, 9.5);
-      expect(after.modifiedAt, greaterThan(before.modifiedAt));
-      expect((await logsFor('exchange_rates')).map((l) => l.action), ['upsert']);
-    });
+        final after = (await db.select(db.exchangeRates).get()).single;
+        expect(after.rate, 9.5);
+        expect(after.modifiedAt, greaterThan(before.modifiedAt));
+        expect((await logsFor('exchange_rates')).map((l) => l.action), [
+          'upsert',
+        ]);
+      },
+    );
 
     test('replaceExchangeRate moves the row to its new key without leaving '
         'the old one behind', () async {
@@ -427,38 +451,42 @@ void main() {
       );
     });
 
-    test('replaceExchangeRate logs only an upsert when the key is unchanged',
-        () async {
-      final original = rate(date: DateTime(2024, 5, 5), value: 1.5);
-      await repo.addExchangeRate(original);
-      await db.delete(db.syncLog).go();
+    test(
+      'replaceExchangeRate logs only an upsert when the key is unchanged',
+      () async {
+        final original = rate(date: DateTime(2024, 5, 5), value: 1.5);
+        await repo.addExchangeRate(original);
+        await db.delete(db.syncLog).go();
 
-      await repo.replaceExchangeRate(original, original.copyWith(rate: 3.0));
+        await repo.replaceExchangeRate(original, original.copyWith(rate: 3.0));
 
-      // A spurious delete for the same key would race the upsert on the peer.
-      expect(
-        (await logsFor(
-          'exchange_rates',
-        )).map((l) => '${l.recordId}:${l.action}'),
-        ['ZZ1_ZZ2_2024-05-05_91:upsert'],
-      );
-    });
+        // A spurious delete for the same key would race the upsert on the peer.
+        expect(
+          (await logsFor(
+            'exchange_rates',
+          )).map((l) => '${l.recordId}:${l.action}'),
+          ['ZZ1_ZZ2_2024-05-05_91:upsert'],
+        );
+      },
+    );
 
-    test('getLatestExchangeRates picks the newest row on or before the date',
-        () async {
-      await repo.addExchangeRates([
-        rate(date: DateTime(2024, 1, 1), value: 1.0),
-        rate(date: DateTime(2024, 3, 1), value: 2.0),
-        rate(date: DateTime(2024, 9, 1), value: 3.0),
-      ]);
+    test(
+      'getLatestExchangeRates picks the newest row on or before the date',
+      () async {
+        await repo.addExchangeRates([
+          rate(date: DateTime(2024, 1, 1), value: 1.0),
+          rate(date: DateTime(2024, 3, 1), value: 2.0),
+          rate(date: DateTime(2024, 9, 1), value: 3.0),
+        ]);
 
-      final latest = await repo.getLatestExchangeRates(DateTime(2024, 6, 1));
-      final mine = latest.where((r) => r.fromCurrencyCode == 'ZZ1');
+        final latest = await repo.getLatestExchangeRates(DateTime(2024, 6, 1));
+        final mine = latest.where((r) => r.fromCurrencyCode == 'ZZ1');
 
-      // A rate dated after the requested day must not be used to value the
-      // past.
-      expect(mine.map((r) => r.rate), [2.0]);
-    });
+        // A rate dated after the requested day must not be used to value the
+        // past.
+        expect(mine.map((r) => r.rate), [2.0]);
+      },
+    );
 
     test('getLatestExchangeRatesByList returns the rows for exactly those '
         'dates', () async {
@@ -489,12 +517,7 @@ void main() {
           rate(date: DateTime(2024, 1, 1), value: 1.0),
           rate(date: DateTime(2024, 2, 1), value: 2.0),
           rate(date: DateTime(2024, 3, 1), value: 3.0, preset: 92),
-          rate(
-            from: 'ZZ2',
-            to: 'ZZ1',
-            date: DateTime(2024, 4, 1),
-            value: 4.0,
-          ),
+          rate(from: 'ZZ2', to: 'ZZ1', date: DateTime(2024, 4, 1), value: 4.0),
         ]);
       });
 
@@ -555,30 +578,38 @@ void main() {
         expect(await repo.getExchangeRatesCount(), 4);
       });
 
-      test('getExchangeRatesCount applies the same filters as the read',
-          () async {
-        expect(await repo.getExchangeRatesCount(presets: [92]), 1);
-        expect(await repo.getExchangeRatesCount(fromCurrency: 'ZZ2'), 1);
-      });
-
-      test('getAvailablePresets lists each stored preset once, ascending',
-          () async {
-        expect(await repo.getAvailablePresets(), [91, 92]);
-      });
-    });
-
-    test('updateExchangeRatePresets moves the rows to the new preset',
+      test(
+        'getExchangeRatesCount applies the same filters as the read',
         () async {
-      final r = rate(date: DateTime(2024, 5, 5), value: 1.5);
-      await repo.addExchangeRate(r);
+          expect(await repo.getExchangeRatesCount(presets: [92]), 1);
+          expect(await repo.getExchangeRatesCount(fromCurrency: 'ZZ2'), 1);
+        },
+      );
 
-      await repo.updateExchangeRatePresets([r], 93);
-
-      expect(await repo.getExchangeRatesFiltered(presets: [91]), isEmpty);
-      final moved = (await repo.getExchangeRatesFiltered(presets: [93])).single;
-      expect(moved.rate, 1.5);
-      expect(moved.date, DateTime(2024, 5, 5));
+      test(
+        'getAvailablePresets lists each stored preset once, ascending',
+        () async {
+          expect(await repo.getAvailablePresets(), [91, 92]);
+        },
+      );
     });
+
+    test(
+      'updateExchangeRatePresets moves the rows to the new preset',
+      () async {
+        final r = rate(date: DateTime(2024, 5, 5), value: 1.5);
+        await repo.addExchangeRate(r);
+
+        await repo.updateExchangeRatePresets([r], 93);
+
+        expect(await repo.getExchangeRatesFiltered(presets: [91]), isEmpty);
+        final moved = (await repo.getExchangeRatesFiltered(
+          presets: [93],
+        )).single;
+        expect(moved.rate, 1.5);
+        expect(moved.date, DateTime(2024, 5, 5));
+      },
+    );
 
     // BUG (characterisation): ExchangeRatesDao.updateExchangeRatePresets
     // (lib/core/database/app_database.dart:2488-2518) deletes each row under
@@ -622,19 +653,16 @@ void main() {
     // `from_to_date_preset`. As written, rates the user deleted are restored by
     // the next sync from any device that still has them, so the delete looks
     // like it silently failed.
-    test(
-      'deleteExchangeRates writes no sync_log row '
-      '(WRONG - deleted rates come back on the next sync)',
-      () async {
-        final r = rate(date: DateTime(2024, 5, 5));
-        await repo.addExchangeRate(r);
-        await db.delete(db.syncLog).go();
+    test('deleteExchangeRates writes no sync_log row '
+        '(WRONG - deleted rates come back on the next sync)', () async {
+      final r = rate(date: DateTime(2024, 5, 5));
+      await repo.addExchangeRate(r);
+      await db.delete(db.syncLog).go();
 
-        await repo.deleteExchangeRates([r]);
+      await repo.deleteExchangeRates([r]);
 
-        expect(await logsFor('exchange_rates'), isEmpty);
-      },
-    );
+      expect(await logsFor('exchange_rates'), isEmpty);
+    });
 
     test('watchExchangeRateChanges fires when a rate is written', () async {
       final signal = repo.watchExchangeRateChanges().first;

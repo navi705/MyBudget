@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:my_budget_client/core/database/app_database.dart'
     hide Transaction;
 
@@ -49,6 +50,10 @@ void main() {
   }
 
   setUpAll(() async {
+    // Opening the database seeds exchange rates, and each seeded row's sync
+    // record id is built with a locale-pinned DateFormat. Load its CLDR data
+    // before that runs.
+    await initializeDateFormatting();
     db = AppDatabase.forTesting(NativeDatabase.memory());
     final currencies = await db.select(db.currencies).get();
     eurCode = currencies.firstWhere((c) => c.code == 'EUR').code;
@@ -131,9 +136,10 @@ void main() {
         style!.toCompanion(true).copyWith(colorHex: const Value('#000000')),
       );
       expect(
-        (await logsFor('styles', 'sl_style_1'))
-            .where((l) => l.action == 'upsert')
-            .length,
+        (await logsFor(
+          'styles',
+          'sl_style_1',
+        )).where((l) => l.action == 'upsert').length,
         2,
       );
 
@@ -158,16 +164,20 @@ void main() {
           languageCode: languageCode,
         ),
       );
-      expect((await logsFor('account_types', 'sl_at_1')).single.action, 'upsert');
+      expect(
+        (await logsFor('account_types', 'sl_at_1')).single.action,
+        'upsert',
+      );
 
       final at = await db.accountTypesDao.getAccountTypeById('sl_at_1');
       await db.accountTypesDao.updateAccountType(
         at!.toCompanion(true).copyWith(name: const Value('Renamed AT')),
       );
       expect(
-        (await logsFor('account_types', 'sl_at_1'))
-            .where((l) => l.action == 'upsert')
-            .length,
+        (await logsFor(
+          'account_types',
+          'sl_at_1',
+        )).where((l) => l.action == 'upsert').length,
         2,
       );
 
@@ -204,9 +214,10 @@ void main() {
         d!.toCompanion(true).copyWith(value: const Value('#')),
       );
       expect(
-        (await logsFor('currency_designations', 'sl_desig_1'))
-            .where((l) => l.action == 'upsert')
-            .length,
+        (await logsFor(
+          'currency_designations',
+          'sl_desig_1',
+        )).where((l) => l.action == 'upsert').length,
         2,
       );
 
@@ -240,9 +251,10 @@ void main() {
         acc!.toCompanion(true).copyWith(name: const Value('Renamed Acc')),
       );
       expect(
-        (await logsFor('accounts', 'sl_acc_1'))
-            .where((l) => l.action == 'upsert')
-            .length,
+        (await logsFor(
+          'accounts',
+          'sl_acc_1',
+        )).where((l) => l.action == 'upsert').length,
         2,
       );
 
@@ -256,30 +268,27 @@ void main() {
       );
     });
 
-    test(
-      'adjustBalance logs an upsert (balance is materialised, not '
-      'peer-derivable from the transaction alone)',
-      () async {
-        await db.accountsDao.insertAccount(
-          AccountsCompanion.insert(
-            id: const Value('sl_acc_bal'),
-            name: 'SL Balance Account',
-            balance: 0.0,
-            currencyCode: eurCode,
-            currencyDesignationId: designationId,
-            accountTypeId: accountTypeId,
-          ),
-        );
-        await db.accountsDao.adjustBalance(
-          'sl_acc_bal',
-          25.5,
+    test('adjustBalance logs an upsert (balance is materialised, not '
+        'peer-derivable from the transaction alone)', () async {
+      await db.accountsDao.insertAccount(
+        AccountsCompanion.insert(
+          id: const Value('sl_acc_bal'),
+          name: 'SL Balance Account',
+          balance: 0.0,
           currencyCode: eurCode,
-        );
-        final logs = await logsFor('accounts', 'sl_acc_bal');
-        // 1 from insertAccount + 1 from adjustBalance.
-        expect(logs.where((l) => l.action == 'upsert').length, 2);
-      },
-    );
+          currencyDesignationId: designationId,
+          accountTypeId: accountTypeId,
+        ),
+      );
+      await db.accountsDao.adjustBalance(
+        'sl_acc_bal',
+        25.5,
+        currencyCode: eurCode,
+      );
+      final logs = await logsFor('accounts', 'sl_acc_bal');
+      // 1 from insertAccount + 1 from adjustBalance.
+      expect(logs.where((l) => l.action == 'upsert').length, 2);
+    });
 
     test(
       'deleteMultipleAccounts (bulk) logs one delete row per account id',
@@ -370,9 +379,10 @@ void main() {
           tx!.toCompanion(true).copyWith(amount: const Value(-20.0)),
         );
         expect(
-          (await logsFor('transactions', 'sl_tx_1'))
-              .where((l) => l.action == 'upsert')
-              .length,
+          (await logsFor(
+            'transactions',
+            'sl_tx_1',
+          )).where((l) => l.action == 'upsert').length,
           2,
         );
 
@@ -389,29 +399,23 @@ void main() {
   });
 
   group('ExchangeRatesDao', () {
-    test(
-      'addExchangeRate logs an upsert row keyed by the composite '
-      'from_to_date_preset id (the table has no single id column)',
-      () async {
-        await db.exchangeRatesDao.addExchangeRate(
-          ExchangeRatesCompanion.insert(
-            fromCurrencyCode: 'EUR',
-            toCurrencyCode: 'BTC',
-            rate: 0.00003,
-            preset: 7,
-            date: DateTime(2030, 1, 1),
-          ),
-        );
-        final logs = await logsFor(
-          'exchange_rates',
-          'EUR_BTC_2030-01-01_7',
-        );
-        // Would fail if addExchangeRate's recordId format or _logChange call
-        // changed/regressed.
-        expect(logs.length, 1);
-        expect(logs.single.action, 'upsert');
-      },
-    );
+    test('addExchangeRate logs an upsert row keyed by the composite '
+        'from_to_date_preset id (the table has no single id column)', () async {
+      await db.exchangeRatesDao.addExchangeRate(
+        ExchangeRatesCompanion.insert(
+          fromCurrencyCode: 'EUR',
+          toCurrencyCode: 'BTC',
+          rate: 0.00003,
+          preset: 7,
+          date: DateTime(2030, 1, 1),
+        ),
+      );
+      final logs = await logsFor('exchange_rates', 'EUR_BTC_2030-01-01_7');
+      // Would fail if addExchangeRate's recordId format or _logChange call
+      // changed/regressed.
+      expect(logs.length, 1);
+      expect(logs.single.action, 'upsert');
+    });
   });
 
   group('ApiSettingsDao', () {
@@ -422,10 +426,7 @@ void main() {
           enabled: const Value(true),
         ),
       );
-      final logs = await logsFor(
-        'api_settings_table',
-        'sl_api_setting_1',
-      );
+      final logs = await logsFor('api_settings_table', 'sl_api_setting_1');
       expect(logs.length, 1);
       expect(logs.single.action, 'upsert');
     });
@@ -464,9 +465,10 @@ void main() {
       // retyped accounts stayed on their old type on every other device.
       for (final id in ['sl_acc_type_1', 'sl_acc_type_2']) {
         expect(
-          (await logsFor('accounts', id))
-              .where((l) => l.action == 'upsert')
-              .length,
+          (await logsFor(
+            'accounts',
+            id,
+          )).where((l) => l.action == 'upsert').length,
           2, // 1 from insertAllAccounts + 1 from the retype
         );
       }
@@ -505,9 +507,10 @@ void main() {
         stored!.toCompanion(true).copyWith(name: const Value('SL Renamed')),
       );
       expect(
-        (await logsFor('custom_themes', 'sl_theme_1'))
-            .where((l) => l.action == 'upsert')
-            .length,
+        (await logsFor(
+          'custom_themes',
+          'sl_theme_1',
+        )).where((l) => l.action == 'upsert').length,
         2,
       );
 
@@ -566,12 +569,15 @@ void main() {
       expect(logs.single.action, 'upsert');
     });
 
-    test('bumps modifiedAt, which is what ServerSyncService pushes on', () async {
-      final currency = await db.currenciesDao.getCurrencyByCode('SLQ');
-      // Left at the column default of 0, the row is older than every push
-      // cutoff and no server sync ever picks it up.
-      expect(currency!.modifiedAt, greaterThan(0));
-    });
+    test(
+      'bumps modifiedAt, which is what ServerSyncService pushes on',
+      () async {
+        final currency = await db.currenciesDao.getCurrencyByCode('SLQ');
+        // Left at the column default of 0, the row is older than every push
+        // cutoff and no server sync ever picks it up.
+        expect(currency!.modifiedAt, greaterThan(0));
+      },
+    );
   });
 
   group('CategoriesDao bulk category deletes', () {
@@ -618,9 +624,7 @@ void main() {
         await addTx('sl_catdel_tx_1', 'sl_catdel_with');
         await addTx('sl_catdel_tx_2', 'sl_catdel_with');
 
-        await db.categoriesDao.deleteCategoryWithTransactions(
-          'sl_catdel_with',
-        );
+        await db.categoriesDao.deleteCategoryWithTransactions('sl_catdel_with');
 
         expect(
           (await logsFor(
@@ -631,7 +635,10 @@ void main() {
         );
         for (final id in ['sl_catdel_tx_1', 'sl_catdel_tx_2']) {
           expect(
-            (await logsFor('transactions', id)).any((l) => l.action == 'delete'),
+            (await logsFor(
+              'transactions',
+              id,
+            )).any((l) => l.action == 'delete'),
             isTrue,
             reason: '$id was soft-deleted locally but never announced',
           );
@@ -639,39 +646,36 @@ void main() {
       },
     );
 
-    test(
-      'deleteCategoryAndReassignTransactions logs the moved transactions as '
-      'upserts (they survive, they only changed category)',
-      () async {
-        await db.categoriesDao.insertCategory(
-          CategoriesCompanion.insert(
-            id: const Value('sl_catdel_from'),
-            name: 'SL CatDel From',
-          ),
-        );
-        await db.categoriesDao.insertCategory(
-          CategoriesCompanion.insert(
-            id: const Value('sl_catdel_to'),
-            name: 'SL CatDel To',
-          ),
-        );
-        await addTx('sl_catmove_tx_1', 'sl_catdel_from');
-        await addTx('sl_catmove_tx_2', 'sl_catdel_from');
+    test('deleteCategoryAndReassignTransactions logs the moved transactions as '
+        'upserts (they survive, they only changed category)', () async {
+      await db.categoriesDao.insertCategory(
+        CategoriesCompanion.insert(
+          id: const Value('sl_catdel_from'),
+          name: 'SL CatDel From',
+        ),
+      );
+      await db.categoriesDao.insertCategory(
+        CategoriesCompanion.insert(
+          id: const Value('sl_catdel_to'),
+          name: 'SL CatDel To',
+        ),
+      );
+      await addTx('sl_catmove_tx_1', 'sl_catdel_from');
+      await addTx('sl_catmove_tx_2', 'sl_catdel_from');
 
-        await db.categoriesDao.deleteCategoryAndReassignTransactions(
-          'sl_catdel_from',
-          'sl_catdel_to',
-        );
+      await db.categoriesDao.deleteCategoryAndReassignTransactions(
+        'sl_catdel_from',
+        'sl_catdel_to',
+      );
 
-        for (final id in ['sl_catmove_tx_1', 'sl_catmove_tx_2']) {
-          final logs = await logsFor('transactions', id);
-          // 1 from insertTransaction + 1 from the reassignment.
-          expect(logs.where((l) => l.action == 'upsert').length, 2);
-          expect(logs.any((l) => l.action == 'delete'), isFalse);
-          final tx = await db.transactionsDao.getTransactionById(id);
-          expect(tx!.categoryId, 'sl_catdel_to');
-        }
-      },
-    );
+      for (final id in ['sl_catmove_tx_1', 'sl_catmove_tx_2']) {
+        final logs = await logsFor('transactions', id);
+        // 1 from insertTransaction + 1 from the reassignment.
+        expect(logs.where((l) => l.action == 'upsert').length, 2);
+        expect(logs.any((l) => l.action == 'delete'), isFalse);
+        final tx = await db.transactionsDao.getTransactionById(id);
+        expect(tx!.categoryId, 'sl_catdel_to');
+      }
+    });
   });
 }

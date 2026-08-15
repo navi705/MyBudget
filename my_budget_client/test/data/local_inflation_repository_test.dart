@@ -4,6 +4,7 @@ import 'package:drift/drift.dart'
     show BooleanExpressionOperators, InsertMode, Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_inflation_repository.dart';
 import 'package:my_budget_client/domain/entities/inflation_rate.dart';
@@ -22,6 +23,10 @@ void main() {
   late LocalInflationRepository repo;
 
   setUpAll(() async {
+    // Opening the database seeds exchange rates, and every inflation rate
+    // written below gets a composite sync id built with a locale-pinned
+    // DateFormat. Load its CLDR data before either happens.
+    await initializeDateFormatting();
     db = AppDatabase.forTesting(NativeDatabase.memory());
     repo = LocalInflationRepository(db.inflationRatesDao);
   });
@@ -33,9 +38,9 @@ void main() {
     await db.delete(db.syncLog).go();
   });
 
-  Future<List<SyncLogData>> logsFor(String table) =>
-      (db.select(db.syncLog)..where((l) => l.changedTableName.equals(table)))
-          .get();
+  Future<List<SyncLogData>> logsFor(String table) => (db.select(
+    db.syncLog,
+  )..where((l) => l.changedTableName.equals(table))).get();
 
   /// Seeds a row without going through `addInflationRate`, so that the reading
   /// and filtering groups do not depend on the write path they are not
@@ -90,7 +95,10 @@ void main() {
       final all = await repo.getInflationRates();
 
       expect(all, hasLength(3));
-      expect(all.map((r) => r.country), containsAll(<String?>['US', 'DE', null]));
+      expect(
+        all.map((r) => r.country),
+        containsAll(<String?>['US', 'DE', null]),
+      );
     });
 
     test('a rate round-trips date, percent, country and preset', () async {
@@ -127,26 +135,47 @@ void main() {
 
   group('filtering and paging', () {
     setUp(() async {
-      await seed(date: DateTime(2024, 1, 10), country: 'US', preset: 1, percent: 1);
-      await seed(date: DateTime(2024, 2, 10), country: 'US', preset: 2, percent: 2);
-      await seed(date: DateTime(2024, 3, 10), country: 'DE', preset: 1, percent: 3);
-      await seed(date: DateTime(2024, 4, 10), country: 'DE', preset: 2, percent: 4);
-      await seed(date: DateTime(2024, 5, 10), preset: 1, percent: 5); // worldwide
+      await seed(
+        date: DateTime(2024, 1, 10),
+        country: 'US',
+        preset: 1,
+        percent: 1,
+      );
+      await seed(
+        date: DateTime(2024, 2, 10),
+        country: 'US',
+        preset: 2,
+        percent: 2,
+      );
+      await seed(
+        date: DateTime(2024, 3, 10),
+        country: 'DE',
+        preset: 1,
+        percent: 3,
+      );
+      await seed(
+        date: DateTime(2024, 4, 10),
+        country: 'DE',
+        preset: 2,
+        percent: 4,
+      );
+      await seed(
+        date: DateTime(2024, 5, 10),
+        preset: 1,
+        percent: 5,
+      ); // worldwide
     });
 
     test('rates come back newest first by default', () async {
       final rates = await repo.getInflationRatesFiltered();
 
-      expect(
-        rates.map((r) => r.date).toList(),
-        [
-          DateTime(2024, 5, 10),
-          DateTime(2024, 4, 10),
-          DateTime(2024, 3, 10),
-          DateTime(2024, 2, 10),
-          DateTime(2024, 1, 10),
-        ],
-      );
+      expect(rates.map((r) => r.date).toList(), [
+        DateTime(2024, 5, 10),
+        DateTime(2024, 4, 10),
+        DateTime(2024, 3, 10),
+        DateTime(2024, 2, 10),
+        DateTime(2024, 1, 10),
+      ]);
     });
 
     test('sortAscending flips the order to oldest first', () async {
@@ -164,7 +193,10 @@ void main() {
       // Callers rely on the default page size; dropping it to e.g. 10 would
       // silently truncate the list screen.
       for (var i = 0; i < 60; i++) {
-        await seed(date: DateTime(2025, 1, 1).add(Duration(days: i)), country: 'FR');
+        await seed(
+          date: DateTime(2025, 1, 1).add(Duration(days: i)),
+          country: 'FR',
+        );
       }
 
       expect(await repo.getInflationRatesFiltered(), hasLength(50));
@@ -252,9 +284,12 @@ void main() {
       expect(await repo.getInflationRatesFiltered(countries: []), hasLength(5));
     });
 
-    test('an empty preset list means no preset filter, not no results', () async {
-      expect(await repo.getInflationRatesFiltered(presets: []), hasLength(5));
-    });
+    test(
+      'an empty preset list means no preset filter, not no results',
+      () async {
+        expect(await repo.getInflationRatesFiltered(presets: []), hasLength(5));
+      },
+    );
 
     test('null filters are ignored', () async {
       final rates = await repo.getInflationRatesFiltered(
@@ -267,13 +302,16 @@ void main() {
       expect(rates, hasLength(5));
     });
 
-    test('getInflationRatesCount counts every match, ignoring paging', () async {
-      final page = await repo.getInflationRatesFiltered(limit: 2);
-      final count = await repo.getInflationRatesCount();
+    test(
+      'getInflationRatesCount counts every match, ignoring paging',
+      () async {
+        final page = await repo.getInflationRatesFiltered(limit: 2);
+        final count = await repo.getInflationRatesCount();
 
-      expect(page, hasLength(2));
-      expect(count, 5);
-    });
+        expect(page, hasLength(2));
+        expect(count, 5);
+      },
+    );
 
     test('getInflationRatesCount applies the same filters as the '
         'list query', () async {
@@ -437,7 +475,12 @@ void main() {
 
     test('updateInflationRate overwrites the percent of the matching '
         'rate', () async {
-      await seed(date: DateTime(2024, 11, 1), country: 'US', preset: 1, percent: 1.0);
+      await seed(
+        date: DateTime(2024, 11, 1),
+        country: 'US',
+        preset: 1,
+        percent: 1.0,
+      );
 
       await repo.updateInflationRate(
         domainRate(date: DateTime(2024, 11, 1), country: 'US', percent: 9.5),
@@ -516,14 +559,17 @@ void main() {
       expect((await repo.getInflationRates()).single.country, 'US');
     });
 
-    test('deleting a rate that does not exist leaves the table alone', () async {
-      await seed(date: DateTime(2024, 12, 3), country: 'US', preset: 1);
+    test(
+      'deleting a rate that does not exist leaves the table alone',
+      () async {
+        await seed(date: DateTime(2024, 12, 3), country: 'US', preset: 1);
 
-      await repo.deleteInflationRate(DateTime(2030, 1, 1), 'US', 1);
+        await repo.deleteInflationRate(DateTime(2030, 1, 1), 'US', 1);
 
-      expect(await repo.getInflationRates(), hasLength(1));
-      expect(await logsFor('inflation_rates'), isEmpty);
-    });
+        expect(await repo.getInflationRates(), hasLength(1));
+        expect(await logsFor('inflation_rates'), isEmpty);
+      },
+    );
 
     test('deleteInflationRate writes a sync_log row', () async {
       // Without it a deleted rate is resurrected on the next sync from any
@@ -617,7 +663,8 @@ void main() {
 
     // Three worldwide rows for the same month - the pile-up a nullable country
     // allowed - plus a country row for that month that must survive untouched.
-    const seedSql = '''
+    const seedSql =
+        '''
       INSERT INTO inflation_rates (date, percent, country, preset, modified_at) VALUES ($januarySeconds, 1.0, NULL, 1, 100);
       INSERT INTO inflation_rates (date, percent, country, preset, modified_at) VALUES ($januarySeconds, 2.0, NULL, 1, 300);
       INSERT INTO inflation_rates (date, percent, country, preset, modified_at) VALUES ($januarySeconds, 3.0, NULL, 1, 200);
@@ -665,9 +712,7 @@ void main() {
       final columns = await migrated
           .customSelect("PRAGMA table_info('inflation_rates')")
           .get();
-      final country = columns.firstWhere(
-        (r) => r.data['name'] == 'country',
-      );
+      final country = columns.firstWhere((r) => r.data['name'] == 'country');
 
       expect(country.data['notnull'], 1);
       expect(country.data['dflt_value'], "'global'");
