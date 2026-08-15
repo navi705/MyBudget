@@ -138,6 +138,8 @@
     "selectAccountError": "Por favor, seleccione una cuenta",
     "selectCategoryError": "Por favor, seleccione una categoría",
     "selectDateError": "Por favor, seleccione una fecha",
+    "accountDeletedError": "La cuenta que había seleccionado ha sido eliminada. Por favor, seleccione otra.",
+    "linkedAccountDeletedError": "La cuenta vinculada que había seleccionado ha sido eliminada. Por favor, seleccione otra.",
     "currencyLockedMessage": "Bloqueado a la moneda de la Cuenta de Origen",
     "totalValueLabel": "Valor Total",
     "feeLabel": "Tarifa",

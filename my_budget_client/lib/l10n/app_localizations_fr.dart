@@ -443,6 +443,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get selectDateError => 'Veuillez sélectionner une date';
 
   @override
+  String get accountDeletedError => 'Le compte que vous aviez sélectionné a été supprimé. Veuillez en sélectionner un autre.';
+
+  @override
+  String get linkedAccountDeletedError => 'Le compte lié que vous aviez sélectionné a été supprimé. Veuillez en sélectionner un autre.';
+
+  @override
   String get currencyLockedMessage => 'Verrouillé sur la devise du compte source';
 
   @override

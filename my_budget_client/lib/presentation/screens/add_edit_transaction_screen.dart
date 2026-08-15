@@ -128,6 +128,14 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
               'Please select a date': l10n.selectDateError,
               'Please select a category': l10n.selectCategoryError,
               'Please enter a valid number': l10n.invalidAmountError,
+              // Emitted by _onAccountsUpdated when a sync deletes an account
+              // that this form still had selected. Without these two rows the
+              // sentinels would reach the user as untranslated English through
+              // the importErrorLabel fallback below.
+              'The account you selected has been deleted':
+                  l10n.accountDeletedError,
+              'The linked account you selected has been deleted':
+                  l10n.linkedAccountDeletedError,
             };
 
             _shownValidationError = validationError;

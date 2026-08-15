@@ -939,6 +939,18 @@ abstract class AppLocalizations {
   /// **'Please select a date'**
   String get selectDateError;
 
+  /// Shown on the transaction form when the account it had selected was deleted while the form was open - usually deleted on another device and pulled in by sync. The selection is cleared, so this explains why the account field went empty and, for an asset account, why the Buy/Sell and Quantity fields were replaced by the ordinary amount layout
+  ///
+  /// In en, this message translates to:
+  /// **'The account you selected has been deleted. Please choose another one.'**
+  String get accountDeletedError;
+
+  /// Shown on the transaction form when the linked account - the To account of a transfer, or the cash account of an asset buy or sell - was deleted while the form was open. The selection is cleared so the other leg of the transaction cannot be written to a deleted account
+  ///
+  /// In en, this message translates to:
+  /// **'The linked account you selected has been deleted. Please choose another one.'**
+  String get linkedAccountDeletedError;
+
   /// No description provided for @currencyLockedMessage.
   ///
   /// In en, this message translates to:

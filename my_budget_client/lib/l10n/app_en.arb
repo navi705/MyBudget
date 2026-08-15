@@ -138,6 +138,14 @@
     "selectAccountError": "Please select an account",
     "selectCategoryError": "Please select a category",
     "selectDateError": "Please select a date",
+    "accountDeletedError": "The account you selected has been deleted. Please choose another one.",
+    "@accountDeletedError": {
+        "description": "Shown on the transaction form when the account it had selected was deleted while the form was open - usually deleted on another device and pulled in by sync. The selection is cleared, so this explains why the account field went empty and, for an asset account, why the Buy/Sell and Quantity fields were replaced by the ordinary amount layout"
+    },
+    "linkedAccountDeletedError": "The linked account you selected has been deleted. Please choose another one.",
+    "@linkedAccountDeletedError": {
+        "description": "Shown on the transaction form when the linked account - the To account of a transfer, or the cash account of an asset buy or sell - was deleted while the form was open. The selection is cleared so the other leg of the transaction cannot be written to a deleted account"
+    },
     "currencyLockedMessage": "Locked to From Account currency",
     "totalValueLabel": "Total Value",
     "feeLabel": "Fee",

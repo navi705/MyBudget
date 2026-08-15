@@ -443,6 +443,12 @@ class AppLocalizationsPt extends AppLocalizations {
   String get selectDateError => 'Por favor, selecione uma data';
 
   @override
+  String get accountDeletedError => 'A conta que você havia selecionado foi excluída. Por favor, selecione outra.';
+
+  @override
+  String get linkedAccountDeletedError => 'A conta vinculada que você havia selecionado foi excluída. Por favor, selecione outra.';
+
+  @override
   String get currencyLockedMessage => 'Bloqueado na moeda da Conta de Origem';
 
   @override

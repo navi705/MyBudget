@@ -138,6 +138,8 @@
     "selectAccountError": "कृपया एक खाता चुनें",
     "selectCategoryError": "कृपया एक श्रेणी चुनें",
     "selectDateError": "कृपया एक दिनांक चुनें",
+    "accountDeletedError": "आपके द्वारा चुना गया खाता हटा दिया गया है। कृपया दूसरा खाता चुनें।",
+    "linkedAccountDeletedError": "आपके द्वारा चुना गया लिंक किया गया खाता हटा दिया गया है। कृपया दूसरा खाता चुनें।",
     "currencyLockedMessage": "स्रोत खाते की मुद्रा में लॉक किया गया",
     "totalValueLabel": "कुल मूल्य",
     "feeLabel": "शुल्क",

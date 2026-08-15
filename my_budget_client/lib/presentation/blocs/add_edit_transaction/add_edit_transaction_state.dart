@@ -110,6 +110,11 @@ class AddEditTransactionState extends Equatable {
     String? amount,
     String? fee,
     Account? selectedAccount,
+    // Same reason as clearLinkedAccount/clearValidationError: `null` is a
+    // meaningful value here - "the account this transaction was on is gone" -
+    // and a bare `selectedAccount ?? this.selectedAccount` cannot express it,
+    // so a deleted account would stay selected and keep collecting writes.
+    bool clearSelectedAccount = false,
     Category? selectedCategory,
     Currency? selectedCurrency,
     List<ExchangeRateDomain>? availableExchangeRates,
@@ -146,7 +151,9 @@ class AddEditTransactionState extends Equatable {
       description: description ?? this.description,
       amount: amount ?? this.amount,
       fee: fee ?? this.fee,
-      selectedAccount: selectedAccount ?? this.selectedAccount,
+      selectedAccount: clearSelectedAccount
+          ? null
+          : (selectedAccount ?? this.selectedAccount),
       selectedCategory: selectedCategory ?? this.selectedCategory,
       selectedCurrency: selectedCurrency ?? this.selectedCurrency,
       availableExchangeRates:

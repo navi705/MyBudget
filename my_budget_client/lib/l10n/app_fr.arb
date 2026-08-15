@@ -138,6 +138,8 @@
     "selectAccountError": "Veuillez sélectionner un compte",
     "selectCategoryError": "Veuillez sélectionner une catégorie",
     "selectDateError": "Veuillez sélectionner une date",
+    "accountDeletedError": "Le compte que vous aviez sélectionné a été supprimé. Veuillez en sélectionner un autre.",
+    "linkedAccountDeletedError": "Le compte lié que vous aviez sélectionné a été supprimé. Veuillez en sélectionner un autre.",
     "currencyLockedMessage": "Verrouillé sur la devise du compte source",
     "totalValueLabel": "Valeur Totale",
     "feeLabel": "Frais",

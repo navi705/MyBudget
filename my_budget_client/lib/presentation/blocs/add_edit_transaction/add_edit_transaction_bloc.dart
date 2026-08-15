@@ -1743,6 +1743,16 @@ class AddEditTransactionBloc
     }
   }
 
+  // Sentinels, not user-facing text: `validationError` carries an English
+  // string that add_edit_transaction_screen.dart maps to a localized message.
+  // Anything missing from that lookup table is shown through
+  // `l10n.importErrorLabel(...)` as a raw error, so these two constants must
+  // stay in step with the entries there.
+  static const _selectedAccountDeletedMessage =
+      'The account you selected has been deleted';
+  static const _linkedAccountDeletedMessage =
+      'The linked account you selected has been deleted';
+
   Future<void> _onAccountsUpdated(
     _AddEditTransactionAccountsUpdated event,
     Emitter<AddEditTransactionState> emit,
@@ -1765,11 +1775,56 @@ class AddEditTransactionBloc
       );
     }
 
+    // "There WAS a selection and it is no longer in the pushed list" - the
+    // account was deleted, typically on another device and pulled in by sync
+    // while this form sat open. That is a different thing from "there was
+    // never a selection", which must leave the field exactly as it is.
+    //
+    // The clear flags are not optional tidiness. copyWith reads a null
+    // argument as "no change", so without them the deleted account stays
+    // selected and the save writes to a row every list, total and net-worth
+    // query filters out - deleting an account soft-deletes its transactions
+    // too, so the user has already said "remove this and everything on it":
+    //
+    // - linkedAccount, transfers: the outgoing leg lands correctly on the From
+    //   account and the balance drops by 500 EUR, while the incoming leg goes
+    //   to the deleted row. Net worth falls by 500 EUR and no account gained
+    //   anything. An asset buy inverts it: 0.5 BTC arrives, the deleted cash
+    //   account "pays", and net worth jumps by 30,000 EUR out of nothing.
+    // - selectedAccount: a 240 EUR expense appears in the transactions list
+    //   and in every category report (those queries filter deleted
+    //   transactions, not deleted accounts) while the balance adjustment lands
+    //   on the hidden row. The monthly spending total is 240 EUR larger than
+    //   the sum of what the accounts actually lost, and the offending row has
+    //   no account name to search by.
+    final selectedAccountDeleted =
+        currentSelectedAccount != null && updatedSelectedAccount == null;
+    final linkedAccountDeleted =
+        currentLinkedAccount != null && updatedLinkedAccount == null;
+
+    // Clearing silently is its own trap. Save would eventually complain with
+    // "Please select an account", but never says why the choice vanished -
+    // and for an asset account, clearing selectedAccount also turns
+    // `isAssetTransaction` false, which swaps the Buy/Sell toggle and the
+    // Quantity + Total Value pair for the ordinary
+    // Description/Amount/Category/Currency layout, leaving a number typed as
+    // "0.5 BTC" sitting in a field labelled "Amount". The transaction's own
+    // account and the transfer/asset linked account get distinct messages
+    // because they fail differently; when both go at once the transaction's
+    // own account is the one to name first, since the form cannot be saved
+    // without it at all.
+    final String? deletionMessage = selectedAccountDeleted
+        ? _selectedAccountDeletedMessage
+        : (linkedAccountDeleted ? _linkedAccountDeletedMessage : null);
+
     emit(
       state.copyWith(
         accounts: event.accounts,
         selectedAccount: updatedSelectedAccount,
+        clearSelectedAccount: selectedAccountDeleted,
         linkedAccount: updatedLinkedAccount,
+        clearLinkedAccount: linkedAccountDeleted,
+        validationError: deletionMessage,
       ),
     );
 

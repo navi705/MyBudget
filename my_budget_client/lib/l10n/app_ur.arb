@@ -138,6 +138,8 @@
     "selectAccountError": "براہ کرم ایک اکاؤنٹ منتخب کریں",
     "selectCategoryError": "براہ کرم ایک زمرہ منتخب کریں",
     "selectDateError": "براہ کرم ایک تاریخ منتخب کریں",
+    "accountDeletedError": "آپ کا منتخب کردہ اکاؤنٹ حذف کر دیا گیا ہے۔ براہ کرم دوسرا منتخب کریں۔",
+    "linkedAccountDeletedError": "آپ کا منتخب کردہ منسلک اکاؤنٹ حذف کر دیا گیا ہے۔ براہ کرم دوسرا منتخب کریں۔",
     "currencyLockedMessage": "ماخذ اکاؤنٹ کی کرنسی پر مقفل",
     "totalValueLabel": "کل قدر",
     "feeLabel": "فیس",

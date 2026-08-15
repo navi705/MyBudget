@@ -443,6 +443,12 @@ class AppLocalizationsHi extends AppLocalizations {
   String get selectDateError => 'कृपया एक दिनांक चुनें';
 
   @override
+  String get accountDeletedError => 'आपके द्वारा चुना गया खाता हटा दिया गया है। कृपया दूसरा खाता चुनें।';
+
+  @override
+  String get linkedAccountDeletedError => 'आपके द्वारा चुना गया लिंक किया गया खाता हटा दिया गया है। कृपया दूसरा खाता चुनें।';
+
+  @override
   String get currencyLockedMessage => 'स्रोत खाते की मुद्रा में लॉक किया गया';
 
   @override

@@ -443,6 +443,12 @@ class AppLocalizationsUr extends AppLocalizations {
   String get selectDateError => 'براہ کرم ایک تاریخ منتخب کریں';
 
   @override
+  String get accountDeletedError => 'آپ کا منتخب کردہ اکاؤنٹ حذف کر دیا گیا ہے۔ براہ کرم دوسرا منتخب کریں۔';
+
+  @override
+  String get linkedAccountDeletedError => 'آپ کا منتخب کردہ منسلک اکاؤنٹ حذف کر دیا گیا ہے۔ براہ کرم دوسرا منتخب کریں۔';
+
+  @override
   String get currencyLockedMessage => 'ماخذ اکاؤنٹ کی کرنسی پر مقفل';
 
   @override

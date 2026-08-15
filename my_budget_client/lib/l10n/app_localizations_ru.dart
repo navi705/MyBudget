@@ -443,6 +443,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get selectDateError => 'Пожалуйста, выберите дату';
 
   @override
+  String get accountDeletedError => 'Выбранный вами счет был удален. Пожалуйста, выберите другой.';
+
+  @override
+  String get linkedAccountDeletedError => 'Выбранный вами связанный счет был удален. Пожалуйста, выберите другой.';
+
+  @override
   String get currencyLockedMessage => 'Привязано к валюте счета отправителя';
 
   @override

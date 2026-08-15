@@ -138,6 +138,8 @@
     "selectAccountError": "请选择账户",
     "selectCategoryError": "请选择分类",
     "selectDateError": "请选择日期",
+    "accountDeletedError": "您选择的账户已被删除，请另选一个。",
+    "linkedAccountDeletedError": "您选择的关联账户已被删除，请另选一个。",
     "currencyLockedMessage": "锁定为源账户货币",
     "totalValueLabel": "总价值",
     "feeLabel": "费用",

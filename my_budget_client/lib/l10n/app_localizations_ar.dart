@@ -443,6 +443,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get selectDateError => 'يرجى تحديد تاريخ';
 
   @override
+  String get accountDeletedError => 'تم حذف الحساب الذي حددته. يرجى تحديد حساب آخر.';
+
+  @override
+  String get linkedAccountDeletedError => 'تم حذف الحساب المرتبط الذي حددته. يرجى تحديد حساب آخر.';
+
+  @override
   String get currencyLockedMessage => 'مغلق على عملة حساب المصدر';
 
   @override

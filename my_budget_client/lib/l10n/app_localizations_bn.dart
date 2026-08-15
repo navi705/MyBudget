@@ -443,6 +443,12 @@ class AppLocalizationsBn extends AppLocalizations {
   String get selectDateError => 'অনুগ্রহ করে একটি তারিখ নির্বাচন করুন';
 
   @override
+  String get accountDeletedError => 'আপনার নির্বাচিত অ্যাকাউন্টটি মুছে ফেলা হয়েছে। অনুগ্রহ করে অন্য একটি নির্বাচন করুন।';
+
+  @override
+  String get linkedAccountDeletedError => 'আপনার নির্বাচিত সংযুক্ত অ্যাকাউন্টটি মুছে ফেলা হয়েছে। অনুগ্রহ করে অন্য একটি নির্বাচন করুন।';
+
+  @override
   String get currencyLockedMessage => 'উৎস অ্যাকাউন্টের মুদ্রায় লক করা হয়েছে';
 
   @override

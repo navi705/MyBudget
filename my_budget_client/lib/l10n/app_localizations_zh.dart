@@ -443,6 +443,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get selectDateError => '请选择日期';
 
   @override
+  String get accountDeletedError => '您选择的账户已被删除，请另选一个。';
+
+  @override
+  String get linkedAccountDeletedError => '您选择的关联账户已被删除，请另选一个。';
+
+  @override
   String get currencyLockedMessage => '锁定为源账户货币';
 
   @override
