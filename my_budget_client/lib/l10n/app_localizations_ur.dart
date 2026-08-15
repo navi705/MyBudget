@@ -1796,16 +1796,34 @@ class AppLocalizationsUr extends AppLocalizations {
   String get hkActionCategoriesSelectionChangeType => 'زمرہ جات: قسم تبدیل کریں';
 
   @override
-  String get hkActionDataSelectionClose => 'ڈیٹا: بند کریں';
+  String get hkActionDataSelectionClose => 'شرح تبادلہ: بند کریں';
 
   @override
-  String get hkActionDataSelectionAll => 'ڈیٹا: سب منتخب کریں';
+  String get hkActionDataSelectionAll => 'شرح تبادلہ: سب منتخب کریں';
 
   @override
-  String get hkActionDataSelectionDelete => 'ڈیٹا: حذف کریں';
+  String get hkActionDataSelectionDelete => 'شرح تبادلہ: حذف کریں';
 
   @override
-  String get hkActionDataSelectionChangePreset => 'ڈیٹا: پیش سیٹ تبدیل کریں';
+  String get hkActionDataSelectionChangePreset => 'شرح تبادلہ: پیش سیٹ تبدیل کریں';
+
+  @override
+  String get hkActionInflationSelectionClose => 'افراط زر: بند کریں';
+
+  @override
+  String get hkActionInflationSelectionAll => 'افراط زر: سب منتخب کریں';
+
+  @override
+  String get hkActionInflationSelectionDelete => 'افراط زر: حذف کریں';
+
+  @override
+  String get hkActionAssetSelectionClose => 'اثاثے: بند کریں';
+
+  @override
+  String get hkActionAssetSelectionAll => 'اثاثے: سب منتخب کریں';
+
+  @override
+  String get hkActionAssetSelectionDelete => 'اثاثے: حذف کریں';
 
   @override
   String get styNotFound => 'اسٹائل نہیں ملا۔';

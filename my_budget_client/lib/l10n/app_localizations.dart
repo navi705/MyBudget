@@ -3384,26 +3384,62 @@ abstract class AppLocalizations {
   /// No description provided for @hkActionDataSelectionClose.
   ///
   /// In en, this message translates to:
-  /// **'Data: Close'**
+  /// **'Exchange Rates: Close'**
   String get hkActionDataSelectionClose;
 
   /// No description provided for @hkActionDataSelectionAll.
   ///
   /// In en, this message translates to:
-  /// **'Data: Select All'**
+  /// **'Exchange Rates: Select All'**
   String get hkActionDataSelectionAll;
 
   /// No description provided for @hkActionDataSelectionDelete.
   ///
   /// In en, this message translates to:
-  /// **'Data: Delete'**
+  /// **'Exchange Rates: Delete'**
   String get hkActionDataSelectionDelete;
 
   /// No description provided for @hkActionDataSelectionChangePreset.
   ///
   /// In en, this message translates to:
-  /// **'Data: Change Preset'**
+  /// **'Exchange Rates: Change Preset'**
   String get hkActionDataSelectionChangePreset;
+
+  /// No description provided for @hkActionInflationSelectionClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Inflation: Close'**
+  String get hkActionInflationSelectionClose;
+
+  /// No description provided for @hkActionInflationSelectionAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Inflation: Select All'**
+  String get hkActionInflationSelectionAll;
+
+  /// No description provided for @hkActionInflationSelectionDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Inflation: Delete'**
+  String get hkActionInflationSelectionDelete;
+
+  /// No description provided for @hkActionAssetSelectionClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Assets: Close'**
+  String get hkActionAssetSelectionClose;
+
+  /// No description provided for @hkActionAssetSelectionAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Assets: Select All'**
+  String get hkActionAssetSelectionAll;
+
+  /// No description provided for @hkActionAssetSelectionDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Assets: Delete'**
+  String get hkActionAssetSelectionDelete;
 
   /// No description provided for @styNotFound.
   ///

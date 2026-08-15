@@ -19,42 +19,6 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight * 1.5);
 
-  void _showCustomCalendar(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) {
-        return BlocProvider.value(
-          value: context.read<AssetBloc>(),
-          child: CalendarStepPicker(
-            initialDate: state.activeDate,
-            initialRange: state.activeDateRange,
-            initialStep: state.dateStep,
-            initialFilterMode: state.filterMode,
-            rangeOptionVisibility: PickerVisibility.visible,
-            onApply: (date, range, step, mode) {
-              final bloc = context.read<AssetBloc>();
-              if (state.filterMode != mode) {
-                bloc.add(ChangeAssetFilterMode(mode));
-              }
-              if (state.dateStep != step) {
-                bloc.add(ChangeAssetDateStep(step));
-              }
-              if (mode == FilterMode.range && range != null) {
-                bloc.add(ChangeAssetActiveDateRange(range));
-              } else {
-                bloc.add(ChangeAssetActiveDate(date));
-              }
-            },
-          ),
-        );
-      },
-    );
-  }
-
   String _formatDate(BuildContext context) {
     if (state.filterMode == FilterMode.range) {
       if (state.activeDateRange == null) return context.l10n.selectDateLabel;
@@ -106,14 +70,8 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
         selectionCount: state.selectedAssets.length,
         totalCount: state.assetData.length,
         onClearSelection: () => bloc.add(DeselectAllAssets()),
-        onSelectAll: () {
-          if (state.selectedAssets.length == state.assetData.length) {
-            bloc.add(DeselectAllAssets());
-          } else {
-            bloc.add(SelectAllAssets());
-          }
-        },
-        onDelete: () => _showDeleteConfirmation(context, bloc),
+        onSelectAll: () => toggleAssetSelectAll(bloc, state),
+        onDelete: () => showAssetDeleteConfirmation(context, bloc, state),
       );
     }
 
@@ -157,10 +115,10 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
           fit: isMobile ? FlexFit.tight : FlexFit.loose,
           child: MultiLevelTooltip(
             message: l10n.selectDateTooltip,
-            actionId: 'asset_pick_date',
+            actionId: 'pick_date',
             description: l10n.selectDateDescription,
             child: InkWell(
-              onTap: () => _showCustomCalendar(context),
+              onTap: () => showAssetCalendar(context, state),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12.0),
                 alignment: Alignment.center,
@@ -183,16 +141,11 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
             quarterTurns: state.sort == Sort.ascending ? 2 : 0,
             child: MultiLevelTooltip(
               message: l10n.sortOrderTooltip,
-              actionId: 'asset_sort',
+              actionId: 'sort_order',
               description: l10n.sortOrderDescription,
               child: IconButton(
                 icon: Icon(Icons.sort, color: onSurface),
-                onPressed: () {
-                  final newSort = state.sort == Sort.ascending
-                      ? Sort.descending
-                      : Sort.ascending;
-                  bloc.add(ChangeAssetSort(newSort));
-                },
+                onPressed: () => toggleAssetSort(bloc, state),
               ),
             ),
           )
@@ -205,16 +158,11 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
             quarterTurns: state.sort == Sort.ascending ? 2 : 0,
             child: MultiLevelTooltip(
               message: l10n.sortOrderTooltip,
-              actionId: 'asset_sort',
+              actionId: 'sort_order',
               description: l10n.sortOrderDescription,
               child: IconButton(
                 icon: Icon(Icons.sort, color: onSurface),
-                onPressed: () {
-                  final newSort = state.sort == Sort.ascending
-                      ? Sort.descending
-                      : Sort.ascending;
-                  bloc.add(ChangeAssetSort(newSort));
-                },
+                onPressed: () => toggleAssetSort(bloc, state),
               ),
             ),
           ),
@@ -237,35 +185,100 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
       totalCountText: l10n.totalCountLabel(state.totalCount),
     );
   }
+}
 
-  void _showDeleteConfirmation(BuildContext context, AssetBloc bloc) {
-    final l10n = context.l10n;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.assetDeleteConfirmTitle),
-        content: Text(
-          l10n.assetDeleteConfirmMessage(state.selectedAssets.length),
+// The date picker, the sort toggle and the two selection actions are drawn by
+// this app bar, but the Hot Keys screen offers all four as bindable actions and
+// the ScreenShortcuts that has to run them lives in asset_tab.dart, one widget
+// above. Top-level functions let the button and the hotkey call one
+// implementation instead of two that can drift apart.
+void showAssetCalendar(BuildContext context, AssetState state) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) {
+      return BlocProvider.value(
+        value: context.read<AssetBloc>(),
+        child: CalendarStepPicker(
+          initialDate: state.activeDate,
+          initialRange: state.activeDateRange,
+          initialStep: state.dateStep,
+          initialFilterMode: state.filterMode,
+          rangeOptionVisibility: PickerVisibility.visible,
+          onApply: (date, range, step, mode) {
+            final bloc = context.read<AssetBloc>();
+            if (state.filterMode != mode) {
+              bloc.add(ChangeAssetFilterMode(mode));
+            }
+            if (state.dateStep != step) {
+              bloc.add(ChangeAssetDateStep(step));
+            }
+            if (mode == FilterMode.range && range != null) {
+              bloc.add(ChangeAssetActiveDateRange(range));
+            } else {
+              bloc.add(ChangeAssetActiveDate(date));
+            }
+          },
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.cancelButton),
-          ),
-          TextButton(
-            onPressed: () {
-              bloc.add(DeleteSelectedAssets());
-              Navigator.pop(context);
-            },
-            child: Text(
-              l10n.deleteButton,
-              style: const TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
-    );
+      );
+    },
+  );
+}
+
+void toggleAssetSort(AssetBloc bloc, AssetState state) {
+  bloc.add(
+    ChangeAssetSort(
+      state.sort == Sort.ascending ? Sort.descending : Sort.ascending,
+    ),
+  );
+}
+
+/// Selects everything, or clears the selection when everything already is.
+///
+/// `DeselectAllAssets` also leaves selection mode, which is what makes the same
+/// button read "deselect all" and then close the bar.
+void toggleAssetSelectAll(AssetBloc bloc, AssetState state) {
+  if (state.selectedAssets.length == state.assetData.length) {
+    bloc.add(DeselectAllAssets());
+  } else {
+    bloc.add(SelectAllAssets());
   }
+}
+
+void showAssetDeleteConfirmation(
+  BuildContext context,
+  AssetBloc bloc,
+  AssetState state,
+) {
+  final l10n = context.l10n;
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(l10n.assetDeleteConfirmTitle),
+      content: Text(
+        l10n.assetDeleteConfirmMessage(state.selectedAssets.length),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.cancelButton),
+        ),
+        TextButton(
+          onPressed: () {
+            bloc.add(DeleteSelectedAssets());
+            Navigator.pop(context);
+          },
+          child: Text(
+            l10n.deleteButton,
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -289,9 +302,14 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
     final isAllSelected = selectionCount == totalCount && totalCount > 0;
 
     return AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.close),
-        onPressed: onClearSelection,
+      leading: MultiLevelTooltip(
+        message: l10n.closeSelectionTooltip,
+        actionId: 'asset_selection_close',
+        description: l10n.exitSelectionDescription,
+        child: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: onClearSelection,
+        ),
       ),
       title: Text(l10n.selectedCountLabel(selectionCount)),
       actions: [

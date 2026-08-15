@@ -1798,16 +1798,34 @@ class AppLocalizationsRu extends AppLocalizations {
   String get hkActionCategoriesSelectionChangeType => 'Категории: Изменить тип';
 
   @override
-  String get hkActionDataSelectionClose => 'Данные: Закрыть';
+  String get hkActionDataSelectionClose => 'Курсы валют: Закрыть';
 
   @override
-  String get hkActionDataSelectionAll => 'Данные: Выбрать все';
+  String get hkActionDataSelectionAll => 'Курсы валют: Выбрать все';
 
   @override
-  String get hkActionDataSelectionDelete => 'Данные: Удалить';
+  String get hkActionDataSelectionDelete => 'Курсы валют: Удалить';
 
   @override
-  String get hkActionDataSelectionChangePreset => 'Данные: Изменить пресет';
+  String get hkActionDataSelectionChangePreset => 'Курсы валют: Изменить пресет';
+
+  @override
+  String get hkActionInflationSelectionClose => 'Инфляция: Закрыть';
+
+  @override
+  String get hkActionInflationSelectionAll => 'Инфляция: Выбрать все';
+
+  @override
+  String get hkActionInflationSelectionDelete => 'Инфляция: Удалить';
+
+  @override
+  String get hkActionAssetSelectionClose => 'Активы: Закрыть';
+
+  @override
+  String get hkActionAssetSelectionAll => 'Активы: Выбрать все';
+
+  @override
+  String get hkActionAssetSelectionDelete => 'Активы: Удалить';
 
   @override
   String get styNotFound => 'Стиль не найден.';

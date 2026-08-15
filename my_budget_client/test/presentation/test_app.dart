@@ -15,11 +15,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/asset/asset_event.dart';
+import 'package:my_budget_client/presentation/blocs/asset/asset_state.dart';
 import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/exchange_rates/exchange_rates_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/sms/sms_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
@@ -59,6 +63,16 @@ class MockDashboardBloc extends MockBloc<DashboardEvent, DashboardState>
 class MockExchangeRatesBloc
     extends MockBloc<ExchangeRatesEvent, ExchangeRatesState>
     implements ExchangeRatesBloc {}
+
+// Also outside `wrapWithBlocs`, for the same reason as the exchange rates bloc
+// above: the Data screen's two other tabs each build their bloc with
+// `sl<AssetBloc>()` / `sl<InflationBloc>()`, so a provider wrapped around the
+// tab would be ignored and the test has to reach the service locator.
+class MockAssetBloc extends MockBloc<AssetEvent, AssetState>
+    implements AssetBloc {}
+
+class MockInflationBloc extends MockBloc<InflationEvent, InflationState>
+    implements InflationBloc {}
 
 class MockCurrencyConverterBloc
     extends MockBloc<CurrencyConverterEvent, CurrencyConverterState>

@@ -187,8 +187,38 @@ class _InflationTabContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<InflationBloc, InflationState>(
       builder: (context, state) {
+        final bloc = context.read<InflationBloc>();
         return ScreenShortcuts(
-          actions: {'add_action': () => _showAddEditInflationDialog(context)},
+          actions: {
+            'add_action': () => _showAddEditInflationDialog(context),
+            // Screen-agnostic ids, like add_action above: every list screen
+            // carries the same date picker and sort toggle, and only the
+            // focused screen's ScreenShortcuts sees the key event.
+            'pick_date': () => showInflationCalendar(context, state),
+            'sort_order': () => toggleInflationSort(bloc, state),
+            // Selection actions only while the selection bar is on screen.
+            // Off it, "close" would emit a state change nothing asked for and
+            // "select all" would fill a selection the user cannot see.
+            'inflation_selection_close': () {
+              if (state.isSelectionModeActive) {
+                bloc.add(DeselectAllInflationRates());
+              }
+            },
+            'inflation_selection_all': () {
+              if (state.isSelectionModeActive) {
+                toggleInflationSelectAll(bloc, state);
+              }
+            },
+            // The delete button is itself hidden at zero selection, so the
+            // hotkey stays hidden with it rather than opening a dialog that
+            // would delete nothing.
+            'inflation_selection_delete': () {
+              if (state.isSelectionModeActive &&
+                  state.selectedRates.isNotEmpty) {
+                showInflationDeleteConfirmation(context, bloc, state);
+              }
+            },
+          },
           child: Scaffold(
             appBar: InflationTabAppBar(state: state),
             body: InflationView(

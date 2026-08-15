@@ -1796,16 +1796,34 @@ class AppLocalizationsBn extends AppLocalizations {
   String get hkActionCategoriesSelectionChangeType => 'বিভাগ: ধরণ পরিবর্তন';
 
   @override
-  String get hkActionDataSelectionClose => 'তথ্য: বন্ধ';
+  String get hkActionDataSelectionClose => 'বিনিময় হার: বন্ধ';
 
   @override
-  String get hkActionDataSelectionAll => 'তথ্য: সব নির্বাচন';
+  String get hkActionDataSelectionAll => 'বিনিময় হার: সব নির্বাচন';
 
   @override
-  String get hkActionDataSelectionDelete => 'তথ্য: মুছে ফেলুন';
+  String get hkActionDataSelectionDelete => 'বিনিময় হার: মুছে ফেলুন';
 
   @override
-  String get hkActionDataSelectionChangePreset => 'তথ্য: প্রিসেট পরিবর্তন';
+  String get hkActionDataSelectionChangePreset => 'বিনিময় হার: প্রিসেট পরিবর্তন';
+
+  @override
+  String get hkActionInflationSelectionClose => 'মুদ্রাস্ফীতি: বন্ধ';
+
+  @override
+  String get hkActionInflationSelectionAll => 'মুদ্রাস্ফীতি: সব নির্বাচন';
+
+  @override
+  String get hkActionInflationSelectionDelete => 'মুদ্রাস্ফীতি: মুছে ফেলুন';
+
+  @override
+  String get hkActionAssetSelectionClose => 'সম্পদসমূহ: বন্ধ';
+
+  @override
+  String get hkActionAssetSelectionAll => 'সম্পদসমূহ: সব নির্বাচন';
+
+  @override
+  String get hkActionAssetSelectionDelete => 'সম্পদসমূহ: মুছে ফেলুন';
 
   @override
   String get styNotFound => 'শৈলী পাওয়া যায়নি।';

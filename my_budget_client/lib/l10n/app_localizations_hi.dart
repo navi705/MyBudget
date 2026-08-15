@@ -1796,16 +1796,34 @@ class AppLocalizationsHi extends AppLocalizations {
   String get hkActionCategoriesSelectionChangeType => 'श्रेणियां: प्रकार बदलें';
 
   @override
-  String get hkActionDataSelectionClose => 'डेटा: बंद करें';
+  String get hkActionDataSelectionClose => 'विनिमय दरें: बंद करें';
 
   @override
-  String get hkActionDataSelectionAll => 'डेटा: सभी चुनें';
+  String get hkActionDataSelectionAll => 'विनिमय दरें: सभी चुनें';
 
   @override
-  String get hkActionDataSelectionDelete => 'डेटा: हटाएं';
+  String get hkActionDataSelectionDelete => 'विनिमय दरें: हटाएं';
 
   @override
-  String get hkActionDataSelectionChangePreset => 'डेटा: प्रीसेट बदलें';
+  String get hkActionDataSelectionChangePreset => 'विनिमय दरें: प्रीसेट बदलें';
+
+  @override
+  String get hkActionInflationSelectionClose => 'मुद्रास्फीति: बंद करें';
+
+  @override
+  String get hkActionInflationSelectionAll => 'मुद्रास्फीति: सभी चुनें';
+
+  @override
+  String get hkActionInflationSelectionDelete => 'मुद्रास्फीति: हटाएं';
+
+  @override
+  String get hkActionAssetSelectionClose => 'संपत्तियां: बंद करें';
+
+  @override
+  String get hkActionAssetSelectionAll => 'संपत्तियां: सभी चुनें';
+
+  @override
+  String get hkActionAssetSelectionDelete => 'संपत्तियां: हटाएं';
 
   @override
   String get styNotFound => 'शैली नहीं मिली।';

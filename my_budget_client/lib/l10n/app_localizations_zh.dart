@@ -1796,16 +1796,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hkActionCategoriesSelectionChangeType => '分类: 更改类型';
 
   @override
-  String get hkActionDataSelectionClose => '数据: 关闭';
+  String get hkActionDataSelectionClose => '汇率: 关闭';
 
   @override
-  String get hkActionDataSelectionAll => '数据: 全选';
+  String get hkActionDataSelectionAll => '汇率: 全选';
 
   @override
-  String get hkActionDataSelectionDelete => '数据: 删除';
+  String get hkActionDataSelectionDelete => '汇率: 删除';
 
   @override
-  String get hkActionDataSelectionChangePreset => '数据: 更改预设';
+  String get hkActionDataSelectionChangePreset => '汇率: 更改预设';
+
+  @override
+  String get hkActionInflationSelectionClose => '通胀: 关闭';
+
+  @override
+  String get hkActionInflationSelectionAll => '通胀: 全选';
+
+  @override
+  String get hkActionInflationSelectionDelete => '通胀: 删除';
+
+  @override
+  String get hkActionAssetSelectionClose => '资产: 关闭';
+
+  @override
+  String get hkActionAssetSelectionAll => '资产: 全选';
+
+  @override
+  String get hkActionAssetSelectionDelete => '资产: 删除';
 
   @override
   String get styNotFound => '未找到样式。';

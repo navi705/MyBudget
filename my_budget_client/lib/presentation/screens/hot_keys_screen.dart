@@ -171,6 +171,34 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
                   'id': 'exchange_rates_selection_change_preset',
                   'label': context.l10n.hkActionDataSelectionChangePreset,
                 },
+                // The Data screen holds three tabs, and each of the other two
+                // carries its own selection bar with a close, a select-all and
+                // a delete. Only the focused tab answers, so the ids stay
+                // separate while the keys can be bound to the same stroke.
+                {
+                  'id': 'inflation_selection_close',
+                  'label': context.l10n.hkActionInflationSelectionClose,
+                },
+                {
+                  'id': 'inflation_selection_all',
+                  'label': context.l10n.hkActionInflationSelectionAll,
+                },
+                {
+                  'id': 'inflation_selection_delete',
+                  'label': context.l10n.hkActionInflationSelectionDelete,
+                },
+                {
+                  'id': 'asset_selection_close',
+                  'label': context.l10n.hkActionAssetSelectionClose,
+                },
+                {
+                  'id': 'asset_selection_all',
+                  'label': context.l10n.hkActionAssetSelectionAll,
+                },
+                {
+                  'id': 'asset_selection_delete',
+                  'label': context.l10n.hkActionAssetSelectionDelete,
+                },
               ],
             };
 

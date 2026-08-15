@@ -1796,16 +1796,34 @@ class AppLocalizationsEs extends AppLocalizations {
   String get hkActionCategoriesSelectionChangeType => 'Categorías: Cambiar Tipo';
 
   @override
-  String get hkActionDataSelectionClose => 'Datos: Cerrar';
+  String get hkActionDataSelectionClose => 'Tipos de Cambio: Cerrar';
 
   @override
-  String get hkActionDataSelectionAll => 'Datos: Seleccionar Todo';
+  String get hkActionDataSelectionAll => 'Tipos de Cambio: Seleccionar Todo';
 
   @override
-  String get hkActionDataSelectionDelete => 'Datos: Eliminar';
+  String get hkActionDataSelectionDelete => 'Tipos de Cambio: Eliminar';
 
   @override
-  String get hkActionDataSelectionChangePreset => 'Datos: Cambiar Preajuste';
+  String get hkActionDataSelectionChangePreset => 'Tipos de Cambio: Cambiar Preajuste';
+
+  @override
+  String get hkActionInflationSelectionClose => 'Inflación: Cerrar';
+
+  @override
+  String get hkActionInflationSelectionAll => 'Inflación: Seleccionar Todo';
+
+  @override
+  String get hkActionInflationSelectionDelete => 'Inflación: Eliminar';
+
+  @override
+  String get hkActionAssetSelectionClose => 'Activos: Cerrar';
+
+  @override
+  String get hkActionAssetSelectionAll => 'Activos: Seleccionar Todo';
+
+  @override
+  String get hkActionAssetSelectionDelete => 'Activos: Eliminar';
 
   @override
   String get styNotFound => 'Estilo no encontrado.';

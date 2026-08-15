@@ -72,9 +72,7 @@ class _AssetTabContent extends StatelessWidget {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: Text(
-            asset == null ? l10n.assetAddTitle : l10n.assetEditTitle,
-          ),
+          title: Text(asset == null ? l10n.assetAddTitle : l10n.assetEditTitle),
           content: SingleChildScrollView(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 250),
@@ -242,8 +240,35 @@ class _AssetTabContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AssetBloc, AssetState>(
       builder: (context, state) {
+        final bloc = context.read<AssetBloc>();
         return ScreenShortcuts(
-          actions: {'add_action': () => _showAddEditAssetDialog(context)},
+          actions: {
+            'add_action': () => _showAddEditAssetDialog(context),
+            // Screen-agnostic ids, like add_action above: every list screen
+            // carries the same date picker and sort toggle, and only the
+            // focused screen's ScreenShortcuts sees the key event.
+            'pick_date': () => showAssetCalendar(context, state),
+            'sort_order': () => toggleAssetSort(bloc, state),
+            // Selection actions only while the selection bar is on screen.
+            // Off it, "close" would emit a state change nothing asked for and
+            // "select all" would fill a selection the user cannot see.
+            'asset_selection_close': () {
+              if (state.isSelectionModeActive) bloc.add(DeselectAllAssets());
+            },
+            'asset_selection_all': () {
+              if (state.isSelectionModeActive)
+                toggleAssetSelectAll(bloc, state);
+            },
+            // The delete button is itself hidden at zero selection, so the
+            // hotkey stays hidden with it rather than opening a dialog that
+            // would delete nothing.
+            'asset_selection_delete': () {
+              if (state.isSelectionModeActive &&
+                  state.selectedAssets.isNotEmpty) {
+                showAssetDeleteConfirmation(context, bloc, state);
+              }
+            },
+          },
           child: Scaffold(
             appBar: AssetTabAppBar(state: state),
             body: AssetView(

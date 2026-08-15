@@ -1796,16 +1796,34 @@ class AppLocalizationsAr extends AppLocalizations {
   String get hkActionCategoriesSelectionChangeType => 'الفئات: تغيير النوع';
 
   @override
-  String get hkActionDataSelectionClose => 'البيانات: إغلاق';
+  String get hkActionDataSelectionClose => 'أسعار الصرف: إغلاق';
 
   @override
-  String get hkActionDataSelectionAll => 'البيانات: تحديد الكل';
+  String get hkActionDataSelectionAll => 'أسعار الصرف: تحديد الكل';
 
   @override
-  String get hkActionDataSelectionDelete => 'البيانات: حذف';
+  String get hkActionDataSelectionDelete => 'أسعار الصرف: حذف';
 
   @override
-  String get hkActionDataSelectionChangePreset => 'البيانات: تغيير النموذج';
+  String get hkActionDataSelectionChangePreset => 'أسعار الصرف: تغيير النموذج';
+
+  @override
+  String get hkActionInflationSelectionClose => 'التضخم: إغلاق';
+
+  @override
+  String get hkActionInflationSelectionAll => 'التضخم: تحديد الكل';
+
+  @override
+  String get hkActionInflationSelectionDelete => 'التضخم: حذف';
+
+  @override
+  String get hkActionAssetSelectionClose => 'الأصول: إغلاق';
+
+  @override
+  String get hkActionAssetSelectionAll => 'الأصول: تحديد الكل';
+
+  @override
+  String get hkActionAssetSelectionDelete => 'الأصول: حذف';
 
   @override
   String get styNotFound => 'لم يتم العثور على النمط.';
