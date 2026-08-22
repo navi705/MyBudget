@@ -125,22 +125,36 @@ DateTime? _accountCreationDate(Map<String, dynamic> row) {
 /// Null in, null out — a NULL amount/rate/fee must stay NULL rather than
 /// becoming 0.0, which would silently rewrite the value on every device.
 ///
-/// Values under [_roundingFloor] are passed through untouched. `toStringAsFixed(8)`
-/// cannot represent them at all: an exchange rate of 2.4e-10 — a real figure for a
-/// hyperinflated currency priced against BTC — renders as `0.00000000` and parses
-/// back as exactly 0.0, which then divides into infinity on the far side. Mirrors
-/// `ServerSyncService._round` on the client, so both ends of a round trip agree.
+/// Significant digits, not decimal places. This used to be
+/// `toStringAsFixed(8)` behind a `< 1e-8` guard, which measures precision from
+/// the decimal point instead of from the number, so a value's own magnitude
+/// decided how much of it survived: an exchange rate of 3.7e-8 was stored as
+/// 4e-8 and a crypto `assetQuantity` of 1.5e-8 as 1e-8, while 9e-9 — being
+/// under the guard — went in untouched. The rule was backwards for exactly
+/// the values it was written to protect.
+///
+/// The client's `ServerSyncService._round` was fixed the same way and the
+/// peer-to-peer engine ships these verbatim, so leaving this half behind meant
+/// a device syncing over both paths flip-flopped between two answers forever.
+/// Both ends of a round trip have to agree, which is why the digit count here
+/// matches the client's.
+///
+/// Twelve digits is comfortably inside a double's 15-17, so this erases the
+/// noise two different computations of the same number disagree in and nothing
+/// else, at any magnitude. `toStringAsPrecision` switches to exponent form
+/// where it has to, which `double.parse` reads back exactly.
 double? _round(dynamic value) {
   if (value == null) return null;
   final numVal = value is num ? value : num.tryParse(value.toString());
   if (numVal == null) return null;
   final asDouble = numVal.toDouble();
-  if (asDouble == 0 || asDouble.abs() < _roundingFloor) return asDouble;
-  return double.parse(asDouble.toStringAsFixed(8));
+  if (asDouble == 0 || !asDouble.isFinite) return asDouble;
+  return double.parse(asDouble.toStringAsPrecision(_significantDigits));
 }
 
-/// The smallest magnitude `toStringAsFixed(8)` can still represent.
-const double _roundingFloor = 1e-8;
+/// How much of a double is signal. The last three to five digits of a 64-bit
+/// float are where two routes to the same value differ.
+const int _significantDigits = 12;
 
 /// Exact integer minor units (cents) for fiat money.
 ///
@@ -285,6 +299,11 @@ class SyncRepository {
         _cRaw('description', 'description'),
         _cNum('balance', 'balance'),
         _cMinor('balance_minor', 'balanceMinor'),
+        // The anchor the receiving client rebuilds `balance` from. It is the
+        // one number here that no client can re-derive without guessing, so a
+        // push that carries it must not lose it in transit.
+        _cNum('opening_balance', 'openingBalance'),
+        _cMinor('opening_balance_minor', 'openingBalanceMinor'),
         _cRaw('currency_code', 'currencyCode'),
         _cRaw('currency_designation_id', 'currencyDesignationId'),
         _cRaw('style_id', 'styleId'),
@@ -660,17 +679,53 @@ class SyncRepository {
 
     // Only the columns this push carried are assigned on conflict. The
     // primary key is excluded because it is what matched.
-    final assignments = rows.first
-        .where((b) => !spec.conflictColumns.contains(b.column))
-        .map((b) => '${b.column} = EXCLUDED.${b.column}')
+    //
+    // The last-write-wins test sits inside each assignment rather than in a
+    // WHERE on the statement, so a row that loses is still written - to the
+    // value it already held. That looks pointless and is the whole fix: the
+    // `server_seq` trigger fires on any UPDATE, so a losing push moves the row
+    // to the head of the change log and the device that lost hears the winning
+    // version on its very next pull.
+    //
+    // With the guard in a WHERE no UPDATE happened, `server_seq` never moved,
+    // and the loser had already pulled past that row - so nothing would ever
+    // hand it the truth again. It kept its own version forever while every
+    // other device showed the winner's, and no later sync could repair it
+    // because there was nothing left to send. Not an exotic case: two devices
+    // editing one row offline and the older-stamped one pushing second is an
+    // ordinary Tuesday.
+    //
+    // The cost is a row rewrite and one change-log entry per losing push. The
+    // devices that pull it find their copy already identical, and the client
+    // drops the queue entries its own pull raised, so this settles in one
+    // round rather than echoing.
+    final guard = _lastWriteWins(table);
+    final assigned =
+        rows.first.where((b) => !spec.conflictColumns.contains(b.column));
+    final assignments = assigned
+        .map((b) => '${b.column} = CASE WHEN $guard '
+            'THEN EXCLUDED.${b.column} ELSE $table.${b.column} END')
         .join(',\n        ');
+
+    // A losing push is written; a losing push that agrees with the row it lost
+    // to is not. Without the second half, re-pushing a table a device already
+    // agrees with - the ~283 000 seeded exchange rates after a repair step,
+    // say - would stamp a new `server_seq` on every one of them and make every
+    // other device download the whole table back for nothing.
+    //
+    // IS DISTINCT FROM rather than <>, because <> is NULL the moment either
+    // side is, and a NULL column that has not changed would then read as a
+    // difference on every single push.
+    final differs = assigned
+        .map((b) => '$table.${b.column} IS DISTINCT FROM EXCLUDED.${b.column}')
+        .join(' OR ');
 
     return '''
       INSERT INTO $table ($columns)
       VALUES $values
       ON CONFLICT (${spec.conflictColumns.join(', ')}) DO UPDATE SET
         $assignments
-      WHERE ${_lastWriteWins(table)}
+      WHERE ($guard) OR ($differs)
     ''';
   }
 
@@ -728,6 +783,8 @@ class SyncRepository {
       },
       'accounts': {
         'balance_minor': 'balanceMinor',
+        'opening_balance': 'openingBalance',
+        'opening_balance_minor': 'openingBalanceMinor',
         'currency_code': 'currencyCode',
         'currency_designation_id': 'currencyDesignationId',
         'account_type_id': 'accountTypeId',

@@ -105,6 +105,19 @@ class _ExecuteRecorder {
       calls.indexWhere((call) => call.containsKey(key));
 }
 
+/// Matches an upsert whose ON CONFLICT clause writes [column].
+///
+/// The assignment is `column = CASE WHEN <last-write-wins> THEN EXCLUDED.column
+/// ELSE table.column END` rather than a bare `column = EXCLUDED.column`: the
+/// guard moved out of the statement's WHERE and into every assignment so that a
+/// losing push still rewrites the row, bumps `server_seq` and thereby hands the
+/// winning version back to the device that lost. Both halves are checked here,
+/// because a CASE that never names EXCLUDED writes nothing at all.
+Matcher assigns(String column) => allOf(
+      contains('$column = CASE WHEN '),
+      contains('THEN EXCLUDED.$column '),
+    );
+
 void main() {
   late _MockDatabaseClient dbClient;
   late _MockPool pool;
@@ -179,11 +192,13 @@ void main() {
   Map<String, dynamic> accountRow({
     Object? balanceMinor = 10000,
     Object? creationDate = '2024-01-01T00:00:00.000',
+    Object? balance = 100.0,
+    Object? assetQuantity,
   }) => {
     'id': 'a1',
     'name': 'Main',
     'description': null,
-    'balance': 100.0,
+    'balance': balance,
     'balanceMinor': balanceMinor,
     'currencyCode': 'EUR',
     'currencyDesignationId': 'd1',
@@ -192,7 +207,7 @@ void main() {
     'creationDate': creationDate,
     'country': null,
     'assetId': null,
-    'assetQuantity': null,
+    'assetQuantity': assetQuantity,
     'feeStructure': null,
     'modifiedAt': 1700000000000,
     'deviceId': 'dev-1',
@@ -242,6 +257,68 @@ void main() {
       expect(recorder.calls.first.containsKey('lockId'), isTrue,
           reason: 'the lock must be held before the first write, not after');
       expect(recorder.writes, isNotEmpty);
+    });
+  });
+
+  group('the opening balance crosses the wire', () {
+    // Every client throws away the balance it is sent and rebuilds it from
+    // this anchor plus the transactions it holds, because balances merge as
+    // scalars while transactions merge as a set. The anchor was the one number
+    // on an account that nothing could re-derive, and this server dropped it:
+    // it was absent from the column list on the way in and from the pull's
+    // column map on the way out. A receiver with no anchor works one out from
+    // whatever balance it happens to hold, so two devices that each spent from
+    // the same account before syncing both derived an anchor inflated by the
+    // spend they had not seen yet, then rebuilt a balance that matched it. The
+    // account was wrong on both devices, consistently, forever.
+    test('a pushed anchor is bound, not dropped', () async {
+      await repository.upsertBatch({
+        'accounts': [
+          {...accountRow(), 'openingBalance': 250.5, 'openingBalanceMinor': 25050},
+        ],
+      });
+
+      final params = recorder.withKey('balanceMinor')!;
+      expect(params['openingBalance'], 250.5);
+      expect(params['openingBalanceMinor'], 25050);
+    });
+
+    test('and is written on conflict, not only on insert', () async {
+      await repository.upsertBatch({
+        'accounts': [
+          {...accountRow(), 'openingBalance': 250.5, 'openingBalanceMinor': 25050},
+        ],
+      });
+
+      final sql = recorder.sqlWithKey('balanceMinor');
+      expect(sql, contains('opening_balance'));
+      expect(sql, contains('opening_balance_minor'));
+    });
+
+    test('a client that has never heard of the anchor still pushes', () async {
+      // The presence rule, on the column that most needs it: an older client
+      // sends no anchor at all, and binding NULL for it would erase the one
+      // the fleet had already agreed on.
+      await repository.upsertBatch({'accounts': [accountRow()]});
+
+      final params = recorder.withKey('balanceMinor')!;
+      expect(params.containsKey('openingBalance'), isFalse);
+      expect(recorder.sqlWithKey('balanceMinor'), isNot(contains('opening_balance')));
+    });
+
+    test('an anchor explicitly sent as null is a real clear', () async {
+      // NULL is the wire's word for "this sender has no anchor", and the
+      // receiver reads it as such. It is not the same as saying nothing.
+      await repository.upsertBatch({
+        'accounts': [
+          {...accountRow(), 'openingBalance': null, 'openingBalanceMinor': null},
+        ],
+      });
+
+      final params = recorder.withKey('balanceMinor')!;
+      expect(params.containsKey('openingBalance'), isTrue);
+      expect(params['openingBalance'], isNull);
+      expect(params['openingBalanceMinor'], isNull);
     });
   });
 
@@ -464,6 +541,36 @@ void main() {
 
       expect(result.lastTimestamp, 42);
       expect(result.changes['categories']!.single['id'], 'late');
+    });
+
+    test('the anchor comes back under the name the client reads it by',
+        () async {
+      // `SELECT *` returns every column, and a column the map does not name is
+      // handed on under its raw snake_case key. So the anchor did reach the
+      // client - as `opening_balance`, which nothing on the client reads -
+      // and every pulled account looked anchorless. Being absent from the map
+      // is not a no-op here; it is the bug.
+      answerPages([
+        const [],
+        const [],
+        [
+          {
+            'id': 'a1',
+            'balance': 90.0,
+            'opening_balance': 100.0,
+            'opening_balance_minor': 10000,
+            'modified_at': 1,
+            'server_seq': 5,
+          },
+        ],
+      ]);
+
+      final result = await repository.getChanges(0, limit: 100);
+
+      final account = result.changes['accounts']!.single;
+      expect(account['openingBalance'], 100.0);
+      expect(account['openingBalanceMinor'], 10000);
+      expect(account.containsKey('opening_balance'), isFalse);
     });
 
     test('a truncated table pins the cursor for every table', () async {
@@ -780,7 +887,7 @@ void main() {
       expect(sql, isNot(contains('fee_minor')));
       // Everything the push did carry is still written, so this is not
       // "an old client's pushes get ignored".
-      expect(sql, contains('description = EXCLUDED.description'));
+      expect(sql, assigns('description'));
     });
 
     test('an explicit null still clears the column', () async {
@@ -797,7 +904,7 @@ void main() {
       expect(params['amountMinor'], isNull);
       expect(
         recorder.sqlWithKey('amountMinor'),
-        contains('amount_minor = EXCLUDED.amount_minor'),
+        assigns('amount_minor'),
       );
     });
 
@@ -839,7 +946,7 @@ void main() {
 
       expect(
         recorder.sqlWithKey('id'),
-        contains('is_deleted = EXCLUDED.is_deleted'),
+        assigns('is_deleted'),
       );
     });
 
@@ -896,7 +1003,7 @@ void main() {
       expect(params['isDeleted'], isTrue);
       expect(
         recorder.sqlWithKey('autoFetch'),
-        contains('is_deleted = EXCLUDED.is_deleted'),
+        assigns('is_deleted'),
       );
     });
   });
@@ -944,7 +1051,128 @@ void main() {
     });
   });
 
-  group('a rate too small for eight decimals survives the round trip', () {
+  group('a push that loses still moves the change log', () {
+    // The bug this shape exists for: the guard used to be a WHERE on the
+    // statement, so a row that lost last-write-wins was simply not written.
+    // No UPDATE meant no `server_seq` bump, and the device that lost had
+    // already pulled past that row - so it kept its own version of it forever
+    // while every other device showed the winner's, with nothing left in the
+    // log that could ever repair it.
+
+    test('losing no longer means not being written', () async {
+      await repository.upsertBatch({
+        'accounts': [accountRow()],
+      });
+
+      final sql = recorder.sqlWithKey('balanceMinor')!;
+      expect(sql, contains('ON CONFLICT'));
+      // The statement still has a WHERE, but it no longer asks who won: it
+      // asks whether there is anything to say. A row that lost and disagrees
+      // is written - to the value it lost to - so that `server_seq` moves and
+      // the loser is handed the winner on its next pull.
+      expect(
+        sql,
+        contains('balance IS DISTINCT FROM EXCLUDED.balance'),
+      );
+      expect(
+        sql,
+        contains('modified_at IS DISTINCT FROM EXCLUDED.modified_at'),
+      );
+    });
+
+    test('a losing push that agrees with the row is skipped', () async {
+      // The other half. A device re-pushing rows it already agrees with -
+      // the ~283 000 seeded exchange rates after a repair step - must not
+      // stamp a new sequence number on each of them and make every other
+      // device re-download the table for nothing.
+      await repository.upsertBatch({
+        'accounts': [accountRow()],
+      });
+
+      final sql = recorder.sqlWithKey('balanceMinor')!;
+      final where = sql.substring(sql.indexOf('WHERE'));
+      expect(where, contains('IS DISTINCT FROM'));
+      // Not <>: that is NULL the moment either side is, so an unchanged NULL
+      // column would read as a difference on every push and nothing would
+      // ever be skipped.
+      expect(where, isNot(contains('<>')));
+    });
+
+    test('a column that loses is written back to the value it had', () async {
+      // The ELSE branch is what makes the write happen at all. Assigning the
+      // column to itself is a real UPDATE in Postgres, and the `server_seq`
+      // trigger fires BEFORE UPDATE on every row, unconditionally.
+      await repository.upsertBatch({
+        'accounts': [accountRow()],
+      });
+
+      final sql = recorder.sqlWithKey('balanceMinor')!;
+      expect(sql, contains('ELSE accounts.name END'));
+      expect(sql, contains('ELSE accounts.balance END'));
+    });
+
+    test('the guard itself is unchanged, only where it is asked', () async {
+      // Same total order as before and the same one all three ends evaluate:
+      // modified_at, then device_id. Moving it must not change who wins.
+      await repository.upsertBatch({
+        'accounts': [accountRow()],
+      });
+
+      final sql = recorder.sqlWithKey('balanceMinor')!;
+      expect(
+        sql,
+        contains('EXCLUDED.modified_at > COALESCE(accounts.modified_at, 0)'),
+      );
+      expect(
+        sql,
+        contains("COALESCE(EXCLUDED.device_id, '') > "
+            "COALESCE(accounts.device_id, '')"),
+      );
+    });
+
+    test('the key columns are still not assigned', () async {
+      // They are what matched; writing them would be a no-op at best and, on
+      // the composite-key tables, a rename at worst.
+      await repository.upsertBatch({
+        'accounts': [accountRow()],
+      });
+
+      final sql = recorder.sqlWithKey('balanceMinor')!;
+      // The eight-space indent every assignment carries, so this does not
+      // match `asset_id` or `style_id`.
+      expect(sql, isNot(contains('        id = ')));
+    });
+
+    test('a composite-key table keeps its key columns out of the SET too',
+        () async {
+      await repository.upsertBatch({
+        'exchange_rates': [
+          {
+            'fromCurrencyCode': 'USD',
+            'toCurrencyCode': 'EUR',
+            'rate': 0.9,
+            'preset': 0,
+            'date': '2026-03-15T00:00:00.000',
+            'modifiedAt': 1700000000000,
+            'deviceId': 'dev-1',
+          },
+        ],
+      });
+
+      final sql = recorder.sqlWithKey('rate')!;
+      expect(sql, assigns('rate'));
+      expect(sql, isNot(contains('        from_currency_code = ')));
+      expect(sql, isNot(contains('        date = ')));
+      expect(sql, isNot(contains('        preset = ')));
+      // And they are not in the difference test either: they are equal by
+      // definition, because they are what the conflict matched on.
+      final where = sql.substring(sql.indexOf('WHERE'));
+      expect(where, isNot(contains('from_currency_code IS DISTINCT FROM')));
+      expect(where, contains('rate IS DISTINCT FROM EXCLUDED.rate'));
+    });
+  });
+
+  group('a rate keeps its precision whatever its magnitude', () {
     /// An exchange_rates row as the client sends it.
     Map<String, dynamic> rateRow(Object? rate) => {
       'fromCurrencyCode': 'BTC',
@@ -977,16 +1205,51 @@ void main() {
       expect(recorder.withKey('rate')!['rate'], -3.5e-12);
     });
 
-    test('an ordinary rate is still normalised to eight decimals', () async {
-      // The floor is an exception for values the format cannot hold, not a
-      // licence to stop rounding: two devices that round differently write
+    test('an ordinary rate is still normalised', () async {
+      // Rounding is not optional: two devices that round differently write
       // different bytes for the same rate and never stop pushing it at each
-      // other.
+      // other. Twelve significant digits, so the last few bits of
+      // floating-point noise go and nothing that was ever typed does.
       await repository.upsertBatch({
-        'exchange_rates': [rateRow(1.234567891234)],
+        'exchange_rates': [rateRow(1.2345678912345678)],
       });
 
-      expect(recorder.withKey('rate')!['rate'], 1.23456789);
+      expect(recorder.withKey('rate')!['rate'], 1.23456789123);
+    });
+
+    test('a rate just above the old eight-decimal floor is not flattened', () async {
+      // The case the old rule got exactly backwards. `toStringAsFixed(8)`
+      // behind a `< 1e-8` guard protected everything below the guard and
+      // mangled everything just above it: this rate came out as 4e-8, a 6%
+      // error, while a rate three times smaller passed through untouched.
+      await repository.upsertBatch({
+        'exchange_rates': [rateRow(3.7e-8)],
+      });
+
+      expect(recorder.withKey('rate')!['rate'], 3.7e-8);
+    });
+
+    test('a fractional crypto holding keeps every digit it was given', () async {
+      // Same defect on the column it costs money on. 1.5e-8 BTC used to be
+      // stored as 1e-8 - a third of the holding gone, silently, on the first
+      // sync.
+      await repository.upsertBatch({
+        'accounts': [accountRow(assetQuantity: 1.5e-8)],
+      });
+
+      expect(recorder.withKey('assetQuantity')!['assetQuantity'], 1.5e-8);
+    });
+
+    test('a large balance does not gain digits it never had', () async {
+      // The mirror image: at this magnitude eight decimal places is more
+      // precision than a double carries, so the old rule wrote back the noise
+      // instead of erasing it, and the two devices disagreed about a balance
+      // neither of them had changed.
+      await repository.upsertBatch({
+        'accounts': [accountRow(balance: 1234567.89)],
+      });
+
+      expect(recorder.withKey('balance')!['balance'], 1234567.89);
     });
 
     test('a null rate is still null', () async {

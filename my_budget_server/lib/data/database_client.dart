@@ -135,8 +135,10 @@ class DatabaseClient {
         id TEXT PRIMARY KEY,
         name TEXT,
         description TEXT,
-        balance REAL,
+        balance DOUBLE PRECISION,
         balance_minor BIGINT,
+        opening_balance DOUBLE PRECISION,
+        opening_balance_minor BIGINT,
         currency_code TEXT,
         currency_designation_id TEXT REFERENCES currency_designations(id),
         style_id TEXT REFERENCES styles(id),
@@ -144,7 +146,7 @@ class DatabaseClient {
         creation_date TIMESTAMP,
         country TEXT,
         asset_id TEXT,
-        asset_quantity REAL DEFAULT 0.0,
+        asset_quantity DOUBLE PRECISION DEFAULT 0.0,
         fee_structure TEXT,
         modified_at BIGINT DEFAULT 0,
         device_id TEXT,
@@ -156,15 +158,15 @@ class DatabaseClient {
       CREATE TABLE IF NOT EXISTS transactions (
         id TEXT PRIMARY KEY,
         description TEXT,
-        amount REAL,
+        amount DOUBLE PRECISION,
         amount_minor BIGINT,
         date TIMESTAMP,
         account_id TEXT REFERENCES accounts(id),
         category_id TEXT REFERENCES categories(id),
         currency_code TEXT,
-        exchange_rate REAL,
+        exchange_rate DOUBLE PRECISION,
         exchange_rate_preset INTEGER,
-        fee REAL,
+        fee DOUBLE PRECISION,
         fee_minor BIGINT,
         linked_transaction_id TEXT,
         modified_at BIGINT DEFAULT 0,
@@ -174,8 +176,8 @@ class DatabaseClient {
     ''');
 
       // Exact integer minor units for fiat money. Nullable on purpose: NULL
-      // means the row is not fiat (crypto/commodity) and the REAL column is
-      // authoritative, so these must never default to 0.
+      // means the row is not fiat (crypto/commodity) and the floating-point
+      // column is authoritative, so these must never default to 0.
       await _pool.execute(
           'ALTER TABLE accounts ADD COLUMN IF NOT EXISTS balance_minor BIGINT');
       await _pool.execute(
@@ -183,14 +185,45 @@ class DatabaseClient {
       await _pool.execute(
           'ALTER TABLE transactions ADD COLUMN IF NOT EXISTS fee_minor BIGINT');
 
+      // The balance an account held before its first transaction, and the one
+      // number on an account row that is not derivable from anything else.
+      //
+      // Every client rebuilds `balance` from this anchor plus the transactions
+      // it holds, deliberately throwing away the balance it was sent: balances
+      // merge as scalars while transactions merge as a set, so an accepted
+      // balance leaves whichever device pushed last dictating a number the
+      // merged set does not add up to. That rebuild is only as good as the
+      // anchor, and the anchor never crossed this server - the columns did not
+      // exist, so the two values the client pushed were dropped on the floor.
+      //
+      // A receiver with no anchor works one out from the balance it happens to
+      // hold at that moment. Two devices spending from the same account before
+      // either syncs both hold a balance carrying one spend and not the other,
+      // so both derived an anchor inflated by the spend they were missing, and
+      // then rebuilt a balance that agreed with it. Nothing about the result
+      // is inconsistent, which is why nothing later repaired it: the account
+      // was simply wrong, on every device, permanently. The peer-to-peer sync
+      // path has carried both values from the start.
+      //
+      // Left NULL for rows already stored rather than backfilled from
+      // `balance`: the stored balance is the sum of an unknown set of
+      // transactions, so writing it here would invent an anchor instead of
+      // waiting for the device that owns the account to push the real one.
+      // NULL is already the wire's word for "sender has no anchor", and every
+      // client handles it.
+      await _pool.execute('ALTER TABLE accounts '
+          'ADD COLUMN IF NOT EXISTS opening_balance DOUBLE PRECISION');
+      await _pool.execute('ALTER TABLE accounts '
+          'ADD COLUMN IF NOT EXISTS opening_balance_minor BIGINT');
+
       await _pool.execute('''
       CREATE TABLE IF NOT EXISTS asset_entries (
         id TEXT PRIMARY KEY,
         asset_id TEXT,
         name TEXT,
         date TIMESTAMP,
-        value REAL,
-        quantity REAL DEFAULT 1.0,
+        value DOUBLE PRECISION,
+        quantity DOUBLE PRECISION DEFAULT 1.0,
         asset_type TEXT,
         description TEXT,
         currency_code TEXT,
@@ -234,7 +267,7 @@ class DatabaseClient {
       CREATE TABLE IF NOT EXISTS exchange_rates (
         from_currency_code TEXT,
         to_currency_code TEXT,
-        rate REAL,
+        rate DOUBLE PRECISION,
         preset INTEGER,
         date TIMESTAMP,
         modified_at BIGINT DEFAULT 0,
@@ -247,7 +280,7 @@ class DatabaseClient {
       await _pool.execute('''
       CREATE TABLE IF NOT EXISTS inflation_rates (
         date TIMESTAMP,
-        percent REAL,
+        percent DOUBLE PRECISION,
         country TEXT,
         preset INTEGER,
         modified_at BIGINT DEFAULT 0,
@@ -266,11 +299,11 @@ class DatabaseClient {
         surface_color_hex TEXT,
         background_color_hex TEXT,
         background_image_path TEXT,
-        background_image_opacity REAL DEFAULT 1.0,
-        background_image_blur REAL DEFAULT 0.0,
+        background_image_opacity DOUBLE PRECISION DEFAULT 1.0,
+        background_image_blur DOUBLE PRECISION DEFAULT 0.0,
         window_effect_type INTEGER,
-        effect_opacity REAL DEFAULT 1.0,
-        surface_opacity REAL DEFAULT 1.0,
+        effect_opacity DOUBLE PRECISION DEFAULT 1.0,
+        surface_opacity DOUBLE PRECISION DEFAULT 1.0,
         theme_mode INTEGER,
         is_preset BOOLEAN DEFAULT FALSE,
         is_active BOOLEAN DEFAULT FALSE,
@@ -318,6 +351,8 @@ class DatabaseClient {
           'ALTER TABLE api_settings ADD COLUMN IF NOT EXISTS is_deleted '
           'BOOLEAN DEFAULT FALSE');
 
+      await _ensureWideFloats();
+
       await _ensureServerSeq();
 
       print('[DB] Schema initialization completed successfully.');
@@ -347,6 +382,49 @@ class DatabaseClient {
     'custom_data_sources',
     'api_settings',
   ];
+
+
+  /// Widens every 32-bit float column on a synced table to 64 bits.
+  ///
+  /// Postgres `REAL` is float4: about seven significant digits. Both clients
+  /// hold these values as Dart doubles and SQLite stores them as 8-byte
+  /// floats, so the server was the one narrow link in the chain, and it
+  /// narrowed silently. A balance of -1234567.89 pushed by one device came
+  /// back to the other as -1234567.875, and since neither row is newer than
+  /// the other under last-write-wins, the two devices then disagreed about
+  /// that account forever with nothing left to re-sync. Values outside the
+  /// float4 range were worse: Postgres raised 22003, the whole push failed,
+  /// and a failed push deliberately keeps its queue - so that device retried
+  /// the same doomed batch every five minutes.
+  ///
+  /// Widening is lossless for what is already stored; it cannot recover the
+  /// digits an earlier write threw away. Those rows heal the next time the
+  /// device that owns them edits them.
+  ///
+  /// Guarded on the catalogue rather than run unconditionally: `ALTER COLUMN
+  /// TYPE` rewrites the whole table, and this runs on every boot.
+  Future<void> _ensureWideFloats() async {
+    final tables = syncedTables.map((t) => "'$t'").join(', ');
+    await _pool.execute('''
+      DO \$\$
+      DECLARE
+        target RECORD;
+      BEGIN
+        FOR target IN
+          SELECT table_name, column_name
+          FROM information_schema.columns
+          WHERE table_schema = current_schema()
+            AND data_type = 'real'
+            AND table_name IN ($tables)
+        LOOP
+          EXECUTE format(
+            'ALTER TABLE %I ALTER COLUMN %I TYPE DOUBLE PRECISION',
+            target.table_name, target.column_name);
+        END LOOP;
+      END
+      \$\$;
+    ''');
+  }
 
   /// Gives every synced row a server-assigned position in one global order.
   ///

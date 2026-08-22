@@ -155,5 +155,73 @@ void main() {
       expect(response.statusCode, HttpStatus.internalServerError);
       verifyNever(() => repo.upsertBatch(any()));
     });
+
+    test('a table whose value is not a list is a bad request, not a crash',
+        () async {
+      // upsertBatch casts each value to List. Before this check, a body like
+      // this reached that cast and came back as a 500 with a stack trace in
+      // the log - and a client that reads 5xx as "the server is having a
+      // moment" retries the same malformed body on a timer forever.
+      for (final body in const <Object>[
+        {'transactions': 5},
+        {'accounts': 'nope'},
+        {'settings': <String, dynamic>{}},
+        {'categories': null},
+      ]) {
+        final (response, _) = await call(contextFor(post(body)));
+
+        expect(response.statusCode, HttpStatus.badRequest, reason: '$body');
+        expect(await response.body(), contains('list of rows'));
+      }
+      verifyNever(() => repo.upsertBatch(any()));
+    });
+
+    test('a row that is not an object is a bad request too', () async {
+      final (response, _) = await call(
+        contextFor(post({
+          'accounts': [
+            {'id': 'a1'},
+            'not a row',
+          ],
+        })),
+      );
+
+      expect(response.statusCode, HttpStatus.badRequest);
+      expect(await response.body(), contains('must be an object'));
+      // Rejected whole: the good row must not land on its own, or the client
+      // drains its queue for rows the server never took.
+      verifyNever(() => repo.upsertBatch(any()));
+    });
+
+    test('an empty list for a table is accepted', () async {
+      // What the client sends for a table with nothing queued. Rejecting it
+      // would break every ordinary push.
+      final (response, _) = await call(
+        contextFor(post({'accounts': <Object>[], 'transactions': <Object>[]})),
+      );
+
+      expect(response.statusCode, HttpStatus.ok);
+      verify(() => repo.upsertBatch(any())).called(1);
+    });
+
+    test('an unknown table name is still accepted', () async {
+      // upsertBatch walks its own allow-list and ignores anything else, so an
+      // unexpected key means a newer client talking to an older server. That
+      // has to keep working - the rest of its batch is valid.
+      final (response, _) = await call(
+        contextFor(post({
+          'transactions': [
+            {'id': 't1'},
+          ],
+          'a_table_this_server_has_never_heard_of': [
+            {'id': 'x'},
+          ],
+        })),
+      );
+
+      expect(response.statusCode, HttpStatus.ok);
+      verify(() => repo.upsertBatch(any())).called(1);
+    });
   });
 }
+
