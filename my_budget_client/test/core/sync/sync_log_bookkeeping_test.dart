@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
+import 'package:my_budget_client/core/sync/sync_binary_format.dart';
 import 'package:my_budget_client/core/sync/sync_service.dart';
 
 /// sync_log export bookkeeping: a row must only be marked exported once its
@@ -35,25 +36,18 @@ void main() {
     await service.startSync(syncFolder.path);
     await service.stopSync();
 
-    // Drain the ambient sync_log backlog left by unconditional DB seeding
-    // (~283k rows, dominated by exchange rates) via raw SQL, not exportNow().
-    // PRODUCTION BUG (see REPORT): SyncService.exportNow() ->
-    // _exportPendingChanges() (sync_service_io.dart:243) always calls
-    // syncLogDao.markExported(pendingChanges.map((e) => e.id).toList())
-    // (app_database.dart:3890), which builds `WHERE id IN (...)` with one
-    // bound SQL variable per pending row. With the full seed backlog
-    // included, that throws SqliteException(1): "too many SQL variables",
-    // which the blanket `catch (e, stack)` in _exportPendingChanges
-    // (sync_service_io.dart:381) silently swallows (debugPrint only, no
-    // rethrow) - AFTER the .sync file has already been written
-    // (sync_service_io.dart:357, which runs before markExported at :361).
-    // So every real exportNow() call in this DB's lifetime writes a correct
-    // file but then fails to mark anything exported, and the backlog only
-    // grows. That is a real, separate bug from what this file's tests are
-    // about (bookkeeping semantics for changes the test itself makes), so
-    // draining the noise here keeps each test's assertions scoped to what
-    // it actually did, without depending on this unrelated crash being
-    // fixed.
+    // Drain the ambient sync_log backlog left by unconditional DB seeding via
+    // raw SQL rather than exportNow(), so each test's assertions cover only
+    // the rows that test wrote.
+    //
+    // This used to carry a note that exportNow() could not drain it at all:
+    // markExported built one `WHERE id IN (...)` over the whole backlog, blew
+    // past SQLite's 999-variable cap, and the blanket catch in
+    // _exportPendingChanges swallowed the exception after the file had already
+    // been written - so nothing was ever marked exported. markExported now
+    // writes in chunks of 500 and that no longer happens; the raw drain stays
+    // because it is faster and because it keeps this file's assertions scoped
+    // to what each test did.
     await db.customStatement(
       'UPDATE sync_log SET exported = 1 WHERE exported = 0',
     );
@@ -218,4 +212,75 @@ void main() {
       expect(pending.single.recordId, 's2');
     },
   );
+
+  // `clearExportedBefore` was written and then never called from anywhere, so
+  // `sync_log` only grew: one row per write, for the life of the install, none
+  // of which anything reads back - `getPendingChanges` asks for
+  // `exported = false`. Settings made it visible, since a filter or a sort
+  // order is rewritten dozens of times in a session, but every table was
+  // feeding a table nothing emptied.
+  Future<int> logRowsFor(String recordId) async {
+    final rows = await (db.select(
+      db.syncLog,
+    )..where((t) => t.recordId.equals(recordId))).get();
+    return rows.length;
+  }
+
+  Future<void> ageLogRowsFor(String recordId, Duration by) => db
+      .customStatement('UPDATE sync_log SET timestamp = ? WHERE record_id = ?', [
+        DateTime.now().subtract(by).millisecondsSinceEpoch,
+        recordId,
+      ]);
+
+  test('an export drops exported rows older than the retention window', () async {
+    await addStyle('old');
+    await service.exportNow();
+    expect(await logRowsFor('old'), 1);
+
+    await ageLogRowsFor('old', const Duration(days: 30));
+
+    await addStyle('new');
+    await service.exportNow();
+
+    expect(
+      await logRowsFor('old'),
+      0,
+      reason: 'nothing reads an exported row once its file has been written',
+    );
+    expect(await logRowsFor('new'), 1);
+  });
+
+  test('a recently exported row is kept', () async {
+    // The window is there to leave a trail worth reading when an export is
+    // being investigated; pruning on the spot would remove it.
+    await addStyle('s1');
+    await service.exportNow();
+
+    await addStyle('s2');
+    await service.exportNow();
+
+    expect(await logRowsFor('s1'), 1);
+    expect(await logRowsFor('s2'), 1);
+  });
+
+  test('an old pending row is carried before it is pruned', () async {
+    // Age alone is not the criterion. A change that has not reached a file yet
+    // still has to be sent, so pruning has to run after the write - a prune
+    // that went first would drop the row and the peer would never see it.
+    await addStyle('s1');
+    await ageLogRowsFor('s1', const Duration(days: 365));
+
+    await service.exportNow();
+
+    final file = (await syncFolder.list().where((e) => e.path.endsWith('.sync')).toList())
+        .single;
+    final packet = SyncBinaryFormat.decode(
+      await File(file.path).readAsBytes(),
+    );
+    expect(
+      packet.changes.map((c) => c.recordId),
+      contains('s1'),
+      reason: 'the row was pending, so this export is what carries it',
+    );
+  });
 }

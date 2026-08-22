@@ -54,9 +54,16 @@ class SyncService {
   Future<int> getIncomingFileCount() async => 0;
 
   /// The count is real even though file sync itself is not available on web:
-  /// the rows are in the same local database, and the server-sync path on this
-  /// platform exports exactly those. Returning 0 here would tell a web user
-  /// their unsynced work had already left the browser.
+  /// the rows are in the same local database, and returning 0 would tell a web
+  /// user their unsynced work had already left the browser.
+  ///
+  /// It does not shrink, though, and it is not what the server path sends.
+  /// Server sync drains `sync_push_queue`, a different table; nothing on web
+  /// ever marks a `sync_log` row exported, because [exportNow] is the only
+  /// thing that does and here it does nothing. The sync screen only reads this
+  /// when server sync is switched off, so what it shows then is "none of this
+  /// is going anywhere", which is true - but it is a running total of local
+  /// writes, not a backlog that any action will clear.
   Future<int> getPendingChangesCount() async {
     final pending = await _db.syncLogDao.getPendingChanges();
     return pending.length;

@@ -959,8 +959,15 @@ void main() {
           .get();
       expect(inflation.single.read<double>('percent'), 2.5);
 
+      // Read per table rather than whole: opening this fixture runs every
+      // step after v13 too, and v15->v16 adds the seeded foreign-key parents
+      // to the same queue. What this test is about is that the entries the
+      // fixture already had come out the other side.
       final queued = await db
-          .customSelect('SELECT record_key FROM sync_push_queue')
+          .customSelect(
+            'SELECT record_key FROM sync_push_queue '
+            "WHERE changed_table_name IN ('exchange_rates', 'inflation_rates')",
+          )
           .get();
       expect(queued.map((r) => r.read<String>('record_key')).toSet(), {
         'USD|EUR|1700000000|0',
@@ -1175,6 +1182,461 @@ void main() {
       final again = AppDatabase.forTesting(NativeDatabase(file));
       await expectLater(again.customSelect('SELECT 1').get(), completes);
       await again.close();
+    });
+  });
+
+  group('v15 -> v16 migration (queues the seeded foreign-key parents)', () {
+    // Same fixture trick as the two groups above: v15 and v16 differ by no
+    // table, no column and no trigger at all - only by which rows sit in
+    // sync_push_queue after a fresh install. So a v15 device is a
+    // current-schema database with those queue entries taken back out and
+    // `user_version` wound back.
+    late File file;
+
+    Future<Set<String>> queuedKeysFor(AppDatabase target, String table) async {
+      final rows = await target
+          .customSelect(
+            'SELECT record_key FROM sync_push_queue '
+            'WHERE changed_table_name = ?',
+            variables: [Variable.withString(table)],
+          )
+          .get();
+      return rows.map((r) => r.read<String>('record_key')).toSet();
+    }
+
+    Future<Set<String>> idsIn(AppDatabase target, String table) async {
+      final rows = await target.customSelect('SELECT id FROM $table').get();
+      return rows.map((r) => r.read<String>('id')).toSet();
+    }
+
+    setUp(() async {
+      file = File('${tempDir.path}/v15.sqlite');
+      if (file.existsSync()) file.deleteSync();
+      final fresh = AppDatabase.forTesting(NativeDatabase(file));
+      await fresh.customSelect('SELECT 1').get();
+      await fresh.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      // What v15's onCreate left behind: the triggers are created after the
+      // bundled seed is written, on purpose, so none of the seeded rows was
+      // ever queued.
+      raw.execute('DELETE FROM sync_push_queue;');
+      raw.execute('PRAGMA user_version = 15;');
+      raw.dispose();
+    });
+
+    test('the v15 fixture is the stuck device this step exists for', () async {
+      // Not a test of the fix - a test that the fixture reproduces the defect,
+      // so the assertions below cannot pass for some unrelated reason. The
+      // server's schema declares real foreign keys into these four tables
+      // (accounts.currency_designation_id, accounts.account_type_id,
+      // accounts.style_id, categories.style_id, transactions.category_id), so
+      // a device that never uploads them gets a 23503 on the first account it
+      // pushes - and a failed push deliberately keeps its queue, so that
+      // device retries the same doomed batch forever.
+      final raw = sqlite3.sqlite3.open(file.path);
+      final queued = raw.select('SELECT record_key FROM sync_push_queue');
+      final designations = raw.select('SELECT id FROM currency_designations');
+      raw.dispose();
+      expect(queued, isEmpty);
+      expect(
+        designations,
+        isNotEmpty,
+        reason: 'the rows exist locally; they just never went up',
+      );
+    });
+
+    test('the upgrade queues every seeded parent', () async {
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      for (final table in syncPushQueueSeedTables) {
+        final ids = await idsIn(db, table);
+        expect(ids, isNotEmpty, reason: '$table is seeded on install');
+        expect(
+          await queuedKeysFor(db, table),
+          ids,
+          reason: 'every $table row the server may point at has to go up',
+        );
+      }
+
+      final version = await db.customSelect('PRAGMA user_version').getSingle();
+      expect(version.data['user_version'], db.schemaVersion);
+      await db.close();
+    });
+
+    test('and queues nothing else', () async {
+      // The reason the triggers are created after the seed in the first place:
+      // the bundled exchange rates are ~283k rows that every install lays down
+      // identically, so uploading them buys nothing and costs a full sync. The
+      // step is a few dozen rows wide by design.
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      final queued = await db
+          .customSelect(
+            'SELECT DISTINCT changed_table_name AS t FROM sync_push_queue',
+          )
+          .get();
+      expect(
+        queued.map((r) => r.read<String>('t')).toSet(),
+        syncPushQueueSeedTables.toSet(),
+      );
+      await db.close();
+    });
+
+    test('a row the device wrote itself is not re-queued', () async {
+      // The queue is "what has not reached the server yet". An upgrade that
+      // swept in rows the device already pushed would re-upload them on every
+      // install, and the step has no way to tell which those are - so it only
+      // ever touches the four seeded tables.
+      final raw = sqlite3.sqlite3.open(file.path);
+      raw.execute(
+        "INSERT INTO accounts (id, name, balance, currency_code, "
+        "currency_designation_id, account_type_id, creation_date, modified_at) "
+        "SELECT 'accOld', 'Already pushed', 0.0, c.currency_code, c.id, "
+        "(SELECT id FROM account_types LIMIT 1), 0, 1 "
+        "FROM currency_designations c LIMIT 1;",
+      );
+      raw.execute('DELETE FROM sync_push_queue;');
+      raw.dispose();
+
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      expect(await queuedKeysFor(db, 'accounts'), isEmpty);
+      expect(await queuedKeysFor(db, 'transactions'), isEmpty);
+      await db.close();
+    });
+
+    test('no seeded row is edited, moved or stamped', () async {
+      // Queueing is a statement about what to send, not a write to the data:
+      // touching `modified_at` here would make these rows win a
+      // last-write-wins race against a peer that had customised them.
+      final before = <String, List<Map<String, Object?>>>{};
+      final raw = sqlite3.sqlite3.open(file.path);
+      for (final table in syncPushQueueSeedTables) {
+        before[table] = raw
+            .select('SELECT * FROM $table ORDER BY id')
+            .map((r) => Map<String, Object?>.from(r))
+            .toList();
+      }
+      raw.dispose();
+
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      await db.close();
+
+      final after = sqlite3.sqlite3.open(file.path);
+      for (final table in syncPushQueueSeedTables) {
+        final rows = after
+            .select('SELECT * FROM $table ORDER BY id')
+            .map((r) => Map<String, Object?>.from(r))
+            .toList();
+        expect(rows, before[table], reason: '$table changed');
+      }
+      after.dispose();
+    });
+
+    test('an upgrade that already ran does not widen the backlog', () async {
+      // Re-runnable like every step before it. A duplicate entry costs one
+      // deduped record key in the next push and nothing else, so what has to
+      // hold is the set of keys - not the row count of the queue.
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      raw.execute('PRAGMA user_version = 15;');
+      raw.dispose();
+
+      final again = AppDatabase.forTesting(NativeDatabase(file));
+      await expectLater(again.customSelect('SELECT 1').get(), completes);
+      for (final table in syncPushQueueSeedTables) {
+        expect(await queuedKeysFor(again, table), await idsIn(again, table));
+      }
+      await again.close();
+    });
+
+    test('a fresh install starts with the same parents queued', () async {
+      // The other half of the fix: the repair step above is for devices that
+      // already exist, and this is what stops the next install from arriving
+      // in the same state.
+      final freshFile = File('${tempDir.path}/fresh_v16.sqlite');
+      final db = AppDatabase.forTesting(NativeDatabase(freshFile));
+      await db.customSelect('SELECT 1').get();
+
+      for (final table in syncPushQueueSeedTables) {
+        expect(await queuedKeysFor(db, table), await idsIn(db, table));
+      }
+      final queued = await db
+          .customSelect(
+            'SELECT DISTINCT changed_table_name AS t FROM sync_push_queue',
+          )
+          .get();
+      expect(
+        queued.map((r) => r.read<String>('t')).toSet(),
+        syncPushQueueSeedTables.toSet(),
+      );
+      await db.close();
+    });
+  });
+
+  group('v16 -> v17 migration (drops the UNIQUE on synced names)', () {
+    // v16 and v17 differ by two constraints, both written inline in CREATE
+    // TABLE, so the fixture is a current-schema database whose `currencies`
+    // and `account_types` tables have been rebuilt with the UNIQUE put back
+    // and `user_version` wound back.
+    late File file;
+
+    /// Rebuilds [table] the way v16 declared it.
+    ///
+    /// The trigger SQL is copied out of `sqlite_master` rather than retyped:
+    /// dropping the table drops its triggers, and a fixture whose triggers
+    /// differ from the ones a real v16 device has would let the migration pass
+    /// here and lose queue entries in the field.
+    void rebuildWithUnique(sqlite3.Database raw, String table) {
+      final triggers = raw
+          .select(
+            "SELECT sql FROM sqlite_master WHERE type = 'trigger' "
+            'AND tbl_name = ?',
+            [table],
+          )
+          .map((r) => r['sql'] as String)
+          .toList();
+      final ddl =
+          raw.select(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' "
+                'AND name = ?',
+                [table],
+              ).single['sql']
+              as String;
+      expect(
+        ddl.contains('"name" TEXT NOT NULL,'),
+        isTrue,
+        reason: 'the shipped $table moved; this fixture no longer builds v16',
+      );
+      final v16Ddl = ddl
+          .replaceFirst('"$table"', '"${table}_v16"')
+          .replaceFirst(
+            '"name" TEXT NOT NULL,',
+            '"name" TEXT NOT NULL UNIQUE,',
+          );
+
+      raw.execute('PRAGMA foreign_keys = OFF;');
+      // Without this, renaming into the name the other tables reference makes
+      // SQLite rewrite their REFERENCES clauses instead of leaving them alone.
+      raw.execute('PRAGMA legacy_alter_table = ON;');
+      raw.execute(v16Ddl);
+      raw.execute('INSERT INTO ${table}_v16 SELECT * FROM $table;');
+      raw.execute('DROP TABLE $table;');
+      raw.execute('ALTER TABLE ${table}_v16 RENAME TO $table;');
+      for (final sql in triggers) {
+        raw.execute(sql);
+      }
+      raw.execute('PRAGMA legacy_alter_table = OFF;');
+    }
+
+    /// The rename that actually broke a pair of devices: `BYR` used to be
+    /// "Belarusian Ruble" and a later seed moved that name to `BYN`.
+    void applyIncomingCurrency(sqlite3.Database raw) {
+      raw.execute(
+        "UPDATE currencies SET name = 'Belarusian Ruble' WHERE code = 'BYR'",
+      );
+    }
+
+    /// The account-type version: a row arrives carrying a name that another id
+    /// already holds, because the user renamed it on the other device.
+    void applyIncomingAccountType(sqlite3.Database raw) {
+      final cash =
+          raw
+                  .select(
+                    "SELECT name FROM account_types WHERE id = "
+                    "'account_type_cash'",
+                  )
+                  .single['name']
+              as String;
+      raw.execute('UPDATE account_types SET name = ? WHERE id = ?', [
+        cash,
+        'account_type_savings',
+      ]);
+    }
+
+    setUp(() async {
+      file = File('${tempDir.path}/v16.sqlite');
+      if (file.existsSync()) file.deleteSync();
+      final fresh = AppDatabase.forTesting(NativeDatabase(file));
+      await fresh.customSelect('SELECT 1').get();
+      await fresh.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      rebuildWithUnique(raw, 'currencies');
+      rebuildWithUnique(raw, 'account_types');
+      raw.execute('PRAGMA user_version = 16;');
+      raw.dispose();
+    });
+
+    test('the v16 fixture is the wedged device this step exists for', () async {
+      // Not a test of the fix - a test that the fixture reproduces the defect.
+      // A device on an older bundled seed pushes BYR under the plain name; the
+      // pull applies every table in one transaction, so this exception rolled
+      // the whole page back and left the cursor where it was. The next sync
+      // asked for the same page. Forever.
+      final raw = sqlite3.sqlite3.open(file.path);
+      final byn = raw.select("SELECT name FROM currencies WHERE code = 'BYN'");
+      expect(
+        byn.single['name'],
+        'Belarusian Ruble',
+        reason: 'the seed this test is about',
+      );
+      final unique = isA<sqlite3.SqliteException>().having(
+        (e) => e.extendedResultCode,
+        'extendedResultCode',
+        2067,
+      );
+      expect(() => applyIncomingCurrency(raw), throwsA(unique));
+      expect(() => applyIncomingAccountType(raw), throwsA(unique));
+      raw.dispose();
+    });
+
+    test('after the upgrade the same rows apply', () async {
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      await db.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      expect(raw.select('PRAGMA user_version').single['user_version'], 17);
+      expect(() => applyIncomingCurrency(raw), returnsNormally);
+      expect(() => applyIncomingAccountType(raw), returnsNormally);
+      final codes = raw
+          .select(
+            "SELECT code FROM currencies WHERE name = 'Belarusian Ruble' "
+            'ORDER BY code',
+          )
+          .map((r) => r['code'])
+          .toList();
+      expect(codes, [
+        'BYN',
+        'BYR',
+      ], reason: 'two codes may carry one label; the key is the code');
+      raw.dispose();
+    });
+
+    test('every row survives the rebuild unchanged', () async {
+      // The tables are dropped and recreated, so this is the step where a
+      // mistake silently empties the currency list - and every account,
+      // transaction and rate points at it.
+      final raw = sqlite3.sqlite3.open(file.path);
+      Map<String, List<Map<String, Object?>>> snapshot(sqlite3.Database db) => {
+        for (final entry in const {
+          'currencies': 'code',
+          'account_types': 'id',
+        }.entries)
+          entry.key: db
+              .select('SELECT * FROM ${entry.key} ORDER BY ${entry.value}')
+              .map((r) => Map<String, Object?>.from(r))
+              .toList(),
+      };
+      final before = snapshot(raw);
+      final childCounts = <String, int>{
+        for (final table in const [
+          'currency_designations',
+          'accounts',
+          'transactions',
+          'exchange_rates',
+          'asset_entries',
+        ])
+          table:
+              raw.select('SELECT COUNT(*) AS c FROM $table').single['c'] as int,
+      };
+      raw.dispose();
+      for (final entry in before.entries) {
+        expect(entry.value, isNotEmpty, reason: '${entry.key} is seeded');
+      }
+
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      await db.close();
+
+      final after = sqlite3.sqlite3.open(file.path);
+      expect(snapshot(after), before);
+      for (final entry in childCounts.entries) {
+        expect(
+          after.select('SELECT COUNT(*) AS c FROM ${entry.key}').single['c'],
+          entry.value,
+          reason: '${entry.key} lost rows to the rebuild',
+        );
+      }
+      // A dangling reference would mean the copy renamed or dropped a key.
+      expect(after.select('PRAGMA foreign_key_check'), isEmpty);
+      after.dispose();
+    });
+
+    test('the push-queue triggers survive the rebuild', () async {
+      // Dropping a table drops its triggers. Without recreating them the app
+      // keeps working and simply stops uploading edits to these tables - which
+      // is invisible until another device is missing them.
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      await db.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      for (final table in const ['currencies', 'account_types']) {
+        expect(
+          raw
+              .select(
+                "SELECT name FROM sqlite_master WHERE type = 'trigger' "
+                'AND tbl_name = ? ORDER BY name',
+                [table],
+              )
+              .map((r) => r['name'])
+              .toList(),
+          ['trg_push_queue_${table}_insert', 'trg_push_queue_${table}_update'],
+        );
+      }
+
+      raw.execute('DELETE FROM sync_push_queue;');
+      applyIncomingCurrency(raw);
+      applyIncomingAccountType(raw);
+      expect(
+        raw
+            .select(
+              'SELECT changed_table_name, record_key FROM sync_push_queue '
+              'ORDER BY changed_table_name',
+            )
+            .map((r) => '${r['changed_table_name']}:${r['record_key']}')
+            .toList(),
+        ['account_types:account_type_savings', 'currencies:BYR'],
+        reason: 'an edit made after the upgrade still has to go up',
+      );
+      raw.dispose();
+    });
+
+    test('an upgrade that already ran is a no-op', () async {
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      await db.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      raw.execute('PRAGMA user_version = 16;');
+      raw.dispose();
+
+      final again = AppDatabase.forTesting(NativeDatabase(file));
+      await expectLater(again.customSelect('SELECT 1').get(), completes);
+      await again.close();
+
+      final check = sqlite3.sqlite3.open(file.path);
+      expect(() => applyIncomingCurrency(check), returnsNormally);
+      expect(() => applyIncomingAccountType(check), returnsNormally);
+      expect(check.select('PRAGMA foreign_key_check'), isEmpty);
+      check.dispose();
+    });
+
+    test('a fresh install has no unique on the names either', () async {
+      // The other half: the step above repairs devices that exist, this is
+      // what stops the next install from arriving in the same state.
+      final freshFile = File('${tempDir.path}/fresh_v17.sqlite');
+      final db = AppDatabase.forTesting(NativeDatabase(freshFile));
+      await db.customSelect('SELECT 1').get();
+      await db.close();
+
+      final raw = sqlite3.sqlite3.open(freshFile.path);
+      expect(() => applyIncomingCurrency(raw), returnsNormally);
+      expect(() => applyIncomingAccountType(raw), returnsNormally);
+      raw.dispose();
     });
   });
 }

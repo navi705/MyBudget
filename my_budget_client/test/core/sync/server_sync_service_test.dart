@@ -87,14 +87,42 @@ void main() {
       return row.read<int>('c');
     }
 
+    /// What a fresh install owes the server before the user has typed
+    /// anything: the seeded rows the server keeps foreign keys into. Every
+    /// test below counts from here rather than from zero, so it stays about
+    /// the row it wrote.
+    late int seeded;
+
+    setUp(() async => seeded = await service.getPendingChangesCount());
+
     test(
-      'is 0 on a fresh database: the bundled seed is not a pending change',
+      'a fresh database owes the seeded parents and nothing else',
       () async {
         // onCreate seeds ~283k exchange rates and then creates the triggers, in
         // that order and deliberately: every install lays down the same rows, so
         // counting them as unsent would put a six-figure backlog in front of a
-        // user who has not typed anything yet.
-        expect(await service.getPendingChangesCount(), 0);
+        // user who has not typed anything yet. The four tables the server holds
+        // foreign keys into are the exception - a few dozen rows that have to
+        // reach the server before the first account can reference them.
+        final parents = await db
+            .customSelect(
+              'SELECT '
+              '(SELECT COUNT(*) FROM styles) + '
+              '(SELECT COUNT(*) FROM account_types) + '
+              '(SELECT COUNT(*) FROM currency_designations) + '
+              '(SELECT COUNT(*) FROM categories) AS c',
+            )
+            .getSingle();
+        expect(seeded, parents.read<int>('c'));
+        expect(seeded, greaterThan(0));
+
+        final rates = await db
+            .customSelect(
+              "SELECT COUNT(*) AS c FROM sync_push_queue "
+              "WHERE changed_table_name = 'exchange_rates'",
+            )
+            .getSingle();
+        expect(rates.read<int>('c'), 0, reason: 'the bulk seed stays home');
       },
     );
 
@@ -107,7 +135,7 @@ void main() {
           colorHex: '#123456',
         ),
       );
-      expect(await service.getPendingChangesCount(), 1);
+      expect(await service.getPendingChangesCount(), seeded + 1);
 
       await db.accountTypesDao.insertAccountType(
         AccountTypesCompanion.insert(
@@ -118,7 +146,7 @@ void main() {
       );
       expect(
         await service.getPendingChangesCount(),
-        2,
+        seeded + 2,
         reason:
             'the count sums matching rows across every synced table, not just one',
       );
@@ -142,7 +170,7 @@ void main() {
 
       expect(
         await service.getPendingChangesCount(),
-        1,
+        seeded + 1,
         reason:
             'four queue entries, but one row to upload - the number is '
             'shown to a user as work outstanding, not as keystrokes',
@@ -160,7 +188,7 @@ void main() {
         "'star', 0, 1, 0)",
       );
 
-      expect(await service.getPendingChangesCount(), 1);
+      expect(await service.getPendingChangesCount(), seeded + 1);
       expect(await settingEntries(), 0);
     });
   });
@@ -344,6 +372,111 @@ void main() {
       expect(pulls.map((u) => u.queryParameters['last_sync']), ['0', '7']);
     });
 
+    /// The cursor is a sequence number one particular server hands out. These
+    /// cover what happens when the device is pointed somewhere that has never
+    /// issued it - a self-hosted instance, a restored backup, a development
+    /// server, a moved deployment. Carrying the number over asks the new
+    /// server for everything after a row it will not reach for years; it
+    /// answers "nothing", the sync reports success, and the device pulls not
+    /// one row ever again. Push still works, so from that device everything
+    /// looks fine.
+    Future<void> pointAt(String url) => settingsRepository.setSetting(
+          domain.Settings(
+            key: 'server_sync_url',
+            value: url,
+            device: 'test-device',
+          ),
+        );
+
+    test('a cursor another server counted is not carried over', () async {
+      pages = [
+        page(serverTimestamp: 7, hasMore: false, styles: [style('s1')]),
+        page(serverTimestamp: 3, hasMore: false, styles: [style('s2')]),
+      ];
+
+      await service.sync();
+      await pointAt('http://elsewhere.test');
+      await service.sync();
+
+      expect(pulls.map((u) => u.queryParameters['last_sync']), ['0', '0']);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(serverPullCursorKey), 3);
+      expect(prefs.getString(serverPullCursorOriginKey), 'http://elsewhere.test');
+      expect(await db.stylesDao.getStyleById('s2'), isNotNull);
+    });
+
+    test("and the new server's own cursor is then kept", () async {
+      // The reset is one-per-move, not one-per-sync: a device that reset on
+      // every pull would re-download the whole budget every five minutes.
+      pages = [
+        page(serverTimestamp: 7, hasMore: false, styles: [style('s1')]),
+        page(serverTimestamp: 3, hasMore: false, styles: [style('s2')]),
+        page(serverTimestamp: 0, hasMore: false),
+      ];
+
+      await service.sync();
+      await pointAt('http://elsewhere.test');
+      await service.sync();
+      await service.sync();
+
+      expect(pulls.map((u) => u.queryParameters['last_sync']), ['0', '0', '3']);
+    });
+
+    test('moving back to the first server does not resume its old cursor',
+        () async {
+      // Only one origin is remembered, so a device that moves back has to
+      // re-pull rather than resume from a number the intervening server may
+      // have overwritten.
+      pages = [
+        page(serverTimestamp: 7, hasMore: false, styles: [style('s1')]),
+        page(serverTimestamp: 3, hasMore: false, styles: [style('s2')]),
+        page(serverTimestamp: 0, hasMore: false),
+      ];
+
+      await service.sync();
+      await pointAt('http://elsewhere.test');
+      await service.sync();
+      await pointAt('http://localhost:58080');
+      await service.sync();
+
+      expect(pulls.map((u) => u.queryParameters['last_sync']), ['0', '0', '0']);
+    });
+
+    test("a cursor that predates this key is treated as someone else's",
+        () async {
+      // Every device that upgrades into this holds a cursor with no recorded
+      // origin. Assuming it belongs to whatever server is configured now would
+      // leave exactly the devices already stranded on a foreign cursor
+      // stranded forever - and that is the state with no way out, because the
+      // sync reports success. The other way costs one re-pull of rows that
+      // upsert idempotently.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(serverPullCursorKey, 4242);
+      pages = [page(serverTimestamp: 9, hasMore: false, styles: [style('s1')])];
+
+      await service.sync();
+
+      expect(pulls.single.queryParameters['last_sync'], '0');
+      expect(prefs.getInt(serverPullCursorKey), 9);
+    });
+
+    test('the URL is compared after normalisation, not as typed', () async {
+      // `normalizeSyncBaseUrl` is what the request is built from, so a
+      // trailing slash typed into the settings field is the same server. A
+      // comparison on the raw string would drop the cursor every time the user
+      // re-saved the settings screen.
+      pages = [
+        page(serverTimestamp: 7, hasMore: false, styles: [style('s1')]),
+        page(serverTimestamp: 0, hasMore: false),
+      ];
+
+      await service.sync();
+      await pointAt('http://localhost:58080/');
+      await service.sync();
+
+      expect(pulls.map((u) => u.queryParameters['last_sync']), ['0', '7']);
+    });
+
     test('follows the sequence across pages while has_more is set', () async {
       pages = [
         page(serverTimestamp: 5, hasMore: true, styles: [style('s1')]),
@@ -409,8 +542,8 @@ void main() {
         );
         expect(await db.accountsDao.getAccountById('a1'), isNull);
         expect(
-          prefs.containsKey(serverPullCursorKey),
-          isFalse,
+          prefs.getInt(serverPullCursorKey) ?? 0,
+          0,
           reason: 'a page that did not commit must not move the watermark',
         );
 
@@ -484,5 +617,86 @@ void main() {
         );
       },
     );
+  });
+
+  group('what a push puts on the wire', () {
+    // Nothing here used to look at a push body at all. The account anchor was
+    // built into the payload correctly and the server had no column to put it
+    // in, so it was dropped in transit and every device rebuilt its balances
+    // from an anchor it had guessed - consistently, and consistently wrong.
+    // Neither end's tests could see it, because the bug lived between them.
+    late List<Map<String, dynamic>> bodies;
+
+    setUp(() async {
+      bodies = [];
+      for (final pair in {
+        'server_sync_enabled': 'true',
+        'server_sync_url': 'https://example.invalid',
+        'server_sync_token': 'sekret',
+      }.entries) {
+        await settingsRepository.setSetting(
+          domain.Settings(
+            key: pair.key,
+            value: pair.value,
+            device: 'test-device',
+          ),
+        );
+      }
+
+      service = ServerSyncService(
+        database: db,
+        settingsRepository: settingsRepository,
+        httpClient: MockClient((request) async {
+          if (request.method == 'POST') {
+            bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+            return http.Response('{"status":"ok"}', 200);
+          }
+          return http.Response(
+            jsonEncode({
+              'changes': <String, dynamic>{},
+              'server_timestamp': 0,
+              'has_more': false,
+            }),
+            200,
+          );
+        }),
+      );
+    });
+
+    /// Every row this push sent for [table], across all its batches.
+    List<Map<String, dynamic>> rowsFor(String table) => [
+      for (final body in bodies)
+        for (final row in (body[table] as List? ?? const []))
+          row as Map<String, dynamic>,
+    ];
+
+    test('an account carries the anchor its balance is rebuilt from', () async {
+      final designation = (await db.select(db.currencyDesignations).get()).first;
+      final type = (await db.select(db.accountTypes).get()).first;
+      await db.accountsDao.insertAccount(
+        AccountsCompanion.insert(
+          id: const Value('acc-anchor'),
+          name: 'Anchored',
+          balance: 250.5,
+          balanceMinor: const Value(25050),
+          currencyCode: 'EUR',
+          currencyDesignationId: designation.id,
+          accountTypeId: type.id,
+        ),
+      );
+
+      await service.sync();
+
+      final account = rowsFor(
+        'accounts',
+      ).firstWhere((row) => row['id'] == 'acc-anchor');
+      // The receiver throws away `balance` and rebuilds it from these two, so
+      // an account that travels without them arrives without a balance anyone
+      // can reconstruct.
+      expect(account.containsKey('openingBalance'), isTrue);
+      expect(account['openingBalance'], 250.5);
+      expect(account.containsKey('openingBalanceMinor'), isTrue);
+      expect(account['openingBalanceMinor'], 25050);
+    });
   });
 }

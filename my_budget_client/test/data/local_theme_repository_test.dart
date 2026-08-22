@@ -8,9 +8,10 @@ import 'package:my_budget_client/data/repositories/local_db/local_theme_reposito
 import 'package:my_budget_client/domain/entities/custom_theme.dart';
 
 /// Custom themes are soft-deleted, synced, and have an "exactly one active"
-/// rule that `getActiveTheme` reads back with `getSingleOrNull` - so a second
-/// active row does not just look wrong, it throws. Those are the invariants
-/// pinned here, plus the colour <-> hex round-trip.
+/// rule that no per-row merge can keep - so `getActiveTheme` has to answer a
+/// database where two rows carry the flag, and answer it the same way on every
+/// device. Those are the invariants pinned here, plus the colour <-> hex
+/// round-trip.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -157,6 +158,72 @@ void main() {
       await repo.deleteTheme('t1');
 
       expect(await repo.getActiveTheme(), isNull);
+    });
+
+    test('two active themes do not throw; the newest one wins', () async {
+      // Found on a real pair of devices: the phone was seeded with
+      // `classic-blue` active, the desktop had its own theme active, and after
+      // one sync both rows carried the flag. `getSingleOrNull` threw, the throw
+      // came out of the one LoadThemeSettings the app dispatches, and every
+      // launch after that painted a fallback preset under an error bar.
+      await repo.saveTheme(theme(id: 'older', isActive: true));
+      await db
+          .update(db.customThemes)
+          .replace((await rowFor('older'))!.copyWith(modifiedAt: 1000));
+      await repo.saveTheme(theme(id: 'newer', isActive: true));
+      await db
+          .update(db.customThemes)
+          .replace((await rowFor('newer'))!.copyWith(modifiedAt: 2000));
+
+      expect((await repo.getActiveTheme())?.id, 'newer');
+    });
+
+    test('an equal timestamp is broken by id, not by row order', () async {
+      // The tie has to resolve the same way everywhere. Two devices that pick
+      // different winners for the same two rows disagree about the interface
+      // for good, since nothing ever writes the disagreement away.
+      await repo.saveTheme(theme(id: 'zebra', isActive: true));
+      await repo.saveTheme(theme(id: 'alpha', isActive: true));
+      for (final id in const ['zebra', 'alpha']) {
+        await db
+            .update(db.customThemes)
+            .replace((await rowFor(id))!.copyWith(modifiedAt: 5000));
+      }
+
+      expect((await repo.getActiveTheme())?.id, 'alpha');
+    });
+
+    test('the newest active theme wins over a newer inactive one', () async {
+      // Ordering by modifiedAt must not reach past the is_active filter: the
+      // most recently touched theme is usually the one the user just switched
+      // AWAY from.
+      await repo.saveTheme(theme(id: 'active', isActive: true));
+      await db
+          .update(db.customThemes)
+          .replace((await rowFor('active'))!.copyWith(modifiedAt: 1000));
+      await repo.saveTheme(theme(id: 'inactive', isActive: false));
+      await db
+          .update(db.customThemes)
+          .replace((await rowFor('inactive'))!.copyWith(modifiedAt: 9000));
+
+      expect((await repo.getActiveTheme())?.id, 'active');
+    });
+
+    test('a deleted theme never wins the tie either', () async {
+      // The soft-delete filter has to survive the ordering too, or the app
+      // paints itself with a row the rest of the fleet has agreed is gone.
+      await repo.saveTheme(theme(id: 'kept', isActive: true));
+      await db
+          .update(db.customThemes)
+          .replace((await rowFor('kept'))!.copyWith(modifiedAt: 1000));
+      await repo.saveTheme(theme(id: 'gone', isActive: true));
+      await db
+          .update(db.customThemes)
+          .replace(
+            (await rowFor('gone'))!.copyWith(modifiedAt: 9000, isDeleted: true),
+          );
+
+      expect((await repo.getActiveTheme())?.id, 'kept');
     });
 
     test('getAllThemes is empty when nothing is stored', () async {

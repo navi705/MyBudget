@@ -440,7 +440,6 @@ class $CurrenciesTable extends Currencies
     ),
     type: DriftSqlType.string,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
   static const VerificationMeta _codeMeta = const VerificationMeta('code');
   @override
@@ -610,6 +609,20 @@ class $CurrenciesTable extends Currencies
 }
 
 class Currency extends DataClass implements Insertable<Currency> {
+  /// Deliberately not unique.
+  ///
+  /// The key is [code]; this is the label shown next to it, and two devices on
+  /// different app versions do not agree on labels. The bundled seed renamed
+  /// `BYR` to "Belarusian Ruble (2000-2016)" when `BYN` took over the plain
+  /// name, and did the same for `SLL`/`SLE`. A device still on the older seed
+  /// pushes `BYR = "Belarusian Ruble"`, which on the newer device is the name
+  /// `BYN` already holds - and a UNIQUE here turned that into
+  /// `SqliteException(2067)` inside the pull transaction. The pull applies all
+  /// sixteen tables in one transaction and advances its cursor only after it
+  /// commits, so the whole page rolled back and the next sync asked for the
+  /// same page and failed the same way. Forever, including the WebSocket
+  /// doorbell. Nothing reads a currency by name, so the constraint bought
+  /// nothing and cost every pair of devices that were not on the same version.
   final String name;
   final String code;
   final String languageCode;
@@ -2347,7 +2360,6 @@ class $AccountTypesTable extends AccountTypes
     ),
     type: DriftSqlType.string,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
   static const VerificationMeta _languageCodeMeta = const VerificationMeta(
     'languageCode',
@@ -2506,6 +2518,17 @@ class $AccountTypesTable extends AccountTypes
 
 class AccountType extends DataClass implements Insertable<AccountType> {
   final String id;
+
+  /// Deliberately not unique - see [Currencies.name] for what a UNIQUE on a
+  /// synced label does.
+  ///
+  /// Same failure, one step further from the seed: the bundled types have
+  /// stable ids, so a plain install cannot collide, but the name is the user's
+  /// to edit. Rename "Savings" to "Cash" on the phone while the desktop still
+  /// has the seeded "Cash", and the row that arrives carries a name another id
+  /// holds. That threw inside the pull transaction, rolled the whole page back
+  /// and left the cursor where it was, so every later sync retried the same
+  /// page and failed the same way. Nothing looks an account type up by name.
   final String name;
   final String languageCode;
   final int modifiedAt;

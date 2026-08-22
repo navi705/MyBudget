@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
+import 'package:my_budget_client/core/sync/device_local_settings.dart';
 import 'package:my_budget_client/core/sync/sync_binary_format.dart';
 import 'package:my_budget_client/core/sync/sync_record_keys.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
@@ -251,6 +252,37 @@ class SyncService {
     return pending.length;
   }
 
+  /// How long an already-exported `sync_log` row is kept after its export.
+  ///
+  /// Nothing reads those rows - [SyncLogDao.getPendingChanges] asks for
+  /// `exported = false` - so the window exists only to leave a recent trail
+  /// worth looking at when an export is being investigated.
+  static const Duration _exportedLogRetention = Duration(days: 7);
+
+  /// Retires the rows this export covered, and drops the ones that have been
+  /// sitting retired since long before it.
+  ///
+  /// [SyncLogDao.clearExportedBefore] had no caller at all, so the log only
+  /// ever grew: one row per write, kept for the life of the install. Settings
+  /// are the writes that made it visible - a filter or a sort order is changed
+  /// dozens of times in a session, and each change is a row - but every table
+  /// was contributing to a table nothing ever emptied.
+  Future<void> _markExportedAndPrune(List<SyncLogData> exported) async {
+    await _db.syncLogDao.markExported(exported.map((e) => e.id).toList());
+    try {
+      final removed = await _db.syncLogDao.clearExportedBefore(
+        DateTime.now().subtract(_exportedLogRetention),
+      );
+      if (removed > 0) {
+        debugPrint('[SYNC_DEBUG] Pruned $removed exported sync_log rows.');
+      }
+    } catch (e) {
+      // Housekeeping: a failure here costs disk, not correctness, and must
+      // not turn a successful export into a failed one.
+      debugPrint('[SYNC_DEBUG] Could not prune sync_log: $e');
+    }
+  }
+
   /// Export pending changes to a .sync file
   Future<void> _exportPendingChanges() async {
     try {
@@ -346,9 +378,7 @@ class SyncService {
           '[SYNC_DEBUG] All changes were skipped (deleted or invalid). Clearing log.',
         );
         // Mark as exported anyway to clear the log
-        await _db.syncLogDao.markExported(
-          pendingChanges.map((e) => e.id).toList(),
-        );
+        await _markExportedAndPrune(pendingChanges);
         return;
       }
 
@@ -377,9 +407,7 @@ class SyncService {
       debugPrint('[SYNC_DEBUG] Export successful: $fileName');
 
       // Mark as exported only if write succeeded
-      await _db.syncLogDao.markExported(
-        pendingChanges.map((e) => e.id).toList(),
-      );
+      await _markExportedAndPrune(pendingChanges);
     } on PathAccessException catch (e) {
       // Android 11+ Scoped Storage blocks direct file access to external paths.
       // Only log once to avoid spamming the console
@@ -1000,6 +1028,7 @@ class SyncService {
     if (name == 'custom_themes') return SyncTableId.customThemes;
     if (name == 'api_settings_table') return SyncTableId.apiSettings;
     if (name == 'sms_presets') return SyncTableId.smsPresets;
+    if (name == 'settings') return SyncTableId.settings;
     if (name == 'account_types') return SyncTableId.accountTypes;
     if (name == 'currency_designations') {
       return SyncTableId.currencyDesignations;
@@ -1075,6 +1104,22 @@ class SyncService {
           result[r.id] = _apiSettingsToJson(r);
         }
         break;
+      case SyncTableId.smsPresets:
+        final records = await _db.smsPresetsDao.getPresetsByIds(ids);
+        for (final r in records) {
+          result[r.id] = _smsPresetToJson(r);
+        }
+        break;
+      case SyncTableId.settings:
+        final records = await _db.settingsDao.getSettingsByKeys(ids);
+        for (final r in records) {
+          // The device-local keys never reach `sync_log` in the first place;
+          // this is the second lock on the same door, because everything in
+          // here is written to a folder other people can read.
+          if (kDeviceLocalSettingKeys.contains(r.key)) continue;
+          result[r.key] = _settingToJson(r);
+        }
+        break;
       case SyncTableId.currencies:
         final records = await _db.currenciesDao.getCurrenciesByCodes(ids);
         for (final r in records) {
@@ -1098,8 +1143,6 @@ class SyncService {
             result[id] = _customThemeToJson(record);
           }
         }
-        break;
-      default:
         break;
     }
     return result;
@@ -1335,6 +1378,13 @@ class SyncService {
       case SyncTableId.apiSettings:
         final record = await _db.apiSettingsDao.getSettingById(recordId);
         return record != null ? _apiSettingsToJson(record) : null;
+      case SyncTableId.smsPresets:
+        final record = await _db.smsPresetsDao.getPresetById(recordId);
+        return record != null ? _smsPresetToJson(record) : null;
+      case SyncTableId.settings:
+        if (kDeviceLocalSettingKeys.contains(recordId)) return null;
+        final record = await _db.settingsDao.getSetting(recordId);
+        return record != null ? _settingToJson(record) : null;
       case SyncTableId.currencies:
         final record = await _db.currenciesDao.getCurrencyByCode(recordId);
         return record != null ? _currencyToJson(record) : null;
@@ -1347,8 +1397,6 @@ class SyncService {
       case SyncTableId.customThemes:
         final record = await _db.customThemesDao.getThemeById(recordId);
         return record != null ? _customThemeToJson(record) : null;
-      default:
-        return null;
     }
   }
 
@@ -1396,6 +1444,17 @@ class SyncService {
           _apiSettingsFromJson(data),
         );
         break;
+      case SyncTableId.smsPresets:
+        await _db.smsPresetsDao.insertSyncedPreset(_smsPresetFromJson(data));
+        break;
+      case SyncTableId.settings:
+        final setting = _settingFromJson(data);
+        // A peer has no business rewriting this device's identity or its
+        // connection config, whatever build it is running.
+        if (!kDeviceLocalSettingKeys.contains(setting.key.value)) {
+          await _db.settingsDao.setSyncedSetting(setting);
+        }
+        break;
       case SyncTableId.currencies:
         await _db.currenciesDao.insertSyncedCurrency(_currencyFromJson(data));
         break;
@@ -1411,8 +1470,6 @@ class SyncService {
         break;
       case SyncTableId.customThemes:
         await _db.customThemesDao.insertSyncedTheme(_customThemeFromJson(data));
-        break;
-      default:
         break;
     }
   }
@@ -1461,6 +1518,17 @@ class SyncService {
           _apiSettingsFromJson(data),
         );
         break;
+      case SyncTableId.smsPresets:
+        await _db.smsPresetsDao.insertSyncedPreset(_smsPresetFromJson(data));
+        break;
+      case SyncTableId.settings:
+        final setting = _settingFromJson(data);
+        // A peer has no business rewriting this device's identity or its
+        // connection config, whatever build it is running.
+        if (!kDeviceLocalSettingKeys.contains(setting.key.value)) {
+          await _db.settingsDao.setSyncedSetting(setting);
+        }
+        break;
       case SyncTableId.currencies:
         await _db.currenciesDao.insertSyncedCurrency(_currencyFromJson(data));
         break;
@@ -1476,8 +1544,6 @@ class SyncService {
         break;
       case SyncTableId.customThemes:
         await _db.customThemesDao.insertSyncedTheme(_customThemeFromJson(data));
-        break;
-      default:
         break;
     }
   }
@@ -1595,6 +1661,16 @@ class SyncService {
           ),
         );
         break;
+      case SyncTableId.smsPresets:
+        await (_db.update(
+          _db.smsPresets,
+        )..where((t) => t.id.equals(recordId))).write(
+          SmsPresetsCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(modifiedAt),
+          ),
+        );
+        break;
       case SyncTableId.exchangeRates:
         // exchange_rates has no isDeleted column, so the delete cannot be held
         // as a tombstone and the row is removed outright instead, matched on
@@ -1696,6 +1772,8 @@ class SyncService {
         return 'custom_themes';
       case SyncTableId.apiSettings:
         return 'api_settings_table';
+      case SyncTableId.smsPresets:
+        return 'sms_presets';
       default:
         return null;
     }
@@ -1907,6 +1985,24 @@ class SyncService {
                 // A tombstoned provider must not look like one to fetch from.
                 enabled: const Value(false),
                 autoFetch: const Value(false),
+                modifiedAt: Value(modifiedAt),
+                isDeleted: const Value(true),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+        break;
+      case SyncTableId.smsPresets:
+        await _db
+            .into(_db.smsPresets)
+            .insert(
+              SmsPresetsCompanion(
+                id: Value(recordId),
+                name: const Value(placeholder),
+                // A tombstone must not parse anything: `senderFilter` matches
+                // no sender and the rule list is empty either way.
+                senderFilter: const Value(''),
+                rulesJson: const Value('[]'),
+                isEnabled: const Value(false),
                 modifiedAt: Value(modifiedAt),
                 isDeleted: const Value(true),
               ),
@@ -2416,6 +2512,63 @@ class SyncService {
       modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
+    );
+  }
+
+  Map<String, dynamic> _smsPresetToJson(SmsPreset p) {
+    return {
+      'id': p.id,
+      'name': p.name,
+      'senderFilter': p.senderFilter,
+      'isBuiltIn': p.isBuiltIn,
+      'isEnabled': p.isEnabled,
+      'defaultAccountId': p.defaultAccountId,
+      'defaultCategoryId': p.defaultCategoryId,
+      'rulesJson': p.rulesJson,
+      'modifiedAt': p.modifiedAt,
+      'deviceId': p.deviceId,
+      'isDeleted': p.isDeleted,
+    };
+  }
+
+  SmsPresetsCompanion _smsPresetFromJson(Map<String, dynamic> json) {
+    return SmsPresetsCompanion(
+      id: Value(json['id'] as String),
+      name: Value(json['name'] as String? ?? 'SMS preset'),
+      senderFilter: Value(json['senderFilter'] as String? ?? ''),
+      isBuiltIn: Value(json['isBuiltIn'] as bool? ?? false),
+      isEnabled: Value(json['isEnabled'] as bool? ?? true),
+      defaultAccountId: Value(json['defaultAccountId'] as String?),
+      defaultCategoryId: Value(json['defaultCategoryId'] as String?),
+      // An empty rule list parses nothing, which is the only safe reading of a
+      // preset that arrived without one.
+      rulesJson: Value(json['rulesJson'] as String? ?? '[]'),
+      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      deviceId: Value(json['deviceId'] as String?),
+      isDeleted: Value(json['isDeleted'] as bool? ?? false),
+    );
+  }
+
+  /// `device` is the human-readable name of the machine that last wrote the
+  /// setting and is shown next to it, so it travels with the value; `deviceId`
+  /// is the sync identity and is what last-write-wins breaks ties on.
+  Map<String, dynamic> _settingToJson(Setting s) {
+    return {
+      'key': s.key,
+      'value': s.value,
+      'device': s.device,
+      'modifiedAt': s.modifiedAt,
+      'deviceId': s.deviceId,
+    };
+  }
+
+  SettingsCompanion _settingFromJson(Map<String, dynamic> json) {
+    return SettingsCompanion(
+      key: Value(json['key'] as String),
+      value: Value(json['value'] as String? ?? ''),
+      device: Value(json['device'] as String?),
+      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      deviceId: Value(json['deviceId'] as String?),
     );
   }
 

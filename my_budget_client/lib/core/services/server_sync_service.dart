@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:drift/drift.dart' as drift_db;
 import 'package:my_budget_client/core/database/app_database.dart';
+import 'package:my_budget_client/core/sync/device_local_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 
@@ -92,6 +93,18 @@ const String serverPullCursorKey = 'server_pull_cursor';
 /// The pre-sequence pull cursor, removed on first use of [serverPullCursorKey].
 const String _legacyServerPullCursorKey = 'server_last_sync_timestamp';
 
+/// Which server the value under [serverPullCursorKey] was counted by.
+///
+/// The cursor is a sequence number the server hands out, so it only means
+/// anything to the server that issued it. Point a device at a different one -
+/// a self-hosted instance, a restored backup, a development server, a moved
+/// deployment - and the number carries over into a sequence that has never
+/// reached it. The device then asks for everything after row N of a log that
+/// is on row 3, is told there is nothing, and reports a successful sync
+/// forever while pulling not one row. It keeps pushing, so the mismatch is
+/// invisible from that device: it can see its own writes arrive.
+const String serverPullCursorOriginKey = 'server_pull_cursor_origin';
+
 class ServerSyncService {
   final AppDatabase _database;
   final SettingsRepository _settingsRepository;
@@ -145,20 +158,9 @@ class ServerSyncService {
 
   /// Setting keys that describe THIS device and must never leave it.
   ///
-  /// The settings table is keyed by `key` alone, so syncing these would make
-  /// every device converge on one identity and one set of credentials:
-  /// `local_device_id` is what both sync paths use to tell "my writes" from a
-  /// peer's, and the `server_sync_*` / `sync_folder_path` values are per-device
-  /// connection config — `server_sync_token` is a secret that has no business
-  /// being uploaded to the very server it authenticates against.
-  static const Set<String> _deviceLocalSettingKeys = {
-    'local_device_id',
-    'server_sync_enabled',
-    'server_sync_url',
-    'server_sync_token',
-    'sync_enabled',
-    'sync_folder_path',
-  };
+  /// Kept as an alias so this file reads the same as it did, while the list
+  /// itself lives where both sync engines can share it.
+  static const Set<String> _deviceLocalSettingKeys = kDeviceLocalSettingKeys;
 
   /// [channelFactory], [reconnectBaseDelay] and [connectionStabilityWindow]
   /// exist for tests only: the reconnect policy is otherwise reachable only
@@ -814,6 +816,38 @@ class ServerSyncService {
     return result.read<int>('c');
   }
 
+  /// Drops the pull cursor when it was not counted by the server about to be
+  /// asked.
+  ///
+  /// See [serverPullCursorOriginKey] for what carrying it over does. The cost
+  /// of dropping it wrongly is one full re-pull, and every row that arrives is
+  /// an idempotent last-write-wins upsert, so a device that did not need the
+  /// reset ends up exactly where it started. The cost of not dropping it is a
+  /// device that silently never receives another change.
+  ///
+  /// A cursor with no recorded origin is treated as belonging to someone else
+  /// for that reason: on the sync after this ships, every existing device pays
+  /// the one re-pull once and is protected from then on. Assuming the cursor
+  /// belongs to whatever server is configured now would leave exactly the
+  /// devices this exists for - the ones that already moved - broken forever,
+  /// which is the failure that cannot be recovered from.
+  Future<void> _resetPullCursorIfServerChanged(
+    SharedPreferences prefs,
+    String baseUrl,
+  ) async {
+    if (prefs.getString(serverPullCursorOriginKey) == baseUrl) return;
+
+    final carried = prefs.getInt(serverPullCursorKey) ?? 0;
+    if (carried != 0) {
+      debugPrint(
+        '[ServerSync] Pull cursor $carried was not counted by $baseUrl. '
+        'Starting from 0; this sync pulls the whole budget once.',
+      );
+    }
+    await prefs.setInt(serverPullCursorKey, 0);
+    await prefs.setString(serverPullCursorOriginKey, baseUrl);
+  }
+
   Future<void> _pull() async {
     final prefs = await SharedPreferences.getInstance();
     const lastSyncKey = serverPullCursorKey;
@@ -826,6 +860,7 @@ class ServerSyncService {
     }
 
     final baseUrl = await _requireBaseUrl();
+    await _resetPullCursorIfServerChanged(prefs, baseUrl);
     final authToken = await _getAuthToken();
 
     final totalPullStopwatch = Stopwatch()..start();
@@ -2181,7 +2216,7 @@ class ServerSyncService {
       // an unparsable date falls back to its own text so two of them are not
       // silently merged.
       final key =
-          '${json['assetId'] ?? ''} '
+          '${json['assetId'] ?? ''}\u0000'
           '${parsed?.toUtc().millisecondsSinceEpoch ?? raw}';
       final at = seen[key];
       if (at == null) {
@@ -2632,26 +2667,32 @@ class ServerSyncService {
     return false;
   }
 
-  /// Normalises a double to 8 decimal places, so the same value computed on
-  /// two devices does not travel as `0.1 + 0.2` on one and `0.30000000000000004`
-  /// on the other and lose a last-write-wins comparison over the difference.
+  /// Drops the last few bits of floating-point noise from a double, so the
+  /// same value computed on two devices does not travel as `0.1 + 0.2` on one
+  /// and `0.30000000000000004` on the other and lose a last-write-wins
+  /// comparison over the difference.
   ///
-  /// The magnitude guard is not cosmetic. `toStringAsFixed(8)` renders anything
-  /// under 5e-9 as `'0.00000000'`, so an exchange rate for a hyperinflated or
-  /// crypto pair — IRR→BTC at 2.4e-10, a fractional holding's `assetQuantity` —
-  /// came out of here as exactly 0.0, and it happened on the server path only:
-  /// the peer-to-peer engine ships the rate verbatim. The pulled zero carried
-  /// the newer `modified_at`, so it overwrote the correct local value on every
-  /// device, every conversion through that pair yielded 0, and a device on both
-  /// paths flip-flopped between the two answers forever. Below the rounding's
-  /// own resolution there is no floating-point noise left to normalise away, so
-  /// the value is returned untouched — 8-dp tidying must never be able to erase
-  /// a nonzero number.
+  /// Significant digits, not decimal places. This used to be
+  /// `toStringAsFixed(8)` behind a `< 1e-8` guard, which measures precision
+  /// from the decimal point instead of from the number: a value's own
+  /// magnitude decided how much of it survived. An exchange rate of 3.7e-8
+  /// left here as 4e-8 and a crypto `assetQuantity` of 1.5e-8 as 1e-8 — while
+  /// 9e-9, being under the guard, came through untouched. The rule was
+  /// backwards for exactly the values it was written to protect (IRR→BTC at
+  /// 2.4e-10, fractional holdings), and it bit only on the server path: the
+  /// peer-to-peer engine ships these verbatim, so a device on both paths
+  /// flip-flopped between the two answers forever.
+  ///
+  /// Twelve digits is comfortably inside a double's 15-17, so this erases the
+  /// noise two different computations of the same number disagree in and
+  /// nothing else, at any magnitude. `toStringAsPrecision` switches to
+  /// exponent form where it has to, which `double.parse` reads back exactly.
   double _round(double value) {
-    if (value == 0 || value.abs() < _roundingFloor) return value;
-    return double.parse(value.toStringAsFixed(8));
+    if (value == 0 || !value.isFinite) return value;
+    return double.parse(value.toStringAsPrecision(_significantDigits));
   }
 
-  /// The smallest magnitude `toStringAsFixed(8)` can still represent.
-  static const double _roundingFloor = 1e-8;
+  /// How much of a double is signal. The last three to five digits of a
+  /// 64-bit float are where two routes to the same value differ.
+  static const int _significantDigits = 12;
 }

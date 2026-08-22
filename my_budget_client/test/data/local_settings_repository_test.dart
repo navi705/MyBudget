@@ -4,6 +4,7 @@ import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_settings_repository.dart';
+import 'package:my_budget_client/core/sync/device_local_settings.dart';
 // `Settings` is both a drift table class and a domain entity.
 import 'package:my_budget_client/domain/entities/settings.dart' as domain;
 
@@ -140,18 +141,40 @@ void main() {
       expect((await rowFor('k'))!.modifiedAt, 1234);
     });
 
-    test('settings writes do not append to sync_log', () async {
-      // Pinned as the current contract: `SettingsDao` has no sync bookkeeping
-      // and `_tableNameToId` in lib/core/sync/sync_service_io.dart has no
-      // 'settings' entry, so a row here would be dropped by the sender anyway.
-      // If settings ever start syncing, this test is the reminder that both
-      // sides have to change together.
+    test('settings writes append to sync_log so folder sync can carry '
+        'them', () async {
+      // Both sides of this changed together: `_tableNameToId` in
+      // lib/core/sync/sync_service_io.dart now maps 'settings', so a row
+      // logged here is one the sender will actually pick up. Before that it
+      // would have been written and silently dropped, which is why this used
+      // to pin the opposite.
       await repo.saveSetting('k', 'v');
       await repo.setSetting(
         const domain.Settings(key: 'k2', value: 'v', device: 'd'),
       );
 
+      final logged = await db.select(db.syncLog).get();
+      expect(
+        logged.map((e) => e.recordId),
+        containsAll(<String>['k', 'k2']),
+      );
+      expect(logged.every((e) => e.changedTableName == 'settings'), isTrue);
+    });
+
+    test('the per-device settings are never logged', () async {
+      // A `sync_log` row is what puts a value in a folder every peer can
+      // read, so `server_sync_token` reaching this table is the leak itself -
+      // the export-side filter is the second lock, not the first.
+      for (final key in kDeviceLocalSettingKeys) {
+        await repo.saveSetting(key, 'value-of-this-device');
+      }
+
       expect(await db.select(db.syncLog).get(), isEmpty);
+      expect(
+        (await rowFor('server_sync_token'))!.value,
+        'value-of-this-device',
+        reason: 'not logging it must not stop it being stored locally',
+      );
     });
   });
 

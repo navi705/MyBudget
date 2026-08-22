@@ -7,6 +7,7 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:my_budget_client/core/utils/region_utils.dart';
 import 'package:my_budget_client/core/database/connection/database_connection.dart';
+import 'package:my_budget_client/core/sync/device_local_settings.dart';
 import 'package:my_budget_client/core/mappers/exchange_rate_mapper.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
 import 'package:my_budget_client/core/utils/import_utils.dart';
@@ -83,7 +84,21 @@ class CurrencyDesignations extends Table {
 }
 
 class Currencies extends Table {
-  TextColumn get name => text().withLength(min: 1, max: 50).unique()();
+  /// Deliberately not unique.
+  ///
+  /// The key is [code]; this is the label shown next to it, and two devices on
+  /// different app versions do not agree on labels. The bundled seed renamed
+  /// `BYR` to "Belarusian Ruble (2000-2016)" when `BYN` took over the plain
+  /// name, and did the same for `SLL`/`SLE`. A device still on the older seed
+  /// pushes `BYR = "Belarusian Ruble"`, which on the newer device is the name
+  /// `BYN` already holds - and a UNIQUE here turned that into
+  /// `SqliteException(2067)` inside the pull transaction. The pull applies all
+  /// sixteen tables in one transaction and advances its cursor only after it
+  /// commits, so the whole page rolled back and the next sync asked for the
+  /// same page and failed the same way. Forever, including the WebSocket
+  /// doorbell. Nothing reads a currency by name, so the constraint bought
+  /// nothing and cost every pair of devices that were not on the same version.
+  TextColumn get name => text().withLength(min: 1, max: 50)();
   TextColumn get code => text().withLength(min: 1, max: 5)();
   TextColumn get languageCode => text().references(Languages, #languageCode)();
   IntColumn get type => integer()
@@ -137,7 +152,18 @@ class Styles extends Table {
 
 class AccountTypes extends Table {
   TextColumn get id => text().clientDefault(() => _uuid.v4())();
-  TextColumn get name => text().withLength(min: 1, max: 50).unique()();
+
+  /// Deliberately not unique - see [Currencies.name] for what a UNIQUE on a
+  /// synced label does.
+  ///
+  /// Same failure, one step further from the seed: the bundled types have
+  /// stable ids, so a plain install cannot collide, but the name is the user's
+  /// to edit. Rename "Savings" to "Cash" on the phone while the desktop still
+  /// has the seeded "Cash", and the row that arrives carries a name another id
+  /// holds. That threw inside the pull transaction, rolled the whole page back
+  /// and left the cursor where it was, so every later sync retried the same
+  /// page and failed the same way. Nothing looks an account type up by name.
+  TextColumn get name => text().withLength(min: 1, max: 50)();
   TextColumn get languageCode => text().references(Languages, #languageCode)();
 
   // Sync fields
@@ -421,6 +447,33 @@ const List<String> syncPushQueueTables = [
   'accounts',
   'asset_entries',
   'transactions',
+];
+
+/// The seeded tables whose rows the sync server holds a foreign key into.
+///
+/// The bundled seed is written before the push-queue triggers exist, on
+/// purpose: every install lays down the same rows under the same ids, so
+/// queueing all of it would upload ~283k exchange rates that any other client
+/// would have supplied byte for byte. That reasoning is sound for bulk
+/// reference data and wrong for these four, because the server's schema
+/// declares real foreign keys against them —
+/// `accounts.currency_designation_id`, `accounts.account_type_id`,
+/// `accounts.style_id`, `categories.style_id` and `transactions.category_id`.
+///
+/// "some other client will have pushed them" is only true if some client ever
+/// does. On a server whose clients are all fresh installs, none of them ever
+/// did: the first account the user made referenced a seeded designation the
+/// server had never heard of, the push came back `23503`, and because a failed
+/// push deliberately does not drain its queue, that device retried the same
+/// doomed batch forever. Uploads stopped dead while pulls kept working, which
+/// reads as "this phone receives but never sends".
+///
+/// A few dozen rows, once per install. See [AppDatabase.seedPushQueueParents].
+const List<String> syncPushQueueSeedTables = [
+  'styles',
+  'account_types',
+  'currency_designations',
+  'categories',
 ];
 
 /// Columns every device computes for itself, per table.
@@ -814,6 +867,7 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
       for (final row in rows) row.read<String>('code'): row.read<int>('uses'),
     };
   }
+
   Future<void> insertCurrency(CurrenciesCompanion currency) async {
     // Import auto-creates currencies for unmapped CSV codes; without a fresh
     // modifiedAt the row sorts as never-modified and no peer ever pulls it.
@@ -2784,14 +2838,45 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
   /// carried by a sync engine, a peer's untouched default beats the choice the
   /// user actually made. An explicit value is left alone, so a row applied from
   /// a peer keeps the timestamp it arrived with.
-  Future<void> setSetting(SettingsCompanion setting) {
+  Future<void> setSetting(SettingsCompanion setting) async {
     final toInsert =
         (setting.modifiedAt.present && setting.modifiedAt.value > 0)
         ? setting
         : setting.copyWith(
             modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
           );
-    return into(settings).insert(toInsert, mode: InsertMode.insertOrReplace);
+    await into(settings).insert(toInsert, mode: InsertMode.insertOrReplace);
+    await _logChange(toInsert.key.value);
+  }
+
+  /// Writes a setting that arrived from a peer.
+  ///
+  /// No `sync_log` row and no clock of its own: the timestamp is the one the
+  /// sender stamped, and re-logging it would send the change straight back to
+  /// the device it came from. Every other synced table has the same pair.
+  Future<void> setSyncedSetting(SettingsCompanion setting) =>
+      into(settings).insert(setting, mode: InsertMode.insertOrReplace);
+
+  Future<List<Setting>> getSettingsByKeys(List<String> keys) =>
+      (select(settings)..where((t) => t.key.isIn(keys))).get();
+
+  /// Queues a setting for the folder-sync exporter.
+  ///
+  /// Device-local keys are dropped here rather than at export time because
+  /// this is the only place that knows a write happened at all - a key that
+  /// never enters the log can never leave the device, whatever a later change
+  /// to the exporter does. The server path filters the same list in SQL.
+  Future<void> _logChange(String key) async {
+    if (kDeviceLocalSettingKeys.contains(key)) return;
+    await into(db.syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('settings'),
+        recordId: Value(key),
+        action: const Value('upsert'),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+        exported: const Value(false),
+      ),
+    );
   }
 
   Future<void> insertAllSettings(List<SettingsCompanion> settings) {
@@ -3344,10 +3429,31 @@ class CustomThemesDao extends DatabaseAccessor<AppDatabase>
             ..where((tbl) => tbl.id.equals(id) & tbl.isDeleted.equals(false)))
           .getSingleOrNull();
 
+  /// The theme the app renders from, chosen deterministically when more than
+  /// one row claims to be active.
+  ///
+  /// "Exactly one theme is active" is a rule across rows, and sync merges one
+  /// row at a time, so it is not a rule sync can keep: a device that activates
+  /// a theme while another device has its own ends up, after the two meet,
+  /// with the flag on both. This read used to be `getSingleOrNull`, which
+  /// throws on the second row - and it throws out of the single
+  /// LoadThemeSettings the app dispatches at startup, so the user got a
+  /// fallback preset and an error bar that no restart cleared, on a database
+  /// that was merely ambiguous rather than broken.
+  ///
+  /// Newest wins, id breaks the tie. The rule is the same on every device, so
+  /// a fleet whose rows disagree still renders the same theme, and the next
+  /// time the user picks one [setActiveTheme] clears the rest for good.
   Future<DbCustomTheme?> getActiveTheme() =>
-      (select(customThemes)..where(
-            (tbl) => tbl.isActive.equals(true) & tbl.isDeleted.equals(false),
-          ))
+      (select(customThemes)
+            ..where(
+              (tbl) => tbl.isActive.equals(true) & tbl.isDeleted.equals(false),
+            )
+            ..orderBy([
+              (t) => OrderingTerm.desc(t.modifiedAt),
+              (t) => OrderingTerm.asc(t.id),
+            ])
+            ..limit(1))
           .getSingleOrNull();
 
   Future<void> insertTheme(CustomThemesCompanion theme) async {
@@ -4257,6 +4363,26 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  /// Queues every existing row of [syncPushQueueSeedTables] for upload.
+  ///
+  /// Runs on a fresh install and once more on the upgrade to v16, so a device
+  /// created before the fix is repaired rather than left stuck. Skips a table
+  /// this database does not have yet - a migration test builds partial
+  /// schemas - and is safe to run twice: a duplicate queue entry costs one
+  /// deduped record key in the next push.
+  @visibleForTesting
+  Future<void> seedPushQueueParents() async {
+    final existing = await _existingTables();
+    for (final table in syncPushQueueSeedTables) {
+      if (!existing.contains(table)) continue;
+      await customStatement(
+        'INSERT INTO sync_push_queue (changed_table_name, record_key) '
+        "SELECT '$table', ${syncPushQueueKeyExpression(table)} "
+        'FROM $table',
+      );
+    }
+  }
+
   /// The `WHEN` clause of [table]'s update trigger: did this UPDATE change
   /// anything a peer has to be told about?
   ///
@@ -4322,7 +4448,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration {
@@ -4362,6 +4488,11 @@ class AppDatabase extends _$AppDatabase {
           '[DB_MIGRATION] onCreate: creating push-queue key indexes...',
         );
         await _createSyncPushQueueKeyIndexes();
+        // The four seeded tables the server keeps foreign keys into have to go
+        // up even though nothing has edited them yet - see
+        // [syncPushQueueSeedTables].
+        debugPrint('[DB_MIGRATION] onCreate: queueing the seeded parents...');
+        await seedPushQueueParents();
         debugPrint('[DB_MIGRATION] onCreate END');
       },
       onUpgrade: (Migrator m, int from, int to) async {
@@ -4712,6 +4843,44 @@ class AppDatabase extends _$AppDatabase {
           );
           await _createSyncPushQueueTriggers();
           debugPrint('[DB_MIGRATION] v14→v15: complete');
+        }
+
+        if (from < 16) {
+          // The repair half of the same fix. A database created by v13, v14 or
+          // v15 got the triggers but never queued the seeded rows the server
+          // holds foreign keys into, so its very first account push failed
+          // with a 23503 and every push after it retried the same batch. This
+          // step puts those rows in the queue so the next sync can clear it.
+          //
+          // Databases upgraded from v12 are unaffected and re-queueing costs
+          // them nothing: v12→v13 seeded the queue from every table, the push
+          // dedupes record keys within a batch, and the server resolves a row
+          // it already holds by last-write-wins. No column, no row and no data
+          // touched.
+          debugPrint(
+            '[DB_MIGRATION] v15→v16: queueing the seeded foreign-key parents...',
+          );
+          await seedPushQueueParents();
+          debugPrint('[DB_MIGRATION] v15→v16: complete');
+        }
+
+        if (from < 17) {
+          // Drops the UNIQUE on currencies.name and account_types.name - see
+          // those columns for what the constraint did to a pair of devices.
+          // Both are written inline in CREATE TABLE, so removing them means
+          // rebuilding the tables; drift copies the rows across.
+          //
+          // Dropping a table drops its triggers with it, so the push-queue
+          // triggers for both have to be put back. The helper recreates all of
+          // them and is re-runnable, which is also what makes this step safe
+          // to re-enter.
+          debugPrint(
+            '[DB_MIGRATION] v16→v17: dropping the UNIQUE on synced names...',
+          );
+          await m.alterTable(TableMigration(currencies));
+          await m.alterTable(TableMigration(accountTypes));
+          await _createSyncPushQueueTriggers();
+          debugPrint('[DB_MIGRATION] v16→v17: complete');
         }
 
         debugPrint('[DB_MIGRATION] onUpgrade complete: from=$from to=$to');
@@ -5439,23 +5608,85 @@ class SmsPresetsDao extends DatabaseAccessor<AppDatabase>
       (select(smsPresets)..where((t) => t.isDeleted.equals(false))).get();
   Stream<List<SmsPreset>> watchAllPresets() =>
       (select(smsPresets)..where((t) => t.isDeleted.equals(false))).watch();
-  Future<int> insertPreset(SmsPresetsCompanion preset) =>
-      into(smsPresets).insert(preset);
+  Future<SmsPreset?> getPresetById(String id) =>
+      (select(smsPresets)
+            ..where((t) => t.id.equals(id) & t.isDeleted.equals(false)))
+          .getSingleOrNull();
+
+  Future<List<SmsPreset>> getPresetsByIds(List<String> ids) =>
+      (select(smsPresets)
+            ..where((t) => t.id.isIn(ids) & t.isDeleted.equals(false)))
+          .get();
+
+  /// Writes a preset and queues it for sync.
+  ///
+  /// The id is settled here rather than left to the column's `clientDefault`,
+  /// because the `sync_log` row has to name the record that was just written
+  /// and `insert` hands back a rowid, not the uuid.
+  Future<int> insertPreset(SmsPresetsCompanion preset) async {
+    final withId = preset.id.present
+        ? preset
+        : preset.copyWith(id: Value(_uuid.v4()));
+    // A preset left at modifiedAt 0 is the losing side of every last-write-wins
+    // comparison, so a peer's untouched copy would beat the one just typed.
+    final toInsert = (withId.modifiedAt.present && withId.modifiedAt.value > 0)
+        ? withId
+        : withId.copyWith(
+            modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+          );
+    final rowId = await into(smsPresets).insert(toInsert);
+    await _logChange(toInsert.id.value, 'upsert');
+    return rowId;
+  }
+
   Future<bool> updatePreset(SmsPresetsCompanion preset) async {
     // `replace` writes the column default for every column the companion
     // omits, so a partial preset edit un-deleted the row (`isDeleted`), turned
     // it back on (`isEnabled` defaults to true) and reset `modifiedAt` to 0.
     // `write` touches only the fields the caller actually set.
+    final stamped = (preset.modifiedAt.present && preset.modifiedAt.value > 0)
+        ? preset
+        : preset.copyWith(
+            modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
+          );
     final count = await (update(
       smsPresets,
-    )..where((t) => t.id.equals(preset.id.value))).write(preset);
+    )..where((t) => t.id.equals(stamped.id.value))).write(stamped);
+    if (count > 0) {
+      await _logChange(stamped.id.value, 'upsert');
+    }
     return count > 0;
   }
 
   Future<int> deletePreset(String id) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    return (update(smsPresets)..where((t) => t.id.equals(id))).write(
-      SmsPresetsCompanion(isDeleted: const Value(true), modifiedAt: Value(now)),
+    final count =
+        await (update(smsPresets)..where((t) => t.id.equals(id))).write(
+          SmsPresetsCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(now),
+          ),
+        );
+    if (count > 0) {
+      await _logChange(id, 'delete');
+    }
+    return count;
+  }
+
+  /// Writes a preset that arrived from a peer: no clock of its own and no
+  /// `sync_log` row, so it does not travel back where it came from.
+  Future<void> insertSyncedPreset(SmsPresetsCompanion preset) =>
+      into(smsPresets).insert(preset, mode: InsertMode.replace);
+
+  Future<void> _logChange(String recordId, String action) async {
+    await into(db.syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: const Value('sms_presets'),
+        recordId: Value(recordId),
+        action: Value(action),
+        timestamp: Value(DateTime.now().millisecondsSinceEpoch),
+        exported: const Value(false),
+      ),
     );
   }
 }

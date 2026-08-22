@@ -61,6 +61,30 @@ Future<void> _migrateLegacyDebugDatabase(String targetPath) async {
   }
 }
 
+/// A directory to keep the database in instead of the one the installed app
+/// uses, or null to use the installed location.
+///
+/// Reads `MYBUDGET_DB_DIR` from the environment and only in a debug build. The
+/// desktop app has exactly one database path and no way to point a test run
+/// somewhere else, so the only way to exercise a migration or a sync against a
+/// throwaway server was to run it over the user's real budget - 78 MB of real
+/// money, and a first-launch sync straight at whatever server that file is
+/// configured for. This exists so a development run can be handed a copy
+/// instead.
+///
+/// Release builds ignore the variable outright rather than trusting nobody will
+/// set it: an installed app whose data location can be moved by an environment
+/// variable is a way to lose a database, not a feature.
+String? sandboxDatabaseDirectory(
+  Map<String, String> environment, {
+  required bool isDebugBuild,
+}) {
+  if (!isDebugBuild) return null;
+  final configured = environment['MYBUDGET_DB_DIR'];
+  if (configured == null || configured.trim().isEmpty) return null;
+  return configured;
+}
+
 QueryExecutor openConnection() {
   debugPrint('[DB_DEBUG] Using NATIVE openConnection');
   debugPrint('[DB_DEBUG] Creating driftDatabase...');
@@ -72,6 +96,19 @@ QueryExecutor openConnection() {
         // Same folder in debug and in release. A debug build that reads a
         // different database from the installed one turns every "is this bug
         // real?" question into a question about which file is being read.
+        final sandbox = sandboxDatabaseDirectory(
+          Platform.environment,
+          isDebugBuild: kDebugMode,
+        );
+        if (sandbox != null) {
+          await Directory(sandbox).create(recursive: true);
+          final sandboxPath = p.join(sandbox, 'db.sqlite');
+          debugPrint('[DB_DEBUG] MYBUDGET_DB_DIR set: $sandboxPath');
+          // No legacy migration here on purpose. That step moves a database
+          // between two real install locations; a sandbox is whatever was
+          // copied into it and nothing else.
+          return sandboxPath;
+        }
         final dbFolder = await getApplicationSupportDirectory();
         debugPrint(
           '[DB_DEBUG] databasePath: getApplicationSupportDirectory OK: ${dbFolder.path}',

@@ -565,7 +565,7 @@ void main() {
     });
   });
 
-  group('rates below the rounding floor', () {
+  group('normalisation keeps a value at its own magnitude', () {
     test('a pulled 2.4e-10 rate is stored as 2.4e-10, not 0', () async {
       // 8-decimal normalisation exists to stop 0.30000000000000004 and 0.3
       // fighting a last-write-wins comparison. Applied to a hyperinflated or
@@ -605,10 +605,10 @@ void main() {
       expect(pushed.single['rate'], 2.4e-10);
     });
 
-    test('ordinary values are still normalised to 8 decimals', () async {
-      // The guard must not turn the rounding off. 0.1 + 0.2 has to leave here
-      // as 0.3, or two devices that computed the same rate differently never
-      // agree that they hold the same value.
+    test('ordinary values are still normalised', () async {
+      // Normalisation must not be turned off altogether. 0.1 + 0.2 has to
+      // leave here as 0.3, or two devices that computed the same rate
+      // differently never agree that they hold the same value.
       pages = [
         page({
           'exchange_rates': [rate(0, value: 0.1 + 0.2)],
@@ -622,5 +622,91 @@ void main() {
         0.3,
       );
     });
+
+    test('a small value keeps its own digits, not the decimal point\'s',
+        () async {
+      // The bug this group is named after, one decade up. Normalisation used
+      // to be `toStringAsFixed(8)` behind a `< 1e-8` guard, so how much of a
+      // rate survived depended on its magnitude rather than on its precision:
+      // 3.7e-8 arrived as 4e-8 and 1.5e-8 as 1e-8, while 9e-9 - under the
+      // guard - came through untouched. Every one of these is a rate a
+      // hyperinflated or crypto pair really has.
+      const rates = <double>[3.7e-8, 1.5e-8, 1.234e-7, 9e-9, 2.4e-10];
+      pages = [
+        page({
+          'exchange_rates': [
+            for (var i = 0; i < rates.length; i++) rate(i, value: rates[i]),
+          ],
+        }),
+      ];
+
+      await service.sync();
+
+      final stored = await db.exchangeRatesDao.getAllExchangeRates();
+      expect(stored.map((r) => r.rate).toList()..sort(), rates.toList()..sort());
+    });
+
+    test('a small value is pushed with its own digits too', () async {
+      // Both directions, because a rate mangled on the way up is mangled for
+      // every other device rather than just this one.
+      const value = 1.234567e-7;
+      await db.customStatement(
+        'INSERT INTO exchange_rates (from_currency_code, to_currency_code, '
+        'rate, preset, date, modified_at) '
+        "VALUES ('IRR', 'ETH', ?, 1, ?, 5000)",
+        [value, DateTime.utc(2024, 1, 1).millisecondsSinceEpoch ~/ 1000],
+      );
+
+      await service.sync();
+
+      final pushed = pushes
+          .expand((body) => (body['exchange_rates'] as List? ?? const []))
+          .cast<Map<String, dynamic>>()
+          .where((r) => r['toCurrencyCode'] == 'ETH')
+          .toList();
+      expect(pushed, hasLength(1));
+      expect(pushed.single['rate'], value);
+    });
+
+    test('a large value keeps every digit it had', () async {
+      // The other end of the same mistake: eight decimal places on a value
+      // this size is not rounding at all, but a rule stated in significant
+      // digits has to be checked here too or it silently truncates money.
+      const values = <double>[1234567.89, 99999999.99, 1e15, 123456.789012];
+      pages = [
+        page({
+          'exchange_rates': [
+            for (var i = 0; i < values.length; i++) rate(i, value: values[i]),
+          ],
+        }),
+      ];
+
+      await service.sync();
+
+      final stored = await db.exchangeRatesDao.getAllExchangeRates();
+      expect(
+        stored.map((r) => r.rate).toList()..sort(),
+        values.toList()..sort(),
+      );
+    });
+
+    test('two routes to the same number still meet in the middle', () async {
+      // What the normalisation is for, at three magnitudes rather than one:
+      // if these did not collapse to the same double, two devices holding the
+      // same rate would each think the other's was newer on every sync.
+      const pairs = <(double, double)>[
+        (0.1 + 0.2, 0.3),
+        (0.07 * 3, 0.21),
+        (1e-9 / 3, 3.33333333333e-10),
+      ];
+      for (final (computed, written) in pairs) {
+        expect(
+          double.parse(computed.toStringAsPrecision(12)),
+          double.parse(written.toStringAsPrecision(12)),
+          reason: '$computed vs $written',
+        );
+      }
+    });
   });
 }
+
