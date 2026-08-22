@@ -1,3 +1,4 @@
+import 'package:my_budget_client/core/utils/decimal_input.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
@@ -257,6 +258,7 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                inputFormatters: signedDecimalInputFormatters,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -267,6 +269,7 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                inputFormatters: signedDecimalInputFormatters,
               ),
               const SizedBox(height: 16),
               BlocBuilder<AccountsBloc, AccountsState>(

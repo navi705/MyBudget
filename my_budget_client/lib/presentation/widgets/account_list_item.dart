@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:collection/collection.dart';
+import 'package:my_budget_client/core/utils/hex_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/theme/money_colors.dart';
@@ -87,16 +88,8 @@ class AccountListItem extends StatelessWidget {
   });
 
   // Helper function to parse hex color strings
-  Color _getColorFromHex(String? hexColor) {
-    hexColor = (hexColor ?? '#FF5733').replaceAll("#", "");
-    if (hexColor.length == 6) {
-      hexColor = "FF$hexColor";
-    }
-    if (hexColor.length == 8) {
-      return Color(int.parse("0x$hexColor"));
-    }
-    return Colors.orange; // Default color
-  }
+  Color _getColorFromHex(String? hexColor) =>
+      parseHexColor(hexColor ?? '#FF5733', fallback: Colors.orange);
 
   Widget _buildStatRow(
     BuildContext context,

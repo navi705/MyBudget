@@ -214,6 +214,45 @@ void main() {
       },
     );
 
+    test('a balance written with a decimal comma is read, not skipped', () async {
+      // The amount column of the same file is parsed through a
+      // `replaceAll(',', '.')` because a Russian export writes "1234,56"; the
+      // balance column was not, and its row was dropped by the catch that
+      // skips unparseable balances. The result was an import that carried
+      // every transaction and silently no opening balances at all.
+      final parsed = await ImportDataUtils.parseOneMoneyCsv(
+        fileOf(
+          '$_ruHeader\r\n'
+          '15.03.2025,Расход,Кошелёк,Продукты,"-12,5",EUR,,,,x\r\n'
+          '\r\n'
+          'НАЗВАНИЕ,БАЛАНС,ВАЛЮТА\r\n'
+          'Кошелёк,"1234,56",EUR\r\n',
+        ),
+      );
+
+      expect(parsed.records.single.amount, -12.5);
+      expect(parsed.accountBalances, hasLength(1));
+      expect(parsed.accountBalances.single.balance, 1234.56);
+    });
+
+    test('a balance cell that is not a number still skips only its own row', () async {
+      // The catch is what keeps one bad row from ending the import, and the
+      // comma fix must not turn a junk cell into a crash.
+      final parsed = await ImportDataUtils.parseOneMoneyCsv(
+        fileOf(
+          '$_ruHeader\r\n'
+          '15.03.2025,Расход,Кошелёк,Продукты,-12.5,EUR,,,,x\r\n'
+          '\r\n'
+          'НАЗВАНИЕ,БАЛАНС,ВАЛЮТА\r\n'
+          'Сломанный,не число,EUR\r\n'
+          'Кошелёк,10.5,EUR\r\n',
+        ),
+      );
+
+      expect(parsed.accountBalances, hasLength(1));
+      expect(parsed.accountBalances.single.name, 'Кошелёк');
+    });
+
     test('the English balance header is recognised too', () async {
       final parsed = await ImportDataUtils.parseOneMoneyCsv(
         fileOf(

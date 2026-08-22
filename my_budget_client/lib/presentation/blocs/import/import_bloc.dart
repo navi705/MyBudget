@@ -499,9 +499,18 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
         allCategories = await _categoryRepository.getCategories(
           includeSystem: true,
         );
-        transferCategory = allCategories.firstWhere(
+        // Named rather than `firstWhere`: the import is inside a try whose
+        // catch puts the exception text on the failure screen, and a bare
+        // `Bad state: No element` there says nothing about what went wrong.
+        transferCategory = allCategories.firstWhereOrNull(
           (c) => c.name == AppConstants.systemTransferCategoryName,
         );
+        if (transferCategory == null) {
+          throw StateError(
+            'The transfer category could not be created, so transfers have '
+            'nowhere to go.',
+          );
+        }
       }
 
       final accountIdMap = {

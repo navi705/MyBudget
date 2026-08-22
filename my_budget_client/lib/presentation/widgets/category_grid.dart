@@ -9,6 +9,7 @@ import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
+import 'package:my_budget_client/core/utils/category_tree.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/domain/entities/icon_type.dart';
@@ -24,12 +25,13 @@ import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 /// four or five candidates at a time when the user has thirty. The grid trades
 /// the per-row detail for roughly four times the categories on screen.
 class CategoryGrid extends StatefulWidget {
-  /// Categories with no parent, in the order the screen decided to show them.
+  /// The categories to show at the top level, in the order the screen decided
+  /// to show them - which is [CategoryTree.roots], not "parentId == null".
   final List<CategoryWithTotal> topLevelCategories;
 
-  /// Every category the filter left, parents and children alike. Children are
-  /// looked up in here.
-  final List<CategoryWithTotal> allCategoriesWithTotals;
+  /// Where the children of a drilled-into parent come from; see
+  /// [CategoryTree] for why this is not the flat list.
+  final CategoryTree tree;
 
   final Set<String> selectedCategoryIds;
   final String mainCurrencyCode;
@@ -46,7 +48,7 @@ class CategoryGrid extends StatefulWidget {
   const CategoryGrid({
     super.key,
     required this.topLevelCategories,
-    required this.allCategoriesWithTotals,
+    required this.tree,
     required this.selectedCategoryIds,
     required this.mainCurrencyCode,
     required this.currencyDesignations,
@@ -78,10 +80,8 @@ class _CategoryGridState extends State<CategoryGrid> {
   /// every child reachable and keeps the tile size constant.
   String? _openParentId;
 
-  List<CategoryWithTotal> _childrenOf(String parentId) => widget
-      .allCategoriesWithTotals
-      .where((c) => c.category.parentId == parentId)
-      .toList();
+  List<CategoryWithTotal> _childrenOf(String parentId) =>
+      widget.tree.childrenOf(parentId);
 
   @override
   void didUpdateWidget(CategoryGrid oldWidget) {
@@ -90,10 +90,7 @@ class _CategoryGridState extends State<CategoryGrid> {
     // while its children are on screen. Falling back to the top level beats
     // showing an empty grid with no way out.
     final openParentId = _openParentId;
-    if (openParentId != null &&
-        !widget.allCategoriesWithTotals.any(
-          (c) => c.category.id == openParentId,
-        )) {
+    if (openParentId != null && widget.tree.entryOf(openParentId) == null) {
       _openParentId = null;
     }
   }
@@ -102,9 +99,7 @@ class _CategoryGridState extends State<CategoryGrid> {
   Widget build(BuildContext context) {
     final openParent = _openParentId == null
         ? null
-        : widget.allCategoriesWithTotals.firstWhereOrNull(
-            (c) => c.category.id == _openParentId,
-          );
+        : widget.tree.entryOf(_openParentId!);
 
     // Inside a parent the grid shows the parent itself first: the money can be
     // booked against it directly, and the list view allows exactly that.

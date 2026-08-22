@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
+import 'package:collection/collection.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
@@ -494,9 +495,18 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
   ) async {
     final currentState = state;
     if (currentState is CategoriesLoadSuccess) {
-      final categoryToDelete = currentState.allCategories.firstWhere(
+      // The loaded list is a snapshot: a sync pull can remove the row between
+      // the screen offering it and this event arriving, so a miss is nothing
+      // left to delete rather than a crash out of the handler.
+      final categoryToDelete = currentState.allCategories.firstWhereOrNull(
         (c) => c.id == event.id,
       );
+      if (categoryToDelete == null) {
+        debugPrint(
+          '[CategoriesDebug] Category ${event.id} is already gone; nothing to delete.',
+        );
+        return;
+      }
 
       debugPrint(
         '[CategoriesDebug] Deleting category: ${categoryToDelete.name} (ID: ${event.id})',

@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -96,7 +97,13 @@ class _AccountsScreenState extends State<AccountsScreen> {
       final accountId = accountIds.first;
       final state = bloc.state;
       if (state is AccountsLoadSuccess) {
-        final account = state.accounts.firstWhere((a) => a.id == accountId);
+        // The selection is a set of ids and the list is a snapshot of the
+        // rows: a pull that removes an account leaves the selection pointing
+        // at it, and there is then nothing to confirm the deletion of.
+        final account = state.accounts.firstWhereOrNull(
+          (a) => a.id == accountId,
+        );
+        if (account == null) return;
         DialogUtils.showAppDialog(
           context: context,
           resizeToAvoidBottomInset: false,
@@ -141,7 +148,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
   ) {
     final l10n = context.l10n;
 
-    String? selectedTypeId = accountTypes.first.id;
+    // Nothing to change the accounts to, and reading the first of an empty
+    // list crashed the menu item rather than the dropdown coming up bare.
+    final firstTypeId = accountTypes.firstOrNull?.id;
+    if (firstTypeId == null) return;
+
+    String? selectedTypeId = firstTypeId;
     DialogUtils.showAppDialog(
       context: context,
       resizeToAvoidBottomInset: false,

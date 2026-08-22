@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:my_budget_client/core/utils/decimal_input.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/domain/services/fee_calculator.dart';
@@ -166,6 +167,7 @@ class _FeeStructureEditorState extends State<FeeStructureEditor> {
         initialValue: rule.amount.toString(),
         decoration: InputDecoration(labelText: l10n.amountLabel),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: decimalInputFormatters,
         onChanged: (value) {
           final amount = double.tryParse(value) ?? 0.0;
           _updateRule(index, FixedFee(amount));
@@ -176,6 +178,7 @@ class _FeeStructureEditorState extends State<FeeStructureEditor> {
         initialValue: (rule.rate * 100).toString(),
         decoration: InputDecoration(labelText: l10n.feeRatePercentLabel),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: decimalInputFormatters,
         onChanged: (value) {
           final rate = (double.tryParse(value) ?? 0.0) / 100;
           _updateRule(index, PercentFee(rate));
@@ -188,6 +191,7 @@ class _FeeStructureEditorState extends State<FeeStructureEditor> {
             initialValue: (rule.rate * 100).toString(),
             decoration: InputDecoration(labelText: l10n.feeTaxRatePercentLabel),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: decimalInputFormatters,
             onChanged: (value) {
               final rate = (double.tryParse(value) ?? 0.0) / 100;
               _updateRule(index, TaxRate(rate, costBasis: rule.costBasis));
@@ -197,6 +201,7 @@ class _FeeStructureEditorState extends State<FeeStructureEditor> {
             initialValue: rule.costBasis.toString(),
             decoration: InputDecoration(labelText: l10n.feeCostBasisLabel),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: decimalInputFormatters,
             onChanged: (value) {
               final costBasis = double.tryParse(value) ?? 0.0;
               _updateRule(index, TaxRate(rule.rate, costBasis: costBasis));

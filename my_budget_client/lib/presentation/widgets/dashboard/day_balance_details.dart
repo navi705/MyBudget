@@ -1,3 +1,4 @@
+import 'package:my_budget_client/core/utils/hex_color.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
@@ -27,16 +28,8 @@ class DayBalanceDetails extends StatelessWidget {
     required this.currencyDesignations, // Added
   });
 
-  Color _getColorFromHex(String? hexColor) {
-    hexColor = (hexColor ?? '#FF5733').replaceAll("#", "");
-    if (hexColor.length == 6) {
-      hexColor = "FF$hexColor";
-    }
-    if (hexColor.length == 8) {
-      return Color(int.parse("0x$hexColor"));
-    }
-    return Colors.orange;
-  }
+  Color _getColorFromHex(String? hexColor) =>
+      parseHexColor(hexColor ?? '#FF5733', fallback: Colors.orange);
 
   @override
   Widget build(BuildContext context) {

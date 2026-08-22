@@ -1,3 +1,4 @@
+import 'package:my_budget_client/core/utils/hex_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:material_symbols_icons/get.dart';
@@ -65,18 +66,6 @@ class IconUtils {
     ); // Default error icon
   }
 
-  static Color getColorFromHex(String? hexColor) {
-    hexColor = (hexColor ?? '#808080').replaceAll("#", "");
-    if (hexColor.length == 6) {
-      hexColor = "FF$hexColor";
-    }
-    if (hexColor.length == 8) {
-      try {
-        return Color(int.parse("0x$hexColor"));
-      } catch (_) {
-        return Colors.grey;
-      }
-    }
-    return Colors.grey;
-  }
+  static Color getColorFromHex(String? hexColor) =>
+      parseHexColor(hexColor ?? '#808080', fallback: Colors.grey);
 }

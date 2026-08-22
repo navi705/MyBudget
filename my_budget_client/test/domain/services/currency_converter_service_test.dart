@@ -398,7 +398,7 @@ void main() {
       final repo = FakeCurrencyRepository([_rate('USD', 'EUR', 1.5, target)]);
       final service = CurrencyConverterService(repo);
 
-      final args = () => service.getExchangeRate(
+      Future<ExchangeRateDomain?> args() => service.getExchangeRate(
         fromCurrencyCode: 'USD',
         toCurrencyCode: 'EUR',
         date: target,

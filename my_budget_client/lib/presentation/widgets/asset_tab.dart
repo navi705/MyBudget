@@ -1,3 +1,5 @@
+import 'package:my_budget_client/core/utils/decimal_input.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -58,9 +60,12 @@ class _AssetTabContent extends StatelessWidget {
     final accounts = await accountRepository.getAccounts();
     Account? selectedAccount;
     if (asset?.accountId != null) {
-      try {
-        selectedAccount = accounts.firstWhere((a) => a.id == asset!.accountId);
-      } catch (_) {}
+      // An asset outlives the account it was bought through: deleting that
+      // account leaves the id pointing at nothing, and the dialog then opens
+      // with the account field simply empty.
+      selectedAccount = accounts.firstWhereOrNull(
+        (a) => a.id == asset!.accountId,
+      );
     }
 
     if (!context.mounted) return;
@@ -109,6 +114,7 @@ class _AssetTabContent extends StatelessWidget {
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
+                      inputFormatters: decimalInputFormatters,
                     ),
                     TextField(
                       controller: quantityController,
@@ -118,6 +124,7 @@ class _AssetTabContent extends StatelessWidget {
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
+                      inputFormatters: decimalInputFormatters,
                     ),
                     TextField(
                       controller: assetTypeController,

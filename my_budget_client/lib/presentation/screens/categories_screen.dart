@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/utils/category_tree.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -100,7 +101,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     BuildContext context, {
     required CategoriesBloc bloc,
     required CategoriesLoadSuccess successState,
-    required List<CategoryWithTotal> filteredCategories,
+    required CategoryTree tree,
     required List<CategoryWithTotal> topLevelCategories,
   }) {
     return ListView.builder(
@@ -125,7 +126,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         return CategoryListItem(
           key: ValueKey(category.id),
           categoryWithTotal: categoryWithTotal,
-          allCategoriesWithTotals: filteredCategories,
+          tree: tree,
           isSelected: isSelected,
           onTap: (tappedCategory) {
             if (successState.isSelectionModeActive) {
@@ -771,9 +772,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           )
                           .toList();
 
-                final topLevelCategories = filteredCategories
-                    .where((c) => c.category.parentId == null)
-                    .toList();
+                // Not `parentId == null`: a category whose parent was deleted,
+                // filtered out by the type bar, still on a later page or - once
+                // two devices reparent in opposite directions - part of a loop
+                // has a parent nobody draws, and used to be drawn nowhere at
+                // all while its money went on counting in every total.
+                final tree = CategoryTree.of(filteredCategories);
+                final topLevelCategories = tree.roots;
 
                 return GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -802,7 +807,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           if (categoriesGridViewEnabled(settingsState)) {
                             return CategoryGrid(
                               topLevelCategories: topLevelCategories,
-                              allCategoriesWithTotals: filteredCategories,
+                              tree: tree,
                               selectedCategoryIds: successState
                                   .selectedCategoryIds
                                   .toSet(),
@@ -842,7 +847,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                             context,
                             bloc: bloc,
                             successState: successState,
-                            filteredCategories: filteredCategories,
+                            tree: tree,
                             topLevelCategories: topLevelCategories,
                           );
                         },
@@ -1308,6 +1313,21 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
     }
   }
 
+  /// The categories this one may be filed under.
+  ///
+  /// Itself and everything already under it are left out: either choice makes
+  /// a loop, and a loop has to be cut somewhere before the screen can draw it,
+  /// which moves a category the user never asked to move. Offering the whole
+  /// list let a single tap on "edit" do exactly that.
+  List<Category> get _parentCandidates {
+    final id = widget.category?.id;
+    if (id == null) return widget.allCategories;
+    final ownSubtree = categorySubtreeIds(id, widget.allCategories);
+    return widget.allCategories
+        .where((c) => !ownSubtree.contains(c.id))
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -1403,7 +1423,7 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                       final selectedParent =
                           await showSingleSelectDialog<Category>(
                             context: context,
-                            items: widget.allCategories,
+                            items: _parentCandidates,
                             title: l10n.parentCategoryLabel,
                             selectedItem: widget.allCategories.firstWhereOrNull(
                               (c) => c.id == _selectedParentId,

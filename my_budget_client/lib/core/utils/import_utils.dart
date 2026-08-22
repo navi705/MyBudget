@@ -188,7 +188,13 @@ class ImportDataUtils {
               accountBalances.add(
                 AccountBalanceRecord(
                   name: row[0].toString().trim(), // Trim whitespace
-                  balance: double.parse(row[1].toString()),
+                  // Through the same comma rewrite as the amount column
+                  // below: a Russian export quotes "1234,56", and without it
+                  // the catch under here dropped every balance row of an
+                  // otherwise perfectly readable file.
+                  balance: double.parse(
+                    row[1].toString().replaceAll(',', '.'),
+                  ),
                   currency: row[2].toString().trim(),
                 ),
               );

@@ -1,8 +1,10 @@
 import '../../core/utils/country_codes.dart';
 import 'country_picker_dialog.dart';
 import 'package:collection/collection.dart';
+import 'package:my_budget_client/core/utils/hex_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_budget_client/core/utils/decimal_input.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
@@ -76,16 +78,8 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
     Navigator.of(context).pop();
   }
 
-  Color _getColorFromHex(String? hexColor) {
-    hexColor = (hexColor ?? '#FF5733').replaceAll("#", "");
-    if (hexColor.length == 6) {
-      hexColor = "FF$hexColor";
-    }
-    if (hexColor.length == 8) {
-      return Color(int.parse("0x$hexColor"));
-    }
-    return Colors.orange;
-  }
+  Color _getColorFromHex(String? hexColor) =>
+      parseHexColor(hexColor ?? '#FF5733', fallback: Colors.orange);
 
   @override
   Widget build(BuildContext context) {
@@ -130,6 +124,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                     decimal: true,
                     signed: true,
                   ),
+                  inputFormatters: signedDecimalInputFormatters,
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _onSave(),
                   validator: (value) {

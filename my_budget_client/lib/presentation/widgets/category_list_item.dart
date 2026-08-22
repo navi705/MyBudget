@@ -3,6 +3,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/theme/money_colors.dart';
+import 'package:my_budget_client/core/utils/category_tree.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
@@ -16,7 +17,15 @@ import 'package:my_budget_client/core/utils/money_formatter.dart';
 
 class CategoryListItem extends StatelessWidget {
   final CategoryWithTotal categoryWithTotal;
-  final List<CategoryWithTotal> allCategoriesWithTotals;
+
+  /// Where the children come from.
+  ///
+  /// This used to be the flat list, filtered here by `parentId == category.id`,
+  /// which nested a category under itself the moment a loop reached the device
+  /// and nested it again for every level the user expanded. [CategoryTree] cuts
+  /// loops before anything is drawn, so this widget can recurse without a depth
+  /// guard.
+  final CategoryTree tree;
   final void Function(Category) onTap;
   final String mainCurrencyCode;
   final List<CurrencyDesignation> currencyDesignations;
@@ -28,7 +37,7 @@ class CategoryListItem extends StatelessWidget {
   const CategoryListItem({
     super.key,
     required this.categoryWithTotal,
-    required this.allCategoriesWithTotals,
+    required this.tree,
     required this.onTap,
     required this.mainCurrencyCode,
     required this.currencyDesignations,
@@ -42,9 +51,9 @@ class CategoryListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final category = categoryWithTotal.category;
     final total = categoryWithTotal.total;
-    final children = allCategoriesWithTotals
-        .where((c) => c.category.parentId == category.id)
-        .toList();
+    final children = category.id == null
+        ? const <CategoryWithTotal>[]
+        : tree.childrenOf(category.id!);
 
     return BlocBuilder<StylesBloc, StylesState>(
       builder: (context, styleState) {
@@ -145,7 +154,7 @@ class CategoryListItem extends StatelessWidget {
                     child: CategoryListItem(
                       key: ValueKey(child.category.id),
                       categoryWithTotal: child,
-                      allCategoriesWithTotals: allCategoriesWithTotals,
+                      tree: tree,
                       onTap: onTap,
                       mainCurrencyCode: mainCurrencyCode,
                       currencyDesignations: currencyDesignations,

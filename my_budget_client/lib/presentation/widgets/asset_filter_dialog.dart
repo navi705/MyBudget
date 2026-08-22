@@ -1,3 +1,4 @@
+import 'package:my_budget_client/core/utils/decimal_input.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
@@ -176,6 +177,7 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
+                          inputFormatters: signedDecimalInputFormatters,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -188,6 +190,7 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
+                          inputFormatters: signedDecimalInputFormatters,
                         ),
                       ),
                     ],

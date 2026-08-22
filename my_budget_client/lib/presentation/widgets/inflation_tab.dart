@@ -1,3 +1,4 @@
+import 'package:my_budget_client/core/utils/decimal_input.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -73,6 +74,7 @@ class _InflationTabContent extends StatelessWidget {
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
+                      inputFormatters: signedDecimalInputFormatters,
                     ),
                     // Free text used to be accepted here, but
                     // FinanceCalculator looks a rate up by exact World Bank

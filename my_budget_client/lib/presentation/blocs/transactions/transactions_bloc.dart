@@ -338,10 +338,26 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   StreamSubscription<void>? _transactionsSubscription;
   StreamSubscription<void>? _exchangeRatesSubscription;
 
-  // Set by the bloc's own write events. Their handlers reload the list
+  // Started by the bloc's own write events. Their handlers reload the list
   // themselves, so the table signal they cause is theirs to swallow — without
   // this every add or delete would run the load twice.
-  bool _ownWritePending = false;
+  //
+  // A stopwatch rather than a plain flag because a write that ends in its
+  // catch block writes nothing and so causes no signal at all. The flag stayed
+  // armed for as long as the screen was open, and the next signal it swallowed
+  // was a pull's — the peer's transactions then stayed off the list until
+  // something else happened to write. An echo that never came simply runs out
+  // of [ownWriteEcho] instead.
+  final Stopwatch _sinceOwnWrite = Stopwatch();
+
+  /// How long after one of this bloc's own writes a table signal still counts
+  /// as that write's own echo.
+  ///
+  /// A constructor parameter for tests only, which cannot afford to wait out
+  /// the production value; the default is the production value. It only has to
+  /// cover the listener's own 500ms debounce plus the write itself, and erring
+  /// short costs one redundant reload while erring long costs a missed one.
+  final Duration ownWriteEcho;
 
   TransactionsBloc({
     required TransactionRepository transactionRepository,
@@ -350,6 +366,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     required SettingsRepository settingsRepository,
     required CurrencyRepository currencyRepository,
     required AccountRepository accountRepository, // Added
+    this.ownWriteEcho = const Duration(seconds: 3),
   }) : _transactionRepository = transactionRepository,
        _styleRepository = styleRepository,
        _categoryRepository = categoryRepository,
@@ -413,8 +430,8 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         .watchTransactionChanges()
         .debounceTime(const Duration(milliseconds: 500))
         .listen((_) {
-          if (_ownWritePending) {
-            _ownWritePending = false;
+          if (_sinceOwnWrite.isRunning && _sinceOwnWrite.elapsed < ownWriteEcho) {
+            _sinceOwnWrite.stop();
             return;
           }
           add(const InitialLoadTransactions());
@@ -423,7 +440,11 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
 
   @override
   void onEvent(TransactionsEvent event) {
-    if (event is TransactionWrite) _ownWritePending = true;
+    if (event is TransactionWrite) {
+      _sinceOwnWrite
+        ..reset()
+        ..start();
+    }
     super.onEvent(event);
   }
 

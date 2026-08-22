@@ -1,6 +1,7 @@
 import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:my_budget_client/core/utils/import_file_data.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:my_budget_client/core/utils/hex_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
@@ -376,15 +377,10 @@ class _ImportViewState extends State<_ImportView> {
                                           iconType: IconType.material,
                                         );
 
-                                    Color color = Colors.grey;
-                                    try {
-                                      String hex = style.colorHex.replaceAll(
-                                        '#',
-                                        '',
-                                      );
-                                      if (hex.length == 6) hex = 'FF$hex';
-                                      color = Color(int.parse('0x$hex'));
-                                    } catch (_) {}
+                                    final color = parseHexColor(
+                                      style.colorHex,
+                                      fallback: Colors.grey,
+                                    );
 
                                     return Row(
                                       children: [
@@ -515,15 +511,10 @@ class _ImportViewState extends State<_ImportView> {
                                           iconType: IconType.material,
                                         );
 
-                                    Color color = Colors.grey;
-                                    try {
-                                      String hex = style.colorHex.replaceAll(
-                                        '#',
-                                        '',
-                                      );
-                                      if (hex.length == 6) hex = 'FF$hex';
-                                      color = Color(int.parse('0x$hex'));
-                                    } catch (_) {}
+                                    final color = parseHexColor(
+                                      style.colorHex,
+                                      fallback: Colors.grey,
+                                    );
 
                                     return Row(
                                       children: [
