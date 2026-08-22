@@ -131,6 +131,19 @@ class AddEditTransactionManualRateChanged extends AddEditTransactionEvent {
   List<Object> get props => [rate];
 }
 
+/// The user typed how much should ARRIVE, rather than the rate it arrives at.
+///
+/// A cross-currency transfer is nearly always known from both ends - the app
+/// that sent it says what left and what landed - and until now the form only
+/// accepted the quotient of the two. The rate is derived from this and the
+/// sent amount, so the two fields and the rate card stay one number.
+class AddEditTransactionReceivedAmountChanged extends AddEditTransactionEvent {
+  final String amount;
+  const AddEditTransactionReceivedAmountChanged(this.amount);
+  @override
+  List<Object> get props => [amount];
+}
+
 class AddEditTransactionAddNewRate extends AddEditTransactionEvent {
   const AddEditTransactionAddNewRate();
 }

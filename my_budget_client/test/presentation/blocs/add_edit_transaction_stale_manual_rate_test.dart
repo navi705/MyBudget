@@ -76,6 +76,9 @@ class _RecordingTransactionRepository extends Fake
   Future<void> addTransaction(Transaction transaction) async {
     added.add(transaction);
   }
+
+  @override
+  Stream<void> watchTransactionChanges() => const Stream.empty();
 }
 
 /// Holds the system transfer category `_onSubmitted` resolves for a transfer,
@@ -89,9 +92,16 @@ class _FakeCategoryRepository extends Fake implements CategoryRepository {
       type: CategoryType.transfer,
     ),
   ];
+
+  @override
+  Stream<List<Category>> watchCategories({bool includeSystem = false}) =>
+      const Stream.empty();
 }
 
-class _FakeAccountRepository extends Fake implements AccountRepository {}
+class _FakeAccountRepository extends Fake implements AccountRepository {
+  @override
+  Stream<List<Account>> watchAccounts() => const Stream.empty();
+}
 
 class _FakeSettingsRepository extends Fake implements SettingsRepository {}
 

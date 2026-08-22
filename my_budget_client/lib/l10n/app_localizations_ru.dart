@@ -38,8 +38,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get accountsAddTooltip => 'Добавить счет';
 
   @override
-  String get addAccountDescription =>
-      'Создать новый банковский счет, кошелек или актив';
+  String get addAccountDescription => 'Создать новый банковский счет, кошелек или актив';
 
   @override
   String get addAccountDialogTitle => 'Добавить новый счет';
@@ -103,12 +102,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get formValidationPleaseEnterBalance => 'Пожалуйста, введите баланс';
 
   @override
-  String get formValidationPleaseEnterValidNumber =>
-      'Пожалуйста, введите корректное число';
+  String get formValidationPleaseEnterValidNumber => 'Пожалуйста, введите корректное число';
 
   @override
-  String get formValidationPleaseSelectCurrency =>
-      'Пожалуйста, выберите валюту';
+  String get formValidationPleaseSelectCurrency => 'Пожалуйста, выберите валюту';
 
   @override
   String get currencyLoadError => 'Ошибка загрузки валют';
@@ -150,8 +147,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get dashboardNetWorthTrend => 'Тренды чистого капитала';
 
   @override
-  String get dashboardWealthDistributionByAccount =>
-      'Распределение капитала (по счетам)';
+  String get dashboardWealthDistributionByAccount => 'Распределение капитала (по счетам)';
 
   @override
   String get dashboardCurrencyExposure => 'Валютные риски';
@@ -235,15 +231,13 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get deleteAccountDialogReassign =>
-      'Переназначить транзакции другому счету';
+  String get deleteAccountDialogReassign => 'Переназначить транзакции другому счету';
 
   @override
   String get deleteAccountDialogDeleteAll => 'Удалить все связанные транзакции';
 
   @override
-  String get deleteAccountDialogMessage =>
-      'У этого счета могут быть связанные транзакции. Что вы хотите сделать?';
+  String get deleteAccountDialogMessage => 'У этого счета могут быть связанные транзакции. Что вы хотите сделать?';
 
   @override
   String get newAccountLabel => 'Новый счет';
@@ -252,8 +246,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get warningOverwriteTitle => 'Предупреждение: Перезаписать данные?';
 
   @override
-  String get warningOverwriteMessage =>
-      'Восстановление из резервной копии УДАЛИТ ВСЕ текущие данные и заменит их данными из копии. Это действие нельзя отменить.';
+  String get warningOverwriteMessage => 'Восстановление из резервной копии УДАЛИТ ВСЕ текущие данные и заменит их данными из копии. Это действие нельзя отменить.';
 
   @override
   String get restoreOverwriteButton => 'Восстановить с перезаписью';
@@ -272,8 +265,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get deleteCategoriesConfirmationMessage =>
-      'Вы уверены, что хотите удалить выбранные категории?';
+  String get deleteCategoriesConfirmationMessage => 'Вы уверены, что хотите удалить выбранные категории?';
 
   @override
   String get changeCategoryTypeDialogTitle => 'Изменить тип категории';
@@ -285,15 +277,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get addCategoryTooltip => 'Добавить категорию';
 
   @override
-  String get addCategoryDescription =>
-      'Создать новую категорию расходов или доходов';
+  String get addCategoryDescription => 'Создать новую категорию расходов или доходов';
 
   @override
   String get previousPeriodTooltip => 'Предыдущий период';
 
   @override
-  String get previousPeriodDescription =>
-      'Перейти к предыдущему месяцу или году';
+  String get previousPeriodDescription => 'Перейти к предыдущему месяцу или году';
 
   @override
   String get nextPeriodTooltip => 'Следующий период';
@@ -305,22 +295,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get filterTooltip => 'Фильтр';
 
   @override
-  String get filterCategoriesDescription =>
-      'Фильтровать категории по типу (Расход/Доход)';
+  String get filterCategoriesDescription => 'Фильтровать категории по типу (Расход/Доход)';
 
   @override
   String get selectDateTooltip => 'Выбрать дату';
 
   @override
-  String get selectDateDescription =>
-      'Выбрать определенный диапазон дат для просмотра итогов';
+  String get selectDateDescription => 'Выбрать определенный диапазон дат для просмотра итогов';
 
   @override
   String get sortOrderTooltip => 'Порядок сортировки';
 
   @override
-  String get sortOrderDescription =>
-      'Переключение между возрастающим и убывающим порядком сумм';
+  String get sortOrderDescription => 'Переключение между возрастающим и убывающим порядком сумм';
 
   @override
   String get closeSelectionTooltip => 'Закрыть выбор';
@@ -352,29 +339,25 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get exitTransactionsSelectionDescription =>
-      'Выйти из режима выбора транзакций';
+  String get exitTransactionsSelectionDescription => 'Выйти из режима выбора транзакций';
 
   @override
   String get changeDateTooltip => 'Изменить дату';
 
   @override
-  String get changeDateDescription =>
-      'Обновить дату для всех выбранных транзакций';
+  String get changeDateDescription => 'Обновить дату для всех выбранных транзакций';
 
   @override
   String get changeCategoryTooltip => 'Изменить категорию';
 
   @override
-  String get changeCategoryDescription =>
-      'Обновить категорию для всех выбранных транзакций';
+  String get changeCategoryDescription => 'Обновить категорию для всех выбранных транзакций';
 
   @override
   String get deleteTransactionsTooltip => 'Удалить выбранные';
 
   @override
-  String get deleteTransactionsDescription =>
-      'Безвозвратно удалить все выбранные транзакции';
+  String get deleteTransactionsDescription => 'Безвозвратно удалить все выбранные транзакции';
 
   @override
   String get amountLabel => 'Сумма';
@@ -460,16 +443,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get selectDateError => 'Пожалуйста, выберите дату';
 
   @override
-  String get accountDeletedError =>
-      'Выбранный вами счет был удален. Пожалуйста, выберите другой.';
+  String get accountDeletedError => 'Выбранный вами счет был удален. Пожалуйста, выберите другой.';
 
   @override
-  String get linkedAccountDeletedError =>
-      'Выбранный вами связанный счет был удален. Пожалуйста, выберите другой.';
+  String get linkedAccountDeletedError => 'Выбранный вами связанный счет был удален. Пожалуйста, выберите другой.';
 
   @override
-  String get enterExchangeRateError =>
-      'Пожалуйста, введите курс обмена. Этот перевод выполняется между двумя валютами, а курс обмена для них не сохранен.';
+  String get enterExchangeRateError => 'Пожалуйста, введите курс обмена. Этот перевод выполняется между двумя валютами, а курс обмена для них не сохранен.';
 
   @override
   String get currencyLockedMessage => 'Привязано к валюте счета отправителя';
@@ -689,8 +669,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get exportDataLabel => 'Экспорт данных';
 
   @override
-  String get exportFormatMessage =>
-      'Выберите формат:\n\nJSON: Полная резервная копия всех данных.\nCSV: Читаемый отчет по транзакциям.';
+  String get exportFormatMessage => 'Выберите формат:\n\nJSON: Полная резервная копия всех данных.\nCSV: Читаемый отчет по транзакциям.';
 
   @override
   String get jsonFormat => 'JSON';
@@ -705,8 +684,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get resetDataLabel => 'Сброс данных к начальным';
 
   @override
-  String get resetDataSubtitle =>
-      'Это Удалит все данные и восстановит настройки по умолчанию.';
+  String get resetDataSubtitle => 'Это Удалит все данные и восстановит настройки по умолчанию.';
 
   @override
   String get debugMenuLabel => 'Меню отладки';
@@ -737,8 +715,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get startupDataSyncLabel => 'Синхронизация данных при запуске';
 
   @override
-  String get startupDataSyncDescription =>
-      'Управляет как получением внешних данных, так и серверной синхронизацией при запуске приложения.';
+  String get startupDataSyncDescription => 'Управляет как получением внешних данных, так и серверной синхронизацией при запуске приложения.';
 
   @override
   String get standardApiLabel => 'Стандартный API';
@@ -755,8 +732,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get individualCustomSourcesTitle =>
-      'Индивидуальные пользовательские источники';
+  String get individualCustomSourcesTitle => 'Индивидуальные пользовательские источники';
 
   @override
   String get noCustomSourcesAdded => 'Пользовательские источники не добавлены.';
@@ -859,8 +835,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get addCustomSourceTitle => 'Добавить пользовательский источник';
 
   @override
-  String get addressFormatsHelp =>
-      'Форматы адресов:\n• 192.168.1.10 (IP)\n• localhost или api.my.com\n• http://myserver.com';
+  String get addressFormatsHelp => 'Форматы адресов:\n• 192.168.1.10 (IP)\n• localhost или api.my.com\n• http://myserver.com';
 
   @override
   String get customSourceNameHint => 'Мой домашний сервер';
@@ -946,15 +921,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get resetDataConfirmationTitle => 'Сбросить данные?';
 
   @override
-  String get resetDataConfirmationMessage =>
-      'Внимание! Это удалит ВСЕ ваши транзакции, счета и настройки.\n\nПриложение будет возвращено в исходное состояние с данными по умолчанию.\nЭто действие НЕВОЗМОЖНО отменить.';
+  String get resetDataConfirmationMessage => 'Внимание! Это удалит ВСЕ ваши транзакции, счета и настройки.\n\nПриложение будет возвращено в исходное состояние с данными по умолчанию.\nЭто действие НЕВОЗМОЖНО отменить.';
 
   @override
   String get resetEverythingButton => 'Сбросить всё';
 
   @override
-  String get resetSuccessMessage =>
-      'Данные сброшены, настройки по умолчанию восстановлены.';
+  String get resetSuccessMessage => 'Данные сброшены, настройки по умолчанию восстановлены.';
 
   @override
   String resetFailedMessage(Object error) {
@@ -982,8 +955,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get restoreBackupLabel => 'Восстановить из копии (JSON)';
 
   @override
-  String get importSelectionHelp =>
-      'Выберите \'OneMoney\' для миграции, \'MyBudget\' для добавления транзакций или \'Восстановить из копии\' для полной перезаписи данных.';
+  String get importSelectionHelp => 'Выберите \'OneMoney\' для миграции, \'MyBudget\' для добавления транзакций или \'Восстановить из копии\' для полной перезаписи данных.';
 
   @override
   String get importCreateAllNew => 'Создать все как новые';
@@ -1111,16 +1083,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchHint => 'Поиск';
 
   @override
-  String get debugAllDataClearedMessage =>
-      'Все данные очищены и заполнены значениями по умолчанию.';
+  String get debugAllDataClearedMessage => 'Все данные очищены и заполнены значениями по умолчанию.';
 
   @override
-  String get debugClearAllDataLabel =>
-      'Очистить все данные (и заполнить по умолчанию)';
+  String get debugClearAllDataLabel => 'Очистить все данные (и заполнить по умолчанию)';
 
   @override
-  String get debugMinimumDataSeededMessage =>
-      'Минимальный набор данных загружен.';
+  String get debugMinimumDataSeededMessage => 'Минимальный набор данных загружен.';
 
   @override
   String get debugSeedMinimumDataLabel => 'Загрузить минимальный набор данных';
@@ -1132,12 +1101,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get debugSeedMediumDataLabel => 'Загрузить средний набор данных';
 
   @override
-  String get debugMaximumDataSeededMessage =>
-      'Максимальный набор данных загружен.';
+  String get debugMaximumDataSeededMessage => 'Максимальный набор данных загружен.';
 
   @override
-  String get debugSeedMaximumDataLabel =>
-      'Загрузить максимальный набор данных (тест производительности)';
+  String get debugSeedMaximumDataLabel => 'Загрузить максимальный набор данных (тест производительности)';
 
   @override
   String get debugRunningInDebugModeLabel => 'Запущено в режиме ОТЛАДКИ';
@@ -1175,8 +1142,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get dashboardCalendarTooltip => 'Просмотр календаря';
 
   @override
-  String get dashboardCalendarDescription =>
-      'Просмотр транзакций в формате календаря';
+  String get dashboardCalendarDescription => 'Просмотр транзакций в формате календаря';
 
   @override
   String get dashboardCategoriesTab => 'Категории';
@@ -1188,8 +1154,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get dashboardCategoriesTooltip => 'Анализ категорий';
 
   @override
-  String get dashboardCategoriesDescription =>
-      'Разбивка расходов по категориям';
+  String get dashboardCategoriesDescription => 'Разбивка расходов по категориям';
 
   @override
   String get dashboardBalanceTab => 'Баланс';
@@ -1201,8 +1166,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get dashboardBalanceTooltip => 'История баланса';
 
   @override
-  String get dashboardBalanceDescription =>
-      'Отслеживание чистого капитала со временем';
+  String get dashboardBalanceDescription => 'Отслеживание чистого капитала со временем';
 
   @override
   String get dashboardExpensesLabel => 'Расходы';
@@ -1262,8 +1226,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get deleteMultipleAccountsMessage =>
-      'Вы уверены, что хотите удалить выбранные аккаунты? Все связанные транзакции будут удалены.';
+  String get deleteMultipleAccountsMessage => 'Вы уверены, что хотите удалить выбранные аккаунты? Все связанные транзакции будут удалены.';
 
   @override
   String get changeAccountTypeDialogTitle => 'Изменить тип аккаунта';
@@ -1274,8 +1237,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get balanceCalculatedFromAsset =>
-      'Баланс рассчитывается как Количество актива * Цена';
+  String get balanceCalculatedFromAsset => 'Баланс рассчитывается как Количество актива * Цена';
 
   @override
   String get selectAccountTypeTitle => 'Выберите тип аккаунта';
@@ -1296,8 +1258,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get selectedAssetLabel => 'Выбранный актив';
 
   @override
-  String get balanceAutoCalculatedLabel =>
-      'Баланс рассчитывается автоматически';
+  String get balanceAutoCalculatedLabel => 'Баланс рассчитывается автоматически';
 
   @override
   String get tapToBindAssetLabel => 'Нажмите, чтобы привязать актив';
@@ -1315,8 +1276,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get accountTypeLabel => 'Тип аккаунта';
 
   @override
-  String get formValidationPleaseSelectAccountType =>
-      'Пожалуйста, выберите тип аккаунта';
+  String get formValidationPleaseSelectAccountType => 'Пожалуйста, выберите тип аккаунта';
 
   @override
   String get iconLabel => 'Иконка';
@@ -1376,8 +1336,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get syncApiTokenHint => 'Введите ваш токен безопасности';
 
   @override
-  String get syncApiTokenHelp =>
-      'Этот токен — ваш общий секрет. Введите одно и то же значение на всех ваших устройствах для авторизации синхронизации.';
+  String get syncApiTokenHelp => 'Этот токен — ваш общий секрет. Введите одно и то же значение на всех ваших устройствах для авторизации синхронизации.';
 
   @override
   String get syncTestConnectionButton => 'Проверить соединение';
@@ -1392,8 +1351,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get syncEnableServer => 'Включить синхронизацию с сервером';
 
   @override
-  String get syncServerSubtitle =>
-      'Синхронизация с экземпляром MyBudget Server';
+  String get syncServerSubtitle => 'Синхронизация с экземпляром MyBudget Server';
 
   @override
   String get syncPendingLocalChanges => 'Ожидающие локальные изменения:';
@@ -1408,8 +1366,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get syncWebNotAvailable => 'Синхронизация недоступна в веб-версии';
 
   @override
-  String get syncPermissionRequired =>
-      'Для синхронизации требуется разрешение на доступ к хранилищу. Пожалуйста, включите «Доступ ко всем файлам» в настройках.';
+  String get syncPermissionRequired => 'Для синхронизации требуется разрешение на доступ к хранилищу. Пожалуйста, включите «Доступ ко всем файлам» в настройках.';
 
   @override
   String get syncSelectFolderTitle => 'Выберите папку Syncthing';
@@ -1418,8 +1375,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get syncClearFilesTitle => 'Очистить файлы синхронизации';
 
   @override
-  String get syncClearFilesConfirm =>
-      'Это удалит все .sync файлы из выбранной папки. Это действие нельзя отменить.';
+  String get syncClearFilesConfirm => 'Это удалит все .sync файлы из выбранной папки. Это действие нельзя отменить.';
 
   @override
   String syncDeletedFilesCount(Object count) {
@@ -1438,20 +1394,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get syncConnectionSuccessful => 'Соединение успешно установлено!';
 
   @override
-  String get syncConnectionFailed =>
-      'Ошибка соединения. Проверьте URL и токен.';
+  String get syncConnectionFailed => 'Ошибка соединения. Проверьте URL и токен.';
 
   @override
-  String get syncConnectionUnauthorized =>
-      'Сервер отклонил токен. Проверьте токен, а не адрес.';
+  String get syncConnectionUnauthorized => 'Сервер отклонил токен. Проверьте токен, а не адрес.';
 
   @override
-  String get syncServerNotConfigured =>
-      'На сервере не задан токен синхронизации, поэтому он отклоняет все устройства. Задайте SYNC_TOKEN на сервере и укажите то же значение здесь.';
+  String get syncServerNotConfigured => 'На сервере не задан токен синхронизации, поэтому он отклоняет все устройства. Задайте SYNC_TOKEN на сервере и укажите то же значение здесь.';
 
   @override
-  String get syncUrlNotConfigured =>
-      'Адрес сервера не указан. Введите URL вида https://example.com, прежде чем включать синхронизацию.';
+  String get syncUrlNotConfigured => 'Адрес сервера не указан. Введите URL вида https://example.com, прежде чем включать синхронизацию.';
 
   @override
   String get syncCompleted => 'Синхронизация успешно завершена';
@@ -1495,8 +1447,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get smsRuleCurrencyPatternHint => 'напр., [\\d,.]+\\s*(\\w\\w\\w)';
 
   @override
-  String get smsRuleCurrencyPatternHelp =>
-      'Группа 1 должна захватывать код валюты';
+  String get smsRuleCurrencyPatternHelp => 'Группа 1 должна захватывать код валюты';
 
   @override
   String get smsRuleTestTitle => 'Протестируйте ваше правило';
@@ -1574,12 +1525,10 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get deleteCategoryMessage =>
-      'У этой категории есть связанные транзакции. Что вы хотите сделать?';
+  String get deleteCategoryMessage => 'У этой категории есть связанные транзакции. Что вы хотите сделать?';
 
   @override
-  String get deleteCategoryReassign =>
-      'Переназначить транзакции другой категории';
+  String get deleteCategoryReassign => 'Переназначить транзакции другой категории';
 
   @override
   String get deleteCategoryNewCategory => 'Новая категория';
@@ -1593,8 +1542,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get deleteAccountMessage =>
-      'У этого счета могут быть связанные транзакции. Что вы хотите сделать?';
+  String get deleteAccountMessage => 'У этого счета могут быть связанные транзакции. Что вы хотите сделать?';
 
   @override
   String get deleteAccountReassign => 'Переназначить транзакции другому счету';
@@ -1826,6 +1774,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get hkActionAddAction => 'Общее добавить';
 
   @override
+  String get hkActionSaveForm => 'Сохранить форму';
+
+  @override
   String get hkActionPickDate => 'Выбрать дату';
 
   @override
@@ -1859,12 +1810,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get hkActionTransactionsSelectionDelete => 'Транзакции: Удалить';
 
   @override
-  String get hkActionTransactionsSelectionChangeDate =>
-      'Транзакции: Изменить дату';
+  String get hkActionTransactionsSelectionChangeDate => 'Транзакции: Изменить дату';
 
   @override
-  String get hkActionTransactionsSelectionChangeCategory =>
-      'Транзакции: Изменить категорию';
+  String get hkActionTransactionsSelectionChangeCategory => 'Транзакции: Изменить категорию';
 
   @override
   String get hkActionCategoriesSelectionClose => 'Категории: Закрыть';
@@ -1888,8 +1837,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get hkActionDataSelectionDelete => 'Курсы валют: Удалить';
 
   @override
-  String get hkActionDataSelectionChangePreset =>
-      'Курсы валют: Изменить пресет';
+  String get hkActionDataSelectionChangePreset => 'Курсы валют: Изменить пресет';
 
   @override
   String get hkActionInflationSelectionClose => 'Инфляция: Закрыть';
@@ -1928,8 +1876,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get smsPermissionRequired => 'Требуется разрешение на SMS';
 
   @override
-  String get smsPermissionRationale =>
-      'Для импорта транзакций из SMS нам нужно разрешение на чтение ваших сообщений.';
+  String get smsPermissionRationale => 'Для импорта транзакций из SMS нам нужно разрешение на чтение ваших сообщений.';
 
   @override
   String get smsGrantPermission => 'Предоставить разрешение';
@@ -1938,8 +1885,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get smsNoPresets => 'Пресеты не настроены. Нажмите +, чтобы добавить.';
 
   @override
-  String get smsImportDescription =>
-      'Импорт транзакций из SMS-сообщений. Выберите период:';
+  String get smsImportDescription => 'Импорт транзакций из SMS-сообщений. Выберите период:';
 
   @override
   String get smsLast7Days => 'Последние 7 дней';
@@ -1968,8 +1914,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get smsSenderFilterHint => 'напр., ALTA или +381...';
 
   @override
-  String get smsSenderFilterHelper =>
-      'Фильтровать SMS по имени отправителя или номеру телефона';
+  String get smsSenderFilterHelper => 'Фильтровать SMS по имени отправителя или номеру телефона';
 
   @override
   String get smsDefaults => 'По умолчанию';
@@ -2012,12 +1957,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get smsCategoryKeywords => 'Ключевые слова категорий';
 
   @override
-  String get smsCategoryKeywordsSubtitle =>
-      'Сопоставление ключевых слов в тексте SMS с категориями';
+  String get smsCategoryKeywordsSubtitle => 'Сопоставление ключевых слов в тексте SMS с категориями';
 
   @override
-  String get smsNoKeywordRules =>
-      'Нет правил по ключевым словам. Нажмите +, чтобы добавить.';
+  String get smsNoKeywordRules => 'Нет правил по ключевым словам. Нажмите +, чтобы добавить.';
 
   @override
   String get smsAddKeywordRule => 'Добавить правило ключевого слова';
@@ -2029,26 +1972,22 @@ class AppLocalizationsRu extends AppLocalizations {
   String get smsKeywordHint => 'напр., Продукты, Netflix';
 
   @override
-  String get smsKeywordHelper =>
-      'Подстрока для поиска в тексте SMS (без учета регистра)';
+  String get smsKeywordHelper => 'Подстрока для поиска в тексте SMS (без учета регистра)';
 
   @override
   String get smsSelectCategoryHint => 'Выберите категорию';
 
   @override
-  String get dshSelectDateDescription =>
-      'Открыть календарь для выбора даты или диапазона';
+  String get dshSelectDateDescription => 'Открыть календарь для выбора даты или диапазона';
 
   @override
-  String get dshCurrencyDescription =>
-      'Выбрать основную валюту для отображения';
+  String get dshCurrencyDescription => 'Выбрать основную валюту для отображения';
 
   @override
   String get dshChangeViewTooltip => 'Изменить вид';
 
   @override
-  String get dshChangeViewDescription =>
-      'Переключение между месячным и годовым видом';
+  String get dshChangeViewDescription => 'Переключение между месячным и годовым видом';
 
   @override
   String get dshMonthlyAbbreviation => 'М';
@@ -2098,12 +2037,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get fltAdvancedFilterTooltip => 'Расширенный фильтр';
 
   @override
-  String get fltAdvancedFilterDescription =>
-      'Фильтровать транзакции по счету, категории или сумме';
+  String get fltAdvancedFilterDescription => 'Фильтровать транзакции по счету, категории или сумме';
 
   @override
-  String get fltSortOrderDescription =>
-      'Переключение между возрастающим и убывающим порядком';
+  String get fltSortOrderDescription => 'Переключение между возрастающим и убывающим порядком';
 
   @override
   String get fltAccountFiltersTitle => 'Фильтры счетов';
@@ -2130,8 +2067,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get exchEditExchangeRate => 'Редактировать курс валют';
 
   @override
-  String get exchAddRateDescription =>
-      'Ввести курс конвертации между двумя валютами вручную';
+  String get exchAddRateDescription => 'Ввести курс конвертации между двумя валютами вручную';
 
   @override
   String get exchNoRatesFound => 'Курсы валют не найдены.';
@@ -2160,24 +2096,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get exchSelectRange => 'Выбрать диапазон';
 
   @override
-  String get exchPreviousPeriodDescription =>
-      'Перейти к предыдущему дню, месяцу или году';
+  String get exchPreviousPeriodDescription => 'Перейти к предыдущему дню, месяцу или году';
 
   @override
-  String get exchNextPeriodDescription =>
-      'Перейти к следующему дню, месяцу или году';
+  String get exchNextPeriodDescription => 'Перейти к следующему дню, месяцу или году';
 
   @override
-  String get exchFilterDescription =>
-      'Фильтровать курсы по валютам и ID пресета';
+  String get exchFilterDescription => 'Фильтровать курсы по валютам и ID пресета';
 
   @override
-  String get exchSelectDateDescription =>
-      'Выбрать дату или диапазон для просмотра исторических курсов';
+  String get exchSelectDateDescription => 'Выбрать дату или диапазон для просмотра исторических курсов';
 
   @override
-  String get exchSortOrderDescription =>
-      'Переключение между возрастающим и убывающим порядком по дате/курсу';
+  String get exchSortOrderDescription => 'Переключение между возрастающим и убывающим порядком по дате/курсу';
 
   @override
   String get exchFilterExchangeRates => 'Фильтр курсов валют';
@@ -2192,12 +2123,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get exchDeselectAllDescription => 'Снять выделение со всех курсов';
 
   @override
-  String get exchChangePresetDescription =>
-      'Обновить ID пресета для всех выбранных курсов';
+  String get exchChangePresetDescription => 'Обновить ID пресета для всех выбранных курсов';
 
   @override
-  String get exchDeleteSelectedDescription =>
-      'Безвозвратно удалить все выбранные курсы';
+  String get exchDeleteSelectedDescription => 'Безвозвратно удалить все выбранные курсы';
 
   @override
   String get exchDeleteExchangeRatesTitle => 'Удалить курсы валют';
@@ -2211,8 +2140,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get exchUpdatePresetTitle => 'Обновить пресет';
 
   @override
-  String get exchUpdatePresetMessage =>
-      'Введите новый ID пресета для выбранных элементов:';
+  String get exchUpdatePresetMessage => 'Введите новый ID пресета для выбранных элементов:';
 
   @override
   String dashboardUnconvertibleCurrencies(String currencies) {
@@ -2220,8 +2148,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get addAccountBeforeTransactionDescription =>
-      'Транзакции нужен счёт. Создайте первый, чтобы начать';
+  String get addAccountBeforeTransactionDescription => 'Транзакции нужен счёт. Создайте первый, чтобы начать';
 
   @override
   String get selectDialogEmptyState => 'Пока не из чего выбирать';
@@ -2258,8 +2185,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get assetEditTitle => 'Изменить данные актива';
 
   @override
-  String get assetAddDescription =>
-      'Записать стоимость или количество конкретного актива';
+  String get assetAddDescription => 'Записать стоимость или количество конкретного актива';
 
   @override
   String get assetNameLabel => 'Название актива (например, акции Apple)';
@@ -2274,8 +2200,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get assetTypeOptionalLabel => 'Тип актива (необязательно)';
 
   @override
-  String get assetLinkedAccountOptionalLabel =>
-      'Связанный счёт (необязательно)';
+  String get assetLinkedAccountOptionalLabel => 'Связанный счёт (необязательно)';
 
   @override
   String get assetNameRequiredError => 'Укажите название актива';
@@ -2301,6 +2226,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String assetDeleteConfirmMessage(num count) {
     final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
       locale: localeName,
+      
     );
     final String countString = countNumberFormat.format(count);
 
@@ -2314,15 +2240,13 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get assetDeleteSelectedDescription =>
-      'Безвозвратно удалить все выбранные записи активов';
+  String get assetDeleteSelectedDescription => 'Безвозвратно удалить все выбранные записи активов';
 
   @override
   String get inflationEditRate => 'Изменить уровень инфляции';
 
   @override
-  String get inflationAddDescription =>
-      'Введите новый процент инфляции для конкретной даты и страны';
+  String get inflationAddDescription => 'Введите новый процент инфляции для конкретной даты и страны';
 
   @override
   String get inflationPercentLabel => 'Процент инфляции (%)';
@@ -2393,6 +2317,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String deleteAccountsConfirmTitle(num count) {
     final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
       locale: localeName,
+      
     );
     final String countString = countNumberFormat.format(count);
 
@@ -2406,36 +2331,62 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get deleteAccountsConfirmMessage =>
-      'Вы уверены, что хотите удалить выбранные счета? Все связанные транзакции будут удалены.';
+  String get deleteAccountsConfirmMessage => 'Вы уверены, что хотите удалить выбранные счета? Все связанные транзакции будут удалены.';
 
   @override
   String get changeAccountTypeTitle => 'Изменить тип счета';
 
   @override
-  String get accountsPreviousPeriodDescription =>
-      'Перейти к предыдущему месяцу или году';
+  String get accountsPreviousPeriodDescription => 'Перейти к предыдущему месяцу или году';
 
   @override
-  String get accountsNextPeriodDescription =>
-      'Перейти к следующему месяцу или году';
+  String get accountsNextPeriodDescription => 'Перейти к следующему месяцу или году';
 
   @override
-  String get accountsFilterDescription =>
-      'Фильтровать счета по типу или по признаку скрытия';
+  String get accountsFilterDescription => 'Фильтровать счета по типу или по признаку скрытия';
 
   @override
-  String get accountsSelectDateDescription =>
-      'Выберите дату, чтобы посмотреть балансы на этот момент';
+  String get accountsSelectDateDescription => 'Выберите дату, чтобы посмотреть балансы на этот момент';
 
   @override
-  String get accountsSortDescription =>
-      'Переключить порядок балансов: по возрастанию или по убыванию';
+  String get accountsSortDescription => 'Переключить порядок балансов: по возрастанию или по убыванию';
 
   @override
   String get smsRuleCategoryOptional => 'Категория (необязательно)';
 
   @override
-  String get smsRuleCategoryHelp =>
-      'Переопределить категорию для этого правила';
+  String get smsRuleCategoryHelp => 'Переопределить категорию для этого правила';
+
+  @override
+  String amountSentLabel(Object currency) {
+    return 'Отправлено ($currency)';
+  }
+
+  @override
+  String amountReceivedLabel(Object currency) {
+    return 'Получено ($currency)';
+  }
+
+  @override
+  String transferRateSummary(Object from, Object rate, Object to) {
+    return '1 $from = $rate $to';
+  }
+
+  @override
+  String get adjustRateLabel => 'Изменить курс';
+
+  @override
+  String get favoriteCurrenciesHeader => 'Избранные';
+
+  @override
+  String get frequentCurrenciesHeader => 'Часто используемые';
+
+  @override
+  String get allCurrenciesHeader => 'Все валюты';
+
+  @override
+  String get addFavoriteCurrencyTooltip => 'Добавить в избранное';
+
+  @override
+  String get removeFavoriteCurrencyTooltip => 'Убрать из избранного';
 }

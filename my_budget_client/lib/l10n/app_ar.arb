@@ -537,6 +537,7 @@
     "hkActionPrevPeriod": "الفترة السابقة",
     "hkActionNextPeriod": "الفترة التالية",
     "hkActionAddAction": "إجراء إضافة عام",
+    "hkActionSaveForm": "حفظ النموذج",
     "hkActionPickDate": "تحديد تاريخ",
     "hkActionDashboardSwitchView": "لوحة المعلومات: تغيير العرض",
     "hkActionSortOrder": "ترتيب الفرز",
@@ -713,5 +714,14 @@
     "accountsSelectDateDescription": "اختر تاريخًا محددًا لعرض الأرصدة السابقة",
     "accountsSortDescription": "التبديل بين ترتيب الأرصدة تصاعديًا وتنازليًا",
     "smsRuleCategoryOptional": "الفئة (اختياري)",
-    "smsRuleCategoryHelp": "تجاوز الفئة لهذه القاعدة"
+    "smsRuleCategoryHelp": "تجاوز الفئة لهذه القاعدة",
+    "amountSentLabel": "المبلغ المُرسل ({currency})",
+    "amountReceivedLabel": "المبلغ المُستلَم ({currency})",
+    "transferRateSummary": "1 {from} = {rate} {to}",
+    "adjustRateLabel": "تعديل سعر الصرف",
+    "favoriteCurrenciesHeader": "المفضلة",
+    "frequentCurrenciesHeader": "الأكثر استخدامًا",
+    "allCurrenciesHeader": "كل العملات",
+    "addFavoriteCurrencyTooltip": "إضافة إلى المفضلة",
+    "removeFavoriteCurrencyTooltip": "إزالة من المفضلة"
 }

@@ -16,6 +16,7 @@ import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/domain/services/finance_calculator.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
+import 'package:my_budget_client/domain/entities/category.dart';
 
 /// Fails every write, and records what it was asked to write.
 ///
@@ -55,6 +56,9 @@ class _FailingAccountRepository extends Fake implements AccountRepository {
     restored.add(account);
     throw failure;
   }
+
+  @override
+  Stream<List<Account>> watchAccounts() => const Stream.empty();
 }
 
 /// The bloc subscribes to this in its constructor; an empty stream keeps the
@@ -73,7 +77,11 @@ class _FakeInflationRepository extends Fake implements InflationRepository {}
 
 class _FakeAssetRepository extends Fake implements AssetRepository {}
 
-class _FakeCategoryRepository extends Fake implements CategoryRepository {}
+class _FakeCategoryRepository extends Fake implements CategoryRepository {
+  @override
+  Stream<List<Category>> watchCategories({bool includeSystem = false}) =>
+      const Stream.empty();
+}
 
 class _FakeFinanceCalculator extends Fake implements FinanceCalculator {}
 

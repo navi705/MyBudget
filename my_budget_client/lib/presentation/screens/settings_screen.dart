@@ -130,13 +130,12 @@ class SettingsScreen extends StatelessWidget {
                           title: Text(l10n.mainCurrencyLabel),
                           subtitle: Text(mainCurrencyCode),
                           onTap: () async {
-                            final selectedCode = await showDialog<String>(
+                            final selected = await showCurrencyPicker(
                               context: context,
-                              builder: (context) => CurrencyPickerDialog(
-                                allCurrencies: currencyState.currencies,
-                                selectedCurrencyCode: mainCurrencyCode,
-                              ),
+                              currencies: currencyState.currencies,
+                              selectedCurrencyCode: mainCurrencyCode,
                             );
+                            final selectedCode = selected?.code;
 
                             if (selectedCode != null && context.mounted) {
                               context.read<SettingsBloc>().add(

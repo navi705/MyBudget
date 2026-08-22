@@ -77,6 +77,9 @@ class _FakeTransactionRepository extends Fake implements TransactionRepository {
     }
     added.add(transaction);
   }
+
+  @override
+  Stream<void> watchTransactionChanges() => const Stream.empty();
 }
 
 class _FakeCurrencyRepository extends Fake implements CurrencyRepository {
@@ -96,6 +99,9 @@ class _FakeAccountRepository extends Fake implements AccountRepository {
   @override
   Future<Account?> getAccountById(String id) async =>
       id == account.id ? account : null;
+
+  @override
+  Stream<List<Account>> watchAccounts() => const Stream.empty();
 }
 
 class _FakeSettingsRepository extends Fake implements SettingsRepository {

@@ -60,11 +60,18 @@ Future<void> _pumpItem(
   await tester.pumpAndSettle();
 }
 
+/// The balance row's span. It hung off a `SelectableText` until that was
+/// found to be eating the row's own tap and long press.
+TextSpan _balanceSpan(WidgetTester tester) =>
+    tester
+            .widgetList<Text>(find.byType(Text))
+            .firstWhere((text) => text.textSpan != null)
+            .textSpan!
+        as TextSpan;
+
 /// Flattened text of the balance row, separators included.
-String _balanceRowText(WidgetTester tester) => tester
-    .widget<SelectableText>(find.byType(SelectableText).first)
-    .textSpan!
-    .toPlainText();
+String _balanceRowText(WidgetTester tester) =>
+    _balanceSpan(tester).toPlainText();
 
 void main() {
   group('AccountListItem change separator', () {
@@ -192,6 +199,63 @@ void main() {
       await tester.pump();
 
       expect(tester.takeException(), isNull);
+    });
+  });
+  // =========================================================================
+  // The row exists to be tapped: a tap opens the account, a long press starts
+  // a selection. The figures were `SelectableText`, which wins both gestures
+  // against the `ListTile` behind it - and they cover most of the card, so the
+  // majority of it answered neither.
+  group('the whole card answers a tap', () {
+    Future<(int, int)> tapAndHold(
+      WidgetTester tester,
+      Finder Function(WidgetTester) target,
+    ) async {
+      var taps = 0;
+      var longPresses = 0;
+      await pumpAppWidget(
+        tester,
+        AccountListItem(
+          account: _account,
+          prevBalance: 1000,
+          onTap: () => taps++,
+          onLongPress: () => longPresses++,
+        ),
+        surfaceSize: _wide,
+        aboveApp: (app) => wrapWithBlocs(
+          app,
+          currencyBloc: createCurrencyBloc(),
+          stylesBloc: createStylesBloc(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final finder = target(tester);
+      await tester.tap(finder, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      await tester.longPress(finder, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      return (taps, longPresses);
+    }
+
+    testWidgets('on the balance figure', (tester) async {
+      // The span itself, not the label beside it: the label was always plain
+      // text and always let the gesture through.
+      expect(
+        await tapAndHold(
+          tester,
+          (tester) => find.byWidget(
+            tester
+                .widgetList<Text>(find.byType(Text))
+                .firstWhere((text) => text.textSpan != null),
+          ),
+        ),
+        (1, 1),
+      );
+    });
+
+    testWidgets('and on the account name', (tester) async {
+      expect(await tapAndHold(tester, (_) => find.text(_account.name)), (1, 1));
     });
   });
 }

@@ -1,4 +1,3 @@
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
@@ -41,6 +40,16 @@ class DayBalanceDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Built once for the whole list rather than per row: with a hundred
+    // accounts and a style each, the linear search below was ten thousand
+    // comparisons, and NumberFormat.simpleCurrency loads locale data every
+    // time it is asked for a symbol.
+    final stylesById = {
+      for (final style in styles)
+        if (style.id != null) style.id!: style,
+    };
+    final symbols = <String, String>{};
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -55,18 +64,25 @@ class DayBalanceDetails extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Column(
-          children: accounts
-              .map((account) => _buildAccountItem(context, account))
-              .toList(),
+          children: [
+            for (final account in accounts)
+              _buildAccountItem(context, account, stylesById, symbols),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildAccountItem(BuildContext context, Account account) {
+  Widget _buildAccountItem(
+    BuildContext context,
+    Account account,
+    Map<String, Style> stylesById,
+    Map<String, String> symbols,
+  ) {
     final balance = dayBalances[account.id] ?? 0.0;
 
-    final style = styles.firstWhereOrNull((s) => s.id == account.styleId);
+    final styleId = account.styleId;
+    final style = styleId == null ? null : stylesById[styleId];
     final finalStyle =
         style ??
         Style(
@@ -85,7 +101,9 @@ class DayBalanceDetails extends StatelessWidget {
     final designation = currencyDesignations[account.currencyDesignationId];
     final symbol =
         designation?.value ??
-        NumberFormat.simpleCurrency(name: account.currencyCode).currencySymbol;
+        (symbols[account.currencyCode] ??= NumberFormat.simpleCurrency(
+          name: account.currencyCode,
+        ).currencySymbol);
 
     // Format number without symbol first, using account's currency for proper decimal places
     final formattedBalance =

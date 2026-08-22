@@ -180,32 +180,31 @@ Future<void> _pumpManageStyles(
   await tester.pumpAndSettle();
 }
 
+/// The balance row's span. It hung off a `SelectableText` until that was
+/// found to be eating the row's own tap and long press.
+TextSpan _balanceSpan(WidgetTester tester) =>
+    tester
+            .widgetList<Text>(find.byType(Text))
+            .firstWhere((text) => text.textSpan != null)
+            .textSpan!
+        as TextSpan;
+
 /// The colour the balance amount is actually painted in.
 ///
-/// The amount is the first child span of the first [SelectableText] in the
-/// row; the plain text of the whole span is asserted elsewhere, what matters
-/// here is where the colour came from.
-Color? _amountColor(WidgetTester tester) {
-  final span = tester
-      .widget<SelectableText>(find.byType(SelectableText).first)
-      .textSpan!;
-  return (span.children!.first as TextSpan).style?.color;
-}
+/// The amount is the first child span of the balance row; the plain text of
+/// the whole span is asserted elsewhere, what matters here is where the colour
+/// came from.
+Color? _amountColor(WidgetTester tester) =>
+    (_balanceSpan(tester).children!.first as TextSpan).style?.color;
 
 /// The literal text of the balance amount — the first child span of the
 /// balance row, before the "change" figure is appended.
-String _amountText(WidgetTester tester) {
-  final span = tester
-      .widget<SelectableText>(find.byType(SelectableText).first)
-      .textSpan!;
-  return (span.children!.first as TextSpan).text!;
-}
+String _amountText(WidgetTester tester) =>
+    (_balanceSpan(tester).children!.first as TextSpan).text!;
 
 /// Flattened text of the whole balance row, separators included.
-String _balanceRowText(WidgetTester tester) => tester
-    .widget<SelectableText>(find.byType(SelectableText).first)
-    .textSpan!
-    .toPlainText();
+String _balanceRowText(WidgetTester tester) =>
+    _balanceSpan(tester).toPlainText();
 
 /// Pumps a single [AccountListItem] at [surface] on [platform].
 Future<void> _pumpItem(

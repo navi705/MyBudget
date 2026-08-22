@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:rxdart/rxdart.dart';
 import 'package:bloc/bloc.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
@@ -64,8 +66,20 @@ Future<_ProcessDataResult> _processTransactionsData(
 
   String getRateKey(String from, String to) => '${from}_$to';
 
+  // One normalised DateTime per distinct day, shared by every row on that day.
+  // The rate set for a fifty-row page runs to twenty thousand rows once the
+  // bundled history is in the table, and constructing a local DateTime is not
+  // cheap - it consults the platform's timezone rules. `DateTime` compares and
+  // hashes by value, so handing out the same instance changes nothing but the
+  // allocation count.
+  final dayCache = <int, DateTime>{};
+  DateTime dayOf(DateTime d) {
+    final key = (d.year * 100 + d.month) * 100 + d.day;
+    return dayCache[key] ??= DateTime(d.year, d.month, d.day);
+  }
+
   for (var rate in params.rates) {
-    final dateKey = DateTime(rate.date.year, rate.date.month, rate.date.day);
+    final dateKey = dayOf(rate.date);
     if (!ratesMapsByDate.containsKey(dateKey)) {
       ratesMapsByDate[dateKey] = {};
     }
@@ -78,7 +92,7 @@ Future<_ProcessDataResult> _processTransactionsData(
 
   final transactionDates =
       params.transactions
-          .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
+          .map((t) => dayOf(t.date))
           .toSet()
           .toList()
         ..sort((a, b) => a.compareTo(b));
@@ -313,6 +327,22 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
   // OPTIMIZATION: Cache exchange rates to avoid repeated DB queries
   final Map<DateTime, List<ExchangeRateDomain>> _exchangeRateCache = {};
 
+  // The codes those rates were fetched for. They are read back filtered to the
+  // codes on the page, so the cache is only good for those.
+  Set<String>? _rateCacheCodes;
+
+  // The screen only loads from a cold state now (the shell route remounts it
+  // on every tab switch, and a reload there redid the whole pipeline), so a
+  // write from outside this bloc — a sync, an SMS import, a restore — has to
+  // reach the list through here.
+  StreamSubscription<void>? _transactionsSubscription;
+  StreamSubscription<void>? _exchangeRatesSubscription;
+
+  // Set by the bloc's own write events. Their handlers reload the list
+  // themselves, so the table signal they cause is theirs to swallow — without
+  // this every add or delete would run the load twice.
+  bool _ownWritePending = false;
+
   TransactionsBloc({
     required TransactionRepository transactionRepository,
     required StyleRepository styleRepository,
@@ -365,6 +395,45 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     on<ClearSelection>(_onClearSelection);
     on<ClearRecentlyDeletedTransactions>(_onClearRecentlyDeletedTransactions);
     on<UndoDeleteTransactions>(_onUndoDeleteTransactions);
+
+    // Rates land in bulk (the fetch service writes a day at a time), so this
+    // waits for the writing to stop rather than reloading per batch. Without
+    // it the cached rates lived for the life of the process: a page opened
+    // before the rates arrived kept pricing its rows with what it had.
+    _exchangeRatesSubscription = _currencyRepository
+        .watchExchangeRateChanges()
+        .debounceTime(const Duration(seconds: 2))
+        .listen((_) {
+          _exchangeRateCache.clear();
+          _rateCacheCodes = null;
+          add(const InitialLoadTransactions());
+        });
+
+    _transactionsSubscription = _transactionRepository
+        .watchTransactionChanges()
+        .debounceTime(const Duration(milliseconds: 500))
+        .listen((_) {
+          if (_ownWritePending) {
+            _ownWritePending = false;
+            return;
+          }
+          add(const InitialLoadTransactions());
+        });
+  }
+
+  @override
+  void onEvent(TransactionsEvent event) {
+    if (event is TransactionWrite) _ownWritePending = true;
+    super.onEvent(event);
+  }
+
+  @override
+  Future<void> close() async {
+    // Awaited: the listener above calls add(), and adding after the event
+    // controller is closed throws.
+    await _transactionsSubscription?.cancel();
+    await _exchangeRatesSubscription?.cancel();
+    return super.close();
   }
 
   // Helper method to fetch dependencies and run compute
@@ -418,6 +487,24 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         .toSet()
         .toList();
 
+    // Only the codes this page is actually priced in. The table holds a row
+    // per currency pair per day — 341 currencies over 870 days is near 300k
+    // rows on the phone here — and reading all of them back to convert fifty
+    // rows was most of the load.
+    final currencyCodes = <String>{
+      mainCurrencyCode,
+      for (final transaction in transactions) transaction.currencyCode,
+      for (final account in _accountCache.values) account.currencyCode,
+    };
+
+    // A code the cached rates were never fetched for cannot be filled in by
+    // fetching the missing dates — those rows were left out for every date.
+    if (_rateCacheCodes != null &&
+        !currencyCodes.every(_rateCacheCodes!.contains)) {
+      _exchangeRateCache.clear();
+    }
+    _rateCacheCodes = {...?_rateCacheCodes, ...currencyCodes};
+
     final missingDates = uniqueDates
         .where((d) => !_exchangeRateCache.containsKey(d))
         .toList();
@@ -425,6 +512,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     if (missingDates.isNotEmpty) {
       final newRates = await _currencyRepository.getLatestExchangeRatesByList(
         missingDates,
+        currencyCodes: _rateCacheCodes,
       );
 
       // FIX: Store rates under the REQUESTED date, not the rate's actual date.
@@ -433,12 +521,15 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       //
       // Group fetched rates by their actual date first
       final ratesByActualDate = <DateTime, List<ExchangeRateDomain>>{};
+      // One normalised instance per day rather than one per row: `newRates`
+      // carries every currency pair for every day asked about, so this loop
+      // runs tens of thousands of times for a fifty-row page and a local
+      // DateTime costs a timezone lookup to build.
+      final rateDayCache = <int, DateTime>{};
       for (final rate in newRates) {
-        final dateKey = DateTime(
-          rate.date.year,
-          rate.date.month,
-          rate.date.day,
-        );
+        final d = rate.date;
+        final dateKey = rateDayCache[(d.year * 100 + d.month) * 100 + d.day] ??=
+            DateTime(d.year, d.month, d.day);
         ratesByActualDate.putIfAbsent(dateKey, () => []).add(rate);
       }
 

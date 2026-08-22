@@ -113,6 +113,28 @@ class AddEditTransactionState extends Equatable {
   bool get isAssetTransaction =>
       selectedAccount?.assetId != null && !isTransferMode;
 
+  /// The rate a conversion on this form actually multiplies by.
+  ///
+  /// [manualExchangeRate] is what the rate field holds and what selecting a
+  /// preset writes into, and [isRateInputInverted] says which way round the
+  /// user is stating it. Every consumer has to apply both, and every consumer
+  /// that applied only one has been a bug: the preview that multiplied where
+  /// the save divided, the preview that read `selectedExchangeRate` while the
+  /// save read the typed value. Reading it from one place is what keeps the
+  /// received-amount field, the rate summary and the saved row agreeing.
+  ///
+  /// Falls back to 1.0 - "no conversion" - so a caller can multiply without
+  /// testing first. A transfer that reaches the save with no rate is refused
+  /// there rather than silently converted at one.
+  double get effectiveExchangeRate {
+    if (manualExchangeRate.isNotEmpty) {
+      final value = double.tryParse(manualExchangeRate) ?? 1.0;
+      if (isRateInputInverted && value != 0) return 1.0 / value;
+      return value;
+    }
+    return selectedExchangeRate?.rate ?? 1.0;
+  }
+
   AddEditTransactionState copyWith({
     AddEditTransactionStatus? status,
     bool? isSaving,

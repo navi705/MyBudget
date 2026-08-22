@@ -52,7 +52,10 @@ class _FakeSettingsRepository extends Fake implements SettingsRepository {
 }
 
 class _FakeTransactionRepository extends Fake
-    implements TransactionRepository {}
+    implements TransactionRepository {
+  @override
+  Stream<void> watchTransactionChanges() => const Stream.empty();
+}
 
 class _FakeAssetRepository extends Fake implements AssetRepository {}
 

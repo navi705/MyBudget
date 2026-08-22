@@ -26,7 +26,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<DashboardBloc>().add(LoadDashboard());
+    // Only from a cold state. The bloc outlives this screen (it is provided
+    // app-wide) but the shell route remounts the screen on every tab switch,
+    // and LoadDashboard restarts the whole pipeline: it tears down the
+    // account/transaction/asset streams, refetches the rates for every date on
+    // screen and redoes the walk-back. The bloc keeps its own caches fresh
+    // through its subscriptions, so a remount has nothing to reload.
+    final bloc = context.read<DashboardBloc>();
+    if (bloc.state is DashboardInitial || bloc.state is DashboardLoadFailure) {
+      bloc.add(LoadDashboard());
+    }
   }
 
   @override

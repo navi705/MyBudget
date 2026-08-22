@@ -537,6 +537,7 @@
     "hkActionPrevPeriod": "পূর্ববর্তী সময়কাল",
     "hkActionNextPeriod": "পরবর্তী সময়কাল",
     "hkActionAddAction": "সাধারণ যোগ করার ক্রিয়া",
+    "hkActionSaveForm": "ফর্ম সংরক্ষণ করুন",
     "hkActionPickDate": "তারিখ নির্বাচন করুন",
     "hkActionDashboardSwitchView": "ড্যাশবোর্ড: ভিউ পরিবর্তন করুন",
     "hkActionSortOrder": "ক্রমবিন্যাস",
@@ -713,5 +714,14 @@
     "accountsSelectDateDescription": "ঐতিহাসিক ব্যালেন্স দেখতে একটি নির্দিষ্ট তারিখ বেছে নিন",
     "accountsSortDescription": "ব্যালেন্সের ঊর্ধ্বক্রম ও অধঃক্রমের মধ্যে পরিবর্তন করুন",
     "smsRuleCategoryOptional": "বিভাগ (ঐচ্ছিক)",
-    "smsRuleCategoryHelp": "এই নিয়মের জন্য বিভাগ ওভাররাইড করুন"
+    "smsRuleCategoryHelp": "এই নিয়মের জন্য বিভাগ ওভাররাইড করুন",
+    "amountSentLabel": "পাঠানো পরিমাণ ({currency})",
+    "amountReceivedLabel": "প্রাপ্ত পরিমাণ ({currency})",
+    "transferRateSummary": "1 {from} = {rate} {to}",
+    "adjustRateLabel": "হার সমন্বয় করুন",
+    "favoriteCurrenciesHeader": "প্রিয়",
+    "frequentCurrenciesHeader": "প্রায়শই ব্যবহৃত",
+    "allCurrenciesHeader": "সব মুদ্রা",
+    "addFavoriteCurrencyTooltip": "প্রিয়তে যোগ করুন",
+    "removeFavoriteCurrencyTooltip": "প্রিয় থেকে সরান"
 }

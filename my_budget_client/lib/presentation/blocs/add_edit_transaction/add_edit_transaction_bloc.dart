@@ -16,7 +16,8 @@ import 'package:my_budget_client/domain/repositories/settings_repository.dart'; 
 import 'package:uuid/uuid.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart';
-import 'package:my_budget_client/core/constants/app_constants.dart'; // Added
+import 'package:my_budget_client/core/constants/app_constants.dart';
+import 'package:my_budget_client/core/utils/rate_formatter.dart';
 
 part 'add_edit_transaction_event.dart';
 part 'add_edit_transaction_state.dart';
@@ -63,6 +64,7 @@ class AddEditTransactionBloc
     on<AddEditTransactionCurrencyChanged>(_onCurrencyChanged); // Added
     on<AddEditTransactionRatePresetChanged>(_onRatePresetChanged);
     on<AddEditTransactionManualRateChanged>(_onManualRateChanged);
+    on<AddEditTransactionReceivedAmountChanged>(_onReceivedAmountChanged);
     on<AddEditTransactionAddNewRate>(_onAddNewRate);
     on<AddEditTransactionSaveRateAsDefault>(_onSaveRateAsDefault);
     on<AddEditTransactionUpdatePreset>(_onUpdatePreset);
@@ -156,38 +158,37 @@ class AddEditTransactionBloc
       }
 
       Account? selectedAccount;
-      Account?
-      initialLinkedAccount; // For Transfer Mode: the account user selected
 
       if (initialTransaction != null) {
         selectedAccount = accounts.firstWhereOrNull(
           (a) => a.id == initialTransaction!.accountId,
         );
       } else if (event.accountId != null) {
-        // NEW LOGIC: If in Transfer Mode, set this as "To Account" (destination)
         if (event.isTransfer) {
-          initialLinkedAccount = accounts.firstWhereOrNull(
+          // The account the request came from is the one the money LEAVES.
+          //
+          // It used to be installed as the destination, with the source left
+          // to `firstWhereOrNull((a) => a.id != event.accountId)` - whatever
+          // row the account table happened to hand back first. So "Transfer"
+          // on a wallet opened a form that moved money INTO that wallet out of
+          // an account the user had not named and could not see without
+          // scrolling, and the two fields had to be swapped by hand before
+          // every single transfer. Reading the gesture the way it is worded
+          // also means the one account the user has already pointed at is the
+          // one that needs no picking.
+          //
+          // Asset accounts hold a quantity, not money, and both pickers on
+          // this form exclude them; landing on one here would turn
+          // `isTransferMode` (below, and written nowhere else) false and open
+          // the asset Buy/Sell form for a request that said Transfer. So an
+          // asset account falls back to the first cash account rather than
+          // being taken at its word.
+          final requested = accounts.firstWhereOrNull(
             (a) => a.id == event.accountId,
           );
-          // selectedAccount should be a DIFFERENT account - and one a transfer
-          // can actually come out of. `getAllAccounts` has no ORDER BY, so
-          // "the first other account" is whatever insertion order happens to
-          // hand back, and picking an ASSET account here quietly cancelled the
-          // whole request: `isTransferMode` below is
-          // `event.isTransfer && selectedAccount?.assetId == null`, it is
-          // written nowhere else, and no later handler recomputes it. The user
-          // asked to transfer and got the asset Buy/Sell form, permanently -
-          // and saving from there wrote a single unlinked row with the system
-          // Transfer category, whose type enforces no sign, so an account
-          // simply gained money that had left nowhere.
-          //
-          // Every other transfer surface already filters on `assetId == null`
-          // (the From picker, and the accounts screen's own count that decides
-          // whether to offer the menu item at all); this is the one that did
-          // not.
-          selectedAccount = accounts.firstWhereOrNull(
-            (a) => a.id != event.accountId && a.assetId == null,
-          );
+          selectedAccount = requested?.assetId == null
+              ? requested
+              : accounts.firstWhereOrNull((a) => a.assetId == null);
         } else {
           selectedAccount = accounts.firstWhereOrNull(
             (a) => a.id == event.accountId,
@@ -200,9 +201,7 @@ class AddEditTransactionBloc
         // `accounts.first` could land on an asset account and turn the
         // requested transfer into an asset trade.
         selectedAccount = event.isTransfer
-            ? accounts.firstWhereOrNull(
-                (a) => a.id != event.accountId && a.assetId == null,
-              )
+            ? accounts.firstWhereOrNull((a) => a.assetId == null)
             : accounts.first;
       }
 
@@ -262,8 +261,9 @@ class AddEditTransactionBloc
               : AssetAction.buy,
           selectedCurrency: selectedCurrency, // Added
           date: initialTransaction?.date ?? DateTime.now(),
-          manualExchangeRate:
-              initialTransaction?.exchangeRate?.toString() ?? '',
+          manualExchangeRate: initialTransaction?.exchangeRate == null
+              ? ''
+              : RateFormatter.forInput(initialTransaction!.exchangeRate!),
           mainCurrencyCode: mainCurrencyCode,
         ),
       );
@@ -308,14 +308,14 @@ class AddEditTransactionBloc
               final storedRate =
                   initialTransaction.exchangeRate ?? linkedTx.exchangeRate;
               if (storedRate != null && storedRate != 0) {
-                restoredExchangeRate = storedRate.toString();
+                restoredExchangeRate = RateFormatter.forInput(storedRate);
               } else if (initialTransaction.amount != 0) {
                 // Fall back for the transfers written before the rate was
                 // stored: infer the effective rate as LinkedAmount / MainAmount
                 // so their historical rate still comes back.
                 final rate =
                     linkedTx.amount.abs() / initialTransaction.amount.abs();
-                restoredExchangeRate = rate.toString();
+                restoredExchangeRate = RateFormatter.forInput(rate);
               }
             }
           }
@@ -367,24 +367,29 @@ class AddEditTransactionBloc
 
         emit(state.copyWith(selectedCategory: transferCat));
 
-        // Auto-select linked account
-        // Priority: initialLinkedAccount (from event.accountId for transfer), else find 'other'
-        if (state.linkedAccount == null && accounts.isNotEmpty) {
-          Account? linkedToEmit = initialLinkedAccount;
-
-          // Fallback if initialLinkedAccount is null (e.g., no accountId passed)
-          if (linkedToEmit == null && selectedAccount != null) {
-            linkedToEmit = accounts.firstWhereOrNull(
-              (a) => a.id != selectedAccount!.id,
-            );
+        // The destination is only guessed when there is nothing to guess
+        // between.
+        //
+        // Filling it with "some other account" was how the old form arrived
+        // pre-filled, and with more than two accounts the guess was arbitrary:
+        // the field looked answered, so it read as a decision the user had
+        // made, and a transfer to the wrong account is invisible afterwards -
+        // both legs balance, they are just in the wrong pair of accounts.
+        // Left empty, the field's own validator asks for it before the form
+        // can be saved.
+        //
+        // Asset accounts are excluded for the same reason the To picker
+        // excludes them: they hold a quantity, and a sum of money cannot
+        // arrive in one.
+        if (state.linkedAccount == null) {
+          final destinations = accounts
+              .where(
+                (a) => a.assetId == null && a.id != selectedAccount?.id,
+              )
+              .toList();
+          if (destinations.length == 1) {
+            emit(state.copyWith(linkedAccount: destinations.first));
           }
-
-          // Safety: don't allow same account
-          if (linkedToEmit?.id == selectedAccount?.id) {
-            linkedToEmit = null;
-          }
-
-          emit(state.copyWith(linkedAccount: linkedToEmit));
         }
       }
 
@@ -457,16 +462,8 @@ class AddEditTransactionBloc
     }
   }
 
-  double _getEffectiveRate(AddEditTransactionState state) {
-    if (state.manualExchangeRate.isNotEmpty) {
-      final val = double.tryParse(state.manualExchangeRate) ?? 1.0;
-      if (state.isRateInputInverted && val != 0) {
-        return 1.0 / val;
-      }
-      return val;
-    }
-    return state.selectedExchangeRate?.rate ?? 1.0;
-  }
+  double _getEffectiveRate(AddEditTransactionState state) =>
+      state.effectiveExchangeRate;
 
   void _onDescriptionChanged(
     AddEditTransactionDescriptionChanged event,
@@ -1419,7 +1416,7 @@ class AddEditTransactionBloc
           if (state.isRateInputInverted && rateToDisplay != 0) {
             rateToDisplay = 1 / rateToDisplay;
           }
-          newManualRateStr = rateToDisplay.toString();
+          newManualRateStr = RateFormatter.forInput(rateToDisplay);
         } else {
           // `shouldUpdateManualRate` means "the field no longer describes this
           // lookup, resync it" - and it is set by `forceSync`, which is passed
@@ -1505,7 +1502,9 @@ class AddEditTransactionBloc
       // same as selectedExchangeRate above.
       editingExchangeRate: event.rate,
       clearEditingExchangeRate: event.rate == null,
-      manualExchangeRate: displayRate?.toString() ?? state.manualExchangeRate,
+      manualExchangeRate: displayRate == null
+          ? state.manualExchangeRate
+          : RateFormatter.forInput(displayRate),
       // Picking a preset is the user choosing a looked-up rate over the
       // stored one.
       manualRateIsHistorical: false,
@@ -1559,6 +1558,42 @@ class AddEditTransactionBloc
     emit(newState);
   }
 
+  /// Turns "this much should arrive" into the rate that makes it arrive.
+  ///
+  /// The rate stays the single source of truth - it is what the save writes on
+  /// both legs and what the preview multiplies by - so this handler only ever
+  /// writes [AddEditTransactionState.manualExchangeRate]. The received field
+  /// itself holds no state: it is recomputed from the sent amount and the rate,
+  /// which is why typing into it does not fight the value typed back into it.
+  ///
+  /// The direction toggle is forced off first. The rate the user has just
+  /// implied is stated From -> To, and leaving an inverted flag set would have
+  /// the save invert it once more and send the square of the spread.
+  void _onReceivedAmountChanged(
+    AddEditTransactionReceivedAmountChanged event,
+    Emitter<AddEditTransactionState> emit,
+  ) {
+    final sent = double.tryParse(state.amount);
+    final received = double.tryParse(event.amount);
+    // Nothing to divide by, or nothing to divide: the field is mid-edit (an
+    // empty box, a lone decimal point) and the rate it implies is not
+    // knowable yet. Leaving the rate alone is what lets the user clear the
+    // box and retype without the amount jumping around under the cursor.
+    if (sent == null || sent == 0 || received == null) return;
+
+    emit(
+      state.copyWith(
+        manualExchangeRate: RateFormatter.forInput(received / sent),
+        isRateInputInverted: false,
+        // Same reasoning as _onManualRateChanged: the conversion is the user's
+        // number now, so a preset chip must stop claiming it, and the saved
+        // row must stop carrying that preset's number.
+        clearSelectedExchangeRate: true,
+        manualRateIsHistorical: false,
+      ),
+    );
+  }
+
   void _onToggleRateDirection(
     AddEditTransactionToggleRateDirection event,
     Emitter<AddEditTransactionState> emit,
@@ -1570,7 +1605,7 @@ class AddEditTransactionBloc
     if (state.manualExchangeRate.isNotEmpty) {
       final manualRate = double.tryParse(state.manualExchangeRate) ?? 0.0;
       if (manualRate != 0) {
-        newManualRateStr = (1.0 / manualRate).toString();
+        newManualRateStr = RateFormatter.forInput(1.0 / manualRate);
       }
     }
 

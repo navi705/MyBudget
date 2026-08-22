@@ -51,14 +51,20 @@ class _FakeSmsRepository extends Fake implements SmsRepository {
 }
 
 class _FakeTransactionRepository extends Fake
-    implements TransactionRepository {}
+    implements TransactionRepository {
+  @override
+  Stream<void> watchTransactionChanges() => const Stream.empty();
+}
 
 class _FakeCurrencyRepository extends Fake implements CurrencyRepository {
   @override
   Future<List<Currency>> getCurrencies() async => const [];
 }
 
-class _FakeAccountRepository extends Fake implements AccountRepository {}
+class _FakeAccountRepository extends Fake implements AccountRepository {
+  @override
+  Stream<List<Account>> watchAccounts() => const Stream.empty();
+}
 
 class _FakeSettingsRepository extends Fake implements SettingsRepository {
   @override

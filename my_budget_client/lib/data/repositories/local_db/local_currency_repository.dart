@@ -114,6 +114,56 @@ class LocalCurrencyRepository implements CurrencyRepository {
   }
 
   @override
+  Future<Map<String, int>> getCurrencyUsageCounts() =>
+      database.currenciesDao.getCurrencyUsageCounts();
+
+  /// Starred codes live in the key/value settings table rather than in a table
+  /// of their own: it is one short list per device, it already syncs, and a
+  /// table would need a migration for something the settings store holds
+  /// exactly as well.
+  static const _favoritesKey = 'favorite_currency_codes';
+
+  @override
+  Stream<List<String>> watchFavoriteCurrencyCodes() => database.settingsDao
+      .watchSetting(_favoritesKey)
+      .map((setting) => _decodeFavorites(setting?.value));
+
+  @override
+  Future<List<String>> getFavoriteCurrencyCodes() async {
+    final setting = await database.settingsDao.getSetting(_favoritesKey);
+    return _decodeFavorites(setting?.value);
+  }
+
+  @override
+  Future<void> setFavoriteCurrency(
+    String code, {
+    required bool favorite,
+  }) async {
+    final current = await getFavoriteCurrencyCodes();
+    if (favorite == current.contains(code)) return;
+    // Appended, not sorted: the order the user starred them in is an ordering
+    // they chose, and the picker shows it back to them unchanged.
+    final updated = favorite
+        ? [...current, code]
+        : current.where((c) => c != code).toList();
+    await database.settingsDao.setSetting(
+      db.SettingsCompanion(
+        key: const Value(_favoritesKey),
+        value: Value(updated.join(',')),
+      ),
+    );
+  }
+
+  static List<String> _decodeFavorites(String? raw) {
+    if (raw == null || raw.isEmpty) return const [];
+    return raw
+        .split(',')
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
+  }
+
+  @override
   Future<List<ExchangeRateDomain>> getLatestExchangeRates(DateTime date) async {
     final driftExchangeRates = await database.exchangeRatesDao
         .getLatestExchangeRates(date);
@@ -134,9 +184,13 @@ class LocalCurrencyRepository implements CurrencyRepository {
 
   @override
   Future<List<ExchangeRateDomain>> getLatestExchangeRatesByList(
-    List<DateTime> dates,
-  ) async {
-    final rates = await database.exchangeRatesDao.getAllExchangesRates(dates);
+    List<DateTime> dates, {
+    Set<String>? currencyCodes,
+  }) async {
+    final rates = await database.exchangeRatesDao.getAllExchangesRates(
+      dates,
+      currencyCodes: currencyCodes,
+    );
     return rates.toDomainList();
   }
 

@@ -63,7 +63,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<CategoriesBloc>().add(LoadCategories());
+    // Only from a cold state: the shell route remounts this screen on every
+    // tab switch, and the bloc watches both the categories and the transactions
+    // tables, so a list it already holds is current.
+    final bloc = context.read<CategoriesBloc>();
+    if (bloc.state is CategoriesInitial ||
+        bloc.state is CategoriesLoadFailure) {
+      bloc.add(LoadCategories());
+    }
     _scrollController.addListener(_onScroll);
   }
 

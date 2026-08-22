@@ -8,6 +8,8 @@ import 'package:my_budget_client/core/theme/money_colors.dart';
 import 'package:my_budget_client/core/utils/date_display.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
+import 'package:my_budget_client/core/utils/rate_formatter.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
@@ -28,6 +30,8 @@ import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
+import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
+import 'package:my_budget_client/presentation/widgets/currency_picker_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/budget_icon.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
@@ -83,6 +87,13 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
   /// The message currently on screen, so one failure is reported once.
   String? _shownValidationError;
 
+  /// The amount field, so a new transaction can open on it.
+  final FocusNode _amountFocusNode = FocusNode();
+
+  /// Set the first time the form is asked to open on the amount, so the focus
+  /// is taken once and not again on every state the listener sees.
+  bool _amountFocusSettled = false;
+
   @override
   void initState() {
     super.initState();
@@ -91,10 +102,43 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
     _amountController = TextEditingController(text: state.amount);
     _feeController = TextEditingController(text: state.fee);
     _totalValueController = TextEditingController(text: state.totalValue);
+    // The load may already be finished by the first frame, in which case the
+    // listener below never sees the transition.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _focusAmountIfNew(context.read<AddEditTransactionBloc>().state);
+    });
+  }
+
+  /// Puts the cursor in the amount field of a new transaction.
+  ///
+  /// A new transaction is opened to type a number into; an edit is opened to
+  /// read one first, and taking focus there would raise a phone keyboard over
+  /// the rest of the form for a field the user may not be here to change.
+  ///
+  /// Focus is taken after the frame rather than declared on the field: the
+  /// screen already carries two focus wrappers that claim it on their own -
+  /// the escape-back handler and the shortcut map - and which of three
+  /// claimants in one scope wins is not something to depend on.
+  void _focusAmountIfNew(AddEditTransactionState state) {
+    if (_amountFocusSettled) return;
+    // Only once the load has landed: `initial` carries no transaction yet, so
+    // an edit would read as a new entry and be focused as one.
+    if (state.status != AddEditTransactionStatus.success) return;
+    _amountFocusSettled = true;
+    // Transfers and asset trades ask which accounts first, so their amount is
+    // not the field to open on.
+    if (state.isEditing || state.isTransferMode || state.isAssetTransaction) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _amountFocusNode.requestFocus();
+    });
   }
 
   @override
   void dispose() {
+    _amountFocusNode.dispose();
     _descriptionController.dispose();
     _amountController.dispose();
     _feeController.dispose();
@@ -104,266 +148,524 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
 
   @override
   Widget build(BuildContext context) {
-    return EscapeBackHandler(
-      child: BlocListener<AddEditTransactionBloc, AddEditTransactionState>(
-        listener: (context, state) {
-          if (state.isSaveSuccess) {
-            context.pop();
+    // Save from the keyboard. On a desktop the form ends with a mouse trip to
+    // a button at the bottom of a scrolled column; Ctrl+Enter is the default
+    // but it goes through the same settings-driven map as every other
+    // shortcut, so it can be rebound on the Hot Keys screen.
+    return ScreenShortcuts(
+      actions: {'save_form': () => submitTransactionForm(context, _formKey)},
+      child: EscapeBackHandler(
+        child: BlocListener<AddEditTransactionBloc, AddEditTransactionState>(
+          listener: (context, state) {
+            _focusAmountIfNew(state);
+            if (state.isSaveSuccess) {
+              context.pop();
 
-            context.read<TransactionsBloc>().add(
-              const InitialLoadTransactions(),
-            );
-            context.read<AccountsBloc>().add(LoadAccounts());
-          }
-
-          // The listener has to run on every state to keep the controllers in
-          // step, so the SnackBar is gated here instead: without this, one
-          // failed validation queued a fresh red SnackBar for every keystroke
-          // that followed, because `validationError` stays set in state.
-          final validationError = state.validationError;
-          if (validationError != null &&
-              validationError != _shownValidationError) {
-            final l10n = context.l10n;
-            final localized = <String, String>{
-              'Please enter an amount': l10n.emptyAmountError,
-              'Please select an account': l10n.selectAccountError,
-              'Please select a date': l10n.selectDateError,
-              'Please select a category': l10n.selectCategoryError,
-              'Please enter a valid number': l10n.invalidAmountError,
-              // Emitted by _onAccountsUpdated when a sync deletes an account
-              // that this form still had selected. Without these two rows the
-              // sentinels would reach the user as untranslated English through
-              // the importErrorLabel fallback below.
-              'The account you selected has been deleted':
-                  l10n.accountDeletedError,
-              'The linked account you selected has been deleted':
-                  l10n.linkedAccountDeletedError,
-              // Emitted by _onSubmitted when a cross-currency transfer has no
-              // rate to convert the receiving leg at - the pair has none
-              // stored and none was typed. Same reason as the two rows above:
-              // without this row the sentinel reaches the user as untranslated
-              // English through the importErrorLabel fallback below.
-              'Please enter an exchange rate': l10n.enterExchangeRateError,
-            };
-
-            _shownValidationError = validationError;
-            ScaffoldMessenger.of(context)
-              ..removeCurrentSnackBar()
-              ..showSnackBar(
-                SnackBar(
-                  // Anything else is a repository exception, which no lookup
-                  // can translate - the frame around it is localized so the
-                  // user at least reads it as an error and not as a result.
-                  content: Text(
-                    localized[validationError] ??
-                        l10n.importErrorLabel(validationError),
-                  ),
-                  backgroundColor: Colors.red,
-                ),
+              context.read<TransactionsBloc>().add(
+                const InitialLoadTransactions(),
               );
-          } else if (validationError == null) {
-            _shownValidationError = null;
-          }
+              context.read<AccountsBloc>().add(LoadAccounts());
+            }
 
-          if (state.description != _descriptionController.text) {
-            _descriptionController.text = state.description;
-          }
-          // Nullable rather than a -1.0 sentinel. With the sentinel, a state
-          // amount that really was -1.0 compared equal to an empty controller,
-          // so reopening a transaction of exactly 1.00 left the Amount field
-          // blank and saving was refused until the user retyped it.
-          final amountDouble = double.tryParse(state.amount);
-          final currentAmountDouble = double.tryParse(_amountController.text);
-          if (amountDouble != currentAmountDouble &&
-              (amountDouble == null ||
-                  currentAmountDouble == null ||
-                  (amountDouble - currentAmountDouble).abs() > 0.0000001)) {
-            _amountController.text = state.amount;
-          }
-          if (state.fee != _feeController.text) {
-            _feeController.text = state.fee;
-          }
+            // The listener has to run on every state to keep the controllers in
+            // step, so the SnackBar is gated here instead: without this, one
+            // failed validation queued a fresh red SnackBar for every keystroke
+            // that followed, because `validationError` stays set in state.
+            final validationError = state.validationError;
+            if (validationError != null &&
+                validationError != _shownValidationError) {
+              final l10n = context.l10n;
+              final localized = <String, String>{
+                'Please enter an amount': l10n.emptyAmountError,
+                'Please select an account': l10n.selectAccountError,
+                'Please select a date': l10n.selectDateError,
+                'Please select a category': l10n.selectCategoryError,
+                'Please enter a valid number': l10n.invalidAmountError,
+                // Emitted by _onAccountsUpdated when a sync deletes an account
+                // that this form still had selected. Without these two rows the
+                // sentinels would reach the user as untranslated English through
+                // the importErrorLabel fallback below.
+                'The account you selected has been deleted':
+                    l10n.accountDeletedError,
+                'The linked account you selected has been deleted':
+                    l10n.linkedAccountDeletedError,
+                // Emitted by _onSubmitted when a cross-currency transfer has no
+                // rate to convert the receiving leg at - the pair has none
+                // stored and none was typed. Same reason as the two rows above:
+                // without this row the sentinel reaches the user as untranslated
+                // English through the importErrorLabel fallback below.
+                'Please enter an exchange rate': l10n.enterExchangeRateError,
+              };
 
-          // Same sentinel, same edge: a total value of exactly -1.0.
-          final totalDouble = double.tryParse(state.totalValue);
-          final currentTotalDouble = double.tryParse(
-            _totalValueController.text,
-          );
-          if (totalDouble != currentTotalDouble &&
-              (totalDouble == null ||
-                  currentTotalDouble == null ||
-                  (totalDouble - currentTotalDouble).abs() > 0.0000001)) {
-            _totalValueController.text = state.totalValue;
-          }
-        },
-        child: Scaffold(
-          // The body is a plain SingleChildScrollView, so the viewport has to
-          // shrink with the keyboard. With `false` the viewport kept the full
-          // screen height, the max scroll extent ignored the inset and the last
-          // ~300dp (Date field, Save button) stayed parked under the keyboard
-          // with no way to scroll to it.
-          resizeToAvoidBottomInset: true,
-          appBar: AppBar(
-            title: BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
-              builder: (context, state) {
-                final l10n = context.l10n;
-                return Text(
-                  state.isTransferMode
-                      ? (state.isEditing
-                            ? l10n.editTransferTitle
-                            : l10n.newTransferTitle)
-                      : (state.isEditing
-                            ? l10n.editTransactionTitle
-                            : l10n.addTransactionTitle),
+              _shownValidationError = validationError;
+              ScaffoldMessenger.of(context)
+                ..removeCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    // Anything else is a repository exception, which no lookup
+                    // can translate - the frame around it is localized so the
+                    // user at least reads it as an error and not as a result.
+                    content: Text(
+                      localized[validationError] ??
+                          l10n.importErrorLabel(validationError),
+                    ),
+                    backgroundColor: Colors.red,
+                  ),
                 );
-              },
+            } else if (validationError == null) {
+              _shownValidationError = null;
+            }
+
+            if (state.description != _descriptionController.text) {
+              _descriptionController.text = state.description;
+            }
+            // Nullable rather than a -1.0 sentinel. With the sentinel, a state
+            // amount that really was -1.0 compared equal to an empty controller,
+            // so reopening a transaction of exactly 1.00 left the Amount field
+            // blank and saving was refused until the user retyped it.
+            final amountDouble = double.tryParse(state.amount);
+            final currentAmountDouble = double.tryParse(_amountController.text);
+            if (amountDouble != currentAmountDouble &&
+                (amountDouble == null ||
+                    currentAmountDouble == null ||
+                    (amountDouble - currentAmountDouble).abs() > 0.0000001)) {
+              _amountController.text = state.amount;
+            }
+            if (state.fee != _feeController.text) {
+              _feeController.text = state.fee;
+            }
+
+            // Same sentinel, same edge: a total value of exactly -1.0.
+            final totalDouble = double.tryParse(state.totalValue);
+            final currentTotalDouble = double.tryParse(
+              _totalValueController.text,
+            );
+            if (totalDouble != currentTotalDouble &&
+                (totalDouble == null ||
+                    currentTotalDouble == null ||
+                    (totalDouble - currentTotalDouble).abs() > 0.0000001)) {
+              _totalValueController.text = state.totalValue;
+            }
+          },
+          child: Scaffold(
+            // The body is a plain SingleChildScrollView, so the viewport has to
+            // shrink with the keyboard. With `false` the viewport kept the full
+            // screen height, the max scroll extent ignored the inset and the last
+            // ~300dp (Date field, Save button) stayed parked under the keyboard
+            // with no way to scroll to it.
+            resizeToAvoidBottomInset: true,
+            appBar: AppBar(
+              title:
+                  BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
+                    builder: (context, state) {
+                      final l10n = context.l10n;
+                      return Text(
+                        state.isTransferMode
+                            ? (state.isEditing
+                                  ? l10n.editTransferTitle
+                                  : l10n.newTransferTitle)
+                            : (state.isEditing
+                                  ? l10n.editTransactionTitle
+                                  : l10n.addTransactionTitle),
+                      );
+                    },
+                  ),
             ),
-          ),
-          body: BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
-            builder: (context, state) {
-              if (state.status == AddEditTransactionStatus.loading) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (state.status == AddEditTransactionStatus.failure) {
-                return Center(child: Text(context.l10n.failedToLoadData));
-              }
+            body: BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
+              builder: (context, state) {
+                if (state.status == AddEditTransactionStatus.loading) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (state.status == AddEditTransactionStatus.failure) {
+                  return Center(child: Text(context.l10n.failedToLoadData));
+                }
 
-              // The scrim is the outer layer, the 600dp column the inner one.
-              // Nested the other way round it dimmed only the form's own
-              // width: on a 1440px window 800px of the screen stayed lit and
-              // interactive while the save was in flight.
-              return Stack(
-                children: [
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 600),
-                      child: RepaintBoundary(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Form(
-                            key: _formKey,
-                            child: state.isAssetTransaction
-                                ? Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      const _AccountField(),
-                                      const SizedBox(height: 16),
-                                      const _AssetActionToggle(),
-                                      const SizedBox(height: 16),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: _AmountField(
-                                              controller: _amountController,
-                                              label: context
-                                                  .l10n
-                                                  .quantityFormLabel,
+                // The scrim is the outer layer, the 600dp column the inner one.
+                // Nested the other way round it dimmed only the form's own
+                // width: on a 1440px window 800px of the screen stayed lit and
+                // interactive while the save was in flight.
+                return Stack(
+                  children: [
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 600),
+                        child: RepaintBoundary(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Form(
+                              key: _formKey,
+                              child: state.isAssetTransaction
+                                  ? Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        const _AccountField(),
+                                        const SizedBox(height: 16),
+                                        const _AssetActionToggle(),
+                                        const SizedBox(height: 16),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: _AmountField(
+                                                controller: _amountController,
+                                                label: context
+                                                    .l10n
+                                                    .quantityFormLabel,
+                                              ),
                                             ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: _TotalValueField(
-                                              controller: _totalValueController,
+                                            const SizedBox(width: 16),
+                                            Expanded(
+                                              child: _TotalValueField(
+                                                controller:
+                                                    _totalValueController,
+                                              ),
                                             ),
-                                          ),
+                                          ],
+                                        ),
+                                        const _AssetPriceDisplay(),
+                                        const SizedBox(height: 16),
+                                        const _LinkedAccountField(),
+                                        const SizedBox(height: 16),
+                                        const _DateField(),
+                                        const SizedBox(height: 16),
+                                        _DescriptionField(
+                                          controller: _descriptionController,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        _FeeField(controller: _feeController),
+                                        const Divider(),
+                                        if (state.isForeignCurrency) ...[
+                                          const _ExchangeRateSection(),
+                                          const SizedBox(height: 16),
                                         ],
-                                      ),
-                                      const _AssetPriceDisplay(),
-                                      const SizedBox(height: 16),
-                                      const _LinkedAccountField(),
-                                      const SizedBox(height: 16),
-                                      const _DateField(),
-                                      const SizedBox(height: 16),
-                                      _DescriptionField(
-                                        controller: _descriptionController,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      _FeeField(controller: _feeController),
-                                      const Divider(),
-                                      if (state.isForeignCurrency) ...[
-                                        const _ExchangeRateSection(),
-                                        const SizedBox(height: 16),
+                                        const SizedBox(height: 32),
+                                        _SaveButton(formKey: _formKey),
                                       ],
-                                      const SizedBox(height: 32),
-                                      _SaveButton(formKey: _formKey),
-                                    ],
-                                  )
-                                : Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      _DescriptionField(
-                                        controller: _descriptionController,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      _AmountField(
-                                        controller: _amountController,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      if (state.isForeignCurrency) ...[
-                                        const _ExchangeRateSection(),
+                                    )
+                                  : state.isTransferMode
+                                  ? _TransferForm(
+                                      formKey: _formKey,
+                                      amountController: _amountController,
+                                      descriptionController:
+                                          _descriptionController,
+                                    )
+                                  // Asked in the order the user has the
+                                  // answers: the number they are looking at,
+                                  // then where it came from and what it was
+                                  // for. Description led the form and Amount
+                                  // came second, so every entry opened on an
+                                  // optional prose field - a keyboard over the
+                                  // form on a phone - and the number, the
+                                  // account and the category were spread over
+                                  // three screens with the exchange-rate card
+                                  // in the middle of them. Description is
+                                  // optional, so it now sits where optional
+                                  // things belong.
+                                  : Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        _AmountField(
+                                          controller: _amountController,
+                                          focusNode: _amountFocusNode,
+                                        ),
                                         const SizedBox(height: 16),
-                                      ],
-
-                                      const _ConvertedAmountDisplay(),
-                                      const SizedBox(height: 16),
-                                      if (state.isTransferMode) ...[
-                                        _AccountField(
-                                          label: context.l10n.fromAccountLabel,
-                                        ),
-                                        Align(
-                                          alignment: Alignment.center,
-                                          child: IconButton(
-                                            icon: const Icon(Icons.swap_vert),
-                                            onPressed: () {
-                                              context
-                                                  .read<
-                                                    AddEditTransactionBloc
-                                                  >()
-                                                  .add(
-                                                    const AddEditTransactionSwapAccounts(),
-                                                  );
-                                            },
-                                            tooltip: context
-                                                .l10n
-                                                .swapAccountsTooltip,
-                                          ),
-                                        ),
-                                        _LinkedAccountField(
-                                          label: context.l10n.toAccountLabel,
-                                        ),
-                                      ] else ...[
                                         _AccountField(
                                           label: context.l10n.accountLabel,
                                         ),
                                         const SizedBox(height: 16),
                                         const _CategoryField(),
+                                        const SizedBox(height: 16),
+                                        const _CurrencyField(),
+                                        // The rate and the converted total are
+                                        // consequences of the currency above
+                                        // them, and only appear when it differs
+                                        // from the account's.
+                                        if (state.isForeignCurrency) ...[
+                                          const SizedBox(height: 16),
+                                          const _ExchangeRateSection(),
+                                        ],
+                                        const _ConvertedAmountDisplay(),
+                                        const SizedBox(height: 16),
+                                        const _DateField(),
+                                        const SizedBox(height: 16),
+                                        _DescriptionField(
+                                          controller: _descriptionController,
+                                        ),
+                                        const SizedBox(height: 32),
+                                        _SaveButton(formKey: _formKey),
                                       ],
-                                      const SizedBox(height: 16),
-                                      const _CurrencyField(),
-                                      const SizedBox(height: 16),
-                                      const _DateField(),
-                                      const SizedBox(height: 32),
-                                      _SaveButton(formKey: _formKey),
-                                    ],
-                                  ),
+                                    ),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  if (state.isSaving)
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.black.withAlpha(128),
-                        child: const Center(child: CircularProgressIndicator()),
+                    if (state.isSaving)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black.withAlpha(128),
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
                       ),
-                    ),
-                ],
-              );
-            },
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The transfer form: two accounts, and how much leaves and how much arrives.
+///
+/// It used to be the ordinary transaction column with the account fields
+/// swapped for a From/To pair, which put them fifth and seventh - below
+/// Description, Amount and the whole exchange-rate card. On a phone that left
+/// the two controls the form exists for below the fold, under a rate card for a
+/// pair the user had not chosen yet, and the Save button off-screen entirely.
+/// The order here is the order the question is asked in: out of where, into
+/// where, how much, and only then the things that have defaults.
+class _TransferForm extends StatelessWidget {
+  const _TransferForm({
+    required this.formKey,
+    required this.amountController,
+    required this.descriptionController,
+  });
+
+  final GlobalKey<FormState> formKey;
+  final TextEditingController amountController;
+  final TextEditingController descriptionController;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
+      builder: (context, state) {
+        final l10n = context.l10n;
+        // The amounts are in the accounts' own currencies, one each, and which
+        // is which is the whole difficulty of a cross-currency transfer - so
+        // each field names its own code rather than leaving the user to infer
+        // it from a locked Currency box further down.
+        final fromCode = state.selectedAccount?.currencyCode ?? '';
+        final toCode = state.linkedAccount?.currencyCode ?? '';
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _AccountField(label: l10n.fromAccountLabel),
+            Align(
+              alignment: Alignment.center,
+              child: IconButton(
+                icon: const Icon(Icons.swap_vert),
+                onPressed:
+                    state.selectedAccount == null || state.linkedAccount == null
+                    ? null
+                    : () => context.read<AddEditTransactionBloc>().add(
+                        const AddEditTransactionSwapAccounts(),
+                      ),
+                tooltip: l10n.swapAccountsTooltip,
+              ),
+            ),
+            _LinkedAccountField(label: l10n.toAccountLabel),
+            const SizedBox(height: 16),
+            _AmountField(
+              controller: amountController,
+              label: fromCode.isEmpty
+                  ? l10n.amountLabel
+                  : l10n.amountSentLabel(fromCode),
+            ),
+            // Same currency on both sides means the amount crosses unchanged:
+            // there is no second number to state and no rate to state it at.
+            if (state.isForeignCurrency) ...[
+              const SizedBox(height: 16),
+              _ReceivedAmountField(currencyCode: toCode),
+              const SizedBox(height: 8),
+              const _TransferRateDisclosure(),
+            ],
+            const SizedBox(height: 16),
+            const _DateField(),
+            const SizedBox(height: 16),
+            _DescriptionField(controller: descriptionController),
+            const SizedBox(height: 32),
+            _SaveButton(formKey: formKey),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// How much arrives, in the destination account's currency.
+///
+/// The form only ever accepted a rate, and a rate is the one form of the
+/// question nobody is told the answer to: a bank says 100 EUR left and 11,700
+/// RSD arrived, and the user was left to divide. Typing either number now fills
+/// the other, because both are the same fact - the rate - written down
+/// differently. The rate remains what is stored and what the save converts
+/// with; this field is a second way of stating it, not a second value.
+class _ReceivedAmountField extends StatefulWidget {
+  const _ReceivedAmountField({required this.currencyCode});
+
+  final String currencyCode;
+
+  @override
+  State<_ReceivedAmountField> createState() => _ReceivedAmountFieldState();
+}
+
+class _ReceivedAmountFieldState extends State<_ReceivedAmountField> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _sync(context.read<AddEditTransactionBloc>().state);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// What the sent amount and the current rate say should arrive, or null when
+  /// that is not yet a number.
+  double? _arriving(AddEditTransactionState state) {
+    final sent = double.tryParse(state.amount);
+    if (sent == null) return null;
+    // `effectiveExchangeRate` falls back to 1.0 so callers can multiply
+    // without testing first, but "no rate at all" is exactly the state this
+    // field must not report as a one-for-one transfer: the save refuses a
+    // cross-currency transfer that has no rate, so a box reading 100 EUR ->
+    // 100 RSD would be promising something that cannot be saved.
+    if (state.manualExchangeRate.isEmpty) return null;
+    final rate = state.effectiveExchangeRate;
+    if (rate == 0) return null;
+    return sent * rate;
+  }
+
+  void _sync(AddEditTransactionState state) {
+    final sent = double.tryParse(state.amount);
+    // Nothing to derive from. Clearing the box here would delete what the user
+    // is typing when they fill this field before the sent amount - a real
+    // order, since the arriving figure is often the one being read off a
+    // statement.
+    if (sent == null) return;
+
+    final arriving = _arriving(state);
+    final expected = arriving == null ? '' : _plain(arriving);
+    final current = double.tryParse(_controller.text);
+
+    if (current != null && arriving != null) {
+      // The text is a rounded rendering of `arriving`, so an exact comparison
+      // would rewrite the box on every keystroke - moving the caret to the end
+      // mid-number. The tolerance is one order looser than the rounding.
+      if ((current - arriving).abs() <= arriving.abs() * 1e-5) return;
+    } else if (arriving == null && _controller.text == expected) {
+      return;
+    }
+
+    _controller.text = expected;
+    _controller.selection = TextSelection.collapsed(offset: expected.length);
+  }
+
+  /// Formatted the way the rate field is - significant digits, a dot for the
+  /// decimal point, no grouping - rather than through `MoneyFormatter`, whose
+  /// thin spaces and locale decimal comma this field's own input formatter
+  /// strips on the next keystroke.
+  static String _plain(double value) => RateFormatter.short(value);
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<AddEditTransactionBloc, AddEditTransactionState>(
+      listener: (context, state) => _sync(state),
+      child: TextFormField(
+        key: const Key('receivedAmountField'),
+        controller: _controller,
+        decoration: InputDecoration(
+          labelText: widget.currencyCode.isEmpty
+              ? context.l10n.amountLabel
+              : context.l10n.amountReceivedLabel(widget.currencyCode),
+          border: const OutlineInputBorder(),
+          prefixIcon: const Icon(Icons.call_received),
+        ),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+          TextInputFormatter.withFunction(
+            (oldValue, newValue) =>
+                newValue.copyWith(text: newValue.text.replaceAll(',', '.')),
+          ),
+        ],
+        onChanged: (value) => context.read<AddEditTransactionBloc>().add(
+          AddEditTransactionReceivedAmountChanged(value),
+        ),
+      ),
+    );
+  }
+}
+
+/// The rate, stated in one line and opened only when it needs changing.
+///
+/// With both amounts on screen the rate is a derived figure the user rarely
+/// touches, but it still carries the preset chips and the save/update buttons,
+/// which are the only way to reuse a rate across transfers. Collapsed it costs
+/// one line; the transfer form used to open with the whole card - title,
+/// currency chips, preset row, rate field and four buttons - sitting between
+/// the amount and the accounts.
+class _TransferRateDisclosure extends StatelessWidget {
+  const _TransferRateDisclosure();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
+      builder: (context, state) {
+        final from = state.selectedAccount?.currencyCode ?? '';
+        final to = state.linkedAccount?.currencyCode ?? '';
+        final rate = state.manualExchangeRate.isEmpty
+            ? null
+            : state.effectiveExchangeRate;
+
+        return Card(
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            side: BorderSide(color: Theme.of(context).dividerColor),
+          ),
+          child: Theme(
+            // ExpansionTile paints its own divider above and below, which reads
+            // as a second border just inside this one.
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              title: Text(
+                rate == null
+                    ? context.l10n.exchangeRateLabel
+                    : MoneyFormatter.isolate(
+                        context.l10n.transferRateSummary(
+                          from,
+                          RateFormatter.short(rate),
+                          to,
+                        ),
+                      ),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              subtitle: Text(
+                context.l10n.adjustRateLabel,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              // A transfer with no rate cannot be saved, so the one case where
+              // the user must open this is the one where it starts open.
+              initiallyExpanded: rate == null,
+              children: const [_ExchangeRateSection(embedded: true)],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -408,6 +710,9 @@ class _DescriptionField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+      // The last field on the form: the phone keyboard offers a key that ends
+      // the entry rather than one that hunts for a field that is not there.
+      textInputAction: TextInputAction.done,
       decoration: InputDecoration(
         labelText: context.l10n.descriptionOptionalLabel,
         border: const OutlineInputBorder(),
@@ -422,8 +727,9 @@ class _DescriptionField extends StatelessWidget {
 class _AmountField extends StatelessWidget {
   final TextEditingController controller;
   final String? label;
+  final FocusNode? focusNode;
 
-  const _AmountField({required this.controller, this.label});
+  const _AmountField({required this.controller, this.label, this.focusNode});
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
@@ -460,6 +766,8 @@ class _AmountField extends StatelessWidget {
 
         return TextFormField(
           controller: controller,
+          focusNode: focusNode,
+          textInputAction: TextInputAction.next,
           decoration: InputDecoration(
             labelText: effectiveLabel,
             border: const OutlineInputBorder(),
@@ -504,8 +812,16 @@ class _AccountField extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
       builder: (context, state) {
+        // The To picker has always hidden whatever From holds; this one
+        // offered the destination back, and picking it left both sides on the
+        // same account - a transfer to itself, which the save rejects with a
+        // message that names neither field.
         final availableAccounts = state.isTransferMode
-            ? state.accounts.where((a) => a.assetId == null).toList()
+            ? state.accounts
+                  .where(
+                    (a) => a.assetId == null && a.id != state.linkedAccount?.id,
+                  )
+                  .toList()
             : state.accounts;
 
         return _PickerField(
@@ -760,50 +1076,55 @@ class _DateField extends StatelessWidget {
   }
 }
 
+/// Validates the form and submits it.
+///
+/// Lives outside [_SaveButton] because the save hotkey runs exactly this, and
+/// a second copy of it would be a second set of description strings to keep in
+/// step with the first.
+void submitTransactionForm(BuildContext context, GlobalKey<FormState> formKey) {
+  final isValid = formKey.currentState?.validate() ?? false;
+  if (isValid) {
+    final bloc = context.read<AddEditTransactionBloc>();
+    final state = bloc.state;
+    final l10n = context.l10n;
+    // A transfer's two rows are described for the user, not by them, so
+    // the wording has to come from `l10n` - and the bloc cannot reach it.
+    // The names are read here, at the moment of saving, so the strings
+    // match the accounts actually chosen.
+    final from = state.selectedAccount?.name;
+    final to = state.linkedAccount?.name;
+    // The asset rows are worded from the same place for the same
+    // reason. `from` is the asset account here - the thing being bought
+    // or sold - and the action word is the one the form's own toggle
+    // shows, so the saved row reads the way the form did.
+    final isBuy = state.assetAction == AssetAction.buy;
+    final action = isBuy ? l10n.buyAction : l10n.sellAction;
+    bloc.add(
+      AddEditTransactionSubmitted(
+        transferToDescription: to == null
+            ? null
+            : l10n.transferToDescription(to),
+        transferFromDescription: from == null
+            ? null
+            : l10n.transferFromDescription(from),
+        assetDescription: from == null
+            ? null
+            : (isBuy ? l10n.buyDescription(from) : l10n.sellDescription(from)),
+        assetTransferDescription: from == null
+            ? null
+            : l10n.assetTransferDescription(action, from),
+      ),
+    );
+  }
+}
+
 class _SaveButton extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   const _SaveButton({required this.formKey});
   @override
   Widget build(BuildContext context) {
     return FilledButton.tonal(
-      onPressed: () {
-        final isValid = formKey.currentState?.validate() ?? false;
-        if (isValid) {
-          final bloc = context.read<AddEditTransactionBloc>();
-          final state = bloc.state;
-          final l10n = context.l10n;
-          // A transfer's two rows are described for the user, not by them, so
-          // the wording has to come from `l10n` - and the bloc cannot reach it.
-          // The names are read here, at the moment of saving, so the strings
-          // match the accounts actually chosen.
-          final from = state.selectedAccount?.name;
-          final to = state.linkedAccount?.name;
-          // The asset rows are worded from the same place for the same
-          // reason. `from` is the asset account here - the thing being bought
-          // or sold - and the action word is the one the form's own toggle
-          // shows, so the saved row reads the way the form did.
-          final isBuy = state.assetAction == AssetAction.buy;
-          final action = isBuy ? l10n.buyAction : l10n.sellAction;
-          bloc.add(
-            AddEditTransactionSubmitted(
-              transferToDescription: to == null
-                  ? null
-                  : l10n.transferToDescription(to),
-              transferFromDescription: from == null
-                  ? null
-                  : l10n.transferFromDescription(from),
-              assetDescription: from == null
-                  ? null
-                  : (isBuy
-                        ? l10n.buyDescription(from)
-                        : l10n.sellDescription(from)),
-              assetTransferDescription: from == null
-                  ? null
-                  : l10n.assetTransferDescription(action, from),
-            ),
-          );
-        }
-      },
+      onPressed: () => submitTransactionForm(context, formKey),
       style: FilledButton.styleFrom(
         minimumSize: const Size(double.infinity, 50),
       ),
@@ -826,18 +1147,11 @@ class _CurrencyField extends StatelessWidget {
           onTap: isTransfer
               ? null
               : () async {
-                  final selectedCurrency =
-                      await showSingleSelectDialog<Currency>(
-                        context: context,
-                        items: state.currencies,
-                        title: context.l10n.selectCurrencyTitle,
-                        selectedItem: state.selectedCurrency,
-                        itemBuilder: (currency) => ListTile(
-                          title: Text('${currency.code} - ${currency.name}'),
-                          leading: Text(currency.code),
-                        ),
-                        stringGetter: (currency) => currency.code,
-                      );
+                  final selectedCurrency = await showCurrencyPicker(
+                    context: context,
+                    currencies: state.currencies,
+                    selectedCurrencyCode: state.selectedCurrency?.code,
+                  );
                   if (context.mounted && selectedCurrency != null) {
                     context.read<AddEditTransactionBloc>().add(
                       AddEditTransactionCurrencyChanged(selectedCurrency),
@@ -866,7 +1180,11 @@ class _CurrencyField extends StatelessWidget {
 }
 
 class _ExchangeRateSection extends StatefulWidget {
-  const _ExchangeRateSection();
+  const _ExchangeRateSection({this.embedded = false});
+
+  /// Drop the card and the heading: the caller has already framed this and
+  /// said what it is. Only the transfer form's rate disclosure sets it.
+  final bool embedded;
 
   @override
   State<_ExchangeRateSection> createState() => _ExchangeRateSectionState();
@@ -969,234 +1287,226 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
               ? fromCurrency
               : toCurrency;
 
-          return Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.l10n.exchangeRateLabel,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+          final content = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!widget.embedded) ...[
+                Text(
+                  context.l10n.exchangeRateLabel,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(height: 12),
+                ),
+                const SizedBox(height: 12),
+              ],
 
-                  Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            leftCurrency,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onPrimaryContainer,
-                            ),
-                          ),
+              Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        leftCurrency,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer,
                         ),
-
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: IconButton(
-                            icon: const Icon(Icons.swap_horiz),
-                            onPressed: () {
-                              context.read<AddEditTransactionBloc>().add(
-                                const AddEditTransactionToggleRateDirection(),
-                              );
-                            },
-                          ),
-                        ),
-
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.secondaryContainer,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            rightCurrency,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSecondaryContainer,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (state.isLoadingRates)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  else ...[
-                    if (state.availableExchangeRates.isNotEmpty) ...[
-                      Text(
-                        context.l10n.availablePresetsLabel,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 8.0,
-                        runSpacing: 4.0,
-                        children: state.availableExchangeRates.map((rate) {
-                          final isSelected = state.selectedExchangeRate == rate;
-                          return ChoiceChip(
-                            label: Text(
-                              'P${rate.preset}: ${rate.rate.toStringAsFixed(4)}',
-                            ),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              if (selected) {
-                                context.read<AddEditTransactionBloc>().add(
-                                  AddEditTransactionRatePresetChanged(rate),
-                                );
-                              }
-                            },
+
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: IconButton(
+                        icon: const Icon(Icons.swap_horiz),
+                        onPressed: () {
+                          context.read<AddEditTransactionBloc>().add(
+                            const AddEditTransactionToggleRateDirection(),
                           );
-                        }).toList(),
+                        },
                       ),
-                      const SizedBox(height: 12),
-                    ],
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _rateController,
-                            decoration: InputDecoration(
-                              labelText:
-                                  '${context.l10n.exchangeRateLabel} ($rightCurrency)',
-                              border: const OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'[0-9.,]'),
-                              ),
-                              TextInputFormatter.withFunction((
-                                oldValue,
-                                newValue,
-                              ) {
-                                return newValue.copyWith(
-                                  text: newValue.text.replaceAll(',', '.'),
-                                );
-                              }),
-                            ],
-                            onChanged: (value) =>
-                                context.read<AddEditTransactionBloc>().add(
-                                  AddEditTransactionManualRateChanged(value),
-                                ),
-                          ),
-                        ),
-                      ],
                     ),
-                    const SizedBox(height: 8),
-                    // Up to four labelled buttons live here. Side by side they
-                    // need ~390dp, but a 360dp phone only offers ~296dp inside
-                    // the form padding, so a Row overflowed in every locale.
-                    // Wrap lets the row break onto a second line and supplies
-                    // the gap the manual SizedBox spacers used to add.
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        // Gated on editingExchangeRate rather than
-                        // selectedExchangeRate: the latter is cleared the
-                        // moment the rate field is edited by hand (so the
-                        // chip stops claiming a conversion it no longer
-                        // describes), but typing a new rate over a preset is
-                        // exactly when these two buttons are needed.
-                        if (state.editingExchangeRate != null &&
-                            state.editingExchangeRate!.preset != 1)
-                          TextButton.icon(
-                            icon: const Icon(Icons.delete, size: 16),
-                            label: Text(context.l10n.deleteButton),
-                            // The theme's own destructive colour: a raw red
-                            // fails contrast on several of the dark surfaces
-                            // the seed picker can generate.
-                            style: TextButton.styleFrom(
-                              foregroundColor: Theme.of(
-                                context,
-                              ).colorScheme.error,
-                            ),
-                            onPressed: () {
-                              context.read<AddEditTransactionBloc>().add(
-                                AddEditTransactionDeletePreset(
-                                  state.editingExchangeRate!,
-                                ),
-                              );
-                            },
-                          ),
 
-                        if (state.editingExchangeRate != null &&
-                            state.editingExchangeRate!.preset != 1)
-                          TextButton.icon(
-                            icon: const Icon(Icons.edit, size: 16),
-                            label: Text(context.l10n.updateButton),
-                            onPressed: () {
-                              context.read<AddEditTransactionBloc>().add(
-                                AddEditTransactionUpdatePreset(
-                                  state.editingExchangeRate!,
-                                ),
-                              );
-                            },
-                          ),
-
-                        TextButton.icon(
-                          icon: const Icon(Icons.bookmark_border, size: 16),
-                          label: Text(context.l10n.defaultLabel),
-                          onPressed: () {
-                            context.read<AddEditTransactionBloc>().add(
-                              const AddEditTransactionSaveRateAsDefault(),
-                            );
-                          },
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        rightCurrency,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSecondaryContainer,
                         ),
-
-                        TextButton.icon(
-                          icon: const Icon(Icons.add, size: 16),
-                          label: Text(context.l10n.newPresetButton),
-                          onPressed: () {
-                            context.read<AddEditTransactionBloc>().add(
-                              const AddEditTransactionAddNewRate(),
-                            );
-                          },
-                        ),
-                      ],
+                      ),
                     ),
                   ],
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+              if (state.isLoadingRates)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else ...[
+                if (state.availableExchangeRates.isNotEmpty) ...[
+                  Text(
+                    context.l10n.availablePresetsLabel,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 8.0,
+                    runSpacing: 4.0,
+                    children: state.availableExchangeRates.map((rate) {
+                      final isSelected = state.selectedExchangeRate == rate;
+                      return ChoiceChip(
+                        label: Text(
+                          'P${rate.preset}: ${RateFormatter.short(rate.rate)}',
+                        ),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          if (selected) {
+                            context.read<AddEditTransactionBloc>().add(
+                              AddEditTransactionRatePresetChanged(rate),
+                            );
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _rateController,
+                        decoration: InputDecoration(
+                          labelText:
+                              '${context.l10n.exchangeRateLabel} ($rightCurrency)',
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                          TextInputFormatter.withFunction((oldValue, newValue) {
+                            return newValue.copyWith(
+                              text: newValue.text.replaceAll(',', '.'),
+                            );
+                          }),
+                        ],
+                        onChanged: (value) => context
+                            .read<AddEditTransactionBloc>()
+                            .add(AddEditTransactionManualRateChanged(value)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Up to four labelled buttons live here. Side by side they
+                // need ~390dp, but a 360dp phone only offers ~296dp inside
+                // the form padding, so a Row overflowed in every locale.
+                // Wrap lets the row break onto a second line and supplies
+                // the gap the manual SizedBox spacers used to add.
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    // Gated on editingExchangeRate rather than
+                    // selectedExchangeRate: the latter is cleared the
+                    // moment the rate field is edited by hand (so the
+                    // chip stops claiming a conversion it no longer
+                    // describes), but typing a new rate over a preset is
+                    // exactly when these two buttons are needed.
+                    if (state.editingExchangeRate != null &&
+                        state.editingExchangeRate!.preset != 1)
+                      TextButton.icon(
+                        icon: const Icon(Icons.delete, size: 16),
+                        label: Text(context.l10n.deleteButton),
+                        // The theme's own destructive colour: a raw red
+                        // fails contrast on several of the dark surfaces
+                        // the seed picker can generate.
+                        style: TextButton.styleFrom(
+                          foregroundColor: Theme.of(context).colorScheme.error,
+                        ),
+                        onPressed: () {
+                          context.read<AddEditTransactionBloc>().add(
+                            AddEditTransactionDeletePreset(
+                              state.editingExchangeRate!,
+                            ),
+                          );
+                        },
+                      ),
+
+                    if (state.editingExchangeRate != null &&
+                        state.editingExchangeRate!.preset != 1)
+                      TextButton.icon(
+                        icon: const Icon(Icons.edit, size: 16),
+                        label: Text(context.l10n.updateButton),
+                        onPressed: () {
+                          context.read<AddEditTransactionBloc>().add(
+                            AddEditTransactionUpdatePreset(
+                              state.editingExchangeRate!,
+                            ),
+                          );
+                        },
+                      ),
+
+                    TextButton.icon(
+                      icon: const Icon(Icons.bookmark_border, size: 16),
+                      label: Text(context.l10n.defaultLabel),
+                      onPressed: () {
+                        context.read<AddEditTransactionBloc>().add(
+                          const AddEditTransactionSaveRateAsDefault(),
+                        );
+                      },
+                    ),
+
+                    TextButton.icon(
+                      icon: const Icon(Icons.add, size: 16),
+                      label: Text(context.l10n.newPresetButton),
+                      onPressed: () {
+                        context.read<AddEditTransactionBloc>().add(
+                          const AddEditTransactionAddNewRate(),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          );
+
+          if (widget.embedded) return content;
+
+          return Card(
+            elevation: 2,
+            child: Padding(padding: const EdgeInsets.all(16.0), child: content),
           );
         },
       ),

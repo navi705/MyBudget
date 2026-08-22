@@ -568,6 +568,7 @@
     "hkActionPrevPeriod": "Previous Period",
     "hkActionNextPeriod": "Next Period",
     "hkActionAddAction": "Generic Add Action",
+    "hkActionSaveForm": "Save Form",
     "hkActionPickDate": "Select Date",
     "hkActionDashboardSwitchView": "Dashboard: Change View",
     "hkActionSortOrder": "Sort Order",
@@ -964,5 +965,41 @@
     "smsRuleCategoryHelp": "Override category for this rule",
     "@smsRuleCategoryHelp": {
         "description": "Helper text under the SMS rule category field explaining that it overrides the parsed category"
+    },
+    "amountSentLabel": "Amount sent ({currency})",
+    "@amountSentLabel": {
+        "description": "Label on the transfer form's first amount field, naming the currency the money leaves in"
+    },
+    "amountReceivedLabel": "Amount received ({currency})",
+    "@amountReceivedLabel": {
+        "description": "Label on the transfer form's second amount field, naming the currency the money arrives in"
+    },
+    "transferRateSummary": "1 {from} = {rate} {to}",
+    "@transferRateSummary": {
+        "description": "One-line statement of the rate a transfer converts at, shown above the collapsed rate editor"
+    },
+    "adjustRateLabel": "Adjust rate",
+    "@adjustRateLabel": {
+        "description": "Title of the collapsible section holding the exchange-rate field and its presets"
+    },
+    "favoriteCurrenciesHeader": "Favorites",
+    "@favoriteCurrenciesHeader": {
+        "description": "Section header in the currency picker above the currencies the user has starred"
+    },
+    "frequentCurrenciesHeader": "Frequently used",
+    "@frequentCurrenciesHeader": {
+        "description": "Section header in the currency picker above the currencies this budget already uses most"
+    },
+    "allCurrenciesHeader": "All currencies",
+    "@allCurrenciesHeader": {
+        "description": "Section header in the currency picker above the remaining currencies"
+    },
+    "addFavoriteCurrencyTooltip": "Add to favorites",
+    "@addFavoriteCurrencyTooltip": {
+        "description": "Tooltip on the unfilled star beside a currency in the picker"
+    },
+    "removeFavoriteCurrencyTooltip": "Remove from favorites",
+    "@removeFavoriteCurrencyTooltip": {
+        "description": "Tooltip on the filled star beside a currency in the picker"
     }
 }

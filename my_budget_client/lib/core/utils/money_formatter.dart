@@ -79,6 +79,25 @@ class MoneyFormatter {
     return '$sign$text';
   }
 
+  /// [format]'s output for anything under [_compactFrom], and a compacted
+  /// figure ("110K") above it.
+  ///
+  /// For the calendar cells, which are a seventh of the screen wide and hold
+  /// two amounts each. They render inside a `FittedBox`, so a long value does
+  /// not overflow - it shrinks, and a six-figure total shrank so far past the
+  /// neighbouring cells that it was no longer readable. Losing the last digits
+  /// of a number that big costs nothing at a glance; losing all of them does.
+  static String formatCompact(double value, String currencyCode) {
+    if (!value.isFinite) return unknownPlaceholder;
+    if (value.abs() < _compactFrom) return format(value, currencyCode);
+    return NumberFormat.compact(locale: 'en_US').format(value);
+  }
+
+  /// Magnitude at which [formatCompact] stops printing every digit. Five
+  /// figures plus a group separator, a sign and a symbol is about as much as a
+  /// calendar cell can show before the text starts shrinking.
+  static const double _compactFrom = 10000;
+
   /// [format]'s output, bidi-isolated. Use whenever the amount is dropped into
   /// a localised sentence (`l10n.currentPriceLabel(...)`) rather than standing
   /// alone in its own `Text`.

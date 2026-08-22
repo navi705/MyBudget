@@ -67,6 +67,9 @@ class _RecordingTransactionRepository extends Fake
 
   @override
   Future<Transaction?> getTransactionById(String id) async => rows[id];
+
+  @override
+  Stream<void> watchTransactionChanges() => const Stream.empty();
 }
 
 class _FakeCurrencyRepository extends Fake implements CurrencyRepository {
@@ -534,34 +537,150 @@ void main() {
       },
     );
   });
-  group('opening a transfer from an account row', () {
+  group('stating what arrived instead of the rate', () {
+    // A bank statement gives two amounts and no rate. Dividing one by the
+    // other was left to the user, and the form's only input was the quotient.
     blocTest<AddEditTransactionBloc, AddEditTransactionState>(
-      'does not pick an asset account as the source, which would drop the '
-      'form out of transfer mode for good',
-      build: () {
-        currencyRepository = _FakeCurrencyRepository()
-          ..ratesByPair['USD->EUR'] = [_preset1];
-        transactionRepository = _RecordingTransactionRepository();
-        return AddEditTransactionBloc(
-          transactionRepository: transactionRepository,
-          accountRepository: _AssetFirstAccountRepository(),
-          categoryRepository: _FakeCategoryRepository(),
-          currencyRepository: currencyRepository,
-          settingsRepository: _FakeSettingsRepository(),
-          assetRepository: _FakeAssetRepository(),
+      'the arriving amount is stored as the rate it implies',
+      build: build,
+      seed: () => _seedTransfer(amount: '1000'),
+      act: (bloc) =>
+          bloc.add(const AddEditTransactionReceivedAmountChanged('900')),
+      verify: (bloc) {
+        expect(bloc.state.manualExchangeRate, '0.9');
+        // The save reads `manualExchangeRate` raw and only inverts it when
+        // this flag is set, so a rate derived From-to-To has to clear it - or
+        // 1000 USD would arrive as 1111.11 EUR.
+        expect(bloc.state.isRateInputInverted, isFalse);
+      },
+    );
+
+    blocTest<AddEditTransactionBloc, AddEditTransactionState>(
+      'and it is the rate the save actually converts at',
+      build: build,
+      seed: () => _seedTransfer(amount: '1000'),
+      act: (bloc) async {
+        bloc.add(const AddEditTransactionReceivedAmountChanged('900'));
+        await Future<void>.delayed(Duration.zero);
+        bloc.add(const AddEditTransactionSubmitted());
+      },
+      verify: (_) {
+        final received = transactionRepository.added.firstWhere(
+          (t) => t.accountId == _euroAccount.id,
+        );
+        expect(received.amount, closeTo(900, 1e-9));
+      },
+    );
+
+    blocTest<AddEditTransactionBloc, AddEditTransactionState>(
+      'typing over a preset drops the preset rather than keeping both',
+      build: build,
+      // A preset is selected, so the rate came from the list. Overtyping the
+      // arriving amount contradicts it, and leaving the preset selected would
+      // leave the chip lit next to a rate it does not name.
+      seed: () => _seedTransfer(
+        amount: '1000',
+        manualExchangeRate: '0.85',
+        selectedExchangeRate: _preset1,
+      ),
+      act: (bloc) =>
+          bloc.add(const AddEditTransactionReceivedAmountChanged('900')),
+      verify: (bloc) {
+        expect(bloc.state.manualExchangeRate, '0.9');
+        expect(bloc.state.selectedExchangeRate, isNull);
+      },
+    );
+
+    blocTest<AddEditTransactionBloc, AddEditTransactionState>(
+      'an arriving amount with nothing sent yet changes no rate',
+      build: build,
+      // Zero would divide to infinity and an empty amount parses to nothing.
+      // Either would overwrite a rate the user may have already chosen.
+      seed: () => _seedTransfer(amount: '', manualExchangeRate: '0.85'),
+      act: (bloc) =>
+          bloc.add(const AddEditTransactionReceivedAmountChanged('900')),
+      verify: (bloc) => expect(bloc.state.manualExchangeRate, '0.85'),
+    );
+
+    blocTest<AddEditTransactionBloc, AddEditTransactionState>(
+      'a half-typed arriving amount changes no rate either',
+      build: build,
+      seed: () => _seedTransfer(amount: '1000', manualExchangeRate: '0.85'),
+      // What the field holds between the dot and the first decimal digit.
+      act: (bloc) =>
+          bloc.add(const AddEditTransactionReceivedAmountChanged('.')),
+      verify: (bloc) => expect(bloc.state.manualExchangeRate, '0.85'),
+    );
+
+    blocTest<AddEditTransactionBloc, AddEditTransactionState>(
+      'a rate too small to write in plain decimals is still written in plain '
+      'decimals',
+      build: build,
+      // 1 IDR is some 3.4e-9 BTC. `toString` reaches for the exponent at this
+      // magnitude, and `double.tryParse` in the save reads it back fine - but
+      // the user is shown, and asked to edit, "3.4222877778838255e-9".
+      seed: () => _seedTransfer(amount: '1000000000'),
+      act: (bloc) =>
+          bloc.add(const AddEditTransactionReceivedAmountChanged('3.42')),
+      verify: (bloc) {
+        expect(bloc.state.manualExchangeRate, isNot(contains('e')));
+        expect(
+          double.parse(bloc.state.manualExchangeRate),
+          closeTo(3.42e-9, 1e-20),
         );
       },
-      // "Transfer" on the euro account: it becomes the destination, and the
-      // source is auto-picked from the rest of the list - where the asset
-      // account sits first.
+    );
+  });
+
+  group('opening a transfer from an account row', () {
+    AddEditTransactionBloc buildWithAssetFirst() {
+      currencyRepository = _FakeCurrencyRepository()
+        ..ratesByPair['USD->EUR'] = [_preset1];
+      transactionRepository = _RecordingTransactionRepository();
+      return AddEditTransactionBloc(
+        transactionRepository: transactionRepository,
+        accountRepository: _AssetFirstAccountRepository(),
+        categoryRepository: _FakeCategoryRepository(),
+        currencyRepository: currencyRepository,
+        settingsRepository: _FakeSettingsRepository(),
+        assetRepository: _FakeAssetRepository(),
+      );
+    }
+
+    blocTest<AddEditTransactionBloc, AddEditTransactionState>(
+      'puts the account the row belongs to on the From side, not the To side',
+      build: buildWithAssetFirst,
+      // "Transfer" on the euro account. It used to be installed as the
+      // destination with some other account picked as the source, so the one
+      // account the user had named was the one they had not chosen a role for,
+      // and the money left an account they never pointed at.
       act: (bloc) => bloc.add(
         AddEditTransactionLoad(accountId: _euroAccount.id, isTransfer: true),
       ),
       verify: (bloc) {
         final state = bloc.state;
+        expect(state.selectedAccount?.id, _euroAccount.id);
+        // The only other account money can move between, so it is not a guess.
+        expect(state.linkedAccount?.id, _dollarAccount.id);
+        expect(state.isTransferMode, isTrue);
+      },
+    );
+
+    blocTest<AddEditTransactionBloc, AddEditTransactionState>(
+      'does not pick an asset account as the source, which would drop the '
+      'form out of transfer mode for good',
+      build: buildWithAssetFirst,
+      // Asked to transfer out of the bitcoin account, which holds a quantity
+      // rather than a balance. The menu no longer offers this, but a route can
+      // still be opened with any id.
+      act: (bloc) => bloc.add(
+        AddEditTransactionLoad(accountId: _bitcoinAccount.id, isTransfer: true),
+      ),
+      verify: (bloc) {
+        final state = bloc.state;
         expect(state.selectedAccount?.assetId, isNull);
-        expect(state.selectedAccount?.id, _dollarAccount.id);
-        expect(state.linkedAccount?.id, _euroAccount.id);
+        expect(state.selectedAccount?.id, _euroAccount.id);
+        expect(state.linkedAccount?.id, _dollarAccount.id);
         // The one that matters. `isTransferMode` is written only here, in
         // `_onLoad`, so a false at this point can never be corrected: the user
         // asked to transfer and would have been handed the asset Buy/Sell

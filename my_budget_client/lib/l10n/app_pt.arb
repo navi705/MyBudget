@@ -537,6 +537,7 @@
     "hkActionPrevPeriod": "Período Anterior",
     "hkActionNextPeriod": "Próximo Período",
     "hkActionAddAction": "Ação de Adição Genérica",
+    "hkActionSaveForm": "Salvar formulário",
     "hkActionPickDate": "Selecionar Data",
     "hkActionDashboardSwitchView": "Painel: Alterar Vista",
     "hkActionSortOrder": "Ordem de Classificação",
@@ -713,5 +714,14 @@
     "accountsSelectDateDescription": "Escolha uma data específica para ver os saldos históricos",
     "accountsSortDescription": "Alternar entre ordem crescente e decrescente do saldo",
     "smsRuleCategoryOptional": "Categoria (opcional)",
-    "smsRuleCategoryHelp": "Substituir a categoria desta regra"
+    "smsRuleCategoryHelp": "Substituir a categoria desta regra",
+    "amountSentLabel": "Valor enviado ({currency})",
+    "amountReceivedLabel": "Valor recebido ({currency})",
+    "transferRateSummary": "1 {from} = {rate} {to}",
+    "adjustRateLabel": "Ajustar taxa",
+    "favoriteCurrenciesHeader": "Favoritas",
+    "frequentCurrenciesHeader": "Mais usadas",
+    "allCurrenciesHeader": "Todas as moedas",
+    "addFavoriteCurrencyTooltip": "Adicionar aos favoritos",
+    "removeFavoriteCurrencyTooltip": "Remover dos favoritos"
 }

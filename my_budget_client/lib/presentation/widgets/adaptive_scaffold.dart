@@ -135,7 +135,6 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
   }
 
   Widget _buildBottomBarScaffold(BuildContext context, int selectedIndex) {
-    final primaryColor = Theme.of(context).primaryColor;
     final colorScheme = Theme.of(context).colorScheme;
 
     // `resizeToAvoidBottomInset` is deliberately left at its default. The shell
@@ -147,8 +146,14 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            // The selected label is `onSurface`, not the primary colour, for
+            // the same reason the rail's is: the primary colour is picked by
+            // the user and then used to *fill* the indicator behind a white
+            // icon, so it is chosen for contrast against that icon rather than
+            // against the bar. A dark blue theme left the selected label all
+            // but unreadable while every unselected one stayed legible.
             final color = states.contains(WidgetState.selected)
-                ? primaryColor
+                ? colorScheme.onSurface
                 : colorScheme.onSurface.withValues(alpha: 0.7);
             return TextStyle(
               fontSize: 12,

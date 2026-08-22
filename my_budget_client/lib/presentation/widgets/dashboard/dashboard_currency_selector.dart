@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 
 class DashboardCurrencySelector extends StatefulWidget {
   final String selectedCurrency;
@@ -118,18 +120,50 @@ class _CurrencyPickerDialog extends StatefulWidget {
 class _CurrencyPickerDialogState extends State<_CurrencyPickerDialog> {
   late List<String> _filteredCurrencies;
   final TextEditingController _searchController = TextEditingController();
+  List<String> _favorites = const [];
 
   @override
   void initState() {
     super.initState();
-    _filteredCurrencies = widget.availableCurrencies;
+    _filteredCurrencies = _ordered(widget.availableCurrencies);
+    _loadFavorites();
+  }
+
+  /// The stars set in the currency picker apply here too: this sheet is the
+  /// same question asked from the dashboard, and a currency that sits at the
+  /// top of one list and in the middle of the other is two lists.
+  Future<void> _loadFavorites() async {
+    CurrencyRepository repository;
+    try {
+      repository = RepositoryProvider.of<CurrencyRepository>(context);
+    } on FlutterError {
+      // No repository above this sheet - a widget test pumping the dashboard
+      // in isolation. The list stays in the order it arrived in.
+      return;
+    }
+    final favorites = await repository.getFavoriteCurrencyCodes();
+    if (!mounted) return;
+    setState(() {
+      _favorites = favorites;
+      _filteredCurrencies = _ordered(_filteredCurrencies);
+    });
+  }
+
+  List<String> _ordered(List<String> currencies) {
+    final favorites = _favorites.toSet();
+    return [
+      ...currencies.where(favorites.contains),
+      ...currencies.where((c) => !favorites.contains(c)),
+    ];
   }
 
   void _filter(String query) {
     setState(() {
-      _filteredCurrencies = widget.availableCurrencies
-          .where((c) => c.toLowerCase().contains(query.toLowerCase()))
-          .toList();
+      _filteredCurrencies = _ordered(
+        widget.availableCurrencies
+            .where((c) => c.toLowerCase().contains(query.toLowerCase()))
+            .toList(),
+      );
     });
   }
 
@@ -175,6 +209,7 @@ class _CurrencyPickerDialogState extends State<_CurrencyPickerDialog> {
                     return _CurrencyListItem(
                       currency: currency,
                       isSelected: isSelected,
+                      isFavorite: _favorites.contains(currency),
                       onTap: () {
                         widget.onSelected(currency);
                         Navigator.pop(context);
@@ -194,11 +229,13 @@ class _CurrencyPickerDialogState extends State<_CurrencyPickerDialog> {
 class _CurrencyListItem extends StatefulWidget {
   final String currency;
   final bool isSelected;
+  final bool isFavorite;
   final VoidCallback onTap;
 
   const _CurrencyListItem({
     required this.currency,
     required this.isSelected,
+    required this.isFavorite,
     required this.onTap,
   });
 
@@ -243,6 +280,9 @@ class _CurrencyListItemState extends State<_CurrencyListItem> {
                   : colorScheme.onSurface,
             ),
           ),
+          leading: widget.isFavorite
+              ? Icon(Icons.star, size: 18, color: colorScheme.primary)
+              : null,
           trailing: widget.isSelected
               ? Icon(Icons.check, color: colorScheme.primary)
               : null,

@@ -253,6 +253,14 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       LogicalKeyboardKey.control,
       LogicalKeyboardKey.keyA,
     });
+
+    // Saves the transaction form. Ctrl+Enter rather than plain Enter: the form
+    // is full of text fields, and Enter inside one of them means "next field"
+    // on a phone keyboard and nothing at all on a desktop.
+    addIfMissing('save_form', {
+      LogicalKeyboardKey.control,
+      LogicalKeyboardKey.enter,
+    });
   }
 
   ThemeMode _stringToThemeMode(String value) {

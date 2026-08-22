@@ -537,6 +537,7 @@
     "hkActionPrevPeriod": "पिछली अवधि",
     "hkActionNextPeriod": "अगली अवधि",
     "hkActionAddAction": "सामान्य जोड़ने की कार्रवाई",
+    "hkActionSaveForm": "फ़ॉर्म सहेजें",
     "hkActionPickDate": "दिनांक चुनें",
     "hkActionDashboardSwitchView": "डैशबोर्ड: दृश्य बदलें",
     "hkActionSortOrder": "क्रमबद्ध क्रम",
@@ -713,5 +714,14 @@
     "accountsSelectDateDescription": "ऐतिहासिक शेष देखने के लिए एक विशिष्ट तिथि चुनें",
     "accountsSortDescription": "शेष राशि के आरोही और अवरोही क्रम के बीच स्विच करें",
     "smsRuleCategoryOptional": "श्रेणी (वैकल्पिक)",
-    "smsRuleCategoryHelp": "इस नियम के लिए श्रेणी अधिलेखित करें"
+    "smsRuleCategoryHelp": "इस नियम के लिए श्रेणी अधिलेखित करें",
+    "amountSentLabel": "भेजी गई राशि ({currency})",
+    "amountReceivedLabel": "प्राप्त राशि ({currency})",
+    "transferRateSummary": "1 {from} = {rate} {to}",
+    "adjustRateLabel": "दर समायोजित करें",
+    "favoriteCurrenciesHeader": "पसंदीदा",
+    "frequentCurrenciesHeader": "अक्सर उपयोग की गई",
+    "allCurrenciesHeader": "सभी मुद्राएँ",
+    "addFavoriteCurrencyTooltip": "पसंदीदा में जोड़ें",
+    "removeFavoriteCurrencyTooltip": "पसंदीदा से हटाएँ"
 }

@@ -13,11 +13,13 @@ import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart'
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
+import 'package:my_budget_client/presentation/widgets/currency_picker_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/icon_selection_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/delete_account_dialog.dart';
 
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
+import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart'; // Added
 import 'package:my_budget_client/domain/entities/asset_data.dart'; // Added
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
@@ -241,568 +243,551 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
 
-    return EscapeBackHandler(
-      child: BlocListener<AccountsBloc, AccountsState>(
-        listenWhen: (previous, current) =>
-            current is AccountsLoadSuccess &&
-            previous is AccountsLoadSuccess &&
-            previous.recentlyDeletedAccount?.id !=
-                current.recentlyDeletedAccount?.id &&
-            current.recentlyDeletedAccount?.id == widget.account.id,
-        listener: (context, state) {
-          if (state is AccountsLoadSuccess &&
-              state.recentlyDeletedAccount?.id == widget.account.id) {
-            context.pop();
-          }
-        },
-        child: Scaffold(
-          // The form below is a plain SingleChildScrollView: unless the
-          // viewport shrinks with the keyboard its max scroll extent still
-          // assumes the full screen height, leaving the fee-rule / asset
-          // quantity fields and the Save button permanently under the keyboard.
-          resizeToAvoidBottomInset: true,
-          appBar: AppBar(
-            title: Text(l10n.editAccountTitle(_initialAccount.name)),
-            actions: const [],
-          ),
-          body: _isLoadingStored
-              ? const Center(child: CircularProgressIndicator())
-              : Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 600),
-                    child: Form(
-                      key: _formKey,
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            TextFormField(
-                              controller: _nameController,
-                              decoration: InputDecoration(
-                                labelText: l10n.accountNameHint,
-                                isDense: true,
-                              ),
-                              validator: (value) =>
-                                  (value == null || value.isEmpty)
-                                  ? l10n.formValidationPleaseEnterName
-                                  : null,
+    return ScreenShortcuts(
+      // The same id every other form binds, so the key the user set once in
+      // the hotkey screen saves this one as well.
+      actions: {'save_form': _onSave},
+      child: EscapeBackHandler(
+        child: BlocListener<AccountsBloc, AccountsState>(
+          listenWhen: (previous, current) =>
+              current is AccountsLoadSuccess &&
+              previous is AccountsLoadSuccess &&
+              previous.recentlyDeletedAccount?.id !=
+                  current.recentlyDeletedAccount?.id &&
+              current.recentlyDeletedAccount?.id == widget.account.id,
+          listener: (context, state) {
+            if (state is AccountsLoadSuccess &&
+                state.recentlyDeletedAccount?.id == widget.account.id) {
+              context.pop();
+            }
+          },
+          child: Scaffold(
+            // The form below is a plain SingleChildScrollView: unless the
+            // viewport shrinks with the keyboard its max scroll extent still
+            // assumes the full screen height, leaving the fee-rule / asset
+            // quantity fields and the Save button permanently under the keyboard.
+            resizeToAvoidBottomInset: true,
+            appBar: AppBar(
+              title: Text(l10n.editAccountTitle(_initialAccount.name)),
+              actions: const [],
+            ),
+            // Nothing to save or delete while the stored row is still on its
+            // way, and the form behind the spinner is not the one being shown.
+            bottomNavigationBar: _isLoadingStored
+                ? null
+                : SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      child: Row(
+                        children: [
+                          TextButton.icon(
+                            onPressed: _onDelete,
+                            // The theme's destructive colour rather than a raw
+                            // red, which fails contrast on several of the dark
+                            // surfaces the seed picker generates.
+                            icon: Icon(
+                              Icons.delete_outline,
+                              color: Theme.of(context).colorScheme.error,
                             ),
-                            // Hide Description as requested
-                            /*
-                  TextFormField(
-                    controller: _descriptionController,
-                    decoration: InputDecoration(
-                      labelText: l10n.descriptionLabel,
+                            label: Text(
+                              l10n.deleteButton,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              minimumSize: const Size(0, 48),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FilledButton.tonal(
+                              onPressed: _onSave,
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(0, 48),
+                              ),
+                              child: Text(l10n.saveButton),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    maxLines: 3,
-                    keyboardType: TextInputType.multiline,
                   ),
-                  */
-                            const SizedBox(height: 8),
-                            // Added spacing for new field
-                            TextFormField(
-                              controller: _balanceController,
-                              readOnly:
-                                  _selectedAssetId !=
-                                  null, // Make read-only if asset bound
-                              decoration: InputDecoration(
-                                labelText: l10n.initialBalanceHint,
-                                filled: _selectedAssetId != null, // Visual cue
-                                isDense: true,
+            body: _isLoadingStored
+                ? const Center(child: CircularProgressIndicator())
+                : Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 600),
+                      child: Form(
+                        key: _formKey,
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              TextFormField(
+                                controller: _nameController,
+                                textInputAction: TextInputAction.next,
+                                decoration: InputDecoration(
+                                  labelText: l10n.accountNameHint,
+                                  isDense: true,
+                                ),
+                                validator: (value) =>
+                                    (value == null || value.isEmpty)
+                                    ? l10n.formValidationPleaseEnterName
+                                    : null,
                               ),
-                              keyboardType: TextInputType.number,
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return l10n.formValidationPleaseEnterBalance;
-                                }
-                                if (double.tryParse(value) == null) {
-                                  return l10n
-                                      .formValidationPleaseEnterValidNumber;
-                                }
-                                return null;
-                              },
-                            ),
-                            if (_selectedAssetId != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4.0),
-                                child: Text(
-                                  l10n.balanceCalculatedFromAsset,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                controller: _balanceController,
+                                readOnly:
+                                    _selectedAssetId !=
+                                    null, // Make read-only if asset bound
+                                decoration: InputDecoration(
+                                  labelText: l10n.initialBalanceHint,
+                                  filled:
+                                      _selectedAssetId != null, // Visual cue
+                                  isDense: true,
+                                ),
+                                // `number` alone is a digits-only pad: no
+                                // decimal separator and no minus, so 1234.56 -
+                                // or a credit card's negative balance - could
+                                // not be typed on a phone at all.
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                      signed: true,
+                                    ),
+                                textInputAction: TextInputAction.done,
+                                onFieldSubmitted: (_) => _onSave(),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return l10n
+                                        .formValidationPleaseEnterBalance;
+                                  }
+                                  if (double.tryParse(value) == null) {
+                                    return l10n
+                                        .formValidationPleaseEnterValidNumber;
+                                  }
+                                  return null;
+                                },
+                              ),
+                              if (_selectedAssetId != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4.0),
+                                  child: Text(
+                                    l10n.balanceCalculatedFromAsset,
+                                    // The theme's own hint colour: a fixed grey
+                                    // sits at almost no contrast against the
+                                    // darker surfaces the seed picker can
+                                    // generate.
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(context).hintColor,
+                                        ),
                                   ),
                                 ),
-                              ),
-                            const SizedBox(height: 8),
-                            BlocBuilder<CurrencyBloc, CurrencyState>(
-                              builder: (context, state) {
-                                if (state is CurrencyLoadSuccess) {
-                                  return GestureDetector(
-                                    onTap: () async {
-                                      final selectedCurrency =
-                                          await showSingleSelectDialog<
-                                            Currency
-                                          >(
-                                            context: context,
-                                            items: state.currencies,
-                                            title: l10n.selectCurrencyTitle,
-                                            selectedItem: state.currencies
-                                                .firstWhereOrNull(
-                                                  (c) =>
-                                                      c.code ==
-                                                      _selectedCurrencyCode,
-                                                ),
-                                            itemBuilder: (currency) =>
-                                                Text(currency.name),
-                                            stringGetter: (currency) =>
-                                                '${currency.name} ${currency.code}',
-                                          );
-                                      if (mounted && selectedCurrency != null) {
-                                        setState(() {
-                                          _selectedCurrencyCode =
-                                              selectedCurrency.code;
-                                          _selectedCurrencyDesignationId = state
-                                              .designations
+                              const SizedBox(height: 8),
+                              BlocBuilder<CurrencyBloc, CurrencyState>(
+                                builder: (context, state) {
+                                  if (state is CurrencyLoadSuccess) {
+                                    return GestureDetector(
+                                      onTap: () async {
+                                        final selectedCurrency =
+                                            await showCurrencyPicker(
+                                              context: context,
+                                              currencies: state.currencies,
+                                              selectedCurrencyCode:
+                                                  _selectedCurrencyCode,
+                                            );
+                                        if (mounted &&
+                                            selectedCurrency != null) {
+                                          setState(() {
+                                            _selectedCurrencyCode =
+                                                selectedCurrency.code;
+                                            _selectedCurrencyDesignationId =
+                                                state.designations
+                                                    .firstWhereOrNull(
+                                                      (d) =>
+                                                          d.currencyCode ==
+                                                          _selectedCurrencyCode,
+                                                    )
+                                                    ?.id;
+                                          });
+                                        }
+                                      },
+                                      child: AbsorbPointer(
+                                        child: TextFormField(
+                                          key: Key(
+                                            _selectedCurrencyCode ??
+                                                'no_currency',
+                                          ),
+                                          initialValue: state.currencies
                                               .firstWhereOrNull(
-                                                (d) =>
-                                                    d.currencyCode ==
+                                                (c) =>
+                                                    c.code ==
                                                     _selectedCurrencyCode,
                                               )
-                                              ?.id;
+                                              ?.name,
+                                          decoration: InputDecoration(
+                                            labelText: l10n.currencyLabel,
+                                            isDense: true,
+                                          ),
+                                          validator: (value) =>
+                                              _selectedCurrencyCode == null
+                                              ? l10n.formValidationPleaseSelectCurrency
+                                              : null,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return const SizedBox.shrink();
+                                },
+                              ),
+                              const SizedBox(height: 8),
+                              const SizedBox(height: 8),
+                              BlocBuilder<SettingsBloc, SettingsState>(
+                                builder: (context, state) {
+                                  final localizedCountryName =
+                                      _initialAccount.country != null
+                                      ? getLocalizedCountryName(
+                                          _initialAccount.country!,
+                                          state.settings['language_code'] ??
+                                              'en',
+                                        )
+                                      : null;
+
+                                  return GestureDetector(
+                                    onTap: () async {
+                                      final selectedCode =
+                                          await showDialog<String>(
+                                            context: context,
+                                            builder: (context) =>
+                                                CountryPickerDialog(
+                                                  allCountries: state.countries,
+                                                  selectedCountryCode:
+                                                      _initialAccount.country,
+                                                ),
+                                          );
+
+                                      if (mounted && selectedCode != null) {
+                                        setState(() {
+                                          _initialAccount = _initialAccount
+                                              .copyWith(country: selectedCode);
                                         });
                                       }
                                     },
                                     child: AbsorbPointer(
                                       child: TextFormField(
                                         key: Key(
-                                          _selectedCurrencyCode ??
-                                              'no_currency',
+                                          _initialAccount.country ??
+                                              'no_country',
                                         ),
-                                        initialValue: state.currencies
-                                            .firstWhereOrNull(
-                                              (c) =>
-                                                  c.code ==
-                                                  _selectedCurrencyCode,
-                                            )
-                                            ?.name,
+                                        initialValue:
+                                            localizedCountryName ??
+                                            _initialAccount.country,
                                         decoration: InputDecoration(
-                                          labelText: l10n.currencyLabel,
+                                          labelText:
+                                              l10n.defaultInflationCountryLabel,
                                           isDense: true,
                                         ),
-                                        validator: (value) =>
-                                            _selectedCurrencyCode == null
-                                            ? l10n.formValidationPleaseSelectCurrency
-                                            : null,
                                       ),
                                     ),
                                   );
-                                }
-                                return const SizedBox.shrink();
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                            // Hide Account Type as requested
-                            /*
-                  BlocBuilder<AccountsBloc, AccountsState>(
-                    builder: (context, state) {
-                      if (state is AccountsLoadSuccess) {
-                        return GestureDetector(
-                          onTap: () async {
-                            final selectedAccountType =
-                                await showSingleSelectDialog<AccountType>(
-                                  context: context,
-                                  items: state.accountTypes,
-                                  title: l10n.selectAccountTypeTitle,
-                                  selectedItem: state.accountTypes
-                                      .firstWhereOrNull(
-                                        (t) => t.id == _selectedAccountTypeId,
-                                      ),
-                                  itemBuilder: (type) => Text(type.name),
-                                  stringGetter: (type) => type.name,
-                                );
-                            if (mounted && selectedAccountType != null) {
-                              setState(() {
-                                _selectedAccountTypeId = selectedAccountType.id;
-                              });
-                            }
-                          },
-                          child: AbsorbPointer(
-                            child: TextFormField(
-                              key: Key(_selectedAccountTypeId ?? 'no_type'),
-                              initialValue: state.accountTypes
-                                  .firstWhereOrNull(
-                                    (t) => t.id == _selectedAccountTypeId,
-                                  )
-                                  ?.name,
-                              decoration: InputDecoration(
-                                labelText: l10n.typeLabel,
+                                },
                               ),
-                              validator: (value) =>
-                                  _selectedAccountTypeId == null
-                                  ? l10n.selectAccountError
-                                  : null,
-                            ),
-                          ),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                  */
-                            const SizedBox(height: 8),
-                            BlocBuilder<SettingsBloc, SettingsState>(
-                              builder: (context, state) {
-                                final localizedCountryName =
-                                    _initialAccount.country != null
-                                    ? getLocalizedCountryName(
-                                        _initialAccount.country!,
-                                        state.settings['language_code'] ?? 'en',
-                                      )
-                                    : null;
-
-                                return GestureDetector(
-                                  onTap: () async {
-                                    final selectedCode =
-                                        await showDialog<String>(
-                                          context: context,
-                                          builder: (context) =>
-                                              CountryPickerDialog(
-                                                allCountries: state.countries,
-                                                selectedCountryCode:
-                                                    _initialAccount.country,
-                                              ),
+                              const SizedBox(height: 8),
+                              BlocBuilder<StylesBloc, StylesState>(
+                                builder: (context, state) {
+                                  if (state is StylesLoadSuccess) {
+                                    final selectedStyle = state.styles
+                                        .firstWhereOrNull(
+                                          (s) => s.id == _selectedStyleId,
                                         );
 
-                                    if (mounted && selectedCode != null) {
-                                      setState(() {
-                                        _initialAccount = _initialAccount
-                                            .copyWith(country: selectedCode);
-                                      });
-                                    }
-                                  },
-                                  child: AbsorbPointer(
-                                    child: TextFormField(
-                                      key: Key(
-                                        _initialAccount.country ?? 'no_country',
-                                      ),
-                                      initialValue:
-                                          localizedCountryName ??
-                                          _initialAccount.country,
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            l10n.defaultInflationCountryLabel,
-                                        isDense: true,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                            BlocBuilder<StylesBloc, StylesState>(
-                              builder: (context, state) {
-                                if (state is StylesLoadSuccess) {
-                                  final selectedStyle = state.styles
-                                      .firstWhereOrNull(
-                                        (s) => s.id == _selectedStyleId,
-                                      );
-
-                                  return ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: selectedStyle != null
-                                        ? CircleAvatar(
-                                            backgroundColor: _getColorFromHex(
-                                              selectedStyle.colorHex,
+                                    return ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: selectedStyle != null
+                                          ? CircleAvatar(
+                                              backgroundColor: _getColorFromHex(
+                                                selectedStyle.colorHex,
+                                              ),
+                                              child: IconUtils.getIconWidget(
+                                                selectedStyle,
+                                              ),
+                                            )
+                                          : const CircleAvatar(
+                                              child: Icon(
+                                                Icons.account_balance,
+                                              ),
                                             ),
-                                            child: IconUtils.getIconWidget(
-                                              selectedStyle,
-                                            ),
-                                          )
-                                        : const CircleAvatar(
-                                            child: Icon(Icons.account_balance),
-                                          ),
-                                    title: Text(l10n.styleLabel),
-                                    subtitle: Text(
-                                      selectedStyle?.name ??
-                                          l10n.selectIconSubtitle,
-                                    ),
-                                    onTap: () async {
-                                      final newStyleId =
-                                          await showIconSelectionDialog(
-                                            context,
-                                            _selectedStyleId ?? '',
-                                          );
-                                      if (newStyleId != null) {
-                                        setState(() {
-                                          _selectedStyleId = newStyleId;
-                                        });
-                                      }
-                                    },
-                                  );
-                                }
-                                return const SizedBox.shrink();
-                              },
-                            ),
-                            const SizedBox(height: 8),
-
-                            // --- ASSET BINDING SECTION ---
-                            // --- ASSET BINDING SECTION ---
-                            StreamBuilder<List<AssetDataDomain>>(
-                              stream: _bindableAssetDataStream,
-                              builder: (context, snapshot) {
-                                final assetData = snapshot.data ?? [];
-                                // Get latest versions of unique assets by ID
-                                final uniqueAssets =
-                                    <String, AssetDataDomain>{};
-                                for (var asset in assetData) {
-                                  if (!uniqueAssets.containsKey(
-                                        asset.assetId,
-                                      ) ||
-                                      asset.date.isAfter(
-                                        uniqueAssets[asset.assetId]!.date,
-                                      )) {
-                                    uniqueAssets[asset.assetId] = asset;
-                                  }
-                                }
-
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Divider(),
-                                    Text(
-                                      l10n.bindToAssetLabel,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
+                                      title: Text(l10n.styleLabel),
+                                      subtitle: Text(
+                                        selectedStyle?.name ??
+                                            l10n.selectIconSubtitle,
                                       ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    TextFormField(
-                                      // Update key to force rebuild when data loads and name becomes available
-                                      key: Key(
-                                        '${_selectedAssetId ?? "no_asset"}_${uniqueAssets[_selectedAssetId]?.name ?? ""}',
-                                      ),
-                                      initialValue: _selectedAssetId != null
-                                          ? uniqueAssets[_selectedAssetId]?.name
-                                          : null,
-                                      readOnly: true,
                                       onTap: () async {
-                                        final selectedId =
-                                            await showSingleSelectDialog<
-                                              String
-                                            >(
-                                              context: context,
-                                              items: uniqueAssets.keys.toList(),
-                                              title: l10n.selectAssetTitle,
-                                              selectedItem: _selectedAssetId,
-                                              itemBuilder: (id) {
-                                                final asset = uniqueAssets[id]!;
-                                                return Text(
-                                                  '${asset.name} (${asset.assetId})',
-                                                );
-                                              },
-                                              stringGetter: (id) =>
-                                                  uniqueAssets[id]!.name,
+                                        final newStyleId =
+                                            await showIconSelectionDialog(
+                                              context,
+                                              _selectedStyleId ?? '',
                                             );
-
-                                        if (mounted) {
+                                        if (newStyleId != null) {
                                           setState(() {
-                                            if (selectedId != null) {
-                                              _selectedAssetId = selectedId;
-                                              final asset =
-                                                  uniqueAssets[selectedId]!;
-                                              _currentAssetPrice = asset.value;
-                                              _assetCurrency = asset.currency;
-
-                                              // Recalculate Balance
-                                              final qty =
-                                                  double.tryParse(
-                                                    _assetQuantityController
-                                                        .text,
-                                                  ) ??
-                                                  0.0;
-                                              _balanceController.text =
-                                                  (qty * asset.value)
-                                                      .toStringAsFixed(2);
-                                            }
+                                            _selectedStyleId = newStyleId;
                                           });
                                         }
                                       },
-                                      decoration: InputDecoration(
-                                        labelText: l10n.selectedAssetLabel,
-                                        helperText: _selectedAssetId != null
-                                            ? l10n.balanceAutoCalculatedLabel
-                                            : l10n.tapToBindAssetLabel,
-                                        suffixIcon: _selectedAssetId != null
-                                            ? IconButton(
-                                                icon: const Icon(Icons.clear),
-                                                onPressed: () {
-                                                  setState(() {
-                                                    _selectedAssetId = null;
-                                                    _currentAssetPrice = null;
-                                                    _assetCurrency = null;
-                                                  });
-                                                },
-                                              )
-                                            : null,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-
-                            if (_selectedAssetId != null) ...[
-                              const SizedBox(height: 8),
-                              TextFormField(
-                                controller: _assetQuantityController,
-                                decoration: InputDecoration(
-                                  labelText: l10n.assetQuantityLabel,
-                                  isDense: true,
-                                  helperText:
-                                      _currentAssetPrice != null &&
-                                          _assetCurrency != null
-                                      // The price is dropped into a
-                                      // translated sentence, so it is
-                                      // bidi-isolated: without that an RTL
-                                      // paragraph reorders its digit groups.
-                                      ? l10n.currentPriceLabel(
-                                          MoneyFormatter.formatIsolated(
-                                            _currentAssetPrice!,
-                                            _assetCurrency!,
-                                          ),
-                                          _assetCurrency!,
-                                        )
-                                      : null,
-                                ),
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                onChanged: (val) {
-                                  final qty = double.tryParse(val) ?? 0.0;
-                                  if (_currentAssetPrice != null) {
-                                    setState(() {
-                                      _balanceController.text =
-                                          (qty * _currentAssetPrice!)
-                                              .toStringAsFixed(2);
-                                    });
-                                  }
-                                },
-                              ),
-                            ],
-
-                            const SizedBox(height: 8),
-
-                            // --- END ASSET BINDING SECTION ---
-                            const Divider(),
-                            FeeStructureEditor(
-                              initialFeeStructureJson: _feeStructureJson,
-                              onChanged: (json) {
-                                setState(() {
-                                  _feeStructureJson = json;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            const Divider(),
-
-                            // ASSET LIST Section
-                            StreamBuilder<List<AssetDataDomain>>(
-                              stream: _accountAssetDataStream,
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState ==
-                                    ConnectionState.waiting) {
-                                  if (!snapshot.hasData) {
-                                    return const Center(
-                                      child: CircularProgressIndicator(),
                                     );
                                   }
-                                }
-                                final assets = snapshot.data ?? [];
-                                if (assets.isEmpty) {
                                   return const SizedBox.shrink();
-                                }
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      l10n.linkedAssetsTitle,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
+                                },
+                              ),
+                              const SizedBox(height: 8),
+
+                              // --- ASSET BINDING SECTION ---
+                              StreamBuilder<List<AssetDataDomain>>(
+                                stream: _bindableAssetDataStream,
+                                builder: (context, snapshot) {
+                                  final assetData = snapshot.data ?? [];
+                                  // Get latest versions of unique assets by ID
+                                  final uniqueAssets =
+                                      <String, AssetDataDomain>{};
+                                  for (var asset in assetData) {
+                                    if (!uniqueAssets.containsKey(
+                                          asset.assetId,
+                                        ) ||
+                                        asset.date.isAfter(
+                                          uniqueAssets[asset.assetId]!.date,
+                                        )) {
+                                      uniqueAssets[asset.assetId] = asset;
+                                    }
+                                  }
+
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Divider(),
+                                      Text(
+                                        l10n.bindToAssetLabel,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    ...assets.map((asset) {
-                                      return Card(
-                                        margin: const EdgeInsets.only(
-                                          bottom: 8,
+                                      const SizedBox(height: 8),
+                                      TextFormField(
+                                        // Update key to force rebuild when data loads and name becomes available
+                                        key: Key(
+                                          '${_selectedAssetId ?? "no_asset"}_${uniqueAssets[_selectedAssetId]?.name ?? ""}',
                                         ),
-                                        child: ListTile(
-                                          leading: const Icon(Icons.show_chart),
-                                          title: Text(asset.name),
-                                          subtitle: Text(
-                                            MoneyFormatter.isolate(
-                                              '${asset.quantity} @ '
-                                              '${asset.value} '
-                                              '${asset.currency}',
-                                            ),
-                                          ),
-                                          trailing: Text(
-                                            MoneyFormatter.formatWithSymbol(
-                                              asset.quantity * asset.value,
-                                              asset.currency,
-                                              asset.currency,
-                                            ),
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
+                                        initialValue: _selectedAssetId != null
+                                            ? uniqueAssets[_selectedAssetId]
+                                                  ?.name
+                                            : null,
+                                        readOnly: true,
+                                        onTap: () async {
+                                          final selectedId =
+                                              await showSingleSelectDialog<
+                                                String
+                                              >(
+                                                context: context,
+                                                items: uniqueAssets.keys
+                                                    .toList(),
+                                                title: l10n.selectAssetTitle,
+                                                selectedItem: _selectedAssetId,
+                                                itemBuilder: (id) {
+                                                  final asset =
+                                                      uniqueAssets[id]!;
+                                                  return Text(
+                                                    '${asset.name} (${asset.assetId})',
+                                                  );
+                                                },
+                                                stringGetter: (id) =>
+                                                    uniqueAssets[id]!.name,
+                                              );
+
+                                          if (mounted) {
+                                            setState(() {
+                                              if (selectedId != null) {
+                                                _selectedAssetId = selectedId;
+                                                final asset =
+                                                    uniqueAssets[selectedId]!;
+                                                _currentAssetPrice =
+                                                    asset.value;
+                                                _assetCurrency = asset.currency;
+
+                                                // Recalculate Balance
+                                                final qty =
+                                                    double.tryParse(
+                                                      _assetQuantityController
+                                                          .text,
+                                                    ) ??
+                                                    0.0;
+                                                _balanceController.text =
+                                                    (qty * asset.value)
+                                                        .toStringAsFixed(2);
+                                              }
+                                            });
+                                          }
+                                        },
+                                        decoration: InputDecoration(
+                                          labelText: l10n.selectedAssetLabel,
+                                          helperText: _selectedAssetId != null
+                                              ? l10n.balanceAutoCalculatedLabel
+                                              : l10n.tapToBindAssetLabel,
+                                          suffixIcon: _selectedAssetId != null
+                                              ? IconButton(
+                                                  icon: const Icon(Icons.clear),
+                                                  onPressed: () {
+                                                    setState(() {
+                                                      _selectedAssetId = null;
+                                                      _currentAssetPrice = null;
+                                                      _assetCurrency = null;
+                                                    });
+                                                  },
+                                                )
+                                              : null,
                                         ),
-                                      );
-                                    }),
-                                    const SizedBox(height: 16),
-                                  ],
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 24),
-                            FilledButton.tonal(
-                              onPressed: _onSave,
-                              style: FilledButton.styleFrom(
-                                minimumSize: const Size(double.infinity, 50),
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
-                              child: Text(l10n.saveButton),
-                            ),
-                            const SizedBox(height: 12),
-                            TextButton.icon(
-                              onPressed: _onDelete,
-                              // The theme's destructive colour rather than a
-                              // raw red, which fails contrast on several of
-                              // the dark surfaces the seed picker generates.
-                              icon: Icon(
-                                Icons.delete_outline,
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                              label: Text(
-                                l10n.deleteButton,
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.error,
+
+                              if (_selectedAssetId != null) ...[
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: _assetQuantityController,
+                                  decoration: InputDecoration(
+                                    labelText: l10n.assetQuantityLabel,
+                                    isDense: true,
+                                    helperText:
+                                        _currentAssetPrice != null &&
+                                            _assetCurrency != null
+                                        // The price is dropped into a
+                                        // translated sentence, so it is
+                                        // bidi-isolated: without that an RTL
+                                        // paragraph reorders its digit groups.
+                                        ? l10n.currentPriceLabel(
+                                            MoneyFormatter.formatIsolated(
+                                              _currentAssetPrice!,
+                                              _assetCurrency!,
+                                            ),
+                                            _assetCurrency!,
+                                          )
+                                        : null,
+                                  ),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  onChanged: (val) {
+                                    final qty = double.tryParse(val) ?? 0.0;
+                                    if (_currentAssetPrice != null) {
+                                      setState(() {
+                                        _balanceController.text =
+                                            (qty * _currentAssetPrice!)
+                                                .toStringAsFixed(2);
+                                      });
+                                    }
+                                  },
                                 ),
+                              ],
+
+                              const SizedBox(height: 8),
+
+                              // --- END ASSET BINDING SECTION ---
+                              const Divider(),
+                              FeeStructureEditor(
+                                initialFeeStructureJson: _feeStructureJson,
+                                onChanged: (json) {
+                                  setState(() {
+                                    _feeStructureJson = json;
+                                  });
+                                },
                               ),
-                              style: TextButton.styleFrom(
-                                minimumSize: const Size(double.infinity, 40),
+                              const SizedBox(height: 16),
+                              const Divider(),
+
+                              // ASSET LIST Section
+                              StreamBuilder<List<AssetDataDomain>>(
+                                stream: _accountAssetDataStream,
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    if (!snapshot.hasData) {
+                                      return const Center(
+                                        child: CircularProgressIndicator(),
+                                      );
+                                    }
+                                  }
+                                  final assets = snapshot.data ?? [];
+                                  if (assets.isEmpty) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l10n.linkedAssetsTitle,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      ...assets.map((asset) {
+                                        return Card(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 8,
+                                          ),
+                                          child: ListTile(
+                                            leading: const Icon(
+                                              Icons.show_chart,
+                                            ),
+                                            title: Text(asset.name),
+                                            subtitle: Text(
+                                              MoneyFormatter.isolate(
+                                                '${asset.quantity} @ '
+                                                '${asset.value} '
+                                                '${asset.currency}',
+                                              ),
+                                            ),
+                                            trailing: Text(
+                                              MoneyFormatter.formatWithSymbol(
+                                                asset.quantity * asset.value,
+                                                asset.currency,
+                                                asset.currency,
+                                              ),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }),
+                                      const SizedBox(height: 16),
+                                    ],
+                                  );
+                                },
                               ),
-                            ),
-                          ],
+                              // Save and Delete are the scaffold's footer, not
+                              // the last rows of this column: the linked-assets
+                              // list above grows with the account, and an
+                              // account with a dozen of them put the button that
+                              // ends the task several screens down.
+                              const SizedBox(height: 8),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-        ), // Scaffold
-      ), // BlocListener
-    ); // EscapeBackHandler
+          ), // Scaffold
+        ), // BlocListener
+      ), // EscapeBackHandler
+    ); // ScreenShortcuts
   }
 }

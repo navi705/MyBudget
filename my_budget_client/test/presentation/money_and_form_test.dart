@@ -48,8 +48,10 @@ import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
+import 'package:my_budget_client/core/utils/hotkey_utils.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/screens/add_edit_transaction_screen.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
@@ -121,6 +123,18 @@ final Account savings = Account(
   creationDate: DateTime(2024, 1, 1),
 );
 
+/// A cash account in another currency, so a transfer between it and [wallet]
+/// has an amount on each side and a rate between them.
+final Account dollars = Account(
+  id: 'a3',
+  name: 'Dollars',
+  balance: 500,
+  currencyCode: 'USD',
+  currencyDesignationId: 'd2',
+  accountTypeId: 't1',
+  creationDate: DateTime(2024, 1, 1),
+);
+
 final Category groceries = Category(id: 'c1', name: 'Groceries');
 final Category salary = Category(
   id: 'c2',
@@ -172,13 +186,20 @@ class _FakeTransactionRepository extends Fake implements TransactionRepository {
   final Completer<void> saveGate = Completer<void>();
   bool hold = false;
 
+  /// Every row the form asked to be written, in order.
+  final List<Transaction> added = [];
+
   @override
   Future<void> addTransaction(Transaction transaction) async {
+    added.add(transaction);
     if (hold) {
       await saveGate.future;
       throw Exception('cancelled');
     }
   }
+
+  @override
+  Stream<void> watchTransactionChanges() => const Stream.empty();
 }
 
 class _FakeAccountRepository extends Fake implements AccountRepository {
@@ -251,9 +272,11 @@ Future<AppLocalizations> pumpForm(
   WidgetTester tester, {
   Transaction? transaction,
   bool isTransfer = false,
+  List<Account>? accounts,
   List<Category> categories = const [],
   Size surfaceSize = tallForm,
   Locale locale = french,
+  Map<String, String> hotkeys = const {},
 }) async {
   transactionRepository = _FakeTransactionRepository();
 
@@ -261,7 +284,7 @@ Future<AppLocalizations> pumpForm(
   // seam a widget test has on it.
   GetIt.I.registerSingleton<TransactionRepository>(transactionRepository);
   GetIt.I.registerSingleton<AccountRepository>(
-    _FakeAccountRepository([wallet, savings]),
+    _FakeAccountRepository(accounts ?? [wallet, savings]),
   );
   GetIt.I.registerSingleton<CategoryRepository>(
     _FakeCategoryRepository(
@@ -283,7 +306,7 @@ Future<AppLocalizations> pumpForm(
       app,
       // EscapeBackHandler reads Settings; the account and category fields read
       // Styles; a save would reload Transactions and Accounts.
-      settingsBloc: createSettingsBloc(),
+      settingsBloc: createSettingsBloc(state: SettingsState(hotkeys: hotkeys)),
       stylesBloc: createStylesBloc(),
       currencyBloc: createCurrencyBloc(),
       accountsBloc: MockAccountsBloc(),
@@ -541,7 +564,12 @@ void main() {
       // had no basis for.
       final l10n = await pumpForm(tester, isTransfer: true);
 
-      final amount = fieldLabelled(tester, l10n.amountLabel);
+      // The transfer form names the currency the money leaves in, because the
+      // arriving amount beside it may be denominated in another one.
+      final amount = fieldLabelled(
+        tester,
+        l10n.amountSentLabel(wallet.currencyCode),
+      );
       expect(amount.decoration?.prefixText, isNull);
       expect(
         amount.style?.color,
@@ -551,6 +579,198 @@ void main() {
   });
 
   // =========================================================================
+  // =========================================================================
+  // The transfer form was the standard column with the account fields swapped
+  // for a From/To pair, which left the two controls a transfer exists for
+  // below Description, Amount and the whole exchange-rate card - and left the
+  // rate the only way to say how much arrived.
+  group('a transfer asks the transfer questions', () {
+    /// A transfer between accounts that keep different currencies.
+    Future<AppLocalizations> pumpTransfer(
+      WidgetTester tester, {
+      List<Account>? accounts,
+    }) => pumpForm(
+      tester,
+      isTransfer: true,
+      accounts: accounts ?? [wallet, dollars],
+    );
+
+    testWidgets('the accounts are asked for before the amount', (tester) async {
+      final l10n = await pumpTransfer(tester);
+
+      final from = tester
+          .getTopLeft(find.byKey(const Key('accountPickerField')))
+          .dy;
+      final to = tester
+          .getTopLeft(find.byKey(const Key('linkedAccountPickerField')))
+          .dy;
+      final amount = tester
+          .getTopLeft(
+            find.widgetWithText(
+              TextFormField,
+              l10n.amountSentLabel(wallet.currencyCode),
+            ),
+          )
+          .dy;
+
+      expect(from, lessThan(to));
+      expect(to, lessThan(amount));
+    });
+
+    testWidgets('a same-currency transfer fits a phone without scrolling', (
+      tester,
+    ) async {
+      // 360x640 is the smallest surface the app supports, and moving money
+      // between two accounts that keep one currency is the common case. Save
+      // used to sit below Description, Amount and the whole rate card.
+      final l10n = await pumpForm(
+        tester,
+        isTransfer: true,
+        accounts: [wallet, savings],
+        surfaceSize: const Size(360, 640),
+      );
+
+      final save = find.widgetWithText(FilledButton, l10n.saveButton);
+      expect(save, findsOneWidget);
+      expect(
+        tester.getBottomLeft(save).dy,
+        lessThanOrEqualTo(640),
+        reason: 'the button that ends the task has to be on the screen',
+      );
+    });
+
+    testWidgets('a cross-currency transfer keeps Save a scroll away', (
+      tester,
+    ) async {
+      // Two amounts and an open rate section is the tallest the form gets, and
+      // no phone fits it. What it must not be is a dead end.
+      final l10n = await pumpForm(
+        tester,
+        isTransfer: true,
+        accounts: [wallet, dollars],
+        surfaceSize: const Size(360, 640),
+      );
+
+      final save = find.widgetWithText(FilledButton, l10n.saveButton);
+      expect(save, findsOneWidget);
+
+      await tester.ensureVisible(save);
+      await tester.pumpAndSettle();
+      expect(tester.getBottomLeft(save).dy, lessThanOrEqualTo(640));
+    });
+
+    testWidgets('the rate a preset would have given is stated in one line', (
+      tester,
+    ) async {
+      final l10n = await pumpTransfer(tester);
+
+      // Nothing on file for EUR->USD, so there is no rate to summarise and the
+      // one thing the user must supply is open rather than behind a tap.
+      expect(find.text(l10n.exchangeRateLabel), findsWidgets);
+      expect(find.text(l10n.adjustRateLabel), findsOneWidget);
+    });
+
+    testWidgets('what arrives follows from the rate', (tester) async {
+      final l10n = await pumpTransfer(tester);
+
+      await tester.enterText(
+        find.widgetWithText(
+          TextFormField,
+          l10n.amountSentLabel(wallet.currencyCode),
+        ),
+        '1000',
+      );
+      await tester.enterText(
+        find.widgetWithText(
+          TextFormField,
+          '${l10n.exchangeRateLabel} (${dollars.currencyCode})',
+        ),
+        '0.9',
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<TextField>(
+              find.descendant(
+                of: find.byKey(const Key('receivedAmountField')),
+                matching: find.byType(TextField),
+              ),
+            )
+            .controller
+            ?.text,
+        '900',
+      );
+    });
+
+    testWidgets('and the rate follows from what arrives', (tester) async {
+      // The direction the bank statement gives it in: two amounts, no rate.
+      final l10n = await pumpTransfer(tester);
+
+      await tester.enterText(
+        find.widgetWithText(
+          TextFormField,
+          l10n.amountSentLabel(wallet.currencyCode),
+        ),
+        '1000',
+      );
+      await tester.enterText(
+        find.byKey(const Key('receivedAmountField')),
+        '900',
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<TextField>(
+              find.descendant(
+                of: find.widgetWithText(
+                  TextFormField,
+                  '${l10n.exchangeRateLabel} (${dollars.currencyCode})',
+                ),
+                matching: find.byType(TextField),
+              ),
+            )
+            .controller
+            ?.text,
+        '0.9',
+      );
+    });
+
+    testWidgets('one currency on both sides asks neither question', (
+      tester,
+    ) async {
+      // Nothing is converted, so an arriving amount and a rate would both be
+      // restatements of the amount already entered.
+      final l10n = await pumpTransfer(tester, accounts: [wallet, savings]);
+
+      expect(find.byKey(const Key('receivedAmountField')), findsNothing);
+      expect(find.text(l10n.adjustRateLabel), findsNothing);
+    });
+
+    testWidgets(
+      'the From picker does not offer the account money is going to',
+      (tester) async {
+        // The To picker has always hidden whatever From holds. This one offered
+        // the destination back, and taking it left both sides on one account.
+        final l10n = await pumpTransfer(tester);
+
+        await tester.tap(find.byKey(const Key('accountPickerField')));
+        await tester.pumpAndSettle();
+
+        expect(find.widgetWithText(ListTile, wallet.name), findsOneWidget);
+        expect(
+          find.widgetWithText(ListTile, dollars.name),
+          findsNothing,
+          reason: '${dollars.name} is the To account',
+        );
+        // Leave the dialog closed for the next frame.
+        await tester.tap(find.text(l10n.cancelButton));
+        await tester.pumpAndSettle();
+      },
+    );
+  });
+
   group('the pickers are reachable from the keyboard', () {
     testWidgets('account and category both take focus', (tester) async {
       await pumpForm(tester, categories: [groceries], surfaceSize: desktop);
@@ -601,6 +821,127 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+    });
+  });
+
+  // =========================================================================
+  // Filling the form in. The column was ordered Description, Amount, rate,
+  // Account, Category, Currency, Date - so every entry opened on an optional
+  // prose field, and the three answers a transaction is made of were spread
+  // over three screenfuls with an exchange-rate card in the middle of them.
+  group('the form asks in the order the user has the answers', () {
+    /// Vertical position of the field labelled [label].
+    double labelY(WidgetTester tester, String label) =>
+        tester.getTopLeft(find.widgetWithText(TextFormField, label)).dy;
+
+    /// Whether the field labelled [label] is the one taking keystrokes.
+    bool hasFocus(WidgetTester tester, String label) => tester
+        .widget<EditableText>(
+          find.descendant(
+            of: find.widgetWithText(TextFormField, label),
+            matching: find.byType(EditableText),
+          ),
+        )
+        .focusNode
+        .hasFocus;
+
+    testWidgets('the amount first and the optional description last', (
+      tester,
+    ) async {
+      final l10n = await pumpForm(tester, categories: [groceries]);
+
+      final amount = labelY(tester, l10n.amountLabel);
+      final account = tester.getTopLeft(find.byKey(accountPicker)).dy;
+      final category = tester.getTopLeft(find.byKey(categoryPicker)).dy;
+      // The date is a ListTile, not a field: it reads "<label>: <date>".
+      final date = tester
+          .getTopLeft(find.textContaining('${l10n.dateLabel}:'))
+          .dy;
+      final description = labelY(tester, l10n.descriptionOptionalLabel);
+
+      expect(amount, lessThan(account));
+      expect(account, lessThan(category));
+      expect(category, lessThan(date));
+      expect(date, lessThan(description));
+    });
+
+    testWidgets('a new transaction opens with the amount ready to type into', (
+      tester,
+    ) async {
+      await pumpForm(tester, categories: [groceries]);
+      final l10n = await loadL10n(french);
+
+      expect(hasFocus(tester, l10n.amountLabel), isTrue);
+    });
+
+    testWidgets('reopening one does not throw the keyboard up', (tester) async {
+      // An edit starts by reading what is there. Focusing the amount would
+      // cover the rest of the form with a keyboard the user did not ask for,
+      // over a field they may not be here to change.
+      await pumpForm(tester, transaction: storedTransaction);
+      final l10n = await loadL10n(french);
+
+      expect(hasFocus(tester, l10n.amountLabel), isFalse);
+    });
+
+    testWidgets('the bound key saves without reaching for the button', (
+      tester,
+    ) async {
+      final l10n = await pumpForm(
+        tester,
+        categories: [groceries],
+        surfaceSize: desktop,
+        hotkeys: {
+          'save_form': HotKeyUtils.serializeKeys({
+            LogicalKeyboardKey.control,
+            LogicalKeyboardKey.enter,
+          }),
+        },
+      );
+      // Held open so the save does not succeed and pop the route out from
+      // under the test.
+      transactionRepository.hold = true;
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, l10n.amountLabel),
+        '12',
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      expect(
+        transactionRepository.added.map((t) => t.amount),
+        [-12],
+        reason: 'Ctrl+Enter has to run the same save the button does',
+      );
+
+      transactionRepository.saveGate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(const Duration(seconds: 1));
+    });
+
+    testWidgets('an unbound key saves nothing', (tester) async {
+      // The binding comes from settings like every other shortcut; with none
+      // stored the key is not a shortcut and must not save behind the user.
+      final l10n = await pumpForm(tester, categories: [groceries]);
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, l10n.amountLabel),
+        '12',
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      expect(transactionRepository.added, isEmpty);
     });
   });
 

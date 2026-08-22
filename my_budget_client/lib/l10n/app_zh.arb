@@ -537,6 +537,7 @@
     "hkActionPrevPeriod": "上一周期",
     "hkActionNextPeriod": "下一周期",
     "hkActionAddAction": "通用添加操作",
+    "hkActionSaveForm": "保存表单",
     "hkActionPickDate": "选择日期",
     "hkActionDashboardSwitchView": "仪表板: 更改视图",
     "hkActionSortOrder": "排序顺序",
@@ -713,5 +714,14 @@
     "accountsSelectDateDescription": "选择具体日期以查看历史余额",
     "accountsSortDescription": "在余额升序和降序之间切换",
     "smsRuleCategoryOptional": "类别（可选）",
-    "smsRuleCategoryHelp": "为此规则覆盖类别"
+    "smsRuleCategoryHelp": "为此规则覆盖类别",
+    "amountSentLabel": "转出金额（{currency}）",
+    "amountReceivedLabel": "转入金额（{currency}）",
+    "transferRateSummary": "1 {from} = {rate} {to}",
+    "adjustRateLabel": "调整汇率",
+    "favoriteCurrenciesHeader": "收藏",
+    "frequentCurrenciesHeader": "常用",
+    "allCurrenciesHeader": "全部货币",
+    "addFavoriteCurrencyTooltip": "添加到收藏",
+    "removeFavoriteCurrencyTooltip": "从收藏中移除"
 }

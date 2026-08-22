@@ -175,7 +175,12 @@ class AccountListItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SelectableText.rich(
+                  // Plain text, and that is the point: selectable text wins
+                  // the tap and the long press against the `ListTile` behind
+                  // it, and these figures cover most of the card. Tapping the
+                  // numbers - where a finger naturally lands - opened nothing
+                  // and selected nothing.
+                  Text.rich(
                     TextSpan(
                       style: TextStyle(
                         color: Theme.of(context).textTheme.bodyMedium?.color,
@@ -240,7 +245,7 @@ class AccountListItem extends StatelessWidget {
                     ),
                   ),
                   if (realValue != null)
-                    SelectableText.rich(
+                    Text.rich(
                       TextSpan(
                         style: TextStyle(
                           color: Theme.of(context).textTheme.bodySmall?.color,

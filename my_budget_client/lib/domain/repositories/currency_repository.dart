@@ -23,15 +23,33 @@ abstract class CurrencyRepository {
   Stream<List<CurrencyDesignation>> watchAllCurrencyDesignations();
   Future<List<CurrencyDesignation>> getAllCurrencyDesignations();
 
+  /// How many accounts and transactions are already recorded in each currency
+  /// code. Codes the user has never used are absent rather than zero.
+  ///
+  /// Ordering hint for the currency picker: the list holds every currency the
+  /// app knows, and a person works in a handful of them.
+  Future<Map<String, int>> getCurrencyUsageCounts();
+
+  /// The currency codes the user starred, oldest star first.
+  Stream<List<String>> watchFavoriteCurrencyCodes();
+  Future<List<String>> getFavoriteCurrencyCodes();
+
+  /// Stars or unstars [code]. Starring one that is already starred, or
+  /// unstarring one that is not, changes nothing.
+  Future<void> setFavoriteCurrency(String code, {required bool favorite});
+
   /// Fires whenever any exchange rate row is inserted/updated/deleted.
   /// Carries no payload — consumers use it purely as an invalidation signal.
   Stream<void> watchExchangeRateChanges();
 
   Future<List<ExchangeRateDomain>> getLatestExchangeRates(DateTime date);
   Future<List<ExchangeRateDomain>> getLatestExchangeRatesAll();
+  /// [currencyCodes], when given, limits the result to the pairs that touch
+  /// one of those codes on either side.
   Future<List<ExchangeRateDomain>> getLatestExchangeRatesByList(
-    List<DateTime> date,
-  );
+    List<DateTime> date, {
+    Set<String>? currencyCodes,
+  });
   Future<List<ExchangeRateDomain>> getExchangeRatesFiltered({
     int limit = 100,
     int offset = 0,

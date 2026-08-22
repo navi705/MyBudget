@@ -66,6 +66,11 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
   final FinanceCalculator _financeCalculator; // Added
 
   StreamSubscription<void>? _transactionsSubscription;
+  // The accounts table itself, not only the transactions posted against it.
+  // The screen no longer reloads on every mount (the shell route remounts it
+  // on each tab switch), so a write from outside this bloc — a sync, a restore
+  // — has to reach the list through here.
+  StreamSubscription<List<Account>>? _accountsSubscription;
 
   // Optimization: Cache rate map to avoid rebuilding on every sort
   Map<String, double>? _cachedRateMap;
@@ -118,6 +123,14 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
         .watchTransactionChanges()
         .debounceTime(const Duration(milliseconds: 500))
         .listen((_) => add(LoadAccounts()));
+
+    // skip(1): the stream opens with the current table, which the first
+    // LoadAccounts is already fetching.
+    _accountsSubscription = _accountRepository
+        .watchAccounts()
+        .skip(1)
+        .debounceTime(const Duration(milliseconds: 500))
+        .listen((_) => add(LoadAccounts()));
   }
 
   @override
@@ -127,6 +140,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
     // controller is closed throws. Cancelling without awaiting leaves that
     // race open on every screen dismissal.
     await _transactionsSubscription?.cancel();
+    await _accountsSubscription?.cancel();
     return super.close();
   }
 

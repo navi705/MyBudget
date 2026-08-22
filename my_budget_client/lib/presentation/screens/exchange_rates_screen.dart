@@ -12,6 +12,7 @@ import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
+import 'package:my_budget_client/presentation/widgets/currency_picker_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
@@ -431,19 +432,14 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
               subtitle: Text(displayText),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: () async {
-                final results = await showDialog<List<String>>(
+                final picked = await showCurrencyPicker(
                   context: context,
-                  builder: (context) => MultiSelectDialog<Currency, String>(
-                    items: currencies,
-                    selectedIds: selectedCode != null ? [selectedCode] : [],
-                    itemBuilder: (c) => Text('${c.name} (${c.code})'),
-                    idGetter: (c) => c.code,
-                    stringGetter: (c) => '${c.name} ${c.code}',
-                    isSingleSelect: true,
-                  ),
+                  currencies: currencies,
+                  selectedCurrencyCode: selectedCode,
+                  title: label,
                 );
-                if (results != null && results.isNotEmpty) {
-                  onChanged(results.first);
+                if (picked != null) {
+                  onChanged(picked.code);
                 }
               },
             );

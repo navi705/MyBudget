@@ -537,6 +537,7 @@
     "hkActionPrevPeriod": "Période Précédente",
     "hkActionNextPeriod": "Période Suivante",
     "hkActionAddAction": "Action d'Ajout Générique",
+    "hkActionSaveForm": "Enregistrer le formulaire",
     "hkActionPickDate": "Sélectionner une date",
     "hkActionDashboardSwitchView": "Tableau de Bord: Changer de Vue",
     "hkActionSortOrder": "Ordre de tri",
@@ -713,5 +714,14 @@
     "accountsSelectDateDescription": "Choisissez une date précise pour consulter les soldes historiques",
     "accountsSortDescription": "Basculer entre l'ordre croissant et décroissant des soldes",
     "smsRuleCategoryOptional": "Catégorie (facultatif)",
-    "smsRuleCategoryHelp": "Remplacer la catégorie pour cette règle"
+    "smsRuleCategoryHelp": "Remplacer la catégorie pour cette règle",
+    "amountSentLabel": "Montant envoyé ({currency})",
+    "amountReceivedLabel": "Montant reçu ({currency})",
+    "transferRateSummary": "1 {from} = {rate} {to}",
+    "adjustRateLabel": "Ajuster le taux",
+    "favoriteCurrenciesHeader": "Favorites",
+    "frequentCurrenciesHeader": "Fréquemment utilisées",
+    "allCurrenciesHeader": "Toutes les devises",
+    "addFavoriteCurrencyTooltip": "Ajouter aux favorites",
+    "removeFavoriteCurrencyTooltip": "Retirer des favorites"
 }

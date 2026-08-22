@@ -17,6 +17,7 @@ import 'dart:async';
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
@@ -25,7 +26,9 @@ import 'package:my_budget_client/domain/entities/asset_data.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
+import 'package:my_budget_client/core/utils/hotkey_utils.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
+import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/screens/edit_account_screen.dart';
 
@@ -77,6 +80,9 @@ class _FakeAccountRepository extends Fake implements AccountRepository {
     if (failure != null) throw failure!;
     return stored;
   }
+
+  @override
+  Stream<List<Account>> watchAccounts() => const Stream.empty();
 }
 
 class _FakeAssetRepository extends Fake implements AssetRepository {
@@ -136,8 +142,10 @@ Future<_RecordingAccountsBloc> _pumpEditAccount(
   Future<void>? gate,
   Object? failure,
   bool settle = true,
+  Size surface = _surface,
+  Map<String, String> hotkeys = const {},
 }) async {
-  setSurfaceSize(tester, _surface);
+  setSurfaceSize(tester, surface);
 
   // The screen resolves both repositories out of `sl`, which is the only seam
   // a widget test has on it.
@@ -187,7 +195,7 @@ Future<_RecordingAccountsBloc> _pumpEditAccount(
       ),
       // EscapeBackHandler and the country field read Settings; the currency
       // field reads Currency; the style tile reads Styles.
-      settingsBloc: createSettingsBloc(),
+      settingsBloc: createSettingsBloc(state: SettingsState(hotkeys: hotkeys)),
       currencyBloc: createCurrencyBloc(),
       stylesBloc: createStylesBloc(),
       accountsBloc: accountsBloc,
@@ -316,6 +324,85 @@ void main() {
       gate.complete();
       await tester.pumpAndSettle();
       expect(find.text('100.0'), findsOneWidget);
+    });
+  });
+
+  // Save used to be the last row of a scrolling column that ends in the
+  // account's linked assets, so on a phone the button that finishes the job sat
+  // below the fold - and there was no key that ran it either.
+  group('EditAccountScreen reaching Save', () {
+    testWidgets('it is on screen on a phone without scrolling', (tester) async {
+      final l10n = await loadL10n();
+      await _pumpEditAccount(
+        tester,
+        routed: _asViewed,
+        stored: _stored,
+        // The smallest surface the app supports.
+        surface: const Size(360, 640),
+      );
+
+      final save = find.widgetWithText(FilledButton, l10n.saveButton);
+      expect(save, findsOneWidget);
+      expect(tester.getBottomLeft(save).dy, lessThanOrEqualTo(640));
+      expect(
+        find.text(l10n.deleteButton),
+        findsOneWidget,
+        reason: 'Delete moved into the same footer and has to still be there',
+      );
+    });
+
+    testWidgets('the save hotkey runs the same save the button does', (
+      tester,
+    ) async {
+      final bloc = await _pumpEditAccount(
+        tester,
+        routed: _asViewed,
+        stored: _stored,
+        hotkeys: {
+          'save_form': HotKeyUtils.serializeKeys({
+            LogicalKeyboardKey.control,
+            LogicalKeyboardKey.enter,
+          }),
+        },
+      );
+      final l10n = await loadL10n();
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, l10n.accountNameHint),
+        'Renamed',
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+
+      final saved = _savedAccount(bloc);
+      expect(saved.name, 'Renamed');
+      // And the same stored balance the button would have written, rather than
+      // the date-scoped one the route carried.
+      expect(saved.balance, _stored.balance);
+    });
+
+    testWidgets('with no key bound nothing is saved behind the user', (
+      tester,
+    ) async {
+      final bloc = await _pumpEditAccount(
+        tester,
+        routed: _asViewed,
+        stored: _stored,
+      );
+      final l10n = await loadL10n();
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, l10n.accountNameHint),
+        'Renamed',
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+
+      expect(bloc.events.whereType<UpdateAccount>(), isEmpty);
     });
   });
 

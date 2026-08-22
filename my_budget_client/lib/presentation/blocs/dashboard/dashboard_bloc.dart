@@ -14,6 +14,7 @@ import 'package:my_budget_client/domain/entities/currency.dart'; // Added
 import 'package:my_budget_client/domain/entities/currency_designation.dart'; // Added
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart'; // Added
+import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/entities/asset_data.dart'; // Added
@@ -66,6 +67,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
   // OPTIMIZATION: Cache for settings and currency designations
   // These rarely change — fetched once per session, not on every stream update
+  // The currency codes the cached rates were fetched for. Rates are read back
+  // filtered to the codes on screen, so the cache is only good for those.
+  Set<String>? _cachedRateCodes;
+
   Map<String, String>? _cachedSettings;
   List<CurrencyDesignation>? _cachedCurrencyDesignations;
 
@@ -76,6 +81,21 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   List<Category> _cachedCategories = [];
   StreamSubscription<List<Style>>? _stylesSubscription;
   StreamSubscription<List<Category>>? _categoriesSubscription;
+
+  // Settings, currency designations and rate writes used to be picked up only
+  // by wiping the caches on the next LoadDashboard, which is why every screen
+  // mount re-fired one. The mount no longer reloads (DashboardScreen only
+  // dispatches from a cold state), so the caches keep themselves fresh here
+  // instead: each subscription refreshes what it owns and bumps dataVersion so
+  // the pipeline recomputes with it.
+  StreamSubscription<List<Settings>>? _settingsSubscription;
+  StreamSubscription<List<CurrencyDesignation>>? _designationsSubscription;
+  StreamSubscription<void>? _exchangeRatesSubscription;
+
+  // Day-normalised DateTimes, reused across passes. Building one per
+  // transaction meant 5000 allocations per recompute for the ~900 distinct
+  // days they actually fall on.
+  final Map<int, DateTime> _dayCache = {};
 
   // OPTIMIZATION: Memoize _calculateDashboardData results.
   // The walk-back loop is the bottleneck (~27ms). When only UI params change
@@ -127,6 +147,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     _cachedSettings = null;
     _cachedCurrencyDesignations = null;
     _cachedExchangeRates = null;
+    _cachedRateCodes = null;
     _cachedCurrencies = null;
     _cachedConverter = null;
     _cachedConverterBaseCurrency = null;
@@ -147,6 +168,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     // into the params subject at the same time as the new one.
     await _stylesSubscription?.cancel();
     await _categoriesSubscription?.cancel();
+    await _settingsSubscription?.cancel();
+    await _designationsSubscription?.cancel();
+    await _exchangeRatesSubscription?.cancel();
 
     // A superseded run stops here. It was cancelled while awaiting above, so
     // the run that replaced it already owns these two fields; a handle stored
@@ -179,6 +203,42 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           );
         });
 
+    // Settings are cached below (main_currency_code among them). Changing the
+    // main currency in Settings used to show up only because coming back to
+    // the dashboard remounted the screen and wiped the cache.
+    _settingsSubscription = _settingsRepository.watchAllSettings().listen((
+      settings,
+    ) {
+      _cachedSettings = {for (final s in settings) s.key: s.value};
+      _bumpDataVersion();
+    });
+
+    _designationsSubscription = _currencyRepository
+        .watchAllCurrencyDesignations()
+        .listen((designations) {
+          _cachedCurrencyDesignations = designations;
+          _bumpDataVersion();
+        });
+
+    // Rates land in bulk (the fetch service writes a day at a time), so this
+    // waits for the writing to stop before throwing the cached rates away —
+    // otherwise every batch would trigger a full refetch of every date on
+    // screen. Without it a dashboard opened before the rates arrived kept
+    // pricing everything with what it had until the screen was remounted.
+    _exchangeRatesSubscription = _currencyRepository
+        .watchExchangeRateChanges()
+        .debounceTime(const Duration(seconds: 2))
+        .listen((_) {
+          _cachedExchangeRates = null;
+          _cachedDates = {};
+          _cachedRateCodes = null;
+          _cachedConverter = null;
+          _cachedConverterBaseCurrency = null;
+          _bumpDataVersion();
+        });
+
+    var isFirstEmission = true;
+
     // OPTIMIZATION: Filtered transaction stream — re-subscribes only when
     // dateRangeStart changes (not on tab/currency/etc. changes).
     // This avoids loading the full transaction history on every stream update.
@@ -210,9 +270,18 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
               params: params,
             );
           },
-          // OPTIMIZATION: Reduced debounce from 300ms to 50ms
-          // 300ms was adding noticeable delay, 50ms is enough to batch rapid changes
-        ).debounceTime(const Duration(milliseconds: 50)).asyncMap((data) async {
+          // Debounced to batch rapid changes (a burst of drift updates would
+          // otherwise recompute the whole dashboard once per update) — except
+          // for the first event, which is the load the user is waiting on and
+          // has nothing to batch with. debounceTime() held that one back too,
+          // putting a fixed 50ms of idle inside every dashboard load.
+        ).debounce((_) {
+          if (isFirstEmission) {
+            isFirstEmission = false;
+            return Stream<void>.value(null);
+          }
+          return TimerStream<void>(null, const Duration(milliseconds: 50));
+        }).asyncMap((data) async {
           final accounts = data.accounts;
           final transactions = data.transactions;
           final categories = _cachedCategories; // Use cached (not from stream)
@@ -266,23 +335,38 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           // OPTIMIZATION: Use cached data when available
           PerformanceLogger().start('Dashboard: Parallel Fetch');
 
-          final uniqueDates = transactions
-              .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
-              .toSet();
+          final uniqueDates = transactions.map((t) => _dayOf(t.date)).toSet();
           // Today, so a balance shown for the current day can always be
           // priced. `DateTime(year, month)` defaulted the day to the 1st and
           // fetched rates for a day nobody was looking at.
-          final nowForRates = DateTime.now();
-          uniqueDates.add(
-            DateTime(nowForRates.year, nowForRates.month, nowForRates.day),
-          );
-          uniqueDates.add(
-            DateTime(
-              params.selectedDay.year,
-              params.selectedDay.month,
-              params.selectedDay.day,
-            ),
-          );
+          uniqueDates.add(_dayOf(DateTime.now()));
+          uniqueDates.add(_dayOf(params.selectedDay));
+
+          // Only the codes something on screen is actually priced in. The
+          // table holds a row per currency pair per day — 341 currencies over
+          // 870 days is near 300k rows on the phone here — and a dashboard
+          // reads a handful of them. Assets and the grouped category totals are
+          // in the set too: they carry their own currency, not the account's.
+          final currencyCodes = <String>{
+            targetCurrency,
+            mainCurrencyCode,
+            for (final account in accounts) account.currencyCode,
+            for (final transaction in transactions) transaction.currencyCode,
+            for (final total in categoryTotals) total.currencyCode,
+            for (final asset in assetData) asset.currency,
+          };
+
+          // A code the cached rates were never fetched for cannot be filled in
+          // by fetching the missing dates — those rows were left out for every
+          // date, not just the new ones.
+          if (_cachedRateCodes != null &&
+              !currencyCodes.every(_cachedRateCodes!.contains)) {
+            _cachedExchangeRates = null;
+            _cachedDates = {};
+            _cachedConverter = null;
+            _cachedConverterBaseCurrency = null;
+          }
+          _cachedRateCodes = {...?_cachedRateCodes, ...currencyCodes};
 
           // Check which dates need to be fetched (not in cache)
           final missingDates = uniqueDates
@@ -312,11 +396,15 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
               futures.add(
                 _currencyRepository.getLatestExchangeRatesByList(
                   uniqueDates.toList(),
+                  currencyCodes: _cachedRateCodes,
                 ),
               );
             } else if (missingDates.isNotEmpty) {
               futures.add(
-                _currencyRepository.getLatestExchangeRatesByList(missingDates),
+                _currencyRepository.getLatestExchangeRatesByList(
+                  missingDates,
+                  currencyCodes: _cachedRateCodes,
+                ),
               );
             }
 
@@ -594,6 +682,21 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     );
   }
 
+  /// The day [date] falls on, reusing the instance built for that day before.
+  DateTime _dayOf(DateTime date) {
+    final key = (date.year * 100 + date.month) * 100 + date.day;
+    return _dayCache[key] ??= DateTime(date.year, date.month, date.day);
+  }
+
+  void _bumpDataVersion() {
+    if (_paramsSubject.isClosed) return;
+    _paramsSubject.add(
+      _paramsSubject.value.copyWith(
+        dataVersion: _paramsSubject.value.dataVersion + 1,
+      ),
+    );
+  }
+
   @override
   Future<void> close() async {
     // Awaited, and in this order: both listeners below call
@@ -602,6 +705,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     // calling close" on the subject.
     await _stylesSubscription?.cancel();
     await _categoriesSubscription?.cancel();
+    await _settingsSubscription?.cancel();
+    await _designationsSubscription?.cancel();
+    await _exchangeRatesSubscription?.cancel();
     await _paramsSubject.close();
     // The combineLatest pipeline belongs to the awaited emit.forEach in
     // _onLoadDashboard, so it is cancelled with that emitter by super.close()
@@ -764,11 +870,21 @@ _DashboardComputeResults _calculateDashboardData(
   final currentBalances = <String, double>{};
   final accountCurrencyMap = <String, String>{};
   final accountAssetMap = <String, bool>{};
+  // The day each account came into existence, normalised once. The walk-back
+  // below needs it for every account on every day it steps through - a hundred
+  // accounts over a year is thirty-six thousand local DateTime constructions,
+  // each one a timezone lookup, for a hundred distinct answers.
+  final accountCreationDay = <String, DateTime>{};
 
   for (final account in params.accounts) {
     currentBalances[account.id!] = account.balance;
     accountCurrencyMap[account.id!] = account.currencyCode;
     accountAssetMap[account.id!] = account.assetId != null;
+    accountCreationDay[account.id!] = DateTime(
+      account.creationDate.year,
+      account.creationDate.month,
+      account.creationDate.day,
+    );
   }
 
   // Section 2: Calculate daily data and net worth history
@@ -901,15 +1017,10 @@ _DashboardComputeResults _calculateDashboardData(
     dayBalances = financeCalc.calculateBalances(snapshot);
 
     // FIX: Force 0 balance for accounts not yet created (Consistency for future dates)
-    for (final account in params.accounts) {
-      final creationDate = DateTime(
-        account.creationDate.year,
-        account.creationDate.month,
-        account.creationDate.day,
-      );
+    for (final entry in accountCreationDay.entries) {
       // Use selectedDayNormalized which is the date projected
-      if (selectedDayNormalized.isBefore(creationDate)) {
-        dayBalances[account.id!] = 0.0;
+      if (selectedDayNormalized.isBefore(entry.value)) {
+        dayBalances[entry.key] = 0.0;
       }
     }
   }
@@ -999,14 +1110,9 @@ _DashboardComputeResults _calculateDashboardData(
     // FIX: Force 0 balance for accounts not yet created
     // This handles the "Initial Balance" issue where walk-back preserves
     // the initial amount into the past before the account existed.
-    for (final account in params.accounts) {
-      final creationDate = DateTime(
-        account.creationDate.year,
-        account.creationDate.month,
-        account.creationDate.day,
-      );
-      if (iterDate.isBefore(creationDate)) {
-        balancesForDay[account.id!] = 0.0;
+    for (final entry in accountCreationDay.entries) {
+      if (iterDate.isBefore(entry.value)) {
+        balancesForDay[entry.key] = 0.0;
       }
     }
 

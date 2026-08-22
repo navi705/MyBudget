@@ -135,7 +135,8 @@ void main() {
     // gesture arrived is asserted below rather than assumed.
     await tester.tap(currencyField, warnIfMissed: false);
     await tester.pumpAndSettle();
-    await tester.tap(find.text(_usd.name));
+    // The shared picker labels a row "<name> (<code>)".
+    await tester.tap(find.text('${_usd.name} (${_usd.code})'));
     await tester.pumpAndSettle();
 
     // The picker rebuilds the field under the selected code. Without this the
@@ -197,6 +198,102 @@ void main() {
     expect(account.currencyDesignationId, _usdDesignation.id);
     expect(account.accountTypeId, _cash.id);
     expect(find.byType(AddAccountDialog), findsNothing);
+  });
+
+  // The dialog was 250dp wide whatever it opened on, its balance field asked
+  // for digits and nothing else, and the keyboard's own action key did nothing.
+  group('filling the dialog in on a phone', () {
+    /// The field carrying [label].
+    Finder field(AppLocalizations l10n, String label) => find.ancestor(
+      of: find.text(label),
+      matching: find.byType(TextFormField),
+    );
+
+    testWidgets('opens with the keyboard on the name', (tester) async {
+      final l10n = await loadL10n();
+      await openDialog(
+        tester,
+        designations: const [_usdDesignation],
+        accountTypes: const [_cash],
+      );
+
+      expect(
+        tester
+            .widget<EditableText>(
+              find.descendant(
+                of: field(l10n, l10n.accountNameHint),
+                matching: find.byType(EditableText),
+              ),
+            )
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+    });
+
+    testWidgets('offers a decimal point and a minus for the balance', (
+      tester,
+    ) async {
+      final l10n = await loadL10n();
+      await openDialog(
+        tester,
+        designations: const [_usdDesignation],
+        accountTypes: const [_cash],
+      );
+
+      // A digits-only pad cannot type 1234.56, and a credit card's balance
+      // starts below zero.
+      final keyboardType = tester
+          .widget<TextField>(
+            find.descendant(
+              of: field(l10n, l10n.initialBalanceHint),
+              matching: find.byType(TextField),
+            ),
+          )
+          .keyboardType;
+      expect(
+        keyboardType,
+        TextInputType.numberWithOptions(decimal: true, signed: true),
+      );
+    });
+
+    testWidgets('the keyboard action on the balance saves the account', (
+      tester,
+    ) async {
+      final l10n = await loadL10n();
+      await openDialog(
+        tester,
+        designations: const [_usdDesignation],
+        accountTypes: const [_cash],
+      );
+
+      await fillForm(tester, l10n);
+      // Back onto the balance, which is where the thumb is when the form is
+      // finished, and then the key the phone keyboard actually shows.
+      await tester.enterText(field(l10n, l10n.initialBalanceHint), '250.5');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect((accountsBloc.events.single as AddAccount).account.balance, 250.5);
+      expect(find.byType(AddAccountDialog), findsNothing);
+    });
+
+    testWidgets('the fields get the whole width of the dialog', (tester) async {
+      final l10n = await loadL10n();
+      await openDialog(
+        tester,
+        designations: const [_usdDesignation],
+        accountTypes: const [_cash],
+      );
+
+      // 250dp was the fixed cap this used to carry - narrower than the phone
+      // it opened on, so a country name ran out of room inside a dialog that
+      // was sitting in the middle of empty space.
+      expect(
+        tester.getSize(field(l10n, l10n.accountNameHint)).width,
+        greaterThan(250),
+      );
+    });
   });
 
   testWidgets('no account types to auto-assign says so on screen', (

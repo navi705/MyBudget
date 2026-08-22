@@ -38,8 +38,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get accountsAddTooltip => 'অ্যাকাউন্ট যোগ করুন';
 
   @override
-  String get addAccountDescription =>
-      'একটি নতুন ব্যাংক অ্যাকাউন্ট, ওয়ালেট বা সম্পদ তৈরি করুন';
+  String get addAccountDescription => 'একটি নতুন ব্যাংক অ্যাকাউন্ট, ওয়ালেট বা সম্পদ তৈরি করুন';
 
   @override
   String get addAccountDialogTitle => 'নতুন অ্যাকাউন্ট যোগ করুন';
@@ -103,12 +102,10 @@ class AppLocalizationsBn extends AppLocalizations {
   String get formValidationPleaseEnterBalance => 'অনুগ্রহ করে ব্যালেন্স লিখুন';
 
   @override
-  String get formValidationPleaseEnterValidNumber =>
-      'অনুগ্রহ করে একটি সঠিক সংখ্যা লিখুন';
+  String get formValidationPleaseEnterValidNumber => 'অনুগ্রহ করে একটি সঠিক সংখ্যা লিখুন';
 
   @override
-  String get formValidationPleaseSelectCurrency =>
-      'অনুগ্রহ করে একটি মুদ্রা নির্বাচন করুন';
+  String get formValidationPleaseSelectCurrency => 'অনুগ্রহ করে একটি মুদ্রা নির্বাচন করুন';
 
   @override
   String get currencyLoadError => 'মুদ্রা লোড করতে ত্রুটি হয়েছে';
@@ -150,8 +147,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get dashboardNetWorthTrend => 'নেট মূল্যের ধরণ';
 
   @override
-  String get dashboardWealthDistributionByAccount =>
-      'সম্পদ বন্টন (অ্যাকাউন্ট অনুযায়ী)';
+  String get dashboardWealthDistributionByAccount => 'সম্পদ বন্টন (অ্যাকাউন্ট অনুযায়ী)';
 
   @override
   String get dashboardCurrencyExposure => 'মুদ্রার এক্সপোজার';
@@ -235,15 +231,13 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get deleteAccountDialogReassign =>
-      'লেনদেনগুলো অন্য একটি অ্যাকাউন্টে সরিয়ে নিন';
+  String get deleteAccountDialogReassign => 'লেনদেনগুলো অন্য একটি অ্যাকাউন্টে সরিয়ে নিন';
 
   @override
   String get deleteAccountDialogDeleteAll => 'সংশ্লিষ্ট সব লেনদেন মুছে ফেলুন';
 
   @override
-  String get deleteAccountDialogMessage =>
-      'এই অ্যাকাউন্টের সাথে সংশ্লিষ্ট লেনদেন থাকতে পারে। আপনি কি করতে চান?';
+  String get deleteAccountDialogMessage => 'এই অ্যাকাউন্টের সাথে সংশ্লিষ্ট লেনদেন থাকতে পারে। আপনি কি করতে চান?';
 
   @override
   String get newAccountLabel => 'নতুন অ্যাকাউন্ট';
@@ -252,8 +246,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get warningOverwriteTitle => 'সতর্কতা: তথ্য প্রতিস্থাপন করবেন?';
 
   @override
-  String get warningOverwriteMessage =>
-      'ব্যাকআপ পুনরুদ্ধার করলে বর্তমান সমস্ত তথ্য মুছে যাবে এবং ব্যাকআপ দ্বারা প্রতিস্থাপিত হবে। এটি আর ফিরিয়ে আনা যাবে না।';
+  String get warningOverwriteMessage => 'ব্যাকআপ পুনরুদ্ধার করলে বর্তমান সমস্ত তথ্য মুছে যাবে এবং ব্যাকআপ দ্বারা প্রতিস্থাপিত হবে। এটি আর ফিরিয়ে আনা যাবে না।';
 
   @override
   String get restoreOverwriteButton => 'পুনরুদ্ধার এবং প্রতিস্থাপন করুন';
@@ -272,8 +265,7 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get deleteCategoriesConfirmationMessage =>
-      'আপনি কি নিশ্চিত যে আপনি নির্বাচিত বিভাগগুলো মুছে ফেলতে চান?';
+  String get deleteCategoriesConfirmationMessage => 'আপনি কি নিশ্চিত যে আপনি নির্বাচিত বিভাগগুলো মুছে ফেলতে চান?';
 
   @override
   String get changeCategoryTypeDialogTitle => 'বিভাগের ধরণ পরিবর্তন করুন';
@@ -303,22 +295,19 @@ class AppLocalizationsBn extends AppLocalizations {
   String get filterTooltip => 'ফিল্টার করুন';
 
   @override
-  String get filterCategoriesDescription =>
-      'ধরণ অনুযায়ী বিভাগ ফিল্টার করুন (আয়/ব্যয়)';
+  String get filterCategoriesDescription => 'ধরণ অনুযায়ী বিভাগ ফিল্টার করুন (আয়/ব্যয়)';
 
   @override
   String get selectDateTooltip => 'তারিখ নির্বাচন করুন';
 
   @override
-  String get selectDateDescription =>
-      'মোট হিসাব দেখতে একটি সুনির্দিষ্ট তারিখ পরিসীমা নির্বাচন করুন';
+  String get selectDateDescription => 'মোট হিসাব দেখতে একটি সুনির্দিষ্ট তারিখ পরিসীমা নির্বাচন করুন';
 
   @override
   String get sortOrderTooltip => 'ক্রমবিন্যাস';
 
   @override
-  String get sortOrderDescription =>
-      'পরিমাণ অনুযায়ী আরোহী এবং অবরোহী ক্রমের মধ্যে পরিবর্তন করুন';
+  String get sortOrderDescription => 'পরিমাণ অনুযায়ী আরোহী এবং অবরোহী ক্রমের মধ্যে পরিবর্তন করুন';
 
   @override
   String get closeSelectionTooltip => 'নির্বাচন বন্ধ করুন';
@@ -350,29 +339,25 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get exitTransactionsSelectionDescription =>
-      'লেনদেন নির্বাচন মোড থেকে প্রস্থান করুন';
+  String get exitTransactionsSelectionDescription => 'লেনদেন নির্বাচন মোড থেকে প্রস্থান করুন';
 
   @override
   String get changeDateTooltip => 'তারিখ পরিবর্তন করুন';
 
   @override
-  String get changeDateDescription =>
-      'নির্বাচিত সমস্ত লেনদেনের তারিখ আপডেট করুন';
+  String get changeDateDescription => 'নির্বাচিত সমস্ত লেনদেনের তারিখ আপডেট করুন';
 
   @override
   String get changeCategoryTooltip => 'বিভাগ পরিবর্তন করুন';
 
   @override
-  String get changeCategoryDescription =>
-      'নির্বাচিত সমস্ত লেনদেনের বিভাগ আপডেট করুন';
+  String get changeCategoryDescription => 'নির্বাচিত সমস্ত লেনদেনের বিভাগ আপডেট করুন';
 
   @override
   String get deleteTransactionsTooltip => 'নির্বাচিতগুলো মুছুন';
 
   @override
-  String get deleteTransactionsDescription =>
-      'নির্বাচিত সমস্ত লেনদেন স্থায়ীভাবে মুছে ফেলুন';
+  String get deleteTransactionsDescription => 'নির্বাচিত সমস্ত লেনদেন স্থায়ীভাবে মুছে ফেলুন';
 
   @override
   String get amountLabel => 'পরিমাণ';
@@ -458,16 +443,13 @@ class AppLocalizationsBn extends AppLocalizations {
   String get selectDateError => 'অনুগ্রহ করে একটি তারিখ নির্বাচন করুন';
 
   @override
-  String get accountDeletedError =>
-      'আপনার নির্বাচিত অ্যাকাউন্টটি মুছে ফেলা হয়েছে। অনুগ্রহ করে অন্য একটি নির্বাচন করুন।';
+  String get accountDeletedError => 'আপনার নির্বাচিত অ্যাকাউন্টটি মুছে ফেলা হয়েছে। অনুগ্রহ করে অন্য একটি নির্বাচন করুন।';
 
   @override
-  String get linkedAccountDeletedError =>
-      'আপনার নির্বাচিত সংযুক্ত অ্যাকাউন্টটি মুছে ফেলা হয়েছে। অনুগ্রহ করে অন্য একটি নির্বাচন করুন।';
+  String get linkedAccountDeletedError => 'আপনার নির্বাচিত সংযুক্ত অ্যাকাউন্টটি মুছে ফেলা হয়েছে। অনুগ্রহ করে অন্য একটি নির্বাচন করুন।';
 
   @override
-  String get enterExchangeRateError =>
-      'অনুগ্রহ করে একটি বিনিময় হার লিখুন। এই স্থানান্তরটি দুটি মুদ্রার মধ্যে করা হচ্ছে এবং সেগুলির জন্য কোনো বিনিময় হার সংরক্ষিত নেই।';
+  String get enterExchangeRateError => 'অনুগ্রহ করে একটি বিনিময় হার লিখুন। এই স্থানান্তরটি দুটি মুদ্রার মধ্যে করা হচ্ছে এবং সেগুলির জন্য কোনো বিনিময় হার সংরক্ষিত নেই।';
 
   @override
   String get currencyLockedMessage => 'উৎস অ্যাকাউন্টের মুদ্রায় লক করা হয়েছে';
@@ -687,8 +669,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get exportDataLabel => 'তথ্য রপ্তানি করুন';
 
   @override
-  String get exportFormatMessage =>
-      'বিন্যাস চয়ন করুন:\n\nJSON: সমস্ত তথ্যের সম্পূর্ণ ব্যাকআপ।\nCSV: লেনদেনের পাঠযোগ্য রিপোর্ট।';
+  String get exportFormatMessage => 'বিন্যাস চয়ন করুন:\n\nJSON: সমস্ত তথ্যের সম্পূর্ণ ব্যাকআপ।\nCSV: লেনদেনের পাঠযোগ্য রিপোর্ট।';
 
   @override
   String get jsonFormat => 'JSON';
@@ -703,8 +684,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get resetDataLabel => 'তথ্য ডিফল্ট অবস্থায় ফিরিয়ে দিন';
 
   @override
-  String get resetDataSubtitle =>
-      'এটি সমস্ত তথ্য মুছে ফেলবে এবং ডিফল্ট সেটিংস পুনরুদ্ধার করবে।';
+  String get resetDataSubtitle => 'এটি সমস্ত তথ্য মুছে ফেলবে এবং ডিফল্ট সেটিংস পুনরুদ্ধার করবে।';
 
   @override
   String get debugMenuLabel => 'ডিবাগ মেনু';
@@ -735,8 +715,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get startupDataSyncLabel => 'স্টার্টআপে তথ্য সিঙ্ক';
 
   @override
-  String get startupDataSyncDescription =>
-      'অ্যাপ চালুর সময় এক্সটার্নাল তথ্য সংগ্রহ এবং সার্ভার সিঙ্ক উভয়ই নিয়ন্ত্রণ করে।';
+  String get startupDataSyncDescription => 'অ্যাপ চালুর সময় এক্সটার্নাল তথ্য সংগ্রহ এবং সার্ভার সিঙ্ক উভয়ই নিয়ন্ত্রণ করে।';
 
   @override
   String get standardApiLabel => 'স্ট্যান্ডার্ড API';
@@ -856,8 +835,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get addCustomSourceTitle => 'কাস্টম সোর্স যোগ করুন';
 
   @override
-  String get addressFormatsHelp =>
-      'ঠিকানা বিন্যাস:\n• 192.168.1.10 (IP)\n• localhost অথবা api.my.com\n• http://myserver.com';
+  String get addressFormatsHelp => 'ঠিকানা বিন্যাস:\n• 192.168.1.10 (IP)\n• localhost অথবা api.my.com\n• http://myserver.com';
 
   @override
   String get customSourceNameHint => 'আমার হোম সার্ভার';
@@ -943,15 +921,13 @@ class AppLocalizationsBn extends AppLocalizations {
   String get resetDataConfirmationTitle => 'তথ্য রিসেট করবেন?';
 
   @override
-  String get resetDataConfirmationMessage =>
-      'সতর্কতা! এটি আপনার সমস্ত লেনদেন, অ্যাকাউন্ট এবং সেটিংস মুছে ফেলবে।\n\nঅ্যাপটি ডিফল্ট তথ্য সহ প্রাথমিক অবস্থায় ফিরে যাবে।\nএটি আর ফিরিয়ে আনা যাবে না।';
+  String get resetDataConfirmationMessage => 'সতর্কতা! এটি আপনার সমস্ত লেনদেন, অ্যাকাউন্ট এবং সেটিংস মুছে ফেলবে।\n\nঅ্যাপটি ডিফল্ট তথ্য সহ প্রাথমিক অবস্থায় ফিরে যাবে।\nএটি আর ফিরিয়ে আনা যাবে না।';
 
   @override
   String get resetEverythingButton => 'সব রিসেট করুন';
 
   @override
-  String get resetSuccessMessage =>
-      'তথ্য রিসেট হয়েছে এবং ডিফল্ট সেটিং পুনরুদ্ধার করা হয়েছে।';
+  String get resetSuccessMessage => 'তথ্য রিসেট হয়েছে এবং ডিফল্ট সেটিং পুনরুদ্ধার করা হয়েছে।';
 
   @override
   String resetFailedMessage(Object error) {
@@ -979,8 +955,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get restoreBackupLabel => 'ব্যাকআপ পুনরুদ্ধার করুন (JSON)';
 
   @override
-  String get importSelectionHelp =>
-      'মাইগ্রেশনের জন্য \'OneMoney\', লেনদেন যোগ করতে \'MyBudget\', অথবা সমস্ত তথ্য প্রতিস্থাপন করতে \'ব্যাকআপ পুনরুদ্ধার\' চয়ন করুন।';
+  String get importSelectionHelp => 'মাইগ্রেশনের জন্য \'OneMoney\', লেনদেন যোগ করতে \'MyBudget\', অথবা সমস্ত তথ্য প্রতিস্থাপন করতে \'ব্যাকআপ পুনরুদ্ধার\' চয়ন করুন।';
 
   @override
   String get importCreateAllNew => 'সব নতুন হিসেবে তৈরি করুন';
@@ -1108,16 +1083,13 @@ class AppLocalizationsBn extends AppLocalizations {
   String get searchHint => 'অনুসন্ধান করুন';
 
   @override
-  String get debugAllDataClearedMessage =>
-      'সমস্ত তথ্য মুছে ফেলা হয়েছে এবং ডিফল্ট তথ্য প্রবেশ করানো হয়েছে।';
+  String get debugAllDataClearedMessage => 'সমস্ত তথ্য মুছে ফেলা হয়েছে এবং ডিফল্ট তথ্য প্রবেশ করানো হয়েছে।';
 
   @override
-  String get debugClearAllDataLabel =>
-      'সমস্ত তথ্য মুছুন (এবং ডিফল্ট প্রবেশ করান)';
+  String get debugClearAllDataLabel => 'সমস্ত তথ্য মুছুন (এবং ডিফল্ট প্রবেশ করান)';
 
   @override
-  String get debugMinimumDataSeededMessage =>
-      'ন্যূনতম তথ্য প্রবেশ করানো হয়েছে।';
+  String get debugMinimumDataSeededMessage => 'ন্যূনতম তথ্য প্রবেশ করানো হয়েছে।';
 
   @override
   String get debugSeedMinimumDataLabel => 'ন্যূনতম তথ্য প্রবেশ করান';
@@ -1129,12 +1101,10 @@ class AppLocalizationsBn extends AppLocalizations {
   String get debugSeedMediumDataLabel => 'মাঝারি তথ্য প্রবেশ করান';
 
   @override
-  String get debugMaximumDataSeededMessage =>
-      'সর্বোচ্চ তথ্য প্রবেশ করানো হয়েছে।';
+  String get debugMaximumDataSeededMessage => 'সর্বোচ্চ তথ্য প্রবেশ করানো হয়েছে।';
 
   @override
-  String get debugSeedMaximumDataLabel =>
-      'সর্বোচ্চ তথ্য প্রবেশ করান (কর্মদক্ষতা পরীক্ষার জন্য)';
+  String get debugSeedMaximumDataLabel => 'সর্বোচ্চ তথ্য প্রবেশ করান (কর্মদক্ষতা পরীক্ষার জন্য)';
 
   @override
   String get debugRunningInDebugModeLabel => 'DEBUG মোডে চলছে';
@@ -1172,8 +1142,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get dashboardCalendarTooltip => 'ক্যালেন্ডার ভিউ';
 
   @override
-  String get dashboardCalendarDescription =>
-      'ক্যালেন্ডার বিন্যাসে লেনদেনগুলো দেখুন';
+  String get dashboardCalendarDescription => 'ক্যালেন্ডার বিন্যাসে লেনদেনগুলো দেখুন';
 
   @override
   String get dashboardCategoriesTab => 'বিভাগসমূহ';
@@ -1197,8 +1166,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get dashboardBalanceTooltip => 'ব্যালেন্সের ইতিহাস';
 
   @override
-  String get dashboardBalanceDescription =>
-      'সময়ের সাথে সাথে নেট মূল্যের হিসাব রাখুন';
+  String get dashboardBalanceDescription => 'সময়ের সাথে সাথে নেট মূল্যের হিসাব রাখুন';
 
   @override
   String get dashboardExpensesLabel => 'ব্যয়';
@@ -1229,8 +1197,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get failedToLoadIcons => 'আইকন লোড করতে ব্যর্থ হয়েছে।';
 
   @override
-  String get cannotDeleteTransferIcon =>
-      'স্থানান্তর (Transfer) আইকন মুছে ফেলা সম্ভব নয়।';
+  String get cannotDeleteTransferIcon => 'স্থানান্তর (Transfer) আইকন মুছে ফেলা সম্ভব নয়।';
 
   @override
   String get deleteIconsDialogTitle => 'আইকন মুছে ফেলুন';
@@ -1259,8 +1226,7 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get deleteMultipleAccountsMessage =>
-      'আপনি কি নিশ্চিত যে আপনি নির্বাচিত অ্যাকাউন্টগুলো মুছে ফেলতে চান? সংশ্লিষ্ট সমস্ত লেনদেন মুছে ফেলা হবে।';
+  String get deleteMultipleAccountsMessage => 'আপনি কি নিশ্চিত যে আপনি নির্বাচিত অ্যাকাউন্টগুলো মুছে ফেলতে চান? সংশ্লিষ্ট সমস্ত লেনদেন মুছে ফেলা হবে।';
 
   @override
   String get changeAccountTypeDialogTitle => 'অ্যাকাউন্টের ধরণ পরিবর্তন করুন';
@@ -1271,8 +1237,7 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get balanceCalculatedFromAsset =>
-      'ব্যালেন্স হিসাব করা হয় সম্পদের পরিমাণ * মূল্য থেকে';
+  String get balanceCalculatedFromAsset => 'ব্যালেন্স হিসাব করা হয় সম্পদের পরিমাণ * মূল্য থেকে';
 
   @override
   String get selectAccountTypeTitle => 'অ্যাকাউন্টের ধরণ নির্বাচন করুন';
@@ -1293,8 +1258,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get selectedAssetLabel => 'নির্বাচিত সম্পদ';
 
   @override
-  String get balanceAutoCalculatedLabel =>
-      'ব্যালেন্স স্বয়ংক্রিয়ভাবে হিসাব করা হয়';
+  String get balanceAutoCalculatedLabel => 'ব্যালেন্স স্বয়ংক্রিয়ভাবে হিসাব করা হয়';
 
   @override
   String get tapToBindAssetLabel => 'সম্পদ সংযুক্ত করতে ট্যাপ করুন';
@@ -1312,8 +1276,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get accountTypeLabel => 'অ্যাকাউন্টের ধরণ';
 
   @override
-  String get formValidationPleaseSelectAccountType =>
-      'অনুগ্রহ করে অ্যাকাউন্টের ধরণ নির্বাচন করুন';
+  String get formValidationPleaseSelectAccountType => 'অনুগ্রহ করে অ্যাকাউন্টের ধরণ নির্বাচন করুন';
 
   @override
   String get iconLabel => 'আইকন';
@@ -1346,8 +1309,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get syncEnableP2P => 'P2P সিঙ্ক সক্রিয় করুন';
 
   @override
-  String get syncP2PSubtitle =>
-      'শেয়ার্ড ফোল্ডারের .sync ফাইলের মাধ্যমে সিঙ্ক করুন';
+  String get syncP2PSubtitle => 'শেয়ার্ড ফোল্ডারের .sync ফাইলের মাধ্যমে সিঙ্ক করুন';
 
   @override
   String get syncFolderLabel => 'সিঙ্ক ফোল্ডার';
@@ -1374,8 +1336,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get syncApiTokenHint => 'আপনার সিকিউরিটি টোকেন লিখুন';
 
   @override
-  String get syncApiTokenHelp =>
-      'এই টোকেনটি আপনার গোপন পাসওয়ার্ডের মতো। সিঙ্ক করার অনুমতি দিতে আপনার সমস্ত ডিভাইসে একই মান লিখুন।';
+  String get syncApiTokenHelp => 'এই টোকেনটি আপনার গোপন পাসওয়ার্ডের মতো। সিঙ্ক করার অনুমতি দিতে আপনার সমস্ত ডিভাইসে একই মান লিখুন।';
 
   @override
   String get syncTestConnectionButton => 'সংযোগ পরীক্ষা করুন';
@@ -1405,8 +1366,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get syncWebNotAvailable => 'ওয়েবে সিঙ্ক্রোনাইজেশন উপলব্ধ নয়';
 
   @override
-  String get syncPermissionRequired =>
-      'সিঙ্ক করার জন্য স্টোরেজ পারমিশন প্রয়োজন। অনুগ্রহ করে সেটিংসে \"সমস্ত ফাইলে অ্যাক্সেস\" সক্রিয় করুন।';
+  String get syncPermissionRequired => 'সিঙ্ক করার জন্য স্টোরেজ পারমিশন প্রয়োজন। অনুগ্রহ করে সেটিংসে \"সমস্ত ফাইলে অ্যাক্সেস\" সক্রিয় করুন।';
 
   @override
   String get syncSelectFolderTitle => 'Syncthing ফোল্ডার নির্বাচন করুন';
@@ -1415,8 +1375,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get syncClearFilesTitle => 'সিঙ্ক ফাইলগুলো পরিষ্কার করুন';
 
   @override
-  String get syncClearFilesConfirm =>
-      'এটি নির্বাচিত ফোল্ডার থেকে সমস্ত .sync ফাইল মুছে ফেলবে। এটি আর ফিরিয়ে আনা যাবে না।';
+  String get syncClearFilesConfirm => 'এটি নির্বাচিত ফোল্ডার থেকে সমস্ত .sync ফাইল মুছে ফেলবে। এটি আর ফিরিয়ে আনা যাবে না।';
 
   @override
   String syncDeletedFilesCount(Object count) {
@@ -1435,20 +1394,16 @@ class AppLocalizationsBn extends AppLocalizations {
   String get syncConnectionSuccessful => 'সংযোগ সফল হয়েছে!';
 
   @override
-  String get syncConnectionFailed =>
-      'সংযোগ ব্যর্থ হয়েছে। URL এবং টোকেন পরীক্ষা করুন।';
+  String get syncConnectionFailed => 'সংযোগ ব্যর্থ হয়েছে। URL এবং টোকেন পরীক্ষা করুন।';
 
   @override
-  String get syncConnectionUnauthorized =>
-      'সার্ভার টোকেন প্রত্যাখ্যান করেছে। ঠিকানা নয়, টোকেন পরীক্ষা করুন।';
+  String get syncConnectionUnauthorized => 'সার্ভার টোকেন প্রত্যাখ্যান করেছে। ঠিকানা নয়, টোকেন পরীক্ষা করুন।';
 
   @override
-  String get syncServerNotConfigured =>
-      'সার্ভারে কোনো সিঙ্ক টোকেন কনফিগার করা নেই, তাই এটি সব ডিভাইস প্রত্যাখ্যান করছে। সার্ভারে SYNC_TOKEN সেট করুন এবং এখানে একই মান ব্যবহার করুন।';
+  String get syncServerNotConfigured => 'সার্ভারে কোনো সিঙ্ক টোকেন কনফিগার করা নেই, তাই এটি সব ডিভাইস প্রত্যাখ্যান করছে। সার্ভারে SYNC_TOKEN সেট করুন এবং এখানে একই মান ব্যবহার করুন।';
 
   @override
-  String get syncUrlNotConfigured =>
-      'কোনো সার্ভার ঠিকানা নেই। সিঙ্ক চালু করার আগে https://example.com এর মতো একটি URL দিন।';
+  String get syncUrlNotConfigured => 'কোনো সার্ভার ঠিকানা নেই। সিঙ্ক চালু করার আগে https://example.com এর মতো একটি URL দিন।';
 
   @override
   String get syncCompleted => 'সিঙ্ক সফলভাবে সম্পন্ন হয়েছে';
@@ -1507,12 +1462,10 @@ class AppLocalizationsBn extends AppLocalizations {
   String get smsRuleTestEnterSmsError => 'পরীক্ষা করার জন্য SMS টেক্সট লিখুন';
 
   @override
-  String get smsRuleTestMatchError =>
-      '✗ ম্যাচ প্যাটার্নটি কোন মিল খুঁজে পায়নি';
+  String get smsRuleTestMatchError => '✗ ম্যাচ প্যাটার্নটি কোন মিল খুঁজে পায়নি';
 
   @override
-  String get smsRuleTestAmountError =>
-      '✗ পরিমাণের প্যাটার্নটি কোন মিল খুঁজে পায়নি';
+  String get smsRuleTestAmountError => '✗ পরিমাণের প্যাটার্নটি কোন মিল খুঁজে পায়নি';
 
   @override
   String smsRuleTestSuccess(Object amount, Object currency, Object type) {
@@ -1525,8 +1478,7 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get smsRuleRequiredError =>
-      'ম্যাচ প্যাটার্ন এবং পরিমাণের প্যাটার্ন উভয়ই আবশ্যক';
+  String get smsRuleRequiredError => 'ম্যাচ প্যাটার্ন এবং পরিমাণের প্যাটার্ন উভয়ই আবশ্যক';
 
   @override
   String inflationError(Object error) {
@@ -1573,8 +1525,7 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get deleteCategoryMessage =>
-      'এই বিভাগের সাথে সংশ্লিষ্ট লেনদেন রয়েছে। আপনি কি করতে চান?';
+  String get deleteCategoryMessage => 'এই বিভাগের সাথে সংশ্লিষ্ট লেনদেন রয়েছে। আপনি কি করতে চান?';
 
   @override
   String get deleteCategoryReassign => 'লেনদেনগুলো অন্য বিভাগে সরিয়ে নিন';
@@ -1591,8 +1542,7 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get deleteAccountMessage =>
-      'এই অ্যাকাউন্টের সাথে সংশ্লিষ্ট লেনদেন থাকতে পারে। আপনি কি করতে চান?';
+  String get deleteAccountMessage => 'এই অ্যাকাউন্টের সাথে সংশ্লিষ্ট লেনদেন থাকতে পারে। আপনি কি করতে চান?';
 
   @override
   String get deleteAccountReassign => 'লেনদেনগুলো অন্য অ্যাকাউন্টে সরিয়ে নিন';
@@ -1822,6 +1772,9 @@ class AppLocalizationsBn extends AppLocalizations {
   String get hkActionAddAction => 'সাধারণ যোগ করার ক্রিয়া';
 
   @override
+  String get hkActionSaveForm => 'ফর্ম সংরক্ষণ করুন';
+
+  @override
   String get hkActionPickDate => 'তারিখ নির্বাচন করুন';
 
   @override
@@ -1855,12 +1808,10 @@ class AppLocalizationsBn extends AppLocalizations {
   String get hkActionTransactionsSelectionDelete => 'লেনদেন: মুছে ফেলুন';
 
   @override
-  String get hkActionTransactionsSelectionChangeDate =>
-      'লেনদেন: তারিখ পরিবর্তন';
+  String get hkActionTransactionsSelectionChangeDate => 'লেনদেন: তারিখ পরিবর্তন';
 
   @override
-  String get hkActionTransactionsSelectionChangeCategory =>
-      'লেনদেন: বিভাগ পরিবর্তন';
+  String get hkActionTransactionsSelectionChangeCategory => 'লেনদেন: বিভাগ পরিবর্তন';
 
   @override
   String get hkActionCategoriesSelectionClose => 'বিভাগ: বন্ধ';
@@ -1884,8 +1835,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get hkActionDataSelectionDelete => 'বিনিময় হার: মুছে ফেলুন';
 
   @override
-  String get hkActionDataSelectionChangePreset =>
-      'বিনিময় হার: প্রিসেট পরিবর্তন';
+  String get hkActionDataSelectionChangePreset => 'বিনিময় হার: প্রিসেট পরিবর্তন';
 
   @override
   String get hkActionInflationSelectionClose => 'মুদ্রাস্ফীতি: বন্ধ';
@@ -1924,8 +1874,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get smsPermissionRequired => 'SMS অনুমতি প্রয়োজন';
 
   @override
-  String get smsPermissionRationale =>
-      'SMS থেকে লেনদেন আমদানি করতে, আপনার বার্তা পড়ার অনুমতি প্রয়োজন।';
+  String get smsPermissionRationale => 'SMS থেকে লেনদেন আমদানি করতে, আপনার বার্তা পড়ার অনুমতি প্রয়োজন।';
 
   @override
   String get smsGrantPermission => 'অনুমতি দিন';
@@ -1934,8 +1883,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get smsNoPresets => 'কোন প্রিসেট কনফিগার করা হয়নি। যোগ করতে + চাপুন।';
 
   @override
-  String get smsImportDescription =>
-      'SMS বার্তা থেকে লেনদেন আমদানি করুন। একটি সময়সীমা নির্বাচন করুন:';
+  String get smsImportDescription => 'SMS বার্তা থেকে লেনদেন আমদানি করুন। একটি সময়সীমা নির্বাচন করুন:';
 
   @override
   String get smsLast7Days => 'শেষ ৭ দিন';
@@ -1964,8 +1912,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get smsSenderFilterHint => 'উদা: ALTA অথবা +381...';
 
   @override
-  String get smsSenderFilterHelper =>
-      'প্রেরকের নাম বা ফোন নম্বর দিয়ে SMS ফিল্টার করুন';
+  String get smsSenderFilterHelper => 'প্রেরকের নাম বা ফোন নম্বর দিয়ে SMS ফিল্টার করুন';
 
   @override
   String get smsDefaults => 'ডিফল্ট';
@@ -2008,8 +1955,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get smsCategoryKeywords => 'বিভাগের কীওয়ার্ড';
 
   @override
-  String get smsCategoryKeywordsSubtitle =>
-      'SMS-এর লেখার কীওয়ার্ড বিভাগের সাথে মেলান';
+  String get smsCategoryKeywordsSubtitle => 'SMS-এর লেখার কীওয়ার্ড বিভাগের সাথে মেলান';
 
   @override
   String get smsNoKeywordRules => 'কোন কীওয়ার্ড নিয়ম নেই। যোগ করতে + চাপুন।';
@@ -2024,26 +1970,22 @@ class AppLocalizationsBn extends AppLocalizations {
   String get smsKeywordHint => 'উদা: মুদি, Netflix';
 
   @override
-  String get smsKeywordHelper =>
-      'SMS-এর লেখায় মেলানোর জন্য অক্ষর-নিরপেক্ষ শব্দাংশ';
+  String get smsKeywordHelper => 'SMS-এর লেখায় মেলানোর জন্য অক্ষর-নিরপেক্ষ শব্দাংশ';
 
   @override
   String get smsSelectCategoryHint => 'বিভাগ নির্বাচন করুন';
 
   @override
-  String get dshSelectDateDescription =>
-      'নির্দিষ্ট তারিখ বা পরিসীমা বাছতে ক্যালেন্ডার খুলুন';
+  String get dshSelectDateDescription => 'নির্দিষ্ট তারিখ বা পরিসীমা বাছতে ক্যালেন্ডার খুলুন';
 
   @override
-  String get dshCurrencyDescription =>
-      'প্রদর্শনের জন্য প্রধান মুদ্রা নির্বাচন করুন';
+  String get dshCurrencyDescription => 'প্রদর্শনের জন্য প্রধান মুদ্রা নির্বাচন করুন';
 
   @override
   String get dshChangeViewTooltip => 'ভিউ পরিবর্তন করুন';
 
   @override
-  String get dshChangeViewDescription =>
-      'মাসিক এবং বার্ষিক ভিউয়ের মধ্যে পরিবর্তন করুন';
+  String get dshChangeViewDescription => 'মাসিক এবং বার্ষিক ভিউয়ের মধ্যে পরিবর্তন করুন';
 
   @override
   String get dshMonthlyAbbreviation => 'মা';
@@ -2093,12 +2035,10 @@ class AppLocalizationsBn extends AppLocalizations {
   String get fltAdvancedFilterTooltip => 'উন্নত ফিল্টার';
 
   @override
-  String get fltAdvancedFilterDescription =>
-      'অ্যাকাউন্ট, বিভাগ বা পরিমাণ অনুযায়ী লেনদেন ফিল্টার করুন';
+  String get fltAdvancedFilterDescription => 'অ্যাকাউন্ট, বিভাগ বা পরিমাণ অনুযায়ী লেনদেন ফিল্টার করুন';
 
   @override
-  String get fltSortOrderDescription =>
-      'আরোহী এবং অবরোহী ক্রমের মধ্যে পরিবর্তন করুন';
+  String get fltSortOrderDescription => 'আরোহী এবং অবরোহী ক্রমের মধ্যে পরিবর্তন করুন';
 
   @override
   String get fltAccountFiltersTitle => 'অ্যাকাউন্ট ফিল্টার';
@@ -2125,8 +2065,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get exchEditExchangeRate => 'বিনিময় হার সম্পাদনা করুন';
 
   @override
-  String get exchAddRateDescription =>
-      'দুটি মুদ্রার মধ্যে রূপান্তর হার নিজে লিখুন';
+  String get exchAddRateDescription => 'দুটি মুদ্রার মধ্যে রূপান্তর হার নিজে লিখুন';
 
   @override
   String get exchNoRatesFound => 'কোন বিনিময় হার পাওয়া যায়নি।';
@@ -2161,38 +2100,31 @@ class AppLocalizationsBn extends AppLocalizations {
   String get exchNextPeriodDescription => 'পরবর্তী দিন, মাস বা বছরে যান';
 
   @override
-  String get exchFilterDescription =>
-      'উৎস/গন্তব্য মুদ্রা এবং প্রিসেট আইডি অনুযায়ী হার ফিল্টার করুন';
+  String get exchFilterDescription => 'উৎস/গন্তব্য মুদ্রা এবং প্রিসেট আইডি অনুযায়ী হার ফিল্টার করুন';
 
   @override
-  String get exchSelectDateDescription =>
-      'পূর্বের হার দেখতে একটি নির্দিষ্ট তারিখ বা পরিসীমা চয়ন করুন';
+  String get exchSelectDateDescription => 'পূর্বের হার দেখতে একটি নির্দিষ্ট তারিখ বা পরিসীমা চয়ন করুন';
 
   @override
-  String get exchSortOrderDescription =>
-      'তারিখ/হারের আরোহী ও অবরোহী ক্রমের মধ্যে পরিবর্তন করুন';
+  String get exchSortOrderDescription => 'তারিখ/হারের আরোহী ও অবরোহী ক্রমের মধ্যে পরিবর্তন করুন';
 
   @override
   String get exchFilterExchangeRates => 'বিনিময় হার ফিল্টার করুন';
 
   @override
-  String get exchExitSelectionDescription =>
-      'বিনিময় হার নির্বাচন মোড থেকে প্রস্থান করুন';
+  String get exchExitSelectionDescription => 'বিনিময় হার নির্বাচন মোড থেকে প্রস্থান করুন';
 
   @override
-  String get exchSelectAllDescription =>
-      'তালিকাভুক্ত সব বিনিময় হার নির্বাচন করুন';
+  String get exchSelectAllDescription => 'তালিকাভুক্ত সব বিনিময় হার নির্বাচন করুন';
 
   @override
   String get exchDeselectAllDescription => 'সব হারের নির্বাচন বাতিল করুন';
 
   @override
-  String get exchChangePresetDescription =>
-      'নির্বাচিত সব বিনিময় হারের প্রিসেট আইডি আপডেট করুন';
+  String get exchChangePresetDescription => 'নির্বাচিত সব বিনিময় হারের প্রিসেট আইডি আপডেট করুন';
 
   @override
-  String get exchDeleteSelectedDescription =>
-      'নির্বাচিত সব বিনিময় হার স্থায়ীভাবে মুছে ফেলুন';
+  String get exchDeleteSelectedDescription => 'নির্বাচিত সব বিনিময় হার স্থায়ীভাবে মুছে ফেলুন';
 
   @override
   String get exchDeleteExchangeRatesTitle => 'বিনিময় হার মুছে ফেলুন';
@@ -2206,8 +2138,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get exchUpdatePresetTitle => 'প্রিসেট আপডেট করুন';
 
   @override
-  String get exchUpdatePresetMessage =>
-      'নির্বাচিত আইটেমগুলোর জন্য নতুন প্রিসেট আইডি লিখুন:';
+  String get exchUpdatePresetMessage => 'নির্বাচিত আইটেমগুলোর জন্য নতুন প্রিসেট আইডি লিখুন:';
 
   @override
   String dashboardUnconvertibleCurrencies(String currencies) {
@@ -2215,8 +2146,7 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get addAccountBeforeTransactionDescription =>
-      'লেনদেনের জন্য একটি অ্যাকাউন্ট প্রয়োজন। শুরু করতে প্রথমটি তৈরি করুন';
+  String get addAccountBeforeTransactionDescription => 'লেনদেনের জন্য একটি অ্যাকাউন্ট প্রয়োজন। শুরু করতে প্রথমটি তৈরি করুন';
 
   @override
   String get selectDialogEmptyState => 'এখনও বেছে নেওয়ার মতো কিছু নেই';
@@ -2253,8 +2183,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get assetEditTitle => 'সম্পদের তথ্য সম্পাদনা করুন';
 
   @override
-  String get assetAddDescription =>
-      'একটি নির্দিষ্ট সম্পদের মূল্য বা পরিমাণ নথিভুক্ত করুন';
+  String get assetAddDescription => 'একটি নির্দিষ্ট সম্পদের মূল্য বা পরিমাণ নথিভুক্ত করুন';
 
   @override
   String get assetNameLabel => 'সম্পদের নাম (যেমন Apple স্টক)';
@@ -2295,6 +2224,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String assetDeleteConfirmMessage(num count) {
     final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
       locale: localeName,
+      
     );
     final String countString = countNumberFormat.format(count);
 
@@ -2308,15 +2238,13 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get assetDeleteSelectedDescription =>
-      'নির্বাচিত সব সম্পদ রেকর্ড স্থায়ীভাবে মুছে ফেলুন';
+  String get assetDeleteSelectedDescription => 'নির্বাচিত সব সম্পদ রেকর্ড স্থায়ীভাবে মুছে ফেলুন';
 
   @override
   String get inflationEditRate => 'মুদ্রাস্ফীতির হার সম্পাদনা করুন';
 
   @override
-  String get inflationAddDescription =>
-      'একটি নির্দিষ্ট তারিখ ও দেশের জন্য নতুন মুদ্রাস্ফীতির শতাংশ লিখুন';
+  String get inflationAddDescription => 'একটি নির্দিষ্ট তারিখ ও দেশের জন্য নতুন মুদ্রাস্ফীতির শতাংশ লিখুন';
 
   @override
   String get inflationPercentLabel => 'মুদ্রাস্ফীতির শতাংশ (%)';
@@ -2387,6 +2315,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String deleteAccountsConfirmTitle(num count) {
     final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
       locale: localeName,
+      
     );
     final String countString = countNumberFormat.format(count);
 
@@ -2400,8 +2329,7 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get deleteAccountsConfirmMessage =>
-      'আপনি কি নিশ্চিতভাবে নির্বাচিত অ্যাকাউন্টগুলি মুছতে চান? সমস্ত সংশ্লিষ্ট লেনদেন মুছে যাবে।';
+  String get deleteAccountsConfirmMessage => 'আপনি কি নিশ্চিতভাবে নির্বাচিত অ্যাকাউন্টগুলি মুছতে চান? সমস্ত সংশ্লিষ্ট লেনদেন মুছে যাবে।';
 
   @override
   String get changeAccountTypeTitle => 'অ্যাকাউন্টের ধরন পরিবর্তন করুন';
@@ -2413,20 +2341,50 @@ class AppLocalizationsBn extends AppLocalizations {
   String get accountsNextPeriodDescription => 'পরবর্তী মাস বা বছরে যান';
 
   @override
-  String get accountsFilterDescription =>
-      'ধরন বা লুকানো অবস্থা অনুসারে অ্যাকাউন্ট ফিল্টার করুন';
+  String get accountsFilterDescription => 'ধরন বা লুকানো অবস্থা অনুসারে অ্যাকাউন্ট ফিল্টার করুন';
 
   @override
-  String get accountsSelectDateDescription =>
-      'ঐতিহাসিক ব্যালেন্স দেখতে একটি নির্দিষ্ট তারিখ বেছে নিন';
+  String get accountsSelectDateDescription => 'ঐতিহাসিক ব্যালেন্স দেখতে একটি নির্দিষ্ট তারিখ বেছে নিন';
 
   @override
-  String get accountsSortDescription =>
-      'ব্যালেন্সের ঊর্ধ্বক্রম ও অধঃক্রমের মধ্যে পরিবর্তন করুন';
+  String get accountsSortDescription => 'ব্যালেন্সের ঊর্ধ্বক্রম ও অধঃক্রমের মধ্যে পরিবর্তন করুন';
 
   @override
   String get smsRuleCategoryOptional => 'বিভাগ (ঐচ্ছিক)';
 
   @override
   String get smsRuleCategoryHelp => 'এই নিয়মের জন্য বিভাগ ওভাররাইড করুন';
+
+  @override
+  String amountSentLabel(Object currency) {
+    return 'পাঠানো পরিমাণ ($currency)';
+  }
+
+  @override
+  String amountReceivedLabel(Object currency) {
+    return 'প্রাপ্ত পরিমাণ ($currency)';
+  }
+
+  @override
+  String transferRateSummary(Object from, Object rate, Object to) {
+    return '1 $from = $rate $to';
+  }
+
+  @override
+  String get adjustRateLabel => 'হার সমন্বয় করুন';
+
+  @override
+  String get favoriteCurrenciesHeader => 'প্রিয়';
+
+  @override
+  String get frequentCurrenciesHeader => 'প্রায়শই ব্যবহৃত';
+
+  @override
+  String get allCurrenciesHeader => 'সব মুদ্রা';
+
+  @override
+  String get addFavoriteCurrencyTooltip => 'প্রিয়তে যোগ করুন';
+
+  @override
+  String get removeFavoriteCurrencyTooltip => 'প্রিয় থেকে সরান';
 }

@@ -47,6 +47,10 @@ class _FakeCategoryRepository extends Fake implements CategoryRepository {
     }
     categories[categories.indexWhere((c) => c.id == category.id)] = category;
   }
+
+  @override
+  Stream<List<Category>> watchCategories({bool includeSystem = false}) =>
+      const Stream.empty();
 }
 
 class _FakeTransactionRepository extends Fake implements TransactionRepository {

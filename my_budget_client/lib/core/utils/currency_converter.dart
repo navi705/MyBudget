@@ -39,6 +39,9 @@ class CurrencyConverter {
   /// has to be right for a total to add up.
   late final List<String> _pivots = _resolvePivots();
 
+  /// Answers already worked out, keyed by the question.
+  final Map<_MemoKey, DatedRate?> _resolved = {};
+
   CurrencyConverter(this.rates, {required this.baseCurrency}) {
     // Ascending by date: _findRate scans in this order, and scanning ascending
     // is what makes a distance tie resolve to the EARLIER row (see below).
@@ -114,6 +117,16 @@ class CurrencyConverter {
   DatedRate? resolveRate(String from, String to, DateTime date) {
     if (from == to) return (rate: 1.0, date: date);
 
+    // The answer depends only on (from, to, date) and the rate list, which
+    // cannot change - `rates` is final and the grouping is built once in the
+    // constructor. The dashboard's net-worth walk-back asks the same handful
+    // of questions once per account per day: a hundred accounts over a year is
+    // thirty-six thousand calls resolving a few dozen distinct pairs, each one
+    // re-scanning the stored rows for the pair and re-ranking three candidates.
+    final key = _MemoKey(from, to, date.millisecondsSinceEpoch);
+    final memo = _resolved;
+    if (memo.containsKey(key)) return memo[key];
+
     double? bestRate;
     DateTime? bestDate;
 
@@ -161,8 +174,14 @@ class CurrencyConverter {
     }
 
     final rate = bestRate;
-    if (rate == null) return null;
-    return (rate: rate, date: bestDate!);
+    // A pair with no path is memoised as null too: an unconvertible currency is
+    // asked about just as often as a convertible one, and it is the expensive
+    // case - every candidate is tried and every one of them misses.
+    final DatedRate? resolved = rate == null
+        ? null
+        : (rate: rate, date: bestDate!);
+    memo[key] = resolved;
+    return resolved;
   }
 
   /// Converts [amount] from [from] to [to] as of [date], or **null** when the
@@ -204,4 +223,27 @@ class CurrencyConverter {
     return tryConvert(amount: amount, from: from, to: to, date: date) ??
         double.nan;
   }
+}
+
+/// A (from, to, date) question, as a value.
+///
+/// The date is carried as milliseconds rather than a [DateTime] so that two
+/// instants that differ only by their `isUtc` flag - which `DateTime ==`
+/// distinguishes and the rate lookup does not - do not split into two entries.
+class _MemoKey {
+  final String from;
+  final String to;
+  final int millis;
+
+  const _MemoKey(this.from, this.to, this.millis);
+
+  @override
+  bool operator ==(Object other) =>
+      other is _MemoKey &&
+      other.from == from &&
+      other.to == to &&
+      other.millis == millis;
+
+  @override
+  int get hashCode => Object.hash(from, to, millis);
 }

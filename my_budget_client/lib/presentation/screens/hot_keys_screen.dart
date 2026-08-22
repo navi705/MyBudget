@@ -103,6 +103,9 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
               ],
               context.l10n.hkCategoryActions: [
                 {'id': 'add_action', 'label': context.l10n.hkActionAddAction},
+                // Every form that can be saved from the keyboard uses this one
+                // id, so it is bound once here rather than per screen.
+                {'id': 'save_form', 'label': context.l10n.hkActionSaveForm},
                 {'id': 'sort_order', 'label': context.l10n.hkActionSortOrder},
                 {
                   'id': 'filter_action',

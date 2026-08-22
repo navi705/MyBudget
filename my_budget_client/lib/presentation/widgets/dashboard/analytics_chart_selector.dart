@@ -7,6 +7,15 @@ import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/balance_line_chart.dart';
 
+/// Arcs the donuts draw before folding the rest into a single one.
+///
+/// The charts took a slice per account and per currency, and the tail of that
+/// is a run of sub-degree slivers: they cost a path and a colour lookup each,
+/// they cannot carry a label, and against a 2dp gap between sections they are
+/// mostly gap. The legend below the chart still lists every entry, so nothing
+/// is lost from the figure - only from the ring.
+const int _maxDrawnSlices = 12;
+
 class BalanceReportWidget extends StatefulWidget {
   final DateTime dateRangeStart;
   final DateTime dateRangeEnd;
@@ -37,7 +46,6 @@ class BalanceReportWidget extends StatefulWidget {
 
 class _BalanceReportWidgetState extends State<BalanceReportWidget> {
   String? _selectedAccountId; // null means "All Accounts"
-  bool _isAccountSelectorHovered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +66,12 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
               return Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxWidth),
-                  child: _buildAccountSelector(),
+                  child: _AccountSelector(
+                    accounts: widget.accounts,
+                    selectedAccountId: _selectedAccountId,
+                    onChanged: (val) =>
+                        setState(() => _selectedAccountId = val),
+                  ),
                 ),
               );
             },
@@ -87,126 +100,6 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildAccountSelector() {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isAccountSelectorHovered = true),
-      onExit: (_) => setState(() => _isAccountSelectorHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        padding: EdgeInsets.zero,
-        height: 44,
-        decoration: BoxDecoration(
-          color: _isAccountSelectorHovered
-              ? colorScheme.surfaceContainerHighest
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _isAccountSelectorHovered
-                ? colorScheme.onSurface.withValues(alpha: 0.2)
-                : colorScheme.onSurface.withValues(alpha: 0.1),
-            width: 1,
-          ),
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String?>(
-            value: _selectedAccountId,
-            isExpanded: true,
-            isDense: true,
-            focusColor: Colors.transparent,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            icon: Icon(
-              Icons.unfold_more_rounded,
-              color: colorScheme.onSurfaceVariant,
-              size: 20,
-            ),
-            dropdownColor: colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-            onChanged: (val) {
-              setState(() {
-                _selectedAccountId = val;
-              });
-            },
-            selectedItemBuilder: (BuildContext context) {
-              // Directional alignment: `centerLeft` would pin the label to the
-              // physical left even in the ar / ur layouts.
-              return [
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(
-                    context.l10n.allLabel,
-                    style: TextStyle(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                ...widget.accounts.map((acc) {
-                  return Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: Text(
-                      acc.name,
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  );
-                }),
-              ];
-            },
-            items: [
-              DropdownMenuItem<String?>(
-                value: null,
-                child: Text(
-                  context.l10n.allLabel,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              ...widget.accounts.map((acc) {
-                return DropdownMenuItem<String?>(
-                  value: acc.id,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // The menu item is width-bounded by the dropdown, so a
-                      // long account name has to ellipsise rather than push
-                      // the balance out of the item. A Spacer cannot do that:
-                      // it only eats leftover space, it never yields any.
-                      Expanded(
-                        child: Text(
-                          acc.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: colorScheme.onSurface),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatCurrency(acc.balance, acc.currencyCode),
-                        style: TextStyle(
-                          color: colorScheme.secondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -396,13 +289,29 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
       );
     }
 
+    final theme = Theme.of(context);
+    final isDarkTheme = theme.brightness == Brightness.dark;
+    // Everything past the cap shares one muted colour, so the legend rows for
+    // those entries point at the arc they were folded into.
+    final tailColor = theme.colorScheme.outlineVariant;
+    final colors = [
+      for (var index = 0; index < data.length; index++)
+        if (index < _maxDrawnSlices)
+          ChartColorUtils.getAdaptiveColor(
+            ChartColorUtils.getPaletteColor(index),
+            isDarkTheme,
+          )
+        else
+          tailColor,
+    ];
+
     return Column(
       children: [
         Text(
           title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 24),
         SizedBox(
@@ -411,32 +320,22 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
             PieChartData(
               sectionsSpace: 2,
               centerSpaceRadius: 40,
-              sections: data.asMap().entries.map((item) {
-                final index = item.key;
-                final e = item.value;
-                final percentage = total > 0 ? (e.value / total) * 100 : 0.0;
-                final isLarge = percentage > 5;
-                final isDarkTheme =
-                    Theme.of(context).brightness == Brightness.dark;
-                final baseColor = ChartColorUtils.getPaletteColor(index);
-                final color = ChartColorUtils.getAdaptiveColor(
-                  baseColor,
-                  isDarkTheme,
-                );
-                final textColor = ChartColorUtils.getContrastColor(color);
-
-                return PieChartSectionData(
-                  color: color,
-                  value: e.value,
-                  title: isLarge ? '${percentage.toStringAsFixed(2)}%' : '',
-                  radius: 60,
-                  titleStyle: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
+              sections: [
+                for (
+                  var index = 0;
+                  index < data.length && index < _maxDrawnSlices;
+                  index++
+                )
+                  _pieSlice(data[index].value, colors[index], total),
+                if (data.length > _maxDrawnSlices)
+                  _pieSlice(
+                    data
+                        .skip(_maxDrawnSlices)
+                        .fold(0.0, (sum, e) => sum + e.value),
+                    tailColor,
+                    total,
                   ),
-                );
-              }).toList(),
+              ],
             ),
           ),
         ),
@@ -456,12 +355,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
                 final index = item.key;
                 final e = item.value;
                 final percentage = total > 0 ? (e.value / total) * 100 : 0.0;
-                final isDarkTheme =
-                    Theme.of(context).brightness == Brightness.dark;
-                final color = ChartColorUtils.getAdaptiveColor(
-                  ChartColorUtils.getPaletteColor(index),
-                  isDarkTheme,
-                );
+                final color = colors[index];
                 return ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: constraints.maxWidth),
                   child: Row(
@@ -480,7 +374,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
                         child: Text(
                           '${e.key} ${percentage.toStringAsFixed(2)}% (${MoneyFormatter.format(e.value, widget.currencyCode)} ${widget.currencyCode})',
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium,
+                          style: theme.textTheme.bodyMedium,
                         ),
                       ),
                     ],
@@ -491,6 +385,23 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
           },
         ),
       ],
+    );
+  }
+
+  PieChartSectionData _pieSlice(double value, Color color, double total) {
+    final percentage = total > 0 ? (value / total) * 100 : 0.0;
+    return PieChartSectionData(
+      color: color,
+      value: value,
+      // Below about a twentieth of the ring the label is wider than the arc it
+      // sits on, so it is left off rather than drawn across its neighbours.
+      title: percentage > 5 ? '${percentage.toStringAsFixed(2)}%' : '',
+      radius: 60,
+      titleStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+        color: ChartColorUtils.getContrastColor(color),
+      ),
     );
   }
 
@@ -510,6 +421,149 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
     // Use pre-calculated currency breakdown from Bloc (already converted)
     return widget.currencyBreakdown.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
+  }
+}
+
+/// The account filter, lifted out of [BalanceReportWidget] so hovering it stops
+/// rebuilding the charts.
+///
+/// A pointer entering the box only changes its fill and border, but the
+/// `setState` behind that lived on the report's state, so every frame of the
+/// 200ms animation rebuilt the net-worth trend chart and both distribution
+/// donuts underneath it as well.
+class _AccountSelector extends StatefulWidget {
+  final List<Account> accounts;
+  final String? selectedAccountId;
+  final ValueChanged<String?> onChanged;
+
+  const _AccountSelector({
+    required this.accounts,
+    required this.selectedAccountId,
+    required this.onChanged,
+  });
+
+  @override
+  State<_AccountSelector> createState() => _AccountSelectorState();
+}
+
+class _AccountSelectorState extends State<_AccountSelector> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: EdgeInsets.zero,
+        height: 44,
+        decoration: BoxDecoration(
+          color: _isHovered
+              ? colorScheme.surfaceContainerHighest
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _isHovered
+                ? colorScheme.onSurface.withValues(alpha: 0.2)
+                : colorScheme.onSurface.withValues(alpha: 0.1),
+            width: 1,
+          ),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String?>(
+            value: widget.selectedAccountId,
+            isExpanded: true,
+            isDense: true,
+            focusColor: Colors.transparent,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            icon: Icon(
+              Icons.unfold_more_rounded,
+              color: colorScheme.onSurfaceVariant,
+              size: 20,
+            ),
+            dropdownColor: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+            onChanged: widget.onChanged,
+            selectedItemBuilder: (BuildContext context) {
+              // Directional alignment: `centerLeft` would pin the label to the
+              // physical left even in the ar / ur layouts.
+              return [
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    context.l10n.allLabel,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                ...widget.accounts.map((acc) {
+                  return Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      acc.name,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  );
+                }),
+              ];
+            },
+            items: [
+              DropdownMenuItem<String?>(
+                value: null,
+                child: Text(
+                  context.l10n.allLabel,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              ...widget.accounts.map((acc) {
+                return DropdownMenuItem<String?>(
+                  value: acc.id,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // The menu item is width-bounded by the dropdown, so a
+                      // long account name has to ellipsise rather than push
+                      // the balance out of the item. A Spacer cannot do that:
+                      // it only eats leftover space, it never yields any.
+                      Expanded(
+                        child: Text(
+                          acc.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: colorScheme.onSurface),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatCurrency(acc.balance, acc.currencyCode),
+                        style: TextStyle(
+                          color: colorScheme.secondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   String _formatCurrency(double amount, String code) {

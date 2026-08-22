@@ -84,4 +84,31 @@ void main() {
       expect(MoneyFormatter.decimalsFor('BTC', 5.0), 2);
     });
   });
+
+  group('MoneyFormatter.formatCompact', () {
+    // The calendar cells are a seventh of the screen wide and hold two amounts
+    // each, inside a FittedBox. A six-figure total did not overflow there — it
+    // shrank, so far past its neighbours that it stopped being readable.
+    test('anything under five figures is printed in full', () {
+      expect(MoneyFormatter.formatCompact(0, 'EUR'), '0.00');
+      expect(MoneyFormatter.formatCompact(-87.61, 'EUR'), '-87.61');
+      expect(
+        MoneyFormatter.formatCompact(9999.99, 'EUR'),
+        '9${MoneyFormatter.groupSeparator}999.99',
+      );
+    });
+
+    test('five figures and up are compacted', () {
+      expect(MoneyFormatter.formatCompact(109507.73, 'EUR'), '110K');
+      expect(MoneyFormatter.formatCompact(-109507.73, 'EUR'), '-110K');
+      expect(MoneyFormatter.formatCompact(10000, 'EUR'), '10K');
+    });
+
+    test('a non-finite amount stays the unknown placeholder', () {
+      expect(
+        MoneyFormatter.formatCompact(double.nan, 'EUR'),
+        MoneyFormatter.unknownPlaceholder,
+      );
+    });
+  });
 }

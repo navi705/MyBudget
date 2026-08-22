@@ -31,6 +31,10 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
   final CurrencyRepository _currencyRepository;
 
   StreamSubscription<void>? _transactionsSubscription;
+  // The categories table itself. The screen only loads from a cold state now
+  // (the shell route remounts it on every tab switch), so a write from outside
+  // this bloc — a sync, a restore — has to reach the list through here.
+  StreamSubscription<List<Category>>? _categoriesSubscription;
 
   CategoriesBloc({
     required CategoryRepository categoryRepository,
@@ -72,6 +76,14 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
         .watchTransactionChanges()
         .debounceTime(const Duration(milliseconds: 500))
         .listen((_) => add(LoadCategories()));
+
+    // skip(1): the stream opens with the current table, which the first
+    // LoadCategories is already fetching.
+    _categoriesSubscription = _categoryRepository
+        .watchCategories()
+        .skip(1)
+        .debounceTime(const Duration(milliseconds: 500))
+        .listen((_) => add(LoadCategories()));
   }
 
   @override
@@ -81,6 +93,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
     // controller is closed throws. Cancelling without awaiting leaves that
     // race open on every screen dismissal.
     await _transactionsSubscription?.cancel();
+    await _categoriesSubscription?.cancel();
     return super.close();
   }
 

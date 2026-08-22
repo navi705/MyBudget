@@ -61,6 +61,9 @@ class _FakeAccountRepository extends Fake implements AccountRepository {
 
   @override
   Future<List<AccountType>> getAccountTypes() async => const [];
+
+  @override
+  Stream<List<Account>> watchAccounts() => const Stream.empty();
 }
 
 /// Replays [accountFilters] as the persisted `account_filters` setting, which
@@ -120,6 +123,10 @@ class _FakeCategoryRepository extends Fake implements CategoryRepository {
   @override
   Future<List<Category>> getCategories({bool includeSystem = false}) async =>
       const [];
+
+  @override
+  Stream<List<Category>> watchCategories({bool includeSystem = false}) =>
+      const Stream.empty();
 }
 
 /// No transactions at all: this file is about counting accounts, and the

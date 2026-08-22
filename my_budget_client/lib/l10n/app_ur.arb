@@ -537,6 +537,7 @@
     "hkActionPrevPeriod": "پچھلی مدت",
     "hkActionNextPeriod": "اگلی مدت",
     "hkActionAddAction": "عام شامل کرنے کا عمل",
+    "hkActionSaveForm": "فارم محفوظ کریں",
     "hkActionPickDate": "تاریخ منتخب کریں",
     "hkActionDashboardSwitchView": "ڈیش بورڈ: ویو تبدیل کریں",
     "hkActionSortOrder": "ترتیب دیں",
@@ -713,5 +714,14 @@
     "accountsSelectDateDescription": "ماضی کے بیلنس دیکھنے کے لیے مخصوص تاریخ منتخب کریں",
     "accountsSortDescription": "بیلنس کی صعودی اور نزولی ترتیب کے درمیان تبدیل کریں",
     "smsRuleCategoryOptional": "زمرہ (اختیاری)",
-    "smsRuleCategoryHelp": "اس قاعدے کے لیے زمرہ تبدیل کریں"
+    "smsRuleCategoryHelp": "اس قاعدے کے لیے زمرہ تبدیل کریں",
+    "amountSentLabel": "بھیجی گئی رقم ({currency})",
+    "amountReceivedLabel": "موصولہ رقم ({currency})",
+    "transferRateSummary": "1 {from} = {rate} {to}",
+    "adjustRateLabel": "شرح تبادلہ تبدیل کریں",
+    "favoriteCurrenciesHeader": "پسندیدہ",
+    "frequentCurrenciesHeader": "کثرت سے استعمال شدہ",
+    "allCurrenciesHeader": "تمام کرنسیاں",
+    "addFavoriteCurrencyTooltip": "پسندیدہ میں شامل کریں",
+    "removeFavoriteCurrencyTooltip": "پسندیدہ سے ہٹائیں"
 }

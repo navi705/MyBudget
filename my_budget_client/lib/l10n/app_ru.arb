@@ -537,6 +537,7 @@
     "hkActionPrevPeriod": "Предыдущий период",
     "hkActionNextPeriod": "Следующий период",
     "hkActionAddAction": "Общее добавить",
+    "hkActionSaveForm": "Сохранить форму",
     "hkActionPickDate": "Выбрать дату",
     "hkActionDashboardSwitchView": "Сводка: Изменить вид",
     "hkActionSortOrder": "Порядок сортировки",
@@ -713,5 +714,14 @@
     "accountsSelectDateDescription": "Выберите дату, чтобы посмотреть балансы на этот момент",
     "accountsSortDescription": "Переключить порядок балансов: по возрастанию или по убыванию",
     "smsRuleCategoryOptional": "Категория (необязательно)",
-    "smsRuleCategoryHelp": "Переопределить категорию для этого правила"
+    "smsRuleCategoryHelp": "Переопределить категорию для этого правила",
+    "amountSentLabel": "Отправлено ({currency})",
+    "amountReceivedLabel": "Получено ({currency})",
+    "transferRateSummary": "1 {from} = {rate} {to}",
+    "adjustRateLabel": "Изменить курс",
+    "favoriteCurrenciesHeader": "Избранные",
+    "frequentCurrenciesHeader": "Часто используемые",
+    "allCurrenciesHeader": "Все валюты",
+    "addFavoriteCurrencyTooltip": "Добавить в избранное",
+    "removeFavoriteCurrencyTooltip": "Убрать из избранного"
 }

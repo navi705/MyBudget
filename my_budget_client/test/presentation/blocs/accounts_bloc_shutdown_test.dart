@@ -11,6 +11,7 @@ import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/domain/services/finance_calculator.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
+import 'package:my_budget_client/domain/entities/category.dart';
 
 /// Pins the shutdown-race fix in [AccountsBloc]'s handlers.
 ///
@@ -27,6 +28,9 @@ class _FakeAccountRepository extends Fake implements AccountRepository {
 
   @override
   Future<void> addAccount(Account account) => addAccountGate.future;
+
+  @override
+  Stream<List<Account>> watchAccounts() => const Stream.empty();
 }
 
 class _FakeTransactionRepository extends Fake implements TransactionRepository {
@@ -42,7 +46,11 @@ class _FakeInflationRepository extends Fake implements InflationRepository {}
 
 class _FakeAssetRepository extends Fake implements AssetRepository {}
 
-class _FakeCategoryRepository extends Fake implements CategoryRepository {}
+class _FakeCategoryRepository extends Fake implements CategoryRepository {
+  @override
+  Stream<List<Category>> watchCategories({bool includeSystem = false}) =>
+      const Stream.empty();
+}
 
 void main() {
   group('AccountsBloc shutdown race', () {

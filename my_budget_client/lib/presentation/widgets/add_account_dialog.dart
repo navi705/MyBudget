@@ -11,6 +11,7 @@ import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
+import 'package:my_budget_client/presentation/widgets/currency_picker_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/icon_selection_dialog.dart';
 
@@ -45,6 +46,36 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
     super.dispose();
   }
 
+  /// Validates the form and adds the account.
+  ///
+  /// A method rather than the button's closure because the last field submits
+  /// through it too: on a phone the keyboard's own action key is the one under
+  /// the thumb, and it used to do nothing.
+  void _onSave() {
+    if (!_formKey.currentState!.validate()) return;
+    // Guard against force-unwrap crash if currency/designation unresolved.
+    if (_selectedCurrencyCode == null ||
+        _selectedCurrencyDesignationId == null ||
+        _selectedAccountTypeId == null) {
+      return;
+    }
+    final newAccount = Account(
+      name: _nameController.text,
+      description: _descriptionController.text.isEmpty
+          ? null
+          : _descriptionController.text,
+      balance: double.parse(_balanceController.text),
+      currencyCode: _selectedCurrencyCode!,
+      currencyDesignationId: _selectedCurrencyDesignationId!,
+      styleId: _selectedStyleId,
+      accountTypeId: _selectedAccountTypeId!,
+      creationDate: DateTime.now(),
+      country: _selectedCountry,
+    );
+    context.read<AccountsBloc>().add(AddAccount(newAccount));
+    Navigator.of(context).pop();
+  }
+
   Color _getColorFromHex(String? hexColor) {
     hexColor = (hexColor ?? '#FF5733').replaceAll("#", "");
     if (hexColor.length == 6) {
@@ -65,216 +96,210 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 250),
-            child: SizedBox(
-              width: double.maxFinite,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: l10n.accountNameHint,
-                    ),
-                    validator: (value) => (value == null || value.isEmpty)
-                        ? l10n.formValidationPleaseEnterName
-                        : null,
-                  ),
-                  // Hide Description
-                  /*
+          // No max width of its own: `AlertDialog` already caps how wide a
+          // dialog may get. The 250dp cap this used to carry was narrower than
+          // the phone it opened on, so a currency name or a country name ran
+          // out of room while the dialog sat in the middle of empty space.
+          child: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 TextFormField(
-                  controller: _descriptionController,
-                  decoration: InputDecoration(labelText: l10n.descriptionLabel),
-                  maxLines: 3,
-                  keyboardType: TextInputType.multiline,
+                  controller: _nameController,
+                  // The dialog opens with the keyboard on the one field it
+                  // cannot be saved without.
+                  autofocus: true,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(labelText: l10n.accountNameHint),
+                  validator: (value) => (value == null || value.isEmpty)
+                      ? l10n.formValidationPleaseEnterName
+                      : null,
                 ),
-                */
-                  TextFormField(
-                    controller: _balanceController,
-                    decoration: InputDecoration(
-                      labelText: l10n.initialBalanceHint,
-                    ),
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return l10n.formValidationPleaseEnterBalance;
-                      }
-                      if (double.tryParse(value) == null) {
-                        return l10n.formValidationPleaseEnterValidNumber;
-                      }
-                      return null;
-                    },
+                TextFormField(
+                  controller: _balanceController,
+                  decoration: InputDecoration(
+                    labelText: l10n.initialBalanceHint,
                   ),
-                  BlocBuilder<CurrencyBloc, CurrencyState>(
-                    builder: (context, state) {
-                      if (state is CurrencyLoadSuccess) {
-                        return GestureDetector(
-                          onTap: () async {
-                            final selectedCurrency =
-                                await showSingleSelectDialog<Currency>(
-                                  context: context,
-                                  items: state.currencies,
-                                  title: l10n.selectCurrencyTitle,
-                                  selectedItem: state.currencies
-                                      .firstWhereOrNull(
-                                        (c) => c.code == _selectedCurrencyCode,
-                                      ),
-                                  itemBuilder: (currency) =>
-                                      Text(currency.name),
-                                  stringGetter: (currency) =>
-                                      '${currency.name} ${currency.code}',
-                                );
-                            if (mounted && selectedCurrency != null) {
-                              setState(() {
-                                _selectedCurrencyCode = selectedCurrency.code;
-                                _selectedCurrencyDesignationId = state
-                                    .designations
-                                    .firstWhereOrNull(
-                                      (d) =>
-                                          d.currencyCode ==
-                                          _selectedCurrencyCode,
-                                    )
-                                    ?.id;
-                              });
-                            }
-                          },
-                          child: AbsorbPointer(
-                            child: TextFormField(
-                              key: Key(_selectedCurrencyCode ?? 'no_currency'),
-                              initialValue: state.currencies
-                                  .firstWhereOrNull(
-                                    (c) => c.code == _selectedCurrencyCode,
-                                  )
-                                  ?.name,
-                              decoration: InputDecoration(
-                                labelText: l10n.currencyLabel,
-                              ),
-                              // The designation is looked up by currency code,
-                              // so a currency with no designation row left
-                              // this field valid and Save inert - the button
-                              // ran, hit the guard below and returned with
-                              // nothing marked. Fail here instead, so the
-                              // user can pick a currency that works.
-                              validator: (value) =>
-                                  _selectedCurrencyCode == null ||
-                                      _selectedCurrencyDesignationId == null
-                                  ? l10n.formValidationPleaseSelectCurrency
-                                  : null,
-                            ),
-                          ),
-                        );
-                      }
-                      return const Center(child: CircularProgressIndicator());
-                    },
+                  // `number` alone is a digits-only pad: no decimal
+                  // separator and no minus, so a balance of 1234.56 - or a
+                  // credit card's negative one - could not be typed on a
+                  // phone at all, and the validator then rejected what was
+                  // left.
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
                   ),
-                  BlocBuilder<AccountsBloc, AccountsState>(
-                    // Automatic selection of first account type if none selected
-                    builder: (context, state) {
-                      if (state is AccountsLoadSuccess) {
-                        if (_selectedAccountTypeId == null &&
-                            state.accountTypes.isNotEmpty) {
-                          _selectedAccountTypeId = state.accountTypes.first.id;
-                        }
-                        if (_selectedAccountTypeId == null) {
-                          // The picker is hidden because a type is normally
-                          // auto-assigned - but with no account type to assign
-                          // Save just returned, leaving a dialog that could
-                          // never be submitted and never said why.
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              l10n.formValidationPleaseSelectAccountType,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink(); // Hide Account Type
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                  BlocBuilder<SettingsBloc, SettingsState>(
-                    builder: (context, state) {
-                      final localizedCountryName = _selectedCountry != null
-                          ? getLocalizedCountryName(
-                              _selectedCountry!,
-                              state.settings['language_code'] ?? 'en',
-                            )
-                          : null;
-
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _onSave(),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return l10n.formValidationPleaseEnterBalance;
+                    }
+                    if (double.tryParse(value) == null) {
+                      return l10n.formValidationPleaseEnterValidNumber;
+                    }
+                    return null;
+                  },
+                ),
+                BlocBuilder<CurrencyBloc, CurrencyState>(
+                  builder: (context, state) {
+                    if (state is CurrencyLoadSuccess) {
                       return GestureDetector(
                         onTap: () async {
-                          final selectedCode = await showDialog<String>(
+                          final selectedCurrency = await showCurrencyPicker(
                             context: context,
-                            builder: (context) => CountryPickerDialog(
-                              allCountries: state.countries,
-                              selectedCountryCode: _selectedCountry,
-                            ),
+                            currencies: state.currencies,
+                            selectedCurrencyCode: _selectedCurrencyCode,
                           );
-
-                          if (mounted && selectedCode != null) {
+                          if (mounted && selectedCurrency != null) {
                             setState(() {
-                              _selectedCountry = selectedCode;
+                              _selectedCurrencyCode = selectedCurrency.code;
+                              _selectedCurrencyDesignationId = state
+                                  .designations
+                                  .firstWhereOrNull(
+                                    (d) =>
+                                        d.currencyCode == _selectedCurrencyCode,
+                                  )
+                                  ?.id;
                             });
                           }
                         },
                         child: AbsorbPointer(
                           child: TextFormField(
-                            key: Key(_selectedCountry ?? 'no_country'),
-                            initialValue: localizedCountryName,
+                            key: Key(_selectedCurrencyCode ?? 'no_currency'),
+                            initialValue: state.currencies
+                                .firstWhereOrNull(
+                                  (c) => c.code == _selectedCurrencyCode,
+                                )
+                                ?.name,
                             decoration: InputDecoration(
-                              labelText: l10n.defaultInflationCountryLabel,
-                              hintText: l10n.selectCountryTitle,
+                              labelText: l10n.currencyLabel,
                             ),
+                            // The designation is looked up by currency code,
+                            // so a currency with no designation row left
+                            // this field valid and Save inert - the button
+                            // ran, hit the guard below and returned with
+                            // nothing marked. Fail here instead, so the
+                            // user can pick a currency that works.
+                            validator: (value) =>
+                                _selectedCurrencyCode == null ||
+                                    _selectedCurrencyDesignationId == null
+                                ? l10n.formValidationPleaseSelectCurrency
+                                : null,
                           ),
                         ),
                       );
-                    },
-                  ),
-                  BlocBuilder<StylesBloc, StylesState>(
-                    builder: (context, state) {
-                      if (state is StylesLoadSuccess) {
-                        final selectedStyle = state.styles.firstWhereOrNull(
-                          (s) => s.id == _selectedStyleId,
-                        );
-
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: selectedStyle != null
-                              ? CircleAvatar(
-                                  backgroundColor: _getColorFromHex(
-                                    selectedStyle.colorHex,
-                                  ),
-                                  child: IconUtils.getIconWidget(selectedStyle),
-                                )
-                              : const CircleAvatar(
-                                  child: Icon(Icons.account_balance),
-                                ),
-                          title: Text(l10n.iconLabel),
-                          subtitle: Text(
-                            selectedStyle?.name ?? l10n.selectIconSubtitle,
+                    }
+                    return const Center(child: CircularProgressIndicator());
+                  },
+                ),
+                BlocBuilder<AccountsBloc, AccountsState>(
+                  // Automatic selection of first account type if none selected
+                  builder: (context, state) {
+                    if (state is AccountsLoadSuccess) {
+                      if (_selectedAccountTypeId == null &&
+                          state.accountTypes.isNotEmpty) {
+                        _selectedAccountTypeId = state.accountTypes.first.id;
+                      }
+                      if (_selectedAccountTypeId == null) {
+                        // The picker is hidden because a type is normally
+                        // auto-assigned - but with no account type to assign
+                        // Save just returned, leaving a dialog that could
+                        // never be submitted and never said why.
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            l10n.formValidationPleaseSelectAccountType,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
                           ),
-                          onTap: () async {
-                            final newStyleId = await showIconSelectionDialog(
-                              context,
-                              _selectedStyleId ?? '',
-                            );
-                            if (newStyleId != null) {
-                              setState(() {
-                                _selectedStyleId = newStyleId;
-                              });
-                            }
-                          },
                         );
                       }
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                ],
-              ),
+                      return const SizedBox.shrink(); // Hide Account Type
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                BlocBuilder<SettingsBloc, SettingsState>(
+                  builder: (context, state) {
+                    final localizedCountryName = _selectedCountry != null
+                        ? getLocalizedCountryName(
+                            _selectedCountry!,
+                            state.settings['language_code'] ?? 'en',
+                          )
+                        : null;
+
+                    return GestureDetector(
+                      onTap: () async {
+                        final selectedCode = await showDialog<String>(
+                          context: context,
+                          builder: (context) => CountryPickerDialog(
+                            allCountries: state.countries,
+                            selectedCountryCode: _selectedCountry,
+                          ),
+                        );
+
+                        if (mounted && selectedCode != null) {
+                          setState(() {
+                            _selectedCountry = selectedCode;
+                          });
+                        }
+                      },
+                      child: AbsorbPointer(
+                        child: TextFormField(
+                          key: Key(_selectedCountry ?? 'no_country'),
+                          initialValue: localizedCountryName,
+                          decoration: InputDecoration(
+                            labelText: l10n.defaultInflationCountryLabel,
+                            hintText: l10n.selectCountryTitle,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                BlocBuilder<StylesBloc, StylesState>(
+                  builder: (context, state) {
+                    if (state is StylesLoadSuccess) {
+                      final selectedStyle = state.styles.firstWhereOrNull(
+                        (s) => s.id == _selectedStyleId,
+                      );
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: selectedStyle != null
+                            ? CircleAvatar(
+                                backgroundColor: _getColorFromHex(
+                                  selectedStyle.colorHex,
+                                ),
+                                child: IconUtils.getIconWidget(selectedStyle),
+                              )
+                            : const CircleAvatar(
+                                child: Icon(Icons.account_balance),
+                              ),
+                        title: Text(l10n.iconLabel),
+                        subtitle: Text(
+                          selectedStyle?.name ?? l10n.selectIconSubtitle,
+                        ),
+                        onTap: () async {
+                          final newStyleId = await showIconSelectionDialog(
+                            context,
+                            _selectedStyleId ?? '',
+                          );
+                          if (newStyleId != null) {
+                            setState(() {
+                              _selectedStyleId = newStyleId;
+                            });
+                          }
+                        },
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
             ),
           ),
         ),
@@ -284,34 +309,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(l10n.cancelButton),
         ),
-        FilledButton.tonal(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              // Guard against force-unwrap crash if currency/designation unresolved.
-              if (_selectedCurrencyCode == null ||
-                  _selectedCurrencyDesignationId == null ||
-                  _selectedAccountTypeId == null) {
-                return;
-              }
-              final newAccount = Account(
-                name: _nameController.text,
-                description: _descriptionController.text.isEmpty
-                    ? null
-                    : _descriptionController.text,
-                balance: double.parse(_balanceController.text),
-                currencyCode: _selectedCurrencyCode!,
-                currencyDesignationId: _selectedCurrencyDesignationId!,
-                styleId: _selectedStyleId,
-                accountTypeId: _selectedAccountTypeId!,
-                creationDate: DateTime.now(),
-                country: _selectedCountry,
-              );
-              context.read<AccountsBloc>().add(AddAccount(newAccount));
-              Navigator.of(context).pop();
-            }
-          },
-          child: Text(l10n.saveButton),
-        ),
+        FilledButton.tonal(onPressed: _onSave, child: Text(l10n.saveButton)),
       ],
     );
   }

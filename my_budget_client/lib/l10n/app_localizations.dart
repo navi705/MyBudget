@@ -70,8 +70,7 @@ import 'app_localizations_zh.dart';
 /// be consistent with the languages listed in the AppLocalizations.supportedLocales
 /// property.
 abstract class AppLocalizations {
-  AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+  AppLocalizations(String locale) : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -79,8 +78,7 @@ abstract class AppLocalizations {
     return Localizations.of<AppLocalizations>(context, AppLocalizations);
   }
 
-  static const LocalizationsDelegate<AppLocalizations> delegate =
-      _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
 
   /// A list of this localizations delegate along with the default localizations
   /// delegates.
@@ -92,13 +90,12 @@ abstract class AppLocalizations {
   /// Additional delegates can be added by appending to this list in
   /// MaterialApp. This list does not have to be used at all if a custom list
   /// of delegates is preferred or required.
-  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
-      <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates = <LocalizationsDelegate<dynamic>>[
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
@@ -111,7 +108,7 @@ abstract class AppLocalizations {
     Locale('pt'),
     Locale('ru'),
     Locale('ur'),
-    Locale('zh'),
+    Locale('zh')
   ];
 
   /// No description provided for @collapseMenuTooltip.
@@ -3336,6 +3333,12 @@ abstract class AppLocalizations {
   /// **'Generic Add Action'**
   String get hkActionAddAction;
 
+  /// No description provided for @hkActionSaveForm.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Form'**
+  String get hkActionSaveForm;
+
   /// No description provided for @hkActionPickDate.
   ///
   /// In en, this message translates to:
@@ -4397,10 +4400,63 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Override category for this rule'**
   String get smsRuleCategoryHelp;
+
+  /// Label on the transfer form's first amount field, naming the currency the money leaves in
+  ///
+  /// In en, this message translates to:
+  /// **'Amount sent ({currency})'**
+  String amountSentLabel(Object currency);
+
+  /// Label on the transfer form's second amount field, naming the currency the money arrives in
+  ///
+  /// In en, this message translates to:
+  /// **'Amount received ({currency})'**
+  String amountReceivedLabel(Object currency);
+
+  /// One-line statement of the rate a transfer converts at, shown above the collapsed rate editor
+  ///
+  /// In en, this message translates to:
+  /// **'1 {from} = {rate} {to}'**
+  String transferRateSummary(Object from, Object rate, Object to);
+
+  /// Title of the collapsible section holding the exchange-rate field and its presets
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust rate'**
+  String get adjustRateLabel;
+
+  /// Section header in the currency picker above the currencies the user has starred
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get favoriteCurrenciesHeader;
+
+  /// Section header in the currency picker above the currencies this budget already uses most
+  ///
+  /// In en, this message translates to:
+  /// **'Frequently used'**
+  String get frequentCurrenciesHeader;
+
+  /// Section header in the currency picker above the remaining currencies
+  ///
+  /// In en, this message translates to:
+  /// **'All currencies'**
+  String get allCurrenciesHeader;
+
+  /// Tooltip on the unfilled star beside a currency in the picker
+  ///
+  /// In en, this message translates to:
+  /// **'Add to favorites'**
+  String get addFavoriteCurrencyTooltip;
+
+  /// Tooltip on the filled star beside a currency in the picker
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from favorites'**
+  String get removeFavoriteCurrencyTooltip;
 }
 
-class _AppLocalizationsDelegate
-    extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override
@@ -4409,52 +4465,33 @@ class _AppLocalizationsDelegate
   }
 
   @override
-  bool isSupported(Locale locale) => <String>[
-    'ar',
-    'bn',
-    'en',
-    'es',
-    'fr',
-    'hi',
-    'pt',
-    'ru',
-    'ur',
-    'zh',
-  ].contains(locale.languageCode);
+  bool isSupported(Locale locale) => <String>['ar', 'bn', 'en', 'es', 'fr', 'hi', 'pt', 'ru', 'ur', 'zh'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
+
+
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
-    case 'ar':
-      return AppLocalizationsAr();
-    case 'bn':
-      return AppLocalizationsBn();
-    case 'en':
-      return AppLocalizationsEn();
-    case 'es':
-      return AppLocalizationsEs();
-    case 'fr':
-      return AppLocalizationsFr();
-    case 'hi':
-      return AppLocalizationsHi();
-    case 'pt':
-      return AppLocalizationsPt();
-    case 'ru':
-      return AppLocalizationsRu();
-    case 'ur':
-      return AppLocalizationsUr();
-    case 'zh':
-      return AppLocalizationsZh();
+    case 'ar': return AppLocalizationsAr();
+    case 'bn': return AppLocalizationsBn();
+    case 'en': return AppLocalizationsEn();
+    case 'es': return AppLocalizationsEs();
+    case 'fr': return AppLocalizationsFr();
+    case 'hi': return AppLocalizationsHi();
+    case 'pt': return AppLocalizationsPt();
+    case 'ru': return AppLocalizationsRu();
+    case 'ur': return AppLocalizationsUr();
+    case 'zh': return AppLocalizationsZh();
   }
 
   throw FlutterError(
     'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
     'an issue with the localizations generation tool. Please file an issue '
     'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
+    'that was used.'
   );
 }

@@ -46,6 +46,9 @@ class _RecordingAssetBloc extends MockBloc<AssetEvent, AssetState>
 class _NoAccountsRepository extends Fake implements AccountRepository {
   @override
   Future<List<Account>> getAccounts() async => const [];
+
+  @override
+  Stream<List<Account>> watchAccounts() => const Stream.empty();
 }
 
 InflationState _inflationState() => InflationState(

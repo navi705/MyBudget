@@ -9,6 +9,7 @@ import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
+import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
@@ -108,6 +109,9 @@ class _FakeTransactionRepository extends Fake implements TransactionRepository {
     totalsCalls++;
     return const [];
   }
+
+  @override
+  Stream<void> watchTransactionChanges() => const Stream.empty();
 }
 
 class _FakeCategoryRepository extends Fake implements CategoryRepository {
@@ -143,8 +147,16 @@ class _FakeCurrencyRepository extends Fake implements CurrencyRepository {
 
   @override
   Future<List<ExchangeRateDomain>> getLatestExchangeRatesByList(
-    List<DateTime> date,
-  ) async => const [];
+    List<DateTime> date, {
+    Set<String>? currencyCodes,
+  }) async => const [];
+
+  @override
+  Stream<List<CurrencyDesignation>> watchAllCurrencyDesignations() =>
+      const Stream.empty();
+
+  @override
+  Stream<void> watchExchangeRateChanges() => const Stream.empty();
 }
 
 class _FakeSettingsRepository extends Fake implements SettingsRepository {
@@ -152,6 +164,9 @@ class _FakeSettingsRepository extends Fake implements SettingsRepository {
   Future<Map<String, String>> getAllSettings() async => const {
     'main_currency_code': 'EUR',
   };
+
+  @override
+  Stream<List<Settings>> watchAllSettings() => const Stream.empty();
 }
 
 class _FakeAssetRepository extends Fake implements AssetRepository {

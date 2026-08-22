@@ -38,7 +38,17 @@ class TransactionList extends StatefulWidget {
 class _TransactionListState extends State<TransactionList> {
   @override
   void initState() {
-    context.read<TransactionsBloc>().add(const InitialLoadTransactions());
+    // Only from a cold state. The bloc is provided app-wide and outlives this
+    // widget, but the shell route rebuilds the screen on every tab switch, and
+    // a reload there redid the whole pipeline — the page query, the counts, the
+    // category/style/account lookups and the currency conversion of every row.
+    // The bloc watches the transactions table, so a list it already holds is
+    // current.
+    final bloc = context.read<TransactionsBloc>();
+    if (bloc.state.status == TransactionStatus.initial ||
+        bloc.state.status == TransactionStatus.failure) {
+      bloc.add(const InitialLoadTransactions());
+    }
     super.initState();
   }
 

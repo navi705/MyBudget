@@ -53,7 +53,13 @@ class _AccountsScreenState extends State<AccountsScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<AccountsBloc>().add(LoadAccounts());
+    // Only from a cold state: the shell route remounts this screen on every
+    // tab switch, and the bloc watches both the accounts and the transactions
+    // tables, so a list it already holds is current.
+    final bloc = context.read<AccountsBloc>();
+    if (bloc.state is AccountsInitial || bloc.state is AccountsLoadFailure) {
+      bloc.add(LoadAccounts());
+    }
     _scrollController.addListener(_onScroll);
   }
 
@@ -412,7 +418,15 @@ class _AccountsScreenState extends State<AccountsScreen> {
           value: 'add_transaction',
           child: Text(l10n.contextMenuAddTransaction),
         ),
-        PopupMenuItem(value: 'transfer', child: Text(l10n.contextMenuTransfer)),
+        // Transfers move cash between cash accounts. Asset accounts hold a
+        // quantity of something, not a balance to move, and the form knows it:
+        // asked to transfer from one it drops transfer mode and opens the
+        // Buy/Sell form instead - a different screen than the menu named.
+        if (account.assetId == null)
+          PopupMenuItem(
+            value: 'transfer',
+            child: Text(l10n.contextMenuTransfer),
+          ),
         PopupMenuItem(value: 'edit', child: Text(l10n.contextMenuEdit)),
         PopupMenuItem(
           value: 'change_type',
@@ -700,9 +714,15 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           final filteredAccounts = state.accounts;
 
                           if (filteredAccounts.isEmpty) {
+                            // The other list screens answer an empty list with
+                            // an icon above the message; a bare line of text on
+                            // an otherwise black phone screen reads as a screen
+                            // that failed to load rather than one with nothing
+                            // in it yet.
                             return SliverFillRemaining(
-                              child: Center(
-                                child: Text(l10n.accountsEmptyState),
+                              child: AppStateView.empty(
+                                message: l10n.accountsEmptyState,
+                                icon: Icons.account_balance_wallet_outlined,
                               ),
                             );
                           }
@@ -1073,31 +1093,19 @@ class _AccountsDateAppBar extends StatelessWidget
             onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
           ),
         ),
-        if (isMobile)
-          MultiLevelTooltip(
-            message: l10n.filterTooltip,
-            actionId: 'filter_action',
-            description: l10n.accountsFilterDescription,
-            child: IconButton(
-              icon: Icon(Icons.tune, color: onSurface),
-              onPressed: () {
-                showAccountFilterDialog(context, state.filters);
-              },
-            ),
-          )
-        else if (!isMobile) ...[
-          MultiLevelTooltip(
-            message: l10n.filterTooltip,
-            actionId: 'filter_action',
-            description: l10n.accountsFilterDescription,
-            child: IconButton(
-              icon: Icon(Icons.tune, color: onSurface),
-              onPressed: () {
-                showAccountFilterDialog(context, state.filters);
-              },
-            ),
+        // The same button either way: the two branches this used to have were
+        // character-for-character identical.
+        MultiLevelTooltip(
+          message: l10n.filterTooltip,
+          actionId: 'filter_action',
+          description: l10n.accountsFilterDescription,
+          child: IconButton(
+            icon: Icon(Icons.tune, color: onSurface),
+            onPressed: () {
+              showAccountFilterDialog(context, state.filters);
+            },
           ),
-        ],
+        ),
         if (!isMobile) const SizedBox(width: 8),
         Expanded(
           flex: isMobile ? 1 : 0,
@@ -1122,40 +1130,25 @@ class _AccountsDateAppBar extends StatelessWidget
             ),
           ),
         ),
-        if (isMobile)
-          MultiLevelTooltip(
-            message: l10n.sortOrderTooltip,
-            actionId: 'sort_order',
-            description: l10n.accountsSortDescription,
-            child: RotatedBox(
-              quarterTurns: state.sortAscending ? 2 : 0,
-              child: IconButton(
-                icon: Icon(Icons.sort, color: onSurface),
-                onPressed: () =>
-                    _toggleAccountsSort(context.read<AccountsBloc>(), state),
-              ),
-            ),
-          )
-        else if (!isMobile) ...[
-          const SizedBox(width: 8),
-        ],
-        if (!isMobile) ...[
-          const SizedBox(width: 8),
-          MultiLevelTooltip(
-            message: l10n.sortOrderTooltip,
-            actionId: 'sort_order',
-            description: l10n.accountsSortDescription,
-            child: RotatedBox(
-              quarterTurns: state.sortAscending ? 2 : 0,
-              child: IconButton(
-                icon: Icon(Icons.sort, color: onSurface),
-                onPressed: () =>
-                    _toggleAccountsSort(context.read<AccountsBloc>(), state),
-              ),
+        // Likewise: one button, with the desktop bar keeping the spacing it
+        // had. The mobile branch and the desktop branch drew the same control,
+        // and the desktop side reached it through two `if (!isMobile)` blocks
+        // in a row - the first contributing nothing but an 8dp gap.
+        if (!isMobile) const SizedBox(width: 8),
+        MultiLevelTooltip(
+          message: l10n.sortOrderTooltip,
+          actionId: 'sort_order',
+          description: l10n.accountsSortDescription,
+          child: RotatedBox(
+            quarterTurns: state.sortAscending ? 2 : 0,
+            child: IconButton(
+              icon: Icon(Icons.sort, color: onSurface),
+              onPressed: () =>
+                  _toggleAccountsSort(context.read<AccountsBloc>(), state),
             ),
           ),
-          const SizedBox(width: 8),
-        ],
+        ),
+        if (!isMobile) const SizedBox(width: 8),
         MultiLevelTooltip(
           message: l10n.nextPeriodTooltip,
           actionId: 'next_period',

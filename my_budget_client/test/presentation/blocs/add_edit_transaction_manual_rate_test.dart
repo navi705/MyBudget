@@ -16,17 +16,28 @@ import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/add_edit_transaction/add_edit_transaction_bloc.dart';
+import 'package:my_budget_client/domain/entities/category.dart';
 
 // Nothing here is implemented on purpose: editing the rate field is a local
 // state change, so any repository call would mean the handler did something it
 // was not asked to. Unimplemented, it fails loudly instead of returning a
 // default that quietly changes what the test proves.
 class _FakeTransactionRepository extends Fake
-    implements TransactionRepository {}
+    implements TransactionRepository {
+  @override
+  Stream<void> watchTransactionChanges() => const Stream.empty();
+}
 
-class _FakeAccountRepository extends Fake implements AccountRepository {}
+class _FakeAccountRepository extends Fake implements AccountRepository {
+  @override
+  Stream<List<Account>> watchAccounts() => const Stream.empty();
+}
 
-class _FakeCategoryRepository extends Fake implements CategoryRepository {}
+class _FakeCategoryRepository extends Fake implements CategoryRepository {
+  @override
+  Stream<List<Category>> watchCategories({bool includeSystem = false}) =>
+      const Stream.empty();
+}
 
 class _FakeCurrencyRepository extends Fake implements CurrencyRepository {}
 

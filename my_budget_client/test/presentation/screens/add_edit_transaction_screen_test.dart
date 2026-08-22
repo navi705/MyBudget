@@ -107,6 +107,9 @@ class _FakeTransactionRepository extends Fake implements TransactionRepository {
     added.add(transaction);
     if (failure != null) throw failure!;
   }
+
+  @override
+  Stream<void> watchTransactionChanges() => const Stream.empty();
 }
 
 class _FakeAccountRepository extends Fake implements AccountRepository {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:my_budget_client/core/utils/device_utils.dart' as dev_utils;
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:intl/intl.dart';
@@ -787,6 +789,31 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
   Future<Currency?> getCurrencyByCode(String code) => (select(
     currencies,
   )..where((tbl) => tbl.code.equals(code))).getSingleOrNull();
+
+  /// How many rows the user already has in each currency: one point per
+  /// account that keeps it, one per transaction written in it.
+  ///
+  /// The picker lists every currency the app knows - 341 of them - in
+  /// alphabetical order, so the two or three a person actually works in are
+  /// always behind a scroll or a search. This is what puts them at the top,
+  /// and it needs no bookkeeping of its own: the counts come back out of the
+  /// rows that were going to be written anyway, so there is nothing extra to
+  /// keep in step, migrate or push to a peer.
+  Future<Map<String, int>> getCurrencyUsageCounts() async {
+    final rows = await customSelect(
+      // Soft-deleted rows are left out: a currency the user threw away with
+      // the account that held it is not one they are still working in.
+      'SELECT code, COUNT(*) AS uses FROM ('
+      'SELECT currency_code AS code FROM accounts WHERE is_deleted = 0 '
+      'UNION ALL '
+      'SELECT currency_code AS code FROM transactions WHERE is_deleted = 0'
+      ') GROUP BY code',
+      readsFrom: {db.accounts, db.transactions},
+    ).get();
+    return {
+      for (final row in rows) row.read<String>('code'): row.read<int>('uses'),
+    };
+  }
   Future<void> insertCurrency(CurrenciesCompanion currency) async {
     // Import auto-creates currencies for unmapped CSV codes; without a fresh
     // modifiedAt the row sorts as never-modified and no peer ever pulls it.
@@ -2816,7 +2843,17 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   /// nothing at all, so every pair whose only rows came from an API refresh
   /// was invisible to the caller and every amount in that currency silently
   /// dropped out of the totals.
-  Future<List<ExchangeRate>> getAllExchangesRates(List<DateTime> dates) async {
+  ///
+  /// [currencyCodes], when given, keeps only the rows that touch one of those
+  /// codes on either side. The table holds a row per currency pair per day —
+  /// 341 currencies over 870 days on a phone here, near 300k rows — and a
+  /// screen prices amounts in a handful of them. OR, not AND: a pair with no
+  /// direct row is converted through a pivot, and the two rows that make that
+  /// hop each touch the pivot on one side only.
+  Future<List<ExchangeRate>> getAllExchangesRates(
+    List<DateTime> dates, {
+    Set<String>? currencyCodes,
+  }) async {
     if (dates.isEmpty) return [];
 
     // Consecutive days collapse into one range. A year of daily transactions is
@@ -2858,13 +2895,149 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
 
       final chunkResults = await (select(
         exchangeRates,
-      )..where((_) => dayRanges)).get();
+      )..where((_) => _withCodeFilter(dayRanges, currencyCodes))).get();
 
       allResults.addAll(chunkResults);
     }
 
+    allResults.addAll(
+      await _ratesForUncoveredDays(days, allResults, currencyCodes),
+    );
+
     return allResults;
   }
+
+  /// [rows] restricted to the pairs that touch one of [currencyCodes].
+  Expression<bool> _withCodeFilter(
+    Expression<bool> rows,
+    Set<String>? currencyCodes,
+  ) {
+    if (currencyCodes == null || currencyCodes.isEmpty) return rows;
+    final codes = currencyCodes.toList();
+    return rows &
+        (exchangeRates.fromCurrencyCode.isIn(codes) |
+            exchangeRates.toCurrencyCode.isIn(codes));
+  }
+
+  /// Rows to stand in for the days in [days] that [found] has nothing for.
+  ///
+  /// The provider stops somewhere - the bundled history ends in January and the
+  /// free API answers 404 for anything past its own last publication - so a
+  /// budget being read today asks for days no row exists on. Returning only
+  /// exact matches handed [CurrencyConverter] an empty set for those days, and
+  /// the dashboard then reported *every* foreign currency as unconvertible even
+  /// though a rate from a fortnight earlier was sitting in the table. The
+  /// converter already prefers whichever stored row is nearest the date it was
+  /// asked about; this makes sure such a row is in front of it.
+  ///
+  /// Two statements at most, whatever the shape of the gap. The first version
+  /// asked SQLite which day was nearest, one query on each side per uncovered
+  /// day: thirteen round trips on the transactions page and about forty on the
+  /// dashboard, repeated on every navigation. The days that exist are a list of
+  /// a few hundred that changes only when a rate is written, so it is cheaper
+  /// to hold it and binary-search it here.
+  Future<List<ExchangeRate>> _ratesForUncoveredDays(
+    List<DateTime> days,
+    List<ExchangeRate> found,
+    Set<String>? currencyCodes,
+  ) async {
+    final covered = found.map((r) => _dayOf(r.date)).toSet();
+    final missing = days.where((d) => !covered.contains(d)).toList();
+    if (missing.isEmpty) return const [];
+
+    final stored = await _storedRateDays();
+    if (stored.isEmpty) return const [];
+
+    final substitutes = <DateTime>{};
+    for (final day in missing) {
+      final nearest = _nearestStoredDay(stored, day);
+      if (nearest != null) substitutes.add(nearest);
+    }
+
+    final wanted = substitutes.difference(covered);
+    if (wanted.isEmpty) return const [];
+
+    return (select(exchangeRates)..where(
+          (_) => _withCodeFilter(
+            _anyOf([
+              for (final day in wanted)
+                exchangeRates.date.isBiggerOrEqualValue(day) &
+                    exchangeRates.date.isSmallerThanValue(
+                      day.add(const Duration(days: 1)),
+                    ),
+            ]),
+            currencyCodes,
+          ),
+        ))
+        .get();
+  }
+
+  /// Whichever day in [sorted] is closest to [day], preferring the earlier one
+  /// when a day falls exactly between two.
+  ///
+  /// A rate from before the date being converted is the safer of two equals: it
+  /// was quoted by the time the transaction happened.
+  DateTime? _nearestStoredDay(List<DateTime> sorted, DateTime day) {
+    var low = 0;
+    var high = sorted.length;
+    while (low < high) {
+      final mid = (low + high) >> 1;
+      if (sorted[mid].isBefore(day)) {
+        low = mid + 1;
+      } else {
+        high = mid;
+      }
+    }
+
+    final after = low < sorted.length ? sorted[low] : null;
+    final before = low > 0 ? sorted[low - 1] : null;
+    if (after == null) return before;
+    if (before == null) return after;
+
+    final toAfter = after.difference(day).abs();
+    final toBefore = day.difference(before).abs();
+    return toAfter < toBefore ? after : before;
+  }
+
+  /// Every calendar day the rate table holds a row on, ascending.
+  ///
+  /// Held between calls. Recomputing it means a `GROUP BY date` over every rate
+  /// in the table - a few hundred thousand of them once the bundled history is
+  /// seeded - and it is asked for on every screen that converts anything. The
+  /// table's own change stream drops the list, so a fetched or imported rate
+  /// still shows up.
+  Future<List<DateTime>> _storedRateDays() async {
+    final cached = _storedRateDaysCache;
+    if (cached != null) return cached;
+
+    _storedRateDaysWatch ??= watchExchangeRateChanges().listen((_) {
+      _storedRateDaysCache = null;
+    });
+
+    final query = selectOnly(exchangeRates)
+      ..addColumns([exchangeRates.date])
+      ..groupBy([exchangeRates.date])
+      ..orderBy([OrderingTerm.asc(exchangeRates.date)]);
+    final rows = await query.get();
+
+    // A rate pulled from an API is stamped with the wall clock of the moment it
+    // was fetched, so two rows on the same day are two rows here until they are
+    // normalised.
+    final days = <DateTime>[];
+    for (final row in rows) {
+      final date = row.read(exchangeRates.date);
+      if (date == null) continue;
+      final normalised = _dayOf(date);
+      if (days.isEmpty || days.last != normalised) days.add(normalised);
+    }
+    _storedRateDaysCache = days;
+    return days;
+  }
+
+  List<DateTime>? _storedRateDaysCache;
+  StreamSubscription<void>? _storedRateDaysWatch;
+
+  static DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
 
   /// [terms] OR-ed together as a BALANCED tree.
   ///

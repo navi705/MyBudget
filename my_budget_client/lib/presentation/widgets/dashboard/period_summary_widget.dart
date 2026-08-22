@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/theme/app_spacing.dart';
 import 'package:my_budget_client/core/theme/money_colors.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
@@ -136,15 +137,24 @@ class PeriodSummaryWidget extends StatelessWidget {
     // width and locale; scaleDown never enlarges, so short values still render
     // at their natural size.
     return Expanded(
-      child: Column(
-        children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(label, style: Theme.of(context).textTheme.bodySmall),
-          ),
-          const SizedBox(height: 4),
-          FittedBox(fit: BoxFit.scaleDown, child: textWidget),
-        ],
+      child: Padding(
+        // Without this the three columns butt straight against each other:
+        // each takes an exact third and scaleDown then fills that third
+        // edge to edge, so on a 411dp phone the row read as one run-on
+        // string, "2 991.77 EUR 123 130.62 EUR-120 138.85 EUR". The gutter
+        // comes out of the space the text is scaled into, so the values
+        // shrink slightly rather than overflow.
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+        child: Column(
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+            ),
+            const SizedBox(height: 4),
+            FittedBox(fit: BoxFit.scaleDown, child: textWidget),
+          ],
+        ),
       ),
     );
   }

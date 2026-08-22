@@ -7,6 +7,13 @@ abstract class TransactionsEvent extends Equatable {
   List<Object?> get props => [];
 }
 
+/// Marks the events that write to the transactions table.
+///
+/// The bloc reloads itself when the table changes, and its own writes reach
+/// that watcher too — this is what lets it tell them apart and skip the second
+/// load its own handler has already done.
+mixin TransactionWrite on TransactionsEvent {}
+
 class LoadTransactions extends TransactionsEvent {
   const LoadTransactions();
 }
@@ -111,7 +118,7 @@ class ActiveDateRangeChanged extends TransactionsEvent {
   List<Object?> get props => [dateRange];
 }
 
-class AddTransaction extends TransactionsEvent {
+class AddTransaction extends TransactionsEvent with TransactionWrite {
   final Transaction transaction;
 
   const AddTransaction(this.transaction);
@@ -120,7 +127,7 @@ class AddTransaction extends TransactionsEvent {
   List<Object?> get props => [transaction];
 }
 
-class UpdateTransaction extends TransactionsEvent {
+class UpdateTransaction extends TransactionsEvent with TransactionWrite {
   final Transaction transaction;
 
   const UpdateTransaction(this.transaction);
@@ -129,7 +136,7 @@ class UpdateTransaction extends TransactionsEvent {
   List<Object?> get props => [transaction];
 }
 
-class DeleteTransaction extends TransactionsEvent {
+class DeleteTransaction extends TransactionsEvent with TransactionWrite {
   final String id;
 
   const DeleteTransaction(this.id);
@@ -164,7 +171,7 @@ class ClearSelection extends TransactionsEvent {
   const ClearSelection();
 }
 
-class DeleteMultipleTransactions extends TransactionsEvent {
+class DeleteMultipleTransactions extends TransactionsEvent with TransactionWrite {
   final List<String> ids;
 
   const DeleteMultipleTransactions(this.ids);
@@ -173,7 +180,7 @@ class DeleteMultipleTransactions extends TransactionsEvent {
   List<Object?> get props => [ids];
 }
 
-class UpdateDateForMultipleTransactions extends TransactionsEvent {
+class UpdateDateForMultipleTransactions extends TransactionsEvent with TransactionWrite {
   final List<String> ids;
   final DateTime newDate;
 
@@ -183,7 +190,7 @@ class UpdateDateForMultipleTransactions extends TransactionsEvent {
   List<Object?> get props => [ids, newDate];
 }
 
-class UpdateCategoryForMultipleTransactions extends TransactionsEvent {
+class UpdateCategoryForMultipleTransactions extends TransactionsEvent with TransactionWrite {
   final List<String> ids;
   final String newCategoryId;
 
@@ -215,7 +222,7 @@ class TransactionTypeFilterChanged extends TransactionsEvent {
   List<Object?> get props => [transactionType];
 }
 
-class UndoDeleteTransactions extends TransactionsEvent {
+class UndoDeleteTransactions extends TransactionsEvent with TransactionWrite {
   const UndoDeleteTransactions();
 }
 

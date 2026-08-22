@@ -65,6 +65,21 @@ class FakeCurrencyRepository implements CurrencyRepository {
   // --- Unused by CurrencyConverterService ---
   @override
   Future<List<Currency>> getCurrencies() => throw UnimplementedError();
+
+  @override
+  Future<Map<String, int>> getCurrencyUsageCounts() =>
+      throw UnimplementedError();
+
+  @override
+  Stream<List<String>> watchFavoriteCurrencyCodes() =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<String>> getFavoriteCurrencyCodes() => throw UnimplementedError();
+
+  @override
+  Future<void> setFavoriteCurrency(String code, {required bool favorite}) =>
+      throw UnimplementedError();
   @override
   Stream<List<Currency>> watchCurrencies() => throw UnimplementedError();
   @override
@@ -107,8 +122,9 @@ class FakeCurrencyRepository implements CurrencyRepository {
       throw UnimplementedError();
   @override
   Future<List<ExchangeRateDomain>> getLatestExchangeRatesByList(
-    List<DateTime> date,
-  ) => throw UnimplementedError();
+    List<DateTime> date, {
+    Set<String>? currencyCodes,
+  }) => throw UnimplementedError();
   @override
   Future<int> getExchangeRatesCount({
     DateTime? startDate,

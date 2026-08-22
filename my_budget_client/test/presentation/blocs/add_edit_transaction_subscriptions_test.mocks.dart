@@ -831,10 +831,15 @@ class MockCurrencyRepository extends _i1.Mock
 
   @override
   _i3.Future<List<_i15.ExchangeRateDomain>> getLatestExchangeRatesByList(
-    List<DateTime>? date,
-  ) =>
+    List<DateTime>? date, {
+    Set<String>? currencyCodes,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#getLatestExchangeRatesByList, [date]),
+            Invocation.method(
+              #getLatestExchangeRatesByList,
+              [date],
+              {#currencyCodes: currencyCodes},
+            ),
             returnValue: _i3.Future<List<_i15.ExchangeRateDomain>>.value(
               <_i15.ExchangeRateDomain>[],
             ),
