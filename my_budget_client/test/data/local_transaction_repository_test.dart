@@ -38,10 +38,9 @@ void main() {
   Future<DbAccount> account(String id) =>
       (db.select(db.accounts)..where((a) => a.id.equals(id))).getSingle();
 
-  Future<List<SyncLogData>> logsFor(String table) =>
-      (db.select(db.syncLog)
-            ..where((l) => l.changedTableName.equals(table)))
-          .get();
+  Future<List<SyncLogData>> logsFor(String table) => (db.select(
+    db.syncLog,
+  )..where((l) => l.changedTableName.equals(table))).get();
 
   domain.Transaction tx(
     String id,
@@ -94,17 +93,19 @@ void main() {
       expect((await logsFor('accounts')).map((l) => l.recordId), contains('a'));
     });
 
-    test('rolls the insert back when the balance update cannot apply',
-        () async {
-      // A row whose FK targets are valid but whose account does not exist:
-      // the balance write finds no row, so nothing may be committed.
-      await expectLater(
-        repo.addTransaction(tx('bad', 10, accountId: 'no-such-account')),
-        throwsA(anything),
-      );
+    test(
+      'rolls the insert back when the balance update cannot apply',
+      () async {
+        // A row whose FK targets are valid but whose account does not exist:
+        // the balance write finds no row, so nothing may be committed.
+        await expectLater(
+          repo.addTransaction(tx('bad', 10, accountId: 'no-such-account')),
+          throwsA(anything),
+        );
 
-      expect(await db.select(db.transactions).get(), isEmpty);
-    });
+        expect(await db.select(db.transactions).get(), isEmpty);
+      },
+    );
   });
 
   group('addTransactions', () {
@@ -178,7 +179,8 @@ void main() {
       expect(
         await repo.getTransactionById('usd'),
         isNotNull,
-        reason: 'the transaction itself is still recorded — only the balance '
+        reason:
+            'the transaction itself is still recorded — only the balance '
             'waits for a rate',
       );
     });
@@ -192,16 +194,18 @@ void main() {
       expect((await account('a')).balanceMinor, 4000);
     });
 
-    test('joins the balance once it is restated in the account currency',
-        () async {
-      await repo.addTransaction(tx('usd', 100, currencyCode: 'USD'));
-      expect((await account('a')).balanceMinor, 0);
+    test(
+      'joins the balance once it is restated in the account currency',
+      () async {
+        await repo.addTransaction(tx('usd', 100, currencyCode: 'USD'));
+        expect((await account('a')).balanceMinor, 0);
 
-      // What happens when the rate finally arrives and the amount is converted.
-      await repo.updateTransaction(tx('usd', 117.5));
+        // What happens when the rate finally arrives and the amount is converted.
+        await repo.updateTransaction(tx('usd', 117.5));
 
-      expect((await account('a')).balanceMinor, 11750);
-    });
+        expect((await account('a')).balanceMinor, 11750);
+      },
+    );
 
     test('leaves the balance alone again when it is taken back out', () async {
       await repo.addTransaction(tx('usd', 100, currencyCode: 'USD'));
@@ -225,23 +229,25 @@ void main() {
   });
 
   group('rebuilding a balance from the opening-balance anchor', () {
-    test('counts a fiat transaction that arrived without minor units',
-        () async {
-      await repo.addTransaction(tx('t1', 10));
-      // A peer or an importer that predates the minor-unit columns sends only
-      // the double. The incremental path works off that double and counts the
-      // row, so a rebuild that skipped it would quietly disagree with the
-      // running balance by the whole transaction.
-      await db.customStatement(
-        'UPDATE transactions SET amount_minor = NULL WHERE id = ?',
-        ['t1'],
-      );
+    test(
+      'counts a fiat transaction that arrived without minor units',
+      () async {
+        await repo.addTransaction(tx('t1', 10));
+        // A peer or an importer that predates the minor-unit columns sends only
+        // the double. The incremental path works off that double and counts the
+        // row, so a rebuild that skipped it would quietly disagree with the
+        // running balance by the whole transaction.
+        await db.customStatement(
+          'UPDATE transactions SET amount_minor = NULL WHERE id = ?',
+          ['t1'],
+        );
 
-      await db.accountsDao.recomputeBalances(['a']);
+        await db.accountsDao.recomputeBalances(['a']);
 
-      expect((await account('a')).balanceMinor, 1000);
-      expect((await account('a')).balance, closeTo(10.0, 1e-9));
-    });
+        expect((await account('a')).balanceMinor, 1000);
+        expect((await account('a')).balance, closeTo(10.0, 1e-9));
+      },
+    );
   });
 
   group('deleteTransaction', () {
@@ -279,9 +285,9 @@ void main() {
 
       await repo.deleteTransaction('out');
 
-      final deletes = (await logsFor('transactions'))
-          .where((l) => l.action == 'delete')
-          .map((l) => l.recordId);
+      final deletes = (await logsFor(
+        'transactions',
+      )).where((l) => l.action == 'delete').map((l) => l.recordId);
       expect(deletes, containsAll(['out', 'in']));
     });
   });

@@ -103,9 +103,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState>
 
     // Iterate presets to find a match
     for (final preset in enabledPresets) {
-      if (senderLower.contains(
-        preset.senderFilter.toLowerCase(),
-      )) {
+      if (senderLower.contains(preset.senderFilter.toLowerCase())) {
         _smsLog('Matched sender filter for preset: ${preset.name}');
         final result = _parser.parse(msg.body, preset, msg.date);
 
@@ -280,9 +278,8 @@ class SmsBloc extends Bloc<SmsEvent, SmsState>
 
   /// Free-form (non-localised) summary, matching the other importError strings
   /// produced here. Returns null when nothing failed so the field clears.
-  String? _importErrorFor(int failed) => failed == 0
-      ? null
-      : '$failed message(s) matched but could not be saved';
+  String? _importErrorFor(int failed) =>
+      failed == 0 ? null : '$failed message(s) matched but could not be saved';
 
   /// Returns how many transactions were actually written and how many matched
   /// a preset but failed to write — the two must be reported separately, or a
@@ -314,13 +311,15 @@ class SmsBloc extends Bloc<SmsEvent, SmsState>
       // OPTIMIZATION: Compute toLowerCase() once before the inner loop
       final senderLower = msg.sender.toLowerCase();
       for (final preset in presets) {
-        if (senderLower.contains(
-          preset.senderFilter.toLowerCase(),
-        )) {
+        if (senderLower.contains(preset.senderFilter.toLowerCase())) {
           final result = _parser.parse(msg.body, preset, msg.date);
           if (result.isMatch && result.amount != null) {
             // Immediate creation
-            if (await _createTransactionFromResult(result, preset, currencies)) {
+            if (await _createTransactionFromResult(
+              result,
+              preset,
+              currencies,
+            )) {
               created++;
             } else {
               failed++;

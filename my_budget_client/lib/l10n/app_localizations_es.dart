@@ -38,7 +38,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get accountsAddTooltip => 'Agregar Cuenta';
 
   @override
-  String get addAccountDescription => 'Crear una nueva cuenta bancaria, billetera o activo';
+  String get addAccountDescription =>
+      'Crear una nueva cuenta bancaria, billetera o activo';
 
   @override
   String get addAccountDialogTitle => 'Agregar nueva cuenta';
@@ -99,13 +100,16 @@ class AppLocalizationsEs extends AppLocalizations {
   String get formValidationPleaseEnterName => 'Por favor, introduzca un nombre';
 
   @override
-  String get formValidationPleaseEnterBalance => 'Por favor, introduzca un saldo';
+  String get formValidationPleaseEnterBalance =>
+      'Por favor, introduzca un saldo';
 
   @override
-  String get formValidationPleaseEnterValidNumber => 'Por favor, introduzca un número válido';
+  String get formValidationPleaseEnterValidNumber =>
+      'Por favor, introduzca un número válido';
 
   @override
-  String get formValidationPleaseSelectCurrency => 'Por favor, seleccione una moneda';
+  String get formValidationPleaseSelectCurrency =>
+      'Por favor, seleccione una moneda';
 
   @override
   String get currencyLoadError => 'Error al cargar monedas';
@@ -147,7 +151,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get dashboardNetWorthTrend => 'Tendencia del Patrimonio Neto';
 
   @override
-  String get dashboardWealthDistributionByAccount => 'Distribución de Riqueza (por Cuenta)';
+  String get dashboardWealthDistributionByAccount =>
+      'Distribución de Riqueza (por Cuenta)';
 
   @override
   String get dashboardCurrencyExposure => 'Exposición de Moneda';
@@ -156,7 +161,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get dashboardNoAccountsFound => 'No se encontraron cuentas';
 
   @override
-  String get dashboardTotalNetWorthTrend => 'Tendencia Total del Patrimonio Neto';
+  String get dashboardTotalNetWorthTrend =>
+      'Tendencia Total del Patrimonio Neto';
 
   @override
   String get dashboardAccountBalanceTrend => 'Tendencia del Saldo de la Cuenta';
@@ -231,13 +237,16 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get deleteAccountDialogReassign => 'Reasignar transacciones a otra cuenta';
+  String get deleteAccountDialogReassign =>
+      'Reasignar transacciones a otra cuenta';
 
   @override
-  String get deleteAccountDialogDeleteAll => 'Eliminar todas las transacciones asociadas';
+  String get deleteAccountDialogDeleteAll =>
+      'Eliminar todas las transacciones asociadas';
 
   @override
-  String get deleteAccountDialogMessage => 'Esta cuenta puede tener transacciones asociadas. ¿Qué le gustaría hacer?';
+  String get deleteAccountDialogMessage =>
+      'Esta cuenta puede tener transacciones asociadas. ¿Qué le gustaría hacer?';
 
   @override
   String get newAccountLabel => 'Nueva Cuenta';
@@ -246,7 +255,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get warningOverwriteTitle => 'Advertencia: ¿Sobrescribir Datos?';
 
   @override
-  String get warningOverwriteMessage => 'Restaurar una copia de seguridad ELIMINARÁ TODOS los datos actuales y los reemplazará con la copia de seguridad. Esto no se puede deshacer.';
+  String get warningOverwriteMessage =>
+      'Restaurar una copia de seguridad ELIMINARÁ TODOS los datos actuales y los reemplazará con la copia de seguridad. Esto no se puede deshacer.';
 
   @override
   String get restoreOverwriteButton => 'Restaurar y Sobrescribir';
@@ -265,7 +275,8 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get deleteCategoriesConfirmationMessage => '¿Está seguro de que desea eliminar las categorías seleccionadas?';
+  String get deleteCategoriesConfirmationMessage =>
+      '¿Está seguro de que desea eliminar las categorías seleccionadas?';
 
   @override
   String get changeCategoryTypeDialogTitle => 'Cambiar Tipo de Categoría';
@@ -277,7 +288,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get addCategoryTooltip => 'Añadir Categoría';
 
   @override
-  String get addCategoryDescription => 'Crear una nueva categoría de gastos o ingresos';
+  String get addCategoryDescription =>
+      'Crear una nueva categoría de gastos o ingresos';
 
   @override
   String get previousPeriodTooltip => 'Periodo Anterior';
@@ -295,19 +307,22 @@ class AppLocalizationsEs extends AppLocalizations {
   String get filterTooltip => 'Filtrar';
 
   @override
-  String get filterCategoriesDescription => 'Filtrar categorías por tipo (Ingresos/Gastos)';
+  String get filterCategoriesDescription =>
+      'Filtrar categorías por tipo (Ingresos/Gastos)';
 
   @override
   String get selectDateTooltip => 'Seleccionar Fecha';
 
   @override
-  String get selectDateDescription => 'Elija un rango de fechas específico para ver los totales';
+  String get selectDateDescription =>
+      'Elija un rango de fechas específico para ver los totales';
 
   @override
   String get sortOrderTooltip => 'Orden de Clasificación';
 
   @override
-  String get sortOrderDescription => 'Cambiar entre orden de cantidad ascendente y descendente';
+  String get sortOrderDescription =>
+      'Cambiar entre orden de cantidad ascendente y descendente';
 
   @override
   String get closeSelectionTooltip => 'Cerrar Selección';
@@ -339,25 +354,29 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get exitTransactionsSelectionDescription => 'Salir del modo de selección de transacciones';
+  String get exitTransactionsSelectionDescription =>
+      'Salir del modo de selección de transacciones';
 
   @override
   String get changeDateTooltip => 'Cambiar Fecha';
 
   @override
-  String get changeDateDescription => 'Actualizar la fecha de todas las transacciones seleccionadas';
+  String get changeDateDescription =>
+      'Actualizar la fecha de todas las transacciones seleccionadas';
 
   @override
   String get changeCategoryTooltip => 'Cambiar Categoría';
 
   @override
-  String get changeCategoryDescription => 'Actualizar la categoría de todas las transacciones seleccionadas';
+  String get changeCategoryDescription =>
+      'Actualizar la categoría de todas las transacciones seleccionadas';
 
   @override
   String get deleteTransactionsTooltip => 'Eliminar Seleccionados';
 
   @override
-  String get deleteTransactionsDescription => 'Eliminar permanentemente todas las transacciones seleccionadas';
+  String get deleteTransactionsDescription =>
+      'Eliminar permanentemente todas las transacciones seleccionadas';
 
   @override
   String get amountLabel => 'Cantidad';
@@ -443,16 +462,20 @@ class AppLocalizationsEs extends AppLocalizations {
   String get selectDateError => 'Por favor, seleccione una fecha';
 
   @override
-  String get accountDeletedError => 'La cuenta que había seleccionado ha sido eliminada. Por favor, seleccione otra.';
+  String get accountDeletedError =>
+      'La cuenta que había seleccionado ha sido eliminada. Por favor, seleccione otra.';
 
   @override
-  String get linkedAccountDeletedError => 'La cuenta vinculada que había seleccionado ha sido eliminada. Por favor, seleccione otra.';
+  String get linkedAccountDeletedError =>
+      'La cuenta vinculada que había seleccionado ha sido eliminada. Por favor, seleccione otra.';
 
   @override
-  String get enterExchangeRateError => 'Por favor, introduzca un tipo de cambio. Esta transferencia se realiza entre dos monedas y no hay ningún tipo de cambio registrado para ellas.';
+  String get enterExchangeRateError =>
+      'Por favor, introduzca un tipo de cambio. Esta transferencia se realiza entre dos monedas y no hay ningún tipo de cambio registrado para ellas.';
 
   @override
-  String get currencyLockedMessage => 'Bloqueado a la moneda de la Cuenta de Origen';
+  String get currencyLockedMessage =>
+      'Bloqueado a la moneda de la Cuenta de Origen';
 
   @override
   String get totalValueLabel => 'Valor Total';
@@ -648,7 +671,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chooseImageButton => 'Elegir Imagen';
 
   @override
-  String get selectImageFileError => 'Por favor, seleccione un archivo de imagen.';
+  String get selectImageFileError =>
+      'Por favor, seleccione un archivo de imagen.';
 
   @override
   String get clearImageButton => 'Borrar Imagen';
@@ -669,7 +693,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get exportDataLabel => 'Exportar Datos';
 
   @override
-  String get exportFormatMessage => 'Elija el formato:\n\nJSON: Copia de seguridad completa de todos los datos.\nCSV: Informe legible de transacciones.';
+  String get exportFormatMessage =>
+      'Elija el formato:\n\nJSON: Copia de seguridad completa de todos los datos.\nCSV: Informe legible de transacciones.';
 
   @override
   String get jsonFormat => 'JSON';
@@ -684,7 +709,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get resetDataLabel => 'Restablecer Datos a Predeterminados';
 
   @override
-  String get resetDataSubtitle => 'Esto eliminará todos los datos y restaurará la configuración predeterminada.';
+  String get resetDataSubtitle =>
+      'Esto eliminará todos los datos y restaurará la configuración predeterminada.';
 
   @override
   String get debugMenuLabel => 'Menú de Depuración';
@@ -715,7 +741,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get startupDataSyncLabel => 'Sincronización de Datos al Inicio';
 
   @override
-  String get startupDataSyncDescription => 'Controla tanto la obtención de datos externos como la sincronización del servidor al iniciar la aplicación.';
+  String get startupDataSyncDescription =>
+      'Controla tanto la obtención de datos externos como la sincronización del servidor al iniciar la aplicación.';
 
   @override
   String get standardApiLabel => 'API Estándar';
@@ -732,10 +759,12 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get individualCustomSourcesTitle => 'Fuentes Personalizadas Individuales';
+  String get individualCustomSourcesTitle =>
+      'Fuentes Personalizadas Individuales';
 
   @override
-  String get noCustomSourcesAdded => 'No se han añadido fuentes personalizadas.';
+  String get noCustomSourcesAdded =>
+      'No se han añadido fuentes personalizadas.';
 
   @override
   String get fetchTodaysRatesButton => 'Obtener Tipos de Hoy';
@@ -835,7 +864,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get addCustomSourceTitle => 'Añadir Fuente Personalizada';
 
   @override
-  String get addressFormatsHelp => 'Formatos de Dirección:\n• 192.168.1.10 (IP)\n• localhost o api.mi.com\n• http://miservidor.com';
+  String get addressFormatsHelp =>
+      'Formatos de Dirección:\n• 192.168.1.10 (IP)\n• localhost o api.mi.com\n• http://miservidor.com';
 
   @override
   String get customSourceNameHint => 'Mi Servidor Doméstico';
@@ -881,6 +911,15 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get categoriesGridViewTooltip => 'Vista de cuadrícula';
+
+  @override
+  String get categoriesListViewTooltip => 'Vista de lista';
+
+  @override
+  String get categoriesGridBackTooltip => 'Todas las categorías';
+
+  @override
   String get periodSummaryTitle => 'Resumen del Periodo';
 
   @override
@@ -912,13 +951,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String get resetDataConfirmationTitle => '¿Restablecer Datos?';
 
   @override
-  String get resetDataConfirmationMessage => '¡Atención! Esto eliminará TODAS sus transacciones, cuentas y configuraciones.\n\nLa aplicación se restaurará a su estado inicial con datos predeterminados.\nEsta acción NO se puede deshacer.';
+  String get resetDataConfirmationMessage =>
+      '¡Atención! Esto eliminará TODAS sus transacciones, cuentas y configuraciones.\n\nLa aplicación se restaurará a su estado inicial con datos predeterminados.\nEsta acción NO se puede deshacer.';
 
   @override
   String get resetEverythingButton => 'Restablecer Todo';
 
   @override
-  String get resetSuccessMessage => 'Datos restablecidos y valores predeterminados restaurados.';
+  String get resetSuccessMessage =>
+      'Datos restablecidos y valores predeterminados restaurados.';
 
   @override
   String resetFailedMessage(Object error) {
@@ -946,7 +987,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get restoreBackupLabel => 'Restaurar Copia de Seguridad (JSON)';
 
   @override
-  String get importSelectionHelp => 'Seleccione \'OneMoney\' para migración, \'MyBudget\' para añadir transacciones, o \'Restaurar Copia de Seguridad\' para sobrescribir todo.';
+  String get importSelectionHelp =>
+      'Seleccione \'OneMoney\' para migración, \'MyBudget\' para añadir transacciones, o \'Restaurar Copia de Seguridad\' para sobrescribir todo.';
 
   @override
   String get importCreateAllNew => 'Crear Todo Nuevo';
@@ -1074,10 +1116,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get searchHint => 'Buscar';
 
   @override
-  String get debugAllDataClearedMessage => 'Todos los datos borrados y re-sembrados con valores predeterminados.';
+  String get debugAllDataClearedMessage =>
+      'Todos los datos borrados y re-sembrados con valores predeterminados.';
 
   @override
-  String get debugClearAllDataLabel => 'Borrar Todos los Datos (y re-sembrar predeterminados)';
+  String get debugClearAllDataLabel =>
+      'Borrar Todos los Datos (y re-sembrar predeterminados)';
 
   @override
   String get debugMinimumDataSeededMessage => 'Datos mínimos sembrados.';
@@ -1095,7 +1139,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get debugMaximumDataSeededMessage => 'Datos máximos sembrados.';
 
   @override
-  String get debugSeedMaximumDataLabel => 'Sembrar Datos Máximos (para prueba de rendimiento)';
+  String get debugSeedMaximumDataLabel =>
+      'Sembrar Datos Máximos (para prueba de rendimiento)';
 
   @override
   String get debugRunningInDebugModeLabel => 'Ejecutando en modo DEBUG';
@@ -1133,7 +1178,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get dashboardCalendarTooltip => 'Vista de Calendario';
 
   @override
-  String get dashboardCalendarDescription => 'Ver transacciones en formato de calendario';
+  String get dashboardCalendarDescription =>
+      'Ver transacciones en formato de calendario';
 
   @override
   String get dashboardCategoriesTab => 'Categorías';
@@ -1145,7 +1191,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get dashboardCategoriesTooltip => 'Análisis de Categorías';
 
   @override
-  String get dashboardCategoriesDescription => 'Desglose de gastos por categoría';
+  String get dashboardCategoriesDescription =>
+      'Desglose de gastos por categoría';
 
   @override
   String get dashboardBalanceTab => 'Saldo';
@@ -1157,7 +1204,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get dashboardBalanceTooltip => 'Historial de Saldo';
 
   @override
-  String get dashboardBalanceDescription => 'Seguimiento del patrimonio neto a lo largo del tiempo';
+  String get dashboardBalanceDescription =>
+      'Seguimiento del patrimonio neto a lo largo del tiempo';
 
   @override
   String get dashboardExpensesLabel => 'Gastos';
@@ -1188,7 +1236,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get failedToLoadIcons => 'Error al cargar los iconos.';
 
   @override
-  String get cannotDeleteTransferIcon => 'No se puede eliminar el icono de Transferencia.';
+  String get cannotDeleteTransferIcon =>
+      'No se puede eliminar el icono de Transferencia.';
 
   @override
   String get deleteIconsDialogTitle => 'Eliminar Iconos';
@@ -1217,7 +1266,8 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get deleteMultipleAccountsMessage => '¿Está seguro de que desea eliminar las cuentas seleccionadas? Todas las transacciones asociadas serán eliminadas.';
+  String get deleteMultipleAccountsMessage =>
+      '¿Está seguro de que desea eliminar las cuentas seleccionadas? Todas las transacciones asociadas serán eliminadas.';
 
   @override
   String get changeAccountTypeDialogTitle => 'Cambiar Tipo de Cuenta';
@@ -1228,7 +1278,8 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get balanceCalculatedFromAsset => 'El saldo se calcula a partir de Cantidad de Activo * Precio';
+  String get balanceCalculatedFromAsset =>
+      'El saldo se calcula a partir de Cantidad de Activo * Precio';
 
   @override
   String get selectAccountTypeTitle => 'Seleccionar Tipo de Cuenta';
@@ -1249,7 +1300,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get selectedAssetLabel => 'Activo Seleccionado';
 
   @override
-  String get balanceAutoCalculatedLabel => 'El saldo se calcula automáticamente';
+  String get balanceAutoCalculatedLabel =>
+      'El saldo se calcula automáticamente';
 
   @override
   String get tapToBindAssetLabel => 'Toque para vincular un activo';
@@ -1267,7 +1319,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get accountTypeLabel => 'Tipo de Cuenta';
 
   @override
-  String get formValidationPleaseSelectAccountType => 'Por favor, seleccione un tipo de cuenta';
+  String get formValidationPleaseSelectAccountType =>
+      'Por favor, seleccione un tipo de cuenta';
 
   @override
   String get iconLabel => 'Icono';
@@ -1300,7 +1353,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncEnableP2P => 'Activar Sincronización P2P';
 
   @override
-  String get syncP2PSubtitle => 'Sincronizar mediante archivos .sync en una carpeta compartida';
+  String get syncP2PSubtitle =>
+      'Sincronizar mediante archivos .sync en una carpeta compartida';
 
   @override
   String get syncFolderLabel => 'Carpeta de Sincronización';
@@ -1327,7 +1381,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncApiTokenHint => 'Introduzca su token de seguridad';
 
   @override
-  String get syncApiTokenHelp => 'Este token es su secreto compartido. Introduzca el mismo valor en todos sus dispositivos para autorizar la sincronización.';
+  String get syncApiTokenHelp =>
+      'Este token es su secreto compartido. Introduzca el mismo valor en todos sus dispositivos para autorizar la sincronización.';
 
   @override
   String get syncTestConnectionButton => 'Probar Conexión';
@@ -1336,13 +1391,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncTestingLabel => 'Probando...';
 
   @override
-  String get syncSaveServerSettingsButton => 'Guardar Configuración del Servidor';
+  String get syncSaveServerSettingsButton =>
+      'Guardar Configuración del Servidor';
 
   @override
   String get syncEnableServer => 'Activar Sincronización con Servidor';
 
   @override
-  String get syncServerSubtitle => 'Sincronizar con una instancia de MyBudget Server';
+  String get syncServerSubtitle =>
+      'Sincronizar con una instancia de MyBudget Server';
 
   @override
   String get syncPendingLocalChanges => 'Cambios locales pendientes:';
@@ -1354,10 +1411,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncSyncingLabel => 'Sincronizando...';
 
   @override
-  String get syncWebNotAvailable => 'La sincronización no está disponible en la Web';
+  String get syncWebNotAvailable =>
+      'La sincronización no está disponible en la Web';
 
   @override
-  String get syncPermissionRequired => 'Se requiere permiso de almacenamiento para la sincronización. Por favor, active \"Acceso a todos los archivos\" en la configuración.';
+  String get syncPermissionRequired =>
+      'Se requiere permiso de almacenamiento para la sincronización. Por favor, active \"Acceso a todos los archivos\" en la configuración.';
 
   @override
   String get syncSelectFolderTitle => 'Seleccionar Carpeta de Syncthing';
@@ -1366,7 +1425,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncClearFilesTitle => 'Borrar Archivos de Sincronización';
 
   @override
-  String get syncClearFilesConfirm => 'Esto eliminará todos los archivos .sync de la carpeta seleccionada. Esta acción no se puede deshacer.';
+  String get syncClearFilesConfirm =>
+      'Esto eliminará todos los archivos .sync de la carpeta seleccionada. Esta acción no se puede deshacer.';
 
   @override
   String syncDeletedFilesCount(Object count) {
@@ -1385,13 +1445,20 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncConnectionSuccessful => '¡Conexión exitosa!';
 
   @override
-  String get syncConnectionFailed => 'Conexión fallida. Compruebe la URL y el Token.';
+  String get syncConnectionFailed =>
+      'Conexión fallida. Compruebe la URL y el Token.';
 
   @override
-  String get syncConnectionUnauthorized => 'El servidor rechazó el token. Revise el token, no la dirección.';
+  String get syncConnectionUnauthorized =>
+      'El servidor rechazó el token. Revise el token, no la dirección.';
 
   @override
-  String get syncServerNotConfigured => 'El servidor no tiene un token de sincronización configurado y rechaza todos los dispositivos. Defina SYNC_TOKEN en el servidor y use el mismo valor aquí.';
+  String get syncServerNotConfigured =>
+      'El servidor no tiene un token de sincronización configurado y rechaza todos los dispositivos. Defina SYNC_TOKEN en el servidor y use el mismo valor aquí.';
+
+  @override
+  String get syncUrlNotConfigured =>
+      'No hay dirección de servidor. Introduzca una URL como https://example.com antes de activar la sincronización.';
 
   @override
   String get syncCompleted => 'Sincronización completada con éxito';
@@ -1417,7 +1484,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get smsRuleMatchPatternHint => 'ej., Pago.*con tarjeta';
 
   @override
-  String get smsRuleMatchPatternHelp => 'Patrón para identificar este tipo de SMS';
+  String get smsRuleMatchPatternHelp =>
+      'Patrón para identificar este tipo de SMS';
 
   @override
   String get smsRuleAmountPattern => 'Patrón de Cantidad (Regex)';
@@ -1435,7 +1503,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get smsRuleCurrencyPatternHint => 'ej., [\\d,.]+\\s*(\\w\\w\\w)';
 
   @override
-  String get smsRuleCurrencyPatternHelp => 'El Grupo 1 debe capturar el código de moneda';
+  String get smsRuleCurrencyPatternHelp =>
+      'El Grupo 1 debe capturar el código de moneda';
 
   @override
   String get smsRuleTestTitle => 'Pruebe su Regla';
@@ -1447,13 +1516,16 @@ class AppLocalizationsEs extends AppLocalizations {
   String get smsRuleTestButton => 'Probar Patrón';
 
   @override
-  String get smsRuleTestEnterSmsError => 'Introduzca el texto del SMS para probar';
+  String get smsRuleTestEnterSmsError =>
+      'Introduzca el texto del SMS para probar';
 
   @override
-  String get smsRuleTestMatchError => '✗ El patrón de coincidencia no encontró resultados';
+  String get smsRuleTestMatchError =>
+      '✗ El patrón de coincidencia no encontró resultados';
 
   @override
-  String get smsRuleTestAmountError => '✗ El patrón de cantidad no encontró resultados';
+  String get smsRuleTestAmountError =>
+      '✗ El patrón de cantidad no encontró resultados';
 
   @override
   String smsRuleTestSuccess(Object amount, Object currency, Object type) {
@@ -1466,7 +1538,8 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get smsRuleRequiredError => 'Los patrones de Coincidencia y Cantidad son obligatorios';
+  String get smsRuleRequiredError =>
+      'Los patrones de Coincidencia y Cantidad son obligatorios';
 
   @override
   String inflationError(Object error) {
@@ -1513,16 +1586,19 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get deleteCategoryMessage => 'Esta categoría tiene transacciones asociadas. ¿Qué le gustaría hacer?';
+  String get deleteCategoryMessage =>
+      'Esta categoría tiene transacciones asociadas. ¿Qué le gustaría hacer?';
 
   @override
-  String get deleteCategoryReassign => 'Reasignar transacciones a otra categoría';
+  String get deleteCategoryReassign =>
+      'Reasignar transacciones a otra categoría';
 
   @override
   String get deleteCategoryNewCategory => 'Nueva Categoría';
 
   @override
-  String get deleteCategoryDeleteAll => 'Eliminar todas las transacciones asociadas';
+  String get deleteCategoryDeleteAll =>
+      'Eliminar todas las transacciones asociadas';
 
   @override
   String deleteAccountConfirmTitle(Object name) {
@@ -1530,7 +1606,8 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get deleteAccountMessage => 'Esta cuenta puede tener transacciones asociadas. ¿Qué le gustaría hacer?';
+  String get deleteAccountMessage =>
+      'Esta cuenta puede tener transacciones asociadas. ¿Qué le gustaría hacer?';
 
   @override
   String get deleteAccountReassign => 'Reasignar transacciones a otra cuenta';
@@ -1539,7 +1616,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get deleteAccountNewAccount => 'Nueva Cuenta';
 
   @override
-  String get deleteAccountDeleteAll => 'Eliminar todas las transacciones asociadas';
+  String get deleteAccountDeleteAll =>
+      'Eliminar todas las transacciones asociadas';
 
   @override
   String get confirmButton => 'Confirmar';
@@ -1600,7 +1678,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get styleNameLabel => 'Nombre del Estilo';
 
   @override
-  String get pleaseEnterStyleName => 'Por favor, introduzca un nombre de estilo';
+  String get pleaseEnterStyleName =>
+      'Por favor, introduzca un nombre de estilo';
 
   @override
   String get colorLabel => 'Color';
@@ -1669,7 +1748,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get searchHotkeysHint => 'Buscar teclas rápidas...';
 
   @override
-  String get noMatchingHotkeys => 'No se han encontrado teclas rápidas coincidentes.';
+  String get noMatchingHotkeys =>
+      'No se han encontrado teclas rápidas coincidentes.';
 
   @override
   String recordingHotkeyTitle(Object label) {
@@ -1680,7 +1760,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pressKeysHint => 'Presione las teclas...';
 
   @override
-  String get pressAnyCombinationHint => 'Presione cualquier combinación de teclas.';
+  String get pressAnyCombinationHint =>
+      'Presione cualquier combinación de teclas.';
 
   @override
   String get clearSaveButton => 'Borrar / Guardar';
@@ -1793,10 +1874,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get hkActionTransactionsSelectionDelete => 'Transacciones: Eliminar';
 
   @override
-  String get hkActionTransactionsSelectionChangeDate => 'Transacciones: Cambiar Fecha';
+  String get hkActionTransactionsSelectionChangeDate =>
+      'Transacciones: Cambiar Fecha';
 
   @override
-  String get hkActionTransactionsSelectionChangeCategory => 'Transacciones: Cambiar Categoría';
+  String get hkActionTransactionsSelectionChangeCategory =>
+      'Transacciones: Cambiar Categoría';
 
   @override
   String get hkActionCategoriesSelectionClose => 'Categorías: Cerrar';
@@ -1808,7 +1891,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get hkActionCategoriesSelectionDelete => 'Categorías: Eliminar';
 
   @override
-  String get hkActionCategoriesSelectionChangeType => 'Categorías: Cambiar Tipo';
+  String get hkActionCategoriesSelectionChangeType =>
+      'Categorías: Cambiar Tipo';
 
   @override
   String get hkActionDataSelectionClose => 'Tipos de Cambio: Cerrar';
@@ -1820,7 +1904,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get hkActionDataSelectionDelete => 'Tipos de Cambio: Eliminar';
 
   @override
-  String get hkActionDataSelectionChangePreset => 'Tipos de Cambio: Cambiar Preajuste';
+  String get hkActionDataSelectionChangePreset =>
+      'Tipos de Cambio: Cambiar Preajuste';
 
   @override
   String get hkActionInflationSelectionClose => 'Inflación: Cerrar';
@@ -1850,7 +1935,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get styAddIcon => 'Añadir Icono';
 
   @override
-  String get smsOnlyAndroid => 'La importación SMS solo está disponible en Android';
+  String get smsOnlyAndroid =>
+      'La importación SMS solo está disponible en Android';
 
   @override
   String get smsImportSms => 'Importar SMS';
@@ -1859,16 +1945,19 @@ class AppLocalizationsEs extends AppLocalizations {
   String get smsPermissionRequired => 'Se Requiere Permiso de SMS';
 
   @override
-  String get smsPermissionRationale => 'Para importar transacciones desde SMS, necesitamos permiso para leer sus mensajes.';
+  String get smsPermissionRationale =>
+      'Para importar transacciones desde SMS, necesitamos permiso para leer sus mensajes.';
 
   @override
   String get smsGrantPermission => 'Conceder Permiso';
 
   @override
-  String get smsNoPresets => 'No hay preajustes configurados. Toque + para añadir uno.';
+  String get smsNoPresets =>
+      'No hay preajustes configurados. Toque + para añadir uno.';
 
   @override
-  String get smsImportDescription => 'Importar transacciones desde mensajes SMS. Elija un rango de tiempo:';
+  String get smsImportDescription =>
+      'Importar transacciones desde mensajes SMS. Elija un rango de tiempo:';
 
   @override
   String get smsLast7Days => 'Últimos 7 Días';
@@ -1897,7 +1986,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get smsSenderFilterHint => 'ej., ALTA o +381...';
 
   @override
-  String get smsSenderFilterHelper => 'Filtrar SMS por nombre del remitente o número de teléfono';
+  String get smsSenderFilterHelper =>
+      'Filtrar SMS por nombre del remitente o número de teléfono';
 
   @override
   String get smsDefaults => 'Predeterminados';
@@ -1934,16 +2024,19 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get smsNameSenderRequired => 'El nombre y el filtro de remitente son obligatorios';
+  String get smsNameSenderRequired =>
+      'El nombre y el filtro de remitente son obligatorios';
 
   @override
   String get smsCategoryKeywords => 'Palabras Clave de Categoría';
 
   @override
-  String get smsCategoryKeywordsSubtitle => 'Asignar palabras clave del texto del SMS a categorías';
+  String get smsCategoryKeywordsSubtitle =>
+      'Asignar palabras clave del texto del SMS a categorías';
 
   @override
-  String get smsNoKeywordRules => 'No hay reglas de palabras clave. Toque + para añadir una.';
+  String get smsNoKeywordRules =>
+      'No hay reglas de palabras clave. Toque + para añadir una.';
 
   @override
   String get smsAddKeywordRule => 'Añadir Regla de Palabra Clave';
@@ -1955,16 +2048,19 @@ class AppLocalizationsEs extends AppLocalizations {
   String get smsKeywordHint => 'ej., Supermercado, Netflix';
 
   @override
-  String get smsKeywordHelper => 'Subcadena sin distinción de mayúsculas a buscar en el texto del SMS';
+  String get smsKeywordHelper =>
+      'Subcadena sin distinción de mayúsculas a buscar en el texto del SMS';
 
   @override
   String get smsSelectCategoryHint => 'Seleccionar categoría';
 
   @override
-  String get dshSelectDateDescription => 'Abrir el calendario para elegir una fecha o rango específico';
+  String get dshSelectDateDescription =>
+      'Abrir el calendario para elegir una fecha o rango específico';
 
   @override
-  String get dshCurrencyDescription => 'Seleccionar la moneda principal para mostrar';
+  String get dshCurrencyDescription =>
+      'Seleccionar la moneda principal para mostrar';
 
   @override
   String get dshChangeViewTooltip => 'Cambiar Vista';
@@ -2020,10 +2116,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get fltAdvancedFilterTooltip => 'Filtro Avanzado';
 
   @override
-  String get fltAdvancedFilterDescription => 'Filtrar transacciones por cuenta, categoría o cantidad';
+  String get fltAdvancedFilterDescription =>
+      'Filtrar transacciones por cuenta, categoría o cantidad';
 
   @override
-  String get fltSortOrderDescription => 'Cambiar entre orden ascendente y descendente';
+  String get fltSortOrderDescription =>
+      'Cambiar entre orden ascendente y descendente';
 
   @override
   String get fltAccountFiltersTitle => 'Filtros de Cuentas';
@@ -2050,7 +2148,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get exchEditExchangeRate => 'Editar Tipo de Cambio';
 
   @override
-  String get exchAddRateDescription => 'Introducir manualmente un tipo de conversión entre dos monedas';
+  String get exchAddRateDescription =>
+      'Introducir manualmente un tipo de conversión entre dos monedas';
 
   @override
   String get exchNoRatesFound => 'No se encontraron tipos de cambio.';
@@ -2085,31 +2184,38 @@ class AppLocalizationsEs extends AppLocalizations {
   String get exchNextPeriodDescription => 'Ir al día, mes o año siguiente';
 
   @override
-  String get exchFilterDescription => 'Filtrar tipos por moneda de origen/destino e ID de preajuste';
+  String get exchFilterDescription =>
+      'Filtrar tipos por moneda de origen/destino e ID de preajuste';
 
   @override
-  String get exchSelectDateDescription => 'Elegir una fecha o rango específico para ver tipos históricos';
+  String get exchSelectDateDescription =>
+      'Elegir una fecha o rango específico para ver tipos históricos';
 
   @override
-  String get exchSortOrderDescription => 'Cambiar entre orden ascendente y descendente por fecha/tipo';
+  String get exchSortOrderDescription =>
+      'Cambiar entre orden ascendente y descendente por fecha/tipo';
 
   @override
   String get exchFilterExchangeRates => 'Filtrar Tipos de Cambio';
 
   @override
-  String get exchExitSelectionDescription => 'Salir del modo de selección de tipos de cambio';
+  String get exchExitSelectionDescription =>
+      'Salir del modo de selección de tipos de cambio';
 
   @override
-  String get exchSelectAllDescription => 'Seleccionar todos los tipos de cambio listados';
+  String get exchSelectAllDescription =>
+      'Seleccionar todos los tipos de cambio listados';
 
   @override
   String get exchDeselectAllDescription => 'Deseleccionar todos los tipos';
 
   @override
-  String get exchChangePresetDescription => 'Actualizar el ID de preajuste de todos los tipos de cambio seleccionados';
+  String get exchChangePresetDescription =>
+      'Actualizar el ID de preajuste de todos los tipos de cambio seleccionados';
 
   @override
-  String get exchDeleteSelectedDescription => 'Eliminar permanentemente todos los tipos de cambio seleccionados';
+  String get exchDeleteSelectedDescription =>
+      'Eliminar permanentemente todos los tipos de cambio seleccionados';
 
   @override
   String get exchDeleteExchangeRatesTitle => 'Eliminar Tipos de Cambio';
@@ -2123,7 +2229,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get exchUpdatePresetTitle => 'Actualizar Preajuste';
 
   @override
-  String get exchUpdatePresetMessage => 'Introduzca el nuevo ID de preajuste para los elementos seleccionados:';
+  String get exchUpdatePresetMessage =>
+      'Introduzca el nuevo ID de preajuste para los elementos seleccionados:';
 
   @override
   String dashboardUnconvertibleCurrencies(String currencies) {
@@ -2131,7 +2238,8 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get addAccountBeforeTransactionDescription => 'Una transacción necesita una cuenta. Cree la primera para empezar';
+  String get addAccountBeforeTransactionDescription =>
+      'Una transacción necesita una cuenta. Cree la primera para empezar';
 
   @override
   String get selectDialogEmptyState => 'Todavía no hay nada para elegir';
@@ -2168,7 +2276,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get assetEditTitle => 'Editar datos del activo';
 
   @override
-  String get assetAddDescription => 'Registrar el valor o la cantidad de un activo concreto';
+  String get assetAddDescription =>
+      'Registrar el valor o la cantidad de un activo concreto';
 
   @override
   String get assetNameLabel => 'Nombre del activo (p. ej. acciones de Apple)';
@@ -2189,10 +2298,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get assetNameRequiredError => 'Ponle un nombre al activo';
 
   @override
-  String get assetIdRequiredError => 'Indica un ID para el activo, por ejemplo AAPL';
+  String get assetIdRequiredError =>
+      'Indica un ID para el activo, por ejemplo AAPL';
 
   @override
-  String get assetValueInvalidError => 'Introduce un número, por ejemplo 150,25';
+  String get assetValueInvalidError =>
+      'Introduce un número, por ejemplo 150,25';
 
   @override
   String get assetNoAssetsFound => 'No se encontraron activos.';
@@ -2209,7 +2320,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String assetDeleteConfirmMessage(num count) {
     final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
       locale: localeName,
-      
     );
     final String countString = countNumberFormat.format(count);
 
@@ -2223,13 +2333,15 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get assetDeleteSelectedDescription => 'Eliminar definitivamente todos los registros de activos seleccionados';
+  String get assetDeleteSelectedDescription =>
+      'Eliminar definitivamente todos los registros de activos seleccionados';
 
   @override
   String get inflationEditRate => 'Editar tasa de inflación';
 
   @override
-  String get inflationAddDescription => 'Introduce un nuevo porcentaje de inflación para una fecha y un país concretos';
+  String get inflationAddDescription =>
+      'Introduce un nuevo porcentaje de inflación para una fecha y un país concretos';
 
   @override
   String get inflationPercentLabel => 'Porcentaje de inflación (%)';
@@ -2238,7 +2350,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get inflationPercentHint => 'p. ej. 2,5';
 
   @override
-  String get inflationPercentInvalidError => 'Introduce un número, por ejemplo 2,5';
+  String get inflationPercentInvalidError =>
+      'Introduce un número, por ejemplo 2,5';
 
   @override
   String get inflationCountryGlobal => 'País: global';
@@ -2300,7 +2413,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String deleteAccountsConfirmTitle(num count) {
     final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
       locale: localeName,
-      
     );
     final String countString = countNumberFormat.format(count);
 
@@ -2314,7 +2426,8 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get deleteAccountsConfirmMessage => '¿Seguro que quieres eliminar las cuentas seleccionadas? Se eliminarán todas las transacciones asociadas.';
+  String get deleteAccountsConfirmMessage =>
+      '¿Seguro que quieres eliminar las cuentas seleccionadas? Se eliminarán todas las transacciones asociadas.';
 
   @override
   String get changeAccountTypeTitle => 'Cambiar tipo de cuenta';
@@ -2326,13 +2439,16 @@ class AppLocalizationsEs extends AppLocalizations {
   String get accountsNextPeriodDescription => 'Ir al mes o año siguiente';
 
   @override
-  String get accountsFilterDescription => 'Filtrar cuentas por tipo o por estado oculto';
+  String get accountsFilterDescription =>
+      'Filtrar cuentas por tipo o por estado oculto';
 
   @override
-  String get accountsSelectDateDescription => 'Elige una fecha concreta para ver los saldos históricos';
+  String get accountsSelectDateDescription =>
+      'Elige una fecha concreta para ver los saldos históricos';
 
   @override
-  String get accountsSortDescription => 'Alternar entre orden ascendente y descendente del saldo';
+  String get accountsSortDescription =>
+      'Alternar entre orden ascendente y descendente del saldo';
 
   @override
   String get smsRuleCategoryOptional => 'Categoría (opcional)';

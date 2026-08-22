@@ -25,9 +25,7 @@ class SmsSettingsScreen extends StatelessWidget {
     if (!AppPlatform.isAndroid) {
       return Scaffold(
         appBar: AppBar(title: Text(context.l10n.smsImportLabel)),
-        body: Center(
-          child: Text(context.l10n.smsOnlyAndroid),
-        ),
+        body: Center(child: Text(context.l10n.smsOnlyAndroid)),
       );
     }
 
@@ -120,9 +118,7 @@ class _SmsSettingsContent extends StatelessWidget {
 
   Widget _buildPresetList(BuildContext context, SmsState state) {
     if (state.presets.isEmpty) {
-      return Center(
-        child: Text(context.l10n.smsNoPresets),
-      );
+      return Center(child: Text(context.l10n.smsNoPresets));
     }
 
     // AccountsBloc/CategoriesBloc/StylesBloc already live at the app root
@@ -430,7 +426,9 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? context.l10n.smsEditPreset : context.l10n.smsNewPreset),
+        title: Text(
+          isEditing ? context.l10n.smsEditPreset : context.l10n.smsNewPreset,
+        ),
         actions: [
           if (!isEditing)
             TextButton(
@@ -483,7 +481,10 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(context.l10n.smsDefaults, style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          context.l10n.smsDefaults,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 16),
         BlocBuilder<AccountsBloc, AccountsState>(
           builder: (context, state) {
@@ -521,7 +522,9 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                                 );
                                 if (s != null) {
                                   return Padding(
-                                    padding: const EdgeInsetsDirectional.only(end: 12),
+                                    padding: const EdgeInsetsDirectional.only(
+                                      end: 12,
+                                    ),
                                     child: BudgetIcon(style: s, radius: 12),
                                   );
                                 }
@@ -552,7 +555,10 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                             padding: const EdgeInsetsDirectional.only(end: 12),
                             child: BudgetIcon(style: style, radius: 12),
                           ),
-                        Text(selectedAccount?.name ?? context.l10n.selectAccountTitle),
+                        Text(
+                          selectedAccount?.name ??
+                              context.l10n.selectAccountTitle,
+                        ),
                       ],
                     ),
                   ),
@@ -598,7 +604,9 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                                 );
                                 if (s != null) {
                                   return Padding(
-                                    padding: const EdgeInsetsDirectional.only(end: 12),
+                                    padding: const EdgeInsetsDirectional.only(
+                                      end: 12,
+                                    ),
                                     child: BudgetIcon(style: s, radius: 12),
                                   );
                                 }
@@ -629,7 +637,10 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                             padding: const EdgeInsetsDirectional.only(end: 12),
                             child: BudgetIcon(style: style, radius: 12),
                           ),
-                        Text(selectedCategory?.name ?? context.l10n.selectCategoryTitle),
+                        Text(
+                          selectedCategory?.name ??
+                              context.l10n.selectCategoryTitle,
+                        ),
                       ],
                     ),
                   ),
@@ -795,8 +806,10 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                         children: [
                           Text(rule.type.name.toUpperCase()),
                           if (ruleCategory != null) ...[
-                            const Text(' • ',
-                                style: TextStyle(color: Colors.grey)),
+                            const Text(
+                              ' • ',
+                              style: TextStyle(color: Colors.grey),
+                            ),
                             // Only ~184dp is left after the leading icon and
                             // the delete button; the type prefix is fixed
                             // width, so the user-named category is the part
@@ -806,16 +819,16 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                                 ruleCategory.name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
+                                style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(color: Colors.grey),
                               ),
                             ),
                           ],
                         ],
                       ),
-                      subtitle: Text(context.l10n.smsMatchLabel(rule.matchPattern)),
+                      subtitle: Text(
+                        context.l10n.smsMatchLabel(rule.matchPattern),
+                      ),
                       trailing: isBuiltIn
                           ? null
                           : IconButton(
@@ -902,10 +915,9 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
         const SizedBox(height: 4),
         Text(
           context.l10n.smsCategoryKeywordsSubtitle,
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: Colors.grey),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: Colors.grey),
         ),
         const SizedBox(height: 8),
         if (_categoryKeywords.isEmpty)
@@ -932,9 +944,7 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                         '"${kw.keyword}"',
                         style: const TextStyle(fontStyle: FontStyle.italic),
                       ),
-                      subtitle: Text(
-                        category?.name ?? kw.categoryId,
-                      ),
+                      subtitle: Text(category?.name ?? kw.categoryId),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete),
                         tooltip: context.l10n.deleteButton,
@@ -1047,7 +1057,8 @@ class _KeywordRuleDialogState extends State<_KeywordRuleDialog> {
           child: Text(context.l10n.cancelButton),
         ),
         FilledButton(
-          onPressed: _selectedCategoryId == null ||
+          onPressed:
+              _selectedCategoryId == null ||
                   _keywordController.text.trim().isEmpty
               ? null
               : () {

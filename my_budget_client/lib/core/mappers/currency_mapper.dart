@@ -9,7 +9,7 @@ extension CurrencyMapper on drift.Currency {
       name: name,
       code: code,
       languageCode: languageCode,
-      type: type
+      type: type,
     );
   }
 }
@@ -20,7 +20,7 @@ extension CurrencyCompanionMapper on Currency {
       name: Value(name),
       code: Value(code),
       languageCode: Value(languageCode),
-      type: Value(type)
+      type: Value(type),
     );
   }
 }

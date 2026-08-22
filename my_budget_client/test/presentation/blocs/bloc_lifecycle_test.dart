@@ -34,40 +34,37 @@ void main() {
       bloc.close();
     });
 
-    test(
-      'isShuttingDown flips synchronously the instant close() is called, '
-      'strictly before isClosed does',
-      () async {
-        final bloc = _GuardedBloc();
+    test('isShuttingDown flips synchronously the instant close() is called, '
+        'strictly before isClosed does', () async {
+      final bloc = _GuardedBloc();
 
-        // close() is deliberately NOT awaited here: markClosing() is the
-        // first statement in close(), so it has already run by the time
-        // close() returns control to us, well before the await inside
-        // close() (or super.close() itself) resolves.
-        final closeFuture = bloc.close();
+      // close() is deliberately NOT awaited here: markClosing() is the
+      // first statement in close(), so it has already run by the time
+      // close() returns control to us, well before the await inside
+      // close() (or super.close() itself) resolves.
+      final closeFuture = bloc.close();
 
-        expect(
-          bloc.isShuttingDown,
-          isTrue,
-          reason:
-              'markClosing() runs synchronously as the first statement of '
-              'close(), before any await — this is the property every '
-              'post-await guard in the real blocs depends on.',
-        );
-        expect(
-          bloc.isClosed,
-          isFalse,
-          reason:
-              'isClosed only flips once the whole close() chain resolves. A '
-              'guard written as `if (isClosed) return;` would NOT see the '
-              'shutdown here, which is exactly the bug this mixin fixes.',
-        );
+      expect(
+        bloc.isShuttingDown,
+        isTrue,
+        reason:
+            'markClosing() runs synchronously as the first statement of '
+            'close(), before any await — this is the property every '
+            'post-await guard in the real blocs depends on.',
+      );
+      expect(
+        bloc.isClosed,
+        isFalse,
+        reason:
+            'isClosed only flips once the whole close() chain resolves. A '
+            'guard written as `if (isClosed) return;` would NOT see the '
+            'shutdown here, which is exactly the bug this mixin fixes.',
+      );
 
-        await closeFuture;
-        expect(bloc.isClosed, isTrue);
-        expect(bloc.isShuttingDown, isTrue);
-      },
-    );
+      await closeFuture;
+      expect(bloc.isClosed, isTrue);
+      expect(bloc.isShuttingDown, isTrue);
+    });
 
     test('markClosing is idempotent and safe to call multiple times', () {
       final bloc = _GuardedBloc();

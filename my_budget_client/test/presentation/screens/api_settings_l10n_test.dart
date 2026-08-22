@@ -93,14 +93,18 @@ void main() {
       expect(find.text(l10n.apiCategoriesSection), findsOneWidget);
       expect(find.text(l10n.manualUtilitiesSection), findsOneWidget);
       // The timestamp is a placeholder, not a concatenation: the label and the
-      // colon belong to the translation.
+      // colon belong to the translation - and the date inside it follows the
+      // locale too. It used to be a hardcoded `yyyy-MM-dd HH:mm`, which is the
+      // one date format no reader of this screen writes by hand.
+      final stamp =
+          '${DateFormat.yMd('ru').format(_lastFetch)} '
+          '${DateFormat.Hm('ru').format(_lastFetch)}';
+      expect(stamp, '03.02.2026 14:05');
+      expect(find.text(l10n.apiLastFetchLabel(stamp)), findsOneWidget);
       expect(
-        find.text(
-          l10n.apiLastFetchLabel(
-            DateFormat('yyyy-MM-dd HH:mm').format(_lastFetch),
-          ),
-        ),
-        findsOneWidget,
+        find.textContaining('2026-02-03'),
+        findsNothing,
+        reason: 'the ISO form is the machine one, not this one',
       );
       expect(find.text('API Categories'), findsNothing);
       expect(find.text('Manual Utilities'), findsNothing);
@@ -229,8 +233,7 @@ void main() {
           isTrue,
           reason: '${file.path} is missing for a supported locale',
         );
-        final arb =
-            jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+        final arb = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
         for (final key in readers.keys) {
           expect(
             arb[key],

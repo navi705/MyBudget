@@ -43,9 +43,9 @@ sealed class Amount {
   /// integer minor units, non-fiat stores its raw major-unit double. Kept as a
   /// [double] because the column stays a Drift RealColumn (decision A).
   double encode() => switch (this) {
-        FiatAmount(:final minorUnits) => minorUnits.toDouble(),
-        RawAmount(:final value) => value,
-      };
+    FiatAmount(:final minorUnits) => minorUnits.toDouble(),
+    RawAmount(:final value) => value,
+  };
 
   /// Value in major units (currency's natural scale), for conversion/display
   /// math where a [double] is acceptable. Storage/summation stays exact via the

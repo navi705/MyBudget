@@ -20,7 +20,9 @@ void main() {
     final designationId =
         (await db.select(db.currencyDesignations).get()).first.id;
     final accountTypeId = (await db.select(db.accountTypes).get()).first.id;
-    await db.into(db.accounts).insert(
+    await db
+        .into(db.accounts)
+        .insert(
           AccountsCompanion.insert(
             id: const Value('eur'),
             name: 'eur',
@@ -39,23 +41,23 @@ void main() {
     final categoryId = (await db.select(db.categories).get()).first.id;
 
     Future<void> addTx(String id, double amount) => repo.addTransaction(
-          domain.Transaction(
-            id: id,
-            description: id,
-            amount: amount,
-            date: DateTime(2024, 1, 1),
-            accountId: 'eur',
-            categoryId: categoryId,
-            currencyCode: 'EUR',
-          ),
-        );
+      domain.Transaction(
+        id: id,
+        description: id,
+        amount: amount,
+        date: DateTime(2024, 1, 1),
+        accountId: 'eur',
+        categoryId: categoryId,
+        currencyCode: 'EUR',
+      ),
+    );
 
     await addTx('a', 0.1);
     await addTx('b', 0.2);
 
-    final acc =
-        await (db.select(db.accounts)..where((a) => a.id.equals('eur')))
-            .getSingle();
+    final acc = await (db.select(
+      db.accounts,
+    )..where((a) => a.id.equals('eur'))).getSingle();
 
     // Exact: 10 + 20 minor units.
     expect(acc.balanceMinor, 30);

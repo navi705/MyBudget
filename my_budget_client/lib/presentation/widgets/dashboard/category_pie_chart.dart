@@ -70,8 +70,22 @@ class CategoryPieChart extends StatelessWidget {
 
         // Maintain roughly 1:2 ratio between center hole and section ring
         // But clamp minimums so it doesn't vanish on very small screens
-        final double centerRadius = (totalRadius * 0.4).clamp(20.0, 60.0);
-        final double sectionRadius = (totalRadius * 0.6).clamp(30.0, 90.0);
+        //
+        // The upper bounds are the wide layout's own budget: 60/90 held the
+        // donut to 340dp across however wide a desktop window got, which made
+        // the 450 cap on maxDiameter above unreachable and left the chart
+        // looking undersized next to its list. The narrow layout keeps the old
+        // ceiling, where the column has no width to spare anyway.
+        final double centerCeiling = isWide ? 85.0 : 60.0;
+        final double sectionCeiling = isWide ? 127.0 : 90.0;
+        final double centerRadius = (totalRadius * 0.4).clamp(
+          20.0,
+          centerCeiling,
+        );
+        final double sectionRadius = (totalRadius * 0.6).clamp(
+          30.0,
+          sectionCeiling,
+        );
 
         // Recalculate diameter based on clamped radii to be exact
         // This ensures the chart fits perfectly in the sized box we return
@@ -101,15 +115,10 @@ class CategoryPieChart extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 48), // Increased gap
-              Expanded(
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 650),
-                    child: _buildCategoryList(context, filteredTotals),
-                  ),
-                ),
-              ),
+              // No width cap of its own: the pane this sits in is already
+              // capped, and a second limit here only reopened the gap on the
+              // right that the outer one closes.
+              Expanded(child: _buildCategoryList(context, filteredTotals)),
             ],
           );
         } else {

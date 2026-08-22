@@ -46,52 +46,54 @@ class _FakeCategoryRepository extends Fake implements CategoryRepository {}
 
 void main() {
   group('AccountsBloc shutdown race', () {
-    test('an add-account in flight when close() starts does not throw',
-        () async {
-      final addAccountGate = Completer<void>();
-      final bloc = AccountsBloc(
-        accountRepository: _FakeAccountRepository(
-          addAccountGate: addAccountGate,
-        ),
-        settingsRepository: _FakeSettingsRepository(),
-        currencyRepository: _FakeCurrencyRepository(),
-        inflationRepository: _FakeInflationRepository(),
-        transactionRepository: _FakeTransactionRepository(),
-        assetRepository: _FakeAssetRepository(),
-        categoryRepository: _FakeCategoryRepository(),
-        financeCalculator: FinanceCalculator(),
-      );
+    test(
+      'an add-account in flight when close() starts does not throw',
+      () async {
+        final addAccountGate = Completer<void>();
+        final bloc = AccountsBloc(
+          accountRepository: _FakeAccountRepository(
+            addAccountGate: addAccountGate,
+          ),
+          settingsRepository: _FakeSettingsRepository(),
+          currencyRepository: _FakeCurrencyRepository(),
+          inflationRepository: _FakeInflationRepository(),
+          transactionRepository: _FakeTransactionRepository(),
+          assetRepository: _FakeAssetRepository(),
+          categoryRepository: _FakeCategoryRepository(),
+          financeCalculator: FinanceCalculator(),
+        );
 
-      final account = Account(
-        id: 'acc-1',
-        name: 'Wallet',
-        balance: 0,
-        currencyCode: 'EUR',
-        currencyDesignationId: 'des-1',
-        accountTypeId: 'type-1',
-        creationDate: DateTime(2024),
-      );
+        final account = Account(
+          id: 'acc-1',
+          name: 'Wallet',
+          balance: 0,
+          currencyCode: 'EUR',
+          currencyDesignationId: 'des-1',
+          accountTypeId: 'type-1',
+          creationDate: DateTime(2024),
+        );
 
-      bloc.add(AddAccount(account));
-      await pumpEventQueue(); // handler suspended on addAccountGate
+        bloc.add(AddAccount(account));
+        await pumpEventQueue(); // handler suspended on addAccountGate
 
-      final zoneErrors = <Object>[];
-      await runZonedGuarded(() async {
-        final closeFuture = bloc.close();
-        addAccountGate.complete();
-        await pumpEventQueue();
-        await closeFuture;
-        await pumpEventQueue();
-      }, (error, stack) => zoneErrors.add(error));
+        final zoneErrors = <Object>[];
+        await runZonedGuarded(() async {
+          final closeFuture = bloc.close();
+          addAccountGate.complete();
+          await pumpEventQueue();
+          await closeFuture;
+          await pumpEventQueue();
+        }, (error, stack) => zoneErrors.add(error));
 
-      expect(
-        zoneErrors,
-        isEmpty,
-        reason:
-            'the resumed handler must bail via isShuttingDown instead of '
-            'calling add(LoadAccounts()) on a bloc whose event controller '
-            'is already closed',
-      );
-    });
+        expect(
+          zoneErrors,
+          isEmpty,
+          reason:
+              'the resumed handler must bail via isShuttingDown instead of '
+              'calling add(LoadAccounts()) on a bloc whose event controller '
+              'is already closed',
+        );
+      },
+    );
   });
 }

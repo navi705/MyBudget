@@ -169,9 +169,24 @@ class AddEditTransactionBloc
           initialLinkedAccount = accounts.firstWhereOrNull(
             (a) => a.id == event.accountId,
           );
-          // selectedAccount should be a DIFFERENT account
+          // selectedAccount should be a DIFFERENT account - and one a transfer
+          // can actually come out of. `getAllAccounts` has no ORDER BY, so
+          // "the first other account" is whatever insertion order happens to
+          // hand back, and picking an ASSET account here quietly cancelled the
+          // whole request: `isTransferMode` below is
+          // `event.isTransfer && selectedAccount?.assetId == null`, it is
+          // written nowhere else, and no later handler recomputes it. The user
+          // asked to transfer and got the asset Buy/Sell form, permanently -
+          // and saving from there wrote a single unlinked row with the system
+          // Transfer category, whose type enforces no sign, so an account
+          // simply gained money that had left nowhere.
+          //
+          // Every other transfer surface already filters on `assetId == null`
+          // (the From picker, and the accounts screen's own count that decides
+          // whether to offer the menu item at all); this is the one that did
+          // not.
           selectedAccount = accounts.firstWhereOrNull(
-            (a) => a.id != event.accountId,
+            (a) => a.id != event.accountId && a.assetId == null,
           );
         } else {
           selectedAccount = accounts.firstWhereOrNull(
@@ -181,7 +196,14 @@ class AddEditTransactionBloc
       }
 
       if (selectedAccount == null && accounts.isNotEmpty) {
-        selectedAccount = accounts.first;
+        // Same reasoning as the transfer pick above: falling back to
+        // `accounts.first` could land on an asset account and turn the
+        // requested transfer into an asset trade.
+        selectedAccount = event.isTransfer
+            ? accounts.firstWhereOrNull(
+                (a) => a.id != event.accountId && a.assetId == null,
+              )
+            : accounts.first;
       }
 
       final selectedCategory = initialTransaction != null
@@ -213,13 +235,31 @@ class AddEditTransactionBloc
           currencies: currencies, // Added
           initialTransaction: initialTransaction,
           description: initialTransaction?.description ?? '',
-          amount: initialTransaction?.amount.toString() ?? '',
+          // Unsigned. The direction is not the user's to type - the amount
+          // field denies '-' outright and the save re-derives the sign from
+          // the category type (or, for a transfer, from which leg is being
+          // written). Seeding the raw stored value put a minus in front of
+          // every reopened expense and every transfer, in a field that cannot
+          // produce one, and the converted-amount preview parsed the same
+          // string and showed a negative arriving balance.
+          amount: initialTransaction == null
+              ? ''
+              : initialTransaction.amount.abs().toString(),
           fee: initialTransaction?.fee.toString() ?? '', // Added
           selectedAccount: selectedAccount,
           selectedCategory: selectedCategory,
           isTransferMode:
               event.isTransfer &&
               selectedAccount?.assetId == null, // Set transfer mode
+          // Now that the amount is seeded unsigned, the sign has to be read
+          // somewhere - and this is where the asset branch takes it from.
+          // (It was never read before: reopening a Sell defaulted to Buy and
+          // saving turned the sale into a purchase.)
+          assetAction:
+              selectedAccount?.assetId != null &&
+                  (initialTransaction?.amount ?? 0) < 0
+              ? AssetAction.sell
+              : AssetAction.buy,
           selectedCurrency: selectedCurrency, // Added
           date: initialTransaction?.date ?? DateTime.now(),
           manualExchangeRate:
@@ -261,13 +301,20 @@ class AddEditTransactionBloc
               // Linked Tx Amount is the cash value.
               restoredTotalValue = linkedTx.amount.abs().toString();
             } else {
-              // Standard Transfer: Restore Exchange Rate
-              // We infer the effective rate used: LinkedAmount / MainAmount
-              if (initialTransaction.amount != 0) {
+              // Standard Transfer: Restore Exchange Rate.
+              //
+              // Transfers saved from here now carry the rate they were made at
+              // on both legs, so read it back rather than reconstructing it.
+              final storedRate =
+                  initialTransaction.exchangeRate ?? linkedTx.exchangeRate;
+              if (storedRate != null && storedRate != 0) {
+                restoredExchangeRate = storedRate.toString();
+              } else if (initialTransaction.amount != 0) {
+                // Fall back for the transfers written before the rate was
+                // stored: infer the effective rate as LinkedAmount / MainAmount
+                // so their historical rate still comes back.
                 final rate =
                     linkedTx.amount.abs() / initialTransaction.amount.abs();
-                // We set manual rate if it deviates from 1:1 or implies conversion
-                // This ensures we preserve the historical "Effective Rate"
                 restoredExchangeRate = rate.toString();
               }
             }
@@ -288,6 +335,7 @@ class AddEditTransactionBloc
             // If we calculated a restored rate, use it. Otherwise keep existing (from initialTx or default)
             manualExchangeRate:
                 restoredExchangeRate ?? state.manualExchangeRate,
+            manualRateIsHistorical: restoredExchangeRate != null,
           ),
         );
       }
@@ -756,7 +804,8 @@ class AddEditTransactionBloc
         final assetTx = Transaction(
           id: assetTxId,
           description: state.description.isEmpty
-              ? '${state.assetAction == AssetAction.buy ? 'Buy' : 'Sell'} ${state.selectedAccount?.name}'
+              ? (event.assetDescription ??
+                    '${state.assetAction == AssetAction.buy ? 'Buy' : 'Sell'} ${state.selectedAccount?.name}')
               : state.description,
           amount: assetAmount,
           date: date,
@@ -770,6 +819,7 @@ class AddEditTransactionBloc
         final cashTx = Transaction(
           id: cashTxId,
           description:
+              event.assetTransferDescription ??
               'Transfer for ${state.assetAction == AssetAction.buy ? 'Buy' : 'Sell'} ${state.selectedAccount?.name}',
           amount: cashAmount,
           date: date,
@@ -825,16 +875,27 @@ class AddEditTransactionBloc
         final txId1 = isEdit
             ? state.initialTransaction!.id!
             : const Uuid().v4();
-        final txId2 = isEdit
-            ? (state.initialTransaction!.linkedTransactionId ??
-                  const Uuid().v4())
-            : const Uuid().v4();
+
+        // A transfer being edited normally already has its receiving leg, and
+        // `linkedTransactionId` names it. When it does not - the row was
+        // written before the app paired transfers, or its partner was deleted
+        // out from under it - there is no row to update, so the second leg has
+        // to be *inserted*, not updated. `updateTransaction` reads the old row
+        // first and returns silently when it finds nothing, so updating an id
+        // that was invented a line earlier writes no row and reports no
+        // failure: the money leaves the source account and never arrives.
+        final existingLinkedId = isEdit
+            ? state.initialTransaction!.linkedTransactionId
+            : null;
+        final isNewLinkedLeg = existingLinkedId == null;
+        final txId2 = existingLinkedId ?? const Uuid().v4();
 
         // From: Expense
         final tx1 = Transaction(
           id: txId1,
           description: state.description.isEmpty
-              ? 'Transfer to ${state.linkedAccount!.name}'
+              ? (event.transferToDescription ??
+                    'Transfer to ${state.linkedAccount!.name}')
               : state.description,
           amount: -(amount.abs()),
           date: date,
@@ -843,19 +904,23 @@ class AddEditTransactionBloc
           currencyCode:
               state.selectedCurrency?.code ??
               state.selectedAccount!.currencyCode,
+          // The rate is what turns one leg's amount into the other's, so it
+          // belongs on the rows rather than being inferred back out of them.
+          // Reopening the transfer used to divide one amount by the other,
+          // which recovers the rate only while both amounts are exactly as
+          // saved: an edit that changes just the sent amount re-derives a rate
+          // that was never used, and a transfer of zero recovers nothing at
+          // all. Storing it also keeps the historical rate readable by
+          // anything else that looks at the row.
+          exchangeRate: finalExchangeRate,
+          exchangeRatePreset: finalPreset,
           linkedTransactionId: txId2,
         );
 
-        // To: Income
-        // Check for currency conversion?
-        // Basic implementation: Just add positive amount (assuming same currency or raw value transfer)
-        // If currencies differ, users usually expect the "Value" to be converted.
-        // But for now, let's assume raw amount transfer or handle basic same-value Different-Currency?
-        // Ideally we should ask for "Receive Amount", currently we only have one Amount field.
-        // We will assume 1:1 value transfer for simplicity unless exchange rate is used.
-        // But Exchange Rate UI is shown if currencies differ.
-        // Adjusted Amount = Amount * Rate.
-
+        // To: Income. The sent amount is denominated in the source account's
+        // currency and the receiving account may keep another, so the arriving
+        // amount is the sent one at the rate the user gave. Same currency on
+        // both sides means no rate and the amount crosses unchanged.
         double receiveAmount = amount.abs();
         if (state.isForeignCurrency && finalExchangeRate != null) {
           receiveAmount = receiveAmount * finalExchangeRate;
@@ -863,18 +928,26 @@ class AddEditTransactionBloc
 
         final tx2 = Transaction(
           id: txId2,
-          description: 'Transfer from ${state.selectedAccount!.name}',
+          description:
+              event.transferFromDescription ??
+              'Transfer from ${state.selectedAccount!.name}',
           amount: receiveAmount,
           date: date,
           accountId: state.linkedAccount!.id!,
           categoryId: categoryId,
           currencyCode: state.linkedAccount!.currencyCode,
+          exchangeRate: finalExchangeRate,
+          exchangeRatePreset: finalPreset,
           linkedTransactionId: txId1,
         );
 
         if (isEdit) {
           await _transactionRepository.updateTransaction(tx1);
-          await _transactionRepository.updateTransaction(tx2);
+          if (isNewLinkedLeg) {
+            await _transactionRepository.addTransaction(tx2);
+          } else {
+            await _transactionRepository.updateTransaction(tx2);
+          }
         } else {
           await _transactionRepository.addTransaction(tx1);
           await _transactionRepository.addTransaction(tx2);
@@ -1319,7 +1392,13 @@ class AddEditTransactionBloc
 
       // If we found a Preset 1 (derived or real), and it's the selected one,
       // we should probably sync manualRate if it's currently different.
+      // A rate read back off a stored transfer is not a stale copy of Preset 1
+      // that wants refreshing - it is the rate the transfer was made at, and
+      // the save writes the receiving leg from it. Resyncing it here meant
+      // reopening a six-month-old transfer, changing nothing, pressing Save,
+      // and moving money at today's rate without being told.
       if (!shouldUpdateManualRate &&
+          !state.manualRateIsHistorical &&
           selectedRate?.preset == 1 &&
           state.manualExchangeRate.isNotEmpty) {
         final currentManual = double.tryParse(state.manualExchangeRate) ?? 0.0;
@@ -1380,6 +1459,11 @@ class AddEditTransactionBloc
         editingExchangeRate: selectedRate,
         clearEditingExchangeRate: selectedRate == null,
         manualExchangeRate: newManualRateStr,
+        // Whatever the field held, this resync replaced it - so it no longer
+        // describes the rate the stored transfer was made at.
+        manualRateIsHistorical: shouldUpdateManualRate
+            ? false
+            : state.manualRateIsHistorical,
         isLoadingRates: false,
       );
 
@@ -1422,6 +1506,9 @@ class AddEditTransactionBloc
       editingExchangeRate: event.rate,
       clearEditingExchangeRate: event.rate == null,
       manualExchangeRate: displayRate?.toString() ?? state.manualExchangeRate,
+      // Picking a preset is the user choosing a looked-up rate over the
+      // stored one.
+      manualRateIsHistorical: false,
     );
 
     // Asset Sync: Recalculate Total Value
@@ -1455,6 +1542,8 @@ class AddEditTransactionBloc
     var newState = state.copyWith(
       manualExchangeRate: event.rate,
       clearSelectedExchangeRate: true,
+      // Typed over: the field is the user's number now, not the stored one.
+      manualRateIsHistorical: false,
     );
 
     // Asset Sync: Recalculate Total Value

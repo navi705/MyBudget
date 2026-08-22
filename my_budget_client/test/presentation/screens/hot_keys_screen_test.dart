@@ -210,7 +210,8 @@ void main() {
       expect(
         bloc.state.hotkeys['back'],
         HotKeyUtils.serializeKeys({LogicalKeyboardKey.escape}),
-        reason: 'EscapeBackHandler falls back to Escape, so listing Back as '
+        reason:
+            'EscapeBackHandler falls back to Escape, so listing Back as '
             'unbound told the user a shortcut they use does not exist',
       );
 

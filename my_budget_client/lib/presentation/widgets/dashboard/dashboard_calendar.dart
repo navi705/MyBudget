@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/theme/app_spacing.dart';
+import 'package:my_budget_client/core/utils/date_display.dart';
+import 'package:my_budget_client/core/theme/money_colors.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_header.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
@@ -47,7 +48,9 @@ class DashboardCalendar extends StatelessWidget {
         final screenWidth = constraints.maxWidth;
         final isWideScreen = screenWidth > kMobileBreakpoint;
         // RESPONSIVE: 700px on desktop for better readability
-        final maxCalendarWidth = isWideScreen ? 700.0 : screenWidth;
+        final maxCalendarWidth = isWideScreen
+            ? kDashboardCalendarColumnWidth
+            : screenWidth;
 
         return Center(
           child: Padding(
@@ -88,35 +91,54 @@ class DashboardCalendar extends StatelessWidget {
     );
   }
 
+  /// Key for the weekday label in column [column], so a test can prove the
+  /// header row and the day grid agree rather than checking them separately.
+  static ValueKey<String> weekdayLabelKey(int column) =>
+      ValueKey<String>('dashboard-weekday-$column');
+
+  /// Key for the cell showing [day] of the displayed month.
+  static ValueKey<String> dayCellKey(int day) =>
+      ValueKey<String>('dashboard-day-$day');
+
+  /// Key for a cell that shows a day belonging to the month before or after
+  /// the one on screen. Distinct from [dayCellKey] because both can show the
+  /// same number — the 31st of the displayed month and the 31st spilling in
+  /// from the previous one.
+  static ValueKey<String> adjacentDayCellKey(DateTime date) =>
+      ValueKey<String>('dashboard-adjacent-day-${date.toIso8601String()}');
+
+  /// A month grid is always this many rows.
+  ///
+  /// A month needs four, five or six depending on its length and which weekday
+  /// it starts on, so sizing the grid to the month made it change height as the
+  /// user paged through the year — the whole dashboard below it jumped. Six is
+  /// the worst case, so every month fits and none of them moves anything.
+  static const int monthGridRows = 6;
+
   Widget _buildWeekdayLabels(BuildContext context) {
-    // Determine start of week (Monday)
-    // We use localized weekdays from intl
-    final weekdays = [
-      DateFormat.E(context.l10n.localeName).format(DateTime(2024, 1, 1)), // Mon
-      DateFormat.E(context.l10n.localeName).format(DateTime(2024, 1, 2)), // Tue
-      DateFormat.E(context.l10n.localeName).format(DateTime(2024, 1, 3)), // Wed
-      DateFormat.E(context.l10n.localeName).format(DateTime(2024, 1, 4)), // Thu
-      DateFormat.E(context.l10n.localeName).format(DateTime(2024, 1, 5)), // Fri
-      DateFormat.E(context.l10n.localeName).format(DateTime(2024, 1, 6)), // Sat
-      DateFormat.E(context.l10n.localeName).format(DateTime(2024, 1, 7)), // Sun
-    ];
+    // The week used to be hardcoded to start on Monday by formatting
+    // 1-7 January 2024 in order. Arabic starts on Saturday and en_US on
+    // Sunday, so the header was a column off from the dates underneath it for
+    // at least three shipped locales - and the grid below shifts by the same
+    // `firstDayOfWeek`, so the two cannot drift apart again.
+    final weekdays = DateDisplay.weekdayLabels(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: weekdays
-          .map(
-            (d) => Expanded(
-              child: Center(
-                child: Text(
-                  d,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
+      children: [
+        for (var i = 0; i < weekdays.length; i++)
+          Expanded(
+            child: Center(
+              key: weekdayLabelKey(i),
+              child: Text(
+                weekdays[i],
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.outline,
                 ),
               ),
             ),
-          )
-          .toList(),
+          ),
+      ],
     );
   }
 
@@ -124,7 +146,11 @@ class DashboardCalendar extends StatelessWidget {
     final firstDayOfMonth = DateTime(selectedDay.year, selectedDay.month, 1);
     final lastDayOfMonth = DateTime(selectedDay.year, selectedDay.month + 1, 0);
     final daysInMonth = lastDayOfMonth.day;
-    final startingWeekday = firstDayOfMonth.weekday; // 1=Mon
+    final startingWeekday = firstDayOfMonth.weekday; // 1=Mon .. 7=Sun
+    // Same authority the header row reads, so the first cell always lands
+    // under its own label whatever the locale's week start is.
+    final firstDayOfWeek = DateDisplay.firstDayOfWeek(context);
+    final leadingBlanks = (startingWeekday - firstDayOfWeek + 7) % 7;
 
     // RESPONSIVE: Use different aspect ratio for phone vs desktop
     final aspectRatio = isWideScreen ? 0.9 : 0.75;
@@ -138,16 +164,55 @@ class DashboardCalendar extends StatelessWidget {
         crossAxisSpacing: 8,
         childAspectRatio: aspectRatio,
       ),
-      itemCount: daysInMonth + (startingWeekday - 1),
+      itemCount: monthGridRows * 7,
       itemBuilder: (context, index) {
-        if (index < startingWeekday - 1) {
-          return const SizedBox.shrink();
+        final day = index - leadingBlanks + 1;
+        // Days from the neighbouring months keep the grid the same height in
+        // every month. They are shown faded and inert: they are not part of
+        // this month, so they carry none of its figures and tapping one would
+        // move the whole dashboard to another month by accident.
+        if (day < 1 || day > daysInMonth) {
+          return _buildAdjacentDayCell(
+            context,
+            DateTime(selectedDay.year, selectedDay.month, day),
+          );
         }
-        final day = index - (startingWeekday - 2);
         final date = DateTime(selectedDay.year, selectedDay.month, day);
 
         return _buildDayCell(context, date);
       },
+    );
+  }
+
+  /// A day belonging to the previous or next month: same footprint, dimmed,
+  /// no amounts, not tappable.
+  Widget _buildAdjacentDayCell(BuildContext context, DateTime date) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Opacity(
+      key: adjacentDayCellKey(date),
+      // Dimmed enough to read as "not this month", but no dimmer: the themes
+      // that blur the window behind the app already give the cards a partly
+      // transparent fill, and a lower opacity on top of that left these cells
+      // with neither a visible box nor a visible number.
+      opacity: 0.6,
+      child: IgnorePointer(
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: colorScheme.outlineVariant),
+          ),
+          padding: const EdgeInsetsDirectional.only(top: 4, end: 6),
+          alignment: AlignmentDirectional.topEnd,
+          child: Text(
+            date.day.toString(),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -168,6 +233,7 @@ class DashboardCalendar extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Material(
+      key: dayCellKey(date.day),
       // Transparent background; the color is applied inside Ink
       color: Colors.transparent,
       // Clip the paint area so the highlight stays within bounds
@@ -215,13 +281,13 @@ class DashboardCalendar extends StatelessWidget {
                   _buildMiniStat(
                     context,
                     '+${MoneyFormatter.format(income, currencyCode)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
-                    Colors.green,
+                    MoneyColors.of(context).inflow,
                   ),
                 if (expense > 0)
                   _buildMiniStat(
                     context,
-                    '-${MoneyFormatter.format(expense, currencyCode)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
-                    Colors.red,
+                    '−${MoneyFormatter.format(expense, currencyCode)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
+                    MoneyColors.of(context).outflow,
                   ),
               ],
               const Spacer(),
@@ -318,8 +384,7 @@ class DashboardCalendar extends StatelessWidget {
             Builder(
               builder: (context) {
                 final net = totalIncome - totalExpense;
-                // Use green for gain (or 0), red for loss
-                final color = net >= 0 ? Colors.green : Colors.red;
+                final color = MoneyColors.of(context).forAmount(net);
                 final currencySymbol = NumberFormat.simpleCurrency(
                   name: currencyCode,
                 ).currencySymbol;

@@ -7,6 +7,8 @@ import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/domain/entities/style.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
+import 'package:my_budget_client/presentation/widgets/account_list_item.dart'
+    show kContentMaxWidth, kFabScrollBottomInset;
 import 'package:my_budget_client/presentation/widgets/add_style_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
@@ -97,51 +99,69 @@ class ManageStylesScreen extends StatelessWidget {
                       context,
                       details.globalPosition,
                     ),
-                    child: ListView.builder(
-                      itemCount: state.styles.length,
-                      itemBuilder: (context, index) {
-                        final style = state.styles[index];
-                        final isSelected = state.selectedStyleIds.contains(
-                          style.id,
-                        );
+                    // The row's edit and delete buttons sat ~1270px from the
+                    // label they act on at 1440x900. Capping and centring the
+                    // column - the same measure and the same
+                    // Center/ConstrainedBox pattern as settings_screen.dart -
+                    // puts the control back beside its subject. The
+                    // GestureDetector stays full-bleed so a right-click in the
+                    // margin still opens the empty-area menu.
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: kContentMaxWidth,
+                        ),
+                        child: ListView.builder(
+                          // Room for the FAB floating over the last row.
+                          padding: const EdgeInsets.only(
+                            bottom: kFabScrollBottomInset,
+                          ),
+                          itemCount: state.styles.length,
+                          itemBuilder: (context, index) {
+                            final style = state.styles[index];
+                            final isSelected = state.selectedStyleIds.contains(
+                              style.id,
+                            );
 
-                        return _StyleListItem(
-                          style: style,
-                          isSelected: isSelected,
-                          isSelectionMode: isSelectionMode,
-                          onTap: () {
-                            if (isSelectionMode) {
-                              if (style.id != null) {
-                                context.read<StylesBloc>().add(
-                                  ToggleStyleSelection(style.id!),
-                                );
-                              }
-                            } else {
-                              // Edit mode navigation
-                              if (style.id != null) {
-                                context.push(
-                                  AppRoutes.editAccountStyle.replaceFirst(
-                                    ':id',
-                                    style.id!.toString(),
-                                  ),
-                                );
-                              }
-                            }
+                            return _StyleListItem(
+                              style: style,
+                              isSelected: isSelected,
+                              isSelectionMode: isSelectionMode,
+                              onTap: () {
+                                if (isSelectionMode) {
+                                  if (style.id != null) {
+                                    context.read<StylesBloc>().add(
+                                      ToggleStyleSelection(style.id!),
+                                    );
+                                  }
+                                } else {
+                                  // Edit mode navigation
+                                  if (style.id != null) {
+                                    context.push(
+                                      AppRoutes.editAccountStyle.replaceFirst(
+                                        ':id',
+                                        style.id!.toString(),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              onLongPress: () {
+                                if (style.id != null) {
+                                  if (!isSelectionMode) {
+                                    context.read<StylesBloc>().add(
+                                      const ToggleStyleSelectionMode(true),
+                                    );
+                                  }
+                                  context.read<StylesBloc>().add(
+                                    ToggleStyleSelection(style.id!),
+                                  );
+                                }
+                              },
+                            );
                           },
-                          onLongPress: () {
-                            if (style.id != null) {
-                              if (!isSelectionMode) {
-                                context.read<StylesBloc>().add(
-                                  const ToggleStyleSelectionMode(true),
-                                );
-                              }
-                              context.read<StylesBloc>().add(
-                                ToggleStyleSelection(style.id!),
-                              );
-                            }
-                          },
-                        );
-                      },
+                        ),
+                      ),
                     ),
                   );
                 }

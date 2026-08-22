@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
-import 'package:my_budget_client/core/theme/app_spacing.dart';
+import 'package:my_budget_client/core/theme/pane_layout.dart';
+import 'package:my_budget_client/core/utils/date_display.dart';
+import 'package:my_budget_client/presentation/widgets/directional_icon.dart';
 
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/advanced_filter_dialog.dart';
@@ -14,39 +16,36 @@ import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 class FilterDate extends StatelessWidget implements PreferredSizeWidget {
   const FilterDate({super.key});
 
+  // One height authority for the whole bar: this widget only ever renders a
+  // GenericFilterAppBar, so it declares exactly what that bar draws. Declaring
+  // 1.5x while the bar drew 1x left ~28dp of dead space under it.
   @override
-  Size get preferredSize => Size.fromHeight(
-    // We'll trust GenericFilterAppBar's internal logic for actual layout,
-    // but we need to declare the correct PreferredSize for Scaffold.
-    // Since we don't have context in preferredSize getter, we use a conservative standard.
-    // However, GenericFilterAppBar will handle its own height internally.
-    kToolbarHeight * 1.5,
-  );
+  Size get preferredSize => GenericFilterAppBar.barSize;
 
   String _formatDate(TransactionsState state, BuildContext context) {
-    final locale = Localizations.localeOf(context).toString();
+    // `dd.MM.yyyy` and `MMMM yyyy` were typed in here and handed to all ten
+    // locales, so an en_US, ar or zh reader got a European date order. Both
+    // patterns now come from the locale's own symbol data.
     if (state.filterMode == FilterMode.range) {
       if (state.activeDateRange == null) {
         return context.l10n.fltSelectRange;
       }
-      final start = DateFormat(
-        'dd.MM.yyyy',
-        locale,
-      ).format(state.activeDateRange!.start);
-      final end = DateFormat(
-        'dd.MM.yyyy',
-        locale,
-      ).format(state.activeDateRange!.end);
+      final start = DateDisplay.short(context, state.activeDateRange!.start);
+      final end = DateDisplay.short(context, state.activeDateRange!.end);
       return '$start - $end';
     }
 
     switch (state.dateStep) {
       case DateStep.day:
-        return DateFormat('dd.MM.yyyy', locale).format(state.activeDate);
+        return DateDisplay.short(context, state.activeDate);
       case DateStep.month:
-        return DateFormat('MMMM yyyy', locale).format(state.activeDate);
+        return DateDisplay.monthYear(context, state.activeDate);
       case DateStep.year:
-        return DateFormat('yyyy', locale).format(state.activeDate);
+        // A bare year has no locale-specific field order to get wrong, but it
+        // still has locale-specific digits (Arabic-Indic in `ar`).
+        return DateFormat.y(
+          DateDisplay.localeOf(context),
+        ).format(state.activeDate);
     }
   }
 
@@ -55,7 +54,9 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
     return BlocBuilder<TransactionsBloc, TransactionsState>(
       builder: (context, state) {
         final onSurface = Theme.of(context).colorScheme.onSurface;
-        final isMobile = MediaQuery.of(context).size.width < kMobileBreakpoint;
+        // The pane, not the window: the rail takes ~73dp off the left, so a
+        // window over the breakpoint can hand this bar a pane under it.
+        final isMobile = context.isCompactPane;
 
         final centerWidget = Row(
           mainAxisAlignment: isMobile
@@ -68,7 +69,7 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
               actionId: 'prev_period',
               description: context.l10n.previousPeriodDescription,
               child: IconButton(
-                icon: Icon(Icons.chevron_left, color: onSurface),
+                icon: DirectionalIcon.previous(color: onSurface),
                 onPressed: () => context.read<TransactionsBloc>().add(
                   const DatePeriodNavigated(-1),
                 ),
@@ -178,7 +179,7 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
               actionId: 'next_period',
               description: context.l10n.nextPeriodDescription,
               child: IconButton(
-                icon: Icon(Icons.chevron_right, color: onSurface),
+                icon: DirectionalIcon.next(color: onSurface),
                 onPressed: () => context.read<TransactionsBloc>().add(
                   const DatePeriodNavigated(1),
                 ),

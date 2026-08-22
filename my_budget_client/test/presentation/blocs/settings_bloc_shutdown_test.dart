@@ -82,30 +82,34 @@ void main() {
       await inflationController.close();
     });
 
-    test('a second LoadSettings resubscribes without leaking the old streams',
-        () async {
-      final settingsController = StreamController<List<Settings>>.broadcast();
-      final inflationController =
-          StreamController<List<InflationRateDomain>>.broadcast();
+    test(
+      'a second LoadSettings resubscribes without leaking the old streams',
+      () async {
+        final settingsController = StreamController<List<Settings>>.broadcast();
+        final inflationController =
+            StreamController<List<InflationRateDomain>>.broadcast();
 
-      final bloc = SettingsBloc(
-        settingsRepository: _FakeSettingsRepository(settingsController.stream),
-        inflationRepository: _FakeInflationRepository(
-          inflationController.stream,
-        ),
-        inflationApiService: _FakeInflationApiService(),
-      );
+        final bloc = SettingsBloc(
+          settingsRepository: _FakeSettingsRepository(
+            settingsController.stream,
+          ),
+          inflationRepository: _FakeInflationRepository(
+            inflationController.stream,
+          ),
+          inflationApiService: _FakeInflationApiService(),
+        );
 
-      bloc.add(LoadSettings());
-      await pumpEventQueue();
-      bloc.add(LoadSettings());
-      await pumpEventQueue();
+        bloc.add(LoadSettings());
+        await pumpEventQueue();
+        bloc.add(LoadSettings());
+        await pumpEventQueue();
 
-      expect(settingsController.hasListener, isTrue);
+        expect(settingsController.hasListener, isTrue);
 
-      await bloc.close();
-      await settingsController.close();
-      await inflationController.close();
-    });
+        await bloc.close();
+        await settingsController.close();
+        await inflationController.close();
+      },
+    );
   });
 }

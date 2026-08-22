@@ -46,34 +46,45 @@ void main() {
     // clause), un-LIMIT-1'd exchange-rate subquery silently pick a seeded
     // historical rate instead of the rate this test controls, making the
     // pivot-conversion assertion flaky/wrong. ZZT sidesteps that entirely.
-    final languageCode = (await db.select(db.languages).get()).first.languageCode;
-    await db.into(db.currencies).insert(
-      CurrenciesCompanion.insert(
-        name: 'Test Currency Unit',
-        code: 'ZZT',
-        languageCode: languageCode,
-      ),
-    );
+    final languageCode =
+        (await db.select(db.languages).get()).first.languageCode;
+    await db
+        .into(db.currencies)
+        .insert(
+          CurrenciesCompanion.insert(
+            name: 'Test Currency Unit',
+            code: 'ZZT',
+            languageCode: languageCode,
+          ),
+        );
 
-    await db.into(db.accounts).insert(
-      AccountsCompanion.insert(
-        id: const Value('acc1'),
-        name: 'Acc',
-        balance: 0,
-        currencyCode: eurCode,
-        currencyDesignationId: designationId,
-        accountTypeId: accountTypeId,
-        creationDate: Value(DateTime(2024, 1, 1)),
-      ),
-    );
+    await db
+        .into(db.accounts)
+        .insert(
+          AccountsCompanion.insert(
+            id: const Value('acc1'),
+            name: 'Acc',
+            balance: 0,
+            currencyCode: eurCode,
+            currencyDesignationId: designationId,
+            accountTypeId: accountTypeId,
+            creationDate: Value(DateTime(2024, 1, 1)),
+          ),
+        );
 
     for (final c in [
-      CategoriesCompanion.insert(id: const Value('test_cat_food'), name: 'Food'),
+      CategoriesCompanion.insert(
+        id: const Value('test_cat_food'),
+        name: 'Food',
+      ),
       CategoriesCompanion.insert(
         id: const Value('test_cat_salary'),
         name: 'Salary',
       ),
-      CategoriesCompanion.insert(id: const Value('test_cat_empty'), name: 'Empty'),
+      CategoriesCompanion.insert(
+        id: const Value('test_cat_empty'),
+        name: 'Empty',
+      ),
     ]) {
       await db.into(db.categories).insert(c);
     }
@@ -89,18 +100,20 @@ void main() {
       String? currency,
       bool isDeleted = false,
     }) {
-      return db.into(db.transactions).insert(
-        TransactionsCompanion.insert(
-          id: Value(id),
-          description: id,
-          amount: amount,
-          date: date,
-          accountId: 'acc1',
-          categoryId: category,
-          currencyCode: currency ?? eurCode,
-          isDeleted: Value(isDeleted),
-        ),
-      );
+      return db
+          .into(db.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              id: Value(id),
+              description: id,
+              amount: amount,
+              date: date,
+              accountId: 'acc1',
+              categoryId: category,
+              currencyCode: currency ?? eurCode,
+              isDeleted: Value(isDeleted),
+            ),
+          );
     }
 
     // -- getTransactionTotalsGrouped / sign + soft-delete + boundary fixtures --
@@ -164,15 +177,18 @@ void main() {
     // -- getCategoryTotalsInMainCurrency fixtures --
     // A same-day EUR->ZZT rate so a non-EUR, non-main-currency transaction
     // needs the two-step EUR pivot.
-    await db.into(db.exchangeRates).insert(
-      ExchangeRatesCompanion.insert(
-        fromCurrencyCode: 'EUR',
-        toCurrencyCode: 'ZZT',
-        rate: 2.0, // 1 EUR = 2 ZZT, deliberately not 1:1 so pivoting is visible
-        preset: 0,
-        date: DateTime(2025, 6, 15),
-      ),
-    );
+    await db
+        .into(db.exchangeRates)
+        .insert(
+          ExchangeRatesCompanion.insert(
+            fromCurrencyCode: 'EUR',
+            toCurrencyCode: 'ZZT',
+            rate:
+                2.0, // 1 EUR = 2 ZZT, deliberately not 1:1 so pivoting is visible
+            preset: 0,
+            date: DateTime(2025, 6, 15),
+          ),
+        );
     await tx(
       id: 'm_eur_expense',
       category: catFood,
@@ -258,35 +274,39 @@ void main() {
       expect(byId.containsKey(DateTime(2025, 7, 1)), isFalse);
     });
 
-    test('a category with zero transactions in range produces no group row '
-        '(caller treats absence as 0, verified against the real DAO return '
-        'type: List<GroupedTransactionTotal>, not a total-per-category map)',
-        () async {
-      final totals = await db.transactionsDao.getTransactionTotalsGrouped(
-        dateFrom: DateTime(2025, 6, 10),
-        dateTo: DateTime(2025, 6, 10),
-      );
-      expect(totals.any((t) => t.categoryId == catEmpty), isFalse);
-    });
+    test(
+      'a category with zero transactions in range produces no group row '
+      '(caller treats absence as 0, verified against the real DAO return '
+      'type: List<GroupedTransactionTotal>, not a total-per-category map)',
+      () async {
+        final totals = await db.transactionsDao.getTransactionTotalsGrouped(
+          dateFrom: DateTime(2025, 6, 10),
+          dateTo: DateTime(2025, 6, 10),
+        );
+        expect(totals.any((t) => t.categoryId == catEmpty), isFalse);
+      },
+    );
   });
 
   group('getCategoryTotalsInMainCurrency', () {
-    test('converts through the EUR pivot and preserves sign, when main '
-        'currency differs from both EUR and the transaction currency',
-        () async {
-      final totals = await db.transactionsDao.getCategoryTotalsInMainCurrency(
-        dateFrom: DateTime(2025, 6, 15),
-        dateTo: DateTime(2025, 6, 15),
-        mainCurrencyCode: 'ZZT',
-      );
+    test(
+      'converts through the EUR pivot and preserves sign, when main '
+      'currency differs from both EUR and the transaction currency',
+      () async {
+        final totals = await db.transactionsDao.getCategoryTotalsInMainCurrency(
+          dateFrom: DateTime(2025, 6, 15),
+          dateTo: DateTime(2025, 6, 15),
+          mainCurrencyCode: 'ZZT',
+        );
 
-      // EUR -10.0 expense -> ZZT at rate 2.0 -> -20.0.
-      expect(totals[catFood], closeTo(-20.0, 1e-9));
-      // ZZT 50.0 income, main currency IS ZZT: step1 (ZZT->EUR) derives from
-      // inverting the seeded EUR->ZZT rate (1/2.0=0.5), step2 (EUR->ZZT)
-      // uses it directly (2.0); 0.5*2.0 round-trips to identity -> unchanged.
-      expect(totals[catSalary], closeTo(50.0, 1e-9));
-    });
+        // EUR -10.0 expense -> ZZT at rate 2.0 -> -20.0.
+        expect(totals[catFood], closeTo(-20.0, 1e-9));
+        // ZZT 50.0 income, main currency IS ZZT: step1 (ZZT->EUR) derives from
+        // inverting the seeded EUR->ZZT rate (1/2.0=0.5), step2 (EUR->ZZT)
+        // uses it directly (2.0); 0.5*2.0 round-trips to identity -> unchanged.
+        expect(totals[catSalary], closeTo(50.0, 1e-9));
+      },
+    );
 
     test('excludes soft-deleted transactions', () async {
       final totals = await db.transactionsDao.getCategoryTotalsInMainCurrency(
@@ -305,12 +325,11 @@ void main() {
       'JOIN) — this is safe only because every call site does '
       '`map[category.id] ?? 0.0` (see categories_bloc.dart line ~379)',
       () async {
-        final totals = await db.transactionsDao
-            .getCategoryTotalsInMainCurrency(
-              dateFrom: DateTime(2025, 6, 15),
-              dateTo: DateTime(2025, 6, 15),
-              mainCurrencyCode: 'EUR',
-            );
+        final totals = await db.transactionsDao.getCategoryTotalsInMainCurrency(
+          dateFrom: DateTime(2025, 6, 15),
+          dateTo: DateTime(2025, 6, 15),
+          mainCurrencyCode: 'EUR',
+        );
         expect(totals.containsKey(catEmpty), isFalse);
       },
     );
@@ -339,18 +358,20 @@ void main() {
         required double amount,
         bool isDeleted = false,
       }) {
-        return db.into(db.transactions).insert(
-          TransactionsCompanion.insert(
-            id: Value(id),
-            description: id,
-            amount: amount,
-            date: DateTime(2027, 1, 15),
-            accountId: 'acc1',
-            categoryId: category,
-            currencyCode: eurCode,
-            isDeleted: Value(isDeleted),
-          ),
-        );
+        return db
+            .into(db.transactions)
+            .insert(
+              TransactionsCompanion.insert(
+                id: Value(id),
+                description: id,
+                amount: amount,
+                date: DateTime(2027, 1, 15),
+                accountId: 'acc1',
+                categoryId: category,
+                currencyCode: eurCode,
+                isDeleted: Value(isDeleted),
+              ),
+            );
       }
 
       await tx(id: 'gcwt_a', category: 'gcwt_live', amount: -10.0);

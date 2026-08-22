@@ -21,7 +21,8 @@ import 'package:my_budget_client/presentation/blocs/add_edit_transaction/add_edi
 // state change, so any repository call would mean the handler did something it
 // was not asked to. Unimplemented, it fails loudly instead of returning a
 // default that quietly changes what the test proves.
-class _FakeTransactionRepository extends Fake implements TransactionRepository {}
+class _FakeTransactionRepository extends Fake
+    implements TransactionRepository {}
 
 class _FakeAccountRepository extends Fake implements AccountRepository {}
 

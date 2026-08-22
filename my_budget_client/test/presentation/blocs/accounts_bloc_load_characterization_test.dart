@@ -1,7 +1,8 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:my_budget_client/core/database/app_database.dart' hide Transaction;
+import 'package:my_budget_client/core/database/app_database.dart'
+    hide Transaction;
 import 'package:my_budget_client/data/repositories/local_db/local_account_repository.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_asset_repository.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_category_repository.dart';
@@ -44,31 +45,35 @@ void main() {
     final creation = DateTime.now().subtract(const Duration(days: 2000));
 
     Future<void> account(String id, double balance) {
-      return db.into(db.accounts).insert(
-        AccountsCompanion.insert(
-          id: Value(id),
-          name: id,
-          balance: balance,
-          currencyCode: currencyCode,
-          currencyDesignationId: designationId,
-          accountTypeId: accountTypeId,
-          creationDate: Value(creation),
-        ),
-      );
+      return db
+          .into(db.accounts)
+          .insert(
+            AccountsCompanion.insert(
+              id: Value(id),
+              name: id,
+              balance: balance,
+              currencyCode: currencyCode,
+              currencyDesignationId: designationId,
+              accountTypeId: accountTypeId,
+              creationDate: Value(creation),
+            ),
+          );
     }
 
     Future<void> tx(String id, String acc, double amount, DateTime date) {
-      return db.into(db.transactions).insert(
-        TransactionsCompanion.insert(
-          id: Value(id),
-          description: id,
-          amount: amount,
-          date: date,
-          accountId: acc,
-          categoryId: categoryId,
-          currencyCode: currencyCode,
-        ),
-      );
+      return db
+          .into(db.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              id: Value(id),
+              description: id,
+              amount: amount,
+              date: date,
+              accountId: acc,
+              categoryId: categoryId,
+              currencyCode: currencyCode,
+            ),
+          );
     }
 
     final now = DateTime.now();
@@ -129,18 +134,20 @@ void main() {
     await bloc.close();
   });
 
-  test('previous-period balances undo everything after prev period end',
-      () async {
-    final bloc = buildBloc();
-    final s = await load(bloc);
+  test(
+    'previous-period balances undo everything after prev period end',
+    () async {
+      final bloc = buildBloc();
+      final s = await load(bloc);
 
-    // Prev period = previous month. Everything after its end (today +200,
-    // future +30) is undone: 1000 - 230 = 770.
-    expect(s.previousPeriodBalances['S1'], 770.0);
-    expect(s.previousPeriodBalances['S2'], 500.0);
+      // Prev period = previous month. Everything after its end (today +200,
+      // future +30) is undone: 1000 - 230 = 770.
+      expect(s.previousPeriodBalances['S1'], 770.0);
+      expect(s.previousPeriodBalances['S2'], 500.0);
 
-    await bloc.close();
-  });
+      await bloc.close();
+    },
+  );
 
   test('current-period income captures the today transaction', () async {
     final bloc = buildBloc();

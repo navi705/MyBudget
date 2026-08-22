@@ -77,7 +77,37 @@ class AddEditTransactionDateChanged extends AddEditTransactionEvent {
 }
 
 class AddEditTransactionSubmitted extends AddEditTransactionEvent {
-  const AddEditTransactionSubmitted();
+  // A transfer writes two rows whose descriptions the user never typed, so the
+  // app has to word them - and a bloc has no `BuildContext` to reach `l10n`
+  // with. The screen does, so it fills the two templates in with the account
+  // names and hands over finished strings.
+  //
+  // Both stay nullable, and the bloc falls back to the English wording it has
+  // always written, so the callers with no localizations to offer - the tests,
+  // and any future non-UI caller - keep producing exactly what they did.
+  final String? transferToDescription;
+  final String? transferFromDescription;
+
+  // An asset buy or sell writes two rows the same way and for the same reason:
+  // the asset leg ("Buy Bitcoin") when the user typed no description of their
+  // own, and the cash leg that pays for it, which they never get to describe.
+  final String? assetDescription;
+  final String? assetTransferDescription;
+
+  const AddEditTransactionSubmitted({
+    this.transferToDescription,
+    this.transferFromDescription,
+    this.assetDescription,
+    this.assetTransferDescription,
+  });
+
+  @override
+  List<Object?> get props => [
+    transferToDescription,
+    transferFromDescription,
+    assetDescription,
+    assetTransferDescription,
+  ];
 }
 
 class AddEditTransactionCurrencyChanged extends AddEditTransactionEvent {

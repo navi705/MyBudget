@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/theme/app_spacing.dart';
+import 'package:my_budget_client/presentation/widgets/directional_icon.dart';
 
 class GenericFilterAppBar extends StatelessWidget
     implements PreferredSizeWidget {
@@ -19,8 +20,18 @@ class GenericFilterAppBar extends StatelessWidget
     this.actions,
   });
 
+  /// The single height authority for this bar.
+  ///
+  /// There used to be three that disagreed: `preferredSize` said
+  /// `kToolbarHeight * 1.5`, `build` drew `kToolbarHeight` plus the status bar
+  /// inset, and callers wrapped the whole thing in `kToolbarHeight * 1.8`.
+  /// Scaffold reserves `preferredSize.height` and adds the top padding itself,
+  /// so the 1.5 left ~28dp of dead space under every filter bar. Anything that
+  /// needs to reserve room for this bar reads [barSize].
+  static const Size barSize = Size.fromHeight(kToolbarHeight);
+
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight * 1.5); // Increase default for safety or use dynamic
+  Size get preferredSize => barSize;
 
   @override
   Widget build(BuildContext context) {
@@ -30,11 +41,12 @@ class GenericFilterAppBar extends StatelessWidget
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Width the bar was actually handed, which is the pane's width when it
+        // sits inside the shell.
         final isMobile = constraints.maxWidth < kMobileBreakpoint;
-        final actualHeight = kToolbarHeight;
 
         return Container(
-          height: actualHeight + MediaQuery.of(context).padding.top,
+          height: barSize.height + MediaQuery.paddingOf(context).top,
           color: Theme.of(context).appBarTheme.backgroundColor,
           child: SafeArea(
             bottom: false,
@@ -54,8 +66,7 @@ class GenericFilterAppBar extends StatelessWidget
                   else
                     IconButton(
                       tooltip: context.l10n.previousPeriodTooltip,
-                      icon: Icon(
-                        Icons.arrow_back_ios,
+                      icon: DirectionalIcon.previousArrow(
                         color: onSurface,
                         size: 20,
                       ),
@@ -127,7 +138,7 @@ class GenericFilterAppBar extends StatelessWidget
       trailing.add(
         IconButton(
           tooltip: context.l10n.nextPeriodTooltip,
-          icon: Icon(Icons.arrow_forward_ios, color: onSurface, size: 20),
+          icon: DirectionalIcon.nextArrow(color: onSurface, size: 20),
           onPressed: onNavigateNext,
         ),
       );

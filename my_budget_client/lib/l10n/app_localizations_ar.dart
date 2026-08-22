@@ -147,7 +147,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dashboardNetWorthTrend => 'اتجاه صافي القيمة';
 
   @override
-  String get dashboardWealthDistributionByAccount => 'توزيع الثروة (حسب الحساب)';
+  String get dashboardWealthDistributionByAccount =>
+      'توزيع الثروة (حسب الحساب)';
 
   @override
   String get dashboardCurrencyExposure => 'التعرض للعملات';
@@ -237,7 +238,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get deleteAccountDialogDeleteAll => 'حذف جميع المعاملات المرتبطة';
 
   @override
-  String get deleteAccountDialogMessage => 'قد يحتوي هذا الحساب على معاملات مرتبطة. ماذا تود أن تفعل؟';
+  String get deleteAccountDialogMessage =>
+      'قد يحتوي هذا الحساب على معاملات مرتبطة. ماذا تود أن تفعل؟';
 
   @override
   String get newAccountLabel => 'حساب جديد';
@@ -246,7 +248,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get warningOverwriteTitle => 'تحذير: كتابة فوق البيانات؟';
 
   @override
-  String get warningOverwriteMessage => 'استعادة نسخة احتياطية سيحذف كافة البيانات الحالية ويستبدلها بالنسخة الاحتياطية. لا يمكن التراجع عن هذا الإجراء.';
+  String get warningOverwriteMessage =>
+      'استعادة نسخة احتياطية سيحذف كافة البيانات الحالية ويستبدلها بالنسخة الاحتياطية. لا يمكن التراجع عن هذا الإجراء.';
 
   @override
   String get restoreOverwriteButton => 'استعادة وكتابة فوق البيانات';
@@ -265,7 +268,8 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get deleteCategoriesConfirmationMessage => 'هل أنت متأكد من رغبتك في حذف الفئات المحددة؟';
+  String get deleteCategoriesConfirmationMessage =>
+      'هل أنت متأكد من رغبتك في حذف الفئات المحددة؟';
 
   @override
   String get changeCategoryTypeDialogTitle => 'تغيير نوع الفئة';
@@ -295,19 +299,22 @@ class AppLocalizationsAr extends AppLocalizations {
   String get filterTooltip => 'تصفية';
 
   @override
-  String get filterCategoriesDescription => 'تصفية الفئات حسب النوع (دخل/مصروفات)';
+  String get filterCategoriesDescription =>
+      'تصفية الفئات حسب النوع (دخل/مصروفات)';
 
   @override
   String get selectDateTooltip => 'تحديد تاريخ';
 
   @override
-  String get selectDateDescription => 'اختر نطاقاً زمنياً محدداً لرؤية الإجماليات';
+  String get selectDateDescription =>
+      'اختر نطاقاً زمنياً محدداً لرؤية الإجماليات';
 
   @override
   String get sortOrderTooltip => 'ترتيب الفرز';
 
   @override
-  String get sortOrderDescription => 'التبديل بين الترتيب التصاعدي والتنازلي حسب المبلغ';
+  String get sortOrderDescription =>
+      'التبديل بين الترتيب التصاعدي والتنازلي حسب المبلغ';
 
   @override
   String get closeSelectionTooltip => 'إغلاق التحديد';
@@ -339,7 +346,8 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get exitTransactionsSelectionDescription => 'الخروج من وضع اختيار المعاملات';
+  String get exitTransactionsSelectionDescription =>
+      'الخروج من وضع اختيار المعاملات';
 
   @override
   String get changeDateTooltip => 'تغيير التاريخ';
@@ -357,7 +365,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get deleteTransactionsTooltip => 'حذف المحدد';
 
   @override
-  String get deleteTransactionsDescription => 'حذف كافة المعاملات المحددة نهائياً';
+  String get deleteTransactionsDescription =>
+      'حذف كافة المعاملات المحددة نهائياً';
 
   @override
   String get amountLabel => 'المبلغ';
@@ -443,13 +452,16 @@ class AppLocalizationsAr extends AppLocalizations {
   String get selectDateError => 'يرجى تحديد تاريخ';
 
   @override
-  String get accountDeletedError => 'تم حذف الحساب الذي حددته. يرجى تحديد حساب آخر.';
+  String get accountDeletedError =>
+      'تم حذف الحساب الذي حددته. يرجى تحديد حساب آخر.';
 
   @override
-  String get linkedAccountDeletedError => 'تم حذف الحساب المرتبط الذي حددته. يرجى تحديد حساب آخر.';
+  String get linkedAccountDeletedError =>
+      'تم حذف الحساب المرتبط الذي حددته. يرجى تحديد حساب آخر.';
 
   @override
-  String get enterExchangeRateError => 'يرجى إدخال سعر الصرف. يتم هذا التحويل بين عملتين ولا يوجد سعر صرف محفوظ لهما.';
+  String get enterExchangeRateError =>
+      'يرجى إدخال سعر الصرف. يتم هذا التحويل بين عملتين ولا يوجد سعر صرف محفوظ لهما.';
 
   @override
   String get currencyLockedMessage => 'مغلق على عملة حساب المصدر';
@@ -669,7 +681,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get exportDataLabel => 'تصدير البيانات';
 
   @override
-  String get exportFormatMessage => 'اختر التنسيق:\n\nJSON: نسخة احتياطية كاملة لكافة البيانات.\nCSV: تقرير معاملات قابل للقراءة.';
+  String get exportFormatMessage =>
+      'اختر التنسيق:\n\nJSON: نسخة احتياطية كاملة لكافة البيانات.\nCSV: تقرير معاملات قابل للقراءة.';
 
   @override
   String get jsonFormat => 'JSON';
@@ -684,7 +697,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get resetDataLabel => 'إعادة تعيين البيانات للافتراضي';
 
   @override
-  String get resetDataSubtitle => 'سيؤدي هذا لحذف كافة البيانات واستعادة الإعدادات الافتراضية.';
+  String get resetDataSubtitle =>
+      'سيؤدي هذا لحذف كافة البيانات واستعادة الإعدادات الافتراضية.';
 
   @override
   String get debugMenuLabel => 'قائمة التصحيح';
@@ -715,7 +729,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get startupDataSyncLabel => 'مزامنة البيانات عند بدء التشغيل';
 
   @override
-  String get startupDataSyncDescription => 'يتحكم في جلب البيانات الخارجية ومزامنة الخادم عند تشغيل التطبيق.';
+  String get startupDataSyncDescription =>
+      'يتحكم في جلب البيانات الخارجية ومزامنة الخادم عند تشغيل التطبيق.';
 
   @override
   String get standardApiLabel => 'Standard API';
@@ -835,7 +850,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get addCustomSourceTitle => 'إضافة مصدر مخصص';
 
   @override
-  String get addressFormatsHelp => 'نماذج العنوان:\n• 192.168.1.10 (IP)\n• localhost أو api.my.com\n• http://myserver.com';
+  String get addressFormatsHelp =>
+      'نماذج العنوان:\n• 192.168.1.10 (IP)\n• localhost أو api.my.com\n• http://myserver.com';
 
   @override
   String get customSourceNameHint => 'خادمي المنزلي';
@@ -881,6 +897,15 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get categoriesGridViewTooltip => 'عرض شبكي';
+
+  @override
+  String get categoriesListViewTooltip => 'عرض قائمة';
+
+  @override
+  String get categoriesGridBackTooltip => 'كل الفئات';
+
+  @override
   String get periodSummaryTitle => 'ملخص الفترة';
 
   @override
@@ -912,13 +937,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get resetDataConfirmationTitle => 'إعادة تعيين البيانات؟';
 
   @override
-  String get resetDataConfirmationMessage => 'تحذير! سيؤدي هذا لمسح كااااافة معاملاتك وحساباتك وإعداداتك.\n\nسيعود التطبيق لحالته الأصلية مع البيانات الافتراضية.\nلا يمكن التراجع عن هذا الإجراء.';
+  String get resetDataConfirmationMessage =>
+      'تحذير! سيؤدي هذا لمسح كااااافة معاملاتك وحساباتك وإعداداتك.\n\nسيعود التطبيق لحالته الأصلية مع البيانات الافتراضية.\nلا يمكن التراجع عن هذا الإجراء.';
 
   @override
   String get resetEverythingButton => 'إعادة تعيين الكل';
 
   @override
-  String get resetSuccessMessage => 'تمت إعادة تعيين البيانات واستعادة الافتراضيات.';
+  String get resetSuccessMessage =>
+      'تمت إعادة تعيين البيانات واستعادة الافتراضيات.';
 
   @override
   String resetFailedMessage(Object error) {
@@ -946,7 +973,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get restoreBackupLabel => 'استعادة النسخة الاحتياطية (JSON)';
 
   @override
-  String get importSelectionHelp => 'اختر \'OneMoney\' للهجرة، \'MyBudget\' لإضافة معاملات، أو \'استعادة النسخة الاحتياطية\' للكتابة فوق كافة البيانات الحالية.';
+  String get importSelectionHelp =>
+      'اختر \'OneMoney\' للهجرة، \'MyBudget\' لإضافة معاملات، أو \'استعادة النسخة الاحتياطية\' للكتابة فوق كافة البيانات الحالية.';
 
   @override
   String get importCreateAllNew => 'إنشاء كافة البيانات كجديدة';
@@ -1074,10 +1102,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get searchHint => 'بحث';
 
   @override
-  String get debugAllDataClearedMessage => 'تم مسح كافة البيانات وإعادة بذر الافتراضيات.';
+  String get debugAllDataClearedMessage =>
+      'تم مسح كافة البيانات وإعادة بذر الافتراضيات.';
 
   @override
-  String get debugClearAllDataLabel => 'مسح كافة البيانات (وإعادة بذر الافتراضيات)';
+  String get debugClearAllDataLabel =>
+      'مسح كافة البيانات (وإعادة بذر الافتراضيات)';
 
   @override
   String get debugMinimumDataSeededMessage => 'تم بذر البيانات الدنيا.';
@@ -1217,7 +1247,8 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get deleteMultipleAccountsMessage => 'هل أنت متأكد من رغبتك في حذف الحسابات المحددة؟ سيتم حذف كافة المعاملات المرتبطة.';
+  String get deleteMultipleAccountsMessage =>
+      'هل أنت متأكد من رغبتك في حذف الحسابات المحددة؟ سيتم حذف كافة المعاملات المرتبطة.';
 
   @override
   String get changeAccountTypeDialogTitle => 'تغيير نوع الحساب';
@@ -1228,7 +1259,8 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get balanceCalculatedFromAsset => 'يتم حساب الرصيد من كمية الأصول * السعر';
+  String get balanceCalculatedFromAsset =>
+      'يتم حساب الرصيد من كمية الأصول * السعر';
 
   @override
   String get selectAccountTypeTitle => 'اختر نوع الحساب';
@@ -1327,7 +1359,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get syncApiTokenHint => 'أدخل رمز الأمان الخاص بك';
 
   @override
-  String get syncApiTokenHelp => 'هذا الرمز هو سرك المشترك. أدخل نفس القيمة على كافة أجهزتك للسماح بالمزامنة.';
+  String get syncApiTokenHelp =>
+      'هذا الرمز هو سرك المشترك. أدخل نفس القيمة على كافة أجهزتك للسماح بالمزامنة.';
 
   @override
   String get syncTestConnectionButton => 'اختبار الاتصال';
@@ -1357,7 +1390,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get syncWebNotAvailable => 'المزامنة غير متوفرة على الويب';
 
   @override
-  String get syncPermissionRequired => 'إذن التخزين مطلوب للمزامنة. يرجى تفعيل \"الوصول لكافة الملفات\" في الإعدادات.';
+  String get syncPermissionRequired =>
+      'إذن التخزين مطلوب للمزامنة. يرجى تفعيل \"الوصول لكافة الملفات\" في الإعدادات.';
 
   @override
   String get syncSelectFolderTitle => 'اختر مجلد Syncthing';
@@ -1366,7 +1400,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get syncClearFilesTitle => 'مسح ملفات المزامنة';
 
   @override
-  String get syncClearFilesConfirm => 'سيتم حذف كافة ملفات .sync من المجلد المحدد. لا يمكن التراجع عن هذا الإجراء.';
+  String get syncClearFilesConfirm =>
+      'سيتم حذف كافة ملفات .sync من المجلد المحدد. لا يمكن التراجع عن هذا الإجراء.';
 
   @override
   String syncDeletedFilesCount(Object count) {
@@ -1388,10 +1423,16 @@ class AppLocalizationsAr extends AppLocalizations {
   String get syncConnectionFailed => 'فشل الاتصال. تحقق من URL والرمز.';
 
   @override
-  String get syncConnectionUnauthorized => 'رفض الخادم الرمز. تحقق من الرمز وليس العنوان.';
+  String get syncConnectionUnauthorized =>
+      'رفض الخادم الرمز. تحقق من الرمز وليس العنوان.';
 
   @override
-  String get syncServerNotConfigured => 'لم يتم تكوين رمز مزامنة على الخادم وهو يرفض جميع الأجهزة. عيّن SYNC_TOKEN على الخادم واستخدم القيمة نفسها هنا.';
+  String get syncServerNotConfigured =>
+      'لم يتم تكوين رمز مزامنة على الخادم وهو يرفض جميع الأجهزة. عيّن SYNC_TOKEN على الخادم واستخدم القيمة نفسها هنا.';
+
+  @override
+  String get syncUrlNotConfigured =>
+      'لا يوجد عنوان خادم. أدخل رابطًا مثل https://example.com قبل تشغيل المزامنة.';
 
   @override
   String get syncCompleted => 'اكتملت المزامنة بنجاح';
@@ -1513,7 +1554,8 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get deleteCategoryMessage => 'هذه الفئة تحتوي على معاملات مرتبطة. ماذا تود أن تفعل؟';
+  String get deleteCategoryMessage =>
+      'هذه الفئة تحتوي على معاملات مرتبطة. ماذا تود أن تفعل؟';
 
   @override
   String get deleteCategoryReassign => 'إعادة تخصيص المعاملات لفئة أخرى';
@@ -1530,7 +1572,8 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get deleteAccountMessage => 'هذا الحساب قد يحتوي على معاملات مرتبطة. ماذا تود أن تفعل؟';
+  String get deleteAccountMessage =>
+      'هذا الحساب قد يحتوي على معاملات مرتبطة. ماذا تود أن تفعل؟';
 
   @override
   String get deleteAccountReassign => 'إعادة تخصيص المعاملات لحساب آخر';
@@ -1793,10 +1836,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get hkActionTransactionsSelectionDelete => 'المعاملات: حذف';
 
   @override
-  String get hkActionTransactionsSelectionChangeDate => 'المعاملات: تغيير التاريخ';
+  String get hkActionTransactionsSelectionChangeDate =>
+      'المعاملات: تغيير التاريخ';
 
   @override
-  String get hkActionTransactionsSelectionChangeCategory => 'المعاملات: تغيير الفئة';
+  String get hkActionTransactionsSelectionChangeCategory =>
+      'المعاملات: تغيير الفئة';
 
   @override
   String get hkActionCategoriesSelectionClose => 'الفئات: إغلاق';
@@ -1859,7 +1904,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get smsPermissionRequired => 'إذن SMS مطلوب';
 
   @override
-  String get smsPermissionRationale => 'لاستيراد المعاملات من الرسائل القصيرة، نحتاج إلى إذن لقراءة رسائلك.';
+  String get smsPermissionRationale =>
+      'لاستيراد المعاملات من الرسائل القصيرة، نحتاج إلى إذن لقراءة رسائلك.';
 
   @override
   String get smsGrantPermission => 'منح الإذن';
@@ -1868,7 +1914,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get smsNoPresets => 'لا توجد نماذج مهيأة. انقر + لإضافة واحد.';
 
   @override
-  String get smsImportDescription => 'استيراد المعاملات من الرسائل القصيرة. اختر نطاقاً زمنياً:';
+  String get smsImportDescription =>
+      'استيراد المعاملات من الرسائل القصيرة. اختر نطاقاً زمنياً:';
 
   @override
   String get smsLast7Days => 'آخر 7 أيام';
@@ -1897,7 +1944,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get smsSenderFilterHint => 'مثال: ALTA أو +381...';
 
   @override
-  String get smsSenderFilterHelper => 'تصفية الرسائل حسب اسم المرسل أو رقم الهاتف';
+  String get smsSenderFilterHelper =>
+      'تصفية الرسائل حسب اسم المرسل أو رقم الهاتف';
 
   @override
   String get smsDefaults => 'الافتراضيات';
@@ -1940,10 +1988,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get smsCategoryKeywords => 'الكلمات المفتاحية للفئات';
 
   @override
-  String get smsCategoryKeywordsSubtitle => 'ربط الكلمات المفتاحية في نص الرسالة بالفئات';
+  String get smsCategoryKeywordsSubtitle =>
+      'ربط الكلمات المفتاحية في نص الرسالة بالفئات';
 
   @override
-  String get smsNoKeywordRules => 'لا توجد قواعد كلمات مفتاحية. انقر + لإضافة واحدة.';
+  String get smsNoKeywordRules =>
+      'لا توجد قواعد كلمات مفتاحية. انقر + لإضافة واحدة.';
 
   @override
   String get smsAddKeywordRule => 'إضافة قاعدة كلمة مفتاحية';
@@ -1955,13 +2005,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get smsKeywordHint => 'مثال: بقالة، Netflix';
 
   @override
-  String get smsKeywordHelper => 'نص جزئي غير حساس لحالة الأحرف للمطابقة في نص الرسالة';
+  String get smsKeywordHelper =>
+      'نص جزئي غير حساس لحالة الأحرف للمطابقة في نص الرسالة';
 
   @override
   String get smsSelectCategoryHint => 'اختر فئة';
 
   @override
-  String get dshSelectDateDescription => 'افتح التقويم لاختيار تاريخ أو نطاق محدد';
+  String get dshSelectDateDescription =>
+      'افتح التقويم لاختيار تاريخ أو نطاق محدد';
 
   @override
   String get dshCurrencyDescription => 'اختر العملة الأساسية للعرض';
@@ -2020,10 +2072,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get fltAdvancedFilterTooltip => 'تصفية متقدمة';
 
   @override
-  String get fltAdvancedFilterDescription => 'تصفية المعاملات حسب الحساب أو الفئة أو المبلغ';
+  String get fltAdvancedFilterDescription =>
+      'تصفية المعاملات حسب الحساب أو الفئة أو المبلغ';
 
   @override
-  String get fltSortOrderDescription => 'التبديل بين الترتيب التصاعدي والتنازلي';
+  String get fltSortOrderDescription =>
+      'التبديل بين الترتيب التصاعدي والتنازلي';
 
   @override
   String get fltAccountFiltersTitle => 'فلاتر الحسابات';
@@ -2079,19 +2133,24 @@ class AppLocalizationsAr extends AppLocalizations {
   String get exchSelectRange => 'تحديد نطاق';
 
   @override
-  String get exchPreviousPeriodDescription => 'الذهاب إلى اليوم أو الشهر أو العام السابق';
+  String get exchPreviousPeriodDescription =>
+      'الذهاب إلى اليوم أو الشهر أو العام السابق';
 
   @override
-  String get exchNextPeriodDescription => 'الذهاب إلى اليوم أو الشهر أو العام التالي';
+  String get exchNextPeriodDescription =>
+      'الذهاب إلى اليوم أو الشهر أو العام التالي';
 
   @override
-  String get exchFilterDescription => 'تصفية الأسعار حسب العملة من/إلى ومعرّف النموذج';
+  String get exchFilterDescription =>
+      'تصفية الأسعار حسب العملة من/إلى ومعرّف النموذج';
 
   @override
-  String get exchSelectDateDescription => 'اختر تاريخاً أو نطاقاً محدداً لعرض الأسعار التاريخية';
+  String get exchSelectDateDescription =>
+      'اختر تاريخاً أو نطاقاً محدداً لعرض الأسعار التاريخية';
 
   @override
-  String get exchSortOrderDescription => 'التبديل بين الترتيب التصاعدي والتنازلي حسب التاريخ/السعر';
+  String get exchSortOrderDescription =>
+      'التبديل بين الترتيب التصاعدي والتنازلي حسب التاريخ/السعر';
 
   @override
   String get exchFilterExchangeRates => 'تصفية أسعار الصرف';
@@ -2106,10 +2165,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get exchDeselectAllDescription => 'إلغاء تحديد كافة الأسعار';
 
   @override
-  String get exchChangePresetDescription => 'تحديث معرّف النموذج لكافة أسعار الصرف المحددة';
+  String get exchChangePresetDescription =>
+      'تحديث معرّف النموذج لكافة أسعار الصرف المحددة';
 
   @override
-  String get exchDeleteSelectedDescription => 'حذف كافة أسعار الصرف المحددة نهائياً';
+  String get exchDeleteSelectedDescription =>
+      'حذف كافة أسعار الصرف المحددة نهائياً';
 
   @override
   String get exchDeleteExchangeRatesTitle => 'حذف أسعار الصرف';
@@ -2123,7 +2184,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get exchUpdatePresetTitle => 'تحديث النموذج';
 
   @override
-  String get exchUpdatePresetMessage => 'أدخل معرّف النموذج الجديد للعناصر المحددة:';
+  String get exchUpdatePresetMessage =>
+      'أدخل معرّف النموذج الجديد للعناصر المحددة:';
 
   @override
   String dashboardUnconvertibleCurrencies(String currencies) {
@@ -2131,7 +2193,8 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get addAccountBeforeTransactionDescription => 'تحتاج المعاملة إلى حساب. أنشئ حسابك الأول للبدء';
+  String get addAccountBeforeTransactionDescription =>
+      'تحتاج المعاملة إلى حساب. أنشئ حسابك الأول للبدء';
 
   @override
   String get selectDialogEmptyState => 'لا يوجد شيء للاختيار منه بعد';
@@ -2209,7 +2272,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String assetDeleteConfirmMessage(num count) {
     final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
       locale: localeName,
-      
     );
     final String countString = countNumberFormat.format(count);
 
@@ -2223,13 +2285,15 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get assetDeleteSelectedDescription => 'حذف جميع سجلات الأصول المحددة نهائيًا';
+  String get assetDeleteSelectedDescription =>
+      'حذف جميع سجلات الأصول المحددة نهائيًا';
 
   @override
   String get inflationEditRate => 'تعديل معدل التضخم';
 
   @override
-  String get inflationAddDescription => 'أدخل نسبة تضخم جديدة لتاريخ وبلد محددين';
+  String get inflationAddDescription =>
+      'أدخل نسبة تضخم جديدة لتاريخ وبلد محددين';
 
   @override
   String get inflationPercentLabel => 'نسبة التضخم (%)';
@@ -2300,7 +2364,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String deleteAccountsConfirmTitle(num count) {
     final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
       locale: localeName,
-      
     );
     final String countString = countNumberFormat.format(count);
 
@@ -2314,25 +2377,31 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get deleteAccountsConfirmMessage => 'هل تريد بالتأكيد حذف الحسابات المحددة؟ ستُحذف جميع المعاملات المرتبطة بها.';
+  String get deleteAccountsConfirmMessage =>
+      'هل تريد بالتأكيد حذف الحسابات المحددة؟ ستُحذف جميع المعاملات المرتبطة بها.';
 
   @override
   String get changeAccountTypeTitle => 'تغيير نوع الحساب';
 
   @override
-  String get accountsPreviousPeriodDescription => 'الانتقال إلى الشهر أو السنة السابقة';
+  String get accountsPreviousPeriodDescription =>
+      'الانتقال إلى الشهر أو السنة السابقة';
 
   @override
-  String get accountsNextPeriodDescription => 'الانتقال إلى الشهر أو السنة التالية';
+  String get accountsNextPeriodDescription =>
+      'الانتقال إلى الشهر أو السنة التالية';
 
   @override
-  String get accountsFilterDescription => 'تصفية الحسابات حسب النوع أو حالة الإخفاء';
+  String get accountsFilterDescription =>
+      'تصفية الحسابات حسب النوع أو حالة الإخفاء';
 
   @override
-  String get accountsSelectDateDescription => 'اختر تاريخًا محددًا لعرض الأرصدة السابقة';
+  String get accountsSelectDateDescription =>
+      'اختر تاريخًا محددًا لعرض الأرصدة السابقة';
 
   @override
-  String get accountsSortDescription => 'التبديل بين ترتيب الأرصدة تصاعديًا وتنازليًا';
+  String get accountsSortDescription =>
+      'التبديل بين ترتيب الأرصدة تصاعديًا وتنازليًا';
 
   @override
   String get smsRuleCategoryOptional => 'الفئة (اختياري)';

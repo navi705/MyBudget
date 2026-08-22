@@ -85,30 +85,32 @@ void main() {
       await controller.close();
     });
 
-    test('close() cancels the watch before shutting the event controller',
-        () async {
-      final controller = StreamController<List<Style>>();
-      final zoneErrors = <Object>[];
+    test(
+      'close() cancels the watch before shutting the event controller',
+      () async {
+        final controller = StreamController<List<Style>>();
+        final zoneErrors = <Object>[];
 
-      await runZonedGuarded(() async {
-        final bloc = StylesBloc(
-          styleRepository: _FakeStyleRepository(controller.stream),
-        );
-        bloc.add(LoadStyles());
-        controller.add(<Style>[]);
-        await pumpEventQueue();
+        await runZonedGuarded(() async {
+          final bloc = StylesBloc(
+            styleRepository: _FakeStyleRepository(controller.stream),
+          );
+          bloc.add(LoadStyles());
+          controller.add(<Style>[]);
+          await pumpEventQueue();
 
-        await bloc.close();
-        // Without an awaited cancel this list would reach the listener and be
-        // add()-ed to a closed bloc, which throws.
-        controller.add(<Style>[]);
-        await pumpEventQueue();
-      }, (error, stack) => zoneErrors.add(error));
+          await bloc.close();
+          // Without an awaited cancel this list would reach the listener and be
+          // add()-ed to a closed bloc, which throws.
+          controller.add(<Style>[]);
+          await pumpEventQueue();
+        }, (error, stack) => zoneErrors.add(error));
 
-      expect(zoneErrors, isEmpty);
+        expect(zoneErrors, isEmpty);
 
-      await controller.close();
-    });
+        await controller.close();
+      },
+    );
   });
 
   group('CurrencyBloc stream errors', () {
@@ -161,41 +163,42 @@ void main() {
       );
       // Dispatching now happens in onData, not in the combineLatest2 combiner —
       // the success state still has to carry the combined payload.
-      final success =
-          states.whereType<CurrencyLoadSuccess>().first;
+      final success = states.whereType<CurrencyLoadSuccess>().first;
       expect(success.currencies, const [currency]);
 
       await currencies.close();
       await designations.close();
     });
 
-    test('close() cancels the combined watch before shutting the bloc',
-        () async {
-      final currencies = StreamController<List<Currency>>();
-      final designations = StreamController<List<CurrencyDesignation>>();
-      final zoneErrors = <Object>[];
+    test(
+      'close() cancels the combined watch before shutting the bloc',
+      () async {
+        final currencies = StreamController<List<Currency>>();
+        final designations = StreamController<List<CurrencyDesignation>>();
+        final zoneErrors = <Object>[];
 
-      await runZonedGuarded(() async {
-        final bloc = CurrencyBloc(
-          currencyRepository: _FakeCurrencyRepository(
-            currencies.stream,
-            designations.stream,
-          ),
-        );
-        bloc.add(LoadCurrencies());
-        currencies.add(const [currency]);
-        designations.add(const <CurrencyDesignation>[]);
-        await pumpEventQueue();
+        await runZonedGuarded(() async {
+          final bloc = CurrencyBloc(
+            currencyRepository: _FakeCurrencyRepository(
+              currencies.stream,
+              designations.stream,
+            ),
+          );
+          bloc.add(LoadCurrencies());
+          currencies.add(const [currency]);
+          designations.add(const <CurrencyDesignation>[]);
+          await pumpEventQueue();
 
-        await bloc.close();
-        currencies.add(const [currency]);
-        await pumpEventQueue();
-      }, (error, stack) => zoneErrors.add(error));
+          await bloc.close();
+          currencies.add(const [currency]);
+          await pumpEventQueue();
+        }, (error, stack) => zoneErrors.add(error));
 
-      expect(zoneErrors, isEmpty);
+        expect(zoneErrors, isEmpty);
 
-      await currencies.close();
-      await designations.close();
-    });
+        await currencies.close();
+        await designations.close();
+      },
+    );
   });
 }

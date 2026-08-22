@@ -1,16 +1,28 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
 
+/// U+00A0 NO-BREAK SPACE — what [MoneyFormatter] joins thousands with.
+///
+/// Spelled as an escape rather than typed literally, because U+00A0 and a
+/// plain U+0020 are indistinguishable in an editor and in a diff, and the
+/// difference between them is the whole point: a plain space is bidi class WS
+/// and reordered `1 234.56` to `234.56 1` under `ar`/`ur`. See
+/// `money_formatter_bidi_test.dart` for the rendering that proved it.
+const String nbsp = '\u00A0';
+
 void main() {
   group('MoneyFormatter.format', () {
     test('fiat uses per-currency decimals', () {
-      expect(MoneyFormatter.format(1234.5, 'EUR'), '1 234.50'); // 2 decimals
-      expect(MoneyFormatter.format(1000, 'JPY'), '1 000'); // 0 decimals
+      expect(MoneyFormatter.format(1234.5, 'EUR'), '1${nbsp}234.50'); // 2 dp
+      expect(MoneyFormatter.format(1000, 'JPY'), '1${nbsp}000'); // 0 decimals
       expect(MoneyFormatter.format(1.234, 'KWD'), '1.234'); // 3 decimals
     });
 
-    test('groups thousands with spaces', () {
-      expect(MoneyFormatter.format(1234567.89, 'USD'), '1 234 567.89');
+    test('groups thousands with a no-break space', () {
+      expect(
+        MoneyFormatter.format(1234567.89, 'USD'),
+        '1${nbsp}234${nbsp}567.89',
+      );
     });
 
     test('signed prefixes + only for positive', () {
@@ -39,15 +51,12 @@ void main() {
 
     test('the placeholder is not decorated with a sign', () {
       expect(MoneyFormatter.format(double.nan, 'EUR', signed: true), '—');
-      expect(
-        MoneyFormatter.format(double.infinity, 'EUR', signed: true),
-        '—',
-      );
+      expect(MoneyFormatter.format(double.infinity, 'EUR', signed: true), '—');
     });
 
     test('non-finite handling does not disturb finite values', () {
       expect(MoneyFormatter.format(0, 'EUR'), '0.00');
-      expect(MoneyFormatter.format(-1234.5, 'EUR'), '-1 234.50');
+      expect(MoneyFormatter.format(-1234.5, 'EUR'), '-1${nbsp}234.50');
     });
   });
 

@@ -210,6 +210,20 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
     );
   }
 
+  /// Height of the net-worth trend chart.
+  ///
+  /// Fixed heights left a maximised desktop window with a third of the pane
+  /// empty below the charts, so both this and [_pieSectionHeight] take a share
+  /// of the window instead. The lower clamp is the height they used to be, so
+  /// nothing shrinks on a phone; the upper one stops a very tall window from
+  /// stretching a month of data into a near-flat line.
+  double _trendChartHeight(BuildContext context) =>
+      (MediaQuery.sizeOf(context).height * 0.34).clamp(300.0, 560.0);
+
+  /// Height of one distribution donut. See [_trendChartHeight].
+  double _pieSectionHeight(BuildContext context) =>
+      (MediaQuery.sizeOf(context).height * 0.26).clamp(220.0, 420.0);
+
   Widget _buildMainChartSection(bool isAllAccounts) {
     // If specific account, we need its data.
     // NOTE: The widget props currently don't include 'dayBalances' map needed for specific account history.
@@ -230,7 +244,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
         ),
         const SizedBox(height: 24),
         Container(
-          height: 300,
+          height: _trendChartHeight(context),
           width: double.infinity,
           padding: const EdgeInsets.only(right: 16, top: 24, bottom: 8),
           decoration: BoxDecoration(
@@ -368,7 +382,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
           ),
           const SizedBox(height: 24),
           SizedBox(
-            height: 220,
+            height: _pieSectionHeight(context),
             child: Center(
               child: Text(
                 context.l10n.noDataForPeriod,
@@ -392,7 +406,7 @@ class _BalanceReportWidgetState extends State<BalanceReportWidget> {
         ),
         const SizedBox(height: 24),
         SizedBox(
-          height: 220,
+          height: _pieSectionHeight(context),
           child: PieChart(
             PieChartData(
               sectionsSpace: 2,

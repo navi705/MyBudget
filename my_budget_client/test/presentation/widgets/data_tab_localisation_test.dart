@@ -113,57 +113,60 @@ void main() {
     expect(find.text('Delete'), findsNothing);
   });
 
-  testWidgets('the asset delete confirmation is readable in ru and still fires', (
-    tester,
-  ) async {
-    final l10n = await loadL10n(_ru);
-    final bloc = _RecordingAssetBloc();
-    final selected = {_asset('a1', 'BTC'), _asset('a2', 'ETH')};
-    whenListen(
-      bloc,
-      const Stream<AssetState>.empty(),
-      initialState: AssetState(
-        status: AssetStatus.success,
-        activeDate: DateTime(2025, 3),
-        assetData: selected.toList(),
-        selectedAssets: selected,
-        isSelectionModeActive: true,
-        totalCount: 2,
-      ),
-    );
+  testWidgets(
+    'the asset delete confirmation is readable in ru and still fires',
+    (tester) async {
+      final l10n = await loadL10n(_ru);
+      final bloc = _RecordingAssetBloc();
+      final selected = {_asset('a1', 'BTC'), _asset('a2', 'ETH')};
+      whenListen(
+        bloc,
+        const Stream<AssetState>.empty(),
+        initialState: AssetState(
+          status: AssetStatus.success,
+          activeDate: DateTime(2025, 3),
+          assetData: selected.toList(),
+          selectedAssets: selected,
+          isSelectionModeActive: true,
+          totalCount: 2,
+        ),
+      );
 
-    await pumpAppWidget(
-      tester,
-      BlocProvider<AssetBloc>.value(
-        value: bloc,
-        child: Scaffold(appBar: AssetTabAppBar(state: bloc.state)),
-      ),
-      locale: _ru,
-      wrapInScaffold: false,
-      surfaceSize: const Size(1200, 1600),
-      aboveApp: (app) => wrapWithBlocs(app, settingsBloc: createSettingsBloc()),
-    );
+      await pumpAppWidget(
+        tester,
+        BlocProvider<AssetBloc>.value(
+          value: bloc,
+          child: Scaffold(appBar: AssetTabAppBar(state: bloc.state)),
+        ),
+        locale: _ru,
+        wrapInScaffold: false,
+        surfaceSize: const Size(1200, 1600),
+        aboveApp: (app) =>
+            wrapWithBlocs(app, settingsBloc: createSettingsBloc()),
+      );
 
-    expect(find.text(l10n.selectedCountLabel(2)), findsOne);
+      expect(find.text(l10n.selectedCountLabel(2)), findsOne);
 
-    await tester.tap(find.byIcon(Icons.delete));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.delete));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Удалить активы?'), findsOne);
-    expect(find.text(l10n.assetDeleteConfirmTitle), findsOne);
-    expect(find.text(l10n.assetDeleteConfirmMessage(2)), findsOne);
-    expect(find.text('Delete Selected Assets?'), findsNothing);
+      expect(find.text('Удалить активы?'), findsOne);
+      expect(find.text(l10n.assetDeleteConfirmTitle), findsOne);
+      expect(find.text(l10n.assetDeleteConfirmMessage(2)), findsOne);
+      expect(find.text('Delete Selected Assets?'), findsNothing);
 
-    await tester.tap(find.widgetWithText(TextButton, 'Удалить'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Удалить'));
+      await tester.pumpAndSettle();
 
-    expect(
-      bloc.events.whereType<DeleteSelectedAssets>(),
-      isNotEmpty,
-      reason: 'a confirmation that reads correctly but deletes nothing is '
-          'still broken',
-    );
-  });
+      expect(
+        bloc.events.whereType<DeleteSelectedAssets>(),
+        isNotEmpty,
+        reason:
+            'a confirmation that reads correctly but deletes nothing is '
+            'still broken',
+      );
+    },
+  );
 
   testWidgets('the asset empty state is readable in ru', (tester) async {
     final l10n = await loadL10n(_ru);

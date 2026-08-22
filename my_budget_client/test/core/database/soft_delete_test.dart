@@ -315,28 +315,22 @@ void main() {
       expect(await db.transactionsDao.getTransactionById('sd_tx_gone'), isNull);
     });
 
-    test(
-      'getTransactionsByCategoryId excludes the soft-deleted row',
-      () async {
-        final result = await db.transactionsDao.getTransactionsByCategoryId(
-          catId,
-        );
-        expect(result.any((t) => t.id == 'sd_tx_gone'), isFalse);
-        expect(result.any((t) => t.id == 'sd_tx_keep'), isTrue);
-      },
-    );
+    test('getTransactionsByCategoryId excludes the soft-deleted row', () async {
+      final result = await db.transactionsDao.getTransactionsByCategoryId(
+        catId,
+      );
+      expect(result.any((t) => t.id == 'sd_tx_gone'), isFalse);
+      expect(result.any((t) => t.id == 'sd_tx_keep'), isTrue);
+    });
 
-    test(
-      'the row still physically exists with amount intact (money not '
-      'lost, only hidden from normal reads)',
-      () async {
-        final raw = await (db.select(
-          db.transactions,
-        )..where((t) => t.id.equals('sd_tx_gone'))).getSingleOrNull();
-        expect(raw, isNotNull);
-        expect(raw!.isDeleted, isTrue);
-        expect(raw.amount, -50.0);
-      },
-    );
+    test('the row still physically exists with amount intact (money not '
+        'lost, only hidden from normal reads)', () async {
+      final raw = await (db.select(
+        db.transactions,
+      )..where((t) => t.id.equals('sd_tx_gone'))).getSingleOrNull();
+      expect(raw, isNotNull);
+      expect(raw!.isDeleted, isTrue);
+      expect(raw.amount, -50.0);
+    });
   });
 }

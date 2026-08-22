@@ -86,7 +86,9 @@ class _CategoryFilterDialogState extends State<CategoryFilterDialog> {
             ),
             TextFormField(
               controller: _amountFromController,
-              decoration: InputDecoration(labelText: context.l10n.fltAmountFrom),
+              decoration: InputDecoration(
+                labelText: context.l10n.fltAmountFrom,
+              ),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),

@@ -29,14 +29,13 @@ void main() {
     await db.delete(db.syncLog).go();
   });
 
-  Future<List<SyncLogData>> logs() =>
-      (db.select(db.syncLog)
-            ..where((l) => l.changedTableName.equals('custom_themes')))
-          .get();
+  Future<List<SyncLogData>> logs() => (db.select(
+    db.syncLog,
+  )..where((l) => l.changedTableName.equals('custom_themes'))).get();
 
-  Future<DbCustomTheme?> rowFor(String id) =>
-      (db.select(db.customThemes)..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+  Future<DbCustomTheme?> rowFor(String id) => (db.select(
+    db.customThemes,
+  )..where((t) => t.id.equals(id))).getSingleOrNull();
 
   CustomTheme theme({
     String id = 't1',
@@ -268,17 +267,20 @@ void main() {
       expect(row!.isDeleted, isTrue);
     });
 
-    test('bumps modifiedAt so the tombstone beats an older live copy', () async {
-      await repo.saveTheme(theme(id: 't1'));
-      await db
-          .update(db.customThemes)
-          .write(const CustomThemesCompanion(modifiedAt: Value(1)));
-      final before = DateTime.now().millisecondsSinceEpoch;
+    test(
+      'bumps modifiedAt so the tombstone beats an older live copy',
+      () async {
+        await repo.saveTheme(theme(id: 't1'));
+        await db
+            .update(db.customThemes)
+            .write(const CustomThemesCompanion(modifiedAt: Value(1)));
+        final before = DateTime.now().millisecondsSinceEpoch;
 
-      await repo.deleteTheme('t1');
+        await repo.deleteTheme('t1');
 
-      expect((await rowFor('t1'))!.modifiedAt, greaterThanOrEqualTo(before));
-    });
+        expect((await rowFor('t1'))!.modifiedAt, greaterThanOrEqualTo(before));
+      },
+    );
 
     test('logs a delete action, not an upsert', () async {
       await repo.saveTheme(theme(id: 't1'));

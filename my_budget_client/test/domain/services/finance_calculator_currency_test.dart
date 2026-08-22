@@ -110,26 +110,23 @@ void main() {
       },
     );
 
-    test(
-      'calculateBalances marks an asset priced in an unconvertible currency '
-      'as NaN but keeps the account in the map',
-      () {
-        final snap = snapshot(
-          accounts: [account('gold', 'USD', assetId: 'gold', assetQuantity: 2.0)],
-          date: today,
-          baseCurrency: 'USD',
-          assetData: [assetEntry('gold', 1000.0, 'JPY', today)],
-        );
+    test('calculateBalances marks an asset priced in an unconvertible currency '
+        'as NaN but keeps the account in the map', () {
+      final snap = snapshot(
+        accounts: [account('gold', 'USD', assetId: 'gold', assetQuantity: 2.0)],
+        date: today,
+        baseCurrency: 'USD',
+        assetData: [assetEntry('gold', 1000.0, 'JPY', today)],
+      );
 
-        final balances = calculator.calculateBalances(snap);
+      final balances = calculator.calculateBalances(snap);
 
-        // Callers index this map with `!`, so the key must survive.
-        expect(balances.containsKey('gold'), isTrue);
-        expect(balances['gold']!.isNaN, isTrue);
-        // Parity would have valued 2 x 1000 JPY as 2000 USD.
-        expect(balances['gold'], isNot(2000.0));
-      },
-    );
+      // Callers index this map with `!`, so the key must survive.
+      expect(balances.containsKey('gold'), isTrue);
+      expect(balances['gold']!.isNaN, isTrue);
+      // Parity would have valued 2 x 1000 JPY as 2000 USD.
+      expect(balances['gold'], isNot(2000.0));
+    });
 
     test(
       'calculateCurrencyBreakdown poisons only the unconvertible bucket',
@@ -243,24 +240,27 @@ void main() {
       );
     }
 
-    test('a pair with no direct or inverse rate resolves via the main currency', () {
-      final snap = buySnapshot(
-        assetCurrency: 'USD',
-        cashCurrency: 'EUR',
-        baseCurrency: 'GBP',
-        cashAmount: 400.0,
-        rates: [
-          rate('GBP', 'USD', 2.0, tradeDate),
-          rate('GBP', 'EUR', 8.0, tradeDate),
-        ],
-      );
+    test(
+      'a pair with no direct or inverse rate resolves via the main currency',
+      () {
+        final snap = buySnapshot(
+          assetCurrency: 'USD',
+          cashCurrency: 'EUR',
+          baseCurrency: 'GBP',
+          cashAmount: 400.0,
+          rates: [
+            rate('GBP', 'USD', 2.0, tradeDate),
+            rate('GBP', 'EUR', 8.0, tradeDate),
+          ],
+        );
 
-      final stats = calculator.calculateAssetStats(snap);
+        final stats = calculator.calculateAssetStats(snap);
 
-      // EUR->USD = Rate(GBP->USD) / Rate(GBP->EUR) = 2.0 / 8.0 = 0.25.
-      // 400 EUR * 0.25 = 100 USD.
-      expect(stats['asset']!.invested, closeTo(100.0, 1e-9));
-    });
+        // EUR->USD = Rate(GBP->USD) / Rate(GBP->EUR) = 2.0 / 8.0 = 0.25.
+        // 400 EUR * 0.25 = 100 USD.
+        expect(stats['asset']!.invested, closeTo(100.0, 1e-9));
+      },
+    );
 
     test('a fresh triangular pairing beats a three-year-stale direct rate', () {
       final snap = buySnapshot(
@@ -269,7 +269,12 @@ void main() {
         baseCurrency: 'GBP',
         cashAmount: 400.0,
         rates: [
-          rate('EUR', 'USD', 9.0, tradeDate.subtract(const Duration(days: 365 * 3))),
+          rate(
+            'EUR',
+            'USD',
+            9.0,
+            tradeDate.subtract(const Duration(days: 365 * 3)),
+          ),
           rate('GBP', 'USD', 2.0, tradeDate),
           rate('GBP', 'EUR', 8.0, tradeDate),
         ],
@@ -280,46 +285,51 @@ void main() {
       expect(stats['asset']!.invested, closeTo(100.0, 1e-9));
     });
 
-    test(
-      'a triangular pairing is dated by its STALEST leg, so a (fresh, '
-      'three-years-stale) pair loses to an honest same-week direct rate',
-      () {
-        final snap = buySnapshot(
-          assetCurrency: 'USD',
-          cashCurrency: 'EUR',
-          baseCurrency: 'GBP',
-          cashAmount: 400.0,
-          rates: [
-            rate('EUR', 'USD', 1.25, tradeDate.subtract(const Duration(days: 5))),
-            rate('GBP', 'USD', 2.0, tradeDate),
-            rate('GBP', 'EUR', 8.0, tradeDate.subtract(const Duration(days: 365 * 3))),
-          ],
-        );
-
-        final stats = calculator.calculateAssetStats(snap);
-
-        // Direct 1.25 wins: 400 EUR * 1.25 = 500 USD. Had the triangular pair
-        // been ranked by its fresher leg it would have applied 0.25 -> 100.
-        expect(stats['asset']!.invested, closeTo(500.0, 1e-9));
-      },
-    );
-
-    test('triangular is skipped when one side already IS the main currency', () {
+    test('a triangular pairing is dated by its STALEST leg, so a (fresh, '
+        'three-years-stale) pair loses to an honest same-week direct rate', () {
       final snap = buySnapshot(
         assetCurrency: 'USD',
         cashCurrency: 'EUR',
-        baseCurrency: 'EUR',
+        baseCurrency: 'GBP',
         cashAmount: 400.0,
-        // Only main-relative legs exist. With main == EUR == the "from" side,
-        // EUR->USD would have to come from a direct/inverse row, and there is
-        // none -- the leg below is USD-relative in the wrong direction.
-        rates: [rate('EUR', 'GBP', 0.5, tradeDate)],
+        rates: [
+          rate('EUR', 'USD', 1.25, tradeDate.subtract(const Duration(days: 5))),
+          rate('GBP', 'USD', 2.0, tradeDate),
+          rate(
+            'GBP',
+            'EUR',
+            8.0,
+            tradeDate.subtract(const Duration(days: 365 * 3)),
+          ),
+        ],
       );
 
       final stats = calculator.calculateAssetStats(snap);
 
-      expect(stats['asset']!.invested.isNaN, isTrue);
+      // Direct 1.25 wins: 400 EUR * 1.25 = 500 USD. Had the triangular pair
+      // been ranked by its fresher leg it would have applied 0.25 -> 100.
+      expect(stats['asset']!.invested, closeTo(500.0, 1e-9));
     });
+
+    test(
+      'triangular is skipped when one side already IS the main currency',
+      () {
+        final snap = buySnapshot(
+          assetCurrency: 'USD',
+          cashCurrency: 'EUR',
+          baseCurrency: 'EUR',
+          cashAmount: 400.0,
+          // Only main-relative legs exist. With main == EUR == the "from" side,
+          // EUR->USD would have to come from a direct/inverse row, and there is
+          // none -- the leg below is USD-relative in the wrong direction.
+          rates: [rate('EUR', 'GBP', 0.5, tradeDate)],
+        );
+
+        final stats = calculator.calculateAssetStats(snap);
+
+        expect(stats['asset']!.invested.isNaN, isTrue);
+      },
+    );
 
     test('an asset price currency also resolves triangularly', () {
       final snap = snapshot(
@@ -341,58 +351,55 @@ void main() {
   });
 
   group('asset cost basis is priced at the transaction date', () {
-    test(
-      'invested uses the rate in effect on the trade date, not the one in '
-      'effect on the snapshot date',
-      () {
-        final txDate = DateTime(2023, 1, 15);
-        final snapshotDate = DateTime(2024, 6, 1);
+    test('invested uses the rate in effect on the trade date, not the one in '
+        'effect on the snapshot date', () {
+      final txDate = DateTime(2023, 1, 15);
+      final snapshotDate = DateTime(2024, 6, 1);
 
-        final snap = snapshot(
-          accounts: [
-            account('asset', 'USD', assetId: 'gold', assetQuantity: 1.0),
-            account('cash', 'EUR'),
-          ],
-          transactions: [
-            Transaction(
-              id: 'buy',
-              description: 'Buy gold',
-              amount: 1.0,
-              date: txDate,
-              accountId: 'asset',
-              categoryId: 'cat1',
-              currencyCode: 'USD',
-              linkedTransactionId: 'pay',
-            ),
-            Transaction(
-              id: 'pay',
-              description: 'Pay for gold in EUR',
-              amount: -400.0,
-              date: txDate,
-              accountId: 'cash',
-              categoryId: 'cat1',
-              currencyCode: 'EUR',
-            ),
-          ],
-          assetData: [assetEntry('gold', 100.0, 'USD', txDate)],
-          // Two very different rates, one live at the trade date and one live
-          // at the snapshot date, so the assertion discriminates between them.
-          exchangeRates: [
-            rate('EUR', 'USD', 1.10, DateTime(2023, 1, 10)),
-            rate('EUR', 'USD', 2.00, DateTime(2024, 5, 1)),
-          ],
-          date: snapshotDate,
-          baseCurrency: 'USD',
-        );
+      final snap = snapshot(
+        accounts: [
+          account('asset', 'USD', assetId: 'gold', assetQuantity: 1.0),
+          account('cash', 'EUR'),
+        ],
+        transactions: [
+          Transaction(
+            id: 'buy',
+            description: 'Buy gold',
+            amount: 1.0,
+            date: txDate,
+            accountId: 'asset',
+            categoryId: 'cat1',
+            currencyCode: 'USD',
+            linkedTransactionId: 'pay',
+          ),
+          Transaction(
+            id: 'pay',
+            description: 'Pay for gold in EUR',
+            amount: -400.0,
+            date: txDate,
+            accountId: 'cash',
+            categoryId: 'cat1',
+            currencyCode: 'EUR',
+          ),
+        ],
+        assetData: [assetEntry('gold', 100.0, 'USD', txDate)],
+        // Two very different rates, one live at the trade date and one live
+        // at the snapshot date, so the assertion discriminates between them.
+        exchangeRates: [
+          rate('EUR', 'USD', 1.10, DateTime(2023, 1, 10)),
+          rate('EUR', 'USD', 2.00, DateTime(2024, 5, 1)),
+        ],
+        date: snapshotDate,
+        baseCurrency: 'USD',
+      );
 
-        final stats = calculator.calculateAssetStats(snap);
+      final stats = calculator.calculateAssetStats(snap);
 
-        // 400 EUR * 1.10 (rate at the trade) = 440 USD.
-        expect(stats['asset']!.invested, closeTo(440.0, 1e-9));
-        // 800.0 is what the snapshot-date rate would have produced.
-        expect(stats['asset']!.invested, isNot(closeTo(800.0, 1e-9)));
-      },
-    );
+      // 400 EUR * 1.10 (rate at the trade) = 440 USD.
+      expect(stats['asset']!.invested, closeTo(440.0, 1e-9));
+      // 800.0 is what the snapshot-date rate would have produced.
+      expect(stats['asset']!.invested, isNot(closeTo(800.0, 1e-9)));
+    });
 
     test('realized on a sale is priced at the sale date too', () {
       final saleDate = DateTime(2023, 8, 1);

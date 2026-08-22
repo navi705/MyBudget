@@ -233,14 +233,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           // the first fetch — they rarely change during a session.
           // Invalidate by calling _cachedSettings = null externally if needed.
           _cachedSettings ??= await _settingsRepository.getAllSettings();
-          _cachedCurrencyDesignations ??=
-              await _currencyRepository.getAllCurrencyDesignations();
+          _cachedCurrencyDesignations ??= await _currencyRepository
+              .getAllCurrencyDesignations();
 
           // OPTIMIZATION: Removed getBalancesAtDate from Future.wait.
           // The result (rawDayBalances) was never used — dayBalances is computed
           // directly by the walk-back in _calculateDashboardData.
-          final categoryTotals =
-              await _transactionRepository.getTransactionTotalsGrouped(
+          final categoryTotals = await _transactionRepository
+              .getTransactionTotalsGrouped(
                 dateFrom: params.dateRangeStart,
                 dateTo: params.dateRangeEnd,
               );
@@ -269,7 +269,13 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           final uniqueDates = transactions
               .map((t) => DateTime(t.date.year, t.date.month, t.date.day))
               .toSet();
-          uniqueDates.add(DateTime(DateTime.now().year, DateTime.now().month));
+          // Today, so a balance shown for the current day can always be
+          // priced. `DateTime(year, month)` defaulted the day to the 1st and
+          // fetched rates for a day nobody was looking at.
+          final nowForRates = DateTime.now();
+          uniqueDates.add(
+            DateTime(nowForRates.year, nowForRates.month, nowForRates.day),
+          );
           uniqueDates.add(
             DateTime(
               params.selectedDay.year,
@@ -437,10 +443,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
                 _lastComputeParams!.transactions,
                 computeParams.transactions,
               ) &&
-              identical(
-                _lastComputeParams!.accounts,
-                computeParams.accounts,
-              ) &&
+              identical(_lastComputeParams!.accounts, computeParams.accounts) &&
               identical(
                 _lastComputeParams!.assetData,
                 computeParams.assetData,
@@ -450,7 +453,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
                 computeParams.converter,
               ) &&
               identical(_lastComputeParams!.rates, computeParams.rates)) {
-            debugPrint('COMPUTE: Cache hit — reusing previous walk-back results');
+            debugPrint(
+              'COMPUTE: Cache hit — reusing previous walk-back results',
+            );
             computeResults = _lastComputeResults!;
           } else {
             // OPTIMIZATION: Run on main thread instead of compute() isolate
@@ -468,7 +473,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           // The walk-back's misses come out of the (possibly memoized) compute
           // results, so a cache hit still reports them; the category-total
           // misses above are collected fresh on every pass.
-          unconvertibleCurrencies.addAll(computeResults.unconvertibleCurrencies);
+          unconvertibleCurrencies.addAll(
+            computeResults.unconvertibleCurrencies,
+          );
 
           return DashboardLoadSuccess(
             accounts: accounts,
@@ -924,7 +931,8 @@ _DashboardComputeResults _calculateDashboardData(
           categories: [],
           exchangeRates: params.rates,
           inflationRates: [],
-          date: DateTime.now(), // Placeholder; overridden per-iteration via copyWith
+          date:
+              DateTime.now(), // Placeholder; overridden per-iteration via copyWith
           dateStep: DateStep.day,
           baseCurrency: params.mainCurrencyCode,
         )
@@ -1024,13 +1032,14 @@ _DashboardComputeResults _calculateDashboardData(
     // OPTIMIZATION: For yearly view, only store monthly data points (last day of each month).
     // Walk-back still iterates daily for balance accuracy, but chart only needs 12 points.
     // Always store: selectedDay, dateRangeEnd, and last day of each month (for yearly).
-    final isSelectedDay = iterDate.year == params.selectedDay.year &&
+    final isSelectedDay =
+        iterDate.year == params.selectedDay.year &&
         iterDate.month == params.selectedDay.month &&
         iterDate.day == params.selectedDay.day;
     final isDateRangeEnd = iterDate.isAtSameMomentAs(dateRangeEndNormalized);
-    final isLastDayOfMonth =
-        iterDate.add(const Duration(days: 1)).day == 1;
-    final shouldStoreChartPoint = params.dateStep != DateStep.year ||
+    final isLastDayOfMonth = iterDate.add(const Duration(days: 1)).day == 1;
+    final shouldStoreChartPoint =
+        params.dateStep != DateStep.year ||
         isLastDayOfMonth ||
         isSelectedDay ||
         isDateRangeEnd ||

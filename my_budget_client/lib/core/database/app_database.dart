@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:my_budget_client/core/utils/region_utils.dart';
 import 'package:my_budget_client/core/database/connection/database_connection.dart';
 import 'package:my_budget_client/core/mappers/exchange_rate_mapper.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart';
@@ -420,6 +421,19 @@ const List<String> syncPushQueueTables = [
   'transactions',
 ];
 
+/// Columns every device computes for itself, per table.
+///
+/// A write that touches ONLY these is not a change any peer needs: the balance
+/// of an account is derived from its transactions, so a rebuild rewrites it on
+/// purpose without stamping the row, and every peer arrives at the same number
+/// on its own. They are excluded from the update triggers' change test — see
+/// [_pushQueueUpdateCondition] — because queueing them re-uploads every account
+/// a rebuild touched after every single pull, for rows the server's
+/// last-write-wins guard is guaranteed to discard.
+const Map<String, Set<String>> syncPushQueueDerivedColumns = {
+  'accounts': {'balance', 'balance_minor'},
+};
+
 /// SQL rendering a row of [table] into the text held in
 /// [SyncPushQueue.recordKey].
 ///
@@ -447,6 +461,23 @@ String syncPushQueueKeyExpression(String table, {String prefix = ''}) {
     default:
       return '${prefix}id';
   }
+}
+
+/// The index that lets the push resolve a queued key of [table] back to its
+/// row, or null when the key needs no index of its own.
+///
+/// Every single-column key above (`id`, `code`, `key`, `language_code`) is that
+/// table's primary key, so `key IN (?, ?, …)` already rides the primary key's
+/// index. The two concatenated keys have nothing in the schema that can match
+/// them — no index serves an expression unless it was built on that expression
+/// — so those two get one built here.
+String? syncPushQueueKeyIndexName(String table) {
+  // Decided from the expression rather than a second hand-kept table list: a
+  // key that changes shape must not keep an index that no longer serves it,
+  // and a new concatenated key must not silently miss out on one.
+  return syncPushQueueKeyExpression(table).contains('||')
+      ? 'idx_${table}_push_key'
+      : null;
 }
 
 /// Stores rejected versions during conflict resolution
@@ -2776,22 +2807,77 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   Stream<void> watchExchangeRateChanges() =>
       tableUpdates(TableUpdateQuery.onTable(exchangeRates));
 
+  /// Every rate stored on any of the calendar days in [dates].
+  ///
+  /// Matches on the DAY, not on the exact instant. Callers pass midnight
+  /// (`DateTime(y, m, d)`) because that is how a transaction's day is
+  /// normalised, but a rate pulled from an API is stamped with the wall clock
+  /// of the moment it was fetched. An equality test between the two matched
+  /// nothing at all, so every pair whose only rows came from an API refresh
+  /// was invisible to the caller and every amount in that currency silently
+  /// dropped out of the totals.
   Future<List<ExchangeRate>> getAllExchangesRates(List<DateTime> dates) async {
-    const int chunkSize = 500;
+    if (dates.isEmpty) return [];
+
+    // Consecutive days collapse into one range. A year of daily transactions is
+    // 365 separate day tests otherwise, and the days a budget touches come in
+    // runs, so this is usually an order-of-magnitude fewer terms.
+    final days =
+        dates.map((d) => DateTime(d.year, d.month, d.day)).toSet().toList()
+          ..sort();
+    final ranges = <({DateTime start, DateTime end})>[];
+    var rangeStart = days.first;
+    var rangeEnd = rangeStart.add(const Duration(days: 1));
+    for (final day in days.skip(1)) {
+      // Not `day == rangeEnd`: across a DST change a day is 23 or 25 hours, so
+      // adding a nominal day lands beside local midnight, not on it.
+      if (day.isAfter(rangeEnd)) {
+        ranges.add((start: rangeStart, end: rangeEnd));
+        rangeStart = day;
+      }
+      rangeEnd = day.add(const Duration(days: 1));
+    }
+    ranges.add((start: rangeStart, end: rangeEnd));
+
+    // Each range contributes two bound variables. SQLite's default ceiling on a
+    // single statement is 999, so keep a chunk well under half of that.
+    const int chunkSize = 300;
     List<ExchangeRate> allResults = [];
 
-    for (var i = 0; i < dates.length; i += chunkSize) {
-      final end = (i + chunkSize < dates.length) ? i + chunkSize : dates.length;
-      final chunk = dates.sublist(i, end);
+    for (var i = 0; i < ranges.length; i += chunkSize) {
+      final end = (i + chunkSize < ranges.length)
+          ? i + chunkSize
+          : ranges.length;
+      final chunk = ranges.sublist(i, end);
+
+      final dayRanges = _anyOf([
+        for (final range in chunk)
+          exchangeRates.date.isBiggerOrEqualValue(range.start) &
+              exchangeRates.date.isSmallerThanValue(range.end),
+      ]);
 
       final chunkResults = await (select(
         exchangeRates,
-      )..where((u) => u.date.isIn(chunk))).get();
+      )..where((_) => dayRanges)).get();
 
       allResults.addAll(chunkResults);
     }
 
     return allResults;
+  }
+
+  /// [terms] OR-ed together as a BALANCED tree.
+  ///
+  /// `terms.reduce((a, b) => a | b)` builds a left-deep chain, and SQLite parses
+  /// `((((a OR b) OR c) OR d) ...)` recursively: past a couple of hundred terms
+  /// it aborts the whole statement with "parser stack overflow", which surfaced
+  /// as an empty rate set and a dashboard reporting every foreign currency as
+  /// unconvertible. Halving instead of chaining makes the nesting logarithmic —
+  /// a thousand terms nest ten deep.
+  Expression<bool> _anyOf(List<Expression<bool>> terms) {
+    if (terms.length == 1) return terms.first;
+    final mid = terms.length ~/ 2;
+    return _anyOf(terms.sublist(0, mid)) | _anyOf(terms.sublist(mid));
   }
 
   Future<List<ExchangeRate>> getAllExchangesRatesAll() =>
@@ -2962,11 +3048,41 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   Future<void> insertAllExchangeRates(
     List<ExchangeRatesCompanion> rates,
   ) async {
+    if (rates.isEmpty) return;
+
+    // Both currency columns are foreign keys into `currencies`, and every
+    // source feeding this method quotes far more codes than the app seeds: the
+    // bundled history alone carries 812, of which 341 are known. A single
+    // unknown code used to abort the whole batch with
+    // `SqliteException(787): FOREIGN KEY constraint failed`, which on Android
+    // left the database with no rates at all and every foreign-currency total
+    // unconvertible. Drop what cannot be referenced and keep the rest.
+    final knownCodes =
+        (await attachedDatabase.select(attachedDatabase.currencies).get())
+            .map((c) => c.code)
+            .toSet();
+
+    final insertable = rates
+        .where(
+          (r) =>
+              knownCodes.contains(r.fromCurrencyCode.value) &&
+              knownCodes.contains(r.toCurrencyCode.value),
+        )
+        .toList();
+
+    if (insertable.length != rates.length) {
+      debugPrint(
+        '[DB] Skipped ${rates.length - insertable.length} of ${rates.length} '
+        'exchange rates naming a currency the app does not know.',
+      );
+    }
+    if (insertable.isEmpty) return;
+
     final List<ExchangeRatesCompanion> ratesWithTimestamp = [];
     final now = DateTime.now().millisecondsSinceEpoch;
 
     await batch((batch) {
-      for (final r in rates) {
+      for (final r in insertable) {
         final withTs = r.copyWith(modifiedAt: Value(now));
         ratesWithTimestamp.add(withTs);
         batch.insert(exchangeRates, withTs, mode: InsertMode.insertOrReplace);
@@ -3953,21 +4069,87 @@ class AppDatabase extends _$AppDatabase {
         'AFTER INSERT ON $table BEGIN '
         "$target ('$table', $key); END",
       );
-      // Only when `modified_at` actually moves. A balance rebuild rewrites
-      // `balance` on purpose without stamping the row (every peer derives that
-      // number for itself), and the server's upsert is strict last-write-wins,
-      // so queueing those would upload rows the server is guaranteed to discard
-      // — after every single pull, for every account it touched.
+      // Recreated rather than left alone: this trigger's WHEN clause changed
+      // in v15, and `CREATE TRIGGER IF NOT EXISTS` would keep the old body
+      // forever on every database that already had one.
       await customStatement(
-        'CREATE TRIGGER IF NOT EXISTS trg_push_queue_${table}_update '
-        'AFTER UPDATE ON $table WHEN NEW.modified_at IS NOT OLD.modified_at '
+        'DROP TRIGGER IF EXISTS trg_push_queue_${table}_update',
+      );
+      await customStatement(
+        'CREATE TRIGGER trg_push_queue_${table}_update '
+        'AFTER UPDATE ON $table '
+        'WHEN ${await _pushQueueUpdateCondition(table)} '
         "BEGIN $target ('$table', $key); END",
       );
     }
   }
 
+  /// The `WHEN` clause of [table]'s update trigger: did this UPDATE change
+  /// anything a peer has to be told about?
+  ///
+  /// v13 asked only `NEW.modified_at IS NOT OLD.modified_at`, which is not the
+  /// same question. Two writes to one row inside the same millisecond carry the
+  /// same stamp, so the second one queued nothing and never left the device —
+  /// and the case that matters is not exotic: seeding a row and deleting it in
+  /// the same millisecond is a tombstone that no peer and no server ever hears
+  /// about, because the row they are missing is one they have never been
+  /// offered. It is what makes
+  /// `test/core/sync/sync_service_api_settings_test.dart` "a locally deleted
+  /// provider is pushed with its tombstone flag" fail perhaps one run in three.
+  ///
+  /// So the test is on the CONTENT: any column other than `modified_at` and the
+  /// [syncPushQueueDerivedColumns] each device computes for itself. `IS NOT`
+  /// rather than `<>`, because `<>` is NULL — never true — the moment either
+  /// side is NULL, which is precisely the insert-a-value-into-an-empty-column
+  /// edit that most needs to travel.
+  ///
+  /// Read from `PRAGMA table_info` rather than a hand-kept list: a column added
+  /// by a later migration is a column whose edits must queue, and nobody will
+  /// remember to add it here.
+  Future<String> _pushQueueUpdateCondition(String table) async {
+    final derived = syncPushQueueDerivedColumns[table] ?? const <String>{};
+    final info = await customSelect("PRAGMA table_info('$table')").get();
+    final columns = [
+      for (final row in info)
+        if (row.read<String>('name') != 'modified_at' &&
+            !derived.contains(row.read<String>('name')))
+          row.read<String>('name'),
+    ];
+    return [
+      'NEW.modified_at IS NOT OLD.modified_at',
+      for (final column in columns) 'NEW.$column IS NOT OLD.$column',
+    ].join(' OR ');
+  }
+
+  /// Indexes the push key of the tables whose [syncPushQueueKeyExpression] is a
+  /// concatenation, so the push can find a queued row again without reading the
+  /// whole table.
+  ///
+  /// `_pushQueuedTable` resolves a batch with that same expression on the left
+  /// of an `IN (?, …)` list, 500 keys at a time. On a bare column that rides
+  /// the primary key's index; on a concatenation SQLite has nothing to match
+  /// and scans the table — once per chunk, and `exchange_rates` ships with
+  /// ~283 000 rows that the v12→v13 step queues in one go, so a first push
+  /// after the upgrade scanned it 600 times before uploading a byte.
+  ///
+  /// The index expression is rendered by the same function the query uses, and
+  /// deliberately so: SQLite only matches an expression index when the query's
+  /// expression parses to the same thing, so a second, hand-copied spelling of
+  /// the key would be an index that exists and is never used.
+  Future<void> _createSyncPushQueueKeyIndexes() async {
+    final existing = await _existingTables();
+    for (final table in syncPushQueueTables) {
+      final indexName = syncPushQueueKeyIndexName(table);
+      if (indexName == null || !existing.contains(table)) continue;
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS $indexName '
+        'ON $table (${syncPushQueueKeyExpression(table)})',
+      );
+    }
+  }
+
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration {
@@ -3999,6 +4181,14 @@ class AppDatabase extends _$AppDatabase {
           '[DB_MIGRATION] onCreate: creating sync_push_queue triggers...',
         );
         await _createSyncPushQueueTriggers();
+        // After the seed as well, for the same reason the dedup index above is:
+        // building the index once over the finished table is one sort, while
+        // creating it first makes every one of the ~283k seeded rate inserts
+        // maintain it.
+        debugPrint(
+          '[DB_MIGRATION] onCreate: creating push-queue key indexes...',
+        );
+        await _createSyncPushQueueKeyIndexes();
         debugPrint('[DB_MIGRATION] onCreate END');
       },
       onUpgrade: (Migrator m, int from, int to) async {
@@ -4320,6 +4510,37 @@ class AppDatabase extends _$AppDatabase {
           debugPrint('[DB_MIGRATION] v12→v13: complete');
         }
 
+        if (from < 14) {
+          // v13 shipped the queue but nothing that can resolve a queued key of
+          // exchange_rates or inflation_rates back to its row: the lookup is
+          // `WHERE <concatenated key> IN (?, …)`, and no index in the schema
+          // matched an expression. Every 500-key chunk of the full push that
+          // v12→v13 seeds therefore scanned the whole rate table. Purely
+          // additive — two indexes, no column, no row touched — and
+          // `IF NOT EXISTS` inside the helper makes it re-runnable like the
+          // steps above.
+          debugPrint(
+            '[DB_MIGRATION] v13→v14: indexing the push-queue record keys...',
+          );
+          await _createSyncPushQueueKeyIndexes();
+          debugPrint('[DB_MIGRATION] v13→v14: complete');
+        }
+
+        if (from < 15) {
+          // v13's update triggers only fired when `modified_at` moved, so a row
+          // written and changed again inside the same millisecond queued
+          // nothing and stayed on this device for good — a delete made right
+          // after a seed being the case that actually bites. The new WHEN asks
+          // whether the row's CONTENT changed. No column, no row and no data
+          // touched: the triggers are dropped and recreated, which the helper
+          // does on every call, so this step is re-runnable like the rest.
+          debugPrint(
+            '[DB_MIGRATION] v14→v15: content-aware push-queue triggers...',
+          );
+          await _createSyncPushQueueTriggers();
+          debugPrint('[DB_MIGRATION] v14→v15: complete');
+        }
+
         debugPrint('[DB_MIGRATION] onUpgrade complete: from=$from to=$to');
       },
       beforeOpen: (details) async {
@@ -4501,18 +4722,32 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  /// The language the seeded rows should be named in.
+  ///
+  /// This ran off `Intl.systemLocale`, which is empty unless something has
+  /// called `findSystemLocale()` - nothing here ever does - so `''.split('_')`
+  /// handed the seeder an empty code, it fell back to English, and the
+  /// translations sitting next to the seed data had never once been used. The
+  /// platform locale is the same answer that question wanted, and it is
+  /// available before the first frame, which is when this runs.
+  ///
+  /// Only the first launch reads this. Switching language later renames
+  /// nothing: by then the rows are the user's, and they may have edited them.
+  String get _seedLanguageCode => RegionUtils.detectDeviceLanguage() ?? 'en';
+
   Future<void> _seedStyles(AppDatabase db) async {
-    await db.stylesDao.insertAllStyles(defaultStyles);
+    await db.stylesDao.insertAllStyles(getDefaultStyles(_seedLanguageCode));
   }
 
   Future<void> _seedAccountTypes(AppDatabase db) async {
-    await db.accountTypesDao.insertAllAccountTypes(defaultAccountTypes);
+    await db.accountTypesDao.insertAllAccountTypes(
+      getDefaultAccountTypes(_seedLanguageCode),
+    );
   }
 
   Future<void> _seedCategories(AppDatabase db) async {
-    final languageCode = Intl.systemLocale.split('_').first;
     await db.categoriesDao.insertAllCategories(
-      getDefaultCategories(languageCode),
+      getDefaultCategories(_seedLanguageCode),
     );
   }
 
@@ -5138,14 +5373,24 @@ class ConflictHistoryDao extends DatabaseAccessor<AppDatabase>
       select(conflictHistory).get();
 
   /// Clear old conflicts (keep only last N)
+  ///
+  /// One statement rather than read-everything-then-delete-by-id: this runs
+  /// once per imported packet (`sync_service_io.dart:915`), and the old shape
+  /// pulled every conflict row — `rejected_data` is a whole serialised record —
+  /// into memory, then built an `IN (...)` list of every id past the keep
+  /// window. On a device that has been rejecting writes for a while that is the
+  /// table twice, per packet, to delete rows the database can find by itself.
+  ///
+  /// `id` breaks ties in the ORDER BY so the keep window is deterministic when
+  /// several conflicts share a millisecond; without it SQLite may keep a
+  /// different N each run and the delete becomes a coin toss.
   Future<void> clearOldConflicts(int maxKeep) async {
-    final all = await (select(
-      conflictHistory,
-    )..orderBy([(t) => OrderingTerm.desc(t.rejectedAt)])).get();
-    if (all.length > maxKeep) {
-      final toDelete = all.skip(maxKeep).map((e) => e.id).toList();
-      await (delete(conflictHistory)..where((t) => t.id.isIn(toDelete))).go();
-    }
+    await customStatement(
+      'DELETE FROM conflict_history WHERE id NOT IN ('
+      'SELECT id FROM conflict_history '
+      'ORDER BY rejected_at DESC, id DESC LIMIT ?)',
+      [maxKeep < 0 ? 0 : maxKeep],
+    );
   }
 }
 

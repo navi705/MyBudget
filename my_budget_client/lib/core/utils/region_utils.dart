@@ -1,11 +1,44 @@
 import 'dart:ui';
 
+import 'package:flutter/widgets.dart';
+
 class RegionUtils {
+  /// The dispatcher to ask about the device.
+  ///
+  /// `PlatformDispatcher.instance` is the real one and ignores the overrides a
+  /// test installs, so anything reading it is untestable and, worse, quietly
+  /// reports the host machine's locale in a test that thought it had set one.
+  /// The binding's dispatcher is the same object in production and the test
+  /// double under `flutter_test`; before any binding exists there is nothing
+  /// but the real one to ask.
+  static PlatformDispatcher get _dispatcher {
+    try {
+      return WidgetsBinding.instance.platformDispatcher;
+    } catch (_) {
+      return PlatformDispatcher.instance;
+    }
+  }
+
   /// Detects the device's region (2-letter ISO country code).
   static String? detectDeviceRegion() {
     try {
-      final Locale locale = PlatformDispatcher.instance.locale;
+      final Locale locale = _dispatcher.locale;
       return locale.countryCode;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The device's language as a bare code (`ru`, `zh`), or null when the
+  /// platform will not say.
+  ///
+  /// Read straight off the platform rather than from `Intl.systemLocale`,
+  /// which stays empty until something calls `findSystemLocale()` - nothing in
+  /// this app ever did, so every reader of it saw `en`.
+  static String? detectDeviceLanguage() {
+    try {
+      final String code = _dispatcher.locale.languageCode;
+      return code.isEmpty ? null : code;
     } catch (_) {
       return null;
     }

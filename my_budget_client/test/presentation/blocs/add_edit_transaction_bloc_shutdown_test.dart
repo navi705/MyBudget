@@ -51,7 +51,8 @@ class _FakeSettingsRepository extends Fake implements SettingsRepository {
   Future<Settings?> getSetting(String key) async => null;
 }
 
-class _FakeTransactionRepository extends Fake implements TransactionRepository {}
+class _FakeTransactionRepository extends Fake
+    implements TransactionRepository {}
 
 class _FakeAssetRepository extends Fake implements AssetRepository {}
 
@@ -79,10 +80,8 @@ void main() {
       expect(zoneErrors, isEmpty);
     });
 
-    test(
-        'a second AddEditTransactionLoad resubscribes without leaking the '
-        'old streams',
-        () async {
+    test('a second AddEditTransactionLoad resubscribes without leaking the '
+        'old streams', () async {
       final bloc = _buildBloc();
 
       final zoneErrors = <Object>[];

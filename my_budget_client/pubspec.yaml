@@ -51,6 +51,8 @@ dependencies:
   flutter_sms_reader: ^0.0.1  # Requires Dart 3.9.2+, stub used instead
   permission_handler: ^11.3.1
   shared_preferences: ^2.3.5
+  flutter_driver:
+    sdk: flutter
 dev_dependencies:
   flutter_test:
     sdk: flutter

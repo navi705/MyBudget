@@ -27,6 +27,36 @@ enum SyncConnectionStatus {
 
   /// Unreachable, timed out, or answered with something else entirely.
   failed,
+
+  /// No server address is configured on this device, so there was nothing to
+  /// contact. Distinct from [failed]: nothing is broken and nothing should be
+  /// retried — the user simply has not filled the field in yet.
+  notConfigured,
+}
+
+/// [url] as an absolute `http`/`https` origin with no trailing slash, or `null`
+/// when it cannot be one.
+///
+/// Everything the sync service builds is `'$baseUrl/api/...'` string
+/// concatenation, which means a base URL that is blank, scheme-less
+/// (`my-server.example`) or host-less silently produces a relative URI instead
+/// of an error. Rejecting it once, here, is what lets the callers tell "not
+/// configured" apart from "the server is down".
+String? normalizeSyncBaseUrl(String url) {
+  var trimmed = url.trim();
+  if (trimmed.isEmpty) return null;
+
+  final uri = Uri.tryParse(trimmed);
+  if (uri == null) return null;
+  if (uri.scheme != 'http' && uri.scheme != 'https') return null;
+  if (uri.host.isEmpty) return null;
+
+  // A trailing slash would make every path a double slash — `https://host//api`
+  // is a different route on most proxies, including nginx.
+  while (trimmed.endsWith('/')) {
+    trimmed = trimmed.substring(0, trimmed.length - 1);
+  }
+  return trimmed;
 }
 
 /// Thrown when the server refuses the device's credentials.
@@ -78,11 +108,21 @@ class ServerSyncService {
   /// cycle re-runs instead of the request being dropped.
   bool _syncRequestedWhileBusy = false;
 
+  /// How many [_applyChanges] calls are in flight, not whether one is.
+  ///
+  /// A plain bool was cleared by whichever apply finished first, so a second,
+  /// overlapping apply went on writing pulled rows with the flag already
+  /// false: its own echo reached the `tableUpdates` listener below and was
+  /// classified as a user edit, and the `PRAGMA foreign_keys = ON` that came
+  /// with the early clear could land before the second apply had opened its
+  /// transaction — which then rejected a legitimately parentless child row.
+  int _remoteApplyDepth = 0;
+
   /// True only while [_applyChanges] is writing rows pulled from the server.
   /// Those writes fire the same `tableUpdates` stream we listen to, so this is
   /// what distinguishes "our own echo" (ignore) from "the user edited something
   /// mid-sync" (must be synced).
-  bool _isApplyingRemoteChanges = false;
+  bool get _isApplyingRemoteChanges => _remoteApplyDepth > 0;
 
   /// Upper bound on back-to-back passes inside one [sync] call.
   static const int _maxSyncPasses = 3;
@@ -91,7 +131,17 @@ class ServerSyncService {
   int _reconnectAttempts = 0;
   Timer? _reconnectTimer;
   Timer? _retryTimer;
+
+  /// Runs [_connectionStabilityWindow] after a handshake completes and is what
+  /// actually resets [_reconnectAttempts]. See [_connectionStabilityWindow].
+  Timer? _connectionStabilityTimer;
   final math.Random _jitter = math.Random();
+
+  /// Exposed so a test can watch the backoff grow — the delays are a pure
+  /// function of this counter, and the bug it pins is the counter being reset
+  /// by a handshake that did not last.
+  @visibleForTesting
+  int get reconnectAttempts => _reconnectAttempts;
 
   /// Setting keys that describe THIS device and must never leave it.
   ///
@@ -110,13 +160,46 @@ class ServerSyncService {
     'sync_folder_path',
   };
 
+  /// [channelFactory], [reconnectBaseDelay] and [connectionStabilityWindow]
+  /// exist for tests only: the reconnect policy is otherwise reachable only
+  /// through a real server that accepts an upgrade and then drops it, and
+  /// waiting out the production 1s/2s/4s ladder in a test would cost seconds.
+  /// The defaults are exactly the production values.
   ServerSyncService({
     required AppDatabase database,
     required SettingsRepository settingsRepository,
     http.Client? httpClient,
+    WebSocketChannel Function(Uri url)? channelFactory,
+    Duration reconnectBaseDelay = const Duration(seconds: 1),
+    Duration connectionStabilityWindow = const Duration(seconds: 30),
   }) : _database = database,
        _settingsRepository = settingsRepository,
-       _http = httpClient ?? http.Client();
+       _http = httpClient ?? http.Client(),
+       _connectChannel = channelFactory ?? WebSocketChannel.connect,
+       _reconnectBaseDelay = reconnectBaseDelay,
+       _connectionStabilityWindow = connectionStabilityWindow;
+
+  /// How the socket is dialled. Production hands in nothing and gets
+  /// [WebSocketChannel.connect].
+  final WebSocketChannel Function(Uri url) _connectChannel;
+
+  /// First step of the reconnect ladder; every later step doubles it, capped
+  /// at [_reconnectMaxDelay].
+  final Duration _reconnectBaseDelay;
+
+  /// How long a connection has to survive before it counts as "connected" for
+  /// the purpose of resetting the backoff.
+  ///
+  /// The handshake completing proves only that the server accepted the
+  /// upgrade. A server in a restart loop, or a proxy that drops the socket the
+  /// moment it is established, satisfied `await ready` and reset the ladder to
+  /// its first step every time — so it was redialled roughly once a second,
+  /// forever, each redial dragging a full catch-up sync behind it. The ladder
+  /// may only be reset by a connection that actually lasted.
+  final Duration _connectionStabilityWindow;
+
+  /// Ceiling on the reconnect ladder.
+  static const Duration _reconnectMaxDelay = Duration(seconds: 60);
 
   /// The three calls this service makes went through the `http.get`/`http.post`
   /// top-level functions, which nothing can stand in for. Pull and push - the
@@ -126,9 +209,39 @@ class ServerSyncService {
   /// [http.Client]) and makes both paths reachable from a test.
   final http.Client _http;
 
-  Future<String> _getBaseUrl() async {
+  /// The server this device syncs with, or `null` when none is configured.
+  ///
+  /// A blank value is what the settings screen stores when the user leaves the
+  /// field empty, and a blank base URL does not fail loudly — it builds
+  /// *relative* URIs. `Uri.parse('/api/sync/pull?...')` has no host, so every
+  /// HTTP request threw `No host specified in URI`, and every socket dial threw
+  /// `only ws: and wss: schemes are supported`; the reconnect ladder treated
+  /// both as a transient outage and retried them for the whole session. Not
+  /// configured is a *state*, not a failure, so it is `null` here and every
+  /// caller declines to sync instead of retrying.
+  Future<String?> _getBaseUrl() async {
     final setting = await _settingsRepository.getSetting('server_sync_url');
-    return setting?.value ?? 'http://localhost:58080';
+    final raw = setting?.value;
+    // No row at all means nothing was ever configured on this device: keep the
+    // local dev default, which is what a fresh debug build has always used.
+    if (raw == null) return 'http://localhost:58080';
+    return normalizeSyncBaseUrl(raw);
+  }
+
+  /// [_getBaseUrl] for the transfer paths, which are only ever entered from
+  /// [sync] and so run behind its "is a server configured?" check.
+  ///
+  /// If that check is ever removed this throws instead of quietly building a
+  /// relative URI — the failure mode that made an unconfigured device retry
+  /// forever in the first place.
+  Future<String> _requireBaseUrl() async {
+    final baseUrl = await _getBaseUrl();
+    if (baseUrl == null) {
+      throw StateError(
+        'Server sync has no server URL configured. Set one in Settings › Sync.',
+      );
+    }
+    return baseUrl;
   }
 
   /// Empty when the user has not configured a token. Deliberately not a
@@ -162,14 +275,13 @@ class ServerSyncService {
   /// 1. PULL changes from server
   /// 2. PUSH local changes to server
   Future<void> sync() async {
-    if (!await _isEnabled()) {
-      debugPrint('[ServerSync] Server sync is disabled. Skipping.');
-      debugPrint(
-        '[DIAG][ServerSync] server_sync_enabled=false — asset_entries will NOT sync between devices!',
-      );
-      return;
-    }
-
+    // Latched SYNCHRONOUSLY, before the first await, and that ordering is the
+    // whole point: reading `server_sync_enabled` is a real database round trip,
+    // and the guard used to sit behind it. Startup's `sync()` and the socket's
+    // `sync()` both suspended on that read, both woke to find the guard clear,
+    // and two complete cycles ran side by side — the same page pulled and
+    // applied twice, the same queue read and uploaded twice, and one cycle's
+    // `PRAGMA foreign_keys = ON` restored while the other was still writing.
     if (_isSyncingInternal) {
       // Do not just drop the request. A local write (or a `sync_available`
       // doorbell) that lands mid-cycle may already be past the point the
@@ -182,6 +294,35 @@ class ServerSyncService {
 
     _isSyncingInternal = true;
     try {
+      if (!await _isEnabled()) {
+        debugPrint('[ServerSync] Server sync is disabled. Skipping.');
+        debugPrint(
+          '[DIAG][ServerSync] server_sync_enabled=false — asset_entries will NOT sync between devices!',
+        );
+        // Nothing in the app calls stop() when the user switches server sync
+        // off, and nothing on the background paths re-reads the setting, so the
+        // socket, the reconnect ladder, the 5-minute timer and the DB listener
+        // all kept running for the rest of the session — against a server the
+        // user had disconnected from. The service notices here, on the first
+        // trigger after the switch, and shuts its own machinery down.
+        stop();
+        await _collapsePushQueue();
+        return;
+      }
+
+      // Enabled but with no address to send anything to. Every request built
+      // from a blank base URL is relative and throws, and the failure path
+      // schedules a 30-second retry — so this used to fail forever, loudly, for
+      // a user who had only forgotten to type the server in.
+      if (await _getBaseUrl() == null) {
+        debugPrint(
+          '[ServerSync] Server sync is on but no server URL is configured. '
+          'Skipping — set one in Settings › Sync.',
+        );
+        stop();
+        return;
+      }
+
       // Loop until nothing new arrived during the cycle. Bounded so a change
       // stream that fires on our own writes cannot spin forever.
       var passes = 0;
@@ -212,6 +353,13 @@ class ServerSyncService {
   /// Safe to call multiple times — skips if already connected or connecting.
   Future<void> initWebSocket() async {
     if (!await _isEnabled()) return;
+    if (await _getBaseUrl() == null) {
+      debugPrint(
+        '[WS_CLIENT] Server sync is on but no server URL is configured — '
+        'not starting the socket.',
+      );
+      return;
+    }
     if (_channel != null || _isConnecting) {
       debugPrint(
         '[WS_CLIENT] Already connected/connecting — skipping initWebSocket()',
@@ -225,7 +373,32 @@ class ServerSyncService {
     if (_isDisposed || _isConnecting) return;
     _isConnecting = true;
     try {
+      // Re-read on every dial, not just on the public entry point: a reconnect
+      // scheduled before the user switched server sync off would otherwise
+      // re-establish a token-authenticated socket to a server the app is no
+      // longer supposed to be talking to, and keep re-establishing it.
+      if (!await _isEnabled()) {
+        debugPrint(
+          '[WS_CLIENT] Server sync was switched off — tearing down instead '
+          'of dialling.',
+        );
+        stop();
+        return;
+      }
+
       final baseUrl = await _getBaseUrl();
+      if (baseUrl == null) {
+        debugPrint(
+          '[WS_CLIENT] No server URL configured — not dialling. '
+          '(Set one in Settings › Sync.)',
+        );
+        // Deliberately NOT _scheduleReconnect(): there is nothing to reconnect
+        // to. The old code fell through, built `ws:` from an empty string and
+        // let WebSocketChannel throw, which the ladder read as an outage and
+        // retried 33 times in a single session.
+        stop();
+        return;
+      }
       // Ensure ws:// or wss:// scheme
       final wsParams = baseUrl.replaceFirst(RegExp(r'^http'), 'ws');
       final deviceId = await _getLocalDeviceId();
@@ -270,7 +443,7 @@ class ServerSyncService {
       if (_isDisposed) return;
 
       debugPrint('[WS_CLIENT] Creating WebSocketChannel...');
-      _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      _channel = _connectChannel(Uri.parse(wsUrl));
       debugPrint('[WS_CLIENT] Channel object created (handshake pending)');
 
       // Ping every 30 s to keep the connection alive through idle-timeout proxies
@@ -303,6 +476,8 @@ class ServerSyncService {
           _wsSubscription = null;
           _pingTimer?.cancel();
           _pingTimer = null;
+          _connectionStabilityTimer?.cancel();
+          _connectionStabilityTimer = null;
           _scheduleReconnect();
         },
         onError: (Object e) {
@@ -310,6 +485,8 @@ class ServerSyncService {
           _wsSubscription = null;
           _pingTimer?.cancel();
           _pingTimer = null;
+          _connectionStabilityTimer?.cancel();
+          _connectionStabilityTimer = null;
           _scheduleReconnect();
         },
         cancelOnError: true,
@@ -317,13 +494,28 @@ class ServerSyncService {
 
       // `WebSocketChannel.connect` returns a channel before the handshake has
       // happened, so registering a listener proves nothing about the server
-      // being reachable. Awaiting `ready` is what makes the reset below mean
-      // "we are connected" — resetting on the attempt instead pinned the
-      // backoff at its first step, and an unreachable server was retried once a
-      // second forever.
+      // being reachable — hence the await. But the handshake completing does
+      // not prove the connection is usable either: a connection that lives
+      // 20 ms satisfies `ready` just as well as one that lives an hour, and
+      // resetting the ladder here pinned it at its first step forever. The
+      // reset is armed instead, and only a connection that survives
+      // [_connectionStabilityWindow] gets to fire it — onDone and onError
+      // cancel it above.
       await _channel!.ready;
       debugPrint('[WS_CLIENT] Stream listener registered, connection active');
-      _reconnectAttempts = 0;
+
+      // The socket can die between the listener registering and `ready`
+      // completing, and by then onDone has already cancelled the subscription
+      // and scheduled the reconnect. Arming the stability timer anyway would
+      // hand a reset to a connection that never held, which is the exact bug
+      // the timer exists to fix.
+      if (_isDisposed || _wsSubscription == null) return;
+
+      _connectionStabilityTimer?.cancel();
+      _connectionStabilityTimer = Timer(_connectionStabilityWindow, () {
+        debugPrint('[WS_CLIENT] Connection held — reconnect backoff reset.');
+        _reconnectAttempts = 0;
+      });
 
       // The socket was down for an unknown span, and the server only rings the
       // doorbell for changes made WHILE a client is listening. Without this
@@ -337,7 +529,9 @@ class ServerSyncService {
     } catch (e) {
       _pingTimer?.cancel();
       _pingTimer = null;
-      debugPrint('[WS_CLIENT] Connection setup failed: $e. Retrying in 10s...');
+      _connectionStabilityTimer?.cancel();
+      _connectionStabilityTimer = null;
+      debugPrint('[WS_CLIENT] Connection setup failed: $e. Backing off...');
       _scheduleReconnect();
     } finally {
       _isConnecting = false;
@@ -356,10 +550,12 @@ class ServerSyncService {
     _reconnectScheduled = true;
 
     final exponent = _reconnectAttempts.clamp(0, 6); // 2^6 = 64 -> capped
-    final baseSeconds = math.min(60, 1 << exponent);
+    final baseMs = math.min(
+      _reconnectMaxDelay.inMilliseconds,
+      _reconnectBaseDelay.inMilliseconds * (1 << exponent),
+    );
     final delay = Duration(
-      milliseconds:
-          (baseSeconds * 1000) + _jitter.nextInt(baseSeconds * 300 + 1),
+      milliseconds: baseMs + _jitter.nextInt((baseMs * 3 ~/ 10) + 1),
     );
     _reconnectAttempts++;
 
@@ -386,6 +582,13 @@ class ServerSyncService {
   /// URL changes: [dispose] used to latch `_isDisposed` permanently, which
   /// bricked the GetIt singleton — re-enabling sync afterwards could never
   /// re-establish the socket or the DB listener.
+  ///
+  /// Nothing outside this class calls it, and it cannot be wired into the
+  /// settings screen (presentation is out of scope), so [sync] and
+  /// [_connectWebSocket] call it themselves the moment they read
+  /// `server_sync_enabled` as false. Re-enabling works because [initWebSocket]
+  /// and [initAutoSync] are idempotent and `_autoSyncInitialized` is cleared
+  /// here.
   void stop() {
     _autoSyncInitialized = false;
     _reconnectScheduled = false;
@@ -398,6 +601,8 @@ class ServerSyncService {
     _reconnectTimer = null;
     _retryTimer?.cancel();
     _retryTimer = null;
+    _connectionStabilityTimer?.cancel();
+    _connectionStabilityTimer = null;
 
     // Cancel subscription first to prevent onDone from firing during teardown
     _wsSubscription?.cancel();
@@ -435,7 +640,15 @@ class ServerSyncService {
     String? token,
   }) async {
     try {
-      final baseUrl = url ?? await _getBaseUrl();
+      // The screen passes the field's live text, which is exactly the value a
+      // user is most likely to have left blank or typed without a scheme.
+      final baseUrl = url != null
+          ? normalizeSyncBaseUrl(url)
+          : await _getBaseUrl();
+      if (baseUrl == null) {
+        debugPrint('[ServerSync] Test connection skipped: no server URL.');
+        return SyncConnectionStatus.notConfigured;
+      }
       final authToken = token ?? await _getAuthToken();
 
       // Use the pull endpoint with limit=1 to test connectivity and authentication
@@ -472,6 +685,13 @@ class ServerSyncService {
       return;
     }
     if (!await _isEnabled()) return;
+    if (await _getBaseUrl() == null) {
+      debugPrint(
+        '[ServerSync] No server URL configured — not starting auto-sync. '
+        'Every write would queue a push to nowhere.',
+      );
+      return;
+    }
     _autoSyncInitialized = true;
 
     debugPrint('[ServerSync] Initializing DB Auto-Sync...');
@@ -532,7 +752,9 @@ class ServerSyncService {
             );
             // Simple retry mechanism: try again in 30 seconds if it failed
             // We check _isEnabled again just in case the user disabled it in the meantime
-            if (await _isEnabled() && !_isDisposed) {
+            if (await _isEnabled() &&
+                await _getBaseUrl() != null &&
+                !_isDisposed) {
               // Held in a field so stop()/dispose() can cancel it — the bare
               // Timer here used to outlive teardown and fire a sync against a
               // service the app had already torn down.
@@ -603,7 +825,7 @@ class ServerSyncService {
       );
     }
 
-    final baseUrl = await _getBaseUrl();
+    final baseUrl = await _requireBaseUrl();
     final authToken = await _getAuthToken();
 
     final totalPullStopwatch = Stopwatch()..start();
@@ -882,6 +1104,30 @@ class ServerSyncService {
     }
   }
 
+  /// Collapses `sync_push_queue` to one entry per row.
+  ///
+  /// The triggers fire on every write to the sixteen synced tables whether or
+  /// not server sync is switched on, and [_drainPushQueue] — the only code
+  /// that removes an entry — is reachable only through [_push]. With the
+  /// feature off, an install therefore accumulated one row per write for its
+  /// entire life: the daily rate fetch alone rewrites the same few hundred
+  /// rates every day, and `getPendingChangesCount` scans the lot.
+  ///
+  /// Collapsing rather than deleting, because deleting is not correct: a row
+  /// written while the feature was off still has to reach the server the day
+  /// the user switches it on, and nothing else remembers that it is owed. The
+  /// push already reduces a row's entries to a single upload of its current
+  /// state ([_pushQueuedTable] de-duplicates by `record_key`), so keeping only
+  /// the newest entry per row loses nothing at all and bounds the table by the
+  /// number of rows that exist instead of by the number of edits ever made.
+  Future<void> _collapsePushQueue() async {
+    await _database.customStatement(
+      'DELETE FROM sync_push_queue WHERE id NOT IN ('
+      'SELECT MAX(id) FROM sync_push_queue '
+      'GROUP BY changed_table_name, record_key)',
+    );
+  }
+
   /// The highest queue entry that exists right now, or 0 for an empty queue.
   Future<int> _pushQueueCeiling() async {
     final row = await _database
@@ -911,7 +1157,7 @@ class ServerSyncService {
     // keys of one batch are bound one per placeholder.
     const int keyChunk = 500;
 
-    final baseUrl = await _getBaseUrl();
+    final baseUrl = await _requireBaseUrl();
     final url = Uri.parse('$baseUrl/api/sync/push');
     final authToken = await _getAuthToken();
     final deviceId = await _getLocalDeviceId();
@@ -1031,27 +1277,31 @@ class ServerSyncService {
   /// transactions, currencies/styles/categories before accounts. Order matters
   /// even with FK checks off, because the last writer of a row wins and a child
   /// written before its parent would otherwise reference a stale parent row.
+  ///
+  /// Each entry takes the table's WHOLE list of rows, not one row: the applier
+  /// batches a page into a handful of multi-row statements rather than issuing
+  /// one per row. See [_upsertBatch].
   late final List<
-    ({String key, Future<void> Function(Map<String, dynamic>) upsert})
+    ({String key, Future<void> Function(List<Map<String, dynamic>>) upsert})
   >
   _pullTableOrder = [
-    (key: 'languages', upsert: _upsertLanguage),
-    (key: 'currencies', upsert: _upsertCurrency),
-    (key: 'settings', upsert: _upsertSetting),
-    (key: 'api_settings', upsert: _upsertApiSetting),
-    (key: 'styles', upsert: _upsertStyle),
-    (key: 'custom_themes', upsert: _upsertCustomTheme),
-    (key: 'account_types', upsert: _upsertAccountType),
-    (key: 'currency_designations', upsert: _upsertCurrencyDesignation),
-    (key: 'categories', upsert: _upsertCategory),
-    (key: 'exchange_rates', upsert: _upsertExchangeRate),
-    (key: 'inflation_rates', upsert: _upsertInflationRate),
-    (key: 'custom_data_sources', upsert: _upsertCustomDataSource),
-    (key: 'sms_presets', upsert: _upsertSmsPreset),
+    (key: 'languages', upsert: _upsertLanguages),
+    (key: 'currencies', upsert: _upsertCurrencies),
+    (key: 'settings', upsert: _upsertSettings),
+    (key: 'api_settings', upsert: _upsertApiSettings),
+    (key: 'styles', upsert: _upsertStyles),
+    (key: 'custom_themes', upsert: _upsertCustomThemes),
+    (key: 'account_types', upsert: _upsertAccountTypes),
+    (key: 'currency_designations', upsert: _upsertCurrencyDesignations),
+    (key: 'categories', upsert: _upsertCategories),
+    (key: 'exchange_rates', upsert: _upsertExchangeRates),
+    (key: 'inflation_rates', upsert: _upsertInflationRates),
+    (key: 'custom_data_sources', upsert: _upsertCustomDataSources),
+    (key: 'sms_presets', upsert: _upsertSmsPresets),
     // Dependent tables
-    (key: 'accounts', upsert: _upsertAccount),
-    (key: 'asset_entries', upsert: _upsertAssetEntry),
-    (key: 'transactions', upsert: _upsertTransaction),
+    (key: 'accounts', upsert: _upsertAccounts),
+    (key: 'asset_entries', upsert: _upsertAssetEntries),
+    (key: 'transactions', upsert: _upsertTransactions),
   ];
 
   /// Applies one pulled batch as a SINGLE all-or-nothing transaction.
@@ -1066,12 +1316,23 @@ class ServerSyncService {
     // FK enforcement is toggled OUTSIDE the transaction on purpose: SQLite
     // silently ignores `PRAGMA foreign_keys` while a transaction is open.
     // It has to be off because a batch can legitimately carry a child row
-    // whose parent arrives in a later batch.
-    await _database.customStatement('PRAGMA foreign_keys = OFF');
-    _isApplyingRemoteChanges = true;
+    // whose parent arrives in a later batch. Both the pragma and the flag are
+    // balanced on the depth counter, so an outer apply that finishes first
+    // cannot restore enforcement under an inner one that is still writing.
+    if (_remoteApplyDepth == 0) {
+      await _database.customStatement('PRAGMA foreign_keys = OFF');
+    }
+    _remoteApplyDepth++;
     try {
       debugPrint('[ServerSync] Entering database transaction for pull...');
       await _database.transaction(() async {
+        // Everything the push-queue triggers add above this mark was made by
+        // this transaction's own upserts. Drift serialises writes, so no other
+        // writer can slip an entry in between — and an edit the user made
+        // moments earlier is below the mark and survives untouched. See the
+        // matching DELETE at the end of the transaction.
+        final queueMark = await _pushQueueCeiling();
+
         // An incoming transaction can move to another account, and the account
         // it is leaving has to be rebuilt too — nothing in the batch mentions
         // it, so its id has to be read before the move overwrites it.
@@ -1083,11 +1344,17 @@ class ServerSyncService {
         for (final table in _pullTableOrder) {
           final list = changes[table.key] as List?;
           if (list == null || list.isEmpty) continue;
-          debugPrint('[ServerSync] Applying ${list.length} ${table.key}...');
-          for (final row in list) {
-            final json = row as Map<String, dynamic>;
-            await table.upsert(json);
-            if (table.key == 'accounts') {
+          // Cast up front rather than row by row inside the writer: a page
+          // carrying something that is not an object fails here, before the
+          // first statement of that table runs, and the transaction takes the
+          // whole page down with it.
+          final rows = <Map<String, dynamic>>[
+            for (final row in list) row as Map<String, dynamic>,
+          ];
+          debugPrint('[ServerSync] Applying ${rows.length} ${table.key}...');
+          await table.upsert(rows);
+          if (table.key == 'accounts') {
+            for (final json in rows) {
               final id = json['id'] as String?;
               if (id != null && id.isNotEmpty) {
                 touchedAccounts.add(id);
@@ -1095,7 +1362,9 @@ class ServerSyncService {
                   anchorlessAccounts.add(id);
                 }
               }
-            } else if (table.key == 'transactions') {
+            }
+          } else if (table.key == 'transactions') {
+            for (final json in rows) {
               final accountId = json['accountId'] as String?;
               if (accountId != null && accountId.isNotEmpty) {
                 touchedAccounts.add(accountId);
@@ -1113,14 +1382,31 @@ class ServerSyncService {
         // balance that can lag by one unconverted transaction; that resolves
         // itself, a balance nobody can reconcile does not.
         await _database.accountsDao.recomputeBalances(touchedAccounts);
+
+        // The last statement of the transaction, and the other half of the
+        // mark read at the top. Every upsert above tripped the push-queue
+        // triggers, so without this the device uploads the page it has just
+        // downloaded straight back to the server it came from — 20 000 rows of
+        // JSON that the server's own last-write-wins guard then discards row
+        // for row, a doorbell rung at every other device for nothing, and a
+        // phantom backlog in getPendingChangesCount if the echo push fails.
+        // Scoped to the server-pull path deliberately: the peer-to-peer
+        // importer writes through its own path and must keep queueing, because
+        // what a peer sent us is exactly what the server has not heard about.
+        await _database.customStatement(
+          'DELETE FROM sync_push_queue WHERE id > ?',
+          [queueMark],
+        );
       });
       debugPrint('[ServerSync] Pull committed successfully.');
     } finally {
       // Drift dispatches the table-update events on commit, so by the time the
       // transaction future resolves the echo has already been delivered and
-      // classified. Safe to clear here.
-      _isApplyingRemoteChanges = false;
-      await _database.customStatement('PRAGMA foreign_keys = ON');
+      // classified. Safe to unwind here.
+      _remoteApplyDepth--;
+      if (_remoteApplyDepth == 0) {
+        await _database.customStatement('PRAGMA foreign_keys = ON');
+      }
     }
   }
 
@@ -1367,194 +1653,389 @@ class ServerSyncService {
 
   // ---------------------------------------------------------------------------
   // _upsert* methods — optimised: no pre-SELECT, single SQL statement with
-  // ON CONFLICT DO UPDATE SET ... WHERE EXCLUDED.modified_at > table.modified_at
+  // ON CONFLICT DO UPDATE SET ... WHERE <_lastWriteWins(table)>.
   // This eliminates the N+1 SELECT+INSERT pattern (was 2×N DB ops, now N ops).
   // ---------------------------------------------------------------------------
 
-  Future<void> _upsertLanguage(Map<String, dynamic> json) async {
-    await _database.customInsert(
-      '''INSERT INTO languages (language_code, language, modified_at, device_id)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT (language_code) DO UPDATE SET
-        language = EXCLUDED.language,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id
-      WHERE EXCLUDED.modified_at > languages.modified_at''',
-      variables: [
-        drift_db.Variable.withString(json['languageCode'] as String? ?? 'en'),
-        drift_db.Variable.withString(json['language'] as String? ?? 'English'),
-        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
-        drift_db.Variable(json['deviceId'] as String?),
-      ],
+  /// The conflict guard, spelled exactly as the server spells it in
+  /// `my_budget_server/lib/data/sync_repository.dart`.
+  ///
+  /// Both ends have to evaluate the same rule or the same pair of writes
+  /// resolves differently on each side and the devices diverge in silence.
+  /// Two parts to it beyond a bare `>`:
+  ///
+  /// * COALESCE, because a row whose `modified_at` is NULL (written by a build
+  ///   that predates the column) made every later comparison evaluate to NULL
+  ///   rather than TRUE — the row could never be updated again.
+  /// * the device-id tiebreak, because two devices editing a row in the same
+  ///   millisecond stamp the same `modified_at`; with a strict `>` each side
+  ///   keeps its own version, neither push moves the server's sequence, and
+  ///   nothing ever hands either device the other's row again.
+  ///   `(modified_at, device_id)` is a total order every party can evaluate on
+  ///   its own, so all three pick the same winner.
+  static String _lastWriteWins(String table) =>
+      'EXCLUDED.modified_at > COALESCE($table.modified_at, 0) '
+      'OR (EXCLUDED.modified_at = COALESCE($table.modified_at, 0) '
+      "AND COALESCE(EXCLUDED.device_id, '') > COALESCE($table.device_id, ''))";
+
+  /// The `DO UPDATE SET` list for [table], restricted to the columns this
+  /// payload actually carried.
+  ///
+  /// [columns] maps SQL column to the JSON key that fills it, primary key
+  /// columns excluded — those are what matched. A key that is ABSENT from
+  /// [json] is left out of the SET list entirely, so the stored value stands;
+  /// a key present and explicitly null still clears the column. Assigning
+  /// unconditionally is what let a sender that predates a column erase it for
+  /// the whole fleet: no `amountMinor` key meant `amount_minor = NULL`, which
+  /// by this codebase's own contract reclassifies a fiat transaction as
+  /// crypto and demotes its exact minor units to an 8-decimal double, for
+  /// good. `isDeleted` had the same shape one step worse — absent read as
+  /// `false`, which resurrects a row the rest of the fleet has agreed is gone.
+  ///
+  /// The INSERT column list is deliberately NOT trimmed the same way: on the
+  /// insert path there is no stored value to preserve, and several of these
+  /// columns are NOT NULL without a default.
+  ///
+  /// `modified_at` and `device_id` are always assigned — they are the pair
+  /// [_lastWriteWins] is built on, so the winner has to own both, and a
+  /// missing stamp has to read as "oldest possible" rather than as NULL.
+  static String _assignments(
+    String table,
+    Map<String, dynamic> json,
+    Map<String, String> columns,
+  ) => [
+    for (final column in columns.entries)
+      if (json.containsKey(column.value))
+        '${column.key} = EXCLUDED.${column.key}',
+    'modified_at = EXCLUDED.modified_at',
+    'device_id = EXCLUDED.device_id',
+  ].join(',\n        ');
+
+  /// A multi-row `VALUES` binds every column of every row it carries, and
+  /// SQLite refuses a statement with more bound variables than its
+  /// compile-time `SQLITE_MAX_VARIABLE_NUMBER` — which is not a runtime
+  /// property this code can read. The bundled `sqlite3_flutter_libs` build
+  /// reports 32766; SQLite's own documented default, and what a host-provided
+  /// library may well be built with, is 999. Chunks are sized against the
+  /// lower number, because the failure mode on the other build is not a slow
+  /// pull, it is `too many SQL variables` thrown out of the middle of one.
+  ///
+  /// That gives `999 ~/ columnsPerRow` rows per statement — 52 for `accounts`
+  /// (19 columns), 124 for `exchange_rates` (8) — so a 5 000-row page is 41
+  /// statements instead of 5 000.
+  static const int _maxBoundVariables = 999;
+
+  /// Applies a whole pulled table in as few statements as the variable cap
+  /// allows, with exactly the per-row semantics the single-row upserts had.
+  ///
+  /// A page of 5 000 rows used to be 5 000 `customInsert` calls — 5 000 round
+  /// trips through drift's background isolate inside one transaction, and a
+  /// full pull of the bundled 283 000 exchange rates was 283 000 of them. The
+  /// same rows now go out in chunked multi-row `INSERT … VALUES (…),(…) ON
+  /// CONFLICT … DO UPDATE`, which SQLite applies row by row: each row meets
+  /// the same [_lastWriteWins] guard, in the same order, and a row that loses
+  /// the comparison is skipped rather than erroring — so two versions of one
+  /// key inside a single statement resolve the way they would have as two
+  /// statements.
+  ///
+  /// Rows are grouped by their `DO UPDATE SET` list before they are chunked.
+  /// That list depends on WHICH keys the payload carried ([_assignments]): a
+  /// column the sender omitted must keep its stored value, so rows of
+  /// different shape cannot share a statement. A page from one server has one
+  /// shape and collapses to a single group; a mixed page still gets exactly
+  /// the assignments each row earns.
+  ///
+  /// [insertColumns] is the full INSERT column list — deliberately NOT trimmed
+  /// per row, for the reason [_assignments] documents.
+  Future<void> _upsertBatch({
+    required String table,
+    required String conflictTarget,
+    required List<String> insertColumns,
+    required Map<String, String> assignable,
+    required List<drift_db.Variable> Function(Map<String, dynamic> json) bind,
+    required List<Map<String, dynamic>> rows,
+  }) async {
+    if (rows.isEmpty) return;
+
+    final byShape = <String, List<Map<String, dynamic>>>{};
+    for (final json in rows) {
+      byShape
+          .putIfAbsent(_assignments(table, json, assignable), () => [])
+          .add(json);
+    }
+
+    final columns = insertColumns.join(', ');
+    final placeholder =
+        '(${List.filled(insertColumns.length, '?').join(', ')})';
+    final rowsPerStatement = math.max(
+      1,
+      _maxBoundVariables ~/ insertColumns.length,
     );
+    final guard = _lastWriteWins(table);
+
+    for (final shape in byShape.entries) {
+      final shapeRows = shape.value;
+      for (var start = 0; start < shapeRows.length; start += rowsPerStatement) {
+        final chunk = shapeRows.sublist(
+          start,
+          math.min(start + rowsPerStatement, shapeRows.length),
+        );
+        await _database.customInsert(
+          'INSERT INTO $table ($columns)\n'
+          '      VALUES ${List.filled(chunk.length, placeholder).join(', ')}\n'
+          '      ON CONFLICT ($conflictTarget) DO UPDATE SET\n'
+          '        ${shape.key}\n'
+          '      WHERE $guard',
+          variables: [for (final json in chunk) ...bind(json)],
+        );
+      }
+    }
   }
 
-  Future<void> _upsertCurrency(Map<String, dynamic> json) async {
-    await _database.customInsert(
-      '''INSERT INTO currencies (code, name, language_code, type, modified_at, device_id)
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT (code) DO UPDATE SET
-        name = EXCLUDED.name,
-        language_code = EXCLUDED.language_code,
-        type = EXCLUDED.type,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id
-      WHERE EXCLUDED.modified_at > currencies.modified_at''',
-      variables: [
-        drift_db.Variable.withString(json['code'] as String? ?? 'USD'),
-        drift_db.Variable.withString(json['name'] as String? ?? 'US Dollar'),
-        drift_db.Variable.withString(json['languageCode'] as String? ?? 'en'),
-        drift_db.Variable.withInt(json['type'] as int? ?? 0),
-        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
-        drift_db.Variable(json['deviceId'] as String?),
-      ],
-    );
-  }
+  Future<void> _upsertLanguages(List<Map<String, dynamic>> rows) =>
+      _upsertBatch(
+        table: 'languages',
+        conflictTarget: 'language_code',
+        insertColumns: const [
+          'language_code',
+          'language',
+          'modified_at',
+          'device_id',
+        ],
+        assignable: const {'language': 'language'},
+        rows: rows,
+        bind: (json) => [
+          drift_db.Variable.withString(json['languageCode'] as String? ?? 'en'),
+          drift_db.Variable.withString(
+            json['language'] as String? ?? 'English',
+          ),
+          drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+          drift_db.Variable(json['deviceId'] as String?),
+        ],
+      );
 
-  Future<void> _upsertStyle(Map<String, dynamic> json) async {
-    await _database.customInsert(
-      '''INSERT INTO styles (id, name, color_hex, icon_name, icon_type, modified_at, device_id, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        color_hex = EXCLUDED.color_hex,
-        icon_name = EXCLUDED.icon_name,
-        icon_type = EXCLUDED.icon_type,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > styles.modified_at''',
-      variables: [
-        drift_db.Variable.withString(json['id'] as String? ?? ''),
-        drift_db.Variable.withString(json['name'] as String? ?? ''),
-        drift_db.Variable.withString(json['colorHex'] as String? ?? ''),
-        drift_db.Variable.withString(json['iconName'] as String? ?? ''),
-        drift_db.Variable.withInt(json['iconType'] as int? ?? 0),
-        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
-        drift_db.Variable(json['deviceId'] as String?),
-        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
-      ],
-    );
-  }
+  Future<void> _upsertCurrencies(List<Map<String, dynamic>> rows) =>
+      _upsertBatch(
+        table: 'currencies',
+        conflictTarget: 'code',
+        insertColumns: const [
+          'code',
+          'name',
+          'language_code',
+          'type',
+          'modified_at',
+          'device_id',
+        ],
+        assignable: const {
+          'name': 'name',
+          'language_code': 'languageCode',
+          'type': 'type',
+        },
+        rows: rows,
+        bind: (json) => [
+          drift_db.Variable.withString(json['code'] as String? ?? 'USD'),
+          drift_db.Variable.withString(json['name'] as String? ?? 'US Dollar'),
+          drift_db.Variable.withString(json['languageCode'] as String? ?? 'en'),
+          drift_db.Variable.withInt(json['type'] as int? ?? 0),
+          drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+          drift_db.Variable(json['deviceId'] as String?),
+        ],
+      );
 
-  Future<void> _upsertAccountType(Map<String, dynamic> json) async {
-    await _database.customInsert(
-      '''INSERT INTO account_types (id, name, language_code, modified_at, device_id, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        language_code = EXCLUDED.language_code,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > account_types.modified_at''',
-      variables: [
-        drift_db.Variable.withString(json['id'] as String? ?? ''),
-        drift_db.Variable.withString(json['name'] as String? ?? ''),
-        drift_db.Variable.withString(json['languageCode'] as String? ?? 'en'),
-        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
-        drift_db.Variable(json['deviceId'] as String?),
-        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
-      ],
-    );
-  }
+  Future<void> _upsertStyles(List<Map<String, dynamic>> rows) => _upsertBatch(
+    table: 'styles',
+    conflictTarget: 'id',
+    insertColumns: const [
+      'id',
+      'name',
+      'color_hex',
+      'icon_name',
+      'icon_type',
+      'modified_at',
+      'device_id',
+      'is_deleted',
+    ],
+    assignable: const {
+      'name': 'name',
+      'color_hex': 'colorHex',
+      'icon_name': 'iconName',
+      'icon_type': 'iconType',
+      'is_deleted': 'isDeleted',
+    },
+    rows: rows,
+    bind: (json) => [
+      drift_db.Variable.withString(json['id'] as String? ?? ''),
+      drift_db.Variable.withString(json['name'] as String? ?? ''),
+      drift_db.Variable.withString(json['colorHex'] as String? ?? ''),
+      drift_db.Variable.withString(json['iconName'] as String? ?? ''),
+      drift_db.Variable.withInt(json['iconType'] as int? ?? 0),
+      drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+      drift_db.Variable(json['deviceId'] as String?),
+      drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+    ],
+  );
 
-  Future<void> _upsertCurrencyDesignation(Map<String, dynamic> json) async {
-    await _database.customInsert(
-      '''INSERT INTO currency_designations (id, value, currency_code, modified_at, device_id, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT (id) DO UPDATE SET
-        value = EXCLUDED.value,
-        currency_code = EXCLUDED.currency_code,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > currency_designations.modified_at''',
-      variables: [
-        drift_db.Variable.withString(json['id'] as String? ?? ''),
-        drift_db.Variable.withString(json['value'] as String? ?? ''),
-        drift_db.Variable.withString(json['currencyCode'] as String? ?? 'USD'),
-        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
-        drift_db.Variable(json['deviceId'] as String?),
-        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
-      ],
-    );
-  }
+  Future<void> _upsertAccountTypes(List<Map<String, dynamic>> rows) =>
+      _upsertBatch(
+        table: 'account_types',
+        conflictTarget: 'id',
+        insertColumns: const [
+          'id',
+          'name',
+          'language_code',
+          'modified_at',
+          'device_id',
+          'is_deleted',
+        ],
+        assignable: const {
+          'name': 'name',
+          'language_code': 'languageCode',
+          'is_deleted': 'isDeleted',
+        },
+        rows: rows,
+        bind: (json) => [
+          drift_db.Variable.withString(json['id'] as String? ?? ''),
+          drift_db.Variable.withString(json['name'] as String? ?? ''),
+          drift_db.Variable.withString(json['languageCode'] as String? ?? 'en'),
+          drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+          drift_db.Variable(json['deviceId'] as String?),
+          drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+        ],
+      );
 
-  Future<void> _upsertCategory(Map<String, dynamic> json) async {
-    await _database.customInsert(
-      '''INSERT INTO categories (id, name, parent_id, style_id, type, modified_at, device_id, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        parent_id = EXCLUDED.parent_id,
-        style_id = EXCLUDED.style_id,
-        type = EXCLUDED.type,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > categories.modified_at''',
-      variables: [
-        drift_db.Variable.withString(json['id'] as String? ?? ''),
-        drift_db.Variable.withString(json['name'] as String? ?? ''),
-        drift_db.Variable(json['parentId'] as String?),
-        drift_db.Variable(json['styleId'] as String?),
-        drift_db.Variable.withInt(json['type'] as int? ?? 0),
-        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
-        drift_db.Variable(json['deviceId'] as String?),
-        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
-      ],
-    );
-  }
+  Future<void> _upsertCurrencyDesignations(List<Map<String, dynamic>> rows) =>
+      _upsertBatch(
+        table: 'currency_designations',
+        conflictTarget: 'id',
+        insertColumns: const [
+          'id',
+          'value',
+          'currency_code',
+          'modified_at',
+          'device_id',
+          'is_deleted',
+        ],
+        assignable: const {
+          'value': 'value',
+          'currency_code': 'currencyCode',
+          'is_deleted': 'isDeleted',
+        },
+        rows: rows,
+        bind: (json) => [
+          drift_db.Variable.withString(json['id'] as String? ?? ''),
+          drift_db.Variable.withString(json['value'] as String? ?? ''),
+          drift_db.Variable.withString(
+            json['currencyCode'] as String? ?? 'USD',
+          ),
+          drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+          drift_db.Variable(json['deviceId'] as String?),
+          drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+        ],
+      );
 
-  Future<void> _upsertAccount(Map<String, dynamic> json) async {
-    final currencyCode = json['currencyCode'] as String?;
-    final currencyDesignationId = json['currencyDesignationId'] as String?;
-    // Fallback values are embedded in VALUES(...) so ON CONFLICT UPDATE can
-    // safely use EXCLUDED.* — the correct value is already in EXCLUDED.
-    final resolvedCurrencyCode =
-        (currencyCode != null && currencyCode.isNotEmpty)
-        ? currencyCode
-        : 'USD';
-    final resolvedCurrencyDesignationId =
-        (currencyDesignationId != null && currencyDesignationId.isNotEmpty)
-        ? currencyDesignationId
-        : '';
+  Future<void> _upsertCategories(List<Map<String, dynamic>> rows) =>
+      _upsertBatch(
+        table: 'categories',
+        conflictTarget: 'id',
+        insertColumns: const [
+          'id',
+          'name',
+          'parent_id',
+          'style_id',
+          'type',
+          'modified_at',
+          'device_id',
+          'is_deleted',
+        ],
+        assignable: const {
+          'name': 'name',
+          'parent_id': 'parentId',
+          'style_id': 'styleId',
+          'type': 'type',
+          'is_deleted': 'isDeleted',
+        },
+        rows: rows,
+        bind: (json) => [
+          drift_db.Variable.withString(json['id'] as String? ?? ''),
+          drift_db.Variable.withString(json['name'] as String? ?? ''),
+          drift_db.Variable(json['parentId'] as String?),
+          drift_db.Variable(json['styleId'] as String?),
+          drift_db.Variable.withInt(json['type'] as int? ?? 0),
+          drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+          drift_db.Variable(json['deviceId'] as String?),
+          drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+        ],
+      );
 
-    final balance = _round((json['balance'] as num?)?.toDouble() ?? 0.0);
-    final balanceMinor = (json['balanceMinor'] as num?)?.toInt();
-    // A sender that predates the anchor sends the balance and nothing else, so
-    // the balance stands in for the anchor here and _applyChanges re-derives
-    // the real anchor once the batch's transactions are in. Defaulting to zero
-    // instead would hand such an account a balance made of its transactions
-    // alone, with the money it opened with quietly gone.
-    final openingBalance = (json['openingBalance'] as num?)?.toDouble();
-    final openingBalanceMinor = (json['openingBalanceMinor'] as num?)?.toInt();
+  Future<void> _upsertAccounts(List<Map<String, dynamic>> rows) => _upsertBatch(
+    table: 'accounts',
+    conflictTarget: 'id',
+    insertColumns: const [
+      'id',
+      'name',
+      'description',
+      'balance',
+      'balance_minor',
+      'opening_balance',
+      'opening_balance_minor',
+      'currency_code',
+      'currency_designation_id',
+      'style_id',
+      'account_type_id',
+      'creation_date',
+      'country',
+      'asset_id',
+      'asset_quantity',
+      'fee_structure',
+      'modified_at',
+      'device_id',
+      'is_deleted',
+    ],
+    assignable: const {
+      'name': 'name',
+      'description': 'description',
+      'balance': 'balance',
+      'balance_minor': 'balanceMinor',
+      'opening_balance': 'openingBalance',
+      'opening_balance_minor': 'openingBalanceMinor',
+      'currency_code': 'currencyCode',
+      'currency_designation_id': 'currencyDesignationId',
+      'style_id': 'styleId',
+      'account_type_id': 'accountTypeId',
+      'creation_date': 'creationDate',
+      'country': 'country',
+      'asset_id': 'assetId',
+      'asset_quantity': 'assetQuantity',
+      'fee_structure': 'feeStructure',
+      'is_deleted': 'isDeleted',
+    },
+    rows: rows,
+    bind: (json) {
+      final currencyCode = json['currencyCode'] as String?;
+      final currencyDesignationId = json['currencyDesignationId'] as String?;
+      // Fallback values are embedded in VALUES(...) so ON CONFLICT UPDATE can
+      // safely use EXCLUDED.* — the correct value is already in EXCLUDED.
+      final resolvedCurrencyCode =
+          (currencyCode != null && currencyCode.isNotEmpty)
+          ? currencyCode
+          : 'USD';
+      final resolvedCurrencyDesignationId =
+          (currencyDesignationId != null && currencyDesignationId.isNotEmpty)
+          ? currencyDesignationId
+          : '';
 
-    await _database.customInsert(
-      '''INSERT INTO accounts (id, name, description, balance, balance_minor, opening_balance, opening_balance_minor, currency_code, currency_designation_id, style_id, account_type_id, creation_date, country, asset_id, asset_quantity, fee_structure, modified_at, device_id, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        description = EXCLUDED.description,
-        balance = EXCLUDED.balance,
-        balance_minor = EXCLUDED.balance_minor,
-        opening_balance = EXCLUDED.opening_balance,
-        opening_balance_minor = EXCLUDED.opening_balance_minor,
-        currency_code = EXCLUDED.currency_code,
-        currency_designation_id = EXCLUDED.currency_designation_id,
-        style_id = EXCLUDED.style_id,
-        account_type_id = EXCLUDED.account_type_id,
-        creation_date = EXCLUDED.creation_date,
-        country = EXCLUDED.country,
-        asset_id = EXCLUDED.asset_id,
-        asset_quantity = EXCLUDED.asset_quantity,
-        fee_structure = EXCLUDED.fee_structure,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > accounts.modified_at''',
-      variables: [
+      final balance = _round((json['balance'] as num?)?.toDouble() ?? 0.0);
+      final balanceMinor = (json['balanceMinor'] as num?)?.toInt();
+      // A sender that predates the anchor sends the balance and nothing else,
+      // so the balance stands in for the anchor here and _applyChanges
+      // re-derives the real anchor once the batch's transactions are in.
+      // Defaulting to zero instead would hand such an account a balance made
+      // of its transactions alone, with the money it opened with quietly gone.
+      final openingBalance = (json['openingBalance'] as num?)?.toDouble();
+      final openingBalanceMinor = (json['openingBalanceMinor'] as num?)
+          ?.toInt();
+
+      return [
         drift_db.Variable.withString(json['id'] as String? ?? ''),
         drift_db.Variable.withString(
           json['name'] as String? ?? 'Untitled Account',
@@ -1587,83 +2068,181 @@ class ServerSyncService {
         drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
         drift_db.Variable(json['deviceId'] as String?),
         drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
-      ],
-    );
+      ];
+    },
+  );
+
+  Future<void> _upsertTransactions(List<Map<String, dynamic>> rows) =>
+      _upsertBatch(
+        table: 'transactions',
+        conflictTarget: 'id',
+        insertColumns: const [
+          'id',
+          'description',
+          'amount',
+          'amount_minor',
+          'date',
+          'account_id',
+          'category_id',
+          'currency_code',
+          'exchange_rate',
+          'exchange_rate_preset',
+          'fee',
+          'fee_minor',
+          'linked_transaction_id',
+          'modified_at',
+          'device_id',
+          'is_deleted',
+        ],
+        assignable: const {
+          'description': 'description',
+          'amount': 'amount',
+          'amount_minor': 'amountMinor',
+          'date': 'date',
+          'account_id': 'accountId',
+          'category_id': 'categoryId',
+          'currency_code': 'currencyCode',
+          'exchange_rate': 'exchangeRate',
+          'exchange_rate_preset': 'exchangeRatePreset',
+          'fee': 'fee',
+          'fee_minor': 'feeMinor',
+          'linked_transaction_id': 'linkedTransactionId',
+          'is_deleted': 'isDeleted',
+        },
+        rows: rows,
+        bind: (json) {
+          final currencyCode = json['currencyCode'] as String?;
+          final resolvedCurrencyCode =
+              (currencyCode != null && currencyCode.isNotEmpty)
+              ? currencyCode
+              : 'USD';
+
+          return [
+            drift_db.Variable.withString(json['id'] as String? ?? ''),
+            drift_db.Variable.withString(json['description'] as String? ?? ''),
+            drift_db.Variable.withReal(
+              _round((json['amount'] as num?)?.toDouble() ?? 0.0),
+            ),
+            drift_db.Variable((json['amountMinor'] as num?)?.toInt()),
+            drift_db.Variable.withDateTime(
+              DateTime.tryParse(json['date'] as String? ?? '') ??
+                  DateTime.now(),
+            ),
+            drift_db.Variable.withString(json['accountId'] as String? ?? ''),
+            drift_db.Variable.withString(json['categoryId'] as String? ?? ''),
+            drift_db.Variable.withString(resolvedCurrencyCode),
+            drift_db.Variable.withReal(
+              (json['exchangeRate'] as num?)?.toDouble() ?? 1.0,
+            ),
+            drift_db.Variable(json['exchangeRatePreset'] as int?),
+            drift_db.Variable.withReal(
+              _round((json['fee'] as num?)?.toDouble() ?? 0.0),
+            ),
+            drift_db.Variable((json['feeMinor'] as num?)?.toInt()),
+            drift_db.Variable(json['linkedTransactionId'] as String?),
+            drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+            drift_db.Variable(json['deviceId'] as String?),
+            drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+          ];
+        },
+      );
+
+  /// Collapses the `custom_api` duplicates a single page can carry.
+  ///
+  /// The dedup DELETE below only evicts rows that are ALREADY in the local
+  /// database. A server that still holds two `custom_api` entries on the same
+  /// `(asset_id, date)` under different ids — exactly the shape
+  /// `idx_asset_entries_custom_api_dedup` was added in v7 to stop — sends both
+  /// in one page, and the second row fails that partial UNIQUE index. Because
+  /// a page applies all-or-nothing, that aborted the whole sync cycle, every
+  /// cycle: observed live as
+  /// `UNIQUE constraint failed: asset_entries.asset_id, asset_entries.date,
+  /// asset_entries.source` on a device that could then never finish another
+  /// pull.
+  ///
+  /// Resolved the way every other conflict in this engine is: the
+  /// `(modifiedAt, deviceId)` total order of [_lastWriteWins], so the client,
+  /// the server and any other device pick the same survivor. The loser is
+  /// dropped from the page only — it stays on the server, and once the winner
+  /// is pushed back the pair collapses there too.
+  static List<Map<String, dynamic>> _dedupeCustomApiPage(
+    List<Map<String, dynamic>> rows,
+  ) {
+    final seen = <String, int>{};
+    final out = <Map<String, dynamic>>[];
+    for (final json in rows) {
+      if ((json['source'] as String? ?? 'manual') != 'custom_api') {
+        out.add(json);
+        continue;
+      }
+      final raw = json['date'] as String? ?? '';
+      final parsed = DateTime.tryParse(raw);
+      // Keyed on the parsed instant, because that is what reaches the column;
+      // an unparsable date falls back to its own text so two of them are not
+      // silently merged.
+      final key =
+          '${json['assetId'] ?? ''} '
+          '${parsed?.toUtc().millisecondsSinceEpoch ?? raw}';
+      final at = seen[key];
+      if (at == null) {
+        seen[key] = out.length;
+        out.add(json);
+        continue;
+      }
+      if (_winsLastWrite(json, out[at])) out[at] = json;
+    }
+    return out;
   }
 
-  Future<void> _upsertTransaction(Map<String, dynamic> json) async {
-    final currencyCode = json['currencyCode'] as String?;
-    final resolvedCurrencyCode =
-        (currencyCode != null && currencyCode.isNotEmpty)
-        ? currencyCode
-        : 'USD';
-
-    await _database.customInsert(
-      '''INSERT INTO transactions (id, description, amount, amount_minor, date, account_id, category_id, currency_code, exchange_rate, exchange_rate_preset, fee, fee_minor, linked_transaction_id, modified_at, device_id, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (id) DO UPDATE SET
-        description = EXCLUDED.description,
-        amount = EXCLUDED.amount,
-        amount_minor = EXCLUDED.amount_minor,
-        date = EXCLUDED.date,
-        account_id = EXCLUDED.account_id,
-        category_id = EXCLUDED.category_id,
-        currency_code = EXCLUDED.currency_code,
-        exchange_rate = EXCLUDED.exchange_rate,
-        exchange_rate_preset = EXCLUDED.exchange_rate_preset,
-        fee = EXCLUDED.fee,
-        fee_minor = EXCLUDED.fee_minor,
-        linked_transaction_id = EXCLUDED.linked_transaction_id,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > transactions.modified_at''',
-      variables: [
-        drift_db.Variable.withString(json['id'] as String? ?? ''),
-        drift_db.Variable.withString(json['description'] as String? ?? ''),
-        drift_db.Variable.withReal(
-          _round((json['amount'] as num?)?.toDouble() ?? 0.0),
-        ),
-        drift_db.Variable((json['amountMinor'] as num?)?.toInt()),
-        drift_db.Variable.withDateTime(
-          DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
-        ),
-        drift_db.Variable.withString(json['accountId'] as String? ?? ''),
-        drift_db.Variable.withString(json['categoryId'] as String? ?? ''),
-        drift_db.Variable.withString(resolvedCurrencyCode),
-        drift_db.Variable.withReal(
-          (json['exchangeRate'] as num?)?.toDouble() ?? 1.0,
-        ),
-        drift_db.Variable(json['exchangeRatePreset'] as int?),
-        drift_db.Variable.withReal(
-          _round((json['fee'] as num?)?.toDouble() ?? 0.0),
-        ),
-        drift_db.Variable((json['feeMinor'] as num?)?.toInt()),
-        drift_db.Variable(json['linkedTransactionId'] as String?),
-        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
-        drift_db.Variable(json['deviceId'] as String?),
-        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
-      ],
-    );
+  /// `(modifiedAt, deviceId)` compared the way [_lastWriteWins] compares it in
+  /// SQL: a missing stamp reads as the oldest possible, a missing device id as
+  /// the empty string.
+  static bool _winsLastWrite(
+    Map<String, dynamic> candidate,
+    Map<String, dynamic> incumbent,
+  ) {
+    final candidateAt = candidate['modifiedAt'] as int? ?? 0;
+    final incumbentAt = incumbent['modifiedAt'] as int? ?? 0;
+    if (candidateAt != incumbentAt) return candidateAt > incumbentAt;
+    final candidateDevice = candidate['deviceId'] as String? ?? '';
+    final incumbentDevice = incumbent['deviceId'] as String? ?? '';
+    return candidateDevice.compareTo(incumbentDevice) > 0;
   }
 
-  Future<void> _upsertAssetEntry(Map<String, dynamic> json) async {
-    final source = json['source'] as String? ?? 'manual';
-    final id = json['id'] as String? ?? '';
-    final date =
-        DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now();
+  /// The one table whose apply is not statements-per-chunk, and why.
+  ///
+  /// A `custom_api` entry has to evict any pre-fix duplicate holding the same
+  /// `(asset_id, date)` under a DIFFERENT id, or the partial UNIQUE index added
+  /// in schema v7 rejects the insert. The `id != ?` half of that is per-row:
+  /// folding a chunk into one `DELETE … WHERE (asset_id, date) IN (…) AND id
+  /// NOT IN (…)` changes which rows survive as soon as a page moves one id onto
+  /// another id's slot, so the dedup stays one statement per custom_api row.
+  /// It is cheap because `'custom_api'` is spelled as a literal rather than
+  /// bound — see the comment on the DELETE — which keeps every one of them an
+  /// index seek instead of a scan of the whole table.
+  ///
+  /// The upserts themselves are batched for the whole table, manual entries
+  /// included.
+  Future<void> _upsertAssetEntries(List<Map<String, dynamic>> rows) async {
+    rows = _dedupeCustomApiPage(rows);
+    for (final json in rows) {
+      final source = json['source'] as String? ?? 'manual';
+      final id = json['id'] as String? ?? '';
+      if (source != 'custom_api' || id.isEmpty) continue;
 
-    // For custom_api entries: remove any existing row with a different ID but
-    // the same (asset_id, date) — these are pre-fix duplicates that would
-    // violate the partial UNIQUE INDEX added in schema v7.
-    if (source == 'custom_api' && id.isNotEmpty) {
-      final assetId = json['assetId'] as String? ?? '';
+      final date =
+          DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now();
       await _database.customUpdate(
+        // `source = 'custom_api'` is a literal, and has to stay one: SQLite may
+        // only use a partial index when the query's WHERE provably implies the
+        // index's own WHERE, and a bound parameter proves nothing at prepare
+        // time. The branch above has already established the value, so the
+        // literal is exactly as correct — and it is what keeps
+        // idx_asset_entries_custom_api_dedup in the query plan.
         'DELETE FROM asset_entries '
-        'WHERE source = ? AND asset_id = ? AND date = ? AND id != ?',
+        "WHERE source = 'custom_api' AND asset_id = ? AND date = ? AND id != ?",
         variables: [
-          drift_db.Variable.withString(source),
-          drift_db.Variable.withString(assetId),
+          drift_db.Variable.withString(json['assetId'] as String? ?? ''),
           drift_db.Variable.withDateTime(date),
           drift_db.Variable.withString(id),
         ],
@@ -1672,31 +2251,50 @@ class ServerSyncService {
       );
     }
 
-    await _database.customInsert(
-      '''INSERT INTO asset_entries (id, asset_id, name, date, value, quantity, asset_type, description, currency_code, account_id, source, preset, modified_at, device_id, source_id, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (id) DO UPDATE SET
-        asset_id = EXCLUDED.asset_id,
-        name = EXCLUDED.name,
-        date = EXCLUDED.date,
-        value = EXCLUDED.value,
-        quantity = EXCLUDED.quantity,
-        asset_type = EXCLUDED.asset_type,
-        description = EXCLUDED.description,
-        currency_code = EXCLUDED.currency_code,
-        account_id = EXCLUDED.account_id,
-        source = EXCLUDED.source,
-        preset = EXCLUDED.preset,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        source_id = EXCLUDED.source_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > asset_entries.modified_at''',
-      variables: [
-        drift_db.Variable.withString(id),
+    await _upsertBatch(
+      table: 'asset_entries',
+      conflictTarget: 'id',
+      insertColumns: const [
+        'id',
+        'asset_id',
+        'name',
+        'date',
+        'value',
+        'quantity',
+        'asset_type',
+        'description',
+        'currency_code',
+        'account_id',
+        'source',
+        'preset',
+        'modified_at',
+        'device_id',
+        'source_id',
+        'is_deleted',
+      ],
+      assignable: const {
+        'asset_id': 'assetId',
+        'name': 'name',
+        'date': 'date',
+        'value': 'value',
+        'quantity': 'quantity',
+        'asset_type': 'assetType',
+        'description': 'description',
+        'currency_code': 'currencyCode',
+        'account_id': 'accountId',
+        'source': 'source',
+        'preset': 'preset',
+        'source_id': 'sourceId',
+        'is_deleted': 'isDeleted',
+      },
+      rows: rows,
+      bind: (json) => [
+        drift_db.Variable.withString(json['id'] as String? ?? ''),
         drift_db.Variable.withString(json['assetId'] as String? ?? ''),
         drift_db.Variable.withString(json['name'] as String? ?? ''),
-        drift_db.Variable.withDateTime(date),
+        drift_db.Variable.withDateTime(
+          DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
+        ),
         drift_db.Variable.withReal(
           _round((json['value'] as num?)?.toDouble() ?? 0.0),
         ),
@@ -1707,7 +2305,7 @@ class ServerSyncService {
         drift_db.Variable(json['description'] as String?),
         drift_db.Variable.withString(json['currencyCode'] as String? ?? 'USD'),
         drift_db.Variable(json['accountId'] as String?),
-        drift_db.Variable.withString(source),
+        drift_db.Variable.withString(json['source'] as String? ?? 'manual'),
         drift_db.Variable.withInt(json['preset'] as int? ?? 1),
         drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
         drift_db.Variable(json['deviceId'] as String?),
@@ -1717,117 +2315,156 @@ class ServerSyncService {
     );
   }
 
-  Future<void> _upsertCustomDataSource(Map<String, dynamic> json) async {
-    await _database.customInsert(
-      '''INSERT INTO custom_data_sources (id, name, url, data_type, enabled, auto_fetch, last_fetch_at, modified_at, device_id, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        url = EXCLUDED.url,
-        data_type = EXCLUDED.data_type,
-        enabled = EXCLUDED.enabled,
-        auto_fetch = EXCLUDED.auto_fetch,
-        last_fetch_at = EXCLUDED.last_fetch_at,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > custom_data_sources.modified_at''',
-      variables: [
-        drift_db.Variable.withString(json['id'] as String? ?? ''),
-        drift_db.Variable.withString(json['name'] as String? ?? ''),
-        drift_db.Variable.withString(json['url'] as String? ?? ''),
-        drift_db.Variable.withInt(json['dataType'] as int? ?? 0),
-        drift_db.Variable.withInt(_parseBool(json['enabled']) ? 1 : 0),
-        drift_db.Variable.withInt(_parseBool(json['autoFetch']) ? 1 : 0),
-        drift_db.Variable(json['lastFetchAt'] as int?),
-        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
-        drift_db.Variable(json['deviceId'] as String?),
-        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
-      ],
-    );
-  }
+  Future<void> _upsertCustomDataSources(List<Map<String, dynamic>> rows) =>
+      _upsertBatch(
+        table: 'custom_data_sources',
+        conflictTarget: 'id',
+        insertColumns: const [
+          'id',
+          'name',
+          'url',
+          'data_type',
+          'enabled',
+          'auto_fetch',
+          'last_fetch_at',
+          'modified_at',
+          'device_id',
+          'is_deleted',
+        ],
+        assignable: const {
+          'name': 'name',
+          'url': 'url',
+          'data_type': 'dataType',
+          'enabled': 'enabled',
+          'auto_fetch': 'autoFetch',
+          'last_fetch_at': 'lastFetchAt',
+          'is_deleted': 'isDeleted',
+        },
+        rows: rows,
+        bind: (json) => [
+          drift_db.Variable.withString(json['id'] as String? ?? ''),
+          drift_db.Variable.withString(json['name'] as String? ?? ''),
+          drift_db.Variable.withString(json['url'] as String? ?? ''),
+          drift_db.Variable.withInt(json['dataType'] as int? ?? 0),
+          drift_db.Variable.withInt(_parseBool(json['enabled']) ? 1 : 0),
+          drift_db.Variable.withInt(_parseBool(json['autoFetch']) ? 1 : 0),
+          drift_db.Variable(json['lastFetchAt'] as int?),
+          drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+          drift_db.Variable(json['deviceId'] as String?),
+          drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+        ],
+      );
 
-  Future<void> _upsertApiSetting(Map<String, dynamic> json) async {
-    await _database.customInsert(
-      '''INSERT INTO api_settings_table (id, enabled, auto_fetch, last_fetch_at, modified_at, device_id, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (id) DO UPDATE SET
-        enabled = EXCLUDED.enabled,
-        auto_fetch = EXCLUDED.auto_fetch,
-        last_fetch_at = EXCLUDED.last_fetch_at,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > api_settings_table.modified_at''',
-      variables: [
-        drift_db.Variable.withString(json['id'] as String? ?? ''),
-        drift_db.Variable.withInt(_parseBool(json['enabled']) ? 1 : 0),
-        drift_db.Variable.withInt(_parseBool(json['autoFetch']) ? 1 : 0),
-        drift_db.Variable(json['lastFetchAt'] as int?),
-        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
-        drift_db.Variable(json['deviceId'] as String?),
-        // A peer on a pre-v12 build sends no flag; the only thing it can mean
-        // is "live", since that build had no way to delete one.
-        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
-      ],
-    );
-  }
+  Future<void> _upsertApiSettings(List<Map<String, dynamic>> rows) =>
+      _upsertBatch(
+        table: 'api_settings_table',
+        conflictTarget: 'id',
+        insertColumns: const [
+          'id',
+          'enabled',
+          'auto_fetch',
+          'last_fetch_at',
+          'modified_at',
+          'device_id',
+          'is_deleted',
+        ],
+        assignable: const {
+          'enabled': 'enabled',
+          'auto_fetch': 'autoFetch',
+          'last_fetch_at': 'lastFetchAt',
+          'is_deleted': 'isDeleted',
+        },
+        rows: rows,
+        bind: (json) => [
+          drift_db.Variable.withString(json['id'] as String? ?? ''),
+          drift_db.Variable.withInt(_parseBool(json['enabled']) ? 1 : 0),
+          drift_db.Variable.withInt(_parseBool(json['autoFetch']) ? 1 : 0),
+          drift_db.Variable(json['lastFetchAt'] as int?),
+          drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+          drift_db.Variable(json['deviceId'] as String?),
+          // A peer on a pre-v12 build sends no flag; the only thing it can mean
+          // is "live", since that build had no way to delete one.
+          drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+        ],
+      );
 
-  Future<void> _upsertSmsPreset(Map<String, dynamic> json) async {
-    await _database.customInsert(
-      '''INSERT INTO sms_presets (id, name, sender_filter, is_built_in, is_enabled, default_account_id, default_category_id, rules_json, modified_at, device_id, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        sender_filter = EXCLUDED.sender_filter,
-        is_built_in = EXCLUDED.is_built_in,
-        is_enabled = EXCLUDED.is_enabled,
-        default_account_id = EXCLUDED.default_account_id,
-        default_category_id = EXCLUDED.default_category_id,
-        rules_json = EXCLUDED.rules_json,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > sms_presets.modified_at''',
-      variables: [
-        drift_db.Variable.withString(json['id'] as String? ?? ''),
-        drift_db.Variable.withString(
-          json['name'] as String? ?? 'Untitled SMS Preset',
-        ),
-        drift_db.Variable.withString(json['senderFilter'] as String? ?? ''),
-        drift_db.Variable.withInt(_parseBool(json['isBuiltIn']) ? 1 : 0),
-        drift_db.Variable.withInt(_parseBool(json['isEnabled']) ? 1 : 0),
-        drift_db.Variable(json['defaultAccountId'] as String?),
-        drift_db.Variable(json['defaultCategoryId'] as String?),
-        drift_db.Variable.withString(json['rulesJson'] as String? ?? '[]'),
-        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
-        drift_db.Variable(json['deviceId'] as String?),
-        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
-      ],
-    );
-  }
+  Future<void> _upsertSmsPresets(List<Map<String, dynamic>> rows) =>
+      _upsertBatch(
+        table: 'sms_presets',
+        conflictTarget: 'id',
+        insertColumns: const [
+          'id',
+          'name',
+          'sender_filter',
+          'is_built_in',
+          'is_enabled',
+          'default_account_id',
+          'default_category_id',
+          'rules_json',
+          'modified_at',
+          'device_id',
+          'is_deleted',
+        ],
+        assignable: const {
+          'name': 'name',
+          'sender_filter': 'senderFilter',
+          'is_built_in': 'isBuiltIn',
+          'is_enabled': 'isEnabled',
+          'default_account_id': 'defaultAccountId',
+          'default_category_id': 'defaultCategoryId',
+          'rules_json': 'rulesJson',
+          'is_deleted': 'isDeleted',
+        },
+        rows: rows,
+        bind: (json) => [
+          drift_db.Variable.withString(json['id'] as String? ?? ''),
+          drift_db.Variable.withString(
+            json['name'] as String? ?? 'Untitled SMS Preset',
+          ),
+          drift_db.Variable.withString(json['senderFilter'] as String? ?? ''),
+          drift_db.Variable.withInt(_parseBool(json['isBuiltIn']) ? 1 : 0),
+          drift_db.Variable.withInt(_parseBool(json['isEnabled']) ? 1 : 0),
+          drift_db.Variable(json['defaultAccountId'] as String?),
+          drift_db.Variable(json['defaultCategoryId'] as String?),
+          drift_db.Variable.withString(json['rulesJson'] as String? ?? '[]'),
+          drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+          drift_db.Variable(json['deviceId'] as String?),
+          drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+        ],
+      );
 
-  Future<void> _upsertSetting(Map<String, dynamic> json) async {
-    final key = json['key'] as String? ?? '';
+  Future<void> _upsertSettings(List<Map<String, dynamic>> rows) {
     // Defence in depth: even if a peer (or an older build) uploaded its own
     // device-local settings, never let them overwrite ours. Accepting
     // `local_device_id` here would give both devices the same identity and
-    // break the "skip my own packets" check in the file-based sync.
-    if (_deviceLocalSettingKeys.contains(key)) {
-      debugPrint('[ServerSync] Ignoring device-local setting from peer: $key');
-      return;
+    // break the "skip my own packets" check in the file-based sync. Filtered
+    // BEFORE the batch, so a rejected key cannot ride into the database inside
+    // another row's statement.
+    final accepted = <Map<String, dynamic>>[];
+    for (final json in rows) {
+      final key = json['key'] as String? ?? '';
+      if (_deviceLocalSettingKeys.contains(key)) {
+        debugPrint(
+          '[ServerSync] Ignoring device-local setting from peer: $key',
+        );
+        continue;
+      }
+      accepted.add(json);
     }
 
-    await _database.customInsert(
-      '''INSERT INTO settings (key, value, device, modified_at, device_id)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT (key) DO UPDATE SET
-        value = EXCLUDED.value,
-        device = EXCLUDED.device,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id
-      WHERE EXCLUDED.modified_at > settings.modified_at''',
-      variables: [
+    return _upsertBatch(
+      table: 'settings',
+      conflictTarget: 'key',
+      insertColumns: const [
+        'key',
+        'value',
+        'device',
+        'modified_at',
+        'device_id',
+      ],
+      assignable: const {'value': 'value', 'device': 'device'},
+      rows: accepted,
+      bind: (json) => [
         drift_db.Variable.withString(json['key'] as String? ?? ''),
         drift_db.Variable.withString(json['value'] as String? ?? ''),
         drift_db.Variable(json['device'] as String?),
@@ -1837,131 +2474,157 @@ class ServerSyncService {
     );
   }
 
-  Future<void> _upsertExchangeRate(Map<String, dynamic> json) async {
-    final date =
-        DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now();
+  Future<void> _upsertExchangeRates(List<Map<String, dynamic>> rows) =>
+      _upsertBatch(
+        table: 'exchange_rates',
+        conflictTarget: 'from_currency_code, to_currency_code, date, preset',
+        insertColumns: const [
+          'from_currency_code',
+          'to_currency_code',
+          'rate',
+          'preset',
+          'date',
+          'modified_at',
+          'device_id',
+          'source_id',
+        ],
+        assignable: const {'rate': 'rate', 'source_id': 'sourceId'},
+        rows: rows,
+        bind: (json) => [
+          drift_db.Variable.withString(
+            json['fromCurrencyCode'] as String? ?? 'USD',
+          ),
+          drift_db.Variable.withString(
+            json['toCurrencyCode'] as String? ?? 'EUR',
+          ),
+          drift_db.Variable.withReal(
+            _round((json['rate'] as num?)?.toDouble() ?? 1.0),
+          ),
+          drift_db.Variable.withInt(json['preset'] as int? ?? 1),
+          drift_db.Variable.withDateTime(
+            DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
+          ),
+          drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+          drift_db.Variable(json['deviceId'] as String?),
+          drift_db.Variable(json['sourceId'] as String?),
+        ],
+      );
 
-    await _database.customInsert(
-      '''INSERT INTO exchange_rates (from_currency_code, to_currency_code, rate, preset, date, modified_at, device_id, source_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (from_currency_code, to_currency_code, date, preset) DO UPDATE SET
-        rate = EXCLUDED.rate,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        source_id = EXCLUDED.source_id
-      WHERE EXCLUDED.modified_at > exchange_rates.modified_at''',
-      variables: [
-        drift_db.Variable.withString(
-          json['fromCurrencyCode'] as String? ?? 'USD',
-        ),
-        drift_db.Variable.withString(
-          json['toCurrencyCode'] as String? ?? 'EUR',
-        ),
-        drift_db.Variable.withReal(
-          _round((json['rate'] as num?)?.toDouble() ?? 1.0),
-        ),
-        drift_db.Variable.withInt(json['preset'] as int? ?? 1),
-        drift_db.Variable.withDateTime(date),
-        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
-        drift_db.Variable(json['deviceId'] as String?),
-        drift_db.Variable(json['sourceId'] as String?),
-      ],
-    );
-  }
+  Future<void> _upsertInflationRates(List<Map<String, dynamic>> rows) =>
+      _upsertBatch(
+        table: 'inflation_rates',
+        conflictTarget: 'date, country, preset',
+        insertColumns: const [
+          'date',
+          'percent',
+          'country',
+          'preset',
+          'modified_at',
+          'device_id',
+          'source_id',
+        ],
+        assignable: const {'percent': 'percent', 'source_id': 'sourceId'},
+        rows: rows,
+        bind: (json) {
+          // `country` is part of the primary key and NOT NULL as of schema v10,
+          // where the worldwide series is spelled with the
+          // `globalInflationCountry` sentinel. A peer still on v9, or a server
+          // row written by one, sends null for it - binding that straight in
+          // would fail the constraint and abort the whole pull.
+          final rawCountry = json['country'] as String?;
+          final country = (rawCountry == null || rawCountry.isEmpty)
+              ? globalInflationCountry
+              : rawCountry;
 
-  Future<void> _upsertInflationRate(Map<String, dynamic> json) async {
-    final date =
-        DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now();
-    // `country` is part of the primary key and NOT NULL as of schema v10, where
-    // the worldwide series is spelled with the `globalInflationCountry`
-    // sentinel. A peer still on v9, or a server row written by one, sends null
-    // for it - binding that straight in would fail the constraint and abort the
-    // whole pull.
-    final rawCountry = json['country'] as String?;
-    final country = (rawCountry == null || rawCountry.isEmpty)
-        ? globalInflationCountry
-        : rawCountry;
+          return [
+            drift_db.Variable.withDateTime(
+              DateTime.tryParse(json['date'] as String? ?? '') ??
+                  DateTime.now(),
+            ),
+            drift_db.Variable.withReal(
+              (json['percent'] as num?)?.toDouble() ?? 0.0,
+            ),
+            drift_db.Variable(country),
+            drift_db.Variable.withInt(json['preset'] as int? ?? 1),
+            drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+            drift_db.Variable(json['deviceId'] as String?),
+            drift_db.Variable(json['sourceId'] as String?),
+          ];
+        },
+      );
 
-    await _database.customInsert(
-      '''INSERT INTO inflation_rates (date, percent, country, preset, modified_at, device_id, source_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (date, country, preset) DO UPDATE SET
-        percent = EXCLUDED.percent,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        source_id = EXCLUDED.source_id
-      WHERE EXCLUDED.modified_at > inflation_rates.modified_at''',
-      variables: [
-        drift_db.Variable.withDateTime(date),
-        drift_db.Variable.withReal(
-          (json['percent'] as num?)?.toDouble() ?? 0.0,
-        ),
-        drift_db.Variable(country),
-        drift_db.Variable.withInt(json['preset'] as int? ?? 1),
-        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
-        drift_db.Variable(json['deviceId'] as String?),
-        drift_db.Variable(json['sourceId'] as String?),
-      ],
-    );
-  }
-
-  Future<void> _upsertCustomTheme(Map<String, dynamic> json) async {
-    await _database.customInsert(
-      '''INSERT INTO custom_themes (id, name, primary_color_hex, secondary_color_hex, surface_color_hex, background_color_hex, background_image_path, background_image_opacity, background_image_blur, window_effect_type, effect_opacity, surface_opacity, theme_mode, is_preset, is_active, modified_at, device_id, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        primary_color_hex = EXCLUDED.primary_color_hex,
-        secondary_color_hex = EXCLUDED.secondary_color_hex,
-        surface_color_hex = EXCLUDED.surface_color_hex,
-        background_color_hex = EXCLUDED.background_color_hex,
-        background_image_path = EXCLUDED.background_image_path,
-        background_image_opacity = EXCLUDED.background_image_opacity,
-        background_image_blur = EXCLUDED.background_image_blur,
-        window_effect_type = EXCLUDED.window_effect_type,
-        effect_opacity = EXCLUDED.effect_opacity,
-        surface_opacity = EXCLUDED.surface_opacity,
-        theme_mode = EXCLUDED.theme_mode,
-        is_preset = EXCLUDED.is_preset,
-        is_active = EXCLUDED.is_active,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > custom_themes.modified_at''',
-      variables: [
-        drift_db.Variable.withString(json['id'] as String? ?? ''),
-        drift_db.Variable.withString(json['name'] as String? ?? 'Custom Theme'),
-        drift_db.Variable.withString(json['primaryColorHex'] as String? ?? ''),
-        drift_db.Variable.withString(
-          json['secondaryColorHex'] as String? ?? '',
-        ),
-        drift_db.Variable.withString(json['surfaceColorHex'] as String? ?? ''),
-        drift_db.Variable.withString(
-          json['backgroundColorHex'] as String? ?? '',
-        ),
-        drift_db.Variable(json['backgroundImagePath'] as String?),
-        drift_db.Variable.withReal(
-          (json['backgroundImageOpacity'] as num?)?.toDouble() ?? 1.0,
-        ),
-        drift_db.Variable.withReal(
-          (json['backgroundImageBlur'] as num?)?.toDouble() ?? 0.0,
-        ),
-        drift_db.Variable.withInt(json['windowEffectType'] as int? ?? 0),
-        drift_db.Variable.withReal(
-          (json['effectOpacity'] as num?)?.toDouble() ?? 1.0,
-        ),
-        drift_db.Variable.withReal(
-          (json['surfaceOpacity'] as num?)?.toDouble() ?? 1.0,
-        ),
-        drift_db.Variable.withInt(json['themeMode'] as int? ?? 0),
-        drift_db.Variable.withInt(_parseBool(json['isPreset']) ? 1 : 0),
-        drift_db.Variable.withInt(_parseBool(json['isActive']) ? 1 : 0),
-        drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
-        drift_db.Variable(json['deviceId'] as String?),
-        drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
-      ],
-    );
-  }
+  Future<void> _upsertCustomThemes(
+    List<Map<String, dynamic>> rows,
+  ) => _upsertBatch(
+    table: 'custom_themes',
+    conflictTarget: 'id',
+    insertColumns: const [
+      'id',
+      'name',
+      'primary_color_hex',
+      'secondary_color_hex',
+      'surface_color_hex',
+      'background_color_hex',
+      'background_image_path',
+      'background_image_opacity',
+      'background_image_blur',
+      'window_effect_type',
+      'effect_opacity',
+      'surface_opacity',
+      'theme_mode',
+      'is_preset',
+      'is_active',
+      'modified_at',
+      'device_id',
+      'is_deleted',
+    ],
+    assignable: const {
+      'name': 'name',
+      'primary_color_hex': 'primaryColorHex',
+      'secondary_color_hex': 'secondaryColorHex',
+      'surface_color_hex': 'surfaceColorHex',
+      'background_color_hex': 'backgroundColorHex',
+      'background_image_path': 'backgroundImagePath',
+      'background_image_opacity': 'backgroundImageOpacity',
+      'background_image_blur': 'backgroundImageBlur',
+      'window_effect_type': 'windowEffectType',
+      'effect_opacity': 'effectOpacity',
+      'surface_opacity': 'surfaceOpacity',
+      'theme_mode': 'themeMode',
+      'is_preset': 'isPreset',
+      'is_active': 'isActive',
+      'is_deleted': 'isDeleted',
+    },
+    rows: rows,
+    bind: (json) => [
+      drift_db.Variable.withString(json['id'] as String? ?? ''),
+      drift_db.Variable.withString(json['name'] as String? ?? 'Custom Theme'),
+      drift_db.Variable.withString(json['primaryColorHex'] as String? ?? ''),
+      drift_db.Variable.withString(json['secondaryColorHex'] as String? ?? ''),
+      drift_db.Variable.withString(json['surfaceColorHex'] as String? ?? ''),
+      drift_db.Variable.withString(json['backgroundColorHex'] as String? ?? ''),
+      drift_db.Variable(json['backgroundImagePath'] as String?),
+      drift_db.Variable.withReal(
+        (json['backgroundImageOpacity'] as num?)?.toDouble() ?? 1.0,
+      ),
+      drift_db.Variable.withReal(
+        (json['backgroundImageBlur'] as num?)?.toDouble() ?? 0.0,
+      ),
+      drift_db.Variable.withInt(json['windowEffectType'] as int? ?? 0),
+      drift_db.Variable.withReal(
+        (json['effectOpacity'] as num?)?.toDouble() ?? 1.0,
+      ),
+      drift_db.Variable.withReal(
+        (json['surfaceOpacity'] as num?)?.toDouble() ?? 1.0,
+      ),
+      drift_db.Variable.withInt(json['themeMode'] as int? ?? 0),
+      drift_db.Variable.withInt(_parseBool(json['isPreset']) ? 1 : 0),
+      drift_db.Variable.withInt(_parseBool(json['isActive']) ? 1 : 0),
+      drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
+      drift_db.Variable(json['deviceId'] as String?),
+      drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),
+    ],
+  );
 
   bool _parseBool(dynamic val) {
     if (val is bool) return val;
@@ -1969,8 +2632,26 @@ class ServerSyncService {
     return false;
   }
 
-  /// Helper to round double values to 8 decimal places to avoid floating point errors
+  /// Normalises a double to 8 decimal places, so the same value computed on
+  /// two devices does not travel as `0.1 + 0.2` on one and `0.30000000000000004`
+  /// on the other and lose a last-write-wins comparison over the difference.
+  ///
+  /// The magnitude guard is not cosmetic. `toStringAsFixed(8)` renders anything
+  /// under 5e-9 as `'0.00000000'`, so an exchange rate for a hyperinflated or
+  /// crypto pair — IRR→BTC at 2.4e-10, a fractional holding's `assetQuantity` —
+  /// came out of here as exactly 0.0, and it happened on the server path only:
+  /// the peer-to-peer engine ships the rate verbatim. The pulled zero carried
+  /// the newer `modified_at`, so it overwrote the correct local value on every
+  /// device, every conversion through that pair yielded 0, and a device on both
+  /// paths flip-flopped between the two answers forever. Below the rounding's
+  /// own resolution there is no floating-point noise left to normalise away, so
+  /// the value is returned untouched — 8-dp tidying must never be able to erase
+  /// a nonzero number.
   double _round(double value) {
+    if (value == 0 || value.abs() < _roundingFloor) return value;
     return double.parse(value.toStringAsFixed(8));
   }
+
+  /// The smallest magnitude `toStringAsFixed(8)` can still represent.
+  static const double _roundingFloor = 1e-8;
 }

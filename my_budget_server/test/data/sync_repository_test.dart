@@ -43,16 +43,30 @@ class _FakeRow extends Fake implements ResultRow {
   Map<String, dynamic> toColumnMap() => Map<String, dynamic>.from(_columns);
 }
 
-/// Records every `execute` the repository issues, in order, so a test can
-/// assert on the parameters that reach PostgreSQL.
+/// Reads the SQL a `Sql.named` description was built from.
 ///
-/// The SQL text is deliberately not asserted: `Sql.named` returns an opaque
-/// query description with no public accessor for its source string. Each
-/// table's parameter map has a distinct shape (`amountMinor` only exists on
-/// transactions, `balanceMinor` only on accounts), so ordering and identity
+/// `Sql.named` has no *public* accessor for its source string, but the
+/// implementation it returns keeps it in a plain `sql` field, which a dynamic
+/// read reaches. Three of the rules this repository has to obey live purely in
+/// the statement text and leave no trace at all in the parameter map: which
+/// columns the ON CONFLICT SET list assigns (a column a push never mentioned
+/// must not be in it), and the two halves of the conflict guard (the NULL-safe
+/// comparison and the device-id tiebreak). They have to be assertable
+/// somewhere, and this is the only place they exist.
+String _sqlTextOf(Object? query) {
+  final text = (query as dynamic).sql;
+  return text is String ? text : '';
+}
+
+/// Records every `execute` the repository issues, in order, so a test can
+/// assert on the statement and the parameters that reach PostgreSQL.
+///
+/// Each table's parameter map has a distinct shape (`amountMinor` only exists
+/// on transactions, `balanceMinor` only on accounts), so ordering and identity
 /// are both recoverable from the parameters alone.
 class _ExecuteRecorder {
   final calls = <Map<String, dynamic>>[];
+  final sql = <String>[];
 
   void register(_MockTxSession session) {
     when(
@@ -65,6 +79,7 @@ class _ExecuteRecorder {
       calls.add(
         params is Map ? Map<String, dynamic>.from(params) : <String, dynamic>{},
       );
+      sql.add(_sqlTextOf(invocation.positionalArguments.first));
       return _MockResult();
     });
   }
@@ -78,6 +93,12 @@ class _ExecuteRecorder {
       if (call.containsKey(key)) return call;
     }
     return null;
+  }
+
+  /// The statement text of the first write whose parameters carry [key].
+  String sqlWithKey(String key) {
+    final at = indexOfKey(key);
+    return at < 0 ? '' : sql[at];
   }
 
   int indexOfKey(String key) =>
@@ -377,9 +398,10 @@ void main() {
         ],
       });
 
-      final params = recorder.withKey('cnt_0')!;
-      expect(params['cnt_0'], 'global');
-      expect(params['cnt_59'], 'global');
+      // The multi-row builder names its parameters `<jsonKey>_<rowIndex>`.
+      final params = recorder.withKey('country_0')!;
+      expect(params['country_0'], 'global');
+      expect(params['country_59'], 'global');
     });
   });
 
@@ -488,6 +510,106 @@ void main() {
       expect(query['limit'], 12);
     });
 
+    test('an untruncated table is trimmed to the cursor the page reports',
+        () async {
+      // categories fills its limit at seq 3; transactions has already returned
+      // seq 900, far past it. The page can only claim up to 3, so the row at
+      // 900 is not part of this page at all: handed out now it would be handed
+      // out again on every later page too, until the truncated table finally
+      // caught up, and each of those re-deliveries is a whole table's delta
+      // re-applied for nothing.
+      answerPages([
+        [row(1, 'c1'), row(2, 'c2'), row(3, 'c3')],
+        [row(900, 't1')],
+      ]);
+
+      final result = await repository.getChanges(0, limit: 3);
+
+      expect(result.lastTimestamp, 3);
+      expect(result.hasMore, isTrue);
+      expect(result.changes['categories'], hasLength(3));
+      expect(
+        result.changes.containsKey('transactions'),
+        isFalse,
+        reason: 'a page is a prefix of the write order, not a mixture',
+      );
+    });
+
+    test('a row held back by the cursor arrives on the next page', () async {
+      // The other half of trimming: held back is not dropped. The follow-up
+      // page asks from 3 and the row at 900 is handed over exactly once.
+      answerPages([
+        [row(4, 'c4')],
+        [row(900, 't1')],
+      ]);
+
+      final result = await repository.getChanges(3, limit: 3);
+
+      expect(result.lastTimestamp, 900);
+      expect(result.hasMore, isFalse);
+      expect(result.changes['transactions']!.single['id'], 't1');
+    });
+
+    test('a table that only holds rows past the cursor is left out entirely',
+        () async {
+      // An empty list for a table is not the same as no key: the client walks
+      // the keys it is given, and an empty one costs a transaction and a log
+      // line per page for a table that has nothing to say yet.
+      answerPages([
+        [row(1, 'c1'), row(2, 'c2')],
+        [row(500, 't1')],
+      ]);
+
+      final result = await repository.getChanges(0, limit: 2);
+
+      expect(result.changes.keys, ['categories']);
+    });
+
+    test('api_settings hands back its tombstone', () async {
+      // The pull map is the second half of the same gap: even with the column
+      // written, a delete that is not selected out never reaches the peer.
+      answerPages([
+        for (var i = 0; i < 8; i++) const <Map<String, dynamic>>[],
+        [
+          {
+            'id': 'exchange_rates',
+            'is_deleted': true,
+            'modified_at': 5,
+            'server_seq': 5,
+          },
+        ],
+      ]);
+
+      final result = await repository.getChanges(0, limit: 100);
+
+      expect(result.changes['api_settings']!.single['isDeleted'], isTrue);
+    });
+
+    test('a stored timestamp goes back out as the wall clock it is', () async {
+      // The column is `TIMESTAMP without time zone`, so the driver hands back
+      // a DateTime flagged UTC whose fields are the stored wall clock. Sent
+      // with its 'Z' the client re-read it as an instant and shifted it to the
+      // previous day west of UTC - a different exchange_rates key, and a
+      // month-boundary transaction filed under the wrong month.
+      answerPages([
+        [
+          {
+            'id': 'c1',
+            'date': DateTime.utc(2024, 11, 3, 1, 30),
+            'modified_at': 1,
+            'server_seq': 1,
+          },
+        ],
+      ]);
+
+      final result = await repository.getChanges(0, limit: 100);
+
+      expect(
+        result.changes['categories']!.single['date'],
+        '2024-11-03T01:30:00.000',
+      );
+    });
+
     test('every table is read inside one locked transaction', () async {
       // Read outside a transaction, the sixteen queries each saw a different
       // instant, and a row written into a table that had already been read fell
@@ -515,6 +637,373 @@ void main() {
         greaterThan(1),
         reason: 'all tables are read on the same session, after the lock',
       );
+    });
+  });
+
+  group('a stamp the push did not carry is the oldest possible one', () {
+    // `modified_at BIGINT DEFAULT 0` only fires when the column is left out of
+    // the INSERT, and the upsert always named it, so a push with no
+    // `modifiedAt` stored a real NULL. `EXCLUDED.modified_at > t.modified_at`
+    // then evaluated to NULL - not TRUE - for every later push, so the row
+    // froze: the writes were answered 200, the client dropped its queue entry,
+    // and no edit ever landed on that row again.
+    test('an absent modifiedAt is bound as 0, never as NULL', () async {
+      await repository.upsertBatch({
+        'currencies': [
+          {'code': 'EUR', 'name': 'Euro'},
+        ],
+      });
+
+      expect(recorder.withKey('code')!['modifiedAt'], 0);
+    });
+
+    test('a modifiedAt sent as a numeric string is still a number', () async {
+      await repository.upsertBatch({
+        'currencies': [
+          {'code': 'EUR', 'name': 'Euro', 'modifiedAt': '1700000000000'},
+        ],
+      });
+
+      expect(recorder.withKey('code')!['modifiedAt'], 1700000000000);
+    });
+
+    test('the conflict guard reads a stored NULL as 0', () async {
+      // Belt and braces for the rows an older server already froze: coercing
+      // the incoming value only fixes what is written from now on, and the
+      // frozen rows would stay frozen forever without this.
+      await repository.upsertBatch({
+        'transactions': [txRow()],
+      });
+
+      expect(
+        recorder.sqlWithKey('amountMinor'),
+        contains('COALESCE(transactions.modified_at, 0)'),
+      );
+    });
+  });
+
+  group('a tie is broken by device id, not by arrival order', () {
+    // Two devices editing one row inside the same millisecond stamp the same
+    // modified_at. Under a strict `>` whichever push landed first kept the
+    // row; the second was answered 200 and drained, and because no UPDATE
+    // happened server_seq never moved, so neither device was ever handed the
+    // other's version. The two ends diverge permanently and silently.
+    test('the guard admits an equal stamp from a higher device id', () async {
+      await repository.upsertBatch({
+        'transactions': [txRow()],
+      });
+
+      final guard = recorder.sqlWithKey('amountMinor');
+      expect(
+        guard,
+        contains(
+          'EXCLUDED.modified_at = COALESCE(transactions.modified_at, 0)',
+        ),
+      );
+      expect(
+        guard,
+        contains(
+          "COALESCE(EXCLUDED.device_id, '') > "
+          "COALESCE(transactions.device_id, '')",
+        ),
+      );
+    });
+
+    test('every table carries the rule, not just the busy ones', () async {
+      // A tiebreak that only some tables apply is not a tiebreak: the tables
+      // that lack it still diverge, and the client applies one rule to all of
+      // them.
+      await repository.upsertBatch({
+        'settings': [
+          {'key': 'theme', 'value': 'dark', 'modifiedAt': 5, 'deviceId': 'd1'},
+        ],
+        'api_settings': [
+          {
+            'id': 'exchange_rates',
+            'enabled': true,
+            'autoFetch': true,
+            'modifiedAt': 5,
+          },
+        ],
+      });
+
+      for (final key in ['key', 'autoFetch']) {
+        expect(
+          recorder.sqlWithKey(key),
+          contains("COALESCE(EXCLUDED.device_id, '') > COALESCE("),
+          reason: 'the tiebreak has to be total or the two ends disagree',
+        );
+      }
+    });
+
+    test('the bulk path resolves ties the same way', () async {
+      await repository.upsertBatch({
+        'transactions': [for (var i = 0; i < 60; i++) txRow()],
+      });
+
+      expect(
+        recorder.sqlWithKey('amountMinor_0'),
+        contains(
+          "COALESCE(EXCLUDED.device_id, '') > "
+          "COALESCE(transactions.device_id, '')",
+        ),
+      );
+    });
+  });
+
+  group('a field the push never mentioned is left alone', () {
+    /// [txRow] with [keys] deleted outright - not set to null. That is what an
+    /// older build sends: `amount_minor`, `fee_minor` and `balance_minor` were
+    /// added to this schema by migration, so clients that predate them exist
+    /// by construction, and so does every hand-rolled push.
+    Map<String, dynamic> without(List<String> keys) {
+      final row = txRow();
+      for (final key in keys) {
+        row.remove(key);
+      }
+      return row;
+    }
+
+    test('absent minor units are neither bound nor assigned', () async {
+      await repository.upsertBatch({
+        'transactions': [
+          without(['amountMinor', 'feeMinor']),
+        ],
+      });
+
+      final params = recorder.withKey('id')!;
+      expect(params.containsKey('amountMinor'), isFalse);
+      expect(params.containsKey('feeMinor'), isFalse);
+
+      final sql = recorder.sqlWithKey('id');
+      expect(sql, isNot(contains('amount_minor')));
+      expect(sql, isNot(contains('fee_minor')));
+      // Everything the push did carry is still written, so this is not
+      // "an old client's pushes get ignored".
+      expect(sql, contains('description = EXCLUDED.description'));
+    });
+
+    test('an explicit null still clears the column', () async {
+      // NULL is a real value on this column: it marks a row whose amount lives
+      // in the floating-point column instead. Absence and an explicit null are
+      // told apart by `containsKey` on the pushed map, never by the value, so
+      // a deliberate clear keeps working.
+      await repository.upsertBatch({
+        'transactions': [txRow(amountMinor: null, feeMinor: null)],
+      });
+
+      final params = recorder.withKey('amountMinor')!;
+      expect(params.containsKey('amountMinor'), isTrue);
+      expect(params['amountMinor'], isNull);
+      expect(
+        recorder.sqlWithKey('amountMinor'),
+        contains('amount_minor = EXCLUDED.amount_minor'),
+      );
+    });
+
+    test('an absent balanceMinor leaves the stored balance alone', () async {
+      final row = accountRow()..remove('balanceMinor');
+
+      await repository.upsertBatch({
+        'accounts': [row],
+      });
+
+      expect(recorder.sqlWithKey('id'), isNot(contains('balance_minor')));
+    });
+
+    test('an absent isDeleted does not resurrect a deleted row', () async {
+      // The worst case of the whole class: an edit that predates tombstones
+      // silently rewrote is_deleted to false and undeleted the row on every
+      // device in the fleet.
+      await repository.upsertBatch({
+        'styles': [
+          {'id': 's1', 'name': 'Red', 'modifiedAt': 9, 'deviceId': 'd1'},
+        ],
+      });
+
+      expect(recorder.sqlWithKey('id'), isNot(contains('is_deleted')));
+    });
+
+    test('an explicit isDeleted false is a real undelete', () async {
+      await repository.upsertBatch({
+        'styles': [
+          {
+            'id': 's1',
+            'name': 'Red',
+            'isDeleted': false,
+            'modifiedAt': 9,
+            'deviceId': 'd1',
+          },
+        ],
+      });
+
+      expect(
+        recorder.sqlWithKey('id'),
+        contains('is_deleted = EXCLUDED.is_deleted'),
+      );
+    });
+
+    test('the bulk path honours absence too', () async {
+      await repository.upsertBatch({
+        'transactions': [
+          for (var i = 0; i < 60; i++) without(['amountMinor', 'feeMinor']),
+        ],
+      });
+
+      final params = recorder.withKey('id_0')!;
+      expect(params.containsKey('amountMinor_0'), isFalse);
+      expect(recorder.sqlWithKey('id_0'), isNot(contains('amount_minor')));
+    });
+
+    test('rows carrying different fields do not share one statement', () async {
+      // One statement has one column list and one SET list. Folding a row that
+      // omits a column into the same statement as one that carries it would
+      // have to bind NULL for the first - which is the very overwrite the
+      // presence rule exists to prevent - so the rows are grouped by the set
+      // of fields they actually carry.
+      await repository.upsertBatch({
+        'transactions': [
+          for (var i = 0; i < 30; i++) txRow(),
+          for (var i = 0; i < 30; i++) without(['amountMinor']),
+        ],
+      });
+
+      expect(recorder.writes.length, 2);
+    });
+  });
+
+  group('api_settings carries its tombstone', () {
+    // The client has always pushed `isDeleted` for this table and has always
+    // read it back; the server was the only end that dropped it, because the
+    // table was created without the column. So a provider the user deleted
+    // was stored live and handed straight back to every other device on the
+    // next pull, on every sync, forever.
+    test('a deleted provider is written as deleted', () async {
+      await repository.upsertBatch({
+        'api_settings': [
+          {
+            'id': 'exchange_rates',
+            'enabled': false,
+            'autoFetch': false,
+            'modifiedAt': 2000,
+            'deviceId': 'dev-1',
+            'isDeleted': true,
+          },
+        ],
+      });
+
+      final params = recorder.withKey('autoFetch')!;
+      expect(params['isDeleted'], isTrue);
+      expect(
+        recorder.sqlWithKey('autoFetch'),
+        contains('is_deleted = EXCLUDED.is_deleted'),
+      );
+    });
+  });
+
+  group('a date is a wall clock on the way in', () {
+    // The client sends `DateTime.toIso8601String()` of a local DateTime: a
+    // naive wall clock with no zone marker. `DateTime.parse` reads that as
+    // server-local, and the driver then converts to UTC before writing to a
+    // `TIMESTAMP without time zone` column - so the very same push landed on a
+    // different instant depending on the TZ the container happened to run in,
+    // and shifted the stored day for anyone east or west of it.
+    test('a naive push is bound as the wall clock it spells', () async {
+      // 01:30 on a DST-transition night, so a server that resolved the string
+      // against a local zone would not merely shift it - it would have two
+      // instants to choose from.
+      await repository.upsertBatch({
+        'transactions': [txRow(date: '2024-11-03T01:30:00.000')],
+      });
+
+      expect(
+        recorder.withKey('date')!['date'],
+        DateTime.utc(2024, 11, 3, 1, 30),
+      );
+    });
+
+    test('a string that does carry a zone keeps its instant', () async {
+      await repository.upsertBatch({
+        'transactions': [txRow(date: '2024-03-01T05:00:00.000Z')],
+      });
+
+      expect(recorder.withKey('date')!['date'], DateTime.utc(2024, 3, 1, 5));
+    });
+
+    test('an epoch millisecond push is unaffected', () async {
+      // The other shape the client sends. It is an instant already, so it must
+      // keep going through unchanged.
+      await repository.upsertBatch({
+        'transactions': [txRow(date: 1709251200000)],
+      });
+
+      expect(
+        recorder.withKey('date')!['date'],
+        DateTime.fromMillisecondsSinceEpoch(1709251200000),
+      );
+    });
+  });
+
+  group('a rate too small for eight decimals survives the round trip', () {
+    /// An exchange_rates row as the client sends it.
+    Map<String, dynamic> rateRow(Object? rate) => {
+      'fromCurrencyCode': 'BTC',
+      'toCurrencyCode': 'VES',
+      'rate': rate,
+      'preset': 'default',
+      'date': '2024-03-01T00:00:00.000',
+      'sourceId': null,
+      'modifiedAt': 1700000000000,
+      'deviceId': 'dev-1',
+    };
+
+    test('2.4e-10 is stored as itself, not as zero', () async {
+      // toStringAsFixed(8) renders it '0.00000000', which parses back as
+      // exactly 0.0. A zero rate is not a small rate: every conversion through
+      // it divides by zero and every amount priced in that currency becomes
+      // infinity on the far side.
+      await repository.upsertBatch({
+        'exchange_rates': [rateRow(2.4e-10)],
+      });
+
+      expect(recorder.withKey('rate')!['rate'], 2.4e-10);
+    });
+
+    test('a negative value under the floor keeps its sign and magnitude', () async {
+      await repository.upsertBatch({
+        'exchange_rates': [rateRow(-3.5e-12)],
+      });
+
+      expect(recorder.withKey('rate')!['rate'], -3.5e-12);
+    });
+
+    test('an ordinary rate is still normalised to eight decimals', () async {
+      // The floor is an exception for values the format cannot hold, not a
+      // licence to stop rounding: two devices that round differently write
+      // different bytes for the same rate and never stop pushing it at each
+      // other.
+      await repository.upsertBatch({
+        'exchange_rates': [rateRow(1.234567891234)],
+      });
+
+      expect(recorder.withKey('rate')!['rate'], 1.23456789);
+    });
+
+    test('a null rate is still null', () async {
+      await repository.upsertBatch({
+        'exchange_rates': [rateRow(null)],
+      });
+
+      expect(recorder.withKey('rate')!['rate'], isNull);
+    });
+
+    test('a numeric string under the floor is coerced without flattening', () async {
+      // Postgres NUMERIC and hand-rolled pushes both arrive as strings.
+      await repository.upsertBatch({
+        'exchange_rates': [rateRow('0.00000000024')],
+      });
+
+      expect(recorder.withKey('rate')!['rate'], 2.4e-10);
     });
   });
 }

@@ -489,18 +489,73 @@ void main() {
       },
     );
 
-    test('getLatestExchangeRatesByList returns the rows for exactly those '
-        'dates', () async {
+    test('getLatestExchangeRatesByList returns every row stored on those '
+        'days, whatever time of day it carries', () async {
       await repo.addExchangeRates([
         rate(date: DateTime(2024, 1, 1), value: 1.0),
         rate(date: DateTime(2024, 3, 1), value: 2.0),
+        // What an API refresh actually writes: the day asked for, stamped with
+        // the wall clock of the moment it was fetched. Matching the requested
+        // midnight for equality found none of these, so every pair whose rows
+        // all came from a refresh was invisible and its amounts dropped out of
+        // the totals.
+        rate(date: DateTime(2024, 3, 1, 9, 59, 53), value: 2.5),
+        rate(date: DateTime(2024, 3, 1, 23, 59, 59), value: 2.75),
+        // The first instant of the next day belongs to the next day.
+        rate(date: DateTime(2024, 3, 2), value: 9.0),
       ]);
 
       final found = await repo.getLatestExchangeRatesByList([
         DateTime(2024, 3, 1),
       ]);
 
-      expect(found.map((r) => r.rate), [2.0]);
+      expect(found.map((r) => r.rate).toList()..sort(), [2.0, 2.5, 2.75]);
+    });
+
+    test(
+      'getLatestExchangeRatesByList survives a year of scattered days',
+      () async {
+        // The dashboard asks for one day per day a transaction exists on, so a
+        // real budget passes hundreds. OR-ing them into a left-deep chain made
+        // SQLite give up on the whole statement — "parser stack overflow" — and
+        // the caller saw an empty rate set, which is what put "ETH, RSD, USD,
+        // USDT could not be converted" on screen while the rows sat in the table.
+        final days = [
+          // Every other day, so nothing collapses into a contiguous range.
+          for (var i = 0; i < 400; i++)
+            DateTime(2024, 1, 1).add(Duration(days: i * 2)),
+        ];
+        await repo.addExchangeRates([
+          for (final day in days) rate(date: day, value: 1.0),
+          // A day nobody asked for.
+          rate(date: DateTime(2024, 1, 2), value: 99.0),
+        ]);
+
+        final found = await repo.getLatestExchangeRatesByList(days);
+
+        expect(found, hasLength(days.length));
+        expect(found.map((r) => r.rate), everyElement(1.0));
+      },
+    );
+
+    test('getLatestExchangeRatesByList keeps consecutive days apart from the '
+        'day after them', () async {
+      // Consecutive days are merged into one range before they reach SQL; the
+      // merge must not swallow the day past the end of the run.
+      await repo.addExchangeRates([
+        rate(date: DateTime(2024, 4, 1), value: 1.0),
+        rate(date: DateTime(2024, 4, 2), value: 2.0),
+        rate(date: DateTime(2024, 4, 3), value: 3.0),
+        rate(date: DateTime(2024, 4, 4), value: 4.0),
+      ]);
+
+      final found = await repo.getLatestExchangeRatesByList([
+        DateTime(2024, 4, 1),
+        DateTime(2024, 4, 2),
+        DateTime(2024, 4, 3),
+      ]);
+
+      expect(found.map((r) => r.rate).toList()..sort(), [1.0, 2.0, 3.0]);
     });
 
     test('getLatestExchangeRatesAll returns every stored rate', () async {

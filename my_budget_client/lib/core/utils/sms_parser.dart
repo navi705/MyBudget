@@ -45,13 +45,19 @@ class SmsParser {
   /// Try to parse an SMS using the given preset's rules
   SmsParseResult parse(String smsBody, SmsPreset preset, DateTime smsDate) {
     for (final rule in preset.rules) {
-      final matchRegex = _getCachedRegex(rule.matchPattern, caseSensitive: false);
+      final matchRegex = _getCachedRegex(
+        rule.matchPattern,
+        caseSensitive: false,
+      );
       if (!matchRegex.hasMatch(smsBody)) {
         continue;
       }
 
       // Try to extract amount
-      final amountRegex = _getCachedRegex(rule.amountPattern, caseSensitive: false);
+      final amountRegex = _getCachedRegex(
+        rule.amountPattern,
+        caseSensitive: false,
+      );
       final amountMatch = amountRegex.firstMatch(smsBody);
       if (amountMatch == null) {
         continue;
@@ -78,7 +84,10 @@ class SmsParser {
       // Try to extract date (optional)
       DateTime? date;
       if (rule.datePattern != null) {
-        final dateRegex = _getCachedRegex(rule.datePattern!, caseSensitive: false);
+        final dateRegex = _getCachedRegex(
+          rule.datePattern!,
+          caseSensitive: false,
+        );
         final dateMatch = dateRegex.firstMatch(smsBody);
         if (dateMatch != null) {
           date = _parseDate(dateMatch.group(0));

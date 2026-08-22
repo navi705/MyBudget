@@ -4,14 +4,15 @@ import 'package:my_budget_client/core/mappers/exchange_rate_mapper.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 
 void main() {
-  drift.ExchangeRate rowFromCompanion(drift.ExchangeRatesCompanion c) => drift.ExchangeRate(
-    fromCurrencyCode: c.fromCurrencyCode.value,
-    toCurrencyCode: c.toCurrencyCode.value,
-    rate: c.rate.value,
-    preset: c.preset.value,
-    date: c.date.value,
-    modifiedAt: 0,
-  );
+  drift.ExchangeRate rowFromCompanion(drift.ExchangeRatesCompanion c) =>
+      drift.ExchangeRate(
+        fromCurrencyCode: c.fromCurrencyCode.value,
+        toCurrencyCode: c.toCurrencyCode.value,
+        rate: c.rate.value,
+        preset: c.preset.value,
+        date: c.date.value,
+        modifiedAt: 0,
+      );
 
   test('round trip preserves every field, including a non-1 preset', () {
     final original = ExchangeRateDomain(
@@ -50,7 +51,9 @@ void main() {
       ),
     ];
 
-    final rows = domainList.map((d) => rowFromCompanion(d.toCompanion())).toList();
+    final rows = domainList
+        .map((d) => rowFromCompanion(d.toCompanion()))
+        .toList();
     final roundTripped = rows.toDomainList();
 
     expect(roundTripped, domainList);

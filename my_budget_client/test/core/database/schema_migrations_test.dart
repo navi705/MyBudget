@@ -859,4 +859,322 @@ void main() {
       await upgraded.close();
     });
   });
+
+  group('v13 -> v14 migration (indexes the push-queue record keys)', () {
+    // Unlike the fixtures above, this one is not a hand-copied DDL dump: v13
+    // and v14 differ by exactly two indexes and nothing else — no table, no
+    // column, no row — so a v13 device is a current-schema database with those
+    // two indexes dropped and `user_version` wound back. Building it that way
+    // keeps the fixture exact for free; a future step that changes more than
+    // indexes would need a spelled-out fixture like the ones above.
+    late File file;
+
+    // A device that has been running on v13: rows in both concatenated-key
+    // tables, and a push queue that the v12->v13 seed already filled from them.
+    const seedSql = '''
+      INSERT INTO exchange_rates (from_currency_code, to_currency_code, rate, preset, date, modified_at)
+        VALUES ('USD','EUR',0.91,0,1700000000,5);
+      INSERT INTO exchange_rates (from_currency_code, to_currency_code, rate, preset, date, modified_at)
+        VALUES ('USD','EUR',0.92,7,1700086400,6);
+      INSERT INTO inflation_rates (date, percent, country, preset, modified_at)
+        VALUES (1700000000, 2.5, 'global', 0, 7);
+      INSERT INTO sync_push_queue (changed_table_name, record_key) VALUES ('exchange_rates', 'USD|EUR|1700000000|0');
+      INSERT INTO sync_push_queue (changed_table_name, record_key) VALUES ('exchange_rates', 'USD|EUR|1700086400|7');
+      INSERT INTO sync_push_queue (changed_table_name, record_key) VALUES ('inflation_rates', '1700000000|global|0');
+    ''';
+
+    setUp(() async {
+      file = File('${tempDir.path}/v13.sqlite');
+      // onCreate lays down the current schema...
+      final fresh = AppDatabase.forTesting(NativeDatabase(file));
+      await fresh.customSelect('SELECT 1').get();
+      await fresh.close();
+
+      // ...and this winds it back to what v13 shipped. The raw connection has
+      // foreign_keys off by default, which is what lets the seed insert rates
+      // without dragging the whole currency graph in with them.
+      final raw = sqlite3.sqlite3.open(file.path);
+      raw.execute('DROP INDEX IF EXISTS idx_exchange_rates_push_key;');
+      raw.execute('DROP INDEX IF EXISTS idx_inflation_rates_push_key;');
+      raw.execute('DELETE FROM sync_push_queue;');
+      raw.execute(seedSql);
+      raw.execute('PRAGMA user_version = 13;');
+      raw.dispose();
+    });
+
+    test('creates both key indexes and lands on the current schema '
+        'version', () async {
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      final indexes = await db
+          .customSelect("SELECT name FROM sqlite_master WHERE type = 'index'")
+          .get();
+      expect(
+        indexes.map((r) => r.read<String>('name')).toSet(),
+        containsAll([
+          'idx_exchange_rates_push_key',
+          'idx_inflation_rates_push_key',
+        ]),
+      );
+
+      final version = await db.customSelect('PRAGMA user_version').getSingle();
+      expect(version.data['user_version'], db.schemaVersion);
+      await db.close();
+    });
+
+    test('the push lookup stops scanning the rate tables', () async {
+      // The point of the step: the backlog v12->v13 seeds is resolved 500 keys
+      // at a time, and until this index existed every one of those chunks read
+      // every row of the table.
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      for (final table in ['exchange_rates', 'inflation_rates']) {
+        final plan = await db
+            .customSelect(
+              'EXPLAIN QUERY PLAN SELECT * FROM $table '
+              'WHERE ${syncPushQueueKeyExpression(table)} IN (?, ?)',
+              variables: [Variable.withString('a'), Variable.withString('b')],
+            )
+            .get();
+        final detail = plan.map((r) => r.read<String>('detail')).join(' | ');
+        expect(detail, isNot(contains('SCAN $table')));
+        expect(
+          detail,
+          contains('USING INDEX ${syncPushQueueKeyIndexName(table)}'),
+        );
+      }
+      await db.close();
+    });
+
+    test('no row and no queued entry is lost', () async {
+      // An index-only step has to be invisible to the data. Asserted rather
+      // than assumed because the queue is the list of edits that have not
+      // reached the server yet: dropping an entry here drops an edit silently.
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      final rates = await db
+          .customSelect('SELECT rate FROM exchange_rates ORDER BY date')
+          .get();
+      expect(rates.map((r) => r.read<double>('rate')), [0.91, 0.92]);
+
+      final inflation = await db
+          .customSelect('SELECT percent FROM inflation_rates')
+          .get();
+      expect(inflation.single.read<double>('percent'), 2.5);
+
+      final queued = await db
+          .customSelect('SELECT record_key FROM sync_push_queue')
+          .get();
+      expect(queued.map((r) => r.read<String>('record_key')).toSet(), {
+        'USD|EUR|1700000000|0',
+        'USD|EUR|1700086400|7',
+        '1700000000|global|0',
+      });
+      await db.close();
+    });
+
+    test('a device that already has an index upgrades without error', () async {
+      // Re-runnable like every step before it: an upgrade that died between the
+      // two CREATEs must not come back to "index already exists" on every
+      // launch and never reach the second one.
+      final raw = sqlite3.sqlite3.open(file.path);
+      raw.execute(
+        'CREATE INDEX idx_exchange_rates_push_key ON exchange_rates '
+        "(${syncPushQueueKeyExpression('exchange_rates')});",
+      );
+      raw.dispose();
+
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await expectLater(db.customSelect('SELECT 1').get(), completes);
+      final indexes = await db
+          .customSelect("SELECT name FROM sqlite_master WHERE type = 'index'")
+          .get();
+      expect(
+        indexes.map((r) => r.read<String>('name')).toSet(),
+        containsAll([
+          'idx_exchange_rates_push_key',
+          'idx_inflation_rates_push_key',
+        ]),
+      );
+      await db.close();
+    });
+  });
+
+  group('v14 -> v15 migration (content-aware push-queue triggers)', () {
+    // Same fixture trick as the group above, for the same reason: v14 and v15
+    // differ by the body of one trigger per table and nothing else. So a v14
+    // device is a current-schema database whose update triggers have been put
+    // back the way v13 wrote them, with `user_version` wound back.
+    late File file;
+
+    void writeV14UpdateTriggers(sqlite3.Database raw) {
+      for (final table in syncPushQueueTables) {
+        final key = syncPushQueueKeyExpression(table, prefix: 'NEW.');
+        raw.execute('DROP TRIGGER IF EXISTS trg_push_queue_${table}_update;');
+        raw.execute(
+          'CREATE TRIGGER trg_push_queue_${table}_update '
+          'AFTER UPDATE ON $table '
+          'WHEN NEW.modified_at IS NOT OLD.modified_at BEGIN '
+          'INSERT INTO sync_push_queue (changed_table_name, record_key) '
+          "VALUES ('$table', $key); END;",
+        );
+      }
+    }
+
+    Future<Set<String>> queuedKeysFor(AppDatabase target, String table) async {
+      final rows = await target
+          .customSelect(
+            'SELECT record_key FROM sync_push_queue '
+            'WHERE changed_table_name = ?',
+            variables: [Variable.withString(table)],
+          )
+          .get();
+      return rows.map((r) => r.read<String>('record_key')).toSet();
+    }
+
+    setUp(() async {
+      file = File('${tempDir.path}/v14.sqlite');
+      if (file.existsSync()) file.deleteSync();
+      final fresh = AppDatabase.forTesting(NativeDatabase(file));
+      await fresh.customSelect('SELECT 1').get();
+      await fresh.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      writeV14UpdateTriggers(raw);
+      // OR REPLACE because onCreate seeds this provider itself: what the
+      // fixture needs is a known starting state, not a second row.
+      raw.execute(
+        "INSERT OR REPLACE INTO api_settings_table (id, enabled, auto_fetch, "
+        "last_fetch_at, modified_at, is_deleted) "
+        "VALUES ('exchange_rates', 1, 1, NULL, 1, 0);",
+      );
+      raw.execute('DELETE FROM sync_push_queue;');
+      raw.execute('PRAGMA user_version = 14;');
+      raw.dispose();
+    });
+
+    test('the v14 trigger is what was dropping the tombstone', () async {
+      // Not a test of the fix - a test that the fixture reproduces the defect,
+      // so the assertions below cannot pass for some unrelated reason. Seeding
+      // a provider and deleting it inside one millisecond leaves `modified_at`
+      // untouched, and v14 asked about nothing else.
+      final raw = sqlite3.sqlite3.open(file.path);
+      raw.execute(
+        "UPDATE api_settings_table SET is_deleted = 1 "
+        "WHERE id = 'exchange_rates';",
+      );
+      final queued = raw.select('SELECT record_key FROM sync_push_queue');
+      raw.dispose();
+      expect(queued, isEmpty);
+    });
+
+    test('a delete that does not move modified_at is queued now', () async {
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customStatement('DELETE FROM sync_push_queue');
+      await db.customStatement(
+        "UPDATE api_settings_table SET is_deleted = 1 "
+        "WHERE id = 'exchange_rates'",
+      );
+      expect(await queuedKeysFor(db, 'api_settings_table'), {'exchange_rates'});
+      await db.close();
+    });
+
+    test('a value arriving in a NULL column is queued too', () async {
+      // `<>` would read this as NULL and skip it, which is why the clause is
+      // built out of `IS NOT`.
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customStatement('DELETE FROM sync_push_queue');
+      await db.customStatement(
+        "UPDATE api_settings_table SET last_fetch_at = 42 "
+        "WHERE id = 'exchange_rates'",
+      );
+      expect(await queuedKeysFor(db, 'api_settings_table'), {'exchange_rates'});
+      await db.close();
+    });
+
+    test('a balance rebuild is still not queued', () async {
+      // The one thing the content test must NOT pick up: every peer derives
+      // `balance` for itself, and the server discards what it is sent, so
+      // queueing a rebuild uploads a row that is guaranteed to be thrown away.
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customStatement(
+        "INSERT INTO languages (language, language_code) "
+        "VALUES ('Testish','xx')",
+      );
+      await db.customStatement(
+        "INSERT INTO currencies (name, code, language_code, type) "
+        "VALUES ('Testo','TS1','xx',0)",
+      );
+      await db.customStatement(
+        "INSERT INTO currency_designations (id, value, currency_code) "
+        "VALUES ('dTs','T','TS1')",
+      );
+      await db.customStatement(
+        "INSERT INTO account_types (id, name, language_code) "
+        "VALUES ('atTs','ZZ Test Type','xx')",
+      );
+      await db.customStatement(
+        "INSERT INTO accounts (id, name, balance, currency_code, "
+        "currency_designation_id, account_type_id, creation_date, modified_at) "
+        "VALUES ('accTs','Test Wallet',1234.56,'TS1','dTs','atTs',0,1)",
+      );
+      await db.customStatement('DELETE FROM sync_push_queue');
+
+      await db.customStatement(
+        "UPDATE accounts SET balance = 999.0, balance_minor = 99900 "
+        "WHERE id = 'accTs'",
+      );
+      expect(await queuedKeysFor(db, 'accounts'), isEmpty);
+
+      // ...but a rename of the same row still is.
+      await db.customStatement(
+        "UPDATE accounts SET name = 'Renamed' WHERE id = 'accTs'",
+      );
+      expect(await queuedKeysFor(db, 'accounts'), {'accTs'});
+      await db.close();
+    });
+
+    test('every update trigger is rewritten, not just one', () async {
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      final triggers = await db
+          .customSelect(
+            "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' "
+            "AND name LIKE 'trg_push_queue_%_update'",
+          )
+          .get();
+      expect(triggers.length, syncPushQueueTables.length);
+      for (final trigger in triggers) {
+        final when = trigger.read<String>('sql').split('BEGIN').first;
+        expect(
+          when,
+          isNot(endsWith('WHEN NEW.modified_at IS NOT OLD.modified_at ')),
+          reason: '${trigger.read<String>('name')} kept its v14 body',
+        );
+      }
+
+      final accounts = triggers.firstWhere(
+        (t) => t.read<String>('name') == 'trg_push_queue_accounts_update',
+      );
+      final when = accounts.read<String>('sql').split('BEGIN').first;
+      expect(when, contains('NEW.name IS NOT OLD.name'));
+      expect(when, isNot(contains('NEW.balance IS NOT OLD.balance')));
+      expect(when, isNot(contains('NEW.balance_minor')));
+
+      final version = await db.customSelect('PRAGMA user_version').getSingle();
+      expect(version.data['user_version'], db.schemaVersion);
+      await db.close();
+    });
+
+    test('a device already on v15 upgrades again without error', () async {
+      // Re-runnable like every step before it: DROP ... IF EXISTS followed by a
+      // plain CREATE must not come back to "trigger already exists".
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      raw.execute('PRAGMA user_version = 14;');
+      raw.dispose();
+
+      final again = AppDatabase.forTesting(NativeDatabase(file));
+      await expectLater(again.customSelect('SELECT 1').get(), completes);
+      await again.close();
+    });
+  });
 }

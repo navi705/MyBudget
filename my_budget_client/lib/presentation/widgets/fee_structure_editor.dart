@@ -186,9 +186,7 @@ class _FeeStructureEditorState extends State<FeeStructureEditor> {
         children: [
           TextFormField(
             initialValue: (rule.rate * 100).toString(),
-            decoration: InputDecoration(
-              labelText: l10n.feeTaxRatePercentLabel,
-            ),
+            decoration: InputDecoration(labelText: l10n.feeTaxRatePercentLabel),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (value) {
               final rate = (double.tryParse(value) ?? 0.0) / 100;

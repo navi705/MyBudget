@@ -41,7 +41,9 @@ class _DeleteCategoryDialogState extends State<DeleteCategoryDialog> {
         .toList();
 
     return AlertDialog(
-      title: Text(l10n.deleteCategoryConfirmTitle(widget.categoryToDelete.name)),
+      title: Text(
+        l10n.deleteCategoryConfirmTitle(widget.categoryToDelete.name),
+      ),
       content: RadioGroup<DeleteCategoryOption>(
         groupValue: _selectedOption,
         onChanged: (value) {

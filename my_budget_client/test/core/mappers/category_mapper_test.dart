@@ -33,15 +33,22 @@ void main() {
     expect(roundTripped.type, original.type);
   });
 
-  test('round trip preserves null parentId/styleId and default income type', () {
-    final original = Category(id: 'cat2', name: 'Salary', type: CategoryType.income);
+  test(
+    'round trip preserves null parentId/styleId and default income type',
+    () {
+      final original = Category(
+        id: 'cat2',
+        name: 'Salary',
+        type: CategoryType.income,
+      );
 
-    final roundTripped = rowFromCompanion(original.toCompanion()).toDomain();
+      final roundTripped = rowFromCompanion(original.toCompanion()).toDomain();
 
-    expect(roundTripped.parentId, isNull);
-    expect(roundTripped.styleId, isNull);
-    expect(roundTripped.type, CategoryType.income);
-  });
+      expect(roundTripped.parentId, isNull);
+      expect(roundTripped.styleId, isNull);
+      expect(roundTripped.type, CategoryType.income);
+    },
+  );
 
   test(
     'a null domain id leaves the companion id absent, so repeated calls agree',
@@ -54,10 +61,7 @@ void main() {
       final unsaved = Category(name: 'New Category');
 
       expect(unsaved.toCompanion().id.present, isFalse);
-      expect(
-        unsaved.toCompanion().id,
-        unsaved.toCompanion().id,
-      );
+      expect(unsaved.toCompanion().id, unsaved.toCompanion().id);
     },
   );
 }

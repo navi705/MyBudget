@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/utils/date_display.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
@@ -504,7 +505,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
                       ListTile(
                         title: Text(
                           context.l10n.importDateLabel(
-                            DateFormat('dd.MM.yyyy').format(selectedDate),
+                            DateDisplay.short(context, selectedDate),
                           ),
                         ),
                         trailing: const Icon(Icons.calendar_today),
@@ -652,7 +653,7 @@ class _ExchangeRateListItem extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           subtitle: Text(
-            DateFormat('dd.MM.yyyy').format(rate.date),
+            DateDisplay.short(context, rate.date),
             style: const TextStyle(fontSize: 14),
           ),
           trailing: Column(

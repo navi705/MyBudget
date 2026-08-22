@@ -18,7 +18,9 @@ import 'package:my_budget_client/presentation/widgets/transaction_list.dart';
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
-import 'package:my_budget_client/core/theme/app_spacing.dart';
+import 'package:my_budget_client/core/theme/pane_layout.dart';
+import 'package:my_budget_client/presentation/widgets/account_list_item.dart'
+    show kContentMaxWidth, kFabScrollBottomInset;
 
 class TransactionsScreen extends StatelessWidget {
   const TransactionsScreen({super.key});
@@ -211,8 +213,12 @@ class TransactionsScreen extends StatelessWidget {
                   ],
                 )
               : PreferredSize(
+                  // The pane, not the window. The rail and its divider take
+                  // ~73dp off the left, so across the 600-742dp band this bar
+                  // reserved the desktop height while FilterDate laid out its
+                  // two-line mobile form, and the other way around.
                   preferredSize: Size.fromHeight(
-                    MediaQuery.of(context).size.width < kMobileBreakpoint
+                    context.isCompactPane
                         ? kToolbarHeight * 1.8
                         : kToolbarHeight,
                   ),
@@ -266,7 +272,22 @@ class TransactionsScreen extends StatelessWidget {
                     }
                   });
             },
-            child: const TransactionList(),
+            // Two things at once. The cap is the same measure and the same
+            // Center/ConstrainedBox pattern settings_screen.dart uses: without
+            // it a 1440px window stretched every transaction card to 1408px
+            // around ~300px of content. The bottom inset is the room the FAB
+            // needs - confirmed covering the last row at 1440x900 and 780x360.
+            // It has to be applied from out here because the list's scroll
+            // view (GroupedPaginatedList) takes no padding of its own.
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: kContentMaxWidth),
+                child: const Padding(
+                  padding: EdgeInsets.only(bottom: kFabScrollBottomInset),
+                  child: TransactionList(),
+                ),
+              ),
+            ),
           ),
           floatingActionButton: isSelectionMode
               ? null

@@ -88,7 +88,10 @@ class DataExportService {
   }
 
   Future<bool> _exportCsv() async {
-    return _saveFile(await buildTransactionsCsv(), 'my_budget_transactions.csv');
+    return _saveFile(
+      await buildTransactionsCsv(),
+      'my_budget_transactions.csv',
+    );
   }
 
   /// Builds the human-readable transactions CSV.

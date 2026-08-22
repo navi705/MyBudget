@@ -23,13 +23,17 @@ void main() {
     });
 
     test('treats an empty country the same as a missing one', () {
-      expect(withGlobalInflationCountry({'country': ''})['country'],
-          globalInflationCountry);
+      expect(
+        withGlobalInflationCountry({'country': ''})['country'],
+        globalInflationCountry,
+      );
     });
 
     test('fills in a country the backup omitted entirely', () {
-      expect(withGlobalInflationCountry({'percent': 1.0})['country'],
-          globalInflationCountry);
+      expect(
+        withGlobalInflationCountry({'percent': 1.0})['country'],
+        globalInflationCountry,
+      );
     });
 
     test('leaves a real country alone', () {

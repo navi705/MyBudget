@@ -50,7 +50,8 @@ class _FakeSmsRepository extends Fake implements SmsRepository {
       togglePresetGate.future;
 }
 
-class _FakeTransactionRepository extends Fake implements TransactionRepository {}
+class _FakeTransactionRepository extends Fake
+    implements TransactionRepository {}
 
 class _FakeCurrencyRepository extends Fake implements CurrencyRepository {
   @override

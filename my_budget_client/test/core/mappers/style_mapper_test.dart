@@ -33,14 +33,17 @@ void main() {
     expect(roundTripped.iconType, original.iconType);
   });
 
-  test('null domain id becomes an absent companion id (insert lets the DB/caller assign one)', () {
-    final original = Style(
-      name: 'Groceries',
-      iconName: 'cart',
-      colorHex: '#FF00FF',
-      iconType: IconType.material,
-    );
+  test(
+    'null domain id becomes an absent companion id (insert lets the DB/caller assign one)',
+    () {
+      final original = Style(
+        name: 'Groceries',
+        iconName: 'cart',
+        colorHex: '#FF00FF',
+        iconType: IconType.material,
+      );
 
-    expect(original.toCompanion().id.present, isFalse);
-  });
+      expect(original.toCompanion().id.present, isFalse);
+    },
+  );
 }

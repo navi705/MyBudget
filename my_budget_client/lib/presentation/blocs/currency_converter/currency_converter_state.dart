@@ -18,31 +18,23 @@ class CurrencyConverterLoadSuccess extends CurrencyConverterState {
   final List<Currency> selectedCurrencies;
   final String baseCurrencyCode;
 
-  Map<String, Map<String, List<ExchangeRateDomain>>>? _groupedRates;
+  CurrencyConverter? _converter;
 
   CurrencyConverterLoadSuccess({
     this.allCurrencies = const [],
     this.exchangeRates = const [],
     this.selectedCurrencies = const [],
     required this.baseCurrencyCode,
-  }) {
-    // Pre-sort the rates by date to optimize finding the latest rate.
-    exchangeRates.sort((a, b) => b.date.compareTo(a.date));
+  });
 
-    // Pre-process the rates for faster lookups.
-    final map = <String, Map<String, List<ExchangeRateDomain>>>{};
-    for (final rate in exchangeRates) {
-      map
-          .putIfAbsent(rate.fromCurrencyCode, () => {})
-          .putIfAbsent(rate.toCurrencyCode, () => [])
-          .add(rate);
-    }
-    _groupedRates = map;
-  }
-
-  Map<String, Map<String, List<ExchangeRateDomain>>> get groupedRates {
-    return _groupedRates!;
-  }
+  /// The one converter these rates are worth building.
+  ///
+  /// Built lazily and kept, because every currency section on the accounts
+  /// screen asks for four totals and each total walks every account.
+  CurrencyConverter get converter => _converter ??= CurrencyConverter(
+    exchangeRates,
+    baseCurrency: baseCurrencyCode,
+  );
 
   CurrencyConverterLoadSuccess copyWith({
     List<Currency>? allCurrencies,
@@ -69,14 +61,19 @@ class CurrencyConverterLoadSuccess extends CurrencyConverterState {
 
 class CurrencyConverterLoadFailure extends CurrencyConverterState {}
 
+/// The balance of every account in [accounts], expressed in [currency].
+///
+/// Anything that cannot be priced in [baseCurrencyCode] is left out of the sum
+/// and its currency code is added to [unconvertible], so the caller can say the
+/// figure is incomplete instead of quietly presenting a short total.
 double totalBalanceFor({
   required Currency currency,
   required List<Account> accounts,
-  required List<ExchangeRateDomain> exchangeRates,
+  required CurrencyConverter converter,
   required String baseCurrencyCode,
   required DateTime date,
-  required Map<String, Map<String, List<ExchangeRateDomain>>> groupedRates,
   Map<String, double>? balancesOverride,
+  Set<String>? unconvertible,
 }) {
   double totalInBase = 0.0;
 
@@ -85,72 +82,34 @@ double totalBalanceFor({
         ? (balancesOverride[account.id!] ?? 0.0)
         : account.balance;
 
-    if (account.currencyCode == baseCurrencyCode) {
-      totalInBase += balance;
-    } else {
-      final rateToBase = _findRate(
-        account.currencyCode,
-        baseCurrencyCode,
-        exchangeRates,
-        date,
-        groupedRates,
-      );
-      if (rateToBase != null) {
-        totalInBase += balance * rateToBase;
-      }
+    // Every rate this app stores is dated, and the rate that prices a balance
+    // is the one nearest the day being shown - on EITHER side of it. Demanding
+    // a row dated at or before [date] used to drop an account whose only rate
+    // was fetched later the same morning, which is every account in a currency
+    // the user had just refreshed.
+    final inBase = converter.tryConvert(
+      amount: balance,
+      from: account.currencyCode,
+      to: baseCurrencyCode,
+      date: date,
+    );
+    if (inBase == null) {
+      unconvertible?.add(account.currencyCode);
+      continue;
     }
+    totalInBase += inBase;
   }
 
-  if (currency.code == baseCurrencyCode) {
-    return totalInBase;
-  }
-
-  final rateFromBase = _findRate(
-    baseCurrencyCode,
-    currency.code,
-    exchangeRates,
-    date,
-    groupedRates,
+  final total = converter.tryConvert(
+    amount: totalInBase,
+    from: baseCurrencyCode,
+    to: currency.code,
+    date: date,
   );
 
-  return rateFromBase != null ? totalInBase * rateFromBase : 0.0;
-}
-
-double? _findRate(
-  String fromCurrencyCode,
-  String toCurrencyCode,
-  List<ExchangeRateDomain> exchangeRates,
-  DateTime date,
-  Map<String, Map<String, List<ExchangeRateDomain>>> groupedRates,
-) {
-  if (fromCurrencyCode == toCurrencyCode) {
-    return 1.0;
+  if (total == null) {
+    unconvertible?.add(currency.code);
+    return 0.0;
   }
-
-  final ratesForFrom = groupedRates[fromCurrencyCode];
-  if (ratesForFrom != null) {
-    final ratesForTo = ratesForFrom[toCurrencyCode];
-    if (ratesForTo != null) {
-      final rate = ratesForTo.firstWhereOrNull((r) => !r.date.isAfter(date));
-      if (rate != null) {
-        return rate.rate;
-      }
-    }
-  }
-
-  // Try reverse rate
-  final reverseRatesForFrom = groupedRates[toCurrencyCode];
-  if (reverseRatesForFrom != null) {
-    final reverseRatesForTo = reverseRatesForFrom[fromCurrencyCode];
-    if (reverseRatesForTo != null) {
-      final rate = reverseRatesForTo.firstWhereOrNull(
-        (r) => !r.date.isAfter(date),
-      );
-      if (rate != null && rate.rate != 0) {
-        return 1 / rate.rate;
-      }
-    }
-  }
-
-  return null;
+  return total;
 }

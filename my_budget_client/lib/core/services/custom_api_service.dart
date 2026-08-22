@@ -134,7 +134,9 @@ class CustomApiService {
   }
 
   Future<int> _parseAssets(List data) async {
-    debugPrint('[CustomApiService] _parseAssets called with ${data.length} items');
+    debugPrint(
+      '[CustomApiService] _parseAssets called with ${data.length} items',
+    );
     int upserted = 0;
     for (final item in data) {
       final date = DateTime.parse(item['date']);
@@ -146,7 +148,10 @@ class CustomApiService {
       // Deterministic ID based on (assetId, date, source) — prevents duplicates
       // on repeated fetches. Same (code, date, 'custom_api') always yields same UUID.
       final dateStr = DateFormat('yyyy-MM-dd', 'en').format(date);
-      final deterministicId = _uuid.v5(Uuid.NAMESPACE_URL, '$code|$dateStr|custom_api');
+      final deterministicId = _uuid.v5(
+        Uuid.NAMESPACE_URL,
+        '$code|$dateStr|custom_api',
+      );
 
       await _assetEntriesDao.upsertAssetData(
         AssetEntriesCompanion(
@@ -162,7 +167,9 @@ class CustomApiService {
       );
       upserted++;
     }
-    debugPrint('[CustomApiService] Upserted $upserted asset records (dedup via deterministic ID)');
+    debugPrint(
+      '[CustomApiService] Upserted $upserted asset records (dedup via deterministic ID)',
+    );
     return upserted;
   }
 }

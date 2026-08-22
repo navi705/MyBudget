@@ -44,9 +44,8 @@ GoRouter _buildRouter({String initialLocation = AppRoutes.dashboard}) {
   );
 }
 
-List<NavigationItem> _destinations(WidgetTester tester) => tester
-    .widget<AdaptiveScaffold>(find.byType(AdaptiveScaffold))
-    .destinations;
+List<NavigationItem> _destinations(WidgetTester tester) =>
+    tester.widget<AdaptiveScaffold>(find.byType(AdaptiveScaffold)).destinations;
 
 void main() {
   group('MainScreen destinations', () {

@@ -74,10 +74,9 @@ void main() {
     preset: preset,
   );
 
-  Future<List<SyncLogData>> assetLogs() =>
-      (db.select(db.syncLog)
-            ..where((l) => l.changedTableName.equals('asset_entries')))
-          .get();
+  Future<List<SyncLogData>> assetLogs() => (db.select(
+    db.syncLog,
+  )..where((l) => l.changedTableName.equals('asset_entries'))).get();
 
   Future<AssetEntry> row(String id) =>
       (db.select(db.assetEntries)..where((e) => e.id.equals(id))).getSingle();
@@ -167,22 +166,24 @@ void main() {
   });
 
   group('updateAssetData', () {
-    test('persists the new values, bumps modifiedAt and logs an upsert',
-        () async {
-      await repo.addAssetData(entry('e1', value: 100));
-      final oldModified = (await row('e1')).modifiedAt;
-      await db.delete(db.syncLog).go();
-      await Future<void>.delayed(const Duration(milliseconds: 5));
+    test(
+      'persists the new values, bumps modifiedAt and logs an upsert',
+      () async {
+        await repo.addAssetData(entry('e1', value: 100));
+        final oldModified = (await row('e1')).modifiedAt;
+        await db.delete(db.syncLog).go();
+        await Future<void>.delayed(const Duration(milliseconds: 5));
 
-      await repo.updateAssetData(entry('e1', value: 250, name: 'Bitcoin XL'));
+        await repo.updateAssetData(entry('e1', value: 250, name: 'Bitcoin XL'));
 
-      final read = (await repo.getAssetData()).single;
-      expect(read.value, 250);
-      expect(read.name, 'Bitcoin XL');
-      // A stale modifiedAt would lose to an older copy on another device.
-      expect((await row('e1')).modifiedAt, greaterThan(oldModified));
-      expect((await assetLogs()).map((l) => l.action), ['upsert']);
-    });
+        final read = (await repo.getAssetData()).single;
+        expect(read.value, 250);
+        expect(read.name, 'Bitcoin XL');
+        // A stale modifiedAt would lose to an older copy on another device.
+        expect((await row('e1')).modifiedAt, greaterThan(oldModified));
+        expect((await assetLogs()).map((l) => l.action), ['upsert']);
+      },
+    );
   });
 
   group('soft delete', () {
@@ -226,42 +227,33 @@ void main() {
     // BUG (characterisation): same omission in getAvailableAssetTypes
     // (app_database.dart:3186) — it filters `assetType.isNotNull()` but not
     // `isDeleted`. Same user-visible dead filter option.
-    test(
-      'a deleted entry still contributes its type to getAvailableAssetTypes '
-      '(WRONG - deleted rows should be excluded)',
-      () async {
-        await repo.addAssetData(entry('other', assetType: 'stock'));
-        await repo.deleteAssetData('other');
+    test('a deleted entry still contributes its type to getAvailableAssetTypes '
+        '(WRONG - deleted rows should be excluded)', () async {
+      await repo.addAssetData(entry('other', assetType: 'stock'));
+      await repo.deleteAssetData('other');
 
-        expect(await repo.getAvailableAssetTypes(), contains('stock'));
-      },
-    );
+      expect(await repo.getAvailableAssetTypes(), contains('stock'));
+    });
 
     // BUG (characterisation): same omission in getAvailableSources
     // (app_database.dart:3197).
-    test(
-      'a deleted entry still contributes its source to getAvailableSources '
-      '(WRONG - deleted rows should be excluded)',
-      () async {
-        await repo.addAssetData(entry('other', source: 'binance'));
-        await repo.deleteAssetData('other');
+    test('a deleted entry still contributes its source to getAvailableSources '
+        '(WRONG - deleted rows should be excluded)', () async {
+      await repo.addAssetData(entry('other', source: 'binance'));
+      await repo.deleteAssetData('other');
 
-        expect(await repo.getAvailableSources(), contains('binance'));
-      },
-    );
+      expect(await repo.getAvailableSources(), contains('binance'));
+    });
 
     // BUG (characterisation): same omission in getAvailablePresets
     // (app_database.dart:3208).
-    test(
-      'a deleted entry still contributes its preset to getAvailablePresets '
-      '(WRONG - deleted rows should be excluded)',
-      () async {
-        await repo.addAssetData(entry('other', preset: 42));
-        await repo.deleteAssetData('other');
+    test('a deleted entry still contributes its preset to getAvailablePresets '
+        '(WRONG - deleted rows should be excluded)', () async {
+      await repo.addAssetData(entry('other', preset: 42));
+      await repo.deleteAssetData('other');
 
-        expect(await repo.getAvailablePresets(), contains(42));
-      },
-    );
+      expect(await repo.getAvailablePresets(), contains(42));
+    });
 
     test('deleteAssetData logs a delete under asset_entries', () async {
       await repo.addAssetData(entry('e3'));
@@ -269,10 +261,9 @@ void main() {
 
       await repo.deleteAssetData('e3');
 
-      expect(
-        (await assetLogs()).map((l) => '${l.recordId}:${l.action}'),
-        ['e3:delete'],
-      );
+      expect((await assetLogs()).map((l) => '${l.recordId}:${l.action}'), [
+        'e3:delete',
+      ]);
     });
 
     test('deleteAssetData on an unknown id writes no sync_log row', () async {
@@ -308,15 +299,12 @@ void main() {
     // CORRECT behaviour: only ids that really existed should be announced. As
     // written, a bulk delete containing a stale id tells every other device to
     // delete that id, so an entry that exists only on the peer is destroyed.
-    test(
-      'an id that does not exist is still announced as a delete '
-      '(WRONG - only rows that were touched should be logged)',
-      () async {
-        await repo.deleteAssets(['ghost']);
+    test('an id that does not exist is still announced as a delete '
+        '(WRONG - only rows that were touched should be logged)', () async {
+      await repo.deleteAssets(['ghost']);
 
-        expect((await assetLogs()).map((l) => l.recordId), ['ghost']);
-      },
-    );
+      expect((await assetLogs()).map((l) => l.recordId), ['ghost']);
+    });
   });
 
   group('filtering', () {
@@ -373,10 +361,11 @@ void main() {
     });
 
     test('sortAscending flips the date ordering', () async {
-      expect(
-        (await repo.getAssetData(sortAscending: true)).map((e) => e.id),
-        ['btc', 'eth', 'gold'],
-      );
+      expect((await repo.getAssetData(sortAscending: true)).map((e) => e.id), [
+        'btc',
+        'eth',
+        'gold',
+      ]);
     });
 
     test('limit and offset page through the ordered results', () async {
@@ -384,10 +373,9 @@ void main() {
         'gold',
         'eth',
       ]);
-      expect(
-        (await repo.getAssetData(limit: 2, offset: 2)).map((e) => e.id),
-        ['btc'],
-      );
+      expect((await repo.getAssetData(limit: 2, offset: 2)).map((e) => e.id), [
+        'btc',
+      ]);
     });
 
     test('assetId selects one asset exactly, not a substring', () async {
@@ -397,10 +385,9 @@ void main() {
     });
 
     test('accountId selects entries attached to that account', () async {
-      expect(
-        (await repo.getAssetData(accountId: accountId)).map((e) => e.id),
-        ['btc'],
-      );
+      expect((await repo.getAssetData(accountId: accountId)).map((e) => e.id), [
+        'btc',
+      ]);
     });
 
     test('the date range is inclusive on both ends', () async {
@@ -418,10 +405,9 @@ void main() {
     });
 
     test('description matches a substring', () async {
-      expect(
-        (await repo.getAssetData(description: 'edge')).map((e) => e.id),
-        ['btc'],
-      );
+      expect((await repo.getAssetData(description: 'edge')).map((e) => e.id), [
+        'btc',
+      ]);
     });
 
     test('assetTypes accepts several values at once', () async {
@@ -430,18 +416,14 @@ void main() {
         ['gold'],
       );
       expect(
-        (await repo.getAssetData(
-          assetTypes: ['crypto', 'commodity'],
-        )).length,
+        (await repo.getAssetData(assetTypes: ['crypto', 'commodity'])).length,
         3,
       );
     });
 
     test('currencyCodes restricts to the listed currencies', () async {
       expect(
-        (await repo.getAssetData(
-          currencyCodes: ['USD'],
-        )).map((e) => e.id),
+        (await repo.getAssetData(currencyCodes: ['USD'])).map((e) => e.id),
         ['eth'],
       );
     });
@@ -455,9 +437,10 @@ void main() {
 
     test('presets restricts to the listed presets', () async {
       expect(
-        (await repo.getAssetData(presets: [2], sortAscending: true)).map(
-          (e) => e.id,
-        ),
+        (await repo.getAssetData(
+          presets: [2],
+          sortAscending: true,
+        )).map((e) => e.id),
         ['eth', 'gold'],
       );
     });
@@ -495,18 +478,20 @@ void main() {
       expect(found.map((e) => e.id), ['btc']);
     });
 
-    test('getAssetDataCount counts the same rows the filtered read returns',
-        () async {
-      final filtered = await repo.getAssetData(
-        assetTypes: ['crypto'],
-        limit: 1,
-      );
-      final count = await repo.getAssetDataCount(assetTypes: ['crypto']);
+    test(
+      'getAssetDataCount counts the same rows the filtered read returns',
+      () async {
+        final filtered = await repo.getAssetData(
+          assetTypes: ['crypto'],
+          limit: 1,
+        );
+        final count = await repo.getAssetDataCount(assetTypes: ['crypto']);
 
-      // The count must ignore the page size, or paging shows the wrong total.
-      expect(filtered.length, 1);
-      expect(count, 2);
-    });
+        // The count must ignore the page size, or paging shows the wrong total.
+        expect(filtered.length, 1);
+        expect(count, 2);
+      },
+    );
 
     test('watchAssetData re-emits after a write', () async {
       final emissions = repo

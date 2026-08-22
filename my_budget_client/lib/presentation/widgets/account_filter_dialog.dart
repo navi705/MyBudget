@@ -438,8 +438,14 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
         ),
       ),
       actions: <Widget>[
-        TextButton(onPressed: _clearFilters, child: Text(context.l10n.clearButton)),
-        TextButton(onPressed: _applyFilters, child: Text(context.l10n.applyButton)),
+        TextButton(
+          onPressed: _clearFilters,
+          child: Text(context.l10n.clearButton),
+        ),
+        TextButton(
+          onPressed: _applyFilters,
+          child: Text(context.l10n.applyButton),
+        ),
       ],
     );
   }

@@ -16,7 +16,10 @@ void main() {
   /// The surface is tall on purpose: the row sits far enough down the ListView
   /// that a phone-sized viewport would leave it unbuilt, and "not built yet"
   /// looks exactly like "not offered".
-  Future<bool> offersHotKeys(WidgetTester tester, TargetPlatform platform) async {
+  Future<bool> offersHotKeys(
+    WidgetTester tester,
+    TargetPlatform platform,
+  ) async {
     await pumpAppWidget(
       tester,
       const SettingsScreen(),

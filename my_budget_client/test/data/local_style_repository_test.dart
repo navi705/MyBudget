@@ -33,9 +33,9 @@ void main() {
     await db.delete(db.syncLog).go();
   });
 
-  Future<List<SyncLogData>> logs() =>
-      (db.select(db.syncLog)..where((l) => l.changedTableName.equals('styles')))
-          .get();
+  Future<List<SyncLogData>> logs() => (db.select(
+    db.syncLog,
+  )..where((l) => l.changedTableName.equals('styles'))).get();
 
   Future<Style?> rowFor(String id) =>
       (db.select(db.styles)..where((s) => s.id.equals(id))).getSingleOrNull();
@@ -185,14 +185,13 @@ void main() {
     });
 
     test('addStyles inserts every style and logs one upsert each', () async {
-      await repo.addStyles([
-        style(id: 's1'),
-        style(id: 's2'),
-        style(id: 's3'),
-      ]);
+      await repo.addStyles([style(id: 's1'), style(id: 's2'), style(id: 's3')]);
 
       expect(await repo.watchAllStyles().first, hasLength(3));
-      expect((await logs()).map((l) => l.recordId), containsAll(['s1', 's2', 's3']));
+      expect(
+        (await logs()).map((l) => l.recordId),
+        containsAll(['s1', 's2', 's3']),
+      );
     });
 
     test('addStyles mints ids for the styles that have none', () async {
@@ -268,17 +267,20 @@ void main() {
       expect((await rowFor('s1'))!.isDeleted, isTrue);
     });
 
-    test('bumps modifiedAt so the tombstone beats an older live copy', () async {
-      await repo.addStyle(style(id: 's1'));
-      await db
-          .update(db.styles)
-          .write(const StylesCompanion(modifiedAt: Value(1)));
-      final before = DateTime.now().millisecondsSinceEpoch;
+    test(
+      'bumps modifiedAt so the tombstone beats an older live copy',
+      () async {
+        await repo.addStyle(style(id: 's1'));
+        await db
+            .update(db.styles)
+            .write(const StylesCompanion(modifiedAt: Value(1)));
+        final before = DateTime.now().millisecondsSinceEpoch;
 
-      await repo.deleteStyle('s1');
+        await repo.deleteStyle('s1');
 
-      expect((await rowFor('s1'))!.modifiedAt, greaterThanOrEqualTo(before));
-    });
+        expect((await rowFor('s1'))!.modifiedAt, greaterThanOrEqualTo(before));
+      },
+    );
 
     test('logs a delete action, not an upsert', () async {
       await repo.addStyle(style(id: 's1'));

@@ -49,11 +49,25 @@ void main() {
         .get();
   }
 
+  // Loading the CLDR data is process-global and idempotent, so it is the one
+  // thing that still belongs in setUpAll: opening a database seeds rows whose
+  // sync record id is built with a locale-pinned DateFormat, and that has to
+  // work before the first `setUp` below runs.
   setUpAll(() async {
-    // Opening the database seeds exchange rates, and each seeded row's sync
-    // record id is built with a locale-pinned DateFormat. Load its CLDR data
-    // before that runs.
     await initializeDateFormatting();
+  });
+
+  // The database is per test. It used to be opened once for the whole file,
+  // and because every test wrote into that one database the tests silently
+  // chained: the CategoriesDao group shared record id `sl_cat_1`, so
+  // `updateCategory` read the row `insertCategory` had left behind and the
+  // upsert counts encoded how many earlier tests had touched that record.
+  // Under `--test-randomize-ordering-seed` the chain broke and the `!` on the
+  // lookup threw "Null check operator used on a null value". A fresh database
+  // per test is cheap here - flutter_test_config.dart turns the 283k-row
+  // exchange-rate seed off - and it makes every count below an absolute fact
+  // about the call under test rather than a fact about run order.
+  setUp(() async {
     db = AppDatabase.forTesting(NativeDatabase.memory());
     final currencies = await db.select(db.currencies).get();
     eurCode = currencies.firstWhere((c) => c.code == 'EUR').code;
@@ -62,7 +76,7 @@ void main() {
     accountTypeId = (await db.select(db.accountTypes).get()).first.id;
   });
 
-  tearDownAll(() async {
+  tearDown(() async {
     await db.close();
   });
 
@@ -81,20 +95,35 @@ void main() {
     });
 
     test('updateCategory logs an additional upsert row', () async {
-      final cat = await db.categoriesDao.getCategoryById('sl_cat_1');
+      // Insert the row this test is about instead of reading the one the test
+      // above leaves behind: sharing a record id with a neighbouring test is
+      // what made this file order-dependent.
+      await db.categoriesDao.insertCategory(
+        CategoriesCompanion.insert(
+          id: const Value('sl_cat_update'),
+          name: 'SL Cat Update',
+        ),
+      );
+      final cat = await db.categoriesDao.getCategoryById('sl_cat_update');
       await db.categoriesDao.updateCategory(
         cat!.toCompanion(true).copyWith(name: const Value('Renamed')),
       );
-      final logs = await logsFor('categories', 'sl_cat_1');
-      // 1 from insert + 1 from this update; would fail if updateCategory
-      // stopped calling _logChange.
+      final logs = await logsFor('categories', 'sl_cat_update');
+      // 1 from the insert above + 1 from this update; would fail if
+      // updateCategory stopped calling _logChange.
       expect(logs.where((l) => l.action == 'upsert').length, 2);
     });
 
     test('deleteCategory logs a delete row', () async {
-      final cat = await db.categoriesDao.getCategoryById('sl_cat_1');
+      await db.categoriesDao.insertCategory(
+        CategoriesCompanion.insert(
+          id: const Value('sl_cat_delete'),
+          name: 'SL Cat Delete',
+        ),
+      );
+      final cat = await db.categoriesDao.getCategoryById('sl_cat_delete');
       await db.categoriesDao.deleteCategory(cat!.toCompanion(true));
-      final logs = await logsFor('categories', 'sl_cat_1');
+      final logs = await logsFor('categories', 'sl_cat_delete');
       expect(logs.any((l) => l.action == 'delete'), isTrue);
     });
 
@@ -337,7 +366,7 @@ void main() {
     late String accId;
     late String catId;
 
-    setUpAll(() async {
+    setUp(() async {
       accId = 'sl_tx_acc';
       catId = 'sl_tx_cat';
       await db.accountsDao.insertAccount(
@@ -435,7 +464,7 @@ void main() {
   // --- regression fixes: mutations that used to reach no other device ---
 
   group('AccountsDao.updateAccountTypeForMultipleAccounts', () {
-    setUpAll(() async {
+    setUp(() async {
       await db.accountsDao.insertAllAccounts([
         for (final i in [1, 2])
           AccountsCompanion.insert(
@@ -551,7 +580,7 @@ void main() {
   });
 
   group('CurrenciesDao.insertCurrency', () {
-    setUpAll(() async {
+    setUp(() async {
       // What ImportBloc does when a CSV names a currency code with no row.
       await db.currenciesDao.insertCurrency(
         CurrenciesCompanion.insert(
@@ -583,7 +612,7 @@ void main() {
   group('CategoriesDao bulk category deletes', () {
     late String accId;
 
-    setUpAll(() async {
+    setUp(() async {
       accId = 'sl_catdel_acc';
       await db.accountsDao.insertAccount(
         AccountsCompanion.insert(

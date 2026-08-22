@@ -232,7 +232,11 @@ class AssetView extends StatelessWidget {
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, AssetBloc bloc, int count) {
+  void _showDeleteConfirmation(
+    BuildContext context,
+    AssetBloc bloc,
+    int count,
+  ) {
     final l10n = context.l10n;
     showDialog(
       context: context,

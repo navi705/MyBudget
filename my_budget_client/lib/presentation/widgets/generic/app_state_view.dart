@@ -18,24 +18,18 @@ class AppStateView extends StatelessWidget {
   final VoidCallback? onRetry;
 
   const AppStateView.loading({super.key})
-      : _kind = _AppStateKind.loading,
-        message = null,
-        icon = null,
-        onRetry = null;
+    : _kind = _AppStateKind.loading,
+      message = null,
+      icon = null,
+      onRetry = null;
 
-  const AppStateView.empty({
-    super.key,
-    required this.message,
-    this.icon,
-  })  : _kind = _AppStateKind.empty,
-        onRetry = null;
+  const AppStateView.empty({super.key, required this.message, this.icon})
+    : _kind = _AppStateKind.empty,
+      onRetry = null;
 
-  const AppStateView.error({
-    super.key,
-    required this.message,
-    this.onRetry,
-  })  : _kind = _AppStateKind.error,
-        icon = null;
+  const AppStateView.error({super.key, required this.message, this.onRetry})
+    : _kind = _AppStateKind.error,
+      icon = null;
 
   @override
   Widget build(BuildContext context) {
@@ -82,11 +76,7 @@ class AppStateView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 48,
-              color: colorScheme.error,
-            ),
+            Icon(Icons.error_outline, size: 48, color: colorScheme.error),
             const SizedBox(height: 12),
             Text(
               message ?? '',

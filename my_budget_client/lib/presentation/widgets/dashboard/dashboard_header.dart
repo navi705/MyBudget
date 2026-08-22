@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/theme/app_spacing.dart';
+import 'package:my_budget_client/core/utils/date_display.dart';
 import 'package:my_budget_client/presentation/widgets/dashboard/dashboard_currency_selector.dart';
+import 'package:my_budget_client/presentation/widgets/directional_icon.dart';
 
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 
@@ -36,9 +37,7 @@ class DashboardHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     String title;
     if (dateStep == DateStep.month) {
-      title = DateFormat.yMMMM(
-        Localizations.localeOf(context).toString(),
-      ).format(selectedDay);
+      title = DateDisplay.monthYear(context, selectedDay);
     } else {
       title = selectedDay.year.toString();
     }
@@ -55,7 +54,9 @@ class DashboardHeader extends StatelessWidget {
           actionId: 'prev_period',
           description: context.l10n.previousPeriodDescription,
           child: IconButton(
-            icon: Icon(Icons.chevron_left, color: onSurface),
+            // Mirrors in ar/ur: "previous month" has to point at the earlier
+            // side of the reading direction, not at the left of the screen.
+            icon: DirectionalIcon.previous(color: onSurface),
             onPressed: onPrevious,
           ),
         );
@@ -65,7 +66,7 @@ class DashboardHeader extends StatelessWidget {
           actionId: 'next_period',
           description: context.l10n.nextPeriodDescription,
           child: IconButton(
-            icon: Icon(Icons.chevron_right, color: onSurface),
+            icon: DirectionalIcon.next(color: onSurface),
             onPressed: onNext,
           ),
         );

@@ -13,9 +13,9 @@ class LocalTransactionRepository implements TransactionRepository {
   @override
   Stream<List<Transaction>> watchTransactions({DateTime? from}) {
     if (from != null) {
-      return database.transactionsDao.watchTransactionsFrom(from).map(
-        (transactions) => transactions.toDomainList(),
-      );
+      return database.transactionsDao
+          .watchTransactionsFrom(from)
+          .map((transactions) => transactions.toDomainList());
     }
     return database.transactionsDao.watchAllTransactions().map(
       (transactions) => transactions.toDomainList(),

@@ -49,6 +49,29 @@ final TextTheme _interDarkTextTheme = GoogleFonts.interTextTheme(
   ThemeData.dark().textTheme,
 );
 
+/// Builds the app on the platform's own text theme instead of Inter.
+///
+/// Inter is fetched at runtime rather than bundled, and a `flutter test`
+/// process has neither the asset nor a network to fetch it from. google_fonts
+/// reports that failure by rethrowing out of a future nothing awaits: a real
+/// app logs it and carries on with the fallback font, but a test zone counts
+/// an unhandled async error as a failed test. So every test that builds the
+/// whole [App] - rather than one screen under its own `MaterialApp` - would
+/// fail on the font before it could look at anything else.
+///
+/// Same shape and same purpose as `debugAppPlatformOverride`: it exists so a
+/// test can say "not this one part", and it is never set in a shipped build.
+@visibleForTesting
+bool debugUsePlatformTextTheme = false;
+
+TextTheme get _lightTextTheme => debugUsePlatformTextTheme
+    ? ThemeData.light().textTheme
+    : _interLightTextTheme;
+
+TextTheme get _darkTextTheme => debugUsePlatformTextTheme
+    ? ThemeData.dark().textTheme
+    : _interDarkTextTheme;
+
 /// Exactly the theme fields that [AppTheme.lightTheme] and
 /// [AppTheme.darkTheme] read.
 ///
@@ -220,10 +243,10 @@ class _AppShellState extends State<_AppShell> {
       _themeDataInputs = inputs;
       _lightThemeData = AppTheme.lightTheme(
         theme,
-      ).copyWith(textTheme: _interLightTextTheme);
+      ).copyWith(textTheme: _lightTextTheme);
       _darkThemeData = AppTheme.darkTheme(
         theme,
-      ).copyWith(textTheme: _interDarkTextTheme);
+      ).copyWith(textTheme: _darkTextTheme);
     }
 
     final path = theme.backgroundImagePath;
@@ -399,9 +422,8 @@ class _ThemeLoadFailureBar extends StatelessWidget {
                 ),
               ),
               TextButton(
-                onPressed: () => context.read<ThemeBloc>().add(
-                  const LoadThemeSettings(),
-                ),
+                onPressed: () =>
+                    context.read<ThemeBloc>().add(const LoadThemeSettings()),
                 child: Text(context.l10n.retryButton),
               ),
             ],

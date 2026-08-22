@@ -69,9 +69,9 @@ void main() {
     type: type,
   );
 
-  Future<List<SyncLogData>> logsFor(String table) =>
-      (db.select(db.syncLog)..where((l) => l.changedTableName.equals(table)))
-          .get();
+  Future<List<SyncLogData>> logsFor(String table) => (db.select(
+    db.syncLog,
+  )..where((l) => l.changedTableName.equals(table))).get();
 
   Future<Category> row(String id) =>
       (db.select(db.categories)..where((c) => c.id.equals(id))).getSingle();
@@ -116,16 +116,18 @@ void main() {
       expect(read.type, CategoryType.income);
     });
 
-    test('round-trips a category with no parent and no style as nulls',
-        () async {
-      await repo.addCategory(category('c1'));
+    test(
+      'round-trips a category with no parent and no style as nulls',
+      () async {
+        await repo.addCategory(category('c1'));
 
-      final read = await repo.getCategoryById('c1');
-      expect(read!.parentId, isNull);
-      expect(read.styleId, isNull);
-      // The entity's own default, not a silently different one.
-      expect(read.type, CategoryType.expense);
-    });
+        final read = await repo.getCategoryById('c1');
+        expect(read!.parentId, isNull);
+        expect(read.styleId, isNull);
+        // The entity's own default, not a silently different one.
+        expect(read.type, CategoryType.expense);
+      },
+    );
 
     test('mints an id when the category has none', () async {
       await repo.addCategory(domain.Category(name: 'Fuel'));
@@ -162,14 +164,16 @@ void main() {
       );
     });
 
-    test('replaces an existing category rather than failing on its id',
-        () async {
-      await repo.addCategory(category('c1', name: 'Old'));
+    test(
+      'replaces an existing category rather than failing on its id',
+      () async {
+        await repo.addCategory(category('c1', name: 'Old'));
 
-      await repo.addCategories([category('c1', name: 'New')]);
+        await repo.addCategories([category('c1', name: 'New')]);
 
-      expect((await repo.getCategoryById('c1'))!.name, 'New');
-    });
+        expect((await repo.getCategoryById('c1'))!.name, 'New');
+      },
+    );
   });
 
   group('the internal transfer category', () {
@@ -194,10 +198,7 @@ void main() {
     });
 
     test('is hidden from watchCategories by default', () async {
-      expect(
-        (await repo.watchCategories().first).map((c) => c.id),
-        ['normal'],
-      );
+      expect((await repo.watchCategories().first).map((c) => c.id), ['normal']);
     });
 
     test('is emitted by watchCategories when includeSystem is set', () async {
@@ -214,36 +215,30 @@ void main() {
     // any screen that pages through categories shows a row literally named
     // `__system_transfer__`, which the user can then select, rename or delete —
     // breaking every transfer in the app.
-    test(
-      'leaks into getCategoriesPaginated (WRONG - it should be hidden there '
-      'too)',
-      () async {
-        final page = await repo.getCategoriesPaginated(limit: 50);
+    test('leaks into getCategoriesPaginated (WRONG - it should be hidden there '
+        'too)', () async {
+      final page = await repo.getCategoriesPaginated(limit: 50);
 
-        expect(
-          page.map((c) => c.name),
-          contains(AppConstants.systemTransferCategoryName),
-        );
-      },
-    );
+      expect(
+        page.map((c) => c.name),
+        contains(AppConstants.systemTransferCategoryName),
+      );
+    });
 
     // BUG (characterisation): same omission in
     // getCategoriesWithTotalsPaginated (local_category_repository.dart:69-89).
     // CORRECT behaviour: the totals screen should not list the internal
     // transfer category. As written it appears as a normal spending category
     // and its transfer legs are counted into the displayed totals.
-    test(
-      'leaks into getCategoriesWithTotalsPaginated (WRONG - it should be '
-      'hidden there too)',
-      () async {
-        final rows = await repo.getCategoriesWithTotalsPaginated();
+    test('leaks into getCategoriesWithTotalsPaginated (WRONG - it should be '
+        'hidden there too)', () async {
+      final rows = await repo.getCategoriesWithTotalsPaginated();
 
-        expect(
-          rows.map((r) => r.category.name),
-          contains(AppConstants.systemTransferCategoryName),
-        );
-      },
-    );
+      expect(
+        rows.map((r) => r.category.name),
+        contains(AppConstants.systemTransferCategoryName),
+      );
+    });
   });
 
   group('soft delete', () {
@@ -260,33 +255,41 @@ void main() {
       expect((await row('gone')).isDeleted, isTrue);
     });
 
-    test('a soft-deleted category is not returned even with includeSystem',
-        () async {
-      // includeSystem must not be a back door around the delete filter.
-      expect(
-        (await repo.getCategories(includeSystem: true)).map((c) => c.id),
-        ['live'],
-      );
-    });
+    test(
+      'a soft-deleted category is not returned even with includeSystem',
+      () async {
+        // includeSystem must not be a back door around the delete filter.
+        expect(
+          (await repo.getCategories(includeSystem: true)).map((c) => c.id),
+          ['live'],
+        );
+      },
+    );
 
-    test('a soft-deleted category is not returned by getCategoryById',
-        () async {
-      expect(await repo.getCategoryById('gone'), isNull);
-    });
+    test(
+      'a soft-deleted category is not returned by getCategoryById',
+      () async {
+        expect(await repo.getCategoryById('gone'), isNull);
+      },
+    );
 
-    test('a soft-deleted category is not returned by getCategoriesByIds',
-        () async {
-      final found = await repo.getCategoriesByIds(['live', 'gone']);
-      expect(found.map((c) => c.id), ['live']);
-    });
+    test(
+      'a soft-deleted category is not returned by getCategoriesByIds',
+      () async {
+        final found = await repo.getCategoriesByIds(['live', 'gone']);
+        expect(found.map((c) => c.id), ['live']);
+      },
+    );
 
-    test('a soft-deleted category is not returned by getCategoriesPaginated',
-        () async {
-      expect(
-        (await repo.getCategoriesPaginated(limit: 50)).map((c) => c.id),
-        ['live'],
-      );
-    });
+    test(
+      'a soft-deleted category is not returned by getCategoriesPaginated',
+      () async {
+        expect(
+          (await repo.getCategoriesPaginated(limit: 50)).map((c) => c.id),
+          ['live'],
+        );
+      },
+    );
 
     test('a soft-deleted category is not emitted by watchCategories', () async {
       expect((await repo.watchCategories().first).map((c) => c.id), ['live']);
@@ -351,9 +354,10 @@ void main() {
       expect(page1.length, 2);
       expect(page2.length, 2);
       expect(
-        page1.map((c) => c.id).toSet().intersection(
-          page2.map((c) => c.id).toSet(),
-        ),
+        page1
+            .map((c) => c.id)
+            .toSet()
+            .intersection(page2.map((c) => c.id).toSet()),
         isEmpty,
       );
     });
@@ -402,16 +406,17 @@ void main() {
       expect(byId['salary'], closeTo(1000, 1e-9));
     });
 
-    test('reports zero, not null, for a category with no transactions',
-        () async {
-      final rows = await repo.getCategoriesWithTotalsPaginated();
-      final empty = rows.firstWhere((r) => r.category.id == 'empty');
+    test(
+      'reports zero, not null, for a category with no transactions',
+      () async {
+        final rows = await repo.getCategoriesWithTotalsPaginated();
+        final empty = rows.firstWhere((r) => r.category.id == 'empty');
 
-      expect(empty.total, 0.0);
-    });
+        expect(empty.total, 0.0);
+      },
+    );
 
-    test('counts only transactions inside the requested date window',
-        () async {
+    test('counts only transactions inside the requested date window', () async {
       final rows = await repo.getCategoriesWithTotalsPaginated(
         dateFrom: DateTime(2024, 6, 1),
         dateTo: DateTime(2024, 6, 30),
@@ -498,15 +503,12 @@ void main() {
     // aimed at an id that is not in the table still queued a sync row and the
     // export pass carried a record that does not exist. It now guards on the
     // row count, the way deleteCategory always has.
-    test(
-      'an update that matched no row announces nothing',
-      () async {
-        await repo.updateCategory(category('ghost', name: 'Nope'));
+    test('an update that matched no row announces nothing', () async {
+      await repo.updateCategory(category('ghost', name: 'Nope'));
 
-        expect(await repo.getCategoryById('ghost'), isNull);
-        expect(await logsFor('categories'), isEmpty);
-      },
-    );
+      expect(await repo.getCategoryById('ghost'), isNull);
+      expect(await logsFor('categories'), isEmpty);
+    });
   });
 
   group('deleteCategoryWithTransactions', () {
@@ -530,21 +532,25 @@ void main() {
       );
     });
 
-    test('logs the deleted transactions under the transactions table name',
-        () async {
-      await repo.deleteCategoryWithTransactions('food');
+    test(
+      'logs the deleted transactions under the transactions table name',
+      () async {
+        await repo.deleteCategoryWithTransactions('food');
 
-      // Under the wrong table name the peer would look for accounts or
-      // categories with these ids and never delete the transactions.
-      expect(
-        (await logsFor('transactions')).map((l) => '${l.recordId}:${l.action}'),
-        containsAll(['t1:delete', 't2:delete']),
-      );
-      expect(
-        (await logsFor('categories')).map((l) => '${l.recordId}:${l.action}'),
-        ['food:delete'],
-      );
-    });
+        // Under the wrong table name the peer would look for accounts or
+        // categories with these ids and never delete the transactions.
+        expect(
+          (await logsFor(
+            'transactions',
+          )).map((l) => '${l.recordId}:${l.action}'),
+          containsAll(['t1:delete', 't2:delete']),
+        );
+        expect(
+          (await logsFor('categories')).map((l) => '${l.recordId}:${l.action}'),
+          ['food:delete'],
+        );
+      },
+    );
   });
 
   group('deleteCategoryAndReassignTransactions', () {

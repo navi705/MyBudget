@@ -211,13 +211,19 @@ void main() {
 
     // The picker itself stays hidden - there is nothing to pick from. What the
     // user gets instead is the reason the dialog cannot be submitted.
-    expect(find.text(l10n.formValidationPleaseSelectAccountType), findsOneWidget);
+    expect(
+      find.text(l10n.formValidationPleaseSelectAccountType),
+      findsOneWidget,
+    );
 
     await fillForm(tester, l10n);
     await tapSave(tester, l10n);
 
     expect(accountsBloc.events, isEmpty);
     expect(find.byType(AddAccountDialog), findsOneWidget);
-    expect(find.text(l10n.formValidationPleaseSelectAccountType), findsOneWidget);
+    expect(
+      find.text(l10n.formValidationPleaseSelectAccountType),
+      findsOneWidget,
+    );
   });
 }

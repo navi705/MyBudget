@@ -15,17 +15,18 @@ import 'package:my_budget_client/app.dart';
 import 'package:my_budget_client/core/theme/app_theme.dart';
 import 'package:my_budget_client/domain/entities/custom_theme.dart';
 
-CustomTheme _theme(WindowEffectType effect, double effectOpacity) => CustomTheme(
-  id: 't',
-  name: 'T',
-  primaryColor: const Color(0xFF2196F3),
-  secondaryColor: const Color(0xFF9C27B0),
-  surfaceColor: const Color(0xFF252525),
-  backgroundColor: const Color(0xFF121212),
-  windowEffectType: effect,
-  effectOpacity: effectOpacity,
-  themeMode: ThemeMode.dark,
-);
+CustomTheme _theme(WindowEffectType effect, double effectOpacity) =>
+    CustomTheme(
+      id: 't',
+      name: 'T',
+      primaryColor: const Color(0xFF2196F3),
+      secondaryColor: const Color(0xFF9C27B0),
+      surfaceColor: const Color(0xFF252525),
+      backgroundColor: const Color(0xFF121212),
+      windowEffectType: effect,
+      effectOpacity: effectOpacity,
+      themeMode: ThemeMode.dark,
+    );
 
 void main() {
   group('a transparent window', () {
@@ -44,20 +45,23 @@ void main() {
       );
     });
 
-    test('the chips in between match the transparency they are labelled with', () {
-      expect(
-        backgroundLayerAlpha(_theme(WindowEffectType.transparent, 0.1)),
-        closeTo(0.75, 0.001),
-      );
-      expect(
-        backgroundLayerAlpha(_theme(WindowEffectType.transparent, 0.2)),
-        closeTo(0.5, 0.001),
-      );
-      expect(
-        backgroundLayerAlpha(_theme(WindowEffectType.transparent, 0.35)),
-        closeTo(0.25, 0.001),
-      );
-    });
+    test(
+      'the chips in between match the transparency they are labelled with',
+      () {
+        expect(
+          backgroundLayerAlpha(_theme(WindowEffectType.transparent, 0.1)),
+          closeTo(0.75, 0.001),
+        );
+        expect(
+          backgroundLayerAlpha(_theme(WindowEffectType.transparent, 0.2)),
+          closeTo(0.5, 0.001),
+        );
+        expect(
+          backgroundLayerAlpha(_theme(WindowEffectType.transparent, 0.35)),
+          closeTo(0.25, 0.001),
+        );
+      },
+    );
 
     test('more transparency chosen is never more background painted', () {
       var previous = 2.0;

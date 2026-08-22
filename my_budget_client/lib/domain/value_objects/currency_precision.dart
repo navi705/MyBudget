@@ -16,13 +16,33 @@ class CurrencyPrecision {
 
   /// ISO 4217 fiat currencies with 0 minor-unit decimals.
   static const Set<String> zeroDecimal = {
-    'BIF', 'CLP', 'DJF', 'GNF', 'ISK', 'JPY', 'KMF', 'KRW', 'PYG', 'RWF',
-    'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF',
+    'BIF',
+    'CLP',
+    'DJF',
+    'GNF',
+    'ISK',
+    'JPY',
+    'KMF',
+    'KRW',
+    'PYG',
+    'RWF',
+    'UGX',
+    'VND',
+    'VUV',
+    'XAF',
+    'XOF',
+    'XPF',
   };
 
   /// ISO 4217 fiat currencies with 3 minor-unit decimals.
   static const Set<String> threeDecimal = {
-    'BHD', 'IQD', 'JOD', 'KWD', 'LYD', 'OMR', 'TND',
+    'BHD',
+    'IQD',
+    'JOD',
+    'KWD',
+    'LYD',
+    'OMR',
+    'TND',
   };
 
   /// Codes that are NOT integer-minor-unit money: the seeded crypto (133) and

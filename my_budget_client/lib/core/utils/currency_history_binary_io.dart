@@ -97,7 +97,7 @@ class CurrencyHistoryBinaryIO {
     // 4. Decompress
     final decoder = GZipDecoder();
     final decompressed = decoder.decodeBytes(compressedData);
-    
+
     // Optimization: Use ByteData with offset-based reading instead of iterator
     final byteData = ByteData.sublistView(Uint8List.fromList(decompressed));
     int dataOffset = 0;
@@ -150,8 +150,16 @@ class CurrencyHistoryBinaryIO {
     return Uint8List(4)..buffer.asByteData().setInt32(0, value, Endian.little);
   }
 
+  // The three readers below take `ByteData.sublistView`, not
+  // `bytes.buffer.asByteData()`. The latter hands back a view of the *whole*
+  // backing buffer, so offset 0 meant the start of the buffer rather than the
+  // start of the slice that was passed in. `readData` returns exactly such a
+  // slice, so every count and every rate after the first one was read from the
+  // wrong place, the parse walked out of step, and a currency code eventually
+  // landed on bytes that are not UTF-8:
+  // `FormatException: Missing extension byte (at offset 1)`.
   static int _bytesToInt32(Uint8List bytes) {
-    return bytes.buffer.asByteData().getInt32(0, Endian.little);
+    return ByteData.sublistView(bytes).getInt32(0, Endian.little);
   }
 
   static Uint8List _int16ToBytes(int value) {
@@ -159,7 +167,7 @@ class CurrencyHistoryBinaryIO {
   }
 
   static int _bytesToInt16(Uint8List bytes) {
-    return bytes.buffer.asByteData().getInt16(0, Endian.little);
+    return ByteData.sublistView(bytes).getInt16(0, Endian.little);
   }
 
   static Uint8List _doubleToBytes(double value) {
@@ -168,6 +176,6 @@ class CurrencyHistoryBinaryIO {
   }
 
   static double _bytesToDouble(Uint8List bytes) {
-    return bytes.buffer.asByteData().getFloat64(0, Endian.little);
+    return ByteData.sublistView(bytes).getFloat64(0, Endian.little);
   }
 }

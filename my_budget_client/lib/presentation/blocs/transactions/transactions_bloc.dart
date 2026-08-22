@@ -186,7 +186,8 @@ Future<_ProcessDataResult> _processTransactionsData(
     // Transfers are internal movements between accounts — including them
     // causes the daily summary to show incorrect net amounts.
     // Detection: linkedTransactionId is set for both sides of a transfer.
-    final isTransfer = transaction.linkedTransactionId != null &&
+    final isTransfer =
+        transaction.linkedTransactionId != null &&
         transaction.linkedTransactionId!.isNotEmpty;
     if (isTransfer) {
       continue; // Skip transfers — don't include in daily totals
@@ -224,7 +225,9 @@ Future<_ProcessDataResult> _processTransactionsData(
 
     // DIAG: log if ratesMap is empty for this date
     if (ratesMap.isEmpty) {
-      debugPrint('[DIAG dailyTotals] NO RATES for date=$date — total will be 0');
+      debugPrint(
+        '[DIAG dailyTotals] NO RATES for date=$date — total will be 0',
+      );
     }
 
     for (var entry in currencySubtotals.entries) {
@@ -239,12 +242,14 @@ Future<_ProcessDataResult> _processTransactionsData(
         // FIX: Use globalFallback when the date's rates map lacks the pair.
         // Scenario: EUR_RSD rate first appeared on Apr 10; Apr 9/8/6 maps exist
         // (from partial DB records) but don't contain EUR_RSD → toBase/fromBase = null → 0.
-        final toBase = ratesMap[getRateKey(currencyCode, baseCurrency)] ??
+        final toBase =
+            ratesMap[getRateKey(currencyCode, baseCurrency)] ??
             globalFallback[getRateKey(currencyCode, baseCurrency)];
         if (toBase != null) {
           amountInBase = totalAmount * toBase;
         } else {
-          final fromBase = ratesMap[getRateKey(baseCurrency, currencyCode)] ??
+          final fromBase =
+              ratesMap[getRateKey(baseCurrency, currencyCode)] ??
               globalFallback[getRateKey(baseCurrency, currencyCode)];
           amountInBase = (fromBase != null && fromBase != 0)
               ? totalAmount / fromBase
@@ -457,8 +462,10 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
           DateTime? closestDate;
           int minDiff = -1;
           if (left < sortedActualDates.length) {
-            final diff =
-                sortedActualDates[left].difference(requestedDate).inDays.abs();
+            final diff = sortedActualDates[left]
+                .difference(requestedDate)
+                .inDays
+                .abs();
             minDiff = diff;
             closestDate = sortedActualDates[left];
           }
@@ -472,8 +479,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
             }
           }
           if (closestDate != null) {
-            _exchangeRateCache[requestedDate] =
-                ratesByActualDate[closestDate]!;
+            _exchangeRateCache[requestedDate] = ratesByActualDate[closestDate]!;
           }
         }
       }

@@ -58,12 +58,20 @@ class DebugDataSeeder {
 
   static Future<void> seedMediumData() async {
     await clearAllData();
-    await _seedData(accountCount: 100, categoryCount: 50, transactionCount: 5000);
+    await _seedData(
+      accountCount: 100,
+      categoryCount: 50,
+      transactionCount: 5000,
+    );
   }
 
   static Future<void> seedMaximumData() async {
     await clearAllData();
-    await _seedData(accountCount: 5000, categoryCount: 500, transactionCount: 500000);
+    await _seedData(
+      accountCount: 5000,
+      categoryCount: 500,
+      transactionCount: 500000,
+    );
   }
 
   static Future<void> _seedData({
@@ -94,17 +102,20 @@ class DebugDataSeeder {
     final List<Account> insertedAccounts = [];
     List<Account> accountsForInsert = [];
     for (int i = 0; i < accountCount; i++) {
-      final currency =
-          prerequisites.currencies[_random.nextInt(prerequisites.currencies.length)];
+      final currency = prerequisites
+          .currencies[_random.nextInt(prerequisites.currencies.length)];
       final accountType = prerequisites
           .accountTypes[_random.nextInt(prerequisites.accountTypes.length)];
       final style =
           prerequisites.styles[_random.nextInt(prerequisites.styles.length)];
-      final designation = prerequisites.designations
-          .firstWhereOrNull((d) => d.currencyCode == currency.code);
+      final designation = prerequisites.designations.firstWhereOrNull(
+        (d) => d.currencyCode == currency.code,
+      );
 
       if (designation == null) {
-        developer.log('Could not find designation for currency ${currency.code}, skipping account creation.');
+        developer.log(
+          'Could not find designation for currency ${currency.code}, skipping account creation.',
+        );
         continue;
       }
 
@@ -115,11 +126,15 @@ class DebugDataSeeder {
         currencyDesignationId: designation.id,
         accountTypeId: accountType.id,
         styleId: style.id,
-        creationDate: DateTime.now().subtract(Duration(days: _random.nextInt(1825))),
+        creationDate: DateTime.now().subtract(
+          Duration(days: _random.nextInt(1825)),
+        ),
       );
       accountsForInsert.add(account);
     }
-    developer.log('In-memory account creation took: ${accountCreationStopwatch.elapsed}');
+    developer.log(
+      'In-memory account creation took: ${accountCreationStopwatch.elapsed}',
+    );
 
     final accountDbStopwatch = Stopwatch()..start();
     await accountRepo.addAccounts(accountsForInsert);
@@ -128,11 +143,12 @@ class DebugDataSeeder {
 
     // 2. Create Categories
     final categoryCreationStopwatch = Stopwatch()..start();
-     List<Category> categoryForInsert = [];
+    List<Category> categoryForInsert = [];
     for (int i = 0; i < categoryCount; i++) {
       final style =
           prerequisites.styles[_random.nextInt(prerequisites.styles.length)];
-      final type = CategoryType.values[_random.nextInt(CategoryType.values.length)];
+      final type =
+          CategoryType.values[_random.nextInt(CategoryType.values.length)];
       final category = Category(
         name: 'Category $i',
         styleId: style.id,
@@ -142,27 +158,35 @@ class DebugDataSeeder {
     }
     await categoryRepo.addCategories(categoryForInsert);
     final allCategories = await categoryRepo.getCategories();
-    
+
     // Make ~50% of categories into subcategories
     final int subCategoryCount = (allCategories.length * 0.5).round();
     final subCategoryCandidates = List.of(allCategories)..shuffle();
-    final parentCategories = allCategories.where((c) => c.parentId == null).toList();
+    final parentCategories = allCategories
+        .where((c) => c.parentId == null)
+        .toList();
 
-    for(int i = 0; i < subCategoryCount; i++) {
+    for (int i = 0; i < subCategoryCount; i++) {
       final subCategory = subCategoryCandidates[i];
 
       // Ensure we have parents and the subcategory is not already a subcategory
       if (parentCategories.isEmpty || subCategory.parentId != null) continue;
 
       // Find a parent that is not the same category
-      var potentialParents = parentCategories.where((p) => p.id != subCategory.id).toList();
+      var potentialParents = parentCategories
+          .where((p) => p.id != subCategory.id)
+          .toList();
       if (potentialParents.isEmpty) continue;
-      
+
       final parent = potentialParents[_random.nextInt(potentialParents.length)];
-      
-      await categoryRepo.updateCategory(subCategory.copyWith(parentId: parent.id));
+
+      await categoryRepo.updateCategory(
+        subCategory.copyWith(parentId: parent.id),
+      );
     }
-    developer.log('Category creation and updates took: ${categoryCreationStopwatch.elapsed}');
+    developer.log(
+      'Category creation and updates took: ${categoryCreationStopwatch.elapsed}',
+    );
 
     final insertedCategories = await categoryRepo.getCategories();
 
@@ -178,21 +202,27 @@ class DebugDataSeeder {
           ? -(_random.nextDouble() * 500).roundToDouble()
           : (_random.nextDouble() * 2000).roundToDouble();
 
-      transactionsForInsert.add(Transaction(
-        description: 'Transaction $i',
-        amount: amount,
-        date: DateTime.now().subtract(Duration(days: _random.nextInt(1825))),
-        accountId: account.id!,
-        categoryId: category.id!,
-        currencyCode: account.currencyCode,
-      ));
+      transactionsForInsert.add(
+        Transaction(
+          description: 'Transaction $i',
+          amount: amount,
+          date: DateTime.now().subtract(Duration(days: _random.nextInt(1825))),
+          accountId: account.id!,
+          categoryId: category.id!,
+          currencyCode: account.currencyCode,
+        ),
+      );
     }
-    developer.log('In-memory transaction creation took: ${transactionCreationStopwatch.elapsed}');
-    
+    developer.log(
+      'In-memory transaction creation took: ${transactionCreationStopwatch.elapsed}',
+    );
+
     final transactionDbStopwatch = Stopwatch()..start();
     // Let the optimized repository method handle EVERYTHING
     await transactionRepo.addTransactions(transactionsForInsert);
-    developer.log('Transaction DB insertion took: ${transactionDbStopwatch.elapsed}');
+    developer.log(
+      'Transaction DB insertion took: ${transactionDbStopwatch.elapsed}',
+    );
 
     developer.log('--- Total seeding time: ${totalStopwatch.elapsed} ---');
   }

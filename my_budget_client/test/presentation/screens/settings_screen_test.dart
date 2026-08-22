@@ -345,7 +345,27 @@ void main() {
 
       await tester.tap(_row(l10n.resetDataLabel));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(l10n.resetEverythingButton));
+
+      // The wipe now sits behind a typed confirmation - settings_safety_test
+      // pins that gate, and an armed-on-open reset button is the bug it exists
+      // to prevent. Typing the word is the user's half of the contract; what
+      // this test is actually about is everything that runs *after* it, on a
+      // tree with no SmsBloc.
+      await tester.enterText(
+        find.byKey(const Key('reset-confirmation-field')),
+        l10n.confirmButton,
+      );
+      await tester.pump();
+
+      // Scoped to the dialog: "Reset Everything" also sits on the screen behind
+      // it as a row label in some locales, and an unscoped finder would be
+      // ambiguous.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.widgetWithText(TextButton, l10n.resetEverythingButton),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(db.cleared, isTrue);

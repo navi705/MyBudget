@@ -12,12 +12,16 @@ class LocalCurrencyDesignationRepository
 
   @override
   Future<void> addDesignation(CurrencyDesignation designation) async {
-    await database.currencyDesignationsDao.insertDesignation(designation.toCompanion());
+    await database.currencyDesignationsDao.insertDesignation(
+      designation.toCompanion(),
+    );
   }
 
   @override
   Future<void> addDesignations(List<CurrencyDesignation> designations) async {
-    await database.currencyDesignationsDao.insertAllCurrencyDesignations(designations.toCompanionList());
+    await database.currencyDesignationsDao.insertAllCurrencyDesignations(
+      designations.toCompanionList(),
+    );
   }
 
   @override
@@ -48,4 +52,3 @@ class LocalCurrencyDesignationRepository
     );
   }
 }
-

@@ -153,12 +153,16 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                 children: [
                   TextFormField(
                     controller: _nameController,
-                    decoration: InputDecoration(labelText: context.l10n.fltNameLabel),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.fltNameLabel,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _descriptionController,
-                    decoration: InputDecoration(labelText: context.l10n.descriptionLabel),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.descriptionLabel,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -324,8 +328,14 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
               ),
             ),
       actions: [
-        TextButton(onPressed: _clearFilters, child: Text(context.l10n.clearButton)),
-        TextButton(onPressed: _applyFilters, child: Text(context.l10n.applyButton)),
+        TextButton(
+          onPressed: _clearFilters,
+          child: Text(context.l10n.clearButton),
+        ),
+        TextButton(
+          onPressed: _applyFilters,
+          child: Text(context.l10n.applyButton),
+        ),
       ],
     );
   }

@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_budget_client/core/theme/money_colors.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
@@ -12,6 +13,34 @@ import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart'
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/domain/services/finance_calculator.dart'; // Added
+
+/// The widest a column of reading content is allowed to get on a desktop.
+///
+/// `settings_screen.dart` picked 800 first and the renders proved it right:
+/// unconstrained, a 1440px window stretches a card holding ~300px of content
+/// to 1408px and parks its `⋮` menu ~1300px from the name it belongs to. Every
+/// list screen now centres its content inside this one measure rather than
+/// inventing a per-screen number.
+///
+/// It lives here, in the widgets layer, only because that is the shared file
+/// this workstream owns — `lib/core/theme/app_spacing.dart` beside
+/// `kMobileBreakpoint` is where it belongs.
+const double kContentMaxWidth = 800.0;
+
+/// Bottom inset a scrolling list must reserve when a FAB floats over it:
+/// 56dp of button, its 16dp margin, and 16dp so the last row is not merely
+/// uncovered but comfortably readable.
+const double kFabScrollBottomInset = 88.0;
+
+/// Width below which the balance row stacks its "change" figure onto a second
+/// line. Measured on the value column, not the window: the amount plus the
+/// change label plus the signed diff and its percentage need roughly this much
+/// to sit on one line before the number itself starts wrapping.
+const double _kInlineChangeMinWidth = 260.0;
+
+/// Width cap on a stat row's label, so whatever the label does not use falls
+/// through to the number beside it.
+const double _kStatLabelMaxWidth = 96.0;
 
 class AccountListItem extends StatelessWidget {
   final Account account;
@@ -105,93 +134,138 @@ class AccountListItem extends StatelessWidget {
     // Let's use standard for diffs to avoid noise unless diff is also very small?
     // For consistency, let's keep diff standard for now unless user asks.
 
-    return Row(
-      children: [
-        // A Flexible label beside an Expanded value split the ~164dp subtitle
-        // evenly: the label shrink-wrapped and left its unused half as dead
-        // space, while the value was capped at half regardless and wrapped
-        // mid-number. Capping the label instead keeps it inflexible, so
-        // whatever it does not use falls through to the value.
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 96),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13, // Adjusted
-              color: Theme.of(context).textTheme.bodySmall?.color,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SelectableText.rich(
-                TextSpan(
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
-                    fontSize: 15,
-                  ),
-                  children: [
-                    TextSpan(
-                      text: '${MoneyFormatter.format(value, code)} $symbol',
-                      style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (prevValue != null && diff.abs() >= 0.01) ...[
-                      TextSpan(
-                        text:
-                            (Theme.of(context).platform ==
-                                    TargetPlatform.android ||
-                                Theme.of(context).platform ==
-                                    TargetPlatform.iOS)
-                            ? '\n'
-                            : ' ',
-                      ),
-                      TextSpan(
-                        text: '${context.l10n.metricChange}: ',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.color?.withValues(alpha: 0.7),
-                        ),
-                      ),
-                      TextSpan(
-                        text:
-                            '${MoneyFormatter.format(diff, code, signed: true)} (${pct > 0 ? '+' : ''}${pct.toStringAsFixed(2)}%)',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: diff > 0 ? Colors.green : Colors.red,
-                        ),
-                      ),
-                    ],
-                  ],
+    final moneyColors = MoneyColors.of(context);
+
+    // The change figure moves onto its own line when the value column is too
+    // narrow to hold it inline. It used to key off `Theme.of(context).platform`
+    // instead, so a 360dp desktop window and a 360dp Android phone laid the
+    // same row out differently for a reason no user could see; width is what
+    // the decision is actually about.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final valueWidth = constraints.maxWidth - _kStatLabelMaxWidth - 8;
+        final stackChange = valueWidth < _kInlineChangeMinWidth;
+
+        return Row(
+          children: [
+            // A Flexible label beside an Expanded value split the ~164dp
+            // subtitle evenly: the label shrink-wrapped and left its unused
+            // half as dead space, while the value was capped at half regardless
+            // and wrapped mid-number. Capping the label instead keeps it
+            // inflexible, so whatever it does not use falls through to the
+            // value.
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: _kStatLabelMaxWidth),
+              child: Text(
+                label,
+                // "Баланс"/"Saldo disponible" are longer than the cap, and with
+                // no line or overflow rule they simply ran past it. Two lines
+                // then an ellipsis keeps the row the height the design expects
+                // in every locale.
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13, // Adjusted
+                  color: Theme.of(context).textTheme.bodySmall?.color,
                 ),
               ),
-              if (realValue != null)
-                SelectableText.rich(
-                  TextSpan(
-                    style: TextStyle(
-                      color: Theme.of(context).textTheme.bodySmall?.color,
-                      fontSize: 13,
-                    ),
-                    children: [
-                      TextSpan(text: '${context.l10n.metricReal}: '),
-                      TextSpan(
-                        text:
-                            '${MoneyFormatter.format(realValue, code)} $symbol',
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SelectableText.rich(
+                    TextSpan(
+                      style: TextStyle(
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
+                        fontSize: 15,
                       ),
-                    ],
+                      children: [
+                        // Bidi-isolated, like every other money line in the
+                        // app. Built by hand as `format(...) + ' ' + symbol`
+                        // this string was a bare number sitting next to Arabic
+                        // letters, and the paragraph's RTL run pulled the minus
+                        // sign to the far end: an overdrawn account read
+                        // `250.00-` in `ar` while the transaction list beside
+                        // it read `-250.00`. `formatWithSymbol` wraps amount,
+                        // separator and symbol in one LTR isolate.
+                        TextSpan(
+                          text: MoneyFormatter.formatWithSymbol(
+                            value,
+                            code,
+                            symbol,
+                          ),
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (prevValue != null && diff.abs() >= 0.01) ...[
+                          TextSpan(text: stackChange ? '\n' : ' '),
+                          TextSpan(
+                            text: '${context.l10n.metricChange}: ',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.color
+                                  ?.withValues(alpha: 0.7),
+                            ),
+                          ),
+                          // The sign is spelled out rather than left to colour
+                          // alone: a red-green colourblind reader, or anyone
+                          // reading a greyscale screenshot, gets the direction
+                          // from the glyph. Isolated for the same reason as the
+                          // amount above — the signed figure, the parentheses
+                          // and the percent sign are all bidi-neutral, so an
+                          // RTL paragraph reorders the group around them.
+                          // Inside the isolate the run is forced LTR, which is
+                          // also what makes the plain space here harmless.
+                          TextSpan(
+                            text: MoneyFormatter.isolate(
+                              '${MoneyColors.signGlyph(isIncome: diff > 0)}'
+                              '${MoneyFormatter.format(diff.abs(), code)} '
+                              '(${pct > 0 ? '+' : ''}'
+                              '${pct.toStringAsFixed(2)}%)',
+                            ),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: moneyColors.forAmount(diff),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-            ],
-          ),
-        ),
-      ],
+                  if (realValue != null)
+                    SelectableText.rich(
+                      TextSpan(
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                          fontSize: 13,
+                        ),
+                        children: [
+                          TextSpan(text: '${context.l10n.metricReal}: '),
+                          // Embedded in a translated label, so it needs the
+                          // isolate even more than the amount above does.
+                          TextSpan(
+                            text: MoneyFormatter.formatWithSymbol(
+                              realValue,
+                              code,
+                              symbol,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -230,17 +304,13 @@ class AccountListItem extends StatelessWidget {
             final color = _getColorFromHex(finalStyle.colorHex);
             final iconWidget = IconUtils.getIconWidget(finalStyle);
 
-            // Determine balance color
-            Color balanceColor;
-            if (account.balance > 0) {
-              balanceColor = Colors.green;
-            } else if (account.balance < 0) {
-              balanceColor = Colors.red;
-            } else {
-              balanceColor = Theme.of(
-                context,
-              ).colorScheme.onSurfaceVariant; // Default or specific for zero
-            }
+            // Money direction comes from the theme's money palette, not from
+            // `Colors.green`/`Colors.red`: the user picks the seed colour, and
+            // the stock swatches fail contrast on several of the dark surfaces
+            // this app ships. `forAmount` also answers the zero case (neutral)
+            // and the NaN case (an amount no rate could price).
+            final moneyColors = MoneyColors.of(context);
+            final balanceColor = moneyColors.forAmount(account.balance);
 
             return Card(
               margin: const EdgeInsets.symmetric(
@@ -306,7 +376,7 @@ class AccountListItem extends StatelessWidget {
                           null, // Not tracking history for net balance yet
                           null, // Real Net Balance? Maybe calculate: net / inflationMultiplier
                           null,
-                          Colors.blue,
+                          moneyColors.forAmount(assetStats!.netBalance),
                           symbol,
                         ),
                         const SizedBox(height: 4),
@@ -317,7 +387,8 @@ class AccountListItem extends StatelessWidget {
                           null,
                           null,
                           null,
-                          Colors.orange,
+                          // Capital moved, not gained or lost: no direction.
+                          moneyColors.neutral,
                           symbol,
                         ),
                         const SizedBox(height: 4),
@@ -328,7 +399,7 @@ class AccountListItem extends StatelessWidget {
                           null,
                           null,
                           null,
-                          Colors.purple,
+                          moneyColors.forAmount(assetStats!.realized),
                           symbol,
                         ),
                         const SizedBox(height: 4),
@@ -339,7 +410,7 @@ class AccountListItem extends StatelessWidget {
                           null,
                           null,
                           null,
-                          Colors.redAccent,
+                          moneyColors.outflow,
                           symbol,
                         ),
                       ] else ...[
@@ -350,7 +421,7 @@ class AccountListItem extends StatelessWidget {
                           prevIncome,
                           realIncome,
                           prevRealIncome,
-                          Colors.green,
+                          moneyColors.inflow,
                           symbol,
                         ),
                         const SizedBox(height: 4),
@@ -361,7 +432,7 @@ class AccountListItem extends StatelessWidget {
                           prevExpense,
                           null, // Hide Real Expense
                           null,
-                          Colors.red,
+                          moneyColors.outflow,
                           symbol,
                         ),
                       ],

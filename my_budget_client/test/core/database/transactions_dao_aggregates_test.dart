@@ -1,7 +1,8 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:my_budget_client/core/database/app_database.dart' hide Transaction;
+import 'package:my_budget_client/core/database/app_database.dart'
+    hide Transaction;
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
@@ -45,43 +46,49 @@ void main() {
     categoryId = (await db.select(db.categories).get()).first.id;
 
     // Account A: standard, stored balance 1000, only inter-day transactions.
-    await db.into(db.accounts).insert(
-      AccountsCompanion.insert(
-        id: const Value('accA'),
-        name: 'Account A',
-        balance: 1000.0,
-        currencyCode: currencyCode,
-        currencyDesignationId: designationId,
-        accountTypeId: accountTypeId,
-        creationDate: Value(DateTime(2024, 1, 1)),
-      ),
-    );
+    await db
+        .into(db.accounts)
+        .insert(
+          AccountsCompanion.insert(
+            id: const Value('accA'),
+            name: 'Account A',
+            balance: 1000.0,
+            currencyCode: currencyCode,
+            currencyDesignationId: designationId,
+            accountTypeId: accountTypeId,
+            creationDate: Value(DateTime(2024, 1, 1)),
+          ),
+        );
 
     // Account B: standard, stored balance 500, one INTRADAY tx on the target day.
-    await db.into(db.accounts).insert(
-      AccountsCompanion.insert(
-        id: const Value('accB'),
-        name: 'Account B',
-        balance: 500.0,
-        currencyCode: currencyCode,
-        currencyDesignationId: designationId,
-        accountTypeId: accountTypeId,
-        creationDate: Value(DateTime(2024, 1, 1)),
-      ),
-    );
+    await db
+        .into(db.accounts)
+        .insert(
+          AccountsCompanion.insert(
+            id: const Value('accB'),
+            name: 'Account B',
+            balance: 500.0,
+            currencyCode: currencyCode,
+            currencyDesignationId: designationId,
+            accountTypeId: accountTypeId,
+            creationDate: Value(DateTime(2024, 1, 1)),
+          ),
+        );
 
     Future<void> tx(String id, String acc, double amount, DateTime date) {
-      return db.into(db.transactions).insert(
-        TransactionsCompanion.insert(
-          id: Value(id),
-          description: id,
-          amount: amount,
-          date: date,
-          accountId: acc,
-          categoryId: categoryId,
-          currencyCode: currencyCode,
-        ),
-      );
+      return db
+          .into(db.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              id: Value(id),
+              description: id,
+              amount: amount,
+              date: date,
+              accountId: acc,
+              categoryId: categoryId,
+              currencyCode: currencyCode,
+            ),
+          );
     }
 
     // Account A transactions.
@@ -99,10 +106,42 @@ void main() {
 
   // Domain transactions mirroring what was inserted, for FinanceCalculator.
   List<Transaction> domainTx() => [
-    Transaction(id: 'a1', description: 'a1', amount: 200.0, date: DateTime(2025, 3, 10), accountId: 'accA', categoryId: 'c', currencyCode: 'EUR'),
-    Transaction(id: 'a2', description: 'a2', amount: 50.0, date: DateTime(2025, 3, 20), accountId: 'accA', categoryId: 'c', currencyCode: 'EUR'),
-    Transaction(id: 'a3', description: 'a3', amount: -30.0, date: DateTime(2025, 3, 25), accountId: 'accA', categoryId: 'c', currencyCode: 'EUR'),
-    Transaction(id: 'b1', description: 'b1', amount: 100.0, date: DateTime(2025, 3, 15, 10, 0), accountId: 'accB', categoryId: 'c', currencyCode: 'EUR'),
+    Transaction(
+      id: 'a1',
+      description: 'a1',
+      amount: 200.0,
+      date: DateTime(2025, 3, 10),
+      accountId: 'accA',
+      categoryId: 'c',
+      currencyCode: 'EUR',
+    ),
+    Transaction(
+      id: 'a2',
+      description: 'a2',
+      amount: 50.0,
+      date: DateTime(2025, 3, 20),
+      accountId: 'accA',
+      categoryId: 'c',
+      currencyCode: 'EUR',
+    ),
+    Transaction(
+      id: 'a3',
+      description: 'a3',
+      amount: -30.0,
+      date: DateTime(2025, 3, 25),
+      accountId: 'accA',
+      categoryId: 'c',
+      currencyCode: 'EUR',
+    ),
+    Transaction(
+      id: 'b1',
+      description: 'b1',
+      amount: 100.0,
+      date: DateTime(2025, 3, 15, 10, 0),
+      accountId: 'accB',
+      categoryId: 'c',
+      currencyCode: 'EUR',
+    ),
   ];
 
   Account domainAccount(String id, double balance) => Account(
@@ -137,14 +176,17 @@ void main() {
       expect(sum, 20.0);
     });
 
-    test('intraday transaction on target day is NOT counted as future', () async {
-      // b1 is at 10:00 on the target day; end-of-day cutoff excludes it.
-      final sum = await db.transactionsDao.getSumOfTransactionsAfterDate(
-        'accB',
-        targetDay,
-      );
-      expect(sum, 0.0);
-    });
+    test(
+      'intraday transaction on target day is NOT counted as future',
+      () async {
+        // b1 is at 10:00 on the target day; end-of-day cutoff excludes it.
+        final sum = await db.transactionsDao.getSumOfTransactionsAfterDate(
+          'accB',
+          targetDay,
+        );
+        expect(sum, 0.0);
+      },
+    );
   });
 
   group('getFutureSumsGrouped', () {
@@ -158,12 +200,15 @@ void main() {
 
   group('SQL aggregate == FinanceCalculator (equivalence the swap relies on)', () {
     test('inter-day account matches at end-of-day target', () async {
-      final futureSums = await db.transactionsDao.getFutureSumsGrouped(targetDay);
+      final futureSums = await db.transactionsDao.getFutureSumsGrouped(
+        targetDay,
+      );
       final sqlBalanceA = 1000.0 - (futureSums['accA'] ?? 0.0);
 
       // FinanceCalculator with end-of-day reference (matches SQL cutoff).
-      final fcBalances =
-          FinanceCalculator().calculateBalances(snapshotAt(targetEndOfDay));
+      final fcBalances = FinanceCalculator().calculateBalances(
+        snapshotAt(targetEndOfDay),
+      );
 
       expect(sqlBalanceA, 980.0);
       expect(fcBalances['accA'], sqlBalanceA);
@@ -172,16 +217,19 @@ void main() {
     test(
       'BOUNDARY: FinanceCalculator at MIDNIGHT diverges from SQL on intraday tx',
       () async {
-        final futureSums =
-            await db.transactionsDao.getFutureSumsGrouped(targetDay);
+        final futureSums = await db.transactionsDao.getFutureSumsGrouped(
+          targetDay,
+        );
         final sqlBalanceB = 500.0 - (futureSums['accB'] ?? 0.0); // 500
 
         // At midnight, the 10:00 intraday tx counts as "future" and is undone.
-        final fcMidnight =
-            FinanceCalculator().calculateBalances(snapshotAt(targetDay));
+        final fcMidnight = FinanceCalculator().calculateBalances(
+          snapshotAt(targetDay),
+        );
         // At end-of-day, it is included — matching SQL.
-        final fcEndOfDay =
-            FinanceCalculator().calculateBalances(snapshotAt(targetEndOfDay));
+        final fcEndOfDay = FinanceCalculator().calculateBalances(
+          snapshotAt(targetEndOfDay),
+        );
 
         expect(sqlBalanceB, 500.0);
         expect(fcEndOfDay['accB'], 500.0, reason: 'end-of-day matches SQL');

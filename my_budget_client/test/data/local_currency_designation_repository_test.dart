@@ -30,15 +30,13 @@ void main() {
     await db.delete(db.syncLog).go();
   });
 
-  Future<List<SyncLogData>> logs() =>
-      (db.select(db.syncLog)
-            ..where((l) => l.changedTableName.equals('currency_designations')))
-          .get();
+  Future<List<SyncLogData>> logs() => (db.select(
+    db.syncLog,
+  )..where((l) => l.changedTableName.equals('currency_designations'))).get();
 
-  Future<CurrencyDesignation?> rowFor(String id) =>
-      (db.select(db.currencyDesignations)
-            ..where((d) => d.id.equals(id)))
-          .getSingleOrNull();
+  Future<CurrencyDesignation?> rowFor(String id) => (db.select(
+    db.currencyDesignations,
+  )..where((d) => d.id.equals(id))).getSingleOrNull();
 
   domain.CurrencyDesignation designation({
     String id = 'd1',
@@ -216,22 +214,29 @@ void main() {
       expect(await logs(), isEmpty);
     });
 
-    test('updating a soft-deleted designation does not bring it back', () async {
-      // The companion the UI builds carries only id/value/currencyCode, so a
-      // write that touches every column would reset isDeleted and the symbol
-      // the user deleted would reappear - here and, with its fresh modifiedAt
-      // beating the tombstone, on every other device.
-      await repo.addDesignation(designation(id: 'd1', value: 'A'));
-      await repo.deleteDesignation('d1');
-      await db.delete(db.syncLog).go();
+    test(
+      'updating a soft-deleted designation does not bring it back',
+      () async {
+        // The companion the UI builds carries only id/value/currencyCode, so a
+        // write that touches every column would reset isDeleted and the symbol
+        // the user deleted would reappear - here and, with its fresh modifiedAt
+        // beating the tombstone, on every other device.
+        await repo.addDesignation(designation(id: 'd1', value: 'A'));
+        await repo.deleteDesignation('d1');
+        await db.delete(db.syncLog).go();
 
-      await repo.updateDesignation(designation(id: 'd1', value: 'B'));
+        await repo.updateDesignation(designation(id: 'd1', value: 'B'));
 
-      expect(await repo.getDesignationById('d1'), isNull);
-      expect((await rowFor('d1'))!.isDeleted, isTrue);
-      expect((await rowFor('d1'))!.value, 'A', reason: 'no columns written');
-      expect(await logs(), isEmpty, reason: 'nothing changed, nothing to sync');
-    });
+        expect(await repo.getDesignationById('d1'), isNull);
+        expect((await rowFor('d1'))!.isDeleted, isTrue);
+        expect((await rowFor('d1'))!.value, 'A', reason: 'no columns written');
+        expect(
+          await logs(),
+          isEmpty,
+          reason: 'nothing changed, nothing to sync',
+        );
+      },
+    );
   });
 
   group('deleteDesignation', () {

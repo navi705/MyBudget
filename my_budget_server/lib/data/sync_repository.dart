@@ -10,6 +10,165 @@ typedef _TablePage = ({
   bool hitLimit,
 });
 
+/// One column of an upsert.
+///
+/// `key` is the JSON key the client sends the value under. Unless `always` is
+/// set, the column is written *only when the payload actually contains that
+/// key* — see `SyncRepository._bind` for why absence and an explicit null are
+/// not the same thing. `always` is for the columns a row cannot be stored
+/// without: primary keys, and the two the conflict guard is built on.
+///
+/// `convert` is handed the whole row rather than the single value, because a
+/// few columns are computed from more than the key they are named after and
+/// because the ones that log a rejection want the row's identity in the
+/// message.
+typedef _ColumnSpec = ({
+  String column,
+  String key,
+  Object? Function(Map<String, dynamic> row)? convert,
+  bool always,
+});
+
+/// Everything the statement builder needs to know about one synced table.
+typedef _TableSpec = ({
+  List<String> conflictColumns,
+  List<_ColumnSpec> columns,
+  int bulkChunkSize,
+  String? Function(Map<String, dynamic> row)? reject,
+});
+
+/// A column bound for one row: the column it writes, the parameter name it is
+/// bound under, and the value itself.
+typedef _Bound = ({String column, String param, Object? value});
+
+_ColumnSpec _c(
+  String column,
+  String key, {
+  Object? Function(Map<String, dynamic> row)? convert,
+  bool always = false,
+}) =>
+    (column: column, key: key, convert: convert, always: always);
+
+/// A column carried through untouched.
+_ColumnSpec _cRaw(String column, String key, {bool always = false}) =>
+    _c(column, key, always: always);
+
+/// A double column, normalised to eight decimals.
+_ColumnSpec _cNum(String column, String key, {bool always = false}) =>
+    _c(column, key, convert: (row) => _round(row[key]), always: always);
+
+/// An exact-minor-units column (cents), which must never be coerced to 0.
+_ColumnSpec _cMinor(String column, String key, {bool always = false}) =>
+    _c(column, key, convert: (row) => _minorUnits(row[key]), always: always);
+
+/// A boolean column. SQLite has no bool, so the client sends 1/0.
+_ColumnSpec _cBool(String column, String key, {bool always = false}) =>
+    _c(column, key, convert: (row) => _asBool(row[key]), always: always);
+
+/// A TIMESTAMP column.
+_ColumnSpec _cDate(String column, String key, {bool always = false}) =>
+    _c(column, key, convert: (row) => _parseDate(row[key]), always: always);
+
+/// Normalises SQLite's 1/0 into a real boolean.
+bool _asBool(Object? value) => value is bool ? value : value == 1;
+
+/// Returns null when the value is missing or unparseable.
+///
+/// Never substitute DateTime.now() here: a fabricated timestamp is
+/// indistinguishable from a real one once it is stored, and it silently wins
+/// against the client's real date on the next comparison.
+///
+/// A string with no zone designator is a *wall clock*, not an instant, and is
+/// taken as one: it is re-flagged UTC so that `package:postgres`, which
+/// encodes every DateTime as `input.toUtc()`, stores the very digits the
+/// client sent. Parsed as a local DateTime instead, the same push landed on a
+/// different row depending on the TZ the server container happened to run in,
+/// and `date` is part of the primary key of `exchange_rates`.
+DateTime? _parseDate(dynamic val) {
+  if (val is int) {
+    // Epoch milliseconds are an instant, not a wall clock, so they keep their
+    // absolute meaning; the driver's toUtc() then stores the UTC wall clock of
+    // that instant, which is server-timezone independent either way.
+    return DateTime.fromMillisecondsSinceEpoch(val);
+  } else if (val is String) {
+    final parsed = DateTime.tryParse(val);
+    if (parsed == null) return null;
+    // tryParse flags the result UTC only when the text carried 'Z' or an
+    // offset. Anything else is naive and is kept digit for digit.
+    if (parsed.isUtc) return parsed;
+    return DateTime.utc(
+      parsed.year,
+      parsed.month,
+      parsed.day,
+      parsed.hour,
+      parsed.minute,
+      parsed.second,
+      parsed.millisecond,
+      parsed.microsecond,
+    );
+  }
+  return null;
+}
+
+/// creation_date is nullable and nothing is keyed on it, so an account with a
+/// bad one is stored with NULL instead of being dropped — dropping it would
+/// break the accounts(id) foreign key for every transaction it owns.
+DateTime? _accountCreationDate(Map<String, dynamic> row) {
+  final parsed = _parseDate(row['creationDate']);
+  if (parsed == null && row['creationDate'] != null) {
+    print(
+        '[SYNC] Account ${row['id']}: unparseable creationDate (${row['creationDate']}), storing NULL');
+  }
+  return parsed;
+}
+
+/// Null in, null out — a NULL amount/rate/fee must stay NULL rather than
+/// becoming 0.0, which would silently rewrite the value on every device.
+///
+/// Values under [_roundingFloor] are passed through untouched. `toStringAsFixed(8)`
+/// cannot represent them at all: an exchange rate of 2.4e-10 — a real figure for a
+/// hyperinflated currency priced against BTC — renders as `0.00000000` and parses
+/// back as exactly 0.0, which then divides into infinity on the far side. Mirrors
+/// `ServerSyncService._round` on the client, so both ends of a round trip agree.
+double? _round(dynamic value) {
+  if (value == null) return null;
+  final numVal = value is num ? value : num.tryParse(value.toString());
+  if (numVal == null) return null;
+  final asDouble = numVal.toDouble();
+  if (asDouble == 0 || asDouble.abs() < _roundingFloor) return asDouble;
+  return double.parse(asDouble.toStringAsFixed(8));
+}
+
+/// The smallest magnitude `toStringAsFixed(8)` can still represent.
+const double _roundingFloor = 1e-8;
+
+/// Exact integer minor units (cents) for fiat money.
+///
+/// Nullable end to end: NULL marks a row whose value is not expressible in
+/// minor units (crypto/commodity), where the double column is authoritative.
+/// Never coerce to 0 and never route these through [_round].
+int? _minorUnits(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  final numVal = value is num ? value : num.tryParse(value.toString());
+  return numVal?.round();
+}
+
+/// The stamp last-write-wins compares on, never null.
+///
+/// `modified_at BIGINT DEFAULT 0` only applies when the column is omitted, and
+/// the upserts always name it, so an absent `modifiedAt` used to be written as
+/// a real NULL. From that moment `EXCLUDED.modified_at > t.modified_at`
+/// evaluated to NULL — not TRUE — for every later push, so the row froze: the
+/// writes were answered 200, the client dropped its queue entry, and the row
+/// was never updated and never re-handed to any peer again. Missing means
+/// "oldest possible", which loses every comparison, not "unbeatable".
+int _modifiedAt(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse('$value') ?? 0;
+}
+
 class SyncRepository {
   final DatabaseClient _dbClient;
 
@@ -36,6 +195,271 @@ class SyncRepository {
     if (raw is String && raw.isNotEmpty) return raw;
     return _globalInflationCountry;
   }
+
+  /// A row that cannot be keyed at all, with the message to log.
+  static String? _needsDate(String what, Map<String, dynamic> row) =>
+      _parseDate(row['date']) == null
+          ? 'Skipping $what: missing or unparseable date (${row['date']})'
+          : null;
+
+  /// Every synced table's write shape, in one place.
+  ///
+  /// One description per table rather than one hand-written statement per
+  /// table: the conflict guard, the "absent means leave alone" rule and the
+  /// bulk builder are all consequences of this map, so a table cannot end up
+  /// with a different rule than its neighbours by omission.
+  static final Map<String, _TableSpec> _tables = {
+    'languages': (
+      conflictColumns: ['language_code'],
+      columns: [
+        _cRaw('language_code', 'languageCode', always: true),
+        _cRaw('language', 'language'),
+      ],
+      bulkChunkSize: 1000,
+      reject: null,
+    ),
+    'currencies': (
+      conflictColumns: ['code'],
+      columns: [
+        _cRaw('code', 'code', always: true),
+        _cRaw('name', 'name'),
+        _cRaw('language_code', 'languageCode'),
+        _cRaw('type', 'type'),
+      ],
+      bulkChunkSize: 1000,
+      reject: null,
+    ),
+    'styles': (
+      conflictColumns: ['id'],
+      columns: [
+        _cRaw('id', 'id', always: true),
+        _cRaw('name', 'name'),
+        _cRaw('color_hex', 'colorHex'),
+        _cRaw('icon_name', 'iconName'),
+        _cRaw('icon_type', 'iconType'),
+        _cBool('is_deleted', 'isDeleted'),
+      ],
+      bulkChunkSize: 1000,
+      reject: null,
+    ),
+    'account_types': (
+      conflictColumns: ['id'],
+      columns: [
+        _cRaw('id', 'id', always: true),
+        _cRaw('name', 'name'),
+        _cRaw('language_code', 'languageCode'),
+        _cBool('is_deleted', 'isDeleted'),
+      ],
+      bulkChunkSize: 1000,
+      reject: null,
+    ),
+    'currency_designations': (
+      conflictColumns: ['id'],
+      columns: [
+        _cRaw('id', 'id', always: true),
+        _cRaw('value', 'value'),
+        _cRaw('currency_code', 'currencyCode'),
+        _cBool('is_deleted', 'isDeleted'),
+      ],
+      bulkChunkSize: 1000,
+      reject: null,
+    ),
+    'categories': (
+      conflictColumns: ['id'],
+      columns: [
+        _cRaw('id', 'id', always: true),
+        _cRaw('name', 'name'),
+        _cRaw('parent_id', 'parentId'),
+        _cRaw('style_id', 'styleId'),
+        _cRaw('type', 'type'),
+        _cBool('is_deleted', 'isDeleted'),
+      ],
+      bulkChunkSize: 1000,
+      reject: null,
+    ),
+    'accounts': (
+      conflictColumns: ['id'],
+      columns: [
+        _cRaw('id', 'id', always: true),
+        _cRaw('name', 'name'),
+        _cRaw('description', 'description'),
+        _cNum('balance', 'balance'),
+        _cMinor('balance_minor', 'balanceMinor'),
+        _cRaw('currency_code', 'currencyCode'),
+        _cRaw('currency_designation_id', 'currencyDesignationId'),
+        _cRaw('style_id', 'styleId'),
+        _cRaw('account_type_id', 'accountTypeId'),
+        _c('creation_date', 'creationDate', convert: _accountCreationDate),
+        _cRaw('country', 'country'),
+        _cRaw('asset_id', 'assetId'),
+        _cNum('asset_quantity', 'assetQuantity'),
+        _cRaw('fee_structure', 'feeStructure'),
+        _cBool('is_deleted', 'isDeleted'),
+      ],
+      bulkChunkSize: 500,
+      reject: null,
+    ),
+    'transactions': (
+      conflictColumns: ['id'],
+      columns: [
+        _cRaw('id', 'id', always: true),
+        _cRaw('description', 'description'),
+        _cNum('amount', 'amount'),
+        _cMinor('amount_minor', 'amountMinor'),
+        _cDate('date', 'date', always: true),
+        _cRaw('account_id', 'accountId'),
+        _cRaw('category_id', 'categoryId'),
+        _cRaw('currency_code', 'currencyCode'),
+        _cNum('exchange_rate', 'exchangeRate'),
+        _cRaw('exchange_rate_preset', 'exchangeRatePreset'),
+        _cNum('fee', 'fee'),
+        _cMinor('fee_minor', 'feeMinor'),
+        _cRaw('linked_transaction_id', 'linkedTransactionId'),
+        _cBool('is_deleted', 'isDeleted'),
+      ],
+      bulkChunkSize: 500,
+      // A transaction with no usable date cannot be placed on any timeline.
+      reject: (row) => _needsDate('transaction ${row['id']}', row),
+    ),
+    'asset_entries': (
+      conflictColumns: ['id'],
+      columns: [
+        _cRaw('id', 'id', always: true),
+        _cRaw('asset_id', 'assetId'),
+        _cRaw('name', 'name'),
+        _cDate('date', 'date', always: true),
+        _cNum('value', 'value'),
+        _cNum('quantity', 'quantity'),
+        _cRaw('asset_type', 'assetType'),
+        _cRaw('description', 'description'),
+        _cRaw('currency_code', 'currencyCode'),
+        _cRaw('account_id', 'accountId'),
+        _cRaw('source', 'source'),
+        _cRaw('preset', 'preset'),
+        _cRaw('source_id', 'sourceId'),
+        _cBool('is_deleted', 'isDeleted'),
+      ],
+      bulkChunkSize: 500,
+      // An asset entry is a point on a value timeline — without a date it is
+      // meaningless, so skip it rather than inventing one.
+      reject: (row) => _needsDate('asset_entry ${row['id']}', row),
+    ),
+    'sms_presets': (
+      conflictColumns: ['id'],
+      columns: [
+        _cRaw('id', 'id', always: true),
+        _cRaw('name', 'name'),
+        _cRaw('sender_filter', 'senderFilter'),
+        _cBool('is_built_in', 'isBuiltIn'),
+        _cBool('is_enabled', 'isEnabled'),
+        _cRaw('default_account_id', 'defaultAccountId'),
+        _cRaw('default_category_id', 'defaultCategoryId'),
+        _cRaw('rules_json', 'rulesJson'),
+        _cBool('is_deleted', 'isDeleted'),
+      ],
+      bulkChunkSize: 500,
+      reject: null,
+    ),
+    'settings': (
+      conflictColumns: ['key'],
+      columns: [
+        _cRaw('key', 'key', always: true),
+        _cRaw('value', 'value'),
+        _cRaw('device', 'device'),
+      ],
+      bulkChunkSize: 1000,
+      reject: null,
+    ),
+    'exchange_rates': (
+      conflictColumns: [
+        'from_currency_code',
+        'to_currency_code',
+        'date',
+        'preset'
+      ],
+      columns: [
+        _cRaw('from_currency_code', 'fromCurrencyCode', always: true),
+        _cRaw('to_currency_code', 'toCurrencyCode', always: true),
+        _cNum('rate', 'rate'),
+        _cRaw('preset', 'preset', always: true),
+        _cDate('date', 'date', always: true),
+        _cRaw('source_id', 'sourceId'),
+      ],
+      bulkChunkSize: 1000,
+      // date is part of the primary key — the row cannot be stored at all.
+      reject: (row) => _needsDate(
+          'exchange_rate ${row['fromCurrencyCode']}->${row['toCurrencyCode']}',
+          row),
+    ),
+    'inflation_rates': (
+      conflictColumns: ['date', 'country', 'preset'],
+      columns: [
+        _cDate('date', 'date', always: true),
+        _cNum('percent', 'percent'),
+        _c('country', 'country',
+            convert: (row) => _inflationCountry(row['country']), always: true),
+        _cRaw('preset', 'preset', always: true),
+        _cRaw('source_id', 'sourceId'),
+      ],
+      bulkChunkSize: 1000,
+      // date is part of the primary key — the row cannot be stored at all.
+      reject: (row) => _needsDate('inflation_rate for ${row['country']}', row),
+    ),
+    'custom_themes': (
+      conflictColumns: ['id'],
+      columns: [
+        _cRaw('id', 'id', always: true),
+        _cRaw('name', 'name'),
+        _cRaw('primary_color_hex', 'primaryColorHex'),
+        _cRaw('secondary_color_hex', 'secondaryColorHex'),
+        _cRaw('surface_color_hex', 'surfaceColorHex'),
+        _cRaw('background_color_hex', 'backgroundColorHex'),
+        _cRaw('background_image_path', 'backgroundImagePath'),
+        _cRaw('background_image_opacity', 'backgroundImageOpacity'),
+        _cRaw('background_image_blur', 'backgroundImageBlur'),
+        _cRaw('window_effect_type', 'windowEffectType'),
+        _cRaw('effect_opacity', 'effectOpacity'),
+        _cRaw('surface_opacity', 'surfaceOpacity'),
+        _cRaw('theme_mode', 'themeMode'),
+        _cBool('is_preset', 'isPreset'),
+        _cBool('is_active', 'isActive'),
+        _cBool('is_deleted', 'isDeleted'),
+      ],
+      bulkChunkSize: 500,
+      reject: null,
+    ),
+    'custom_data_sources': (
+      conflictColumns: ['id'],
+      columns: [
+        _cRaw('id', 'id', always: true),
+        _cRaw('name', 'name'),
+        _cRaw('url', 'url'),
+        _cRaw('data_type', 'dataType'),
+        _cBool('enabled', 'enabled'),
+        _cBool('auto_fetch', 'autoFetch'),
+        _cRaw('last_fetch_at', 'lastFetchAt'),
+        _cBool('is_deleted', 'isDeleted'),
+      ],
+      bulkChunkSize: 500,
+      reject: null,
+    ),
+    'api_settings': (
+      conflictColumns: ['id'],
+      columns: [
+        _cRaw('id', 'id', always: true),
+        _cBool('enabled', 'enabled'),
+        _cBool('auto_fetch', 'autoFetch'),
+        _cRaw('last_fetch_at', 'lastFetchAt'),
+        // The client has always sent this flag and has always read it back;
+        // the server was the only end that dropped it, so a provider the user
+        // deleted was pushed as deleted, stored as live, and handed back to
+        // every other device as live on the next pull.
+        _cBool('is_deleted', 'isDeleted'),
+      ],
+      bulkChunkSize: 500,
+      reject: null,
+    ),
+  };
 
   Future<void> upsertBatch(Map<String, dynamic> data) async {
     final tablesList = [
@@ -103,944 +527,171 @@ class SyncRepository {
 
   Future<void> _upsertRow(
       Session session, String table, Map<String, dynamic> row) async {
-    switch (table) {
-      case 'categories':
-        await _upsertCategory(session, row);
-        break;
-      case 'transactions':
-        await _upsertTransaction(session, row);
-        break;
-      case 'accounts':
-        await _upsertAccount(session, row);
-        break;
-      case 'styles':
-        await _upsertStyle(session, row);
-        break;
-      case 'asset_entries':
-        await _upsertAssetEntry(session, row);
-        break;
-      case 'account_types':
-        await _upsertAccountType(session, row);
-        break;
-      case 'currency_designations':
-        await _upsertCurrencyDesignation(session, row);
-        break;
-      case 'custom_data_sources':
-        await _upsertCustomDataSource(session, row);
-        break;
-      case 'api_settings':
-        await _upsertApiSetting(session, row);
-        break;
-      case 'sms_presets':
-        await _upsertSmsPreset(session, row);
-        break;
-      case 'settings':
-        await _upsertSetting(session, row);
-        break;
-      case 'exchange_rates':
-        await _upsertExchangeRate(session, row);
-        break;
-      case 'inflation_rates':
-        await _upsertInflationRate(session, row);
-        break;
-      case 'custom_themes':
-        await _upsertCustomTheme(session, row);
-        break;
-      case 'languages':
-        await _upsertLanguage(session, row);
-        break;
-      case 'currencies':
-        await _upsertCurrency(session, row);
-        break;
+    final spec = _tables[table];
+    if (spec == null) return;
+
+    final rejection = spec.reject?.call(row);
+    if (rejection != null) {
+      print('[SYNC] $rejection');
+      return;
     }
+
+    final bound = _bind(spec, row, suffix: '');
+    final sql = _upsertSql(table, spec, [bound]);
+
+    await session.execute(
+      Sql.named(sql),
+      parameters: {for (final b in bound) b.param: b.value},
+    );
   }
 
   Future<void> _bulkUpsert(
       Session session, String table, List<Map<String, dynamic>> rows) async {
-    if (rows.isEmpty) return;
+    final spec = _tables[table];
+    if (spec == null || rows.isEmpty) return;
 
-    if (table == 'exchange_rates') {
-      await _bulkUpsertExchangeRates(session, rows);
-    } else if (table == 'inflation_rates') {
-      await _bulkUpsertInflationRates(session, rows);
-    } else if (table == 'categories') {
-      await _bulkUpsertCategories(session, rows);
-    } else if (table == 'transactions') {
-      await _bulkUpsertTransactions(session, rows);
-    } else if (table == 'accounts') {
-      await _bulkUpsertAccounts(session, rows);
-    }
-  }
-
-  Future<void> _bulkUpsertExchangeRates(
-      Session session, List<Map<String, dynamic>> rows) async {
-    // date is part of the primary key: a row without a usable one cannot be
-    // stored at all, so skip it instead of inventing a timestamp.
-    final validRows = rows.where((row) {
-      if (_parseDate(row['date']) != null) return true;
-      print(
-          '[SYNC] Skipping exchange_rate ${row['fromCurrencyCode']}->${row['toCurrencyCode']}: missing or unparseable date (${row['date']})');
-      return false;
-    }).toList();
-    if (validRows.isEmpty) return;
-
-    const subBatchSize = 1000;
-    for (var i = 0; i < validRows.length; i += subBatchSize) {
-      final end = (i + subBatchSize < validRows.length)
-          ? i + subBatchSize
-          : validRows.length;
-      final chunk = validRows.sublist(i, end);
-
-      final buffer = StringBuffer();
-      buffer.write(
-          'INSERT INTO exchange_rates (from_currency_code, to_currency_code, rate, preset, date, modified_at, device_id, source_id) VALUES ');
-
-      final params = <String, dynamic>{};
-      for (var j = 0; j < chunk.length; j++) {
-        final row = chunk[j];
-        if (j > 0) buffer.write(', ');
-        final suffix = '_$j';
-        buffer.write(
-            '(@fcc$suffix, @tcc$suffix, @rate$suffix, @preset$suffix, @date$suffix, @ma$suffix, @did$suffix, @sid$suffix)');
-        params['fcc$suffix'] = row['fromCurrencyCode'];
-        params['tcc$suffix'] = row['toCurrencyCode'];
-        params['rate$suffix'] = _round(row['rate']);
-        params['preset$suffix'] = row['preset'];
-        params['date$suffix'] = _parseDate(row['date']);
-        params['ma$suffix'] = row['modifiedAt'];
-        params['did$suffix'] = row['deviceId'];
-        params['sid$suffix'] = row['sourceId'];
+    final accepted = <Map<String, dynamic>>[];
+    for (final row in rows) {
+      final rejection = spec.reject?.call(row);
+      if (rejection != null) {
+        print('[SYNC] $rejection');
+        continue;
       }
-
-      buffer.write('''
-        ON CONFLICT (from_currency_code, to_currency_code, date, preset) DO UPDATE SET
-          rate = EXCLUDED.rate,
-          modified_at = EXCLUDED.modified_at,
-          device_id = EXCLUDED.device_id,
-          source_id = EXCLUDED.source_id
-        WHERE EXCLUDED.modified_at > exchange_rates.modified_at
-      ''');
-
-      await session.execute(Sql.named(buffer.toString()), parameters: params);
+      accepted.add(row);
     }
-  }
+    if (accepted.isEmpty) return;
 
-  Future<void> _bulkUpsertInflationRates(
-      Session session, List<Map<String, dynamic>> rows) async {
-    // date is part of the primary key — skip rows we cannot key.
-    final validRows = rows.where((row) {
-      if (_parseDate(row['date']) != null) return true;
-      print(
-          '[SYNC] Skipping inflation_rate for ${row['country']}: missing or unparseable date (${row['date']})');
-      return false;
-    }).toList();
-    if (validRows.isEmpty) return;
+    // One statement carries a single column list and a single SET list, so
+    // rows that carry different fields cannot share one — the columns missing
+    // from the odd row out would be bound as NULL and overwrite the stored
+    // value, which is exactly what the presence rule exists to prevent. In
+    // practice every row in a push comes from one client and one build, so
+    // this is one group.
+    final groups = <String, List<Map<String, dynamic>>>{};
+    for (final row in accepted) {
+      final signature = spec.columns
+          .where((c) => c.always || row.containsKey(c.key))
+          .map((c) => c.column)
+          .join(',');
+      groups.putIfAbsent(signature, () => []).add(row);
+    }
 
-    const subBatchSize = 1000;
-    for (var i = 0; i < validRows.length; i += subBatchSize) {
-      final end = (i + subBatchSize < validRows.length)
-          ? i + subBatchSize
-          : validRows.length;
-      final chunk = validRows.sublist(i, end);
+    for (final group in groups.values) {
+      for (var i = 0; i < group.length; i += spec.bulkChunkSize) {
+        final end = (i + spec.bulkChunkSize < group.length)
+            ? i + spec.bulkChunkSize
+            : group.length;
+        final chunk = group.sublist(i, end);
 
-      final buffer = StringBuffer();
-      buffer.write(
-          'INSERT INTO inflation_rates (date, percent, country, preset, modified_at, device_id, source_id) VALUES ');
+        final bound = <List<_Bound>>[
+          for (var j = 0; j < chunk.length; j++)
+            _bind(spec, chunk[j], suffix: '_$j'),
+        ];
 
-      final params = <String, dynamic>{};
-      for (var j = 0; j < chunk.length; j++) {
-        final row = chunk[j];
-        if (j > 0) buffer.write(', ');
-        final suffix = '_$j';
-        buffer.write(
-            '(@date$suffix, @pct$suffix, @cnt$suffix, @pre$suffix, @ma$suffix, @did$suffix, @sid$suffix)');
-        params['date$suffix'] = _parseDate(row['date']);
-        params['pct$suffix'] = _round(row['percent']);
-        params['cnt$suffix'] = _inflationCountry(row['country']);
-        params['pre$suffix'] = row['preset'];
-        params['ma$suffix'] = row['modifiedAt'];
-        params['did$suffix'] = row['deviceId'];
-        params['sid$suffix'] = row['sourceId'];
+        await session.execute(
+          Sql.named(_upsertSql(table, spec, bound)),
+          parameters: {
+            for (final row in bound)
+              for (final b in row) b.param: b.value,
+          },
+        );
       }
-
-      buffer.write('''
-        ON CONFLICT (date, country, preset) DO UPDATE SET
-          percent = EXCLUDED.percent,
-          modified_at = EXCLUDED.modified_at,
-          device_id = EXCLUDED.device_id,
-          source_id = EXCLUDED.source_id
-        WHERE EXCLUDED.modified_at > inflation_rates.modified_at
-      ''');
-
-      await session.execute(Sql.named(buffer.toString()), parameters: params);
     }
   }
 
-  Future<void> _bulkUpsertCategories(
-      Session session, List<Map<String, dynamic>> rows) async {
-    const subBatchSize = 1000;
-    for (var i = 0; i < rows.length; i += subBatchSize) {
-      final end =
-          (i + subBatchSize < rows.length) ? i + subBatchSize : rows.length;
-      final chunk = rows.sublist(i, end);
-
-      final buffer = StringBuffer();
-      buffer.write(
-          'INSERT INTO categories (id, name, parent_id, style_id, type, modified_at, device_id, is_deleted) VALUES ');
-
-      final params = <String, dynamic>{};
-      for (var j = 0; j < chunk.length; j++) {
-        final row = chunk[j];
-        if (j > 0) buffer.write(', ');
-        final suffix = '_$j';
-        buffer.write(
-            '(@id$suffix, @name$suffix, @pid$suffix, @sid$suffix, @type$suffix, @ma$suffix, @did$suffix, @del$suffix)');
-        params['id$suffix'] = row['id'];
-        params['name$suffix'] = row['name'];
-        params['pid$suffix'] = row['parentId'];
-        params['sid$suffix'] = row['styleId'];
-        params['type$suffix'] = row['type'];
-        params['ma$suffix'] = row['modifiedAt'];
-        params['did$suffix'] = row['deviceId'];
-        params['del$suffix'] = row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1);
-      }
-
-      buffer.write('''
-        ON CONFLICT (id) DO UPDATE SET
-          name = EXCLUDED.name,
-          parent_id = EXCLUDED.parent_id,
-          style_id = EXCLUDED.style_id,
-          type = EXCLUDED.type,
-          modified_at = EXCLUDED.modified_at,
-          device_id = EXCLUDED.device_id,
-          is_deleted = EXCLUDED.is_deleted
-        WHERE EXCLUDED.modified_at > categories.modified_at
-      ''');
-
-      await session.execute(Sql.named(buffer.toString()), parameters: params);
-    }
-  }
-
-  Future<void> _bulkUpsertTransactions(
-      Session session, List<Map<String, dynamic>> rows) async {
-    // A transaction with no usable date cannot be placed on any timeline —
-    // skip it rather than stamping it with DateTime.now().
-    final validRows = rows.where((row) {
-      if (_parseDate(row['date']) != null) return true;
-      print(
-          '[SYNC] Skipping transaction ${row['id']}: missing or unparseable date (${row['date']})');
-      return false;
-    }).toList();
-    if (validRows.isEmpty) return;
-
-    const subBatchSize = 500;
-    for (var i = 0; i < validRows.length; i += subBatchSize) {
-      final end = (i + subBatchSize < validRows.length)
-          ? i + subBatchSize
-          : validRows.length;
-      final chunk = validRows.sublist(i, end);
-
-      final buffer = StringBuffer();
-      buffer.write(
-          'INSERT INTO transactions (id, description, amount, amount_minor, date, account_id, category_id, currency_code, exchange_rate, exchange_rate_preset, fee, fee_minor, linked_transaction_id, modified_at, device_id, is_deleted) VALUES ');
-
-      final params = <String, dynamic>{};
-      for (var j = 0; j < chunk.length; j++) {
-        final row = chunk[j];
-        if (j > 0) buffer.write(', ');
-        final suffix = '_$j';
-        buffer.write(
-            '(@id$suffix, @desc$suffix, @amt$suffix, @amtm$suffix, @date$suffix, @aid$suffix, @cid$suffix, @cc$suffix, @er$suffix, @erp$suffix, @fee$suffix, @feem$suffix, @lti$suffix, @ma$suffix, @did$suffix, @del$suffix)');
-        params['id$suffix'] = row['id'];
-        params['desc$suffix'] = row['description'];
-        params['amt$suffix'] = _round(row['amount']);
-        params['amtm$suffix'] = _minorUnits(row['amountMinor']);
-        params['date$suffix'] = _parseDate(row['date']);
-        params['aid$suffix'] = row['accountId'];
-        params['cid$suffix'] = row['categoryId'];
-        params['cc$suffix'] = row['currencyCode'];
-        params['er$suffix'] = _round(row['exchangeRate']);
-        params['erp$suffix'] = row['exchangeRatePreset'];
-        params['fee$suffix'] = _round(row['fee']);
-        params['feem$suffix'] = _minorUnits(row['feeMinor']);
-        params['lti$suffix'] = row['linkedTransactionId'];
-        params['ma$suffix'] = row['modifiedAt'];
-        params['did$suffix'] = row['deviceId'];
-        params['del$suffix'] = row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1);
-      }
-
-      buffer.write('''
-        ON CONFLICT (id) DO UPDATE SET
-          description = EXCLUDED.description,
-          amount = EXCLUDED.amount,
-          amount_minor = EXCLUDED.amount_minor,
-          date = EXCLUDED.date,
-          account_id = EXCLUDED.account_id,
-          category_id = EXCLUDED.category_id,
-          currency_code = EXCLUDED.currency_code,
-          exchange_rate = EXCLUDED.exchange_rate,
-          exchange_rate_preset = EXCLUDED.exchange_rate_preset,
-          fee = EXCLUDED.fee,
-          fee_minor = EXCLUDED.fee_minor,
-          linked_transaction_id = EXCLUDED.linked_transaction_id,
-          modified_at = EXCLUDED.modified_at,
-          device_id = EXCLUDED.device_id,
-          is_deleted = EXCLUDED.is_deleted
-        WHERE EXCLUDED.modified_at > transactions.modified_at
-      ''');
-
-      await session.execute(Sql.named(buffer.toString()), parameters: params);
-    }
-  }
-
-  Future<void> _bulkUpsertAccounts(
-      Session session, List<Map<String, dynamic>> rows) async {
-    const subBatchSize = 500;
-    for (var i = 0; i < rows.length; i += subBatchSize) {
-      final end =
-          (i + subBatchSize < rows.length) ? i + subBatchSize : rows.length;
-      final chunk = rows.sublist(i, end);
-
-      final buffer = StringBuffer();
-      buffer.write(
-          'INSERT INTO accounts (id, name, description, balance, balance_minor, currency_code, currency_designation_id, style_id, account_type_id, creation_date, country, asset_id, asset_quantity, fee_structure, modified_at, device_id, is_deleted) VALUES ');
-
-      final params = <String, dynamic>{};
-      for (var j = 0; j < chunk.length; j++) {
-        final row = chunk[j];
-        if (j > 0) buffer.write(', ');
-        final suffix = '_$j';
-        buffer.write(
-            '(@id$suffix, @name$suffix, @desc$suffix, @bal$suffix, @balm$suffix, @cc$suffix, @cdi$suffix, @sid$suffix, @ati$suffix, @cd$suffix, @cnt$suffix, @aid$suffix, @aq$suffix, @fs$suffix, @ma$suffix, @did$suffix, @del$suffix)');
-        params['id$suffix'] = row['id'];
-        params['name$suffix'] = row['name'];
-        params['desc$suffix'] = row['description'];
-        params['bal$suffix'] = _round(row['balance']);
-        params['balm$suffix'] = _minorUnits(row['balanceMinor']);
-        params['cc$suffix'] = row['currencyCode'];
-        params['cdi$suffix'] = row['currencyDesignationId'];
-        params['sid$suffix'] = row['styleId'];
-        params['ati$suffix'] = row['accountTypeId'];
-        params['cd$suffix'] = _accountCreationDate(row);
-        params['cnt$suffix'] = row['country'];
-        params['aid$suffix'] = row['assetId'];
-        params['aq$suffix'] = _round(row['assetQuantity']);
-        params['fs$suffix'] = row['feeStructure'];
-        params['ma$suffix'] = row['modifiedAt'];
-        params['did$suffix'] = row['deviceId'];
-        params['del$suffix'] = row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1);
-      }
-
-      buffer.write('''
-        ON CONFLICT (id) DO UPDATE SET
-          name = EXCLUDED.name,
-          description = EXCLUDED.description,
-          balance = EXCLUDED.balance,
-          balance_minor = EXCLUDED.balance_minor,
-          currency_code = EXCLUDED.currency_code,
-          currency_designation_id = EXCLUDED.currency_designation_id,
-          style_id = EXCLUDED.style_id,
-          account_type_id = EXCLUDED.account_type_id,
-          creation_date = EXCLUDED.creation_date,
-          country = EXCLUDED.country,
-          asset_id = EXCLUDED.asset_id,
-          asset_quantity = EXCLUDED.asset_quantity,
-          fee_structure = EXCLUDED.fee_structure,
-          modified_at = EXCLUDED.modified_at,
-          device_id = EXCLUDED.device_id,
-          is_deleted = EXCLUDED.is_deleted
-        WHERE EXCLUDED.modified_at > accounts.modified_at
-      ''');
-
-      await session.execute(Sql.named(buffer.toString()), parameters: params);
-    }
-  }
-
-  Future<void> _upsertCategory(
-      Session session, Map<String, dynamic> row) async {
-    final sql = '''
-      INSERT INTO categories (id, name, parent_id, style_id, type, modified_at, device_id, is_deleted)
-      VALUES (@id, @name, @parentId, @styleId, @type, @modifiedAt, @deviceId, @isDeleted)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        parent_id = EXCLUDED.parent_id,
-        style_id = EXCLUDED.style_id,
-        type = EXCLUDED.type,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > categories.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'id': row['id'],
-      'name': row['name'],
-      'parentId': row['parentId'],
-      'styleId': row['styleId'],
-      'type': row['type'],
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-      'isDeleted':
-          row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1),
-    });
-  }
-
-  Future<void> _upsertLanguage(
-      Session session, Map<String, dynamic> row) async {
-    final sql = '''
-      INSERT INTO languages (language_code, language, modified_at, device_id)
-      VALUES (@languageCode, @language, @modifiedAt, @deviceId)
-      ON CONFLICT (language_code) DO UPDATE SET
-        language = EXCLUDED.language,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id
-      WHERE EXCLUDED.modified_at > languages.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'languageCode': row['languageCode'],
-      'language': row['language'],
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-    });
-  }
-
-  Future<void> _upsertCurrency(
-      Session session, Map<String, dynamic> row) async {
-    final sql = '''
-      INSERT INTO currencies (code, name, language_code, type, modified_at, device_id)
-      VALUES (@code, @name, @languageCode, @type, @modifiedAt, @deviceId)
-      ON CONFLICT (code) DO UPDATE SET
-        name = EXCLUDED.name,
-        language_code = EXCLUDED.language_code,
-        type = EXCLUDED.type,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id
-      WHERE EXCLUDED.modified_at > currencies.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'code': row['code'],
-      'name': row['name'],
-      'languageCode': row['languageCode'],
-      'type': row['type'],
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-    });
-  }
-
-  Future<void> _upsertTransaction(
-      Session session, Map<String, dynamic> row) async {
-    final date = _parseDate(row['date']);
-    if (date == null) {
-      // No usable date: skip rather than stamping it with DateTime.now().
-      print(
-          '[SYNC] Skipping transaction ${row['id']}: missing or unparseable date (${row['date']})');
-      return;
-    }
-
-    final sql = '''
-      INSERT INTO transactions (id, description, amount, amount_minor, date, account_id, category_id, currency_code, exchange_rate, exchange_rate_preset, fee, fee_minor, linked_transaction_id, modified_at, device_id, is_deleted)
-      VALUES (@id, @description, @amount, @amountMinor, @date, @accountId, @categoryId, @currencyCode, @exchangeRate, @exchangeRatePreset, @fee, @feeMinor, @linkedTransactionId, @modifiedAt, @deviceId, @isDeleted)
-      ON CONFLICT (id) DO UPDATE SET
-        description = EXCLUDED.description,
-        amount = EXCLUDED.amount,
-        amount_minor = EXCLUDED.amount_minor,
-        date = EXCLUDED.date,
-        account_id = EXCLUDED.account_id,
-        category_id = EXCLUDED.category_id,
-        currency_code = EXCLUDED.currency_code,
-        exchange_rate = EXCLUDED.exchange_rate,
-        exchange_rate_preset = EXCLUDED.exchange_rate_preset,
-        fee = EXCLUDED.fee,
-        fee_minor = EXCLUDED.fee_minor,
-        linked_transaction_id = EXCLUDED.linked_transaction_id,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > transactions.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'id': row['id'],
-      'description': row['description'],
-      'amount': _round(row['amount']),
-      'amountMinor': _minorUnits(row['amountMinor']),
-      'date': date,
-      'accountId': row['accountId'],
-      'categoryId': row['categoryId'],
-      'currencyCode': row['currencyCode'],
-      'exchangeRate': _round(row['exchangeRate']),
-      'exchangeRatePreset': row['exchangeRatePreset'],
-      'fee': _round(row['fee']),
-      'feeMinor': _minorUnits(row['feeMinor']),
-      'linkedTransactionId': row['linkedTransactionId'],
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-      'isDeleted':
-          row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1),
-    });
-  }
-
-  Future<void> _upsertAccount(Session session, Map<String, dynamic> row) async {
-    final sql = '''
-      INSERT INTO accounts (id, name, description, balance, balance_minor, currency_code, currency_designation_id, style_id, account_type_id, creation_date, country, asset_id, asset_quantity, fee_structure, modified_at, device_id, is_deleted)
-      VALUES (@id, @name, @description, @balance, @balanceMinor, @currencyCode, @currencyDesignationId, @styleId, @accountTypeId, @creationDate, @country, @assetId, @assetQuantity, @feeStructure, @modifiedAt, @deviceId, @isDeleted)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        description = EXCLUDED.description,
-        balance = EXCLUDED.balance,
-        balance_minor = EXCLUDED.balance_minor,
-        currency_code = EXCLUDED.currency_code,
-        currency_designation_id = EXCLUDED.currency_designation_id,
-        style_id = EXCLUDED.style_id,
-        account_type_id = EXCLUDED.account_type_id,
-        creation_date = EXCLUDED.creation_date,
-        country = EXCLUDED.country,
-        asset_id = EXCLUDED.asset_id,
-        asset_quantity = EXCLUDED.asset_quantity,
-        fee_structure = EXCLUDED.fee_structure,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > accounts.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'id': row['id'],
-      'name': row['name'],
-      'description': row['description'],
-      'balance': _round(row['balance']),
-      'balanceMinor': _minorUnits(row['balanceMinor']),
-      'currencyCode': row['currencyCode'],
-      'currencyDesignationId': row['currencyDesignationId'],
-      'styleId': row['styleId'],
-      'accountTypeId': row['accountTypeId'],
-      'creationDate': _accountCreationDate(row),
-      'country': row['country'],
-      'assetId': row['assetId'],
-      'assetQuantity': _round(row['assetQuantity']),
-      'feeStructure': row['feeStructure'],
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-      'isDeleted':
-          row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1),
-    });
-  }
-
-  Future<void> _upsertStyle(Session session, Map<String, dynamic> row) async {
-    final sql = '''
-      INSERT INTO styles (id, name, color_hex, icon_name, icon_type, modified_at, device_id, is_deleted)
-      VALUES (@id, @name, @colorHex, @iconName, @iconType, @modifiedAt, @deviceId, @isDeleted)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        color_hex = EXCLUDED.color_hex,
-        icon_name = EXCLUDED.icon_name,
-        icon_type = EXCLUDED.icon_type,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > styles.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'id': row['id'],
-      'name': row['name'],
-      'colorHex': row['colorHex'],
-      'iconName': row['iconName'],
-      'iconType': row['iconType'],
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-      'isDeleted':
-          row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1),
-    });
-  }
-
-  Future<void> _upsertAssetEntry(
-      Session session, Map<String, dynamic> row) async {
-    final date = _parseDate(row['date']);
-    if (date == null) {
-      // An asset entry is a point on a value timeline — without a date it is
-      // meaningless, so skip it rather than inventing one.
-      print(
-          '[SYNC] Skipping asset_entry ${row['id']}: missing or unparseable date (${row['date']})');
-      return;
-    }
-
-    final sql = '''
-      INSERT INTO asset_entries (id, asset_id, name, date, value, quantity, asset_type, description, currency_code, account_id, source, preset, modified_at, device_id, source_id, is_deleted)
-      VALUES (@id, @assetId, @name, @date, @value, @quantity, @assetType, @description, @currencyCode, @accountId, @source, @preset, @modifiedAt, @deviceId, @sourceId, @isDeleted)
-      ON CONFLICT (id) DO UPDATE SET
-        asset_id = EXCLUDED.asset_id,
-        name = EXCLUDED.name,
-        date = EXCLUDED.date,
-        value = EXCLUDED.value,
-        quantity = EXCLUDED.quantity,
-        asset_type = EXCLUDED.asset_type,
-        description = EXCLUDED.description,
-        currency_code = EXCLUDED.currency_code,
-        account_id = EXCLUDED.account_id,
-        source = EXCLUDED.source,
-        preset = EXCLUDED.preset,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        source_id = EXCLUDED.source_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > asset_entries.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'id': row['id'],
-      'assetId': row['assetId'],
-      'name': row['name'],
-      'date': date,
-      'value': _round(row['value']),
-      'quantity': _round(row['quantity']),
-      'assetType': row['assetType'],
-      'description': row['description'],
-      'currencyCode': row['currencyCode'],
-      'accountId': row['accountId'],
-      'source': row['source'],
-      'preset': row['preset'],
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-      'sourceId': row['sourceId'],
-      'isDeleted':
-          row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1),
-    });
-  }
-
-  Future<void> _upsertAccountType(
-      Session session, Map<String, dynamic> row) async {
-    final sql = '''
-      INSERT INTO account_types (id, name, language_code, modified_at, device_id, is_deleted)
-      VALUES (@id, @name, @languageCode, @modifiedAt, @deviceId, @isDeleted)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        language_code = EXCLUDED.language_code,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > account_types.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'id': row['id'],
-      'name': row['name'],
-      'languageCode': row['languageCode'],
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-      'isDeleted':
-          row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1),
-    });
-  }
-
-  Future<void> _upsertCurrencyDesignation(
-      Session session, Map<String, dynamic> row) async {
-    final sql = '''
-      INSERT INTO currency_designations (id, value, currency_code, modified_at, device_id, is_deleted)
-      VALUES (@id, @value, @currencyCode, @modifiedAt, @deviceId, @isDeleted)
-      ON CONFLICT (id) DO UPDATE SET
-        value = EXCLUDED.value,
-        currency_code = EXCLUDED.currency_code,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > currency_designations.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'id': row['id'],
-      'value': row['value'],
-      'currencyCode': row['currencyCode'],
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-      'isDeleted':
-          row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1),
-    });
-  }
-
-  Future<void> _upsertCustomDataSource(
-      Session session, Map<String, dynamic> row) async {
-    final sql = '''
-      INSERT INTO custom_data_sources (id, name, url, data_type, enabled, auto_fetch, last_fetch_at, modified_at, device_id, is_deleted)
-      VALUES (@id, @name, @url, @dataType, @enabled, @autoFetch, @lastFetchAt, @modifiedAt, @deviceId, @isDeleted)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        url = EXCLUDED.url,
-        data_type = EXCLUDED.data_type,
-        enabled = EXCLUDED.enabled,
-        auto_fetch = EXCLUDED.auto_fetch,
-        last_fetch_at = EXCLUDED.last_fetch_at,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > custom_data_sources.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'id': row['id'],
-      'name': row['name'],
-      'url': row['url'],
-      'dataType': row['dataType'],
-      'enabled':
-          row['enabled'] is bool ? row['enabled'] : (row['enabled'] == 1),
-      'autoFetch':
-          row['autoFetch'] is bool ? row['autoFetch'] : (row['autoFetch'] == 1),
-      'lastFetchAt': row['lastFetchAt'],
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-      'isDeleted':
-          row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1),
-    });
-  }
-
-  Future<void> _upsertApiSetting(
-      Session session, Map<String, dynamic> row) async {
-    final sql = '''
-      INSERT INTO api_settings (id, enabled, auto_fetch, last_fetch_at, modified_at, device_id)
-      VALUES (@id, @enabled, @autoFetch, @lastFetchAt, @modifiedAt, @deviceId)
-      ON CONFLICT (id) DO UPDATE SET
-        enabled = EXCLUDED.enabled,
-        auto_fetch = EXCLUDED.auto_fetch,
-        last_fetch_at = EXCLUDED.last_fetch_at,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id
-      WHERE EXCLUDED.modified_at > api_settings.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'id': row['id'],
-      'enabled':
-          row['enabled'] is bool ? row['enabled'] : (row['enabled'] == 1),
-      'autoFetch':
-          row['autoFetch'] is bool ? row['autoFetch'] : (row['autoFetch'] == 1),
-      'lastFetchAt': row['lastFetchAt'],
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-    });
-  }
-
-  Future<void> _upsertSmsPreset(
-      Session session, Map<String, dynamic> row) async {
-    final sql = '''
-      INSERT INTO sms_presets (id, name, sender_filter, is_built_in, is_enabled, default_account_id, default_category_id, rules_json, modified_at, device_id, is_deleted)
-      VALUES (@id, @name, @senderFilter, @isBuiltIn, @isEnabled, @defaultAccountId, @defaultCategoryId, @rulesJson, @modifiedAt, @deviceId, @isDeleted)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        sender_filter = EXCLUDED.sender_filter,
-        is_built_in = EXCLUDED.is_built_in,
-        is_enabled = EXCLUDED.is_enabled,
-        default_account_id = EXCLUDED.default_account_id,
-        default_category_id = EXCLUDED.default_category_id,
-        rules_json = EXCLUDED.rules_json,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > sms_presets.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'id': row['id'],
-      'name': row['name'],
-      'senderFilter': row['senderFilter'],
-      'isBuiltIn':
-          row['isBuiltIn'] is bool ? row['isBuiltIn'] : (row['isBuiltIn'] == 1),
-      'isEnabled':
-          row['isEnabled'] is bool ? row['isEnabled'] : (row['isEnabled'] == 1),
-      'defaultAccountId': row['defaultAccountId'],
-      'defaultCategoryId': row['defaultCategoryId'],
-      'rulesJson': row['rulesJson'],
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-      'isDeleted':
-          row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1),
-    });
-  }
-
-  Future<void> _upsertSetting(Session session, Map<String, dynamic> row) async {
-    final sql = '''
-      INSERT INTO settings (key, value, device, modified_at, device_id)
-      VALUES (@key, @value, @device, @modifiedAt, @deviceId)
-      ON CONFLICT (key) DO UPDATE SET
-        value = EXCLUDED.value,
-        device = EXCLUDED.device,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id
-      WHERE EXCLUDED.modified_at > settings.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'key': row['key'],
-      'value': row['value'],
-      'device': row['device'],
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-    });
-  }
-
-  Future<void> _upsertExchangeRate(
-      Session session, Map<String, dynamic> row) async {
-    final date = _parseDate(row['date']);
-    if (date == null) {
-      // date is part of the primary key — the row cannot be stored at all.
-      print(
-          '[SYNC] Skipping exchange_rate ${row['fromCurrencyCode']}->${row['toCurrencyCode']}: missing or unparseable date (${row['date']})');
-      return;
-    }
-
-    final sql = '''
-      INSERT INTO exchange_rates (from_currency_code, to_currency_code, rate, preset, date, modified_at, device_id, source_id)
-      VALUES (@fromCurrencyCode, @toCurrencyCode, @rate, @preset, @date, @modifiedAt, @deviceId, @sourceId)
-      ON CONFLICT (from_currency_code, to_currency_code, date, preset) DO UPDATE SET
-        rate = EXCLUDED.rate,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        source_id = EXCLUDED.source_id
-      WHERE EXCLUDED.modified_at > exchange_rates.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'fromCurrencyCode': row['fromCurrencyCode'],
-      'toCurrencyCode': row['toCurrencyCode'],
-      'rate': _round(row['rate']),
-      'preset': row['preset'],
-      'date': date,
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-      'sourceId': row['sourceId'],
-    });
-  }
-
-  Future<void> _upsertInflationRate(
-      Session session, Map<String, dynamic> row) async {
-    final date = _parseDate(row['date']);
-    if (date == null) {
-      // date is part of the primary key — the row cannot be stored at all.
-      print(
-          '[SYNC] Skipping inflation_rate for ${row['country']}: missing or unparseable date (${row['date']})');
-      return;
-    }
-
-    final sql = '''
-      INSERT INTO inflation_rates (date, percent, country, preset, modified_at, device_id, source_id)
-      VALUES (@date, @percent, @country, @preset, @modifiedAt, @deviceId, @sourceId)
-      ON CONFLICT (date, country, preset) DO UPDATE SET
-        percent = EXCLUDED.percent,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        source_id = EXCLUDED.source_id
-      WHERE EXCLUDED.modified_at > inflation_rates.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'date': date,
-      'percent': _round(row['percent']),
-      'country': _inflationCountry(row['country']),
-      'preset': row['preset'],
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-      'sourceId': row['sourceId'],
-    });
-  }
-
-  Future<void> _upsertCustomTheme(
-      Session session, Map<String, dynamic> row) async {
-    final sql = '''
-      INSERT INTO custom_themes (id, name, primary_color_hex, secondary_color_hex, surface_color_hex, background_color_hex, background_image_path, background_image_opacity, background_image_blur, window_effect_type, effect_opacity, surface_opacity, theme_mode, is_preset, is_active, modified_at, device_id, is_deleted)
-      VALUES (@id, @name, @primaryColorHex, @secondaryColorHex, @surfaceColorHex, @backgroundColorHex, @backgroundImagePath, @backgroundImageOpacity, @backgroundImageBlur, @windowEffectType, @effectOpacity, @surfaceOpacity, @themeMode, @isPreset, @isActive, @modifiedAt, @deviceId, @isDeleted)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        primary_color_hex = EXCLUDED.primary_color_hex,
-        secondary_color_hex = EXCLUDED.secondary_color_hex,
-        surface_color_hex = EXCLUDED.surface_color_hex,
-        background_color_hex = EXCLUDED.background_color_hex,
-        background_image_path = EXCLUDED.background_image_path,
-        background_image_opacity = EXCLUDED.background_image_opacity,
-        background_image_blur = EXCLUDED.background_image_blur,
-        window_effect_type = EXCLUDED.window_effect_type,
-        effect_opacity = EXCLUDED.effect_opacity,
-        surface_opacity = EXCLUDED.surface_opacity,
-        theme_mode = EXCLUDED.theme_mode,
-        is_preset = EXCLUDED.is_preset,
-        is_active = EXCLUDED.is_active,
-        modified_at = EXCLUDED.modified_at,
-        device_id = EXCLUDED.device_id,
-        is_deleted = EXCLUDED.is_deleted
-      WHERE EXCLUDED.modified_at > custom_themes.modified_at
-    ''';
-
-    await session.execute(Sql.named(sql), parameters: {
-      'id': row['id'],
-      'name': row['name'],
-      'primaryColorHex': row['primaryColorHex'],
-      'secondaryColorHex': row['secondaryColorHex'],
-      'surfaceColorHex': row['surfaceColorHex'],
-      'backgroundColorHex': row['backgroundColorHex'],
-      'backgroundImagePath': row['backgroundImagePath'],
-      'backgroundImageOpacity': row['backgroundImageOpacity'],
-      'backgroundImageBlur': row['backgroundImageBlur'],
-      'windowEffectType': row['windowEffectType'],
-      'effectOpacity': row['effectOpacity'],
-      'surfaceOpacity': row['surfaceOpacity'],
-      'themeMode': row['themeMode'],
-      'isPreset':
-          row['isPreset'] is bool ? row['isPreset'] : (row['isPreset'] == 1),
-      'isActive':
-          row['isActive'] is bool ? row['isActive'] : (row['isActive'] == 1),
-      'modifiedAt': row['modifiedAt'],
-      'deviceId': row['deviceId'],
-      'isDeleted':
-          row['isDeleted'] is bool ? row['isDeleted'] : (row['isDeleted'] == 1),
-    });
-  }
-
-  /// Returns null when the value is missing or unparseable.
+  /// The columns of [row] that this push actually carried, in column order.
   ///
-  /// Never substitute DateTime.now() here: a fabricated timestamp is
-  /// indistinguishable from a real one once it is stored, and it silently wins
-  /// against the client's real date on the next comparison.
-  DateTime? _parseDate(dynamic val) {
-    if (val is int) {
-      return DateTime.fromMillisecondsSinceEpoch(val);
-    } else if (val is String) {
-      return DateTime.tryParse(val);
-    }
-    return null;
-  }
-
-  /// creation_date is nullable and nothing is keyed on it, so an account with a
-  /// bad one is stored with NULL instead of being dropped — dropping it would
-  /// break the accounts(id) foreign key for every transaction it owns.
-  DateTime? _accountCreationDate(Map<String, dynamic> row) {
-    final parsed = _parseDate(row['creationDate']);
-    if (parsed == null && row['creationDate'] != null) {
-      print(
-          '[SYNC] Account ${row['id']}: unparseable creationDate (${row['creationDate']}), storing NULL');
-    }
-    return parsed;
-  }
-
-  /// Null in, null out — a NULL amount/rate/fee must stay NULL rather than
-  /// becoming 0.0, which would silently rewrite the value on every device.
-  double? _round(dynamic value) {
-    if (value == null) return null;
-    final numVal = value is num ? value : num.tryParse(value.toString());
-    if (numVal == null) return null;
-    return double.parse(numVal.toStringAsFixed(8));
-  }
-
-  /// Exact integer minor units (cents) for fiat money.
+  /// `containsKey`, not a null check: the two mean opposite things. A key sent
+  /// as an explicit null is a real clear — `amount_minor` is nullable on
+  /// purpose, and NULL is how a crypto row says "the double column is
+  /// authoritative". A key that is not in the payload at all is a client that
+  /// has never heard of the column: `amount_minor`, `fee_minor` and
+  /// `balance_minor` were all added to this server by migration, which is
+  /// proof such clients exist. Writing that silence into the row erased the
+  /// exact minor units for every device on the account, and an absent
+  /// `isDeleted` (coerced to false) cleared a tombstone the rest of the fleet
+  /// had already agreed on.
   ///
-  /// Nullable end to end: NULL marks a row whose value is not expressible in
-  /// minor units (crypto/commodity), where the double column is authoritative.
-  /// Never coerce to 0 and never route these through [_round].
-  int? _minorUnits(dynamic value) {
-    if (value == null) return null;
-    if (value is int) return value;
-    final numVal = value is num ? value : num.tryParse(value.toString());
-    return numVal?.round();
+  /// [suffix] distinguishes one row's parameters from the next in a multi-row
+  /// statement; it is empty for the single-row path.
+  List<_Bound> _bind(
+    _TableSpec spec,
+    Map<String, dynamic> row, {
+    required String suffix,
+  }) {
+    final bound = <_Bound>[];
+    for (final column in spec.columns) {
+      if (!column.always && !row.containsKey(column.key)) continue;
+      bound.add((
+        column: column.column,
+        param: '${column.key}$suffix',
+        value: column.convert == null ? row[column.key] : column.convert!(row),
+      ));
+    }
+    // Always written, whatever the payload says: the conflict guard is built
+    // on both, and a missing stamp has to read as "oldest possible" rather
+    // than as NULL.
+    bound.add((
+      column: 'modified_at',
+      param: 'modifiedAt$suffix',
+      value: _modifiedAt(row['modifiedAt']),
+    ));
+    bound.add((
+      column: 'device_id',
+      param: 'deviceId$suffix',
+      value: row['deviceId'],
+    ));
+    return bound;
   }
+
+  /// Builds the one upsert shape every table shares, over one or more rows.
+  ///
+  /// Every row in [rows] carries the same columns in the same order - the
+  /// single-row path has only one, and the bulk path groups by column list
+  /// before it gets here - so the first row is representative of all of them.
+  String _upsertSql(String table, _TableSpec spec, List<List<_Bound>> rows) {
+    final columns = rows.first.map((b) => b.column).join(', ');
+
+    final values = StringBuffer();
+    for (var i = 0; i < rows.length; i++) {
+      if (i > 0) values.write(', ');
+      values.write('(${rows[i].map((b) => '@${b.param}').join(', ')})');
+    }
+
+    // Only the columns this push carried are assigned on conflict. The
+    // primary key is excluded because it is what matched.
+    final assignments = rows.first
+        .where((b) => !spec.conflictColumns.contains(b.column))
+        .map((b) => '${b.column} = EXCLUDED.${b.column}')
+        .join(',\n        ');
+
+    return '''
+      INSERT INTO $table ($columns)
+      VALUES $values
+      ON CONFLICT (${spec.conflictColumns.join(', ')}) DO UPDATE SET
+        $assignments
+      WHERE ${_lastWriteWins(table)}
+    ''';
+  }
+
+  /// Last-write-wins, with a tiebreak that does not depend on arrival order.
+  ///
+  /// Two devices editing the same row in the same millisecond stamp the same
+  /// `modified_at`, and a strict `>` then lets whichever push arrived first
+  /// keep the row: the second is answered 200, its queue entry is drained, and
+  /// because no UPDATE happened `server_seq` never moves, so no peer is ever
+  /// handed either version again. The devices diverge permanently and in
+  /// silence. `(modified_at, device_id)` is a total order every party can
+  /// evaluate independently — higher device id wins — which is the same rule
+  /// the clients apply, so all three ends pick the same winner.
+  ///
+  /// COALESCE, not a bare comparison: a row whose `modified_at` is NULL (an
+  /// older client that predates the column) made every later comparison
+  /// evaluate to NULL rather than TRUE, freezing the row forever.
+  static String _lastWriteWins(String table) =>
+      'EXCLUDED.modified_at > COALESCE($table.modified_at, 0) '
+      'OR (EXCLUDED.modified_at = COALESCE($table.modified_at, 0) '
+      "AND COALESCE(EXCLUDED.device_id, '') > COALESCE($table.device_id, ''))";
 
   /// Everything written after cursor [lastSync], in server-write order.
   ///
@@ -1131,7 +782,10 @@ class SyncRepository {
         'auto_fetch': 'autoFetch',
         'last_fetch_at': 'lastFetchAt',
         'modified_at': 'modifiedAt',
-        'device_id': 'deviceId'
+        'device_id': 'deviceId',
+        // Renaming it is what makes the delete visible: the client reads
+        // `isDeleted` and nothing else.
+        'is_deleted': 'isDeleted'
       },
       'sms_presets': {
         'sender_filter': 'senderFilter',
@@ -1256,16 +910,9 @@ class SyncRepository {
     bool hasMore = false;
     int? truncatedCursor;
     for (final result in results) {
-      final rows = result.rows;
-      if (rows.isNotEmpty) {
-        for (final row in rows) {
-          final seq = row['serverSeq'] as int;
-          if (seq > maxSeq) maxSeq = seq;
-          // Internal bookkeeping: the client stores whatever it is handed, and
-          // this column is not one of its own.
-          row.remove('serverSeq');
-        }
-        changes[result.tableName] = rows;
+      for (final row in result.rows) {
+        final seq = row['serverSeq'] as int;
+        if (seq > maxSeq) maxSeq = seq;
       }
 
       // A table that filled its limit still has rows to give
@@ -1278,10 +925,31 @@ class SyncRepository {
     }
 
     // A single global max would skip everything a truncated table has not
-    // returned yet, so any truncated table pins the cursor for all tables. The
-    // untruncated ones simply re-send a few rows on the next page (upserts are
-    // idempotent) instead of losing rows forever.
+    // returned yet, so any truncated table pins the cursor for all tables.
     final nextCursor = truncatedCursor ?? maxSeq;
+
+    // The cursor is decided BEFORE the page is assembled, and every table's
+    // slice is then cut down to it. `server_seq` is one global sequence, so a
+    // budget whose 283 000 exchange rates were pushed before its 4 000
+    // transactions puts every transaction above the rate range: with the page
+    // built first, all 4 000 shipped on page 1, and again on each of the 57
+    // pages the rates need — 228 000 row applies, and 57 balance rebuilds, for
+    // 4 000 rows. Trimmed to the cursor, a page is a true prefix of the write
+    // order and every row is handed out exactly once. `hasMore` still drives
+    // the loop, and it is necessarily already true whenever anything is
+    // trimmed, because only a truncated table can pin the cursor below maxSeq.
+    for (final result in results) {
+      final rows = result.rows
+          .where((row) => (row['serverSeq'] as int) <= nextCursor)
+          .toList();
+      if (rows.isEmpty) continue;
+      for (final row in rows) {
+        // Internal bookkeeping: the client stores whatever it is handed, and
+        // this column is not one of its own.
+        row.remove('serverSeq');
+      }
+      changes[result.tableName] = rows;
+    }
 
     return (changes: changes, lastTimestamp: nextCursor, hasMore: hasMore);
   }
@@ -1295,12 +963,28 @@ class SyncRepository {
       colMap.forEach((key, value) {
         final newKey = columnMap[key] ?? key;
         if (value is DateTime) {
-          map[newKey] = value.toIso8601String();
+          map[newKey] = _isoWallClock(value);
         } else {
           map[newKey] = value;
         }
       });
       return map;
     }).toList();
+  }
+
+  /// A `TIMESTAMP` column as the wall clock it is, with no zone marker.
+  ///
+  /// The driver decodes `timestamp without time zone` as a `DateTime.utc`, so
+  /// `toIso8601String()` stamped a 'Z' onto a value that never carried one.
+  /// The client parses what it is handed and stores the resulting *instant*,
+  /// so a rate the user entered at local midnight came back as an instant and
+  /// re-rendered as 19:00 the previous day west of UTC — a different calendar
+  /// day, a different `exchange_rates` primary key, and a transaction moved
+  /// into the previous month. The column holds a wall clock, the client sends
+  /// a wall clock, so a wall clock is what goes back: the digits that were
+  /// pushed are the digits that are returned, in every zone.
+  static String _isoWallClock(DateTime value) {
+    final iso = value.toIso8601String();
+    return iso.endsWith('Z') ? iso.substring(0, iso.length - 1) : iso;
   }
 }

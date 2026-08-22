@@ -130,20 +130,22 @@ void main() {
       expect(zoneErrors, isEmpty);
     });
 
-    test('a second LoadDashboard resubscribes without leaking the old streams',
-        () async {
-      final bloc = _buildBloc();
+    test(
+      'a second LoadDashboard resubscribes without leaking the old streams',
+      () async {
+        final bloc = _buildBloc();
 
-      final zoneErrors = <Object>[];
-      await runZonedGuarded(() async {
-        bloc.add(LoadDashboard());
-        await pumpEventQueue();
-        bloc.add(LoadDashboard());
-        await pumpEventQueue();
-        await bloc.close();
-      }, (error, stack) => zoneErrors.add(error));
+        final zoneErrors = <Object>[];
+        await runZonedGuarded(() async {
+          bloc.add(LoadDashboard());
+          await pumpEventQueue();
+          bloc.add(LoadDashboard());
+          await pumpEventQueue();
+          await bloc.close();
+        }, (error, stack) => zoneErrors.add(error));
 
-      expect(zoneErrors, isEmpty);
-    });
+        expect(zoneErrors, isEmpty);
+      },
+    );
   });
 }

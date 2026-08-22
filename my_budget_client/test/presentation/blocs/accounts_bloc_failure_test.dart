@@ -59,7 +59,8 @@ class _FailingAccountRepository extends Fake implements AccountRepository {
 
 /// The bloc subscribes to this in its constructor; an empty stream keeps the
 /// reload it triggers out of these tests.
-class _QuietTransactionRepository extends Fake implements TransactionRepository {
+class _QuietTransactionRepository extends Fake
+    implements TransactionRepository {
   @override
   Stream<void> watchTransactionChanges() => const Stream<void>.empty();
 }
@@ -120,11 +121,7 @@ void main() {
 
   Matcher reportsFailure({Object? recentlyDeletedAccountId}) =>
       isA<AccountsState>()
-          .having(
-            (s) => s.error,
-            'error',
-            contains('database is locked'),
-          )
+          .having((s) => s.error, 'error', contains('database is locked'))
           .having(
             (s) => s.recentlyDeletedAccount?.id,
             'recentlyDeletedAccount',

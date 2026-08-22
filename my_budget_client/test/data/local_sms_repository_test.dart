@@ -96,8 +96,9 @@ void main() {
       // so this is what the user gets after closing the app.
       await LocalSmsRepository().savePreset(custom());
 
-      final reloaded = (await LocalSmsRepository().getAllPresets())
-          .firstWhere((p) => p.id == 'custom-1');
+      final reloaded = (await LocalSmsRepository().getAllPresets()).firstWhere(
+        (p) => p.id == 'custom-1',
+      );
 
       expect(reloaded.name, 'My bank');
       expect(reloaded.senderFilter, 'MYBANK');
@@ -362,10 +363,9 @@ void main() {
       await repo.clearData();
 
       expect((await repo.getAllPresets()).map((p) => p.id), ['alta_bank']);
-      expect(
-        (await LocalSmsRepository().getAllPresets()).map((p) => p.id),
-        ['alta_bank'],
-      );
+      expect((await LocalSmsRepository().getAllPresets()).map((p) => p.id), [
+        'alta_bank',
+      ]);
     });
   });
 

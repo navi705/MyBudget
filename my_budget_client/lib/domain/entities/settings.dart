@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-class Settings extends Equatable{
+class Settings extends Equatable {
   final String key;
   final String value;
   final String device;
@@ -8,9 +8,9 @@ class Settings extends Equatable{
   const Settings({
     required this.key,
     required this.value,
-    required this.device
+    required this.device,
   });
 
   @override
-  List<Object?> get props => [key, value, device]; 
+  List<Object?> get props => [key, value, device];
 }

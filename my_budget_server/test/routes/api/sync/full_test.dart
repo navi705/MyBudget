@@ -90,6 +90,43 @@ void main() {
       expect(body['server_timestamp'], 9);
     });
 
+    test('a truncated snapshot says where the rest of it is', () async {
+      // This endpoint takes no cursor, so `has_more: true` on its own was an
+      // instruction a caller could not carry out: calling /full again returns
+      // byte-identical page one forever. Naming the paging endpoint and the
+      // cursor to resume from is what makes the flag actionable.
+      when(() => repo.getChanges(any(), limit: any(named: 'limit'))).thenAnswer(
+        (_) async => (
+          changes: {
+            'transactions': [
+              {'id': 't1', 'modifiedAt': 9},
+            ],
+          },
+          lastTimestamp: 9,
+          hasMore: true,
+        ),
+      );
+
+      final response = await route.onRequest(
+        contextFor(Request.get(Uri.parse('http://localhost/api/sync/full'))),
+      );
+
+      final body = jsonDecode(await response.body()) as Map<String, dynamic>;
+      expect(body['next'], '/api/sync/pull?last_sync=9');
+    });
+
+    test('a complete snapshot points nowhere', () async {
+      // The default stub returns hasMore: false. A continuation key on a page
+      // that has no continuation is the same lie in the other direction.
+      final response = await route.onRequest(
+        contextFor(Request.get(Uri.parse('http://localhost/api/sync/full'))),
+      );
+
+      final body = jsonDecode(await response.body()) as Map<String, dynamic>;
+      expect(body['has_more'], isFalse);
+      expect(body.containsKey('next'), isFalse);
+    });
+
     test('a repository failure does not leak the exception to the client',
         () async {
       const leak = 'relation "transactions" does not exist';

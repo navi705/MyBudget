@@ -192,6 +192,16 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     if (enabled) {
       await _settingsRepository.saveSetting('sync_enabled', 'false');
       await _syncService.stopSync();
+      // Turning the switch on before typing an address is the ordinary order to
+      // do it in. Starting the socket and the auto-sync listener here would
+      // dial nowhere and retry for the rest of the session, so the machinery
+      // waits until the address is saved.
+      if (normalizeSyncBaseUrl(_serverUrlController.text) == null) {
+        if (mounted) {
+          _showSnackbar(context.l10n.syncUrlNotConfigured, isError: true);
+        }
+        return;
+      }
       // Initialize WebSocket listener and DB auto-sync subscription so that
       // background sync starts immediately without requiring an app restart.
       await _serverSyncService.initWebSocket();
@@ -202,17 +212,26 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
   }
 
   Future<void> _saveServerSettings() async {
-    await _settingsRepository.saveSetting(
-      'server_sync_url',
-      _serverUrlController.text,
-    );
+    // Stored trimmed: a trailing space or newline pasted with the address made
+    // every request URL invalid, and the failure surfaced as a connection error
+    // pointing at the server rather than at the field.
+    final url = _serverUrlController.text.trim();
+    await _settingsRepository.saveSetting('server_sync_url', url);
     await _settingsRepository.saveSetting(
       'server_sync_token',
-      _serverTokenController.text,
+      _serverTokenController.text.trim(),
     );
-    if (mounted) {
-      _showSnackbar(context.l10n.syncSettingsSaved);
-    }
+    if (!mounted) return;
+    // Saving an unusable address is allowed — half-typed settings are normal —
+    // but it is said out loud, because sync will simply not run until it is
+    // fixed and nothing else in the app would mention it.
+    final unusable = normalizeSyncBaseUrl(url) == null;
+    _showSnackbar(
+      unusable
+          ? context.l10n.syncUrlNotConfigured
+          : context.l10n.syncSettingsSaved,
+      isError: unusable,
+    );
   }
 
   void _showSnackbar(String message, {bool isError = false}) {
@@ -260,6 +279,8 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
             _showSnackbar(l10n.syncServerNotConfigured, isError: true);
           case SyncConnectionStatus.failed:
             _showSnackbar(l10n.syncConnectionFailed, isError: true);
+          case SyncConnectionStatus.notConfigured:
+            _showSnackbar(l10n.syncUrlNotConfigured, isError: true);
         }
       }
     } catch (e) {
@@ -281,6 +302,12 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
 
     try {
       if (_isServerEnabled) {
+        // sync() declines without an address, and reporting "sync completed"
+        // for a cycle that never left the device is worse than saying nothing.
+        if (normalizeSyncBaseUrl(_serverUrlController.text) == null) {
+          _showSnackbar(l10n.syncUrlNotConfigured, isError: true);
+          return;
+        }
         await _serverSyncService.sync();
       } else if (_isP2PEnabled && _syncFolderPath != null) {
         if (!_syncService.isRunning) {

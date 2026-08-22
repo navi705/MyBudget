@@ -48,8 +48,10 @@ class _NoAccountsRepository extends Fake implements AccountRepository {
   Future<List<Account>> getAccounts() async => const [];
 }
 
-InflationState _inflationState() =>
-    InflationState(status: InflationStatus.success, activeDate: DateTime(2025, 3));
+InflationState _inflationState() => InflationState(
+  status: InflationStatus.success,
+  activeDate: DateTime(2025, 3),
+);
 
 AssetState _assetState() =>
     AssetState(status: AssetStatus.success, activeDate: DateTime(2025, 3));
@@ -83,27 +85,28 @@ void main() {
       aboveApp: (app) => wrapWithBlocs(app, settingsBloc: createSettingsBloc()),
     );
 
-    testWidgets('Add with no percent marks the field instead of doing nothing', (
-      tester,
-    ) async {
-      await pumpTab(tester);
-      await _openAddDialog(tester);
+    testWidgets(
+      'Add with no percent marks the field instead of doing nothing',
+      (tester) async {
+        await pumpTab(tester);
+        await _openAddDialog(tester);
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Enter a number, for example 2.5'), findsOne);
-      expect(
-        find.text('Add Inflation Rate'),
-        findsOne,
-        reason: 'the dialog must stay open so the message can be read',
-      );
-      expect(
-        bloc.events.whereType<AddInflationRate>(),
-        isEmpty,
-        reason: 'nothing may be saved while a field is unusable',
-      );
-    });
+        expect(find.text('Enter a number, for example 2.5'), findsOne);
+        expect(
+          find.text('Add Inflation Rate'),
+          findsOne,
+          reason: 'the dialog must stay open so the message can be read',
+        );
+        expect(
+          bloc.events.whereType<AddInflationRate>(),
+          isEmpty,
+          reason: 'nothing may be saved while a field is unusable',
+        );
+      },
+    );
 
     testWidgets('the country is saved as the World Bank code the picker gave', (
       tester,
@@ -117,7 +120,10 @@ void main() {
 
       // The picker searches localized names and codes alike, so the code is the
       // stable thing to type here.
-      await tester.enterText(find.widgetWithText(TextField, 'Search Country'), 'SRB');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Search Country'),
+        'SRB',
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(ListTile, 'SRB'));
       await tester.pumpAndSettle();
@@ -151,7 +157,8 @@ void main() {
       expect(
         saved.country,
         isNull,
-        reason: 'InflationRateMapper substitutes the global sentinel at the DB '
+        reason:
+            'InflationRateMapper substitutes the global sentinel at the DB '
             'boundary, so the UI must pass null rather than a made-up code',
       );
     });

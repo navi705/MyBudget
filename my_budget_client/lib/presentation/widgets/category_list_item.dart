@@ -2,6 +2,7 @@ import 'package:my_budget_client/core/constants/app_constants.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_budget_client/core/theme/money_colors.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/entities/category_with_total.dart';
@@ -76,9 +77,9 @@ class CategoryListItem extends StatelessWidget {
             ? context.l10n.receivedTotalLabel(formattedTotal)
             : context.l10n.spentTotalLabel(formattedTotal);
 
-        final balanceColor = category.type == CategoryType.income
-            ? Colors.green
-            : Colors.red;
+        final balanceColor = MoneyColors.of(
+          context,
+        ).forDirection(isIncome: category.type == CategoryType.income);
 
         final listTile = GestureDetector(
           onSecondaryTapUp: onSecondaryTapUp,

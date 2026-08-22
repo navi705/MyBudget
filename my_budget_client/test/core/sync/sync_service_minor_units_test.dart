@@ -155,36 +155,42 @@ void main() {
       expect(row.feeMinor, 50);
     });
 
-    test('respects a zero-decimal currency rather than assuming cents', () async {
-      await deliverTransaction(
-        transactionPayload(
-          id: 'tx-jpy',
-          amount: 1500.0,
-          fee: 0.0,
-          currencyCode: 'JPY',
-        ),
-      );
+    test(
+      'respects a zero-decimal currency rather than assuming cents',
+      () async {
+        await deliverTransaction(
+          transactionPayload(
+            id: 'tx-jpy',
+            amount: 1500.0,
+            fee: 0.0,
+            currencyCode: 'JPY',
+          ),
+        );
 
-      final row = await transaction('tx-jpy');
-      expect(row.amountMinor, 1500);
-      expect(row.feeMinor, 0);
-    });
+        final row = await transaction('tx-jpy');
+        expect(row.amountMinor, 1500);
+        expect(row.feeMinor, 0);
+      },
+    );
 
-    test('leaves a crypto transaction on its double, with no invented units', () async {
-      await deliverTransaction(
-        transactionPayload(
-          id: 'tx-btc',
-          amount: 0.001,
-          fee: 0.0,
-          currencyCode: 'BTC',
-        ),
-      );
+    test(
+      'leaves a crypto transaction on its double, with no invented units',
+      () async {
+        await deliverTransaction(
+          transactionPayload(
+            id: 'tx-btc',
+            amount: 0.001,
+            fee: 0.0,
+            currencyCode: 'BTC',
+          ),
+        );
 
-      final row = await transaction('tx-btc');
-      expect(row.amount, 0.001);
-      expect(row.amountMinor, null);
-      expect(row.feeMinor, null);
-    });
+        final row = await transaction('tx-btc');
+        expect(row.amount, 0.001);
+        expect(row.amountMinor, null);
+        expect(row.feeMinor, null);
+      },
+    );
 
     test('gives a fiat account back its exact minor units', () async {
       await deliverAccount(
@@ -194,44 +200,50 @@ void main() {
       expect((await account('acc-usd')).balanceMinor, 10050);
     });
 
-    test('leaves a crypto account on its double, with no invented units', () async {
-      await deliverAccount(
-        accountPayload(id: 'acc-btc', balance: 0.75, currencyCode: 'BTC'),
-      );
+    test(
+      'leaves a crypto account on its double, with no invented units',
+      () async {
+        await deliverAccount(
+          accountPayload(id: 'acc-btc', balance: 0.75, currencyCode: 'BTC'),
+        );
 
-      final row = await account('acc-btc');
-      expect(row.balance, 0.75);
-      expect(row.balanceMinor, null);
-    });
+        final row = await account('acc-btc');
+        expect(row.balance, 0.75);
+        expect(row.balanceMinor, null);
+      },
+    );
 
-    test('replacing a row that already has exact units does not wipe them', () async {
-      // The corruption this guards against: the replace writes every column,
-      // so a payload silent about the money keys would blank out cents the
-      // local row already holds.
-      final current = transactionPayload(
-        id: 'tx-usd',
-        amount: 12.34,
-        fee: 0.5,
-        currencyCode: 'USD',
-      )..addAll({'amountMinor': 1234, 'feeMinor': 50});
-      await deliverTransaction(current);
-      expect((await transaction('tx-usd')).amountMinor, 1234);
-
-      await deliverTransaction(
-        transactionPayload(
+    test(
+      'replacing a row that already has exact units does not wipe them',
+      () async {
+        // The corruption this guards against: the replace writes every column,
+        // so a payload silent about the money keys would blank out cents the
+        // local row already holds.
+        final current = transactionPayload(
           id: 'tx-usd',
-          amount: 99.99,
-          fee: 1.25,
+          amount: 12.34,
+          fee: 0.5,
           currencyCode: 'USD',
-          modifiedAt: 2000,
-        ),
-      );
+        )..addAll({'amountMinor': 1234, 'feeMinor': 50});
+        await deliverTransaction(current);
+        expect((await transaction('tx-usd')).amountMinor, 1234);
 
-      final row = await transaction('tx-usd');
-      expect(row.amount, 99.99);
-      expect(row.amountMinor, 9999);
-      expect(row.feeMinor, 125);
-    });
+        await deliverTransaction(
+          transactionPayload(
+            id: 'tx-usd',
+            amount: 99.99,
+            fee: 1.25,
+            currencyCode: 'USD',
+            modifiedAt: 2000,
+          ),
+        );
+
+        final row = await transaction('tx-usd');
+        expect(row.amount, 99.99);
+        expect(row.amountMinor, 9999);
+        expect(row.feeMinor, 125);
+      },
+    );
   });
 
   test('an explicitly null minor value is honoured, not re-derived', () async {

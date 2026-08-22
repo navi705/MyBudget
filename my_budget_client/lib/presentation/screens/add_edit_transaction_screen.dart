@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
+import 'package:my_budget_client/core/theme/money_colors.dart';
+import 'package:my_budget_client/core/utils/date_display.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
@@ -166,20 +168,31 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
           if (state.description != _descriptionController.text) {
             _descriptionController.text = state.description;
           }
-          final amountDouble = double.tryParse(state.amount) ?? -1.0;
-          final currentAmountDouble =
-              double.tryParse(_amountController.text) ?? -1.0;
-          if ((amountDouble - currentAmountDouble).abs() > 0.0000001) {
+          // Nullable rather than a -1.0 sentinel. With the sentinel, a state
+          // amount that really was -1.0 compared equal to an empty controller,
+          // so reopening a transaction of exactly 1.00 left the Amount field
+          // blank and saving was refused until the user retyped it.
+          final amountDouble = double.tryParse(state.amount);
+          final currentAmountDouble = double.tryParse(_amountController.text);
+          if (amountDouble != currentAmountDouble &&
+              (amountDouble == null ||
+                  currentAmountDouble == null ||
+                  (amountDouble - currentAmountDouble).abs() > 0.0000001)) {
             _amountController.text = state.amount;
           }
           if (state.fee != _feeController.text) {
             _feeController.text = state.fee;
           }
 
-          final totalDouble = double.tryParse(state.totalValue) ?? -1.0;
-          final currentTotalDouble =
-              double.tryParse(_totalValueController.text) ?? -1.0;
-          if ((totalDouble - currentTotalDouble).abs() > 0.0000001) {
+          // Same sentinel, same edge: a total value of exactly -1.0.
+          final totalDouble = double.tryParse(state.totalValue);
+          final currentTotalDouble = double.tryParse(
+            _totalValueController.text,
+          );
+          if (totalDouble != currentTotalDouble &&
+              (totalDouble == null ||
+                  currentTotalDouble == null ||
+                  (totalDouble - currentTotalDouble).abs() > 0.0000001)) {
             _totalValueController.text = state.totalValue;
           }
         },
@@ -214,12 +227,16 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                 return Center(child: Text(context.l10n.failedToLoadData));
               }
 
-              return Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
-                  child: Stack(
-                    children: [
-                      RepaintBoundary(
+              // The scrim is the outer layer, the 600dp column the inner one.
+              // Nested the other way round it dimmed only the form's own
+              // width: on a 1440px window 800px of the screen stayed lit and
+              // interactive while the save was in flight.
+              return Stack(
+                children: [
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 600),
+                      child: RepaintBoundary(
                         child: SingleChildScrollView(
                           padding: const EdgeInsets.all(16.0),
                           child: Form(
@@ -332,21 +349,52 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                           ),
                         ),
                       ),
-                      if (state.isSaving)
-                        Container(
-                          color: Colors.black.withAlpha(128),
-                          child: const Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
-                ),
+                  if (state.isSaving)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black.withAlpha(128),
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                    ),
+                ],
               );
             },
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A form control whose value is chosen from a dialog rather than typed.
+///
+/// The pickers on this form used to be a `GestureDetector` wrapped around
+/// `AbsorbPointer(TextFormField)`. A pointer was then the only way to open
+/// them: the inner field could be tabbed onto but had no action behind it, so
+/// on Windows desktop the keyboard path through the app's primary task stopped
+/// dead at Account. `InkWell` is focusable, paints the theme's focus highlight
+/// - the only focus affordance these fields have ever had - and maps
+/// Enter/Space onto [onTap] through `ActivateIntent`. The decorated field below
+/// it is taken out of traversal so a picker is one tab stop and not two, and
+/// out of hit testing so the tap lands on the `InkWell` instead of the caret.
+///
+/// A null [onTap] means "not offered" (the currency field during a transfer):
+/// the control then neither takes focus nor reacts, exactly as before.
+class _PickerField extends StatelessWidget {
+  const _PickerField({required this.onTap, required this.child, super.key});
+
+  final VoidCallback? onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      canRequestFocus: onTap != null,
+      borderRadius: BorderRadius.circular(4),
+      child: ExcludeFocus(child: IgnorePointer(child: child)),
     );
   }
 }
@@ -380,9 +428,31 @@ class _AmountField extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
       builder: (context, state) {
-        final isIncome = state.selectedCategory?.type == CategoryType.income;
+        final category = state.selectedCategory;
+        final isIncome = category?.type == CategoryType.income;
 
-        final color = isIncome ? Colors.green : Colors.red;
+        // Direction is only a fact once a category has been chosen on a plain
+        // income/expense. Quantities on an asset trade and both legs of a
+        // transfer have none, and neither does a form nobody has filled in
+        // yet - which used to paint the very first digit the user typed red.
+        final hasDirection =
+            category != null &&
+            !state.isAssetTransaction &&
+            !state.isTransferMode;
+
+        final moneyColors = MoneyColors.of(context);
+        final color = hasDirection
+            ? moneyColors.forDirection(isIncome: isIncome)
+            : moneyColors.neutral;
+
+        // The control that decides this colour is three rows further down the
+        // form, so the colour alone made the user scroll to find out why the
+        // number went red. The glyph sits against the digits and says it
+        // outright - and says it in greyscale, and to a red-green colourblind
+        // reader, which the colour never did.
+        final signGlyph = hasDirection
+            ? MoneyColors.signGlyph(isIncome: isIncome)
+            : null;
 
         final effectiveLabel = state.isAssetTransaction && label == null
             ? context.l10n.assetQuantityLabel
@@ -393,6 +463,8 @@ class _AmountField extends StatelessWidget {
           decoration: InputDecoration(
             labelText: effectiveLabel,
             border: const OutlineInputBorder(),
+            prefixText: signGlyph,
+            prefixStyle: TextStyle(color: color, fontWeight: FontWeight.bold),
           ),
           style: TextStyle(color: color, fontWeight: FontWeight.bold),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -436,7 +508,8 @@ class _AccountField extends StatelessWidget {
             ? state.accounts.where((a) => a.assetId == null).toList()
             : state.accounts;
 
-        return GestureDetector(
+        return _PickerField(
+          key: const Key('accountPickerField'),
           onTap: () async {
             final selectedAccount = await showSingleSelectDialog<Account>(
               context: context,
@@ -452,36 +525,34 @@ class _AccountField extends StatelessWidget {
               );
             }
           },
-          child: AbsorbPointer(
-            child: TextFormField(
-              key: Key(state.selectedAccount?.id ?? 'no_account'),
-              initialValue: state.selectedAccount?.name,
-              decoration: InputDecoration(
-                labelText: label ?? context.l10n.accountLabel,
-                border: const OutlineInputBorder(),
-                prefixIcon: state.selectedAccount != null
-                    ? BlocBuilder<StylesBloc, StylesState>(
-                        builder: (context, stylesState) {
-                          if (stylesState is StylesLoadSuccess) {
-                            final style = stylesState.styles.firstWhereOrNull(
-                              (s) => s.id == state.selectedAccount!.styleId,
+          child: TextFormField(
+            key: Key(state.selectedAccount?.id ?? 'no_account'),
+            initialValue: state.selectedAccount?.name,
+            decoration: InputDecoration(
+              labelText: label ?? context.l10n.accountLabel,
+              border: const OutlineInputBorder(),
+              prefixIcon: state.selectedAccount != null
+                  ? BlocBuilder<StylesBloc, StylesState>(
+                      builder: (context, stylesState) {
+                        if (stylesState is StylesLoadSuccess) {
+                          final style = stylesState.styles.firstWhereOrNull(
+                            (s) => s.id == state.selectedAccount!.styleId,
+                          );
+                          if (style != null) {
+                            return Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: BudgetIcon(style: style, radius: 12),
                             );
-                            if (style != null) {
-                              return Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: BudgetIcon(style: style, radius: 12),
-                              );
-                            }
                           }
-                          return const Icon(Icons.account_balance);
-                        },
-                      )
-                    : null,
-              ),
-              validator: (value) => state.selectedAccount == null
-                  ? context.l10n.selectAccountError
+                        }
+                        return const Icon(Icons.account_balance);
+                      },
+                    )
                   : null,
             ),
+            validator: (value) => state.selectedAccount == null
+                ? context.l10n.selectAccountError
+                : null,
           ),
         );
       },
@@ -532,7 +603,10 @@ class _CategoryField extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
       builder: (context, state) {
-        return GestureDetector(
+        final moneyColors = MoneyColors.of(context);
+
+        return _PickerField(
+          key: const Key('categoryPickerField'),
           onTap: () async {
             final selectedCategory = await showSingleSelectDialog<Category>(
               context: context,
@@ -541,7 +615,7 @@ class _CategoryField extends StatelessWidget {
               selectedItem: state.selectedCategory,
               itemBuilder: (category) {
                 final isIncome = category.type == CategoryType.income;
-                final color = isIncome ? Colors.green : Colors.red;
+                final color = moneyColors.forDirection(isIncome: isIncome);
                 final typeLabel = isIncome
                     ? context.l10n.incomeType
                     : context.l10n.expenseType;
@@ -574,7 +648,11 @@ class _CategoryField extends StatelessWidget {
                         border: Border.all(color: color),
                       ),
                       child: Text(
-                        typeLabel,
+                        // The glyph repeats the badge's meaning without
+                        // relying on the colour, for greyscale and for a
+                        // red-green colourblind reader.
+                        '${MoneyColors.signGlyph(isIncome: isIncome)} '
+                        '$typeLabel',
                         style: TextStyle(
                           fontSize: 10,
                           color: color,
@@ -593,51 +671,51 @@ class _CategoryField extends StatelessWidget {
               );
             }
           },
-          child: AbsorbPointer(
-            child: TextFormField(
-              key: Key(state.selectedCategory?.id ?? 'no_category'),
-              initialValue: state.selectedCategory?.name,
-              decoration: InputDecoration(
-                labelText: context.l10n.categoryLabel,
-                border: const OutlineInputBorder(),
-                prefixIcon: state.selectedCategory != null
-                    ? BlocBuilder<StylesBloc, StylesState>(
-                        builder: (context, stylesState) {
-                          if (stylesState is StylesLoadSuccess) {
-                            final style = stylesState.styles.firstWhereOrNull(
-                              (s) => s.id == state.selectedCategory!.styleId,
+          child: TextFormField(
+            key: Key(state.selectedCategory?.id ?? 'no_category'),
+            initialValue: state.selectedCategory?.name,
+            decoration: InputDecoration(
+              labelText: context.l10n.categoryLabel,
+              border: const OutlineInputBorder(),
+              prefixIcon: state.selectedCategory != null
+                  ? BlocBuilder<StylesBloc, StylesState>(
+                      builder: (context, stylesState) {
+                        if (stylesState is StylesLoadSuccess) {
+                          final style = stylesState.styles.firstWhereOrNull(
+                            (s) => s.id == state.selectedCategory!.styleId,
+                          );
+                          if (style != null) {
+                            return Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: BudgetIcon(style: style, radius: 12),
                             );
-                            if (style != null) {
-                              return Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: BudgetIcon(style: style, radius: 12),
-                              );
-                            }
                           }
-                          return const Icon(Icons.category);
-                        },
-                      )
-                    : null,
-                suffixIcon: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Icon(
-                    state.selectedCategory != null
-                        ? (state.selectedCategory!.type == CategoryType.income
-                              ? Icons.arrow_upward
-                              : Icons.arrow_downward)
-                        : Icons.arrow_drop_down,
-                    color: state.selectedCategory != null
-                        ? (state.selectedCategory!.type == CategoryType.income
-                              ? Colors.green
-                              : Colors.red)
-                        : Colors.grey,
-                  ),
+                        }
+                        return const Icon(Icons.category);
+                      },
+                    )
+                  : null,
+              suffixIcon: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Icon(
+                  state.selectedCategory != null
+                      ? (state.selectedCategory!.type == CategoryType.income
+                            ? Icons.arrow_upward
+                            : Icons.arrow_downward)
+                      : Icons.arrow_drop_down,
+                  color: state.selectedCategory != null
+                      ? moneyColors.forDirection(
+                          isIncome:
+                              state.selectedCategory!.type ==
+                              CategoryType.income,
+                        )
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-              validator: (value) => state.selectedCategory == null
-                  ? context.l10n.selectCategoryError
-                  : null,
             ),
+            validator: (value) => state.selectedCategory == null
+                ? context.l10n.selectCategoryError
+                : null,
           ),
         );
       },
@@ -652,10 +730,15 @@ class _DateField extends StatelessWidget {
     return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
       builder: (context, state) {
         final l10n = context.l10n;
+        final date = state.date;
+        // `DateTime.toString().split(' ')[0]` printed a raw ISO date -
+        // `2026-08-21` - in the app's highest-traffic form, to all ten
+        // locales. `DateDisplay.short` is the locale's own numeric date.
+        final formattedDate = date == null
+            ? l10n.selectDateLabel
+            : DateDisplay.short(context, date.toLocal());
         return ListTile(
-          title: Text(
-            "${l10n.dateLabel}: ${state.date?.toLocal().toString().split(' ')[0] ?? l10n.selectDateLabel}",
-          ),
+          title: Text('${l10n.dateLabel}: $formattedDate'),
           trailing: const Icon(Icons.calendar_today),
           onTap: () async {
             final DateTime? picked = await showDatePicker(
@@ -686,8 +769,38 @@ class _SaveButton extends StatelessWidget {
       onPressed: () {
         final isValid = formKey.currentState?.validate() ?? false;
         if (isValid) {
-          context.read<AddEditTransactionBloc>().add(
-            const AddEditTransactionSubmitted(),
+          final bloc = context.read<AddEditTransactionBloc>();
+          final state = bloc.state;
+          final l10n = context.l10n;
+          // A transfer's two rows are described for the user, not by them, so
+          // the wording has to come from `l10n` - and the bloc cannot reach it.
+          // The names are read here, at the moment of saving, so the strings
+          // match the accounts actually chosen.
+          final from = state.selectedAccount?.name;
+          final to = state.linkedAccount?.name;
+          // The asset rows are worded from the same place for the same
+          // reason. `from` is the asset account here - the thing being bought
+          // or sold - and the action word is the one the form's own toggle
+          // shows, so the saved row reads the way the form did.
+          final isBuy = state.assetAction == AssetAction.buy;
+          final action = isBuy ? l10n.buyAction : l10n.sellAction;
+          bloc.add(
+            AddEditTransactionSubmitted(
+              transferToDescription: to == null
+                  ? null
+                  : l10n.transferToDescription(to),
+              transferFromDescription: from == null
+                  ? null
+                  : l10n.transferFromDescription(from),
+              assetDescription: from == null
+                  ? null
+                  : (isBuy
+                        ? l10n.buyDescription(from)
+                        : l10n.sellDescription(from)),
+              assetTransferDescription: from == null
+                  ? null
+                  : l10n.assetTransferDescription(action, from),
+            ),
           );
         }
       },
@@ -708,7 +821,8 @@ class _CurrencyField extends StatelessWidget {
       builder: (context, state) {
         final isTransfer = state.isTransferMode;
 
-        return GestureDetector(
+        return _PickerField(
+          key: const Key('currencyPickerField'),
           onTap: isTransfer
               ? null
               : () async {
@@ -730,24 +844,19 @@ class _CurrencyField extends StatelessWidget {
                     );
                   }
                 },
-          child: AbsorbPointer(
-            absorbing: true,
-            child: TextFormField(
-              key: Key(state.selectedCurrency?.code ?? 'no_currency'),
-              initialValue: state.selectedCurrency?.code,
-              readOnly: true,
-              enabled: !isTransfer,
-              decoration: InputDecoration(
-                labelText: context.l10n.currencyLabel,
-                border: const OutlineInputBorder(),
-                prefixIcon: const Icon(Icons.monetization_on),
-                suffixIcon: isTransfer
-                    ? const Icon(Icons.lock, size: 16)
-                    : null,
-                helperText: isTransfer
-                    ? context.l10n.currencyLockedMessage
-                    : null,
-              ),
+          child: TextFormField(
+            key: Key(state.selectedCurrency?.code ?? 'no_currency'),
+            initialValue: state.selectedCurrency?.code,
+            readOnly: true,
+            enabled: !isTransfer,
+            decoration: InputDecoration(
+              labelText: context.l10n.currencyLabel,
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.monetization_on),
+              suffixIcon: isTransfer ? const Icon(Icons.lock, size: 16) : null,
+              helperText: isTransfer
+                  ? context.l10n.currencyLockedMessage
+                  : null,
             ),
           ),
         );
@@ -1032,8 +1141,13 @@ class _ExchangeRateSectionState extends State<_ExchangeRateSection> {
                           TextButton.icon(
                             icon: const Icon(Icons.delete, size: 16),
                             label: Text(context.l10n.deleteButton),
+                            // The theme's own destructive colour: a raw red
+                            // fails contrast on several of the dark surfaces
+                            // the seed picker can generate.
                             style: TextButton.styleFrom(
-                              foregroundColor: Colors.red,
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.error,
                             ),
                             onPressed: () {
                               context.read<AddEditTransactionBloc>().add(
@@ -1102,22 +1216,42 @@ class _ConvertedAmountDisplay extends StatelessWidget {
         }
 
         final amount = double.tryParse(state.amount) ?? 0;
-        final rate =
-            state.selectedExchangeRate?.rate ??
-            double.tryParse(state.manualExchangeRate) ??
-            0;
+        // Read the same field the save reads, and read it the same way.
+        // `manualExchangeRate` is what selecting a preset writes into and what
+        // `_onSubmitted` converts with, so preferring `selectedExchangeRate`
+        // here showed the preset's rate while the save used whatever the user
+        // had since typed over it.
+        var rate = double.tryParse(state.manualExchangeRate) ?? 0;
+        // And apply the direction toggle the save applies. Without it the
+        // preview multiplied by the rate while the save multiplied by its
+        // reciprocal, so the number the user approved and the number written
+        // to the account differed by a factor of rate squared.
+        if (rate != 0 && state.isRateInputInverted) {
+          rate = 1 / rate;
+        }
         final converted = amount * rate;
 
         if (rate == 0) return const SizedBox.shrink();
 
+        // In transfer mode the currency field is locked to the From account
+        // and the bloc keeps `selectedCurrency` equal to it at every entry
+        // point, so the test below is always false here - and the banner
+        // announced the main currency over a figure that is the amount
+        // arriving in the TO account, in the TO account's currency. The rate
+        // card directly above it said From -> To, so the two panels
+        // contradicted each other on the same screen: 100 EUR into an RSD
+        // account read "Value in Global (EUR): EUR 11,700.00".
+        final isTransferTarget = state.isTransferMode;
         final isToAccount =
             state.selectedCurrency?.code != state.selectedAccount?.currencyCode;
-        final targetLabel = isToAccount
+        final targetLabel = isTransferTarget || isToAccount
             ? context.l10n.amountToAddToAccountLabel
             : context.l10n.valueInGlobalLabel(state.mainCurrencyCode);
-        final targetCurrency = isToAccount
-            ? state.selectedAccount?.currencyCode
-            : state.mainCurrencyCode;
+        final targetCurrency = isTransferTarget
+            ? state.linkedAccount?.currencyCode
+            : (isToAccount
+                  ? state.selectedAccount?.currencyCode
+                  : state.mainCurrencyCode);
 
         return Padding(
           padding: const EdgeInsets.only(top: 8.0),
@@ -1152,7 +1286,12 @@ class _ConvertedAmountDisplay extends StatelessWidget {
                 Flexible(
                   flex: 3,
                   child: Text(
-                    '$targetCurrency ${MoneyFormatter.format(converted, targetCurrency ?? '')}',
+                    // Currency code and amount are one chunk of text: without
+                    // the isolate an RTL paragraph reorders the two.
+                    MoneyFormatter.isolate(
+                      '$targetCurrency '
+                      '${MoneyFormatter.format(converted, targetCurrency ?? '')}',
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.end,
@@ -1288,8 +1427,10 @@ class _AssetPriceDisplay extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: Text(
+            // The amount is embedded in a translated sentence, so it has to
+            // be isolated from the words on either side of it.
             context.l10n.currentPriceLabel(
-              MoneyFormatter.format(price, currency),
+              MoneyFormatter.formatIsolated(price, currency),
               currency,
             ),
             style: Theme.of(context).textTheme.bodyMedium,
@@ -1346,7 +1487,8 @@ class _LinkedAccountField extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                GestureDetector(
+                _PickerField(
+                  key: const Key('linkedAccountPickerField'),
                   onTap: () async {
                     final selectedAccount =
                         await showSingleSelectDialog<Account>(

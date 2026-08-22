@@ -69,7 +69,9 @@ void main() {
 
     // Fiat with a 2-decimal scale, fiat with none (JPY), and a non-fiat asset
     // whose amounts stay a raw double - the three branches of the money model.
-    await db.into(db.accounts).insert(
+    await db
+        .into(db.accounts)
+        .insert(
           AccountsCompanion.insert(
             id: const Value('bk_acc_eur'),
             name: 'Кошелёк 💶',
@@ -85,7 +87,9 @@ void main() {
             description: const Value('Основной, "рабочий"'),
           ),
         );
-    await db.into(db.accounts).insert(
+    await db
+        .into(db.accounts)
+        .insert(
           AccountsCompanion.insert(
             id: const Value('bk_acc_jpy'),
             name: '日本 account',
@@ -97,7 +101,9 @@ void main() {
             creationDate: Value(DateTime(2024, 6, 1)),
           ),
         );
-    await db.into(db.accounts).insert(
+    await db
+        .into(db.accounts)
+        .insert(
           AccountsCompanion.insert(
             id: const Value('bk_acc_btc'),
             name: 'Cold wallet',
@@ -109,7 +115,9 @@ void main() {
           ),
         );
 
-    await db.into(db.categories).insert(
+    await db
+        .into(db.categories)
+        .insert(
           CategoriesCompanion.insert(
             id: const Value('bk_cat_food'),
             name: 'Продукты 🍎',
@@ -117,7 +125,9 @@ void main() {
             styleId: Value(styleId),
           ),
         );
-    await db.into(db.categories).insert(
+    await db
+        .into(db.categories)
+        .insert(
           CategoriesCompanion.insert(
             id: const Value('bk_cat_child'),
             name: 'Хлеб',
@@ -125,7 +135,9 @@ void main() {
             type: const Value(CategoryType.expense),
           ),
         );
-    await db.into(db.categories).insert(
+    await db
+        .into(db.categories)
+        .insert(
           CategoriesCompanion.insert(
             id: const Value('bk_cat_income'),
             name: 'Salary',
@@ -133,7 +145,9 @@ void main() {
           ),
         );
     // A tombstone: soft-deleted, but still the parent of a live row.
-    await db.into(db.categories).insert(
+    await db
+        .into(db.categories)
+        .insert(
           CategoriesCompanion.insert(
             id: const Value('bk_cat_dead'),
             name: 'Removed',
@@ -141,7 +155,9 @@ void main() {
           ),
         );
 
-    await db.into(db.transactions).insert(
+    await db
+        .into(db.transactions)
+        .insert(
           TransactionsCompanion.insert(
             id: const Value('bk_tx_a'),
             description: 'Point one',
@@ -153,7 +169,9 @@ void main() {
             currencyCode: 'EUR',
           ),
         );
-    await db.into(db.transactions).insert(
+    await db
+        .into(db.transactions)
+        .insert(
           TransactionsCompanion.insert(
             id: const Value('bk_tx_b'),
             description: 'Point two, with a "quote" and, a comma',
@@ -170,7 +188,9 @@ void main() {
           ),
         );
     // Zero-decimal fiat: 1234 yen is 1234 minor units, not 123400.
-    await db.into(db.transactions).insert(
+    await db
+        .into(db.transactions)
+        .insert(
           TransactionsCompanion.insert(
             id: const Value('bk_tx_jpy'),
             description: 'ラーメン',
@@ -183,7 +203,9 @@ void main() {
           ),
         );
     // Crypto: 8 decimals, minor columns stay NULL on purpose.
-    await db.into(db.transactions).insert(
+    await db
+        .into(db.transactions)
+        .insert(
           TransactionsCompanion.insert(
             id: const Value('bk_tx_btc'),
             description: 'Sats',
@@ -195,7 +217,9 @@ void main() {
           ),
         );
     // Both edges of a calendar day, local time.
-    await db.into(db.transactions).insert(
+    await db
+        .into(db.transactions)
+        .insert(
           TransactionsCompanion.insert(
             id: const Value('bk_tx_midnight'),
             description: 'Just after midnight',
@@ -207,7 +231,9 @@ void main() {
             currencyCode: 'EUR',
           ),
         );
-    await db.into(db.transactions).insert(
+    await db
+        .into(db.transactions)
+        .insert(
           TransactionsCompanion.insert(
             id: const Value('bk_tx_late'),
             description: 'Just before midnight',
@@ -220,7 +246,9 @@ void main() {
           ),
         );
     // A soft-deleted transaction: a tombstone sync still needs.
-    await db.into(db.transactions).insert(
+    await db
+        .into(db.transactions)
+        .insert(
           TransactionsCompanion.insert(
             id: const Value('bk_tx_dead'),
             description: 'Deleted one',
@@ -234,7 +262,9 @@ void main() {
           ),
         );
 
-    await db.into(db.assetEntries).insert(
+    await db
+        .into(db.assetEntries)
+        .insert(
           AssetEntriesCompanion.insert(
             id: const Value('bk_asset_1'),
             assetId: 'BTC',
@@ -248,7 +278,9 @@ void main() {
           ),
         );
 
-    await db.into(db.exchangeRates).insert(
+    await db
+        .into(db.exchangeRates)
+        .insert(
           ExchangeRatesCompanion.insert(
             fromCurrencyCode: 'EUR',
             toCurrencyCode: 'JPY',
@@ -269,8 +301,9 @@ void main() {
         'styles': normalize(await db.select(db.styles).get()),
         'account_types': normalize(await db.select(db.accountTypes).get()),
         'currencies': normalize(await db.select(db.currencies).get()),
-        'currency_designations':
-            normalize(await db.select(db.currencyDesignations).get()),
+        'currency_designations': normalize(
+          await db.select(db.currencyDesignations).get(),
+        ),
         'asset_entries': normalize(await db.select(db.assetEntries).get()),
         'exchange_rates': normalize(await db.select(db.exchangeRates).get()),
         'languages': normalize(await db.select(db.languages).get()),
@@ -289,8 +322,9 @@ void main() {
         'styles': normalize(await db.select(db.styles).get()),
         'account_types': normalize(await db.select(db.accountTypes).get()),
         'currencies': normalize(await db.select(db.currencies).get()),
-        'currency_designations':
-            normalize(await db.select(db.currencyDesignations).get()),
+        'currency_designations': normalize(
+          await db.select(db.currencyDesignations).get(),
+        ),
         'asset_entries': normalize(await db.select(db.assetEntries).get()),
         'exchange_rates': normalize(await db.select(db.exchangeRates).get()),
         'languages': normalize(await db.select(db.languages).get()),
@@ -320,23 +354,23 @@ void main() {
       await wipeBusinessTables();
       await importer.importContent(backup, isCsv: false);
 
-      final deadCategory = await (db.select(db.categories)
-            ..where((t) => t.id.equals('bk_cat_dead')))
-          .getSingleOrNull();
+      final deadCategory = await (db.select(
+        db.categories,
+      )..where((t) => t.id.equals('bk_cat_dead'))).getSingleOrNull();
       expect(deadCategory, isNotNull);
       expect(deadCategory!.isDeleted, isTrue);
 
-      final deadTx = await (db.select(db.transactions)
-            ..where((t) => t.id.equals('bk_tx_dead')))
-          .getSingleOrNull();
+      final deadTx = await (db.select(
+        db.transactions,
+      )..where((t) => t.id.equals('bk_tx_dead'))).getSingleOrNull();
       expect(deadTx, isNotNull);
       expect(deadTx!.isDeleted, isTrue);
       expect(deadTx.categoryId, 'bk_cat_dead');
     });
 
     test('the exported document names every table it snapshots', () async {
-      final data = jsonDecode(await exporter.buildJsonBackup())
-          as Map<String, dynamic>;
+      final data =
+          jsonDecode(await exporter.buildJsonBackup()) as Map<String, dynamic>;
       expect(data['version'], 2);
       for (final key in const [
         'transactions',
@@ -368,14 +402,13 @@ void main() {
       await importer.importContent(backup, isCsv: false);
     });
 
-    test('0.1 and 0.2 survive as exact minor units that sum to 0.30',
-        () async {
-      final a = await (db.select(db.transactions)
-            ..where((t) => t.id.equals('bk_tx_a')))
-          .getSingle();
-      final b = await (db.select(db.transactions)
-            ..where((t) => t.id.equals('bk_tx_b')))
-          .getSingle();
+    test('0.1 and 0.2 survive as exact minor units that sum to 0.30', () async {
+      final a = await (db.select(
+        db.transactions,
+      )..where((t) => t.id.equals('bk_tx_a'))).getSingle();
+      final b = await (db.select(
+        db.transactions,
+      )..where((t) => t.id.equals('bk_tx_b'))).getSingle();
       expect(a.amountMinor, 10);
       expect(b.amountMinor, 20);
       expect(a.amountMinor! + b.amountMinor!, 30);
@@ -386,36 +419,45 @@ void main() {
       expect(b.linkedTransactionId, 'bk_tx_a');
     });
 
-    test('a zero-decimal currency keeps 1234 JPY as 1234 minor units',
-        () async {
-      final jpy = await (db.select(db.transactions)
-            ..where((t) => t.id.equals('bk_tx_jpy')))
-          .getSingle();
-      expect(jpy.amount, 1234.0);
-      expect(jpy.amountMinor, 1234,
-          reason: 'JPY has no cents; scaling by 100 would be a 100x error');
-    });
+    test(
+      'a zero-decimal currency keeps 1234 JPY as 1234 minor units',
+      () async {
+        final jpy = await (db.select(
+          db.transactions,
+        )..where((t) => t.id.equals('bk_tx_jpy'))).getSingle();
+        expect(jpy.amount, 1234.0);
+        expect(
+          jpy.amountMinor,
+          1234,
+          reason: 'JPY has no cents; scaling by 100 would be a 100x error',
+        );
+      },
+    );
 
     test('a crypto amount keeps all 8 decimals and no minor units', () async {
-      final btc = await (db.select(db.transactions)
-            ..where((t) => t.id.equals('bk_tx_btc')))
-          .getSingle();
+      final btc = await (db.select(
+        db.transactions,
+      )..where((t) => t.id.equals('bk_tx_btc'))).getSingle();
       expect(btc.amount, 0.12345678);
-      expect(btc.amountMinor, isNull,
-          reason: 'non-fiat stays on the double; a minor-unit count here '
-              'would truncate the holding');
+      expect(
+        btc.amountMinor,
+        isNull,
+        reason:
+            'non-fiat stays on the double; a minor-unit count here '
+            'would truncate the holding',
+      );
 
-      final wallet = await (db.select(db.accounts)
-            ..where((t) => t.id.equals('bk_acc_btc')))
-          .getSingle();
+      final wallet = await (db.select(
+        db.accounts,
+      )..where((t) => t.id.equals('bk_acc_btc'))).getSingle();
       expect(wallet.balance, 0.12345678);
       expect(wallet.balanceMinor, isNull);
     });
 
     test('account opening balance and its minor units both survive', () async {
-      final acc = await (db.select(db.accounts)
-            ..where((t) => t.id.equals('bk_acc_eur')))
-          .getSingle();
+      final acc = await (db.select(
+        db.accounts,
+      )..where((t) => t.id.equals('bk_acc_eur'))).getSingle();
       expect(acc.openingBalance, 10.0);
       expect(acc.openingBalanceMinor, 1000);
       expect(acc.balance, 30.0);
@@ -430,30 +472,34 @@ void main() {
       await wipeBusinessTables();
       await importer.importContent(backup, isCsv: false);
 
-      final early = await (db.select(db.transactions)
-            ..where((t) => t.id.equals('bk_tx_midnight')))
-          .getSingle();
+      final early = await (db.select(
+        db.transactions,
+      )..where((t) => t.id.equals('bk_tx_midnight'))).getSingle();
       expect(early.date, DateTime(2025, 3, 30, 0, 15));
       expect(early.date.day, 30);
 
-      final late = await (db.select(db.transactions)
-            ..where((t) => t.id.equals('bk_tx_late')))
-          .getSingle();
+      final late = await (db.select(
+        db.transactions,
+      )..where((t) => t.id.equals('bk_tx_late'))).getSingle();
       expect(late.date, DateTime(2025, 3, 30, 23, 45));
       expect(late.date.day, 30);
     });
 
     test('the encoding is an absolute instant, not a local wall-clock string '
         'that a UTC offset could shift', () async {
-      final data = jsonDecode(await exporter.buildJsonBackup())
-          as Map<String, dynamic>;
+      final data =
+          jsonDecode(await exporter.buildJsonBackup()) as Map<String, dynamic>;
       final row = (data['transactions'] as List)
           .cast<Map<String, dynamic>>()
           .firstWhere((r) => r['id'] == 'bk_tx_midnight');
 
-      expect(row['date'], isA<int>(),
-          reason: 'a formatted local string would be read back in whatever '
-              'zone the importing device happens to sit in');
+      expect(
+        row['date'],
+        isA<int>(),
+        reason:
+            'a formatted local string would be read back in whatever '
+            'zone the importing device happens to sit in',
+      );
       expect(
         DateTime.fromMillisecondsSinceEpoch(row['date'] as int),
         DateTime(2025, 3, 30, 0, 15),
@@ -469,41 +515,43 @@ void main() {
       final backup = await exporter.buildJsonBackup();
       await wipeBusinessTables();
       await importer.importContent(backup, isCsv: false);
-      final acc = await (db.select(db.accounts)
-            ..where((t) => t.id.equals('bk_acc_eur')))
-          .getSingle();
+      final acc = await (db.select(
+        db.accounts,
+      )..where((t) => t.id.equals('bk_acc_eur'))).getSingle();
       expect(acc.creationDate, DateTime(2024, 5, 17, 9, 30, 15));
     });
   });
 
   group('non-ASCII text', () {
-    test('Cyrillic, an emoji and CJK survive both the encode and the restore',
-        () async {
-      final backup = await exporter.buildJsonBackup();
-      await wipeBusinessTables();
-      await importer.importContent(backup, isCsv: false);
+    test(
+      'Cyrillic, an emoji and CJK survive both the encode and the restore',
+      () async {
+        final backup = await exporter.buildJsonBackup();
+        await wipeBusinessTables();
+        await importer.importContent(backup, isCsv: false);
 
-      final acc = await (db.select(db.accounts)
-            ..where((t) => t.id.equals('bk_acc_eur')))
-          .getSingle();
-      expect(acc.name, 'Кошелёк 💶');
-      expect(acc.description, 'Основной, "рабочий"');
+        final acc = await (db.select(
+          db.accounts,
+        )..where((t) => t.id.equals('bk_acc_eur'))).getSingle();
+        expect(acc.name, 'Кошелёк 💶');
+        expect(acc.description, 'Основной, "рабочий"');
 
-      final jpy = await (db.select(db.accounts)
-            ..where((t) => t.id.equals('bk_acc_jpy')))
-          .getSingle();
-      expect(jpy.name, '日本 account');
+        final jpy = await (db.select(
+          db.accounts,
+        )..where((t) => t.id.equals('bk_acc_jpy'))).getSingle();
+        expect(jpy.name, '日本 account');
 
-      final cat = await (db.select(db.categories)
-            ..where((t) => t.id.equals('bk_cat_food')))
-          .getSingle();
-      expect(cat.name, 'Продукты 🍎');
+        final cat = await (db.select(
+          db.categories,
+        )..where((t) => t.id.equals('bk_cat_food'))).getSingle();
+        expect(cat.name, 'Продукты 🍎');
 
-      final tx = await (db.select(db.transactions)
-            ..where((t) => t.id.equals('bk_tx_jpy')))
-          .getSingle();
-      expect(tx.description, 'ラーメン');
-    });
+        final tx = await (db.select(
+          db.transactions,
+        )..where((t) => t.id.equals('bk_tx_jpy'))).getSingle();
+        expect(tx.description, 'ラーメン');
+      },
+    );
   });
 
   group('malformed input is refused before anything is deleted', () {
@@ -519,8 +567,13 @@ void main() {
     ) async {
       await expectLater(
         action(),
-        throwsA(isA<Exception>()
-            .having((e) => e.toString(), 'message', messageMatcher)),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            messageMatcher,
+          ),
+        ),
       );
       expect(
         (await db.select(db.transactions).get()).length,
@@ -550,8 +603,10 @@ void main() {
         importer.importContent(truncated, isCsv: false),
         throwsA(isA<FormatException>()),
       );
-      expect((await db.select(db.transactions).get()).length,
-          transactionsBefore);
+      expect(
+        (await db.select(db.transactions).get()).length,
+        transactionsBefore,
+      );
     });
 
     test('valid JSON that is not a backup object', () async {
@@ -564,45 +619,55 @@ void main() {
     test('a table that is not a list of rows', () async {
       await expectRefusedAndIntact(
         () => importer.importContent(
-            jsonEncode({'version': 2, 'accounts': 'oops'}),
-            isCsv: false),
+          jsonEncode({'version': 2, 'accounts': 'oops'}),
+          isCsv: false,
+        ),
         contains('not a list of rows'),
       );
     });
 
-    test('a transaction pointing at an account the file does not carry',
-        () async {
-      final data =
-          jsonDecode(await exporter.buildJsonBackup()) as Map<String, dynamic>;
-      (data['accounts'] as List)
-          .removeWhere((a) => (a as Map)['id'] == 'bk_acc_jpy');
+    test(
+      'a transaction pointing at an account the file does not carry',
+      () async {
+        final data =
+            jsonDecode(await exporter.buildJsonBackup())
+                as Map<String, dynamic>;
+        (data['accounts'] as List).removeWhere(
+          (a) => (a as Map)['id'] == 'bk_acc_jpy',
+        );
 
-      await expectRefusedAndIntact(
-        () => importer.importContent(jsonEncode(data), isCsv: false),
-        allOf(contains('bk_acc_jpy'), contains('does not contain')),
-      );
-    });
+        await expectRefusedAndIntact(
+          () => importer.importContent(jsonEncode(data), isCsv: false),
+          allOf(contains('bk_acc_jpy'), contains('does not contain')),
+        );
+      },
+    );
 
-    test('a transaction pointing at a category the file does not carry',
-        () async {
-      final data =
-          jsonDecode(await exporter.buildJsonBackup()) as Map<String, dynamic>;
-      (data['categories'] as List)
-          .removeWhere((c) => (c as Map)['id'] == 'bk_cat_income');
+    test(
+      'a transaction pointing at a category the file does not carry',
+      () async {
+        final data =
+            jsonDecode(await exporter.buildJsonBackup())
+                as Map<String, dynamic>;
+        (data['categories'] as List).removeWhere(
+          (c) => (c as Map)['id'] == 'bk_cat_income',
+        );
 
-      await expectRefusedAndIntact(
-        () => importer.importContent(jsonEncode(data), isCsv: false),
-        allOf(contains('bk_cat_income'), contains('does not contain')),
-      );
-    });
+        await expectRefusedAndIntact(
+          () => importer.importContent(jsonEncode(data), isCsv: false),
+          allOf(contains('bk_cat_income'), contains('does not contain')),
+        );
+      },
+    );
 
     test('a duplicated id', () async {
       final data =
           jsonDecode(await exporter.buildJsonBackup()) as Map<String, dynamic>;
       final rows = data['transactions'] as List;
       final clone = Map<String, dynamic>.of(
-          rows.firstWhere((r) => (r as Map)['id'] == 'bk_tx_a')
-              as Map<String, dynamic>);
+        rows.firstWhere((r) => (r as Map)['id'] == 'bk_tx_a')
+            as Map<String, dynamic>,
+      );
       clone['amount'] = 999.0;
       rows.add(clone);
 
@@ -615,82 +680,91 @@ void main() {
     test('text where a number belongs', () async {
       final data =
           jsonDecode(await exporter.buildJsonBackup()) as Map<String, dynamic>;
-      (data['transactions'] as List)
-          .cast<Map<String, dynamic>>()
-          .firstWhere((r) => r['id'] == 'bk_tx_a')['amount'] = 'not a number';
+      (data['transactions'] as List).cast<Map<String, dynamic>>().firstWhere(
+        (r) => r['id'] == 'bk_tx_a',
+      )['amount'] = 'not a number';
 
       await expectLater(
         importer.importContent(jsonEncode(data), isCsv: false),
         throwsA(anything),
       );
       // The failure lands inside the restore transaction, which rolls back.
-      expect((await db.select(db.transactions).get()).length,
-          transactionsBefore);
+      expect(
+        (await db.select(db.transactions).get()).length,
+        transactionsBefore,
+      );
     });
   });
 
   group('an older backup', () {
-    test('restores even though it predates columns the schema has now',
-        () async {
-      // A pre-v11 file has no `openingBalance`. The generated fromJson reads
-      // every non-nullable column and throws on a missing key, and the whole
-      // restore is one transaction - so without a default this file could not
-      // be restored at all.
-      final data =
-          jsonDecode(await exporter.buildJsonBackup()) as Map<String, dynamic>;
-      data['version'] = 1;
-      for (final row in (data['accounts'] as List).cast<Map<String, dynamic>>()) {
-        row.remove('openingBalance');
-        row.remove('openingBalanceMinor');
-      }
-      for (final row
-          in (data['transactions'] as List).cast<Map<String, dynamic>>()) {
-        row.remove('fee');
-        row.remove('feeMinor');
-        row.remove('amountMinor');
-      }
+    test(
+      'restores even though it predates columns the schema has now',
+      () async {
+        // A pre-v11 file has no `openingBalance`. The generated fromJson reads
+        // every non-nullable column and throws on a missing key, and the whole
+        // restore is one transaction - so without a default this file could not
+        // be restored at all.
+        final data =
+            jsonDecode(await exporter.buildJsonBackup())
+                as Map<String, dynamic>;
+        data['version'] = 1;
+        for (final row
+            in (data['accounts'] as List).cast<Map<String, dynamic>>()) {
+          row.remove('openingBalance');
+          row.remove('openingBalanceMinor');
+        }
+        for (final row
+            in (data['transactions'] as List).cast<Map<String, dynamic>>()) {
+          row.remove('fee');
+          row.remove('feeMinor');
+          row.remove('amountMinor');
+        }
 
-      await wipeBusinessTables();
-      await importer.importContent(jsonEncode(data), isCsv: false);
+        await wipeBusinessTables();
+        await importer.importContent(jsonEncode(data), isCsv: false);
 
-      final acc = await (db.select(db.accounts)
-            ..where((t) => t.id.equals('bk_acc_eur')))
-          .getSingle();
-      expect(acc.openingBalance, 0.0);
-      expect(acc.openingBalanceMinor, isNull);
-      expect(acc.balance, 30.0);
+        final acc = await (db.select(
+          db.accounts,
+        )..where((t) => t.id.equals('bk_acc_eur'))).getSingle();
+        expect(acc.openingBalance, 0.0);
+        expect(acc.openingBalanceMinor, isNull);
+        expect(acc.balance, 30.0);
 
-      final tx = await (db.select(db.transactions)
-            ..where((t) => t.id.equals('bk_tx_a')))
-          .getSingle();
-      expect(tx.fee, 0.0);
-      expect(tx.amount, 0.1);
-    });
+        final tx = await (db.select(
+          db.transactions,
+        )..where((t) => t.id.equals('bk_tx_a'))).getSingle();
+        expect(tx.fee, 0.0);
+        expect(tx.amount, 0.1);
+      },
+    );
 
-    test('a table the file does not carry at all is left alone, not emptied',
-        () async {
-      // A v1 backup has no `languages` key. Wiping the table anyway left every
-      // restored currency pointing at a language row that no longer existed.
-      final data =
-          jsonDecode(await exporter.buildJsonBackup()) as Map<String, dynamic>;
-      data['version'] = 1;
-      final languagesBefore = normalize(await db.select(db.languages).get());
-      final settingsBefore = normalize(await db.select(db.settings).get());
-      expect(languagesBefore, isNotEmpty);
-      expect(settingsBefore, isNotEmpty);
+    test(
+      'a table the file does not carry at all is left alone, not emptied',
+      () async {
+        // A v1 backup has no `languages` key. Wiping the table anyway left every
+        // restored currency pointing at a language row that no longer existed.
+        final data =
+            jsonDecode(await exporter.buildJsonBackup())
+                as Map<String, dynamic>;
+        data['version'] = 1;
+        final languagesBefore = normalize(await db.select(db.languages).get());
+        final settingsBefore = normalize(await db.select(db.settings).get());
+        expect(languagesBefore, isNotEmpty);
+        expect(settingsBefore, isNotEmpty);
 
-      data.remove('languages');
-      data.remove('settings');
-      data.remove('custom_themes');
-      data.remove('custom_data_sources');
-      data.remove('api_settings');
-      data.remove('sms_presets');
-      data.remove('inflation_rates');
+        data.remove('languages');
+        data.remove('settings');
+        data.remove('custom_themes');
+        data.remove('custom_data_sources');
+        data.remove('api_settings');
+        data.remove('sms_presets');
+        data.remove('inflation_rates');
 
-      await importer.importContent(jsonEncode(data), isCsv: false);
+        await importer.importContent(jsonEncode(data), isCsv: false);
 
-      expect(normalize(await db.select(db.languages).get()), languagesBefore);
-      expect(normalize(await db.select(db.settings).get()), settingsBefore);
-    });
+        expect(normalize(await db.select(db.languages).get()), languagesBefore);
+        expect(normalize(await db.select(db.settings).get()), settingsBefore);
+      },
+    );
   });
 }

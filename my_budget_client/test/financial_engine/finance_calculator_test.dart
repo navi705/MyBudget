@@ -664,32 +664,35 @@ void main() {
     });
 
     group('calculateBalances - Standard Accounts', () {
-      test('TC-FC-05: account with no transactions returns initial balance', () {
-        final account = Account(
-          id: 'acc1',
-          name: 'Test Account',
-          balance: 1000.0,
-          currencyCode: 'EUR',
-          currencyDesignationId: 'code',
-          accountTypeId: 'general',
-          creationDate: DateTime.now().subtract(const Duration(days: 30)),
-        );
+      test(
+        'TC-FC-05: account with no transactions returns initial balance',
+        () {
+          final account = Account(
+            id: 'acc1',
+            name: 'Test Account',
+            balance: 1000.0,
+            currencyCode: 'EUR',
+            currencyDesignationId: 'code',
+            accountTypeId: 'general',
+            creationDate: DateTime.now().subtract(const Duration(days: 30)),
+          );
 
-        final snap = FinancialSnapshot(
-          accounts: [account],
-          transactions: [],
-          assetData: [],
-          categories: [],
-          exchangeRates: [],
-          inflationRates: [],
-          date: DateTime.now(),
-          dateStep: DateStep.month,
-          baseCurrency: 'EUR',
-        );
+          final snap = FinancialSnapshot(
+            accounts: [account],
+            transactions: [],
+            assetData: [],
+            categories: [],
+            exchangeRates: [],
+            inflationRates: [],
+            date: DateTime.now(),
+            dateStep: DateStep.month,
+            baseCurrency: 'EUR',
+          );
 
-        final balances = calculator.calculateBalances(snap);
-        expect(balances['acc1'], equals(1000.0));
-      });
+          final balances = calculator.calculateBalances(snap);
+          expect(balances['acc1'], equals(1000.0));
+        },
+      );
 
       test('TC-FC-06: transactions before target date are included', () {
         final now = DateTime.now();
@@ -732,46 +735,49 @@ void main() {
         expect(balances['acc1'], equals(1000.0));
       });
 
-      test('TC-FC-07: transactions after target date are subtracted (reverse calc)', () {
-        final now = DateTime.now();
-        final tomorrow = now.add(const Duration(days: 1));
+      test(
+        'TC-FC-07: transactions after target date are subtracted (reverse calc)',
+        () {
+          final now = DateTime.now();
+          final tomorrow = now.add(const Duration(days: 1));
 
-        final account = Account(
-          id: 'acc1',
-          name: 'Test Account',
-          balance: 1000.0,
-          currencyCode: 'EUR',
-          currencyDesignationId: 'code',
-          accountTypeId: 'general',
-          creationDate: now.subtract(const Duration(days: 30)),
-        );
+          final account = Account(
+            id: 'acc1',
+            name: 'Test Account',
+            balance: 1000.0,
+            currencyCode: 'EUR',
+            currencyDesignationId: 'code',
+            accountTypeId: 'general',
+            creationDate: now.subtract(const Duration(days: 30)),
+          );
 
-        final tx = Transaction(
-          id: 'tx1',
-          description: 'Future transaction',
-          amount: 200.0,
-          date: tomorrow,
-          accountId: 'acc1',
-          categoryId: 'cat1',
-          currencyCode: 'EUR',
-        );
+          final tx = Transaction(
+            id: 'tx1',
+            description: 'Future transaction',
+            amount: 200.0,
+            date: tomorrow,
+            accountId: 'acc1',
+            categoryId: 'cat1',
+            currencyCode: 'EUR',
+          );
 
-        final snap = FinancialSnapshot(
-          accounts: [account],
-          transactions: [tx],
-          assetData: [],
-          categories: [],
-          exchangeRates: [],
-          inflationRates: [],
-          date: now,
-          dateStep: DateStep.month,
-          baseCurrency: 'EUR',
-        );
+          final snap = FinancialSnapshot(
+            accounts: [account],
+            transactions: [tx],
+            assetData: [],
+            categories: [],
+            exchangeRates: [],
+            inflationRates: [],
+            date: now,
+            dateStep: DateStep.month,
+            baseCurrency: 'EUR',
+          );
 
-        final balances = calculator.calculateBalances(snap);
-        // Reverse calc: 1000 - 200 = 800
-        expect(balances['acc1'], equals(800.0));
-      });
+          final balances = calculator.calculateBalances(snap);
+          // Reverse calc: 1000 - 200 = 800
+          expect(balances['acc1'], equals(800.0));
+        },
+      );
 
       test('TC-FC-08: multiple future transactions are all subtracted', () {
         final now = DateTime.now();
@@ -1000,56 +1006,59 @@ void main() {
         expect(balances['acc1'], equals(100.0));
       });
 
-      test('TC-FC-14: quantity adjusted by transactions before target date', () {
-        final account = Account(
-          id: 'acc1',
-          name: 'Gold Account',
-          balance: 0.0,
-          currencyCode: 'EUR',
-          currencyDesignationId: 'code',
-          accountTypeId: 'general',
-          creationDate: DateTime(2025, 1, 1),
-          assetId: 'gold',
-          assetQuantity: 5.0,
-        );
+      test(
+        'TC-FC-14: quantity adjusted by transactions before target date',
+        () {
+          final account = Account(
+            id: 'acc1',
+            name: 'Gold Account',
+            balance: 0.0,
+            currencyCode: 'EUR',
+            currencyDesignationId: 'code',
+            accountTypeId: 'general',
+            creationDate: DateTime(2025, 1, 1),
+            assetId: 'gold',
+            assetQuantity: 5.0,
+          );
 
-        final tx = Transaction(
-          id: 'tx1',
-          description: 'Buy gold',
-          amount: 2.0,
-          date: DateTime(2025, 6, 10),
-          accountId: 'acc1',
-          categoryId: 'cat1',
-          currencyCode: 'EUR',
-        );
+          final tx = Transaction(
+            id: 'tx1',
+            description: 'Buy gold',
+            amount: 2.0,
+            date: DateTime(2025, 6, 10),
+            accountId: 'acc1',
+            categoryId: 'cat1',
+            currencyCode: 'EUR',
+          );
 
-        final assetEntry = AssetDataDomain(
-          id: 'asset1',
-          assetId: 'gold',
-          name: 'Gold Price',
-          date: DateTime(2025, 6, 15),
-          value: 100.0,
-          quantity: 1.0,
-          currency: 'EUR',
-          source: 'test',
-        );
+          final assetEntry = AssetDataDomain(
+            id: 'asset1',
+            assetId: 'gold',
+            name: 'Gold Price',
+            date: DateTime(2025, 6, 15),
+            value: 100.0,
+            quantity: 1.0,
+            currency: 'EUR',
+            source: 'test',
+          );
 
-        final snap = FinancialSnapshot(
-          accounts: [account],
-          transactions: [tx],
-          assetData: [assetEntry],
-          categories: [],
-          exchangeRates: [],
-          inflationRates: [],
-          date: DateTime(2025, 6, 15),
-          dateStep: DateStep.month,
-          baseCurrency: 'EUR',
-        );
+          final snap = FinancialSnapshot(
+            accounts: [account],
+            transactions: [tx],
+            assetData: [assetEntry],
+            categories: [],
+            exchangeRates: [],
+            inflationRates: [],
+            date: DateTime(2025, 6, 15),
+            dateStep: DateStep.month,
+            baseCurrency: 'EUR',
+          );
 
-        final balances = calculator.calculateBalances(snap);
-        // (5.0 + 2.0) * 100.0 = 700.0
-        expect(balances['acc1'], equals(700.0));
-      });
+          final balances = calculator.calculateBalances(snap);
+          // (5.0 + 2.0) * 100.0 = 700.0
+          expect(balances['acc1'], equals(700.0));
+        },
+      );
 
       test('TC-FC-16: no asset data entries returns 0', () {
         final account = Account(
@@ -1147,7 +1156,10 @@ void main() {
         );
 
         final nominal = calculator.calculateBalances(snap);
-        final real = calculator.calculateRealBalances(snap, defaultCountry: 'TestLand');
+        final real = calculator.calculateRealBalances(
+          snap,
+          defaultCountry: 'TestLand',
+        );
 
         expect(real['acc1']!.abs(), lessThan(nominal['acc1']!.abs()));
       });
@@ -1218,59 +1230,68 @@ void main() {
         );
 
         final nominal = calculator.calculateBalances(snap);
-        final real = calculator.calculateRealBalances(snap, defaultCountry: 'Serbia');
+        final real = calculator.calculateRealBalances(
+          snap,
+          defaultCountry: 'Serbia',
+        );
 
         // Real should be less than nominal due to inflation
         expect(real['acc1']!.abs(), lessThan(nominal['acc1']!.abs()));
       });
 
-      test('TC-FC-21: account country takes precedence over defaultCountry', () {
-        final now = DateTime.now();
-        final oneYearAgo = now.subtract(const Duration(days: 365));
+      test(
+        'TC-FC-21: account country takes precedence over defaultCountry',
+        () {
+          final now = DateTime.now();
+          final oneYearAgo = now.subtract(const Duration(days: 365));
 
-        final account = Account(
-          id: 'acc1',
-          name: 'Test Account',
-          balance: 1000.0,
-          currencyCode: 'EUR',
-          currencyDesignationId: 'code',
-          accountTypeId: 'general',
-          creationDate: oneYearAgo,
-          country: 'Germany',
-        );
+          final account = Account(
+            id: 'acc1',
+            name: 'Test Account',
+            balance: 1000.0,
+            currencyCode: 'EUR',
+            currencyDesignationId: 'code',
+            accountTypeId: 'general',
+            creationDate: oneYearAgo,
+            country: 'Germany',
+          );
 
-        final germanyRate = InflationRateDomain(
-          preset: 0,
-          country: 'Germany',
-          percent: 5.0,
-          date: now.subtract(const Duration(days: 180)),
-        );
+          final germanyRate = InflationRateDomain(
+            preset: 0,
+            country: 'Germany',
+            percent: 5.0,
+            date: now.subtract(const Duration(days: 180)),
+          );
 
-        final serbiaRate = InflationRateDomain(
-          preset: 0,
-          country: 'Serbia',
-          percent: 20.0,
-          date: now.subtract(const Duration(days: 180)),
-        );
+          final serbiaRate = InflationRateDomain(
+            preset: 0,
+            country: 'Serbia',
+            percent: 20.0,
+            date: now.subtract(const Duration(days: 180)),
+          );
 
-        final snap = FinancialSnapshot(
-          accounts: [account],
-          transactions: [],
-          assetData: [],
-          categories: [],
-          exchangeRates: [],
-          inflationRates: [germanyRate, serbiaRate],
-          date: now,
-          dateStep: DateStep.month,
-          baseCurrency: 'EUR',
-        );
+          final snap = FinancialSnapshot(
+            accounts: [account],
+            transactions: [],
+            assetData: [],
+            categories: [],
+            exchangeRates: [],
+            inflationRates: [germanyRate, serbiaRate],
+            date: now,
+            dateStep: DateStep.month,
+            baseCurrency: 'EUR',
+          );
 
-        final realWithGermany = calculator.calculateRealBalances(snap, defaultCountry: 'Serbia');
+          final realWithGermany = calculator.calculateRealBalances(
+            snap,
+            defaultCountry: 'Serbia',
+          );
 
-        // Should use Germany's 5% rate, not Serbia's 20%
-        // Real with 5% inflation should be higher than with 20%
-        expect(realWithGermany['acc1'], isNotNull);
-      });
+          // Should use Germany's 5% rate, not Serbia's 20%
+          // Real with 5% inflation should be higher than with 20%
+          expect(realWithGermany['acc1'], isNotNull);
+        },
+      );
     });
 
     group('calculateTotalNetWorth', () {
@@ -1887,46 +1908,52 @@ void main() {
         expect(assetStats['acc1']!.netBalance, equals(990.0));
       });
 
-      test('TC-FC-37: netBalance equals nominalBalance when no fee structure', () {
-        final account = Account(
-          id: 'acc1',
-          name: 'Gold Account',
-          balance: 0.0,
-          currencyCode: 'EUR',
-          currencyDesignationId: 'code',
-          accountTypeId: 'general',
-          creationDate: DateTime.now().subtract(const Duration(days: 30)),
-          assetId: 'gold',
-          assetQuantity: 10.0,
-          feeStructure: null,
-        );
+      test(
+        'TC-FC-37: netBalance equals nominalBalance when no fee structure',
+        () {
+          final account = Account(
+            id: 'acc1',
+            name: 'Gold Account',
+            balance: 0.0,
+            currencyCode: 'EUR',
+            currencyDesignationId: 'code',
+            accountTypeId: 'general',
+            creationDate: DateTime.now().subtract(const Duration(days: 30)),
+            assetId: 'gold',
+            assetQuantity: 10.0,
+            feeStructure: null,
+          );
 
-        final assetEntry = AssetDataDomain(
-          id: 'asset1',
-          assetId: 'gold',
-          name: 'Gold Price',
-          date: DateTime.now(),
-          value: 100.0,
-          quantity: 1.0,
-          currency: 'EUR',
-          source: 'test',
-        );
+          final assetEntry = AssetDataDomain(
+            id: 'asset1',
+            assetId: 'gold',
+            name: 'Gold Price',
+            date: DateTime.now(),
+            value: 100.0,
+            quantity: 1.0,
+            currency: 'EUR',
+            source: 'test',
+          );
 
-        final snap = FinancialSnapshot(
-          accounts: [account],
-          transactions: [],
-          assetData: [assetEntry],
-          categories: [],
-          exchangeRates: [],
-          inflationRates: [],
-          date: DateTime.now(),
-          dateStep: DateStep.month,
-          baseCurrency: 'EUR',
-        );
+          final snap = FinancialSnapshot(
+            accounts: [account],
+            transactions: [],
+            assetData: [assetEntry],
+            categories: [],
+            exchangeRates: [],
+            inflationRates: [],
+            date: DateTime.now(),
+            dateStep: DateStep.month,
+            baseCurrency: 'EUR',
+          );
 
-        final assetStats = calculator.calculateAssetStats(snap);
-        expect(assetStats['acc1']!.netBalance, equals(assetStats['acc1']!.nominalBalance));
-      });
+          final assetStats = calculator.calculateAssetStats(snap);
+          expect(
+            assetStats['acc1']!.netBalance,
+            equals(assetStats['acc1']!.nominalBalance),
+          );
+        },
+      );
 
       test('TC-FC-38: commissions sums all transaction fees', () {
         final account = Account(

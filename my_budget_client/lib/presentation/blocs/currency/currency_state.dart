@@ -18,10 +18,7 @@ class CurrencyInitial extends CurrencyState {}
 class CurrencyLoadInProgress extends CurrencyState {}
 
 class CurrencyLoadSuccess extends CurrencyState {
-  const CurrencyLoadSuccess({
-    super.currencies,
-    super.designations,
-  });
+  const CurrencyLoadSuccess({super.currencies, super.designations});
 
   CurrencyLoadSuccess copyWith({
     List<Currency>? currencies,

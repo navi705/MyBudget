@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/utils/date_display.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
 import 'package:my_budget_client/domain/entities/api_setting.dart';
@@ -65,7 +66,9 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                       if (lastError != null) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(context.l10n.apiErrorLabel(lastError)),
+                            content: Text(
+                              context.l10n.apiErrorLabel(lastError),
+                            ),
                           ),
                         );
                       }
@@ -180,7 +183,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
   ) {
     final title = _getApiTitle(context, setting.id);
     final lastFetch = setting.lastFetchAt != null
-        ? DateFormat('yyyy-MM-dd HH:mm').format(setting.lastFetchAt!)
+        ? DateDisplay.dateTime(context, setting.lastFetchAt!)
         : context.l10n.noneLabel;
 
     final dataType = _getApiDataType(setting.id);
@@ -514,7 +517,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
               _startDate == null
                   ? context.l10n.selectStartDate
                   : context.l10n.startDateFrom(
-                      DateFormat('yyyy-MM-dd').format(_startDate!),
+                      DateDisplay.short(context, _startDate!),
                     ),
             ),
             trailing: const Icon(Icons.calendar_today),
@@ -533,7 +536,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
               _endDate == null
                   ? context.l10n.selectEndDate
                   : context.l10n.endDateTo(
-                      DateFormat('yyyy-MM-dd').format(_endDate!),
+                      DateDisplay.short(context, _endDate!),
                     ),
             ),
             trailing: const Icon(Icons.calendar_today),

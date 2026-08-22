@@ -203,9 +203,7 @@ Future<AppLocalizations> _pumpForm(
   GetIt.I.registerSingleton<CurrencyRepository>(
     _FakeCurrencyRepository(currencies: const [_euro], rates: rates),
   );
-  GetIt.I.registerSingleton<SettingsRepository>(
-    _FakeSettingsRepository('EUR'),
-  );
+  GetIt.I.registerSingleton<SettingsRepository>(_FakeSettingsRepository('EUR'));
   GetIt.I.registerSingleton<AssetRepository>(_FakeAssetRepository());
 
   await pumpAppWidget(
@@ -358,8 +356,10 @@ void main() {
 
       await _tapSave(tester, l10n);
       await _showSnackBar(tester);
-      expect(_snackBarText(l10n.importErrorLabel(_dbLockedMessage)),
-          findsOneWidget);
+      expect(
+        _snackBarText(l10n.importErrorLabel(_dbLockedMessage)),
+        findsOneWidget,
+      );
 
       // Emptying the rate field is another state carrying the same error, so
       // it must not disturb the bar that is already up.
@@ -368,8 +368,10 @@ void main() {
         '',
       );
       await _showSnackBar(tester);
-      expect(_snackBarText(l10n.importErrorLabel(_dbLockedMessage)),
-          findsOneWidget);
+      expect(
+        _snackBarText(l10n.importErrorLabel(_dbLockedMessage)),
+        findsOneWidget,
+      );
 
       await _tapRateButton(tester, l10n.updateButton);
       await _showSnackBar(tester);
@@ -451,8 +453,10 @@ void main() {
 
       await _tapSave(tester, l10n);
       await _showSnackBar(tester);
-      expect(_snackBarText(l10n.importErrorLabel(_dbLockedMessage)),
-          findsOneWidget);
+      expect(
+        _snackBarText(l10n.importErrorLabel(_dbLockedMessage)),
+        findsOneWidget,
+      );
 
       await _expireSnackBar(tester);
       expect(find.byType(SnackBar), findsNothing);

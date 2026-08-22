@@ -676,19 +676,29 @@ void main() {
     late AppDatabase migrated;
     late LocalInflationRepository migratedRepo;
 
-    setUpAll(() async {
-      tempDir = Directory.systemTemp.createTempSync('mybudget_inflation_v10');
-      final file = File('${tempDir.path}/v9.sqlite');
+    // A second copy of the same fixture, for the one test that WRITES. The
+    // group shares `migrated` across its tests to pay for the migration once,
+    // and a test that inserts into a shared database is a test that decides
+    // what the tests after it see: run the insert first and the collapse
+    // assertions below read 7.0 instead of 2.0. So the writer gets its own.
+    Future<AppDatabase> buildMigrated(String name) async {
+      final file = File('${tempDir.path}/$name.sqlite');
       final raw = sqlite3.sqlite3.open(file.path);
       raw.execute(createV9Sql);
       raw.execute(seedSql);
       raw.execute('PRAGMA user_version = 9;');
       raw.dispose();
 
-      migrated = AppDatabase.forTesting(NativeDatabase(file));
-      migratedRepo = LocalInflationRepository(migrated.inflationRatesDao);
+      final db = AppDatabase.forTesting(NativeDatabase(file));
       // Force the migration to run by touching the db.
-      await migrated.customSelect('SELECT 1').get();
+      await db.customSelect('SELECT 1').get();
+      return db;
+    }
+
+    setUpAll(() async {
+      tempDir = Directory.systemTemp.createTempSync('mybudget_inflation_v10');
+      migrated = await buildMigrated('v9');
+      migratedRepo = LocalInflationRepository(migrated.inflationRatesDao);
     });
 
     tearDownAll(() async {
@@ -742,11 +752,15 @@ void main() {
 
     test('a worldwide month can no longer be inserted twice after the '
         'migration', () async {
-      await migratedRepo.addInflationRate(
+      final own = await buildMigrated('v9_write');
+      addTearDown(own.close);
+      final ownRepo = LocalInflationRepository(own.inflationRatesDao);
+
+      await ownRepo.addInflationRate(
         InflationRateDomain(date: january, preset: 1, percent: 7.0),
       );
 
-      final worldwide = await migratedRepo.getInflationRatesFiltered(
+      final worldwide = await ownRepo.getInflationRatesFiltered(
         countries: [globalInflationCountry],
         dateFrom: january,
         dateTo: january,

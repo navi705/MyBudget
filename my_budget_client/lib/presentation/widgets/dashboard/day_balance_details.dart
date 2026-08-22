@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/theme/money_colors.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
@@ -53,12 +54,16 @@ class DayBalanceDetails extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        Column(children: accounts.map(_buildAccountItem).toList()),
+        Column(
+          children: accounts
+              .map((account) => _buildAccountItem(context, account))
+              .toList(),
+        ),
       ],
     );
   }
 
-  Widget _buildAccountItem(Account account) {
+  Widget _buildAccountItem(BuildContext context, Account account) {
     final balance = dayBalances[account.id] ?? 0.0;
 
     final style = styles.firstWhereOrNull((s) => s.id == account.styleId);
@@ -102,7 +107,7 @@ class DayBalanceDetails extends StatelessWidget {
           formattedBalance,
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: balance >= 0 ? Colors.green : Colors.red,
+            color: MoneyColors.of(context).forAmount(balance),
           ),
         ),
       ),

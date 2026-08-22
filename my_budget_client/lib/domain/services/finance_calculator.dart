@@ -277,7 +277,8 @@ class FinanceCalculator {
     // Finding #3: Build account lookup map once for O(1) access
     // instead of O(A) firstWhere scan inside the loop.
     final accountMap = <String, Account>{
-      for (final a in data.accounts) if (a.id != null) a.id!: a,
+      for (final a in data.accounts)
+        if (a.id != null) a.id!: a,
     };
 
     for (final accountId in balances.keys) {
@@ -371,7 +372,8 @@ class FinanceCalculator {
 
     // Finding #3: Build account lookup map once for O(1) access.
     final accountMap = <String, Account>{
-      for (final a in data.accounts) if (a.id != null) a.id!: a,
+      for (final a in data.accounts)
+        if (a.id != null) a.id!: a,
     };
     // Finding #2: Build exchange rate index once for O(1) lookup.
     final rateIndex = _buildRateIndex(data.exchangeRates);
@@ -414,7 +416,8 @@ class FinanceCalculator {
 
     // Finding #3: Build account lookup map once for O(1) access.
     final accountMap = <String, Account>{
-      for (final a in data.accounts) if (a.id != null) a.id!: a,
+      for (final a in data.accounts)
+        if (a.id != null) a.id!: a,
     };
     // Finding #2: Build exchange rate index once for O(1) lookup.
     final rateIndex = _buildRateIndex(data.exchangeRates);
@@ -484,6 +487,52 @@ class FinanceCalculator {
     return null;
   }
 
+  /// The currencies worth pivoting a triangular conversion through: the
+  /// caller's [mainCurrency] first, then the currency the table is anchored on.
+  ///
+  /// [mainCurrency] is the currency the *result* is shown in, which callers
+  /// change whenever the user switches the dashboard currency. A rate table is
+  /// anchored on whatever it was fetched against — here every row is `EUR -> X`
+  /// — so pivoting through the display currency asked for rows like
+  /// `RUB -> ETH` that were never stored, and priced nothing. The anchor is the
+  /// `from` code that reaches the most other currencies, read off the index, so
+  /// no setting has to be correct for a total to add up.
+  ///
+  /// Memoized on the index and the currency it was computed for: the walk-back
+  /// asks for a rate once per account per day, and rebuilding a two-element
+  /// list that many times is pure waste.
+  Map<String, Map<String, List<ExchangeRateDomain>>>? _pivotIndex;
+  String? _pivotMainCurrency;
+  List<String>? _pivotCache;
+
+  List<String> _pivotsFor(
+    Map<String, Map<String, List<ExchangeRateDomain>>> rateIndex,
+    String mainCurrency,
+  ) {
+    if (identical(_pivotIndex, rateIndex) &&
+        _pivotMainCurrency == mainCurrency) {
+      return _pivotCache!;
+    }
+    final pivots = <String>[mainCurrency];
+    String? anchor;
+    int anchorReach = 0;
+    for (final entry in rateIndex.entries) {
+      if (entry.value.length > anchorReach) {
+        anchor = entry.key;
+        anchorReach = entry.value.length;
+      }
+    }
+    // One pair stored the other way round is not an anchor: an anchor is a
+    // currency that prices many others.
+    if (anchor != null && anchor != mainCurrency && anchorReach > 1) {
+      pivots.add(anchor);
+    }
+    _pivotIndex = rateIndex;
+    _pivotMainCurrency = mainCurrency;
+    _pivotCache = pivots;
+    return pivots;
+  }
+
   /// Resolves [from]->[to] at [date], or **null** when no rate can be derived.
   ///
   /// Same "smart search" shape as CurrencyConverterService.getExchangeRate:
@@ -525,17 +574,13 @@ class FinanceCalculator {
       offer(1.0 / inverse.rate, inverse.date);
     }
 
-    // Triangular: Value(to) = Value(from) * Rate(main->to) / Rate(main->from).
-    // Skipped when either side already IS the main currency — that pairing
-    // degenerates into the direct/inverse lookups already tried above.
-    if (from != mainCurrency && to != mainCurrency) {
-      final mainToFrom = _latestRateAtOrBefore(
-        rateIndex,
-        mainCurrency,
-        from,
-        date,
-      );
-      final mainToTo = _latestRateAtOrBefore(rateIndex, mainCurrency, to, date);
+    // Triangular: Value(to) = Value(from) * Rate(pivot->to) / Rate(pivot->from).
+    for (final pivot in _pivotsFor(rateIndex, mainCurrency)) {
+      // Skipped when either side already IS the pivot — that pairing
+      // degenerates into the direct/inverse lookups already tried above.
+      if (from == pivot || to == pivot) continue;
+      final mainToFrom = _latestRateAtOrBefore(rateIndex, pivot, from, date);
+      final mainToTo = _latestRateAtOrBefore(rateIndex, pivot, to, date);
       if (mainToFrom != null && mainToTo != null && mainToFrom.rate != 0) {
         // A triangular rate is only as fresh as its STALEST leg — ranking it
         // by the closer leg would let a pairing of (today, three years ago)

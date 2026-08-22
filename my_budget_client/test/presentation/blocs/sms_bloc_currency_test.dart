@@ -197,103 +197,111 @@ void main() {
   }
 
   group('SmsBloc foreign-currency transactions', () {
-    test('converts and relabels to the account currency when a rate exists',
-        () async {
-      final smsRepository = _FakeSmsRepository(presets: const [preset]);
-      final transactionRepository = _FakeTransactionRepository();
-      final bloc = buildBloc(
-        smsRepository: smsRepository,
-        transactionRepository: transactionRepository,
-        rate: 117.0,
-      );
+    test(
+      'converts and relabels to the account currency when a rate exists',
+      () async {
+        final smsRepository = _FakeSmsRepository(presets: const [preset]);
+        final transactionRepository = _FakeTransactionRepository();
+        final bloc = buildBloc(
+          smsRepository: smsRepository,
+          transactionRepository: transactionRepository,
+          rate: 117.0,
+        );
 
-      smsRepository.incoming.add(foreignSms);
-      await pumpEventQueue();
+        smsRepository.incoming.add(foreignSms);
+        await pumpEventQueue();
 
-      expect(transactionRepository.added, hasLength(1));
-      final tx = transactionRepository.added.single;
-      expect(tx.currencyCode, 'RSD');
-      expect(tx.amount, -11700.0);
-      expect(tx.exchangeRate, 117.0);
-      // Amount and label agree: dividing out the applied rate gives the 100 USD
-      // the SMS actually reported.
-      expect(tx.amount / tx.exchangeRate!, -100.0);
+        expect(transactionRepository.added, hasLength(1));
+        final tx = transactionRepository.added.single;
+        expect(tx.currencyCode, 'RSD');
+        expect(tx.amount, -11700.0);
+        expect(tx.exchangeRate, 117.0);
+        // Amount and label agree: dividing out the applied rate gives the 100 USD
+        // the SMS actually reported.
+        expect(tx.amount / tx.exchangeRate!, -100.0);
 
-      await bloc.close();
-      await smsRepository.incoming.close();
-    });
+        await bloc.close();
+        await smsRepository.incoming.close();
+      },
+    );
 
-    test('keeps the raw amount under the SMS currency when no rate exists',
-        () async {
-      final smsRepository = _FakeSmsRepository(presets: const [preset]);
-      final transactionRepository = _FakeTransactionRepository();
-      final bloc = buildBloc(
-        smsRepository: smsRepository,
-        transactionRepository: transactionRepository,
-        rate: null,
-      );
+    test(
+      'keeps the raw amount under the SMS currency when no rate exists',
+      () async {
+        final smsRepository = _FakeSmsRepository(presets: const [preset]);
+        final transactionRepository = _FakeTransactionRepository();
+        final bloc = buildBloc(
+          smsRepository: smsRepository,
+          transactionRepository: transactionRepository,
+          rate: null,
+        );
 
-      smsRepository.incoming.add(foreignSms);
-      await pumpEventQueue();
+        smsRepository.incoming.add(foreignSms);
+        await pumpEventQueue();
 
-      expect(transactionRepository.added, hasLength(1));
-      final tx = transactionRepository.added.single;
-      // The core regression: 100 unconverted units must NOT be labelled RSD.
-      expect(tx.currencyCode, 'USD');
-      expect(tx.amount, -100.0);
-      expect(tx.exchangeRate, isNull);
-      expect(tx.exchangeRatePreset, isNull);
+        expect(transactionRepository.added, hasLength(1));
+        final tx = transactionRepository.added.single;
+        // The core regression: 100 unconverted units must NOT be labelled RSD.
+        expect(tx.currencyCode, 'USD');
+        expect(tx.amount, -100.0);
+        expect(tx.exchangeRate, isNull);
+        expect(tx.exchangeRatePreset, isNull);
 
-      await bloc.close();
-      await smsRepository.incoming.close();
-    });
+        await bloc.close();
+        await smsRepository.incoming.close();
+      },
+    );
 
-    test('counts the transaction only once it reached the repository',
-        () async {
-      final smsRepository = _FakeSmsRepository(
-        presets: const [preset],
-        messages: [foreignSms],
-      );
-      final transactionRepository = _FakeTransactionRepository(
-        failWrites: true,
-      );
-      final bloc = buildBloc(
-        smsRepository: smsRepository,
-        transactionRepository: transactionRepository,
-        rate: 117.0,
-      );
+    test(
+      'counts the transaction only once it reached the repository',
+      () async {
+        final smsRepository = _FakeSmsRepository(
+          presets: const [preset],
+          messages: [foreignSms],
+        );
+        final transactionRepository = _FakeTransactionRepository(
+          failWrites: true,
+        );
+        final bloc = buildBloc(
+          smsRepository: smsRepository,
+          transactionRepository: transactionRepository,
+          rate: 117.0,
+        );
 
-      bloc.add(const ImportSmsMessages());
-      await pumpEventQueue();
+        bloc.add(const ImportSmsMessages());
+        await pumpEventQueue();
 
-      expect(transactionRepository.added, isEmpty);
-      expect(bloc.state.createdTransactionsCount, 0);
-      expect(bloc.state.failedTransactionsCount, 1);
-      expect(bloc.state.importError, isNotNull);
+        expect(transactionRepository.added, isEmpty);
+        expect(bloc.state.createdTransactionsCount, 0);
+        expect(bloc.state.failedTransactionsCount, 1);
+        expect(bloc.state.importError, isNotNull);
 
-      await bloc.close();
-      await smsRepository.incoming.close();
-    });
+        await bloc.close();
+        await smsRepository.incoming.close();
+      },
+    );
 
-    test('does not emit for an SMS that lands while the bloc is closing',
-        () async {
-      final smsRepository = _FakeSmsRepository(presets: const [preset]);
-      final transactionRepository = _FakeTransactionRepository();
-      final bloc = buildBloc(
-        smsRepository: smsRepository,
-        transactionRepository: transactionRepository,
-        rate: 117.0,
-      );
+    test(
+      'does not emit for an SMS that lands while the bloc is closing',
+      () async {
+        final smsRepository = _FakeSmsRepository(presets: const [preset]);
+        final transactionRepository = _FakeTransactionRepository();
+        final bloc = buildBloc(
+          smsRepository: smsRepository,
+          transactionRepository: transactionRepository,
+          rate: 117.0,
+        );
 
-      // close() awaits the cancel, so an SMS delivered afterwards can never
-      // reach add() on a closed bloc (which throws).
-      await bloc.close();
-      smsRepository.incoming.add(foreignSms);
-      await pumpEventQueue();
+        // close() awaits the cancel, so an SMS delivered afterwards can never
+        // reach add() on a closed bloc (which throws).
+        await bloc.close();
+        smsRepository.incoming.add(foreignSms);
+        await pumpEventQueue();
 
-      expect(transactionRepository.added, isEmpty);
+        expect(transactionRepository.added, isEmpty);
 
-      await smsRepository.incoming.close();
-    });
+        await smsRepository.incoming.close();
+      },
+    );
   });
 }

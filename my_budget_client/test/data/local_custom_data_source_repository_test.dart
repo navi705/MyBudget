@@ -27,14 +27,13 @@ void main() {
     await db.delete(db.syncLog).go();
   });
 
-  Future<List<SyncLogData>> logs() =>
-      (db.select(db.syncLog)
-            ..where((l) => l.changedTableName.equals('custom_data_sources')))
-          .get();
+  Future<List<SyncLogData>> logs() => (db.select(
+    db.syncLog,
+  )..where((l) => l.changedTableName.equals('custom_data_sources'))).get();
 
-  Future<CustomDataSource?> rowFor(String id) =>
-      (db.select(db.customDataSources)..where((s) => s.id.equals(id)))
-          .getSingleOrNull();
+  Future<CustomDataSource?> rowFor(String id) => (db.select(
+    db.customDataSources,
+  )..where((s) => s.id.equals(id))).getSingleOrNull();
 
   CustomDataSourceDomain source({
     String id = 'src-1',
@@ -199,17 +198,23 @@ void main() {
       expect((await rowFor('src-1'))!.isDeleted, isTrue);
     });
 
-    test('bumps modifiedAt so the tombstone beats an older live copy', () async {
-      await repo.saveDataSource(source());
-      await db
-          .update(db.customDataSources)
-          .write(const CustomDataSourcesCompanion(modifiedAt: Value(1)));
-      final before = DateTime.now().millisecondsSinceEpoch;
+    test(
+      'bumps modifiedAt so the tombstone beats an older live copy',
+      () async {
+        await repo.saveDataSource(source());
+        await db
+            .update(db.customDataSources)
+            .write(const CustomDataSourcesCompanion(modifiedAt: Value(1)));
+        final before = DateTime.now().millisecondsSinceEpoch;
 
-      await repo.deleteDataSource('src-1');
+        await repo.deleteDataSource('src-1');
 
-      expect((await rowFor('src-1'))!.modifiedAt, greaterThanOrEqualTo(before));
-    });
+        expect(
+          (await rowFor('src-1'))!.modifiedAt,
+          greaterThanOrEqualTo(before),
+        );
+      },
+    );
 
     test('logs a delete action, not an upsert', () async {
       await repo.saveDataSource(source());

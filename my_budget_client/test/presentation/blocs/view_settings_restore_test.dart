@@ -1,6 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:my_budget_client/core/database/app_database.dart' show AppDatabase;
+import 'package:my_budget_client/core/database/app_database.dart'
+    show AppDatabase;
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_asset_repository.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_inflation_repository.dart';
@@ -46,85 +47,91 @@ void main() {
   );
 
   group('AssetBloc persisted view settings', () {
-    test('LoadAssetData emits a state carrying the persisted settings',
-        () async {
-      // Both differ from AssetState's defaults (month / date), so a passing
-      // assertion can only come from the restore path.
-      await settingsRepository.saveSetting(
-        'asset_date_step',
-        DateStep.year.toString(),
-      );
-      await settingsRepository.saveSetting(
-        'asset_filter_mode',
-        FilterMode.range.toString(),
-      );
+    test(
+      'LoadAssetData emits a state carrying the persisted settings',
+      () async {
+        // Both differ from AssetState's defaults (month / date), so a passing
+        // assertion can only come from the restore path.
+        await settingsRepository.saveSetting(
+          'asset_date_step',
+          DateStep.year.toString(),
+        );
+        await settingsRepository.saveSetting(
+          'asset_filter_mode',
+          FilterMode.range.toString(),
+        );
 
-      final bloc = buildAssetBloc();
-      bloc.add(const LoadAssetData());
+        final bloc = buildAssetBloc();
+        bloc.add(const LoadAssetData());
 
-      final restored = await bloc.stream
-          .firstWhere((s) => s.status == AssetStatus.success)
-          .timeout(const Duration(seconds: 10));
+        final restored = await bloc.stream
+            .firstWhere((s) => s.status == AssetStatus.success)
+            .timeout(const Duration(seconds: 10));
 
-      expect(restored.dateStep, DateStep.year);
-      expect(restored.filterMode, FilterMode.range);
+        expect(restored.dateStep, DateStep.year);
+        expect(restored.filterMode, FilterMode.range);
 
-      await bloc.close();
-    });
+        await bloc.close();
+      },
+    );
 
-    test('a second load keeps the in-session choice over the persisted one',
-        () async {
-      await settingsRepository.saveSetting(
-        'asset_date_step',
-        DateStep.year.toString(),
-      );
+    test(
+      'a second load keeps the in-session choice over the persisted one',
+      () async {
+        await settingsRepository.saveSetting(
+          'asset_date_step',
+          DateStep.year.toString(),
+        );
 
-      final bloc = buildAssetBloc();
-      bloc.add(const LoadAssetData());
-      await bloc.stream
-          .firstWhere((s) => s.status == AssetStatus.success)
-          .timeout(const Duration(seconds: 10));
+        final bloc = buildAssetBloc();
+        bloc.add(const LoadAssetData());
+        await bloc.stream
+            .firstWhere((s) => s.status == AssetStatus.success)
+            .timeout(const Duration(seconds: 10));
 
-      // The user picks day; reloading must not snap back to the stored year.
-      bloc.add(const ChangeAssetDateStep(DateStep.day));
-      await bloc.stream
-          .firstWhere((s) => s.dateStep == DateStep.day)
-          .timeout(const Duration(seconds: 10));
+        // The user picks day; reloading must not snap back to the stored year.
+        bloc.add(const ChangeAssetDateStep(DateStep.day));
+        await bloc.stream
+            .firstWhere((s) => s.dateStep == DateStep.day)
+            .timeout(const Duration(seconds: 10));
 
-      bloc.add(const LoadAssetData());
-      await pumpEventQueue();
-      expect(bloc.state.dateStep, DateStep.day);
+        bloc.add(const LoadAssetData());
+        await pumpEventQueue();
+        expect(bloc.state.dateStep, DateStep.day);
 
-      await bloc.close();
-    });
+        await bloc.close();
+      },
+    );
   });
 
   group('InflationBloc persisted view settings', () {
-    test('LoadInflationRates emits a state carrying the persisted settings',
-        () async {
-      // InflationBloc seeds its initial state with DateStep.year, so day is the
-      // value that can only appear via the restore.
-      await settingsRepository.saveSetting(
-        'inflation_date_step',
-        DateStep.day.toString(),
-      );
-      await settingsRepository.saveSetting(
-        'inflation_filter_mode',
-        FilterMode.range.toString(),
-      );
+    test(
+      'LoadInflationRates emits a state carrying the persisted settings',
+      () async {
+        // InflationBloc seeds its initial state with DateStep.year, so day is the
+        // value that can only appear via the restore.
+        await settingsRepository.saveSetting(
+          'inflation_date_step',
+          DateStep.day.toString(),
+        );
+        await settingsRepository.saveSetting(
+          'inflation_filter_mode',
+          FilterMode.range.toString(),
+        );
 
-      final bloc = buildInflationBloc();
-      bloc.add(LoadInflationRates());
+        final bloc = buildInflationBloc();
+        bloc.add(LoadInflationRates());
 
-      final restored = await bloc.stream
-          .firstWhere((s) => s.status == InflationStatus.success)
-          .timeout(const Duration(seconds: 10));
+        final restored = await bloc.stream
+            .firstWhere((s) => s.status == InflationStatus.success)
+            .timeout(const Duration(seconds: 10));
 
-      expect(restored.dateStep, DateStep.day);
-      expect(restored.filterMode, FilterMode.range);
+        expect(restored.dateStep, DateStep.day);
+        expect(restored.filterMode, FilterMode.range);
 
-      await bloc.close();
-    });
+        await bloc.close();
+      },
+    );
 
     test('ChangeInflationDateStep emits the new step', () async {
       final bloc = buildInflationBloc();

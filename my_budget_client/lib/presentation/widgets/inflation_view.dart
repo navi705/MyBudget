@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/theme/money_colors.dart';
 import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/presentation/blocs/inflation/inflation_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/generic/grouped_paginated_list.dart';
@@ -314,7 +315,9 @@ class _InflationListItem extends StatelessWidget {
             '${item.percent > 0 ? '+' : ''}${item.percent.toStringAsFixed(2)}%',
             style: theme.textTheme.bodyLarge?.copyWith(
               fontWeight: FontWeight.bold,
-              color: item.percent >= 0 ? Colors.red : Colors.green,
+              color: item.percent >= 0
+                  ? MoneyColors.of(context).outflow
+                  : MoneyColors.of(context).inflow,
             ),
           ),
         ),

@@ -311,7 +311,10 @@ void main() {
       // before anything was deleted.
       seed: () => ThemeState(
         activeTheme: _theme('mine', name: 'Mine', isActive: true),
-        presets: [_theme('mine', name: 'Mine'), _theme('other', name: 'Other')],
+        presets: [
+          _theme('mine', name: 'Mine'),
+          _theme('other', name: 'Other'),
+        ],
         isLoaded: true,
       ),
       act: (bloc) => bloc.add(const DeleteThemePreset('mine')),
@@ -379,11 +382,8 @@ void main() {
     final mine = _theme('mine', name: 'Mine', isActive: true);
     final other = _theme('other', name: 'Other');
 
-    ThemeState seeded() => ThemeState(
-      activeTheme: mine,
-      presets: [mine, other],
-      isLoaded: true,
-    );
+    ThemeState seeded() =>
+        ThemeState(activeTheme: mine, presets: [mine, other], isLoaded: true);
 
     Matcher reportsFailure() => isA<ThemeState>()
         .having(

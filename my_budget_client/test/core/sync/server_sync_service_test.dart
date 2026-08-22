@@ -184,12 +184,71 @@ void main() {
       required int serverTimestamp,
       required bool hasMore,
       List<Map<String, dynamic>> styles = const [],
+      List<Map<String, dynamic>> accounts = const [],
+      List<Map<String, dynamic>> transactions = const [],
     }) {
       return {
-        'changes': {'styles': styles},
+        'changes': {
+          'styles': styles,
+          'accounts': accounts,
+          'transactions': transactions,
+        },
         'server_timestamp': serverTimestamp,
         'has_more': hasMore,
       };
+    }
+
+    Map<String, dynamic> account(String id, {int modifiedAt = 1000}) {
+      return {
+        'id': id,
+        'name': 'Pulled $id',
+        'balance': 0.0,
+        'openingBalance': 100.0,
+        'currencyCode': 'USD',
+        'accountTypeId': 'account_type_checking',
+        'creationDate': '2024-01-01T00:00:00.000',
+        'modifiedAt': modifiedAt,
+        'isDeleted': false,
+      };
+    }
+
+    Map<String, dynamic> transaction(
+      String id, {
+      required String accountId,
+      double amount = 25.0,
+      int modifiedAt = 1000,
+      Object? modifiedAtOverride,
+    }) {
+      return {
+        'id': id,
+        'description': 'Pulled $id',
+        'amount': amount,
+        'date': '2024-02-01T00:00:00.000',
+        'accountId': accountId,
+        'categoryId': '',
+        'currencyCode': 'USD',
+        'modifiedAt': modifiedAtOverride ?? modifiedAt,
+        'isDeleted': false,
+      };
+    }
+
+    /// How many rows the tables a page can touch are holding, plus the size of
+    /// the push queue — the numbers a second apply of the same page must not
+    /// move.
+    Future<List<int>> tableCounts() async {
+      final counts = <int>[];
+      for (final table in [
+        'styles',
+        'accounts',
+        'transactions',
+        'sync_push_queue',
+      ]) {
+        final row = await db
+            .customSelect('SELECT COUNT(*) AS c FROM $table')
+            .getSingle();
+        counts.add(row.read<int>('c'));
+      }
+      return counts;
     }
 
     Map<String, dynamic> style(String id, {int modifiedAt = 1000}) {
@@ -314,6 +373,90 @@ void main() {
         await service.sync();
 
         expect(pulls.length, 2);
+      },
+    );
+
+    test(
+      'a page that fails half way applies nothing and leaves the cursor put',
+      () async {
+        // Invariant 6. `_applyChanges` is ONE transaction over all sixteen
+        // tables and the caller advances the cursor only after it returns; both
+        // halves of that have to hold. The poison is a transactions row whose
+        // `modifiedAt` is a string, so the row that fails sits behind a styles
+        // row and an accounts row that have already been written inside the same
+        // transaction — the exact shape that a regression to one transaction per
+        // table would commit and then lose the rest of.
+        final prefs = await SharedPreferences.getInstance();
+        pages = [
+          page(
+            serverTimestamp: 7,
+            hasMore: false,
+            styles: [style('s1')],
+            accounts: [account('a1')],
+            transactions: [
+              transaction('t1', accountId: 'a1', modifiedAtOverride: 'later'),
+            ],
+          ),
+          page(serverTimestamp: 7, hasMore: false, styles: [style('s2')]),
+        ];
+
+        await expectLater(service.sync(), throwsA(isA<TypeError>()));
+
+        expect(
+          await db.stylesDao.getStyleById('s1'),
+          isNull,
+          reason: 'the tables applied before the failure must roll back too',
+        );
+        expect(await db.accountsDao.getAccountById('a1'), isNull);
+        expect(
+          prefs.containsKey(serverPullCursorKey),
+          isFalse,
+          reason: 'a page that did not commit must not move the watermark',
+        );
+
+        // And the next sync asks for the same page again rather than skipping it.
+        await service.sync();
+
+        expect(pulls.map((u) => u.queryParameters['last_sync']), ['0', '0']);
+        expect(await db.stylesDao.getStyleById('s2'), isNotNull);
+      },
+    );
+
+    test(
+      'applying the same page twice changes nothing the second time',
+      () async {
+        // Invariant 4. The second apply must be a no-op: no duplicated rows, no
+        // doubled balance, and nothing left behind in sync_push_queue — the
+        // queue matters because every upsert trips the push triggers, so a
+        // replay that leaked entries would upload the server's own page back to
+        // it on the next cycle.
+        final identical = page(
+          serverTimestamp: 7,
+          hasMore: false,
+          styles: [style('s1')],
+          accounts: [account('a1')],
+          transactions: [transaction('t1', accountId: 'a1')],
+        );
+        pages = [identical, identical];
+
+        await service.sync();
+        final afterFirst = await tableCounts();
+        final balanceAfterFirst = (await db.accountsDao.getAccountById(
+          'a1',
+        ))!.balance;
+
+        // The server hands back the same page from the same cursor - which is
+        // also what a re-delivered page looks like.
+        await service.sync();
+
+        expect(await tableCounts(), afterFirst);
+        expect(
+          (await db.accountsDao.getAccountById('a1'))!.balance,
+          balanceAfterFirst,
+          reason:
+              'a replayed transaction must not be counted into the balance twice',
+        );
+        expect(await db.stylesDao.getStyleById('s1'), isNotNull);
       },
     );
 

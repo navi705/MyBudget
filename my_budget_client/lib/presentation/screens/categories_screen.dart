@@ -17,13 +17,18 @@ import 'package:my_budget_client/presentation/blocs/categories/categories_bloc.d
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart'
     show CurrencyBloc;
 import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/category_grid.dart';
 import 'package:my_budget_client/presentation/widgets/category_list_item.dart';
+import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
+import 'package:my_budget_client/domain/entities/category_with_total.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/delete_category_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/generic/generic_filter_app_bar.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
-import 'package:my_budget_client/core/theme/app_spacing.dart';
+import 'package:my_budget_client/core/theme/pane_layout.dart';
+import 'package:my_budget_client/presentation/widgets/account_list_item.dart'
+    show kContentMaxWidth, kFabScrollBottomInset;
 
 import 'package:my_budget_client/presentation/widgets/calendar_step_picker.dart';
 import 'package:my_budget_client/presentation/widgets/category_filter_dialog.dart';
@@ -31,6 +36,18 @@ import 'package:my_budget_client/presentation/widgets/single_select_dialog.dart'
 import 'package:my_budget_client/presentation/widgets/icon_selection_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
+
+/// Settings key holding which of the two category views is on screen.
+///
+/// It lives in settings rather than in screen state because the choice is a
+/// preference, not a step in a task: reopening the app and finding the list
+/// back would undo it every time.
+const String kCategoriesViewModeSetting = 'categories_view_mode';
+
+/// The grid is opt-in; anything other than `grid` (including nothing saved
+/// yet) means the list every existing user already has.
+bool categoriesGridViewEnabled(SettingsState state) =>
+    state.settings[kCategoriesViewModeSetting] == 'grid';
 
 class CategoriesScreen extends StatefulWidget {
   final bool isStandalone;
@@ -69,6 +86,72 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     final maxScroll = _scrollController.position.maxScrollExtent;
     final currentScroll = _scrollController.offset;
     return currentScroll >= (maxScroll * 0.9);
+  }
+
+  /// The original one-row-per-category view.
+  Widget _buildCategoryList(
+    BuildContext context, {
+    required CategoriesBloc bloc,
+    required CategoriesLoadSuccess successState,
+    required List<CategoryWithTotal> filteredCategories,
+    required List<CategoryWithTotal> topLevelCategories,
+  }) {
+    return ListView.builder(
+      controller: _scrollController,
+      // Room for the FAB that floats over this list: 56dp of button, its 16dp
+      // margin, and 16dp so the last row reads as a row rather than as
+      // something half-hidden.
+      padding: const EdgeInsets.only(bottom: kFabScrollBottomInset),
+      itemCount: successState.hasReachedMax
+          ? topLevelCategories.length
+          : topLevelCategories.length + 1,
+      itemBuilder: (context, index) {
+        if (index >= topLevelCategories.length) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final categoryWithTotal = topLevelCategories[index];
+        final category = categoryWithTotal.category;
+        final isSelected = successState.selectedCategoryIds.contains(
+          category.id,
+        );
+
+        return CategoryListItem(
+          key: ValueKey(category.id),
+          categoryWithTotal: categoryWithTotal,
+          allCategoriesWithTotals: filteredCategories,
+          isSelected: isSelected,
+          onTap: (tappedCategory) {
+            if (successState.isSelectionModeActive) {
+              bloc.add(ToggleCategorySelection(tappedCategory.id!));
+            } else {
+              _navigateToAddTransaction(context, tappedCategory);
+            }
+          },
+          onLongPressStart: (details) {
+            if (successState.isSelectionModeActive) {
+              bloc.add(ToggleCategorySelection(category.id!));
+            } else {
+              _showContextMenu(
+                context,
+                details.globalPosition,
+                category,
+                successState,
+              );
+            }
+          },
+          onSecondaryTapUp: (details) {
+            _showContextMenu(
+              context,
+              details.globalPosition,
+              category,
+              successState,
+            );
+          },
+          mainCurrencyCode: successState.mainCurrencyCode,
+          currencyDesignations: successState.currencyDesignations,
+        );
+      },
+    );
   }
 
   void _showDeleteConfirmationDialog(
@@ -619,8 +702,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         child: Scaffold(
           appBar: widget.isStandalone
               ? PreferredSize(
+                  // The pane, not the window: the rail takes ~73dp off the
+                  // left, so the two disagree across the whole 600-742dp band
+                  // and this bar sized itself for the layout it was not
+                  // building.
                   preferredSize: Size.fromHeight(
-                    MediaQuery.of(context).size.width < kMobileBreakpoint
+                    context.isCompactPane
                         ? kToolbarHeight * 1.8
                         : kToolbarHeight,
                   ),
@@ -691,58 +778,69 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     context,
                     details.globalPosition,
                   ),
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    itemCount: successState.hasReachedMax
-                        ? topLevelCategories.length
-                        : topLevelCategories.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index >= topLevelCategories.length) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      final categoryWithTotal = topLevelCategories[index];
-                      final category = categoryWithTotal.category;
-                      final isSelected = successState.selectedCategoryIds
-                          .contains(category.id);
-
-                      return CategoryListItem(
-                        key: ValueKey(category.id),
-                        categoryWithTotal: categoryWithTotal,
-                        allCategoriesWithTotals: filteredCategories,
-                        isSelected: isSelected,
-                        onTap: (tappedCategory) {
-                          if (successState.isSelectionModeActive) {
-                            bloc.add(
-                              ToggleCategorySelection(tappedCategory.id!),
+                  // The GestureDetector stays full-bleed so a right-click in
+                  // the desktop margin still opens the empty-area menu; only
+                  // the content column is capped, centred, the same way
+                  // settings_screen.dart does it.
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: kContentMaxWidth,
+                      ),
+                      child: BlocBuilder<SettingsBloc, SettingsState>(
+                        buildWhen: (previous, current) =>
+                            categoriesGridViewEnabled(previous) !=
+                            categoriesGridViewEnabled(current),
+                        builder: (context, settingsState) {
+                          if (categoriesGridViewEnabled(settingsState)) {
+                            return CategoryGrid(
+                              topLevelCategories: topLevelCategories,
+                              allCategoriesWithTotals: filteredCategories,
+                              selectedCategoryIds: successState
+                                  .selectedCategoryIds
+                                  .toSet(),
+                              mainCurrencyCode: successState.mainCurrencyCode,
+                              currencyDesignations:
+                                  successState.currencyDesignations,
+                              controller: _scrollController,
+                              isLoadingMore: !successState.hasReachedMax,
+                              // Same FAB clearance as the list below.
+                              padding: const EdgeInsets.only(
+                                left: 12,
+                                right: 12,
+                                bottom: kFabScrollBottomInset,
+                              ),
+                              onTap: (tappedCategory) {
+                                if (successState.isSelectionModeActive) {
+                                  bloc.add(
+                                    ToggleCategorySelection(tappedCategory.id!),
+                                  );
+                                } else {
+                                  _navigateToAddTransaction(
+                                    context,
+                                    tappedCategory,
+                                  );
+                                }
+                              },
+                              onContextMenu: (category, position) =>
+                                  _showContextMenu(
+                                    context,
+                                    position,
+                                    category,
+                                    successState,
+                                  ),
                             );
-                          } else {
-                            _navigateToAddTransaction(context, tappedCategory);
                           }
-                        },
-                        onLongPressStart: (details) {
-                          if (successState.isSelectionModeActive) {
-                            bloc.add(ToggleCategorySelection(category.id!));
-                          } else {
-                            _showContextMenu(
-                              context,
-                              details.globalPosition,
-                              category,
-                              successState,
-                            );
-                          }
-                        },
-                        onSecondaryTapUp: (details) {
-                          _showContextMenu(
+                          return _buildCategoryList(
                             context,
-                            details.globalPosition,
-                            category,
-                            successState,
+                            bloc: bloc,
+                            successState: successState,
+                            filteredCategories: filteredCategories,
+                            topLevelCategories: topLevelCategories,
                           );
                         },
-                        mainCurrencyCode: successState.mainCurrencyCode,
-                        currencyDesignations: successState.currencyDesignations,
-                      );
-                    },
+                      ),
+                    ),
                   ),
                 );
               }
@@ -849,7 +947,13 @@ class _CategoriesDateAppBar extends StatelessWidget {
     final bloc = context.read<CategoriesBloc>();
     final l10n = context.l10n;
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final isMobile = MediaQuery.of(context).size.width < kMobileBreakpoint;
+    // The pane the bar is drawn into, not the whole window: the desktop branch
+    // of this Row is unbounded and overflows the moment the two disagree.
+    final isMobile = context.isCompactPane;
+    // Chevrons are direction, not decoration: "previous" points at the start
+    // edge, which is the right-hand one under RTL. Same glyph-swap the rail's
+    // collapse button uses (adaptive_scaffold.dart).
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
 
     final centerWidget = Row(
       mainAxisAlignment: isMobile
@@ -862,7 +966,10 @@ class _CategoriesDateAppBar extends StatelessWidget {
           actionId: 'prev_period',
           description: context.l10n.previousPeriodDescription,
           child: IconButton(
-            icon: Icon(Icons.chevron_left, color: onSurface),
+            icon: Icon(
+              isRtl ? Icons.chevron_right : Icons.chevron_left,
+              color: onSurface,
+            ),
             onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
           ),
         ),
@@ -948,7 +1055,10 @@ class _CategoriesDateAppBar extends StatelessWidget {
           actionId: 'next_period',
           description: l10n.nextPeriodDescription,
           child: IconButton(
-            icon: Icon(Icons.chevron_right, color: onSurface),
+            icon: Icon(
+              isRtl ? Icons.chevron_left : Icons.chevron_right,
+              color: onSurface,
+            ),
             onPressed: () => bloc.add(const DatePeriodNavigated(1)),
           ),
         ),
@@ -960,6 +1070,44 @@ class _CategoriesDateAppBar extends StatelessWidget {
       totalCountText: l10n.totalCountLabel(
         state.categoriesWithTotals.length.toString(),
       ),
+      actions: const [_ViewModeToggle()],
+    );
+  }
+}
+
+/// Switches the categories screen between the list and the picker grid.
+class _ViewModeToggle extends StatelessWidget {
+  const _ViewModeToggle();
+
+  /// Key for the toggle, so a test can drive it without depending on which of
+  /// the two icons is currently showing.
+  static const ValueKey<String> toggleKey = ValueKey<String>(
+    'categories-view-mode-toggle',
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<SettingsBloc, SettingsState>(
+      buildWhen: (previous, current) =>
+          categoriesGridViewEnabled(previous) !=
+          categoriesGridViewEnabled(current),
+      builder: (context, settingsState) {
+        final isGrid = categoriesGridViewEnabled(settingsState);
+        return IconButton(
+          key: toggleKey,
+          // The icon shows what tapping gets you, not what you are looking at.
+          icon: Icon(
+            isGrid ? Icons.view_list : Icons.grid_view,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+          tooltip: isGrid
+              ? context.l10n.categoriesListViewTooltip
+              : context.l10n.categoriesGridViewTooltip,
+          onPressed: () => context.read<SettingsBloc>().add(
+            UpdateSetting(kCategoriesViewModeSetting, isGrid ? 'list' : 'grid'),
+          ),
+        );
+      },
     );
   }
 }

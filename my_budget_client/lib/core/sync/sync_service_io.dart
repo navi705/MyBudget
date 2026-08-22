@@ -34,7 +34,13 @@ class SyncService {
   /// Batch interval for exporting changes (default 30 seconds)
   Duration batchInterval = const Duration(seconds: 30);
 
-  /// How long to keep processed sync files
+  /// How long a packet that has been moved out of circulation, into the legacy
+  /// `.processed` subfolder, is kept before it is deleted.
+  ///
+  /// It does NOT age out the `sync_processed_files` markers: a marker lives
+  /// exactly as long as the packet it names is still in the sync folder. See
+  /// [_cleanupProcessedFiles] for what tying the two to a clock instead used to
+  /// cost.
   Duration keepProcessedFor = const Duration(days: 7);
 
   /// Maximum conflict history entries to keep
@@ -409,12 +415,39 @@ class SyncService {
       if (event is FileSystemModifyEvent) {
         // Delay processing for modify events to avoid reading during write
         Future.delayed(const Duration(milliseconds: 500), () {
-          _processFile(File(event.path));
+          unawaited(_importSerialized(File(event.path)));
         });
       } else {
-        _processFile(File(event.path));
+        unawaited(_importSerialized(File(event.path)));
       }
     }
+  }
+
+  /// The tail of the import queue: every packet waits for the one before it.
+  ///
+  /// Imports used to be started and never awaited - the watcher fires one per
+  /// event (Windows reports a single delivered file as a create AND a modify)
+  /// and the initial scan starts more, so several ran interleaved. Two things
+  /// broke. `PRAGMA foreign_keys` is connection-global and not reentrant, so
+  /// the small packet that finished first turned enforcement back ON in the
+  /// middle of the large one still running, and that one's next child row -
+  /// whose parent travels in a later packet - was rejected. And the
+  /// `isProcessed` check became check-then-act: two futures for the same file
+  /// both read false and both applied it.
+  Future<void> _importChain = Future<void>.value();
+
+  /// Queues [file] behind every import already in flight and returns a future
+  /// for this one alone.
+  ///
+  /// The chain is advanced with a swallowing `catchError` rather than the
+  /// returned future so that one failed import cannot poison the queue for
+  /// every packet behind it; the caller still sees the error on what it got
+  /// back. (`_processFile` handles its own failures, so this is belt and
+  /// braces.)
+  Future<void> _importSerialized(File file) {
+    final queued = _importChain.then((_) => _processFile(file));
+    _importChain = queued.catchError((Object _) {});
+    return queued;
   }
 
   /// Process existing sync files
@@ -429,7 +462,7 @@ class SyncService {
 
     for (final entity in files) {
       if (entity is File) {
-        await _processFile(entity);
+        await _importSerialized(entity);
       }
     }
 
@@ -448,22 +481,34 @@ class SyncService {
     final previousFailures = _failedImportAttempts[fileName] ?? 0;
     if (previousFailures >= _maxImportAttempts) return;
 
+    // Both skips below are decided from the file NAME, before a single byte is
+    // read. Imported packets are deliberately left in the folder for the other
+    // peers to pick up, so the folder accumulates every packet the device was
+    // ever handed and a rescan used to gunzip and JSON-decode all of them only
+    // to discover it had already applied every one. The marker lookup is a
+    // single indexed row read; the decode is proportional to the packet.
+    if (_localDeviceId!.isNotEmpty &&
+        fileName.startsWith('${_localDeviceId}_')) {
+      // Exports are named '${deviceId}_$timestamp.sync' (see
+      // _exportPendingChanges), so our own packets are recognisable without
+      // opening them. A file that does not follow the convention still gets
+      // the authoritative check against the decoded packet below.
+      return;
+    }
+
+    if (await _db.syncProcessedFilesDao.isProcessed(fileName)) {
+      debugPrint('[SYNC_DEBUG] Skipping already processed file: $fileName');
+      return;
+    }
+
     try {
       final bytes = await file.readAsBytes();
       final packet = SyncBinaryFormat.decode(bytes);
 
-      // Process any existing files from other devices
-      // Skip our own files and files we've already processed
+      // Skip our own files: a packet we wrote holds changes this database
+      // already has, and applying them would only queue conflict history.
       if (packet.deviceId == _localDeviceId) {
         debugPrint('[SYNC_DEBUG] Ignoring local sync file: $fileName');
-        return;
-      }
-
-      final alreadyProcessed = await _db.syncProcessedFilesDao.isProcessed(
-        fileName,
-      );
-      if (alreadyProcessed) {
-        debugPrint('[SYNC_DEBUG] Skipping already processed file: $fileName');
         return;
       }
 
@@ -471,18 +516,63 @@ class SyncService {
         '[SYNC_DEBUG] Importing changes from device: ${packet.deviceId}',
       );
 
-      // Disable FK checks during import to handle dependencies across packets
+      // Disable FK checks during import to handle dependencies across packets.
+      // This has to stay OUTSIDE the transaction below: SQLite ignores
+      // `PRAGMA foreign_keys` while a transaction is open, so toggling it in
+      // there would silently leave enforcement on and abort any child row
+      // whose parent travels in a later packet.
       await _db.customStatement('PRAGMA foreign_keys = OFF;');
 
+      var skipped = 0;
       try {
-        // The packet timestamp is only a fallback clock for a delete sent by a
-        // peer that does not stamp its own; see _applyChange.
-        for (final change in packet.changes) {
-          await _applyChange(change, packet.deviceId, packet.timestamp);
-        }
+        // One transaction for the whole packet. Without it every change
+        // auto-committed on its own, so a packet that threw halfway left the
+        // prefix committed, re-applied that same prefix on each retry, and
+        // lost the remaining changes for good once the file was quarantined.
+        await _db.transaction(() async {
+          final effects = _PacketEffects();
+          // Read BEFORE the batch is applied: a transaction that moves to
+          // another account overwrites the only record of where it used to
+          // live, and the account it left has to be rebuilt too.
+          await _collectPriorAccounts(packet.changes, effects);
+
+          for (final change in packet.changes) {
+            try {
+              // The packet timestamp is only a fallback clock for a delete
+              // sent by a peer that does not stamp its own; see _applyChange.
+              await _applyChange(
+                change,
+                packet.deviceId,
+                packet.timestamp,
+                effects,
+              );
+            } catch (e) {
+              // One unconvertible row must not cost the other 199 - a hostile
+              // file, a corrupt field or a newer peer's enum value would
+              // otherwise take the whole packet down with it. This mirrors the
+              // decoder's policy for an unknown table id or action: skip the
+              // one block, keep the packet.
+              skipped++;
+              debugPrint(
+                '[SYNC_DEBUG] Skipping unapplicable change for '
+                '${change.tableId.name}:${change.recordId}: $e',
+              );
+            }
+          }
+
+          await _settlePacket(effects);
+        });
       } finally {
         // Re-enable FK checks
         await _db.customStatement('PRAGMA foreign_keys = ON;');
+      }
+
+      if (skipped > 0) {
+        debugPrint(
+          '[SYNC_DEBUG] Applied ${packet.changes.length - skipped} of '
+          '${packet.changes.length} changes from $fileName '
+          '($skipped skipped as unapplicable)',
+        );
       }
 
       // Mark as processed in database
@@ -514,19 +604,68 @@ class SyncService {
     }
   }
 
+  /// Last-write-wins as a TOTAL order over `(modifiedAt, deviceId)`: the
+  /// incoming change wins when it is newer, or when the clocks are equal and
+  /// its authoring device id sorts higher.
+  ///
+  /// `modifiedAt` on its own is not an order. A tie used to answer "mine is not
+  /// older, keep mine" on BOTH devices, so each kept its own version and no
+  /// later packet could break the tie - the row stayed permanently divergent.
+  /// That needs no clock coincidence: every seeded category and account type
+  /// ships with `modifiedAt = 1` and a locale-dependent name, so a ru phone and
+  /// an en laptop sharing a folder diverged on all of them on their first sync.
+  ///
+  /// The server resolves a tie with the identical rule
+  /// (`SyncRepository._lastWriteWins`, "higher device id wins"), so all three
+  /// parties pick the same winner.
+  bool _incomingWins(
+    int incomingModifiedAt,
+    String incomingDeviceId,
+    int localModifiedAt,
+    String localDeviceId,
+  ) {
+    if (incomingModifiedAt != localModifiedAt) {
+      return incomingModifiedAt > localModifiedAt;
+    }
+    return incomingDeviceId.compareTo(localDeviceId) > 0;
+  }
+
+  /// The device that authored an incoming change.
+  ///
+  /// A row carries its last writer in the payload, but nothing on this path
+  /// fills that column yet, so the packet's sender is the fallback - and it is
+  /// the right one: a change applied from a peer is written without a
+  /// `sync_log` row, so a device only ever exports changes it made itself.
+  String _incomingAuthor(SyncChange change, String fromDevice) =>
+      (change.data?['deviceId'] as String?) ?? fromDevice;
+
+  /// The device that authored a locally stored row, under the same fallback
+  /// rule as [_incomingAuthor].
+  ///
+  /// The two fallbacks are what make the comparison symmetric: whichever way
+  /// the packet travels, both peers name the same two devices for the same two
+  /// versions and therefore reach the same verdict.
+  String _localAuthor(String? storedDeviceId) =>
+      storedDeviceId ?? _localDeviceId ?? '';
+
   /// Apply a single change with conflict resolution
   ///
   /// [packetTimestamp] is the clock of the batch the change arrived in, which a
   /// delete falls back to only when the sender did not stamp it with its own.
+  ///
+  /// [effects] accumulates the work that can only be done once the whole packet
+  /// has been applied - see [_PacketEffects].
   Future<void> _applyChange(
     SyncChange change,
     String fromDevice,
     int packetTimestamp,
+    _PacketEffects effects,
   ) async {
     // Get local record
     final localData = await _getRecordData(change.tableId, change.recordId);
     final localModifiedAt = localData?['modifiedAt'] as int? ?? 0;
     final incomingModifiedAt = change.data?['modifiedAt'] as int? ?? 0;
+    final incomingDeviceId = _incomingAuthor(change, fromDevice);
 
     if (change.action == SyncAction.delete) {
       // The moment the delete happened, which is what every comparison below
@@ -537,10 +676,17 @@ class SyncService {
           (change.data?['modifiedAt'] as int?) ?? packetTimestamp;
 
       if (localData != null) {
-        // Same last-write-wins rule the upsert path below uses: the incoming
-        // change only wins when it is strictly newer, so a stale delete can no
-        // longer wipe out a newer local edit.
-        if (deleteTimestamp > localModifiedAt) {
+        // Exactly the same total order the upsert path below uses, so a delete
+        // and an edit that tie resolve identically on both peers - the strict
+        // `>` here against the non-strict `>=` the tombstone branch used was
+        // itself an asymmetry: one side kept the tombstone while the other
+        // kept the live row, forever.
+        if (_incomingWins(
+          deleteTimestamp,
+          incomingDeviceId,
+          localModifiedAt,
+          _localAuthor(localData['deviceId'] as String?),
+        )) {
           await _softDeleteRecord(
             change.tableId,
             change.recordId,
@@ -557,14 +703,19 @@ class SyncService {
 
       // No visible row. Either it is already tombstoned, or this device has
       // never seen the record at all.
-      final deletedAt = await _getDeletedRecordModifiedAt(
+      final tombstone = await _getDeletedRecordStamp(
         change.tableId,
         change.recordId,
       );
-      if (deletedAt != null) {
+      if (tombstone != null) {
         // Already deleted - keep the newest delete clock so that older upserts
         // arriving later keep losing the comparison.
-        if (deleteTimestamp > deletedAt) {
+        if (_incomingWins(
+          deleteTimestamp,
+          incomingDeviceId,
+          tombstone.modifiedAt,
+          _localAuthor(tombstone.deviceId),
+        )) {
           await _softDeleteRecord(
             change.tableId,
             change.recordId,
@@ -582,18 +733,38 @@ class SyncService {
     }
 
     // Upsert
+    final data = change.data;
+    if (data == null) {
+      // The binary format permits DATA_LEN = 0 on any action (the exporter
+      // writes an empty block for a row that vanished between logging and
+      // export), so an upsert with no payload is a well-formed packet with
+      // nothing to apply - dereferencing it with `!` killed the rest of the
+      // packet instead.
+      debugPrint(
+        '[SYNC_DEBUG] Upsert with no payload for '
+        '${change.tableId.name}:${change.recordId} (skipping)',
+      );
+      return;
+    }
+
     if (localData == null) {
       // "Missing" can also mean "soft deleted": every getById used by
       // _getRecordData filters on isDeleted = false, so check for a tombstone
       // before treating this as a brand new record.
-      final deletedAt = await _getDeletedRecordModifiedAt(
+      final tombstone = await _getDeletedRecordStamp(
         change.tableId,
         change.recordId,
       );
-      if (deletedAt != null && deletedAt >= incomingModifiedAt) {
+      if (tombstone != null &&
+          !_incomingWins(
+            incomingModifiedAt,
+            incomingDeviceId,
+            tombstone.modifiedAt,
+            _localAuthor(tombstone.deviceId),
+          )) {
         debugPrint(
           '[SYNC_DEBUG] Ignoring incoming update for: ${change.recordId} '
-          '(Deleted locally: $deletedAt >= $incomingModifiedAt)',
+          '(Deleted locally: ${tombstone.modifiedAt} >= $incomingModifiedAt)',
         );
         await _db.conflictHistoryDao.saveConflict(
           tableName: change.tableId.name,
@@ -601,14 +772,21 @@ class SyncService {
           rejectedDataJson: jsonEncode(change.data),
           rejectedDevice: fromDevice,
         );
+        effects.wroteConflicts = true;
       } else {
         // New record (or a genuinely newer update to a deleted one) - insert
         debugPrint(
           '[SYNC_DEBUG] Inserting new record: ${change.recordId} into ${change.tableId.name}',
         );
-        await _insertRecord(change.tableId, change.data!);
+        await _insertRecord(change.tableId, data);
+        _noteApplied(change, data, effects);
       }
-    } else if (incomingModifiedAt > localModifiedAt) {
+    } else if (_incomingWins(
+      incomingModifiedAt,
+      incomingDeviceId,
+      localModifiedAt,
+      _localAuthor(localData['deviceId'] as String?),
+    )) {
       // Incoming is newer - update, save local to conflict history
       debugPrint(
         '[SYNC_DEBUG] Updating record: ${change.recordId} in ${change.tableId.name} (Incoming newer)',
@@ -619,7 +797,9 @@ class SyncService {
         rejectedDataJson: jsonEncode(localData),
         rejectedDevice: _localDeviceId,
       );
-      await _updateRecord(change.tableId, change.data!);
+      effects.wroteConflicts = true;
+      await _updateRecord(change.tableId, data);
+      _noteApplied(change, data, effects);
     } else {
       // Local is newer - save incoming to conflict history
       debugPrint(
@@ -631,33 +811,180 @@ class SyncService {
         rejectedDataJson: jsonEncode(change.data),
         rejectedDevice: fromDevice,
       );
+      effects.wroteConflicts = true;
     }
-
-    // Cleanup old conflicts
-    await _db.conflictHistoryDao.clearOldConflicts(maxConflictHistory);
+    // The conflict table is trimmed once per packet, in _settlePacket. Doing it
+    // here ran an unbounded `SELECT *` - every rejected_data blob included -
+    // and a DELETE for every single change in the packet, to remove at most one
+    // row each time.
   }
 
-  /// Cleanup old processed files
+  /// Records what an applied change makes stale, for [_settlePacket].
+  ///
+  /// Only called where a write actually happened. A change that lost
+  /// last-write-wins changed nothing, and re-anchoring an account on the
+  /// strength of a rejected row would fold whatever balance it happens to hold
+  /// right now into its opening balance - freezing an error instead of
+  /// rebuilding it away.
+  void _noteApplied(
+    SyncChange change,
+    Map<String, dynamic> data,
+    _PacketEffects effects,
+  ) {
+    switch (change.tableId) {
+      case SyncTableId.accounts:
+        effects.accounts.add(change.recordId);
+        // A peer that predates the opening balance sends no such key. Absent
+        // is not the same as null here: null would be a sender stating the
+        // account has no anchor, and there is no such account.
+        if (!data.containsKey('openingBalance')) {
+          effects.anchorlessAccounts.add(change.recordId);
+        }
+      case SyncTableId.transactions:
+        final accountId = data['accountId'] as String?;
+        if (accountId != null && accountId.isNotEmpty) {
+          effects.accounts.add(accountId);
+        }
+      default:
+        break;
+    }
+  }
+
+  /// The accounts the packet's transactions belong to RIGHT NOW, read before a
+  /// single change is applied.
+  ///
+  /// A transaction that moves between accounts overwrites the only record of
+  /// where it used to live, so the account it is leaving would otherwise keep a
+  /// balance that still counts it, with nothing in the packet naming that
+  /// account. Deletes are gathered too: a tombstone drops the row out of the
+  /// rebuilt sum, which is a balance change on the account it was booked to.
+  Future<void> _collectPriorAccounts(
+    List<SyncChange> changes,
+    _PacketEffects effects,
+  ) async {
+    final ids = [
+      for (final change in changes)
+        if (change.tableId == SyncTableId.transactions &&
+            change.recordId.isNotEmpty)
+          change.recordId,
+    ];
+    if (ids.isEmpty) return;
+
+    // One bound variable per id, chunked under SQLite's 999-variable cap the
+    // same way every other multi-key read on this path is.
+    const chunkSize = 500;
+    for (var start = 0; start < ids.length; start += chunkSize) {
+      final chunk = ids.sublist(
+        start,
+        start + chunkSize > ids.length ? ids.length : start + chunkSize,
+      );
+      final rows = await _db
+          .customSelect(
+            'SELECT DISTINCT account_id FROM transactions '
+            'WHERE id IN (${List.filled(chunk.length, '?').join(', ')})',
+            variables: [for (final id in chunk) Variable<String>(id)],
+          )
+          .get();
+      for (final row in rows) {
+        effects.accounts.add(row.read<String>('account_id'));
+      }
+    }
+  }
+
+  /// The per-packet half of an import, run inside the packet's transaction once
+  /// the last change has been applied.
+  ///
+  /// Rebuilding the balances here is what makes invariant 8 hold on this path:
+  /// the importer used to write the peer's `balance` verbatim, so a device that
+  /// merged a peer's transactions ended up holding both sets of rows and only
+  /// one of the two balances - a number the merged set did not add up to, and
+  /// which nothing ever recomputed. Transactions merge as a set; a balance
+  /// merges as a scalar. Deriving the scalar from the set is the only reading
+  /// two devices can both arrive at. This mirrors
+  /// `ServerSyncService._applyChanges`, deliberately, so both sync paths leave
+  /// the same number behind.
+  ///
+  /// Neither DAO stamps `modified_at` or writes a `sync_log` row, so the
+  /// rebuild does not travel back out as a change the user never made.
+  Future<void> _settlePacket(_PacketEffects effects) async {
+    if (effects.accounts.isNotEmpty) {
+      await _db.accountsDao.anchorOpeningBalances(effects.anchorlessAccounts);
+      await _db.accountsDao.recomputeBalances(effects.accounts);
+    }
+    if (effects.wroteConflicts) {
+      await _db.conflictHistoryDao.clearOldConflicts(maxConflictHistory);
+    }
+  }
+
+  /// Drop the "already imported" markers whose packet is gone from the folder.
+  ///
+  /// A marker's only job is to stop a file that is still lying in the sync
+  /// folder from being imported a second time, so its lifetime is the file's
+  /// lifetime - not a clock. Ageing markers out after [keepProcessedFor] while
+  /// the packets themselves are kept forever (imports are deliberately left in
+  /// place so the other peers can still pick them up) meant every packet was
+  /// re-imported on a ~7 day cycle, forever: an exchange rate the user deleted
+  /// came back every week on every device, because `exchange_rates` has no
+  /// `isDeleted` column and so leaves no tombstone for the replayed insert to
+  /// lose against.
+  ///
+  /// [keepProcessedFor] now only governs the legacy `.processed` folder that
+  /// older builds moved imported packets into: a file in there is out of
+  /// circulation, so once it is deleted its marker goes with it.
   Future<void> _cleanupProcessedFiles() async {
     if (_syncFolderPath == null) return;
 
+    final syncDir = Directory(_syncFolderPath!);
+    if (!await syncDir.exists()) return;
+
+    // Every packet still reachable by a scan. A marker for one of these has to
+    // stay, whatever its age.
+    final present = <String>{};
+    for (final entity in await syncDir.list().toList()) {
+      if (entity is File && entity.path.endsWith('.sync')) {
+        present.add(p.basename(entity.path));
+      }
+    }
+
     final processedDir = Directory(p.join(_syncFolderPath!, '.processed'));
-    if (!await processedDir.exists()) return;
-
-    final cutoff = DateTime.now().subtract(keepProcessedFor);
-    final files = await processedDir.list().toList();
-
-    for (final entity in files) {
-      if (entity is File) {
+    if (await processedDir.exists()) {
+      final cutoff = DateTime.now().subtract(keepProcessedFor);
+      for (final entity in await processedDir.list().toList()) {
+        if (entity is! File) continue;
         final stat = await entity.stat();
         if (stat.modified.isBefore(cutoff)) {
           await entity.delete();
+        } else {
+          present.add(p.basename(entity.path));
         }
       }
     }
 
-    // Also cleanup DB records
-    await _db.syncProcessedFilesDao.clearOldProcessed(cutoff);
+    final markers = await _db.select(_db.syncProcessedFiles).get();
+    final orphaned = [
+      for (final marker in markers)
+        if (!present.contains(marker.fileName)) marker.fileName,
+    ];
+    if (orphaned.isEmpty) return;
+
+    // Chunked: the delete binds one SQL variable per name and a long-lived
+    // folder can hold far more markers than SQLite's variable limit.
+    const chunkSize = 500;
+    for (var start = 0; start < orphaned.length; start += chunkSize) {
+      final chunk = orphaned.sublist(
+        start,
+        start + chunkSize > orphaned.length
+            ? orphaned.length
+            : start + chunkSize,
+      );
+      await (_db.delete(
+        _db.syncProcessedFiles,
+      )..where((t) => t.fileName.isIn(chunk))).go();
+    }
+    debugPrint(
+      '[SYNC_DEBUG] Dropped ${orphaned.length} processed-file markers whose '
+      'packet is no longer in the sync folder',
+    );
   }
 
   // --- Helper methods for data access ---
@@ -1179,91 +1506,94 @@ class SyncService {
   ) async {
     switch (tableId) {
       case SyncTableId.transactions:
-        await (_db.update(_db.transactions)
-              ..where((t) => t.id.equals(recordId)))
-            .write(
-              TransactionsCompanion(
-                isDeleted: const Value(true),
-                modifiedAt: Value(modifiedAt),
-              ),
-            );
+        await (_db.update(
+          _db.transactions,
+        )..where((t) => t.id.equals(recordId))).write(
+          TransactionsCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(modifiedAt),
+          ),
+        );
         break;
       case SyncTableId.accounts:
-        await (_db.update(_db.accounts)..where((t) => t.id.equals(recordId)))
-            .write(
-              AccountsCompanion(
-                isDeleted: const Value(true),
-                modifiedAt: Value(modifiedAt),
-              ),
-            );
+        await (_db.update(
+          _db.accounts,
+        )..where((t) => t.id.equals(recordId))).write(
+          AccountsCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(modifiedAt),
+          ),
+        );
         break;
       case SyncTableId.categories:
-        await (_db.update(_db.categories)..where((t) => t.id.equals(recordId)))
-            .write(
-              CategoriesCompanion(
-                isDeleted: const Value(true),
-                modifiedAt: Value(modifiedAt),
-              ),
-            );
+        await (_db.update(
+          _db.categories,
+        )..where((t) => t.id.equals(recordId))).write(
+          CategoriesCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(modifiedAt),
+          ),
+        );
         break;
       case SyncTableId.styles:
-        await (_db.update(_db.styles)..where((t) => t.id.equals(recordId)))
-            .write(
-              StylesCompanion(
-                isDeleted: const Value(true),
-                modifiedAt: Value(modifiedAt),
-              ),
-            );
+        await (_db.update(
+          _db.styles,
+        )..where((t) => t.id.equals(recordId))).write(
+          StylesCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(modifiedAt),
+          ),
+        );
         break;
       case SyncTableId.assetEntries:
-        await (_db.update(_db.assetEntries)
-              ..where((t) => t.id.equals(recordId)))
-            .write(
-              AssetEntriesCompanion(
-                isDeleted: const Value(true),
-                modifiedAt: Value(modifiedAt),
-              ),
-            );
+        await (_db.update(
+          _db.assetEntries,
+        )..where((t) => t.id.equals(recordId))).write(
+          AssetEntriesCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(modifiedAt),
+          ),
+        );
         break;
       case SyncTableId.accountTypes:
-        await (_db.update(_db.accountTypes)
-              ..where((t) => t.id.equals(recordId)))
-            .write(
-              AccountTypesCompanion(
-                isDeleted: const Value(true),
-                modifiedAt: Value(modifiedAt),
-              ),
-            );
+        await (_db.update(
+          _db.accountTypes,
+        )..where((t) => t.id.equals(recordId))).write(
+          AccountTypesCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(modifiedAt),
+          ),
+        );
         break;
       case SyncTableId.currencyDesignations:
-        await (_db.update(_db.currencyDesignations)
-              ..where((t) => t.id.equals(recordId)))
-            .write(
-              CurrencyDesignationsCompanion(
-                isDeleted: const Value(true),
-                modifiedAt: Value(modifiedAt),
-              ),
-            );
+        await (_db.update(
+          _db.currencyDesignations,
+        )..where((t) => t.id.equals(recordId))).write(
+          CurrencyDesignationsCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(modifiedAt),
+          ),
+        );
         break;
       case SyncTableId.customDataSources:
-        await (_db.update(_db.customDataSources)
-              ..where((t) => t.id.equals(recordId)))
-            .write(
-              CustomDataSourcesCompanion(
-                isDeleted: const Value(true),
-                modifiedAt: Value(modifiedAt),
-              ),
-            );
+        await (_db.update(
+          _db.customDataSources,
+        )..where((t) => t.id.equals(recordId))).write(
+          CustomDataSourcesCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(modifiedAt),
+          ),
+        );
         break;
       case SyncTableId.customThemes:
-        await (_db.update(_db.customThemes)
-              ..where((t) => t.id.equals(recordId)))
-            .write(
-              CustomThemesCompanion(
-                isDeleted: const Value(true),
-                modifiedAt: Value(modifiedAt),
-              ),
-            );
+        await (_db.update(
+          _db.customThemes,
+        )..where((t) => t.id.equals(recordId))).write(
+          CustomThemesCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(modifiedAt),
+          ),
+        );
         break;
       case SyncTableId.exchangeRates:
         // exchange_rates has no isDeleted column, so the delete cannot be held
@@ -1317,14 +1647,14 @@ class SyncService {
             .go();
         break;
       case SyncTableId.apiSettings:
-        await (_db.update(_db.apiSettingsTable)
-              ..where((t) => t.id.equals(recordId)))
-            .write(
-              ApiSettingsTableCompanion(
-                isDeleted: const Value(true),
-                modifiedAt: Value(modifiedAt),
-              ),
-            );
+        await (_db.update(
+          _db.apiSettingsTable,
+        )..where((t) => t.id.equals(recordId))).write(
+          ApiSettingsTableCompanion(
+            isDeleted: const Value(true),
+            modifiedAt: Value(modifiedAt),
+          ),
+        );
         break;
       default:
         break;
@@ -1371,13 +1701,15 @@ class SyncService {
     }
   }
 
-  /// `modifiedAt` of a locally soft-deleted row, or null when no deleted row
-  /// exists.
+  /// The `(modifiedAt, deviceId)` stamp of a locally soft-deleted row, or null
+  /// when no deleted row exists.
   ///
   /// Needed because every getById used by [_getRecordData] filters on
   /// `isDeleted = false`, which makes a tombstoned record look exactly like one
-  /// this device has never seen.
-  Future<int?> _getDeletedRecordModifiedAt(
+  /// this device has never seen. Both halves of the stamp are read because a
+  /// tombstone loses or wins a tie by the same total order a live row does; see
+  /// [_incomingWins].
+  Future<({int modifiedAt, String? deviceId})?> _getDeletedRecordStamp(
     SyncTableId tableId,
     String recordId,
   ) async {
@@ -1386,11 +1718,16 @@ class SyncService {
 
     final row = await _db
         .customSelect(
-          'SELECT modified_at FROM $tableName WHERE id = ? AND is_deleted = 1',
+          'SELECT modified_at, device_id FROM $tableName '
+          'WHERE id = ? AND is_deleted = 1',
           variables: [Variable<String>(recordId)],
         )
         .getSingleOrNull();
-    return row?.read<int>('modified_at');
+    if (row == null) return null;
+    return (
+      modifiedAt: row.read<int>('modified_at'),
+      deviceId: row.read<String?>('device_id'),
+    );
   }
 
   /// Record a delete for a record this device has never seen.
@@ -1614,6 +1951,21 @@ class SyncService {
     return amount is FiatAmount ? amount.minorUnits : null;
   }
 
+  /// An enum value addressed by its wire index, bounded.
+  ///
+  /// Enums travel as `Enum.index`, and enum members are append-only, so a peer
+  /// on a newer build WILL eventually send an index this build does not have -
+  /// as will a corrupt or hostile packet. `values[raw]` threw a RangeError from
+  /// inside the row converter, out of the change and into the packet loop; the
+  /// out-of-range index falls back to [values].first instead, which is exactly
+  /// what a payload with the key missing already resolved to. Same rule as
+  /// [SyncTableId.fromValue]: never fail a whole packet over one field a newer
+  /// peer knows more about.
+  T _enumAt<T>(List<T> values, Object? raw) {
+    if (raw is int && raw >= 0 && raw < values.length) return values[raw];
+    return values.first;
+  }
+
   Map<String, dynamic> _transactionToJson(Transaction t) {
     return {
       'id': t.id,
@@ -1673,6 +2025,15 @@ class SyncService {
       // See _transactionToJson: exact minor units for fiat, NULL for
       // crypto/commodity accounts.
       'balanceMinor': a.balanceMinor,
+      // The anchor the balance is rebuilt from. It only moves when the user
+      // edits the account, so unlike `balance` it survives a merge, and sending
+      // it is what lets the peer rebuild to the same number instead of falling
+      // back on re-deriving an anchor from whatever balance this device
+      // happened to compute. Additive: a peer that does not know the keys just
+      // ignores them, and a packet that arrives without them is still read the
+      // old way (see _accountFromJson).
+      'openingBalance': a.openingBalance,
+      'openingBalanceMinor': a.openingBalanceMinor,
       'currencyCode': a.currencyCode,
       'currencyDesignationId': a.currencyDesignationId,
       'accountTypeId': a.accountTypeId,
@@ -1691,6 +2052,12 @@ class SyncService {
   AccountsCompanion _accountFromJson(Map<String, dynamic> json) {
     final balance = (json['balance'] as num).toDouble();
     final currencyCode = json['currencyCode'] as String? ?? 'USD';
+    // Left ABSENT, not defaulted, when the sender said nothing about the
+    // anchor: `insertSyncedAccount` re-derives it from the balance that sender
+    // did compute, which is the only reading of an old packet that does not
+    // invent a number. Writing a 0.0 default here instead would erase the money
+    // the account opened with on the next rebuild.
+    final openingBalance = (json['openingBalance'] as num?)?.toDouble();
     return AccountsCompanion(
       id: Value(json['id'] as String),
       name: Value(json['name'] as String? ?? 'Account'),
@@ -1699,6 +2066,19 @@ class SyncService {
       balanceMinor: Value(
         _minorUnits(json, 'balanceMinor', balance, currencyCode),
       ),
+      openingBalance: openingBalance == null
+          ? const Value.absent()
+          : Value(openingBalance),
+      openingBalanceMinor: openingBalance == null
+          ? const Value.absent()
+          : Value(
+              _minorUnits(
+                json,
+                'openingBalanceMinor',
+                openingBalance,
+                currencyCode,
+              ),
+            ),
       currencyCode: Value(currencyCode),
       currencyDesignationId: Value(
         json['currencyDesignationId'] as String? ?? '',
@@ -1739,7 +2119,7 @@ class SyncService {
       name: Value(json['name'] as String? ?? 'Category'),
       parentId: Value(json['parentId'] as String?),
       styleId: Value(json['styleId'] as String?),
-      type: Value(CategoryType.values[(json['type'] as int?) ?? 0]),
+      type: Value(_enumAt(CategoryType.values, json['type'])),
       modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
@@ -1768,7 +2148,7 @@ class SyncService {
       // name-less currency.
       name: Value(json['name'] as String? ?? code),
       languageCode: Value(json['languageCode'] as String? ?? 'en'),
-      type: Value(TypeCurrency.values[(json['type'] as int?) ?? 0]),
+      type: Value(_enumAt(TypeCurrency.values, json['type'])),
       modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
     );
@@ -1793,7 +2173,7 @@ class SyncService {
       name: Value(json['name'] as String? ?? 'Style'),
       colorHex: Value(json['colorHex'] as String? ?? '#000000'),
       iconName: Value(json['iconName'] as String? ?? 'star'),
-      iconType: Value(IconType.values[(json['iconType'] as int?) ?? 0]),
+      iconType: Value(_enumAt(IconType.values, json['iconType'])),
       modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
@@ -2065,4 +2445,28 @@ class SyncService {
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
     );
   }
+}
+
+/// The work one packet leaves behind, gathered while its changes are applied
+/// and settled once, after the last of them.
+///
+/// Both halves used to be done per change: the conflict table was trimmed on
+/// every single row (a full unbounded SELECT each time), and the balances were
+/// not settled at all - the importer simply wrote the peer's number. Per packet
+/// is the right granularity for both, because both are functions of the whole
+/// merged batch rather than of any one row in it.
+class _PacketEffects {
+  /// Accounts whose stored balance the packet has invalidated: every account it
+  /// wrote, every account a transaction it wrote belongs to, and every account
+  /// such a transaction belonged to BEFORE the packet moved it.
+  final Set<String> accounts = {};
+
+  /// The subset written by a peer that said nothing about the opening balance.
+  /// Their anchor is re-derived from the balance that peer did compute, so a
+  /// rebuild reproduces the sender's arithmetic instead of erasing it.
+  final Set<String> anchorlessAccounts = {};
+
+  /// Whether anything was written to `conflict_history`, so an import that
+  /// resolved no conflict does not trim a table it did not grow.
+  bool wroteConflicts = false;
 }

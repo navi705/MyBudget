@@ -5,11 +5,46 @@ import 'package:my_budget_client/domain/value_objects/currency_precision.dart';
 /// decimals (0 for JPY/…, 3 for KWD/…, else 2); crypto/commodity keep a dynamic
 /// precision that shows more places for very small holdings. Thousands are
 /// separated by spaces, matching the app's existing convention.
+///
+/// ## Why the separator is U+00A0 and not a plain space
+///
+/// The app ships two right-to-left locales (`ar`, `ur`). A plain U+0020 is
+/// bidi class WS (whitespace), which *terminates* a number run: under an RTL
+/// paragraph the Unicode bidi algorithm then lays the surviving groups out
+/// right-to-left, so `1 234.56` was painted as `234.56 1` — a finance app
+/// stating a different number than the one it holds. U+00A0 NO-BREAK SPACE is
+/// bidi class CS (common separator), which keeps the digits in one run, and is
+/// the correct typographic group separator anyway. It renders identically to a
+/// space in every locale, so `en`/`ru` are unchanged.
+///
+/// Grouping alone is not enough once an amount is *concatenated* into
+/// surrounding text — a currency code, a symbol, or a translated sentence.
+/// There the neighbouring letters decide the run's direction and the amount
+/// can still be reordered relative to them. [isolate], [formatIsolated] and
+/// [formatWithSymbol] wrap the result in U+2066 LEFT-TO-RIGHT ISOLATE …
+/// U+2069 POP DIRECTIONAL ISOLATE so the amount is a single opaque LTR chunk
+/// whatever it is embedded in. Every caller that puts an amount inside a
+/// larger string should use one of those rather than [format].
 class MoneyFormatter {
   const MoneyFormatter._();
 
   /// Rendered in place of a number whenever the amount is not a real figure.
   static const String unknownPlaceholder = '—';
+
+  /// U+00A0 NO-BREAK SPACE — the thousands separator, and the joiner between
+  /// an amount and its symbol. See the class doc for why it is not U+0020.
+  static const String groupSeparator = '\u00A0';
+
+  /// U+2066 LEFT-TO-RIGHT ISOLATE.
+  static const String _lri = '\u2066';
+
+  /// U+2069 POP DIRECTIONAL ISOLATE.
+  static const String _pdi = '\u2069';
+
+  /// Wrap [text] so the bidi algorithm treats it as one left-to-right chunk,
+  /// neutral to whatever surrounds it. Use on any number that is embedded in
+  /// localised prose or joined to a symbol.
+  static String isolate(String text) => '$_lri$text$_pdi';
 
   /// True when [value] is not a real amount — NaN or either infinity.
   ///
@@ -36,12 +71,39 @@ class MoneyFormatter {
     if (!value.isFinite) return unknownPlaceholder;
 
     final pattern = _patternFor(currencyCode, value);
-    final text = NumberFormat(pattern, 'en_US').format(value).replaceAll(
-          ',',
-          ' ',
-        );
+    final text = NumberFormat(
+      pattern,
+      'en_US',
+    ).format(value).replaceAll(',', groupSeparator);
     final sign = signed && value > 0 ? '+' : '';
     return '$sign$text';
+  }
+
+  /// [format]'s output, bidi-isolated. Use whenever the amount is dropped into
+  /// a localised sentence (`l10n.currentPriceLabel(...)`) rather than standing
+  /// alone in its own `Text`.
+  static String formatIsolated(
+    double value,
+    String currencyCode, {
+    bool signed = false,
+  }) => isolate(format(value, currencyCode, signed: signed));
+
+  /// The amount, a no-break space and [symbol] — the app's usual money line —
+  /// as one bidi-isolated chunk.
+  ///
+  /// [prefix] carries a direction glyph (see `MoneyColors.signGlyph`) inside
+  /// the isolate so it stays welded to the digits; it is dropped for a
+  /// non-finite value, where there is no number for it to qualify.
+  static String formatWithSymbol(
+    double value,
+    String currencyCode,
+    String symbol, {
+    bool signed = false,
+    String prefix = '',
+  }) {
+    final effectivePrefix = value.isFinite ? prefix : '';
+    final amount = format(value, currencyCode, signed: signed);
+    return isolate('$effectivePrefix$amount$groupSeparator$symbol');
   }
 
   /// Number of fraction digits [format] will use for [currencyCode] at [value].

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/entities/transaction_category.dart'; // Import TransactionCategory
@@ -20,6 +19,8 @@ import 'package:my_budget_client/presentation/blocs/transactions/transactions_bl
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/widgets/add_account_dialog.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart'; // Import IconUtils
+import 'package:my_budget_client/core/theme/money_colors.dart';
+import 'package:my_budget_client/core/utils/date_display.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/presentation/widgets/generic/grouped_paginated_list.dart';
 import 'package:my_budget_client/presentation/widgets/generic/app_state_view.dart';
@@ -391,19 +392,31 @@ class _DateHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = dailySum >= 0 ? Colors.green : Colors.red;
-    final formattedDate = DateFormat(
-      'EEE, MMM d, yyyy',
-      Localizations.localeOf(context).toString(),
-    ).format(date);
+    // Money direction is a theme token, not a literal: the user picks the seed
+    // colour, so a hardcoded green can land on top of the primary. The glyph
+    // beside the figure carries the same information without colour, for
+    // greyscale and for red-green colour blindness.
+    final moneyColors = MoneyColors.of(context);
+    final color = moneyColors.forAmount(dailySum);
+    final signGlyph = dailySum == 0 || !dailySum.isFinite
+        ? ''
+        : MoneyColors.signGlyph(isIncome: dailySum > 0);
+    // Locale-aware: the old 'EEE, MMM d, yyyy' was an English pattern printed
+    // to all ten locales.
+    final formattedDate = DateDisplay.listHeader(context, date);
 
     final designation = currencyDesignations.firstWhereOrNull(
       (d) => d.currencyCode == mainCurrencyCode,
     );
     final currencySymbol = designation?.value ?? mainCurrencyCode;
 
-    final formattedSum =
-        '${MoneyFormatter.format(dailySum, mainCurrencyCode)} $currencySymbol';
+    // Sign lives in the glyph, so the number itself is the magnitude.
+    final formattedSum = MoneyFormatter.formatWithSymbol(
+      dailySum.abs(),
+      mainCurrencyCode,
+      currencySymbol,
+      prefix: signGlyph,
+    );
 
     return ListTile(
       title: Text(
@@ -461,18 +474,17 @@ class TransactionListItem extends StatelessWidget {
         : _getColorFromHex(transactionCategory.style.colorHex);
 
     final iconWidget = isRegularTransfer
-        ? const Icon(Icons.compare_arrows, color: Colors.white)
+        // White on the 15%-alpha `outline` chip below is white on surface in
+        // the light theme, i.e. invisible. The chip's own hue reads on both.
+        ? Icon(Icons.compare_arrows, color: color)
         : IconUtils.getIconWidget(transactionCategory.style);
 
     final amount = transactionCategory.transaction.amount;
-    Color balanceColor;
-    if (amount > 0) {
-      balanceColor = Colors.green;
-    } else if (amount < 0) {
-      balanceColor = Colors.red;
-    } else {
-      balanceColor = Theme.of(context).colorScheme.onSurfaceVariant;
-    }
+    final moneyColors = MoneyColors.of(context);
+    final balanceColor = moneyColors.forAmount(amount);
+    final signGlyph = amount == 0 || !amount.isFinite
+        ? ''
+        : MoneyColors.signGlyph(isIncome: amount > 0);
 
     final designation = currencyDesignations.firstWhereOrNull(
       (d) => d.currencyCode == transactionCategory.transaction.currencyCode,
@@ -522,12 +534,20 @@ class TransactionListItem extends StatelessWidget {
               ],
               Text(
                 transactionCategory.isAssetTransaction
+                    // The quantity is dropped into a translated sentence, so
+                    // it has to be isolated or an RTL paragraph reorders it.
                     ? context.l10n.quantityLabel(
-                        transactionCategory.transaction.amount.toStringAsFixed(
-                          2,
+                        MoneyFormatter.isolate(
+                          transactionCategory.transaction.amount
+                              .toStringAsFixed(2),
                         ),
                       )
-                    : '${MoneyFormatter.format(transactionCategory.transaction.amount, transactionCategory.transaction.currencyCode)} $currencySymbol',
+                    : MoneyFormatter.formatWithSymbol(
+                        transactionCategory.transaction.amount.abs(),
+                        transactionCategory.transaction.currencyCode,
+                        currencySymbol,
+                        prefix: signGlyph,
+                      ),
                 style: TextStyle(color: balanceColor, fontSize: 14),
               ),
               if (transactionCategory.linkedTransaction != null &&
@@ -552,9 +572,17 @@ class TransactionListItem extends StatelessWidget {
                     return Text(
                       isLinkedAsset
                           ? context.l10n.quantityLabel(
-                              '${linkedTx.amount > 0 ? '+' : ''}${linkedTx.amount.toStringAsFixed(2)}',
+                              MoneyFormatter.isolate(
+                                '${linkedTx.amount > 0 ? '+' : ''}'
+                                '${linkedTx.amount.toStringAsFixed(2)}',
+                              ),
                             )
-                          : '${MoneyFormatter.format(linkedTx.amount, linkedTx.currencyCode, signed: true)} $linkedSymbol',
+                          : MoneyFormatter.formatWithSymbol(
+                              linkedTx.amount,
+                              linkedTx.currencyCode,
+                              linkedSymbol,
+                              signed: true,
+                            ),
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 13,

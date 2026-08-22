@@ -336,8 +336,7 @@ void main() {
           isTrue,
           reason: '${file.path} is missing for a supported locale',
         );
-        final arb =
-            jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+        final arb = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
         for (final key in readers.keys) {
           expect(
             arb[key],

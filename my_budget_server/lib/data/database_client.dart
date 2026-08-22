@@ -2,9 +2,17 @@ import 'dart:io';
 import 'package:postgres/postgres.dart';
 
 class DatabaseClient {
-  late final Pool _pool;
+  late final Pool<dynamic> _pool;
 
-  DatabaseClient() {
+  /// [pool] is a seam, and the only reason it exists: production always builds
+  /// its own pool from `DATABASE_URL`, but the schema migrations below have no
+  /// other observable surface, so a test cannot pin them without one.
+  DatabaseClient({Pool<dynamic>? pool}) {
+    if (pool != null) {
+      _pool = pool;
+      return;
+    }
+
     final dbUrl = Platform.environment['DATABASE_URL'] ??
         'postgres://postgres:postgres@localhost:5432/my_budget';
 
@@ -38,7 +46,7 @@ class DatabaseClient {
     );
   }
 
-  Pool get pool => _pool;
+  Pool<dynamic> get pool => _pool;
 
   Future<void> close() => _pool.close();
 
@@ -294,9 +302,22 @@ class DatabaseClient {
         auto_fetch BOOLEAN DEFAULT FALSE,
         last_fetch_at BIGINT,
         modified_at BIGINT DEFAULT 0,
-        device_id TEXT
+        device_id TEXT,
+        is_deleted BOOLEAN DEFAULT FALSE
       );
     ''');
+
+      // The only synced table that was created without a tombstone column.
+      // The client has always pushed `isDeleted` for it and has always read it
+      // back, so the delete travelled to the server and died there: the row
+      // was stored as live, and every other device pulled the provider the
+      // user had removed straight back into its list, on every sync, forever.
+      // DEFAULT FALSE is the right backfill - a row that exists today is one
+      // no device has claimed to have deleted.
+      await _pool.execute(
+          'ALTER TABLE api_settings ADD COLUMN IF NOT EXISTS is_deleted '
+          'BOOLEAN DEFAULT FALSE');
+
       await _ensureServerSeq();
 
       print('[DB] Schema initialization completed successfully.');

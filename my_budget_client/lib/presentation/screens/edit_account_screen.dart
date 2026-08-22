@@ -662,8 +662,12 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                   helperText:
                                       _currentAssetPrice != null &&
                                           _assetCurrency != null
+                                      // The price is dropped into a
+                                      // translated sentence, so it is
+                                      // bidi-isolated: without that an RTL
+                                      // paragraph reorders its digit groups.
                                       ? l10n.currentPriceLabel(
-                                          MoneyFormatter.format(
+                                          MoneyFormatter.formatIsolated(
                                             _currentAssetPrice!,
                                             _assetCurrency!,
                                           ),
@@ -739,10 +743,18 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                                           leading: const Icon(Icons.show_chart),
                                           title: Text(asset.name),
                                           subtitle: Text(
-                                            '${asset.quantity} @ ${asset.value} ${asset.currency}',
+                                            MoneyFormatter.isolate(
+                                              '${asset.quantity} @ '
+                                              '${asset.value} '
+                                              '${asset.currency}',
+                                            ),
                                           ),
                                           trailing: Text(
-                                            '${MoneyFormatter.format(asset.quantity * asset.value, asset.currency)} ${asset.currency}',
+                                            MoneyFormatter.formatWithSymbol(
+                                              asset.quantity * asset.value,
+                                              asset.currency,
+                                              asset.currency,
+                                            ),
                                             style: const TextStyle(
                                               fontWeight: FontWeight.bold,
                                             ),
@@ -766,13 +778,18 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                             const SizedBox(height: 12),
                             TextButton.icon(
                               onPressed: _onDelete,
-                              icon: const Icon(
+                              // The theme's destructive colour rather than a
+                              // raw red, which fails contrast on several of
+                              // the dark surfaces the seed picker generates.
+                              icon: Icon(
                                 Icons.delete_outline,
-                                color: Colors.red,
+                                color: Theme.of(context).colorScheme.error,
                               ),
                               label: Text(
                                 l10n.deleteButton,
-                                style: const TextStyle(color: Colors.red),
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
                               ),
                               style: TextButton.styleFrom(
                                 minimumSize: const Size(double.infinity, 40),

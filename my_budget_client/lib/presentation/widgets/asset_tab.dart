@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/utils/date_display.dart';
 import 'package:my_budget_client/core/di/injection_container.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
@@ -156,7 +157,7 @@ class _AssetTabContent extends StatelessWidget {
                     ListTile(
                       title: Text(
                         l10n.dateWithValueLabel(
-                          DateFormat('dd MMM yyyy').format(selectedDate),
+                          DateDisplay.medium(context, selectedDate),
                         ),
                       ),
                       trailing: const Icon(Icons.calendar_today),

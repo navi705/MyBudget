@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/presentation/widgets/directional_icon.dart';
 import 'package:flutter_date_pickers/flutter_date_pickers.dart' as date_pickers;
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
@@ -131,12 +132,29 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    // A phone in landscape is 411dp tall. The chrome around the picker body -
+    // header, mode selector, step selector, Clear/Apply row and the gaps
+    // between them - is about 288dp of that and none of it can compress, so
+    // the body was left roughly 61dp for a CalendarDatePicker that asks for
+    // 346: the date grid was clipped to a sliver and the user could not pick a
+    // date at all. Reclaiming the sheet's own margins and halving the gaps
+    // gives the body about two and a half times the room, and the day grid
+    // scrolls (see `_buildPickerBody`) for what is still missing.
+    final isShort = screenHeight < 600;
+    final gap = isShort ? 8.0 : 16.0;
+
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
+        maxHeight: screenHeight * (isShort ? 0.98 : 0.85),
         maxWidth: 400,
       ),
-      padding: const EdgeInsets.only(top: 16, bottom: 24, left: 16, right: 16),
+      padding: EdgeInsets.only(
+        top: gap,
+        bottom: isShort ? 8 : 24,
+        left: 16,
+        right: 16,
+      ),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -145,11 +163,11 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildHeader(context),
-          const SizedBox(height: 16),
+          SizedBox(height: gap),
 
           if (widget.rangeOptionVisibility == PickerVisibility.visible) ...[
             _buildTopModeSelector(),
-            const SizedBox(height: 16),
+            SizedBox(height: gap),
           ],
 
           Flexible(
@@ -162,9 +180,9 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
             ),
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: gap),
           _buildBottomStepSelector(),
-          const SizedBox(height: 16),
+          SizedBox(height: gap),
 
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -418,7 +436,7 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.chevron_left),
+                  icon: const DirectionalIcon.previous(),
                   onPressed: () => setState(
                     () => _currentDate = DateTime(
                       _currentDate.year - 1,
@@ -434,7 +452,7 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.chevron_right),
+                  icon: const DirectionalIcon.next(),
                   onPressed: () => setState(
                     () => _currentDate = DateTime(
                       _currentDate.year + 1,
@@ -575,12 +593,24 @@ class _CalendarStepPickerState extends State<CalendarStepPicker> {
       );
     }
 
-    // Default: Calendar for Days
-    return CalendarDatePicker(
-      initialDate: _currentDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-      onDateChanged: _handleDateChanged,
+    // Default: Calendar for Days.
+    //
+    // CalendarDatePicker is rigid - it returns a SizedBox of
+    // sub-header + 7 week rows, about 346dp, and takes no notice of being
+    // handed less. Given less it overflowed and the day cells were clipped
+    // away. The scroll view lets it keep its own height and lets the user
+    // reach the rest; where there is room for all of it, the view sizes to the
+    // child and nothing scrolls.
+    //
+    // The other steps are not wrapped: the year grid scrolls itself, and the
+    // month body has an Expanded GridView that needs a bounded height.
+    return SingleChildScrollView(
+      child: CalendarDatePicker(
+        initialDate: _currentDate,
+        firstDate: DateTime(2000),
+        lastDate: DateTime(2100),
+        onDateChanged: _handleDateChanged,
+      ),
     );
   }
 }

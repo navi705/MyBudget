@@ -90,7 +90,10 @@ void main() {
       final l10n = await loadL10n();
       await _openPicker(tester, items: const []);
 
-      expect(find.widgetWithText(TextButton, l10n.cancelButton), findsOneWidget);
+      expect(
+        find.widgetWithText(TextButton, l10n.cancelButton),
+        findsOneWidget,
+      );
       expect(find.byType(TextButton), findsOneWidget);
     });
 

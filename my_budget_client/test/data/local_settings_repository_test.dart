@@ -29,9 +29,9 @@ void main() {
     await db.delete(db.syncLog).go();
   });
 
-  Future<Setting?> rowFor(String key) =>
-      (db.select(db.settings)..where((s) => s.key.equals(key)))
-          .getSingleOrNull();
+  Future<Setting?> rowFor(String key) => (db.select(
+    db.settings,
+  )..where((s) => s.key.equals(key))).getSingleOrNull();
 
   group('reading and writing', () {
     test('a setting round-trips its key, value and device', () async {

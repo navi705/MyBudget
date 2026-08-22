@@ -44,20 +44,15 @@ void main() {
       expect(codes.length, codes.toSet().length);
     });
 
-    test(
-      'every designation points at a currency that is actually seeded '
-      '(the FK that SqliteException(787) was complaining about)',
-      () {
-        final seededCodes = defaultCurrencies
-            .map((c) => c.code.value)
-            .toSet();
-        final dangling = defaultCurrencyDesignations
-            .map((d) => d.currencyCode.value)
-            .where((code) => !seededCodes.contains(code))
-            .toSet();
-        expect(dangling, isEmpty);
-      },
-    );
+    test('every designation points at a currency that is actually seeded '
+        '(the FK that SqliteException(787) was complaining about)', () {
+      final seededCodes = defaultCurrencies.map((c) => c.code.value).toSet();
+      final dangling = defaultCurrencyDesignations
+          .map((d) => d.currencyCode.value)
+          .where((code) => !seededCodes.contains(code))
+          .toSet();
+      expect(dangling, isEmpty);
+    });
   });
 
   group('a freshly seeded database', () {
@@ -77,36 +72,30 @@ void main() {
       expect(rows.length, defaultCurrencies.length);
     });
 
-    test(
-      'keeps ANG and NLG as separate currencies: ANG is the Netherlands '
-      'Antillean guilder, NLG the Dutch guilder proper',
-      () async {
-        final ang = await db.currenciesDao.getCurrencyByCode('ANG');
-        final nlg = await db.currenciesDao.getCurrencyByCode('NLG');
-        // ANG is the row that used to vanish, replaced by NLG's identical name.
-        expect(ang, isNotNull);
-        expect(nlg, isNotNull);
-        expect(ang!.name, 'Netherlands Antillean Guilder');
-        expect(nlg!.name, 'Dutch Guilder');
-      },
-    );
+    test('keeps ANG and NLG as separate currencies: ANG is the Netherlands '
+        'Antillean guilder, NLG the Dutch guilder proper', () async {
+      final ang = await db.currenciesDao.getCurrencyByCode('ANG');
+      final nlg = await db.currenciesDao.getCurrencyByCode('NLG');
+      // ANG is the row that used to vanish, replaced by NLG's identical name.
+      expect(ang, isNotNull);
+      expect(nlg, isNotNull);
+      expect(ang!.name, 'Netherlands Antillean Guilder');
+      expect(nlg!.name, 'Dutch Guilder');
+    });
 
-    test(
-      'has no currency_designations row pointing at a missing currency - '
-      'this is the check a v1-origin upgrade performs for real, and it is '
-      'what threw SqliteException(787)',
-      () async {
-        // Scoped to currency_designations on purpose: a bare
-        // `PRAGMA foreign_key_check` also flags thousands of seeded
-        // exchange_rates rows quoting currency codes that
-        // `defaultCurrencies` has never contained (BYB, CSD, ...). That is a
-        // separate, older seed-data gap in exchange_rates_data.dart, not the
-        // duplicate-name bug under test here.
-        final violations = await db
-            .customSelect('PRAGMA foreign_key_check(currency_designations)')
-            .get();
-        expect(violations.map((r) => r.data), isEmpty);
-      },
-    );
+    test('has no currency_designations row pointing at a missing currency - '
+        'this is the check a v1-origin upgrade performs for real, and it is '
+        'what threw SqliteException(787)', () async {
+      // Scoped to currency_designations on purpose: a bare
+      // `PRAGMA foreign_key_check` also flags thousands of seeded
+      // exchange_rates rows quoting currency codes that
+      // `defaultCurrencies` has never contained (BYB, CSD, ...). That is a
+      // separate, older seed-data gap in exchange_rates_data.dart, not the
+      // duplicate-name bug under test here.
+      final violations = await db
+          .customSelect('PRAGMA foreign_key_check(currency_designations)')
+          .get();
+      expect(violations.map((r) => r.data), isEmpty);
+    });
   });
 }

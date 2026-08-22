@@ -27,14 +27,13 @@ void main() {
     await db.delete(db.syncLog).go();
   });
 
-  Future<List<SyncLogData>> logs() =>
-      (db.select(db.syncLog)
-            ..where((l) => l.changedTableName.equals('api_settings_table')))
-          .get();
+  Future<List<SyncLogData>> logs() => (db.select(
+    db.syncLog,
+  )..where((l) => l.changedTableName.equals('api_settings_table'))).get();
 
-  Future<ApiSettingsTableData?> rowFor(String id) =>
-      (db.select(db.apiSettingsTable)..where((s) => s.id.equals(id)))
-          .getSingleOrNull();
+  Future<ApiSettingsTableData?> rowFor(String id) => (db.select(
+    db.apiSettingsTable,
+  )..where((s) => s.id.equals(id))).getSingleOrNull();
 
   test('a setting round-trips its id, flags and last fetch time', () async {
     await repo.saveSetting(
@@ -66,9 +65,7 @@ void main() {
   test('lastFetchAt keeps millisecond precision', () async {
     final stamp = DateTime.fromMillisecondsSinceEpoch(1715000000123);
 
-    await repo.saveSetting(
-      ApiSettingDomain(id: 'assets', lastFetchAt: stamp),
-    );
+    await repo.saveSetting(ApiSettingDomain(id: 'assets', lastFetchAt: stamp));
 
     expect((await repo.getSettingById('assets'))!.lastFetchAt, stamp);
   });

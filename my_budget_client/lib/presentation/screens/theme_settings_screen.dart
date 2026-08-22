@@ -15,6 +15,8 @@ import 'package:my_budget_client/core/theme/app_theme.dart';
 import 'package:my_budget_client/domain/entities/custom_theme.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/presentation/blocs/theme/theme_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/account_list_item.dart'
+    show kContentMaxWidth;
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 
 /// Whether flutter_acrylic has a native backend on the running platform.
@@ -72,22 +74,31 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
 
               final theme = state.activeTheme!;
 
-              return ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _buildPresetsSection(context, state),
-                  const SizedBox(height: 24),
-                  _buildColorsSection(context, theme),
-                  const SizedBox(height: 24),
-                  _buildWindowEffectsSection(context, theme),
-                  const SizedBox(height: 24),
-                  _buildSurfaceSection(context, theme),
-                  const SizedBox(height: 24),
-                  _buildBackgroundImageSection(context, theme),
-                  const SizedBox(height: 32),
-                  _buildModeSection(context, theme),
-                  const SizedBox(height: 48),
-                ],
+              // Unconstrained, a 1440px window put each label at x=36 and its
+              // swatch at x=1380, and stretched a 0-100% opacity slider to
+              // 1330px. Same measure and same Center/ConstrainedBox pattern as
+              // settings_screen.dart, which is the sibling of this screen.
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: kContentMaxWidth),
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      _buildPresetsSection(context, state),
+                      const SizedBox(height: 24),
+                      _buildColorsSection(context, theme),
+                      const SizedBox(height: 24),
+                      _buildWindowEffectsSection(context, theme),
+                      const SizedBox(height: 24),
+                      _buildSurfaceSection(context, theme),
+                      const SizedBox(height: 24),
+                      _buildBackgroundImageSection(context, theme),
+                      const SizedBox(height: 32),
+                      _buildModeSection(context, theme),
+                      const SizedBox(height: 48),
+                    ],
+                  ),
+                ),
               );
             },
           ),
@@ -663,6 +674,26 @@ class _PresetsSectionState extends State<_PresetsSection> {
                 final preset = widget.state.presets[index];
                 final isSelected = preset.id == widget.state.activeTheme?.id;
 
+                // The tile paints `preset.backgroundColor`, so its ink has to
+                // be derived from that colour rather than fixed. Fixed white
+                // is how "Nordic Frost" printed a white label on a near-white
+                // swatch - the name of the theme, invisible - and how "Pastel
+                // Vibes" printed white over a busy light pastel.
+                // `estimateBrightnessForColor` is the same contrast question
+                // ThemeData asks of every seed colour.
+                final tileIsDark =
+                    ThemeData.estimateBrightnessForColor(
+                      preset.backgroundColor,
+                    ) ==
+                    Brightness.dark;
+                final onTile = tileIsDark ? Colors.white : Colors.black87;
+                // A background image lands between the ink and the swatch, so
+                // the label keeps a shadow - now in the opposite direction to
+                // the ink instead of always black.
+                final onTileShadow = tileIsDark
+                    ? Colors.black.withValues(alpha: 0.6)
+                    : Colors.white.withValues(alpha: 0.7);
+
                 return Padding(
                   padding: const EdgeInsetsDirectional.only(end: 12),
                   child: GestureDetector(
@@ -684,7 +715,7 @@ class _PresetsSectionState extends State<_PresetsSection> {
                                 color: Theme.of(context).primaryColor,
                                 width: 3,
                               )
-                            : Border.all(color: Colors.white10),
+                            : Border.all(color: onTile.withValues(alpha: 0.12)),
                         image:
                             (preset.backgroundImagePath != null &&
                                 preset.backgroundImagePath!.isNotEmpty)
@@ -714,11 +745,13 @@ class _PresetsSectionState extends State<_PresetsSection> {
                               preset.name,
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: Colors.white,
+                                color: onTile,
                                 fontWeight: isSelected
                                     ? FontWeight.bold
                                     : FontWeight.normal,
-                                shadows: const [Shadow(blurRadius: 4)],
+                                shadows: [
+                                  Shadow(blurRadius: 4, color: onTileShadow),
+                                ],
                               ),
                             ),
                           ),
@@ -780,9 +813,9 @@ class _PresetsSectionState extends State<_PresetsSection> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                _colorDot(preset.primaryColor),
-                                _colorDot(preset.secondaryColor),
-                                _colorDot(preset.surfaceColor),
+                                _colorDot(preset.primaryColor, onTile),
+                                _colorDot(preset.secondaryColor, onTile),
+                                _colorDot(preset.surfaceColor, onTile),
                               ],
                             ),
                           ),
@@ -832,7 +865,10 @@ class _PresetsSectionState extends State<_PresetsSection> {
     );
   }
 
-  Widget _colorDot(Color color) {
+  /// [onTile] is the tile's own ink, so a pale dot on a pale swatch still has
+  /// an edge - a fixed white38 ring vanished on exactly the light presets the
+  /// label vanished on.
+  Widget _colorDot(Color color, Color onTile) {
     return Container(
       width: 12,
       height: 12,
@@ -840,7 +876,7 @@ class _PresetsSectionState extends State<_PresetsSection> {
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white38, width: 1),
+        border: Border.all(color: onTile.withValues(alpha: 0.4), width: 1),
       ),
     );
   }

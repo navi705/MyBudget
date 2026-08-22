@@ -4,11 +4,7 @@ import 'package:my_budget_client/domain/entities/account_type.dart';
 
 extension AccountTypeMapper on drift.AccountType {
   AccountType toDomain() {
-    return AccountType(
-      id: id,
-      name: name,
-      languageCode: languageCode,
-    );
+    return AccountType(id: id, name: name, languageCode: languageCode);
   }
 }
 
@@ -17,7 +13,7 @@ extension AccountTypeCompanionMapper on AccountType {
     return drift.AccountTypesCompanion(
       id: Value(id),
       name: Value(name),
-      languageCode: Value(languageCode)
+      languageCode: Value(languageCode),
     );
   }
 }

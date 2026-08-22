@@ -72,9 +72,9 @@ void main() {
   Future<DbAccount> row(String id) =>
       (db.select(db.accounts)..where((a) => a.id.equals(id))).getSingle();
 
-  Future<List<SyncLogData>> logsFor(String table) =>
-      (db.select(db.syncLog)..where((l) => l.changedTableName.equals(table)))
-          .get();
+  Future<List<SyncLogData>> logsFor(String table) => (db.select(
+    db.syncLog,
+  )..where((l) => l.changedTableName.equals(table))).get();
 
   Future<void> insertTransaction(
     String id,
@@ -118,42 +118,51 @@ void main() {
       expect(await repo.getAccountById('gone'), isNull);
     });
 
-    test('a soft-deleted account is not returned by getAccountsByIds',
-        () async {
-      final found = await repo.getAccountsByIds(['live', 'gone']);
-      expect(found.map((a) => a.id), ['live']);
-    });
-
-    test('a soft-deleted account is not returned by getAccountsPaginated',
-        () async {
-      final found = await repo.getAccountsPaginated(limit: 50);
-      expect(found.map((a) => a.id), ['live']);
-    });
+    test(
+      'a soft-deleted account is not returned by getAccountsByIds',
+      () async {
+        final found = await repo.getAccountsByIds(['live', 'gone']);
+        expect(found.map((a) => a.id), ['live']);
+      },
+    );
 
     test(
-        'a soft-deleted account is not returned by getAccountsPaginatedFiltered',
-        () async {
-      final found = await repo.getAccountsPaginatedFiltered(
-        limit: 50,
-        accountFilters: const AccountFilters(sort: Sort.descending),
-      );
-      expect(found.map((a) => a.id), ['live']);
-    });
+      'a soft-deleted account is not returned by getAccountsPaginated',
+      () async {
+        final found = await repo.getAccountsPaginated(limit: 50);
+        expect(found.map((a) => a.id), ['live']);
+      },
+    );
 
-    test('a soft-deleted account is not counted by getCountWithFilters',
-        () async {
-      expect(await repo.getCountWithFilters(), 1);
-    });
+    test(
+      'a soft-deleted account is not returned by getAccountsPaginatedFiltered',
+      () async {
+        final found = await repo.getAccountsPaginatedFiltered(
+          limit: 50,
+          accountFilters: const AccountFilters(sort: Sort.descending),
+        );
+        expect(found.map((a) => a.id), ['live']);
+      },
+    );
+
+    test(
+      'a soft-deleted account is not counted by getCountWithFilters',
+      () async {
+        expect(await repo.getCountWithFilters(), 1);
+      },
+    );
 
     test('a soft-deleted account is not emitted by watchAccounts', () async {
       expect((await repo.watchAccounts().first).map((a) => a.id), ['live']);
     });
 
-    test('a soft-deleted account has no balance in getBalancesAtDate',
-        () async {
-      final balances = await repo.getBalancesAtDate(DateTime(2025, 1, 1));
-      expect(balances.keys, ['live']);
-    });
+    test(
+      'a soft-deleted account has no balance in getBalancesAtDate',
+      () async {
+        final balances = await repo.getBalancesAtDate(DateTime(2025, 1, 1));
+        expect(balances.keys, ['live']);
+      },
+    );
 
     test('restoreAccount makes the account readable again', () async {
       // restoreAccount replaces the whole row, so it has to be given the full
@@ -251,7 +260,9 @@ void main() {
       // JPY has 0 decimals; scaling it by 100 would inflate the balance 100x.
       await repo.addAccount(account('jpy', balance: 1250, currencyCode: 'JPY'));
       // KWD has 3.
-      await repo.addAccount(account('kwd', balance: 1.234, currencyCode: 'KWD'));
+      await repo.addAccount(
+        account('kwd', balance: 1.234, currencyCode: 'KWD'),
+      );
 
       expect((await row('jpy')).balanceMinor, 1250);
       expect((await row('kwd')).balanceMinor, 1234);
@@ -275,13 +286,15 @@ void main() {
       expect((await row('xau')).balanceMinor, isNull);
     });
 
-    test('stamps modifiedAt so the row wins against an older remote copy',
-        () async {
-      final before = DateTime.now().millisecondsSinceEpoch;
-      await repo.addAccount(account('a1'));
+    test(
+      'stamps modifiedAt so the row wins against an older remote copy',
+      () async {
+        final before = DateTime.now().millisecondsSinceEpoch;
+        await repo.addAccount(account('a1'));
 
-      expect((await row('a1')).modifiedAt, greaterThanOrEqualTo(before));
-    });
+        expect((await row('a1')).modifiedAt, greaterThanOrEqualTo(before));
+      },
+    );
 
     test('logs an upsert for sync', () async {
       await repo.addAccount(account('a1'));
@@ -322,14 +335,16 @@ void main() {
       );
     });
 
-    test('replaces an existing account rather than failing on its id',
-        () async {
-      await repo.addAccount(account('a1', name: 'Old'));
+    test(
+      'replaces an existing account rather than failing on its id',
+      () async {
+        await repo.addAccount(account('a1', name: 'Old'));
 
-      await repo.addAccounts([account('a1', name: 'New')]);
+        await repo.addAccounts([account('a1', name: 'New')]);
 
-      expect((await repo.getAccountById('a1'))!.name, 'New');
-    });
+        expect((await repo.getAccountById('a1'))!.name, 'New');
+      },
+    );
   });
 
   group('updateAccount', () {
@@ -384,9 +399,10 @@ void main() {
       // Overlapping pages would show the caller duplicate rows while hiding
       // others entirely.
       expect(
-        page1.map((a) => a.id).toSet().intersection(
-          page2.map((a) => a.id).toSet(),
-        ),
+        page1
+            .map((a) => a.id)
+            .toSet()
+            .intersection(page2.map((a) => a.id).toSet()),
         isEmpty,
       );
     });
@@ -399,15 +415,17 @@ void main() {
       expect((await repo.getAccountsPaginated()).length, 10);
     });
 
-    test('filtered results are ordered by balance descending by default',
-        () async {
-      final found = await repo.getAccountsPaginatedFiltered(
-        limit: 50,
-        accountFilters: const AccountFilters(sort: Sort.descending),
-      );
+    test(
+      'filtered results are ordered by balance descending by default',
+      () async {
+        final found = await repo.getAccountsPaginatedFiltered(
+          limit: 50,
+          accountFilters: const AccountFilters(sort: Sort.descending),
+        );
 
-      expect(found.map((a) => a.balance), [40, 30, 20, 10]);
-    });
+        expect(found.map((a) => a.balance), [40, 30, 20, 10]);
+      },
+    );
 
     test('Sort.ascending flips the balance ordering', () async {
       final found = await repo.getAccountsPaginatedFiltered(
@@ -418,12 +436,14 @@ void main() {
       expect(found.map((a) => a.balance), [10, 20, 30, 40]);
     });
 
-    test('a null filter object still returns accounts, newest balance first',
-        () async {
-      final found = await repo.getAccountsPaginatedFiltered(limit: 50);
+    test(
+      'a null filter object still returns accounts, newest balance first',
+      () async {
+        final found = await repo.getAccountsPaginatedFiltered(limit: 50);
 
-      expect(found.map((a) => a.balance), [40, 30, 20, 10]);
-    });
+        expect(found.map((a) => a.balance), [40, 30, 20, 10]);
+      },
+    );
 
     test('the name filter matches a substring, case-sensitively', () async {
       final found = await repo.getAccountsPaginatedFiltered(
@@ -485,31 +505,35 @@ void main() {
       expect(found.length, 4);
     });
 
-    test('the date filter keeps accounts created on or after that day',
-        () async {
-      await repo.addAccount(
-        account('late', balance: 99, creationDate: DateTime(2025, 3, 4)),
-      );
+    test(
+      'the date filter keeps accounts created on or after that day',
+      () async {
+        await repo.addAccount(
+          account('late', balance: 99, creationDate: DateTime(2025, 3, 4)),
+        );
 
-      final found = await repo.getAccountsPaginatedFiltered(
-        limit: 50,
-        accountFilters: AccountFilters(
-          date: DateTime(2025, 3, 4, 18),
-          sort: Sort.descending,
-        ),
-      );
+        final found = await repo.getAccountsPaginatedFiltered(
+          limit: 50,
+          accountFilters: AccountFilters(
+            date: DateTime(2025, 3, 4, 18),
+            sort: Sort.descending,
+          ),
+        );
 
-      expect(found.map((a) => a.id), ['late']);
-    });
+        expect(found.map((a) => a.id), ['late']);
+      },
+    );
 
-    test('getCountWithFilters counts only the requested account types',
-        () async {
-      expect(await repo.getCountWithFilters(), 4);
-      expect(
-        await repo.getCountWithFilters(accountTypeIds: [otherAccountTypeId]),
-        1,
-      );
-    });
+    test(
+      'getCountWithFilters counts only the requested account types',
+      () async {
+        expect(await repo.getCountWithFilters(), 4);
+        expect(
+          await repo.getCountWithFilters(accountTypeIds: [otherAccountTypeId]),
+          1,
+        );
+      },
+    );
   });
 
   group('getBalancesAtDate', () {
@@ -523,9 +547,7 @@ void main() {
     });
 
     test('subtracts transactions dated after the requested day', () async {
-      await repo.addAccount(
-        account('a1', creationDate: DateTime(2024, 1, 1)),
-      );
+      await repo.addAccount(account('a1', creationDate: DateTime(2024, 1, 1)));
       await insertTransaction(
         'past',
         60,
@@ -543,21 +565,23 @@ void main() {
       expect(balances['a1'], closeTo(60, 1e-9));
     });
 
-    test('counts a transaction dated later the same day as already applied',
-        () async {
-      await repo.addAccount(account('a1'));
-      await insertTransaction(
-        'today',
-        40,
-        accountId: 'a1',
-        date: DateTime(2024, 6, 1, 22),
-      );
+    test(
+      'counts a transaction dated later the same day as already applied',
+      () async {
+        await repo.addAccount(account('a1'));
+        await insertTransaction(
+          'today',
+          40,
+          accountId: 'a1',
+          date: DateTime(2024, 6, 1, 22),
+        );
 
-      // The cut-off snaps to end of day, so a 22:00 transaction counts towards
-      // the balance "at" 2024-06-01.
-      final balances = await repo.getBalancesAtDate(DateTime(2024, 6, 1));
-      expect(balances['a1'], closeTo(40, 1e-9));
-    });
+        // The cut-off snaps to end of day, so a 22:00 transaction counts towards
+        // the balance "at" 2024-06-01.
+        final balances = await repo.getBalancesAtDate(DateTime(2024, 6, 1));
+        expect(balances['a1'], closeTo(40, 1e-9));
+      },
+    );
 
     test('ignores soft-deleted transactions', () async {
       await repo.addAccount(account('a1'));
@@ -616,18 +640,20 @@ void main() {
       );
     });
 
-    test('bumps modifiedAt so the retype is not lost to an older remote row',
-        () async {
-      await repo.addAccount(account('a1'));
-      final before = (await row('a1')).modifiedAt;
-      await Future<void>.delayed(const Duration(milliseconds: 5));
+    test(
+      'bumps modifiedAt so the retype is not lost to an older remote row',
+      () async {
+        await repo.addAccount(account('a1'));
+        final before = (await row('a1')).modifiedAt;
+        await Future<void>.delayed(const Duration(milliseconds: 5));
 
-      await repo.updateAccountTypeForMultipleAccounts([
-        'a1',
-      ], otherAccountTypeId);
+        await repo.updateAccountTypeForMultipleAccounts([
+          'a1',
+        ], otherAccountTypeId);
 
-      expect((await row('a1')).modifiedAt, greaterThan(before));
-    });
+        expect((await row('a1')).modifiedAt, greaterThan(before));
+      },
+    );
   });
 
   group('deleteAccountWithTransactions', () {
@@ -680,10 +706,7 @@ void main() {
     test('logs the account delete against the accounts table', () async {
       await repo.deleteAccountWithTransactions('a');
 
-      expect(
-        (await logsFor('accounts')).map((l) => l.recordId),
-        contains('a'),
-      );
+      expect((await logsFor('accounts')).map((l) => l.recordId), contains('a'));
     });
 
     test('the deleted transactions are logged under the transactions table '
@@ -700,17 +723,19 @@ void main() {
       expect((await logsFor('accounts')).map((l) => l.recordId), ['a']);
     });
 
-    test("the counterpart account's balance drops the leg that was deleted",
-        () async {
-      // The +100 leg on b is gone, so the money it brought has to go with it.
-      // Balances are materialised, so a stale one never corrects itself: the
-      // account keeps showing money from transactions that no longer exist.
-      await repo.deleteAccountWithTransactions('a');
+    test(
+      "the counterpart account's balance drops the leg that was deleted",
+      () async {
+        // The +100 leg on b is gone, so the money it brought has to go with it.
+        // Balances are materialised, so a stale one never corrects itself: the
+        // account keeps showing money from transactions that no longer exist.
+        await repo.deleteAccountWithTransactions('a');
 
-      final b = await row('b');
-      expect(b.balance, 0.0);
-      expect(b.balanceMinor, 0);
-    });
+        final b = await row('b');
+        expect(b.balance, 0.0);
+        expect(b.balanceMinor, 0);
+      },
+    );
   });
 
   group('deleteAccountAndReassignTransactions', () {
@@ -762,50 +787,58 @@ void main() {
       expect((await logsFor('accounts')).map((l) => l.recordId), ['a']);
     });
 
-    test('the destination account balance gains the reassigned amount',
-        () async {
-      // The transactions moved, so the money has to move with them, otherwise
-      // the account shows a balance that does not match its own history - and
-      // the balance is materialised, so re-reading never fixes it.
-      await repo.deleteAccountAndReassignTransactions('a', 'b');
+    test(
+      'the destination account balance gains the reassigned amount',
+      () async {
+        // The transactions moved, so the money has to move with them, otherwise
+        // the account shows a balance that does not match its own history - and
+        // the balance is materialised, so re-reading never fixes it.
+        await repo.deleteAccountAndReassignTransactions('a', 'b');
 
-      final b = await row('b');
-      expect(b.balance, 50.0);
-      expect(b.balanceMinor, 5000);
-    });
+        final b = await row('b');
+        expect(b.balance, 50.0);
+        expect(b.balanceMinor, 5000);
+      },
+    );
   });
 
   group('account types', () {
-    test('a soft-deleted account type is not returned by getAccountTypes',
-        () async {
-      final before = (await repo.getAccountTypes()).length;
-      await db.accountTypesDao.deleteAccountType(
-        AccountTypesCompanion(id: Value(accountTypeId)),
-      );
+    test(
+      'a soft-deleted account type is not returned by getAccountTypes',
+      () async {
+        final before = (await repo.getAccountTypes()).length;
+        await db.accountTypesDao.deleteAccountType(
+          AccountTypesCompanion(id: Value(accountTypeId)),
+        );
 
-      final after = await repo.getAccountTypes();
-      expect(after.length, before - 1);
-      expect(after.map((t) => t.id), isNot(contains(accountTypeId)));
-    });
+        final after = await repo.getAccountTypes();
+        expect(after.length, before - 1);
+        expect(after.map((t) => t.id), isNot(contains(accountTypeId)));
+      },
+    );
 
-    test('a soft-deleted account type is not returned by getAccountTypeById',
-        () async {
-      await db.accountTypesDao.deleteAccountType(
-        AccountTypesCompanion(id: Value(accountTypeId)),
-      );
+    test(
+      'a soft-deleted account type is not returned by getAccountTypeById',
+      () async {
+        await db.accountTypesDao.deleteAccountType(
+          AccountTypesCompanion(id: Value(accountTypeId)),
+        );
 
-      expect(await repo.getAccountTypeById(accountTypeId), isNull);
-    });
+        expect(await repo.getAccountTypeById(accountTypeId), isNull);
+      },
+    );
 
-    test('a soft-deleted account type is not emitted by watchAccountTypes',
-        () async {
-      await db.accountTypesDao.deleteAccountType(
-        AccountTypesCompanion(id: Value(accountTypeId)),
-      );
+    test(
+      'a soft-deleted account type is not emitted by watchAccountTypes',
+      () async {
+        await db.accountTypesDao.deleteAccountType(
+          AccountTypesCompanion(id: Value(accountTypeId)),
+        );
 
-      final emitted = await repo.watchAccountTypes().first;
-      expect(emitted.map((t) => t.id), isNot(contains(accountTypeId)));
-    });
+        final emitted = await repo.watchAccountTypes().first;
+        expect(emitted.map((t) => t.id), isNot(contains(accountTypeId)));
+      },
+    );
 
     test('addAccountTypes round-trips and logs under account_types', () async {
       await db.delete(db.syncLog).go();

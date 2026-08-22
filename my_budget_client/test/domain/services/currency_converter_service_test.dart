@@ -76,11 +76,9 @@ class FakeCurrencyRepository implements CurrencyRepository {
   Future<void> addCurrencies(List<Currency> currencies) =>
       throw UnimplementedError();
   @override
-  Future<void> updateCurrency(Currency currency) =>
-      throw UnimplementedError();
+  Future<void> updateCurrency(Currency currency) => throw UnimplementedError();
   @override
-  Future<void> deleteCurrency(Currency currency) =>
-      throw UnimplementedError();
+  Future<void> deleteCurrency(Currency currency) => throw UnimplementedError();
   @override
   Stream<List<CurrencyDesignation>> watchCurrencyDesignationsForCurrency(
     String currencyCode,
@@ -165,22 +163,25 @@ void main() {
     // these tests exercise the direct-rate probe pair in isolation.
     final target = DateTime(2024, 6, 15);
 
-    test('tie between an equally-distant before/after rate picks the EARLIER one', () async {
-      final repo = FakeCurrencyRepository([
-        _rate('USD', 'EUR', 1.1, DateTime(2024, 6, 10)), // 5 days before
-        _rate('USD', 'EUR', 1.2, DateTime(2024, 6, 20)), // 5 days after
-      ]);
-      final service = CurrencyConverterService(repo);
+    test(
+      'tie between an equally-distant before/after rate picks the EARLIER one',
+      () async {
+        final repo = FakeCurrencyRepository([
+          _rate('USD', 'EUR', 1.1, DateTime(2024, 6, 10)), // 5 days before
+          _rate('USD', 'EUR', 1.2, DateTime(2024, 6, 20)), // 5 days after
+        ]);
+        final service = CurrencyConverterService(repo);
 
-      final r = await service.getExchangeRate(
-        fromCurrencyCode: 'USD',
-        toCurrencyCode: 'EUR',
-        date: target,
-        mainCurrencyCode: 'USD',
-      );
-      expect(r!.date, DateTime(2024, 6, 10));
-      expect(r.rate, 1.1);
-    });
+        final r = await service.getExchangeRate(
+          fromCurrencyCode: 'USD',
+          toCurrencyCode: 'EUR',
+          date: target,
+          mainCurrencyCode: 'USD',
+        );
+        expect(r!.date, DateTime(2024, 6, 10));
+        expect(r.rate, 1.1);
+      },
+    );
 
     test('closer "before" rate wins over a farther "after" rate', () async {
       final repo = FakeCurrencyRepository([
@@ -218,39 +219,47 @@ void main() {
   });
 
   group('historical rate regression (was: naive limit:100 page scan)', () {
-    test('a transaction dated years ago still finds the old rate among hundreds of newer rows', () async {
-      final oldDate = DateTime(2021, 3, 1); // ~3+ years before "today" below
-      final rows = <ExchangeRateDomain>[
-        // The row the old transaction should match, exactly on target date.
-        _rate('USD', 'EUR', 0.85, oldDate),
-      ];
-      // 150 decoy rows, all much more recent than the target date. A naive
-      // `getExchangeRatesFiltered(limit: 100)` call with no date bound and
-      // sorted descending would return only these — never the old row.
-      for (var i = 0; i < 150; i++) {
-        rows.add(
-          _rate('USD', 'EUR', 1.10, DateTime(2024, 6, 1).subtract(Duration(days: i))),
+    test(
+      'a transaction dated years ago still finds the old rate among hundreds of newer rows',
+      () async {
+        final oldDate = DateTime(2021, 3, 1); // ~3+ years before "today" below
+        final rows = <ExchangeRateDomain>[
+          // The row the old transaction should match, exactly on target date.
+          _rate('USD', 'EUR', 0.85, oldDate),
+        ];
+        // 150 decoy rows, all much more recent than the target date. A naive
+        // `getExchangeRatesFiltered(limit: 100)` call with no date bound and
+        // sorted descending would return only these — never the old row.
+        for (var i = 0; i < 150; i++) {
+          rows.add(
+            _rate(
+              'USD',
+              'EUR',
+              1.10,
+              DateTime(2024, 6, 1).subtract(Duration(days: i)),
+            ),
+          );
+        }
+
+        final repo = FakeCurrencyRepository(rows);
+        final service = CurrencyConverterService(repo);
+
+        final r = await service.getExchangeRate(
+          fromCurrencyCode: 'USD',
+          toCurrencyCode: 'EUR',
+          date: oldDate,
+          mainCurrencyCode: 'USD', // disable triangular, isolate direct probe
         );
-      }
 
-      final repo = FakeCurrencyRepository(rows);
-      final service = CurrencyConverterService(repo);
-
-      final r = await service.getExchangeRate(
-        fromCurrencyCode: 'USD',
-        toCurrencyCode: 'EUR',
-        date: oldDate,
-        mainCurrencyCode: 'USD', // disable triangular, isolate direct probe
-      );
-
-      expect(r, isNotNull);
-      expect(r!.date, oldDate);
-      expect(r.rate, 0.85);
-      // Direct + inverse legs, each issuing two bounded LIMIT-1 probes: 4
-      // total calls regardless of how many rows exist for the pair — not a
-      // 100-row page scan that would have missed the old row entirely.
-      expect(repo.filteredCallCount, 4);
-    });
+        expect(r, isNotNull);
+        expect(r!.date, oldDate);
+        expect(r.rate, 0.85);
+        // Direct + inverse legs, each issuing two bounded LIMIT-1 probes: 4
+        // total calls regardless of how many rows exist for the pair — not a
+        // 100-row page scan that would have missed the old row entirely.
+        expect(repo.filteredCallCount, 4);
+      },
+    );
   });
 
   group('direct / inverse / triangular resolution', () {
@@ -271,86 +280,106 @@ void main() {
       expect(r!.rate, 2.0);
     });
 
-    test('inverse rate is used (and inverted) when no direct rate exists', () async {
-      final repo = FakeCurrencyRepository([
-        _rate('EUR', 'USD', 0.25, target.subtract(const Duration(days: 1))),
-      ]);
-      final service = CurrencyConverterService(repo);
+    test(
+      'inverse rate is used (and inverted) when no direct rate exists',
+      () async {
+        final repo = FakeCurrencyRepository([
+          _rate('EUR', 'USD', 0.25, target.subtract(const Duration(days: 1))),
+        ]);
+        final service = CurrencyConverterService(repo);
 
-      final r = await service.getExchangeRate(
-        fromCurrencyCode: 'USD',
-        toCurrencyCode: 'EUR',
-        date: target,
-        mainCurrencyCode: 'USD',
-      );
-      expect(r!.rate, 4.0); // 1 / 0.25
-    });
+        final r = await service.getExchangeRate(
+          fromCurrencyCode: 'USD',
+          toCurrencyCode: 'EUR',
+          date: target,
+          mainCurrencyCode: 'USD',
+        );
+        expect(r!.rate, 4.0); // 1 / 0.25
+      },
+    );
 
-    test('triangular resolution via main currency when no direct/inverse rate exists', () async {
-      final repo = FakeCurrencyRepository([
-        _rate('GBP', 'USD', 2.0, target), // main->from, on target date
-        _rate('GBP', 'EUR', 8.0, target.subtract(const Duration(days: 30))),
-      ]);
-      final service = CurrencyConverterService(repo);
+    test(
+      'triangular resolution via main currency when no direct/inverse rate exists',
+      () async {
+        final repo = FakeCurrencyRepository([
+          _rate('GBP', 'USD', 2.0, target), // main->from, on target date
+          _rate('GBP', 'EUR', 8.0, target.subtract(const Duration(days: 30))),
+        ]);
+        final service = CurrencyConverterService(repo);
 
-      final r = await service.getExchangeRate(
-        fromCurrencyCode: 'USD',
-        toCurrencyCode: 'EUR',
-        date: target,
-        mainCurrencyCode: 'GBP',
-      );
-      // (GBP->EUR) / (GBP->USD) = 8.0 / 2.0
-      expect(r!.rate, 4.0);
-      // Dated by the STALEST leg (GBP->EUR, 30 days off), not the fresh one.
-      expect(r.date, target.subtract(const Duration(days: 30)));
-    });
+        final r = await service.getExchangeRate(
+          fromCurrencyCode: 'USD',
+          toCurrencyCode: 'EUR',
+          date: target,
+          mainCurrencyCode: 'GBP',
+        );
+        // (GBP->EUR) / (GBP->USD) = 8.0 / 2.0
+        expect(r!.rate, 4.0);
+        // Dated by the STALEST leg (GBP->EUR, 30 days off), not the fresh one.
+        expect(r.date, target.subtract(const Duration(days: 30)));
+      },
+    );
 
-    test('a same-distance tie between direct and inverse favors direct', () async {
-      final repo = FakeCurrencyRepository([
-        _rate('USD', 'EUR', 2.0, target), // direct, on target date
-        _rate('EUR', 'USD', 0.1, target), // inverse, also on target date -> would invert to 10.0
-      ]);
-      final service = CurrencyConverterService(repo);
+    test(
+      'a same-distance tie between direct and inverse favors direct',
+      () async {
+        final repo = FakeCurrencyRepository([
+          _rate('USD', 'EUR', 2.0, target), // direct, on target date
+          _rate(
+            'EUR',
+            'USD',
+            0.1,
+            target,
+          ), // inverse, also on target date -> would invert to 10.0
+        ]);
+        final service = CurrencyConverterService(repo);
 
-      final r = await service.getExchangeRate(
-        fromCurrencyCode: 'USD',
-        toCurrencyCode: 'EUR',
-        date: target,
-        mainCurrencyCode: 'USD',
-      );
-      expect(r!.rate, 2.0);
-    });
+        final r = await service.getExchangeRate(
+          fromCurrencyCode: 'USD',
+          toCurrencyCode: 'EUR',
+          date: target,
+          mainCurrencyCode: 'USD',
+        );
+        expect(r!.rate, 2.0);
+      },
+    );
 
-    test('a stale (today, three-years-ago) triangular pairing does not outrank an honest same-week direct rate', () async {
-      final repo = FakeCurrencyRepository([
-        // Honest direct rate, 5 days off target.
-        _rate('USD', 'EUR', 1.23, target.subtract(const Duration(days: 5))),
-        // Triangular legs: one fresh (on target date), one three years stale.
-        // Effective date = stalest leg = ~3 years off, which must lose to
-        // the 5-day-old direct rate.
-        _rate('GBP', 'USD', 2.0, target),
-        _rate('GBP', 'EUR', 9.99, target.subtract(const Duration(days: 365 * 3))),
-      ]);
-      final service = CurrencyConverterService(repo);
+    test(
+      'a stale (today, three-years-ago) triangular pairing does not outrank an honest same-week direct rate',
+      () async {
+        final repo = FakeCurrencyRepository([
+          // Honest direct rate, 5 days off target.
+          _rate('USD', 'EUR', 1.23, target.subtract(const Duration(days: 5))),
+          // Triangular legs: one fresh (on target date), one three years stale.
+          // Effective date = stalest leg = ~3 years off, which must lose to
+          // the 5-day-old direct rate.
+          _rate('GBP', 'USD', 2.0, target),
+          _rate(
+            'GBP',
+            'EUR',
+            9.99,
+            target.subtract(const Duration(days: 365 * 3)),
+          ),
+        ]);
+        final service = CurrencyConverterService(repo);
 
-      final r = await service.getExchangeRate(
-        fromCurrencyCode: 'USD',
-        toCurrencyCode: 'EUR',
-        date: target,
-        mainCurrencyCode: 'GBP',
-      );
-      expect(r!.rate, 1.23);
-      expect(r.date, target.subtract(const Duration(days: 5)));
-    });
+        final r = await service.getExchangeRate(
+          fromCurrencyCode: 'USD',
+          toCurrencyCode: 'EUR',
+          date: target,
+          mainCurrencyCode: 'GBP',
+        );
+        expect(r!.rate, 1.23);
+        expect(r.date, target.subtract(const Duration(days: 5)));
+      },
+    );
   });
 
   group('cache', () {
     final target = DateTime(2025, 2, 1);
 
     test('an identical query hits the repository only once', () async {
-      final repo = FakeCurrencyRepository([
-        _rate('USD', 'EUR', 1.5, target),
-      ]);
+      final repo = FakeCurrencyRepository([_rate('USD', 'EUR', 1.5, target)]);
       final service = CurrencyConverterService(repo);
 
       final args = () => service.getExchangeRate(
@@ -371,117 +400,126 @@ void main() {
       await service.dispose();
     });
 
-    test('a rate-change signal clears the cache so the next lookup re-reads', () async {
-      final repo = FakeCurrencyRepository([
-        _rate('USD', 'EUR', 1.5, target),
-      ]);
-      final service = CurrencyConverterService(repo);
+    test(
+      'a rate-change signal clears the cache so the next lookup re-reads',
+      () async {
+        final repo = FakeCurrencyRepository([_rate('USD', 'EUR', 1.5, target)]);
+        final service = CurrencyConverterService(repo);
 
-      Future<ExchangeRateDomain?> lookup() => service.getExchangeRate(
-        fromCurrencyCode: 'USD',
-        toCurrencyCode: 'EUR',
-        date: target,
-        mainCurrencyCode: 'USD',
-      );
+        Future<ExchangeRateDomain?> lookup() => service.getExchangeRate(
+          fromCurrencyCode: 'USD',
+          toCurrencyCode: 'EUR',
+          date: target,
+          mainCurrencyCode: 'USD',
+        );
 
-      await lookup();
-      final callsAfterFirst = repo.filteredCallCount;
+        await lookup();
+        final callsAfterFirst = repo.filteredCallCount;
 
-      repo.emitRateChange();
-      // Let the stream subscription's listener callback run.
-      await Future<void>.delayed(Duration.zero);
+        repo.emitRateChange();
+        // Let the stream subscription's listener callback run.
+        await Future<void>.delayed(Duration.zero);
 
-      await lookup();
-      expect(repo.filteredCallCount, greaterThan(callsAfterFirst));
+        await lookup();
+        expect(repo.filteredCallCount, greaterThan(callsAfterFirst));
 
-      await service.dispose();
-    });
+        await service.dispose();
+      },
+    );
 
-    test('cache key includes mainCurrencyCode: switching main does not serve a stale triangular result', () async {
-      final repo = FakeCurrencyRepository([
-        _rate('GBP', 'USD', 2.0, target),
-        _rate('GBP', 'EUR', 4.0, target),
-      ]);
-      final service = CurrencyConverterService(repo);
+    test(
+      'cache key includes mainCurrencyCode: switching main does not serve a stale triangular result',
+      () async {
+        final repo = FakeCurrencyRepository([
+          _rate('GBP', 'USD', 2.0, target),
+          _rate('GBP', 'EUR', 4.0, target),
+        ]);
+        final service = CurrencyConverterService(repo);
 
-      // main = GBP: triangular route resolves.
-      final withGbpMain = await service.getExchangeRate(
-        fromCurrencyCode: 'USD',
-        toCurrencyCode: 'EUR',
-        date: target,
-        mainCurrencyCode: 'GBP',
-      );
-      expect(withGbpMain, isNotNull);
+        // main = GBP: triangular route resolves.
+        final withGbpMain = await service.getExchangeRate(
+          fromCurrencyCode: 'USD',
+          toCurrencyCode: 'EUR',
+          date: target,
+          mainCurrencyCode: 'GBP',
+        );
+        expect(withGbpMain, isNotNull);
 
-      // main = USD (== fromCurrencyCode): triangular is skipped entirely,
-      // and there's no direct/inverse rate, so this must resolve to null —
-      // NOT the cached GBP-keyed triangular result.
-      final withUsdMain = await service.getExchangeRate(
-        fromCurrencyCode: 'USD',
-        toCurrencyCode: 'EUR',
-        date: target,
-        mainCurrencyCode: 'USD',
-      );
-      expect(withUsdMain, isNull);
+        // main = USD (== fromCurrencyCode): triangular is skipped entirely,
+        // and there's no direct/inverse rate, so this must resolve to null —
+        // NOT the cached GBP-keyed triangular result.
+        final withUsdMain = await service.getExchangeRate(
+          fromCurrencyCode: 'USD',
+          toCurrencyCode: 'EUR',
+          date: target,
+          mainCurrencyCode: 'USD',
+        );
+        expect(withUsdMain, isNull);
 
-      await service.dispose();
-    });
+        await service.dispose();
+      },
+    );
   });
 
   group('dispose()', () {
-    test('cancels the rate-change subscription so later signals no longer clear the cache', () async {
-      final target = DateTime(2025, 3, 1);
-      final repo = FakeCurrencyRepository([
-        _rate('USD', 'EUR', 1.5, target),
-      ]);
-      final service = CurrencyConverterService(repo);
+    test(
+      'cancels the rate-change subscription so later signals no longer clear the cache',
+      () async {
+        final target = DateTime(2025, 3, 1);
+        final repo = FakeCurrencyRepository([_rate('USD', 'EUR', 1.5, target)]);
+        final service = CurrencyConverterService(repo);
 
-      Future<ExchangeRateDomain?> lookup() => service.getExchangeRate(
-        fromCurrencyCode: 'USD',
-        toCurrencyCode: 'EUR',
-        date: target,
-        mainCurrencyCode: 'USD',
-      );
+        Future<ExchangeRateDomain?> lookup() => service.getExchangeRate(
+          fromCurrencyCode: 'USD',
+          toCurrencyCode: 'EUR',
+          date: target,
+          mainCurrencyCode: 'USD',
+        );
 
-      await lookup(); // populates cache
-      final callsBeforeDispose = repo.filteredCallCount;
+        await lookup(); // populates cache
+        final callsBeforeDispose = repo.filteredCallCount;
 
-      await service.dispose(); // also clears the cache itself
+        await service.dispose(); // also clears the cache itself
 
-      await lookup(); // cache was cleared by dispose -> re-reads
-      final callsAfterDisposeLookup = repo.filteredCallCount;
-      expect(callsAfterDisposeLookup, greaterThan(callsBeforeDispose));
+        await lookup(); // cache was cleared by dispose -> re-reads
+        final callsAfterDisposeLookup = repo.filteredCallCount;
+        expect(callsAfterDisposeLookup, greaterThan(callsBeforeDispose));
 
-      // If the subscription were still active, this would clear the cache
-      // again and the next lookup would hit the repository.
-      repo.emitRateChange();
-      await Future<void>.delayed(Duration.zero);
+        // If the subscription were still active, this would clear the cache
+        // again and the next lookup would hit the repository.
+        repo.emitRateChange();
+        await Future<void>.delayed(Duration.zero);
 
-      await lookup();
-      expect(repo.filteredCallCount, callsAfterDisposeLookup); // cache hit, no new calls
-    });
+        await lookup();
+        expect(
+          repo.filteredCallCount,
+          callsAfterDisposeLookup,
+        ); // cache hit, no new calls
+      },
+    );
   });
 
   group('misc', () {
-    test('same-currency short-circuits to rate 1.0 without touching the repository', () async {
-      final repo = FakeCurrencyRepository([]);
-      final service = CurrencyConverterService(repo);
+    test(
+      'same-currency short-circuits to rate 1.0 without touching the repository',
+      () async {
+        final repo = FakeCurrencyRepository([]);
+        final service = CurrencyConverterService(repo);
 
-      final r = await service.getExchangeRate(
-        fromCurrencyCode: 'EUR',
-        toCurrencyCode: 'EUR',
-        date: DateTime(2025, 1, 1),
-        mainCurrencyCode: 'EUR',
-      );
-      expect(r!.rate, 1.0);
-      expect(repo.filteredCallCount, 0);
-    });
+        final r = await service.getExchangeRate(
+          fromCurrencyCode: 'EUR',
+          toCurrencyCode: 'EUR',
+          date: DateTime(2025, 1, 1),
+          mainCurrencyCode: 'EUR',
+        );
+        expect(r!.rate, 1.0);
+        expect(repo.filteredCallCount, 0);
+      },
+    );
 
     test('convertAmount multiplies by the resolved rate', () async {
       final target = DateTime(2025, 4, 1);
-      final repo = FakeCurrencyRepository([
-        _rate('USD', 'EUR', 0.9, target),
-      ]);
+      final repo = FakeCurrencyRepository([_rate('USD', 'EUR', 0.9, target)]);
       final service = CurrencyConverterService(repo);
 
       final converted = await service.convertAmount(

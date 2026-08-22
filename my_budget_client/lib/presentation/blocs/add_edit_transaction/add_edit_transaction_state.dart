@@ -33,6 +33,7 @@ class AddEditTransactionState extends Equatable {
     this.marketRate,
     this.isTransferMode = false,
     this.isRateInputInverted = false,
+    this.manualRateIsHistorical = false,
     this.validationError,
   });
 
@@ -71,6 +72,21 @@ class AddEditTransactionState extends Equatable {
   final double? marketRate; // Market Rate (Preset 1) for Loss Calculation
   final bool isTransferMode;
   final bool isRateInputInverted; // New field for UX Toggle
+
+  /// Whether [manualExchangeRate] is the rate this transfer was actually made
+  /// at, read back off the stored row, rather than a rate looked up now.
+  ///
+  /// The two are not interchangeable. A refetch keeps the field in step with
+  /// Preset 1 whenever the two disagree, which is right for a form being
+  /// filled in and wrong for one being reopened: it would replace the bank's
+  /// rate from six months ago with today's, and the save writes the receiving
+  /// leg from this field - so merely opening a transfer and pressing Save
+  /// would move money the user never asked to move. While this is set, a
+  /// refetch that was not asked to resync leaves the field alone.
+  ///
+  /// Cleared as soon as the field stops describing that stored rate: the user
+  /// types over it, picks a preset, or changes the currency pair.
+  final bool manualRateIsHistorical;
   final String? validationError; // Error message for user feedback
 
   bool get isEditing =>
@@ -136,6 +152,7 @@ class AddEditTransactionState extends Equatable {
     double? assetPrice,
     double? marketRate,
     bool? isRateInputInverted,
+    bool? manualRateIsHistorical,
     String? validationError,
     bool clearValidationError = false,
   }) {
@@ -176,6 +193,8 @@ class AddEditTransactionState extends Equatable {
       assetPrice: assetPrice ?? this.assetPrice,
       marketRate: marketRate ?? this.marketRate,
       isRateInputInverted: isRateInputInverted ?? this.isRateInputInverted,
+      manualRateIsHistorical:
+          manualRateIsHistorical ?? this.manualRateIsHistorical,
       validationError: clearValidationError
           ? null
           : (validationError ?? this.validationError),
@@ -211,6 +230,7 @@ class AddEditTransactionState extends Equatable {
     assetPrice,
     marketRate,
     isRateInputInverted,
+    manualRateIsHistorical,
     validationError,
   ];
 }

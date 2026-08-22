@@ -17,8 +17,8 @@ class CurrencyBloc extends Bloc<CurrencyEvent, CurrencyState> {
   StreamSubscription? _currenciesSubscription;
 
   CurrencyBloc({required CurrencyRepository currencyRepository})
-      : _currencyRepository = currencyRepository,
-        super(CurrencyInitial()) {
+    : _currencyRepository = currencyRepository,
+      super(CurrencyInitial()) {
     on<LoadCurrencies>(_onLoadCurrencies);
     on<_CurrenciesAndDesignationsUpdated>(_onCurrenciesAndDesignationsUpdated);
     on<_CurrencyLoadFailed>(_onCurrencyLoadFailed);
@@ -34,22 +34,23 @@ class CurrencyBloc extends Bloc<CurrencyEvent, CurrencyState> {
     // list can land on top of the fresh one.
     await _currenciesSubscription?.cancel();
 
-    _currenciesSubscription = Rx.combineLatest2(
-      _currencyRepository.watchCurrencies(),
-      _currencyRepository.watchAllCurrencyDesignations(),
-      // The combiner only combines. Dispatching from inside it happened to work
-      // because its void return was piped into `listen(null)`, but a combiner
-      // is not a delivery callback and must stay free of side effects.
-      (List<Currency> currencies, List<CurrencyDesignation> designations) =>
-          _CurrenciesAndDesignationsUpdated(currencies, designations),
-    ).listen(
-      add,
-      // Routed as an event rather than emitted here: a stream error arrives
-      // long after this handler has returned, and by then this Emitter is
-      // completed — emitting on it threw "Emitter is already completed" and
-      // CurrencyLoadFailure was never reachable.
-      onError: (error, stackTrace) => add(const _CurrencyLoadFailed()),
-    );
+    _currenciesSubscription =
+        Rx.combineLatest2(
+          _currencyRepository.watchCurrencies(),
+          _currencyRepository.watchAllCurrencyDesignations(),
+          // The combiner only combines. Dispatching from inside it happened to work
+          // because its void return was piped into `listen(null)`, but a combiner
+          // is not a delivery callback and must stay free of side effects.
+          (List<Currency> currencies, List<CurrencyDesignation> designations) =>
+              _CurrenciesAndDesignationsUpdated(currencies, designations),
+        ).listen(
+          add,
+          // Routed as an event rather than emitted here: a stream error arrives
+          // long after this handler has returned, and by then this Emitter is
+          // completed — emitting on it threw "Emitter is already completed" and
+          // CurrencyLoadFailure was never reachable.
+          onError: (error, stackTrace) => add(const _CurrencyLoadFailed()),
+        );
   }
 
   void _onCurrencyLoadFailed(
@@ -63,10 +64,12 @@ class CurrencyBloc extends Bloc<CurrencyEvent, CurrencyState> {
     _CurrenciesAndDesignationsUpdated event,
     Emitter<CurrencyState> emit,
   ) {
-    emit(CurrencyLoadSuccess(
-      currencies: event.currencies,
-      designations: event.designations,
-    ));
+    emit(
+      CurrencyLoadSuccess(
+        currencies: event.currencies,
+        designations: event.designations,
+      ),
+    );
   }
 
   @override

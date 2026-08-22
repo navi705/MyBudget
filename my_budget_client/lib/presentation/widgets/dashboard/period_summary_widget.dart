@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
+import 'package:my_budget_client/core/theme/money_colors.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
 import 'package:my_budget_client/domain/entities/currency_designation.dart';
 
@@ -48,6 +49,7 @@ class PeriodSummaryWidget extends StatelessWidget {
 
     final net = totalIncome - totalExpense;
     final theme = Theme.of(context);
+    final money = MoneyColors.of(context);
     // Use custom currency symbol from database, fallback to code if not found
     final designation = currencyDesignations.values
         .cast<CurrencyDesignation?>()
@@ -77,21 +79,21 @@ class PeriodSummaryWidget extends StatelessWidget {
                   context,
                   context.l10n.incomeLabel,
                   totalIncome,
-                  Colors.green,
+                  money.inflow,
                   currencySymbol,
                 ),
                 _buildStat(
                   context,
                   context.l10n.expenseLabel,
                   totalExpense,
-                  Colors.red,
+                  money.outflow,
                   currencySymbol,
                 ),
                 _buildStat(
                   context,
                   context.l10n.netLabel,
                   net,
-                  net >= 0 ? Colors.green : Colors.red,
+                  money.forAmount(net),
                   currencySymbol,
                   showSign: true,
                 ),
@@ -112,7 +114,8 @@ class PeriodSummaryWidget extends StatelessWidget {
     bool showSign = false,
   }) {
     // Format: "123.45 €" (number, space, symbol)
-    String text = '${MoneyFormatter.format(amount, currencyCode)} $currencySymbol';
+    String text =
+        '${MoneyFormatter.format(amount, currencyCode)} $currencySymbol';
     if (showSign && amount > 0) {
       text = '+$text';
     }

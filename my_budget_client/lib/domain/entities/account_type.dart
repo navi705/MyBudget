@@ -8,18 +8,14 @@ class AccountType extends Equatable {
   const AccountType({
     required this.id,
     required this.name,
-    required this.languageCode
+    required this.languageCode,
   });
 
-  AccountType copyWith({
-    String? id,
-    String? name,
-    String? languageCode
-  }) {
+  AccountType copyWith({String? id, String? name, String? languageCode}) {
     return AccountType(
       id: id ?? this.id,
       name: name ?? this.name,
-      languageCode: languageCode ?? this.languageCode
+      languageCode: languageCode ?? this.languageCode,
     );
   }
 

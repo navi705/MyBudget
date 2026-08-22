@@ -76,7 +76,8 @@ class _UnreadableRatesRepository extends Fake implements CurrencyRepository {
   }
 }
 
-class _FakeTransactionRepository extends Fake implements TransactionRepository {}
+class _FakeTransactionRepository extends Fake
+    implements TransactionRepository {}
 
 class _FakeAccountRepository extends Fake implements AccountRepository {}
 

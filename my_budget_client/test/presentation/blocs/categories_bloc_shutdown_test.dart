@@ -37,40 +37,45 @@ class _FakeCurrencyRepository extends Fake implements CurrencyRepository {}
 
 void main() {
   group('CategoriesBloc shutdown race', () {
-    test('an add-category in flight when close() starts does not throw',
-        () async {
-      final addCategoryGate = Completer<void>();
-      final bloc = CategoriesBloc(
-        categoryRepository: _FakeCategoryRepository(
-          addCategoryGate: addCategoryGate,
-        ),
-        settingsRepository: _FakeSettingsRepository(),
-        transactionRepository: _FakeTransactionRepository(),
-        currencyRepository: _FakeCurrencyRepository(),
-      );
+    test(
+      'an add-category in flight when close() starts does not throw',
+      () async {
+        final addCategoryGate = Completer<void>();
+        final bloc = CategoriesBloc(
+          categoryRepository: _FakeCategoryRepository(
+            addCategoryGate: addCategoryGate,
+          ),
+          settingsRepository: _FakeSettingsRepository(),
+          transactionRepository: _FakeTransactionRepository(),
+          currencyRepository: _FakeCurrencyRepository(),
+        );
 
-      final category = Category(name: 'Groceries', type: CategoryType.expense);
+        final category = Category(
+          name: 'Groceries',
+          type: CategoryType.expense,
+        );
 
-      bloc.add(AddCategory(category));
-      await pumpEventQueue(); // handler suspended on addCategoryGate
+        bloc.add(AddCategory(category));
+        await pumpEventQueue(); // handler suspended on addCategoryGate
 
-      final zoneErrors = <Object>[];
-      await runZonedGuarded(() async {
-        final closeFuture = bloc.close();
-        addCategoryGate.complete();
-        await pumpEventQueue();
-        await closeFuture;
-        await pumpEventQueue();
-      }, (error, stack) => zoneErrors.add(error));
+        final zoneErrors = <Object>[];
+        await runZonedGuarded(() async {
+          final closeFuture = bloc.close();
+          addCategoryGate.complete();
+          await pumpEventQueue();
+          await closeFuture;
+          await pumpEventQueue();
+        }, (error, stack) => zoneErrors.add(error));
 
-      expect(
-        zoneErrors,
-        isEmpty,
-        reason:
-            'the resumed handler must bail via isShuttingDown instead of '
-            'calling add(LoadCategories()) on a bloc whose event controller '
-            'is already closed',
-      );
-    });
+        expect(
+          zoneErrors,
+          isEmpty,
+          reason:
+              'the resumed handler must bail via isShuttingDown instead of '
+              'calling add(LoadCategories()) on a bloc whose event controller '
+              'is already closed',
+        );
+      },
+    );
   });
 }

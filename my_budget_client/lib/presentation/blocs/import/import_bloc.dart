@@ -396,7 +396,8 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
 
       for (final name in newAccountNames) {
         // Use pre-grouped records instead of filtering
-        final accountRecords = recordsByAccountName[name.trim().toLowerCase()] ?? [];
+        final accountRecords =
+            recordsByAccountName[name.trim().toLowerCase()] ?? [];
 
         if (accountRecords.isEmpty) continue;
 
@@ -645,7 +646,8 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
         final accountNameNormalized = account.name.trim().toLowerCase();
 
         // Use pre-grouped records instead of filtering
-        final accountRecords = recordsByAccountName[accountNameNormalized] ?? [];
+        final accountRecords =
+            recordsByAccountName[accountNameNormalized] ?? [];
 
         DateTime? newCreationDate;
         if (accountRecords.isNotEmpty) {

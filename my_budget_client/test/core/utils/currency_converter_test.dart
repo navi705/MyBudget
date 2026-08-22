@@ -60,10 +60,17 @@ void main() {
         rate('EUR', 'USD', 0.0, day),
       ], baseCurrency: 'EUR');
 
-      final result = c.tryConvert(amount: 100, from: 'USD', to: 'EUR', date: day);
+      final result = c.tryConvert(
+        amount: 100,
+        from: 'USD',
+        to: 'EUR',
+        date: day,
+      );
       expect(result, isNull);
-      expect(c.convert(amount: 100, from: 'USD', to: 'EUR', date: day).isNaN,
-          isTrue);
+      expect(
+        c.convert(amount: 100, from: 'USD', to: 'EUR', date: day).isNaN,
+        isTrue,
+      );
     });
 
     test('a zero direct rate is still an honest zero, not a miss', () {
@@ -105,10 +112,18 @@ void main() {
       final viaUsd = CurrencyConverter(rates, baseCurrency: 'USD');
       final viaEur = CurrencyConverter(rates, baseCurrency: 'EUR');
 
-      final usdResult =
-          viaUsd.tryConvert(amount: 15000, from: 'JPY', to: 'CHF', date: day)!;
-      final eurResult =
-          viaEur.tryConvert(amount: 15000, from: 'JPY', to: 'CHF', date: day)!;
+      final usdResult = viaUsd.tryConvert(
+        amount: 15000,
+        from: 'JPY',
+        to: 'CHF',
+        date: day,
+      )!;
+      final eurResult = viaEur.tryConvert(
+        amount: 15000,
+        from: 'JPY',
+        to: 'CHF',
+        date: day,
+      )!;
 
       expect(usdResult, closeTo(15000 * 0.90 / 150.0, 1e-9)); // 90.0
       expect(eurResult, closeTo(15000 * 1.04 / 160.0, 1e-9)); // 97.5
@@ -129,8 +144,76 @@ void main() {
         viaGbp.tryConvert(amount: 1900, from: 'JPY', to: 'CHF', date: day),
         closeTo(1900 * 1.13 / 190.0, 1e-9),
       );
+      // A base with no rows of its own no longer means "unpriceable": the pair
+      // is resolved through the currency the table is anchored on, which is the
+      // only pivot these rows can support anyway. This used to return null, and
+      // that null is what a dashboard shown in a currency the rate table is not
+      // anchored on reported for every foreign amount it held.
       expect(
         viaEur.tryConvert(amount: 1900, from: 'JPY', to: 'CHF', date: day),
+        closeTo(1900 * 1.13 / 190.0, 1e-9),
+      );
+    });
+
+    test('falls back to the currency the table is anchored on', () {
+      // Callers pass the currency the RESULT is shown in, and the dashboard's
+      // currency selector changes it on every tap. The stored table is anchored
+      // on whatever it was fetched against — here EUR — so viewing totals in
+      // RUB asked for `RUB -> ETH`, found nothing, and reported ETH, RSD, USD
+      // and USDT as unconvertible with every row needed to price them present.
+      final rates = [
+        rate('EUR', 'ETH', 0.00046308555, day),
+        rate('EUR', 'RUB', 96.63036, day),
+        rate('EUR', 'USD', 1.16761295, day),
+      ];
+
+      final viaRub = CurrencyConverter(rates, baseCurrency: 'RUB');
+
+      expect(
+        viaRub.tryConvert(amount: 1, from: 'ETH', to: 'USD', date: day),
+        closeTo(1.16761295 / 0.00046308555, 1e-6),
+      );
+      // The requested pivot still works where it can, and RUB itself is
+      // reachable through the anchor.
+      expect(
+        viaRub.tryConvert(amount: 1, from: 'ETH', to: 'RUB', date: day),
+        closeTo(96.63036 / 0.00046308555, 1e-6),
+      );
+    });
+
+    test('the requested pivot wins when both can price the pair', () {
+      // The fallback is a fallback: it must not quietly re-anchor a conversion
+      // the caller's own pivot could already do, or switching the display
+      // currency would stop changing which legs a cross rate is built from.
+      final rates = [
+        rate('USD', 'JPY', 150.0, day),
+        rate('USD', 'CHF', 0.90, day),
+        // EUR reaches one more currency, so it is the anchor by row count.
+        rate('EUR', 'JPY', 160.0, day),
+        rate('EUR', 'CHF', 1.04, day),
+        rate('EUR', 'GBP', 0.85, day),
+      ];
+
+      final viaUsd = CurrencyConverter(rates, baseCurrency: 'USD');
+
+      expect(
+        viaUsd.tryConvert(amount: 15000, from: 'JPY', to: 'CHF', date: day),
+        closeTo(15000 * 0.90 / 150.0, 1e-9),
+      );
+    });
+
+    test('a single reversed pair is not mistaken for an anchor', () {
+      // An anchor prices many currencies. One stray `RSD -> USDT` row must not
+      // become a pivot and start pricing things through a single stale rate.
+      final rates = [
+        rate('RSD', 'USDT', 0.00834951, DateTime(2020, 1, 1)),
+        rate('EUR', 'USD', 1.1, day),
+      ];
+
+      final c = CurrencyConverter(rates, baseCurrency: 'GBP');
+
+      expect(
+        c.tryConvert(amount: 100, from: 'USDT', to: 'CHF', date: day),
         isNull,
       );
     });
@@ -170,7 +253,12 @@ void main() {
       ], baseCurrency: 'USD');
 
       expect(
-        c.tryConvert(amount: 100, from: 'USD', to: 'EUR', date: DateTime(2020, 1, 1)),
+        c.tryConvert(
+          amount: 100,
+          from: 'USD',
+          to: 'EUR',
+          date: DateTime(2020, 1, 1),
+        ),
         closeTo(90.0, 1e-9),
       );
     });
@@ -241,8 +329,12 @@ void main() {
         rate('USD', 'EUR', 0.9, DateTime(2019, 1, 1)),
       ], baseCurrency: 'USD');
 
-      final result =
-          c.tryConvert(amount: 1000, from: 'JPY', to: 'EUR', date: day)!;
+      final result = c.tryConvert(
+        amount: 1000,
+        from: 'JPY',
+        to: 'EUR',
+        date: day,
+      )!;
       expect(result, closeTo(5.8, 1e-9)); // 1000 * 0.0058 (direct)
       // The triangular alternative (0.9/150 = 0.006 -> 6.0) was rejected
       // because its stalest leg is 2019.
@@ -258,25 +350,32 @@ void main() {
         rate('USD', 'CHF', 0.90, DateTime(2023, 5, 12)), // ~400 days off
       ], baseCurrency: 'USD');
 
-      final result =
-          c.tryConvert(amount: 1000, from: 'JPY', to: 'CHF', date: day)!;
+      final result = c.tryConvert(
+        amount: 1000,
+        from: 'JPY',
+        to: 'CHF',
+        date: day,
+      )!;
       expect(result, closeTo(7.0, 1e-9)); // direct 0.0070
       // Sanity: the triangular value it beat is a different number.
       expect(result, isNot(closeTo(1000 * 0.90 / 150.0, 1e-6)));
     });
 
-    test('triangular still wins when both legs are fresher than the direct', () {
-      final c = CurrencyConverter([
-        rate('JPY', 'CHF', 0.0070, DateTime(2020, 1, 1)), // years off
-        rate('USD', 'JPY', 150.0, day),
-        rate('USD', 'CHF', 0.90, day),
-      ], baseCurrency: 'USD');
+    test(
+      'triangular still wins when both legs are fresher than the direct',
+      () {
+        final c = CurrencyConverter([
+          rate('JPY', 'CHF', 0.0070, DateTime(2020, 1, 1)), // years off
+          rate('USD', 'JPY', 150.0, day),
+          rate('USD', 'CHF', 0.90, day),
+        ], baseCurrency: 'USD');
 
-      expect(
-        c.tryConvert(amount: 1000, from: 'JPY', to: 'CHF', date: day),
-        closeTo(1000 * 0.90 / 150.0, 1e-9),
-      );
-    });
+        expect(
+          c.tryConvert(amount: 1000, from: 'JPY', to: 'CHF', date: day),
+          closeTo(1000 * 0.90 / 150.0, 1e-9),
+        );
+      },
+    );
   });
 
   group('unpriceable amounts', () {
@@ -290,8 +389,12 @@ void main() {
         isNull,
       );
 
-      final converted =
-          c.convert(amount: 5000, from: 'XYZ', to: 'EUR', date: day);
+      final converted = c.convert(
+        amount: 5000,
+        from: 'XYZ',
+        to: 'EUR',
+        date: day,
+      );
       expect(converted.isNaN, isTrue);
       // The whole point of the change: a 5000 XYZ account must not silently
       // count as zero and disappear from the total.
@@ -305,8 +408,10 @@ void main() {
         c.tryConvert(amount: 1, from: 'USD', to: 'EUR', date: day),
         isNull,
       );
-      expect(c.convert(amount: 1, from: 'USD', to: 'EUR', date: day).isNaN,
-          isTrue);
+      expect(
+        c.convert(amount: 1, from: 'USD', to: 'EUR', date: day).isNaN,
+        isTrue,
+      );
     });
 
     test('only one triangular leg present is not a path', () {

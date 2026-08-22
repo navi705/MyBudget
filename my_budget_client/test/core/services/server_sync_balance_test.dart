@@ -208,7 +208,12 @@ void main() {
           ),
         ],
         transactions: [
-          transactionJson('tx-b', amount: 50.0, amountMinor: 5000, accountId: 'acc'),
+          transactionJson(
+            'tx-b',
+            amount: 50.0,
+            amountMinor: 5000,
+            accountId: 'acc',
+          ),
         ],
       ),
     ];
@@ -219,100 +224,119 @@ void main() {
     expect(
       acc.balanceMinor,
       16000,
-      reason: 'the opening 100 plus both transactions; 15000 would mean device '
+      reason:
+          'the opening 100 plus both transactions; 15000 would mean device '
           "A's transaction is in the list but not in the balance",
     );
     expect(acc.balance, closeTo(160.0, 1e-9));
     expect((await db.select(db.transactions).get()).length, 2);
   });
 
-  test('a server that does not send the anchor keeps the balance it did send',
-      () async {
-    // Nothing in the payload says what the account opened with, so the only
-    // honest reading of it is that the sender's own balance is right and the
-    // opening balance is whatever makes it so.
-    await insertAccount('acc', 100.0);
-    await transactionRepository.addTransaction(tx('tx-a', 10.0, 'acc'));
+  test(
+    'a server that does not send the anchor keeps the balance it did send',
+    () async {
+      // Nothing in the payload says what the account opened with, so the only
+      // honest reading of it is that the sender's own balance is right and the
+      // opening balance is whatever makes it so.
+      await insertAccount('acc', 100.0);
+      await transactionRepository.addTransaction(tx('tx-a', 10.0, 'acc'));
 
-    final designationId =
-        (await db.select(db.currencyDesignations).get()).first.id;
-    final accountTypeId = (await db.select(db.accountTypes).get()).first.id;
-    pages = [
-      page(
-        accounts: [
-          accountJson(
-            'acc',
-            balance: 150.0,
-            balanceMinor: 15000,
-            designationId: designationId,
-            accountTypeId: accountTypeId,
-          ),
-        ],
-        transactions: [
-          transactionJson('tx-b', amount: 50.0, amountMinor: 5000, accountId: 'acc'),
-        ],
-      ),
-    ];
+      final designationId =
+          (await db.select(db.currencyDesignations).get()).first.id;
+      final accountTypeId = (await db.select(db.accountTypes).get()).first.id;
+      pages = [
+        page(
+          accounts: [
+            accountJson(
+              'acc',
+              balance: 150.0,
+              balanceMinor: 15000,
+              designationId: designationId,
+              accountTypeId: accountTypeId,
+            ),
+          ],
+          transactions: [
+            transactionJson(
+              'tx-b',
+              amount: 50.0,
+              amountMinor: 5000,
+              accountId: 'acc',
+            ),
+          ],
+        ),
+      ];
 
-    await service.sync();
+      await service.sync();
 
-    final acc = await account('acc');
-    expect(acc.balanceMinor, 15000);
-    expect(
-      acc.openingBalanceMinor,
-      9000,
-      reason: 'the anchor absorbs the difference so the rebuild is a no-op '
-          'rather than a restatement of the sender\'s balance',
-    );
-  });
+      final acc = await account('acc');
+      expect(acc.balanceMinor, 15000);
+      expect(
+        acc.openingBalanceMinor,
+        9000,
+        reason:
+            'the anchor absorbs the difference so the rebuild is a no-op '
+            'rather than a restatement of the sender\'s balance',
+      );
+    },
+  );
 
-  test('the account a pulled transaction moves away from is rebuilt too',
-      () async {
-    await insertAccount('acc', 100.0);
-    await insertAccount('acc2', 0.0);
-    await transactionRepository.addTransaction(tx('tx-a', 10.0, 'acc'));
-    expect((await account('acc')).balanceMinor, 11000);
+  test(
+    'the account a pulled transaction moves away from is rebuilt too',
+    () async {
+      await insertAccount('acc', 100.0);
+      await insertAccount('acc2', 0.0);
+      await transactionRepository.addTransaction(tx('tx-a', 10.0, 'acc'));
+      expect((await account('acc')).balanceMinor, 11000);
 
-    pages = [
-      page(
-        transactions: [
-          // The same transaction, moved to the other account on device B.
-          transactionJson('tx-a', amount: 10.0, amountMinor: 1000, accountId: 'acc2'),
-        ],
-      ),
-    ];
+      pages = [
+        page(
+          transactions: [
+            // The same transaction, moved to the other account on device B.
+            transactionJson(
+              'tx-a',
+              amount: 10.0,
+              amountMinor: 1000,
+              accountId: 'acc2',
+            ),
+          ],
+        ),
+      ];
 
-    await service.sync();
+      await service.sync();
 
-    expect(
-      (await account('acc')).balanceMinor,
-      10000,
-      reason: 'nothing in the payload names the account it left, so its id has '
-          'to be read before the move overwrites it',
-    );
-    expect((await account('acc2')).balanceMinor, 1000);
-  });
+      expect(
+        (await account('acc')).balanceMinor,
+        10000,
+        reason:
+            'nothing in the payload names the account it left, so its id has '
+            'to be read before the move overwrites it',
+      );
+      expect((await account('acc2')).balanceMinor, 1000);
+    },
+  );
 
-  test('a pulled transaction in a foreign currency does not scale the balance',
-      () async {
-    await insertAccount('acc', 100.0);
+  test(
+    'a pulled transaction in a foreign currency does not scale the balance',
+    () async {
+      await insertAccount('acc', 100.0);
 
-    pages = [
-      page(
-        transactions: [
-          transactionJson(
-            'tx-usd',
-            amount: 100.0,
-            amountMinor: 10000,
-            accountId: 'acc',
-            currencyCode: 'USD',
-          ),
-        ],
-      ),
-    ];
+      pages = [
+        page(
+          transactions: [
+            transactionJson(
+              'tx-usd',
+              amount: 100.0,
+              amountMinor: 10000,
+              accountId: 'acc',
+              currencyCode: 'USD',
+            ),
+          ],
+        ),
+      ];
 
-    await service.sync();
+      await service.sync();
 
-    expect((await account('acc')).balanceMinor, 10000);
-  });
+      expect((await account('acc')).balanceMinor, 10000);
+    },
+  );
 }

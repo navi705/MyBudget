@@ -90,9 +90,13 @@ class StartupSyncService {
 
     // 4. Process Built-in APIs
     final apiSettings = await _apiSettingsRepository.getAllSettings();
-    debugPrint('[DIAG][StartupSync] Found ${apiSettings.length} built-in API settings: ${apiSettings.map((s) => '${s.id}(enabled=${s.enabled},autoFetch=${s.autoFetch},lastFetchAt=${s.lastFetchAt})').join(', ')}');
+    debugPrint(
+      '[DIAG][StartupSync] Found ${apiSettings.length} built-in API settings: ${apiSettings.map((s) => '${s.id}(enabled=${s.enabled},autoFetch=${s.autoFetch},lastFetchAt=${s.lastFetchAt})').join(', ')}',
+    );
     for (final setting in apiSettings) {
-      debugPrint('[DIAG][StartupSync] Processing built-in API: ${setting.id}, enabled=${setting.enabled}, autoFetch=${setting.autoFetch}');
+      debugPrint(
+        '[DIAG][StartupSync] Processing built-in API: ${setting.id}, enabled=${setting.enabled}, autoFetch=${setting.autoFetch}',
+      );
       if (setting.enabled && setting.autoFetch) {
         if (setting.lastFetchAt != null &&
             _isSameDay(now, setting.lastFetchAt!)) {
@@ -104,15 +108,21 @@ class StartupSyncService {
         debugPrint('[StartupSyncService] Fetching ${setting.id}...');
         await _fetchBuiltInApi(setting.id);
       } else {
-        debugPrint('[DIAG][StartupSync] Skipping ${setting.id}: enabled=${setting.enabled}, autoFetch=${setting.autoFetch}');
+        debugPrint(
+          '[DIAG][StartupSync] Skipping ${setting.id}: enabled=${setting.enabled}, autoFetch=${setting.autoFetch}',
+        );
       }
     }
 
     // 5. Process Custom Data Sources
     final customSources = await _customDataSourceRepository.getAllDataSources();
-    debugPrint('[DIAG][StartupSync] Found ${customSources.length} custom data sources: ${customSources.map((s) => '${s.name}(enabled=${s.enabled},autoFetch=${s.autoFetch},dataType=${s.dataType},lastFetchAt=${s.lastFetchAt})').join(', ')}');
+    debugPrint(
+      '[DIAG][StartupSync] Found ${customSources.length} custom data sources: ${customSources.map((s) => '${s.name}(enabled=${s.enabled},autoFetch=${s.autoFetch},dataType=${s.dataType},lastFetchAt=${s.lastFetchAt})').join(', ')}',
+    );
     for (final source in customSources) {
-      debugPrint('[DIAG][StartupSync] Processing custom source: ${source.name}, enabled=${source.enabled}, autoFetch=${source.autoFetch}');
+      debugPrint(
+        '[DIAG][StartupSync] Processing custom source: ${source.name}, enabled=${source.enabled}, autoFetch=${source.autoFetch}',
+      );
       if (source.enabled && source.autoFetch) {
         if (source.lastFetchAt != null &&
             _isSameDay(now, source.lastFetchAt!)) {
@@ -136,7 +146,9 @@ class StartupSyncService {
           );
         }
       } else {
-        debugPrint('[DIAG][StartupSync] Skipping custom source ${source.name}: enabled=${source.enabled}, autoFetch=${source.autoFetch}');
+        debugPrint(
+          '[DIAG][StartupSync] Skipping custom source ${source.name}: enabled=${source.enabled}, autoFetch=${source.autoFetch}',
+        );
       }
     }
 
@@ -174,14 +186,18 @@ class StartupSyncService {
           break;
         case 'steam_inventory':
         case 'assets':
-          debugPrint('[DIAG][StartupSync] case "assets"/"steam_inventory" matched for id="$id" — ONLY Steam inventory is handled here. Non-Steam stock assets are NOT fetched by this branch.');
+          debugPrint(
+            '[DIAG][StartupSync] case "assets"/"steam_inventory" matched for id="$id" — ONLY Steam inventory is handled here. Non-Steam stock assets are NOT fetched by this branch.',
+          );
           final steamIdSetting = await _settingsRepository.getSetting(
             'steam_id',
           );
           final steamGameSetting = await _settingsRepository.getSetting(
             'steam_game',
           );
-          debugPrint('[DIAG][StartupSync] steam_id setting: ${steamIdSetting?.value}, steam_game setting: ${steamGameSetting?.value}');
+          debugPrint(
+            '[DIAG][StartupSync] steam_id setting: ${steamIdSetting?.value}, steam_game setting: ${steamGameSetting?.value}',
+          );
 
           if (steamIdSetting != null && steamIdSetting.value.isNotEmpty) {
             final accountId = int.tryParse(steamIdSetting.value);
@@ -205,7 +221,9 @@ class StartupSyncService {
           }
           break;
         default:
-          debugPrint('[DIAG][StartupSync] UNHANDLED built-in API ID: "$id" — no case matched, data will NOT be fetched!');
+          debugPrint(
+            '[DIAG][StartupSync] UNHANDLED built-in API ID: "$id" — no case matched, data will NOT be fetched!',
+          );
           debugPrint('[StartupSyncService] Unknown built-in API ID: $id');
       }
       // Update lastFetchAt after successful fetch

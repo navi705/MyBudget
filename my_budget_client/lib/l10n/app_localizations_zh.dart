@@ -835,7 +835,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get addCustomSourceTitle => '添加自定义来源';
 
   @override
-  String get addressFormatsHelp => '地址格式：\n• 192.168.1.10 (IP)\n• localhost 或 api.my.com\n• http://myserver.com';
+  String get addressFormatsHelp =>
+      '地址格式：\n• 192.168.1.10 (IP)\n• localhost 或 api.my.com\n• http://myserver.com';
 
   @override
   String get customSourceNameHint => '我的家庭服务器';
@@ -881,6 +882,15 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get categoriesGridViewTooltip => '网格视图';
+
+  @override
+  String get categoriesListViewTooltip => '列表视图';
+
+  @override
+  String get categoriesGridBackTooltip => '所有类别';
+
+  @override
   String get periodSummaryTitle => '期间摘要';
 
   @override
@@ -912,7 +922,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get resetDataConfirmationTitle => '重置数据？';
 
   @override
-  String get resetDataConfirmationMessage => '警告！这将删除您所有的交易、账户和设置。\n\n应用将恢复到具有默认数据的初始状态。\n此操作无法撤销。';
+  String get resetDataConfirmationMessage =>
+      '警告！这将删除您所有的交易、账户和设置。\n\n应用将恢复到具有默认数据的初始状态。\n此操作无法撤销。';
 
   @override
   String get resetEverythingButton => '重置所有';
@@ -946,7 +957,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get restoreBackupLabel => '恢复备份 (JSON)';
 
   @override
-  String get importSelectionHelp => '选择 \'OneMoney\' 进行迁移，\'MyBudget\' 用于添加交易，或 \'恢复备份\' 以覆盖所有数据。';
+  String get importSelectionHelp =>
+      '选择 \'OneMoney\' 进行迁移，\'MyBudget\' 用于添加交易，或 \'恢复备份\' 以覆盖所有数据。';
 
   @override
   String get importCreateAllNew => '全部新建';
@@ -1391,7 +1403,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syncConnectionUnauthorized => '服务器拒绝了该令牌。请检查令牌，而非地址。';
 
   @override
-  String get syncServerNotConfigured => '服务器未配置同步令牌，因此拒绝所有设备。请在服务器上设置 SYNC_TOKEN，并在此处填入相同的值。';
+  String get syncServerNotConfigured =>
+      '服务器未配置同步令牌，因此拒绝所有设备。请在服务器上设置 SYNC_TOKEN，并在此处填入相同的值。';
+
+  @override
+  String get syncUrlNotConfigured =>
+      '未填写服务器地址。请先输入类似 https://example.com 的网址，再开启同步。';
 
   @override
   String get syncCompleted => '同步成功完成';
@@ -2209,7 +2226,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String assetDeleteConfirmMessage(num count) {
     final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
       locale: localeName,
-      
     );
     final String countString = countNumberFormat.format(count);
 
@@ -2300,7 +2316,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String deleteAccountsConfirmTitle(num count) {
     final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
       locale: localeName,
-      
     );
     final String countString = countNumberFormat.format(count);
 

@@ -80,12 +80,21 @@ void main() {
       await initializeAppDateFormatting();
 
       await pumpAppWidget(tester, _DateProbe(), locale: const Locale('en'));
-      expect(find.text(DateFormat.yMMMM('en').format(_probeDate)), findsOneWidget);
+      expect(
+        find.text(DateFormat.yMMMM('en').format(_probeDate)),
+        findsOneWidget,
+      );
 
       await pumpAppWidget(tester, _DateProbe(), locale: const Locale('ru'));
-      expect(find.text(DateFormat.yMMMM('ru').format(_probeDate)), findsOneWidget);
+      expect(
+        find.text(DateFormat.yMMMM('ru').format(_probeDate)),
+        findsOneWidget,
+      );
       // The whole point: the two renderings differ.
-      expect(find.text(DateFormat.yMMMM('en').format(_probeDate)), findsNothing);
+      expect(
+        find.text(DateFormat.yMMMM('en').format(_probeDate)),
+        findsNothing,
+      );
       expect(Intl.defaultLocale, 'ru');
     });
 
@@ -111,14 +120,23 @@ void main() {
           ),
         ),
       );
-      expect(find.text(DateFormat.yMMMM('en').format(_probeDate)), findsOneWidget);
+      expect(
+        find.text(DateFormat.yMMMM('en').format(_probeDate)),
+        findsOneWidget,
+      );
       expect(Intl.defaultLocale, 'en');
 
       locale.value = const Locale('fr');
       await tester.pumpAndSettle();
 
-      expect(find.text(DateFormat.yMMMM('fr').format(_probeDate)), findsOneWidget);
-      expect(find.text(DateFormat.yMMMM('en').format(_probeDate)), findsNothing);
+      expect(
+        find.text(DateFormat.yMMMM('fr').format(_probeDate)),
+        findsOneWidget,
+      );
+      expect(
+        find.text(DateFormat.yMMMM('en').format(_probeDate)),
+        findsNothing,
+      );
       expect(Intl.defaultLocale, 'fr');
     });
   });

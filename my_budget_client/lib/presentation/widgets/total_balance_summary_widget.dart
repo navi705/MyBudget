@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
+import 'package:my_budget_client/core/theme/money_colors.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart';
@@ -170,42 +171,40 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
   ) {
     final l10n = context.l10n;
     // 1. Balance
+    final unconvertible = <String>{};
     final nominalBalance = totalBalanceFor(
       currency: currency,
       accounts: accounts,
-      exchangeRates: converterState.exchangeRates,
+      converter: converterState.converter,
       baseCurrencyCode: converterState.baseCurrencyCode,
       date: accountsState.activeDate,
-      groupedRates: converterState.groupedRates,
+      unconvertible: unconvertible,
     );
 
     final realBalance = totalBalanceFor(
       currency: currency,
       accounts: accounts,
-      exchangeRates: converterState.exchangeRates,
+      converter: converterState.converter,
       baseCurrencyCode: converterState.baseCurrencyCode,
       date: accountsState.activeDate,
-      groupedRates: converterState.groupedRates,
       balancesOverride: accountsState.realBalances,
     );
 
     final prevBalance = totalBalanceFor(
       currency: currency,
       accounts: accounts,
-      exchangeRates: converterState.exchangeRates,
+      converter: converterState.converter,
       baseCurrencyCode: converterState.baseCurrencyCode,
       date: accountsState.activeDate,
-      groupedRates: converterState.groupedRates,
       balancesOverride: accountsState.previousPeriodBalances,
     );
 
     final prevRealBalance = totalBalanceFor(
       currency: currency,
       accounts: accounts,
-      exchangeRates: converterState.exchangeRates,
+      converter: converterState.converter,
       baseCurrencyCode: converterState.baseCurrencyCode,
       date: accountsState.activeDate,
-      groupedRates: converterState.groupedRates,
       balancesOverride: accountsState.previousPeriodRealBalances,
     );
 
@@ -280,7 +279,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                     prevIncome,
                     realIncome, // Restore Real Income
                     prevRealIncome,
-                    Colors.green,
+                    MoneyColors.of(context).inflow,
                     currency.code,
                   ),
                   const SizedBox(width: 24),
@@ -291,12 +290,26 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                     prevExpense,
                     null, // Hide Real Expense
                     null,
-                    Colors.red,
+                    MoneyColors.of(context).outflow,
                     currency.code, // Pass symbol/code
                   ),
                 ],
               ),
             ),
+            // A total that quietly leaves out an account is a wrong number
+            // presented as a right one. Say which currencies had no rate.
+            if (unconvertible.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(
+                  l10n.dashboardUnconvertibleCurrencies(
+                    (unconvertible.toList()..sort()).join(', '),
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: MoneyColors.of(context).unconvertible,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -366,7 +379,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                       '${MoneyFormatter.format(nominalDiff, symbol, signed: true)} $symbol (${nominalPct > 0 ? '+' : ''}${nominalPct.toStringAsFixed(2)}%)',
                   style: TextStyle(
                     fontSize: 14,
-                    color: nominalDiff > 0 ? Colors.green : Colors.red,
+                    color: MoneyColors.of(context).forAmount(nominalDiff),
                   ),
                 ),
               ],
@@ -394,7 +407,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                         '${MoneyFormatter.format(realDiff, symbol, signed: true)} $symbol (${realPct > 0 ? '+' : ''}${realPct.toStringAsFixed(2)}%)',
                     style: TextStyle(
                       fontSize: 12,
-                      color: realDiff > 0 ? Colors.green : Colors.red,
+                      color: MoneyColors.of(context).forAmount(realDiff),
                     ),
                   ),
                 ],
@@ -414,10 +427,9 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
     return totalBalanceFor(
       currency: currency,
       accounts: accounts,
-      exchangeRates: converterState.exchangeRates,
+      converter: converterState.converter,
       baseCurrencyCode: converterState.baseCurrencyCode,
       date: accountsState.activeDate,
-      groupedRates: converterState.groupedRates,
       balancesOverride: balances,
     );
   }

@@ -27,8 +27,18 @@ import 'package:my_budget_client/presentation/widgets/total_balance_summary_widg
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
 import 'package:my_budget_client/presentation/widgets/screen_shortcuts.dart';
 import 'package:my_budget_client/presentation/widgets/generic/app_state_view.dart';
-import 'package:my_budget_client/core/theme/app_spacing.dart';
+import 'package:my_budget_client/core/theme/pane_layout.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
+
+/// Height of the dead strip the accounts list keeps below its content.
+///
+/// It is not padding: it is the hit target that carries the screen's
+/// "add account" right-click / long-press menu, so it has to be a real box a
+/// pointer can land on. It has been 200dp since before this workstream, and it
+/// is named here because `list_screens_layout_test.dart` has to state the
+/// scroll extent an *empty* accounts list is expected to have — otherwise the
+/// only honest assertion is a bare `200`, which drifts the moment this changes.
+const double kAccountsEmptyAreaTargetHeight = 200.0;
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
@@ -544,10 +554,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
       },
       child: Scaffold(
         appBar: PreferredSize(
+          // The pane, not the window. The rail and its divider take ~73dp off
+          // the left, so a 660dp window hands this screen a ~590dp pane: read
+          // from MediaQuery it built the two-line mobile bar's height for a
+          // desktop bar, and vice versa across the whole 600-742dp band.
           preferredSize: Size.fromHeight(
-            MediaQuery.of(context).size.width < kMobileBreakpoint
-                ? kToolbarHeight * 1.8
-                : kToolbarHeight,
+            context.isCompactPane ? kToolbarHeight * 1.8 : kToolbarHeight,
           ),
           child: BlocBuilder<AccountsBloc, AccountsState>(
             builder: (context, state) {
@@ -643,164 +655,210 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 );
               }
             },
-            child: CustomScrollView(
-              controller: _scrollController,
-              slivers: [
-                SliverToBoxAdapter(
-                  child: BlocBuilder<AccountsBloc, AccountsState>(
-                    builder: (context, accountsState) {
-                      return BlocBuilder<
-                        CurrencyConverterBloc,
-                        CurrencyConverterState
-                      >(
-                        builder: (context, converterState) {
-                          if (accountsState is AccountsLoadSuccess &&
-                              converterState is CurrencyConverterLoadSuccess) {
-                            return TotalBalanceSummaryWidget(
-                              accountsState: accountsState,
-                              converterState: converterState,
+            // Nothing capped this column, so a 1440px window stretched every
+            // account card to 1408px around ~300px of content and left the
+            // row's own menu button ~1300px from the account name it acts on.
+            // Same measure and same Center/ConstrainedBox pattern as
+            // settings_screen.dart.
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: kContentMaxWidth),
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: BlocBuilder<AccountsBloc, AccountsState>(
+                        builder: (context, accountsState) {
+                          return BlocBuilder<
+                            CurrencyConverterBloc,
+                            CurrencyConverterState
+                          >(
+                            builder: (context, converterState) {
+                              if (accountsState is AccountsLoadSuccess &&
+                                  converterState
+                                      is CurrencyConverterLoadSuccess) {
+                                return TotalBalanceSummaryWidget(
+                                  accountsState: accountsState,
+                                  converterState: converterState,
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    BlocBuilder<AccountsBloc, AccountsState>(
+                      builder: (context, state) {
+                        if (state is AccountsLoadInProgress) {
+                          return const SliverFillRemaining(
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+
+                        if (state is AccountsLoadSuccess) {
+                          final filteredAccounts = state.accounts;
+
+                          if (filteredAccounts.isEmpty) {
+                            return SliverFillRemaining(
+                              child: Center(
+                                child: Text(l10n.accountsEmptyState),
+                              ),
                             );
                           }
-                          return const SizedBox.shrink();
-                        },
-                      );
-                    },
-                  ),
-                ),
-                BlocBuilder<AccountsBloc, AccountsState>(
-                  builder: (context, state) {
-                    if (state is AccountsLoadInProgress) {
-                      return const SliverFillRemaining(
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
 
-                    if (state is AccountsLoadSuccess) {
-                      final filteredAccounts = state.accounts;
+                          // Room for the FAB floating over the last row. This
+                          // was the one list screen that never reserved it:
+                          // transactions, categories and manage-styles all pad
+                          // their scroll view by `kFabScrollBottomInset`, so
+                          // scrolled to the end the last account card sat
+                          // underneath the add button and its `⋮` menu could
+                          // not be reached. `SliverPadding` is the sliver-side
+                          // equivalent of the `ListView.padding` the others
+                          // use — it goes on the list, not on the whole
+                          // CustomScrollView, so the empty, loading and error
+                          // states keep filling the viewport exactly.
+                          return SliverPadding(
+                            padding: const EdgeInsets.only(
+                              bottom: kFabScrollBottomInset,
+                            ),
+                            sliver: SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  if (index >= filteredAccounts.length) {
+                                    return const Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(16.0),
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    );
+                                  }
 
-                      if (filteredAccounts.isEmpty) {
-                        return SliverFillRemaining(
-                          child: Center(child: Text(l10n.accountsEmptyState)),
-                        );
-                      }
+                                  final account = filteredAccounts[index];
 
-                      return SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            if (index >= filteredAccounts.length) {
-                              return const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.all(16.0),
-                                  child: CircularProgressIndicator(),
-                                ),
-                              );
-                            }
+                                  final balance = state.isHistorical
+                                      ? (state.historicalBalances[account.id] ??
+                                            account.balance)
+                                      : account.balance;
 
-                            final account = filteredAccounts[index];
+                                  final isSelected = state.selectedAccountIds
+                                      .contains(account.id);
 
-                            final balance = state.isHistorical
-                                ? (state.historicalBalances[account.id] ??
-                                      account.balance)
-                                : account.balance;
+                                  final bloc = context.read<AccountsBloc>();
 
-                            final isSelected = state.selectedAccountIds
-                                .contains(account.id);
-
-                            final bloc = context.read<AccountsBloc>();
-
-                            return AccountListItem(
-                              account: account.copyWith(balance: balance),
-                              assetStats: state.assetStats[account.id],
-                              isSelected: isSelected,
-                              realBalance: state.realBalances[account.id],
-                              inflationLoss: state.inflationLosses[account.id],
-                              income: state.accountIncomes[account.id],
-                              expense: state.accountExpenses[account.id],
-                              realIncome: state.accountRealIncomes[account.id],
-                              realExpense:
-                                  state.accountRealExpenses[account.id],
-                              prevBalance:
-                                  state.previousPeriodBalances[account.id],
-                              prevIncome:
-                                  state.previousAccountIncomes[account.id],
-                              prevExpense:
-                                  state.previousAccountExpenses[account.id],
-                              prevRealBalance:
-                                  state.previousPeriodRealBalances[account.id],
-                              prevRealIncome:
-                                  state.previousAccountRealIncomes[account.id],
-                              prevRealExpense:
-                                  state.previousAccountRealExpenses[account.id],
-                              onTap: () {
-                                if (state.isSelectionModeActive) {
-                                  bloc.add(ToggleAccountSelection(account.id!));
-                                } else {
-                                  context.push(
-                                    AppRoutes.editAccount,
-                                    extra: account,
+                                  return AccountListItem(
+                                    account: account.copyWith(balance: balance),
+                                    assetStats: state.assetStats[account.id],
+                                    isSelected: isSelected,
+                                    realBalance: state.realBalances[account.id],
+                                    inflationLoss:
+                                        state.inflationLosses[account.id],
+                                    income: state.accountIncomes[account.id],
+                                    expense: state.accountExpenses[account.id],
+                                    realIncome:
+                                        state.accountRealIncomes[account.id],
+                                    realExpense:
+                                        state.accountRealExpenses[account.id],
+                                    prevBalance: state
+                                        .previousPeriodBalances[account.id],
+                                    prevIncome: state
+                                        .previousAccountIncomes[account.id],
+                                    prevExpense: state
+                                        .previousAccountExpenses[account.id],
+                                    prevRealBalance: state
+                                        .previousPeriodRealBalances[account.id],
+                                    prevRealIncome: state
+                                        .previousAccountRealIncomes[account.id],
+                                    prevRealExpense:
+                                        state
+                                            .previousAccountRealExpenses[account
+                                            .id],
+                                    onTap: () {
+                                      if (state.isSelectionModeActive) {
+                                        bloc.add(
+                                          ToggleAccountSelection(account.id!),
+                                        );
+                                      } else {
+                                        context.push(
+                                          AppRoutes.editAccount,
+                                          extra: account,
+                                        );
+                                      }
+                                    },
+                                    onLongPress: () {
+                                      if (!state.isSelectionModeActive) {
+                                        bloc.add(
+                                          const ToggleSelectionMode(true),
+                                        );
+                                      }
+                                      bloc.add(
+                                        ToggleAccountSelection(account.id!),
+                                      );
+                                    },
+                                    onSecondaryTapUp: (details) {
+                                      _showContextMenu(
+                                        context,
+                                        details.globalPosition,
+                                        account,
+                                        state,
+                                      );
+                                    },
+                                    onMenuPressed: (details) {
+                                      _showContextMenu(
+                                        context,
+                                        details.globalPosition,
+                                        account,
+                                        state,
+                                      );
+                                    },
                                   );
-                                }
-                              },
-                              onLongPress: () {
-                                if (!state.isSelectionModeActive) {
-                                  bloc.add(const ToggleSelectionMode(true));
-                                }
-                                bloc.add(ToggleAccountSelection(account.id!));
-                              },
-                              onSecondaryTapUp: (details) {
-                                _showContextMenu(
-                                  context,
-                                  details.globalPosition,
-                                  account,
-                                  state,
-                                );
-                              },
-                              onMenuPressed: (details) {
-                                _showContextMenu(
-                                  context,
-                                  details.globalPosition,
-                                  account,
-                                  state,
-                                );
-                              },
-                            );
-                          },
-                          childCount: state.hasReachedMax
-                              ? filteredAccounts.length
-                              : filteredAccounts.length + 1,
-                        ),
-                      );
-                    }
+                                },
+                                childCount: state.hasReachedMax
+                                    ? filteredAccounts.length
+                                    : filteredAccounts.length + 1,
+                              ),
+                            ),
+                          );
+                        }
 
-                    if (state is AccountsLoadFailure) {
-                      return SliverFillRemaining(
-                        child: AppStateView.error(
-                          message: l10n.failedToLoadData,
-                          onRetry: () =>
-                              context.read<AccountsBloc>().add(LoadAccounts()),
-                        ),
-                      );
-                    }
+                        if (state is AccountsLoadFailure) {
+                          return SliverFillRemaining(
+                            child: AppStateView.error(
+                              message: l10n.failedToLoadData,
+                              onRetry: () => context.read<AccountsBloc>().add(
+                                LoadAccounts(),
+                              ),
+                            ),
+                          );
+                        }
 
-                    return const SliverToBoxAdapter(child: SizedBox.shrink());
-                  },
-                ),
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onSecondaryTapUp: (details) => _showEmptyAreaContextMenu(
-                      context,
-                      details.globalPosition,
+                        return const SliverToBoxAdapter(
+                          child: SizedBox.shrink(),
+                        );
+                      },
                     ),
-                    onLongPressStart: (details) => _showEmptyAreaContextMenu(
-                      context,
-                      details.globalPosition,
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onSecondaryTapUp: (details) =>
+                            _showEmptyAreaContextMenu(
+                              context,
+                              details.globalPosition,
+                            ),
+                        onLongPressStart: (details) =>
+                            _showEmptyAreaContextMenu(
+                              context,
+                              details.globalPosition,
+                            ),
+                        child: const SizedBox(
+                          height: kAccountsEmptyAreaTargetHeight,
+                        ),
+                      ),
                     ),
-                    child: const SizedBox(height: 200),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -988,7 +1046,14 @@ class _AccountsDateAppBar extends StatelessWidget
     final l10n = context.l10n;
     final bloc = context.read<AccountsBloc>();
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final isMobile = MediaQuery.of(context).size.width < kMobileBreakpoint;
+    // The pane the bar is drawn into, not the whole window: this Row is
+    // unbounded in its desktop branch and overflows the moment the two
+    // disagree.
+    final isMobile = context.isCompactPane;
+    // Chevrons are direction, not decoration: "previous" points at the start
+    // edge, which is the right-hand one under RTL. Same glyph-swap the rail's
+    // collapse button uses (adaptive_scaffold.dart).
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
 
     final centerWidget = Row(
       mainAxisAlignment: isMobile
@@ -1001,7 +1066,10 @@ class _AccountsDateAppBar extends StatelessWidget
           actionId: 'prev_period',
           description: l10n.accountsPreviousPeriodDescription,
           child: IconButton(
-            icon: Icon(Icons.chevron_left, color: onSurface),
+            icon: Icon(
+              isRtl ? Icons.chevron_right : Icons.chevron_left,
+              color: onSurface,
+            ),
             onPressed: () => bloc.add(const DatePeriodNavigated(-1)),
           ),
         ),
@@ -1093,7 +1161,10 @@ class _AccountsDateAppBar extends StatelessWidget
           actionId: 'next_period',
           description: l10n.accountsNextPeriodDescription,
           child: IconButton(
-            icon: Icon(Icons.chevron_right, color: onSurface),
+            icon: Icon(
+              isRtl ? Icons.chevron_left : Icons.chevron_right,
+              color: onSurface,
+            ),
             onPressed: () => bloc.add(const DatePeriodNavigated(1)),
           ),
         ),

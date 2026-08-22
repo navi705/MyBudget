@@ -40,10 +40,10 @@ void main() {
     });
 
     test('offers the picker only the two effects it can render', () {
-      expect(
-        WindowEffectType.values.where(effectAvailableOnPlatform),
-        [WindowEffectType.none, WindowEffectType.transparent],
-      );
+      expect(WindowEffectType.values.where(effectAvailableOnPlatform), [
+        WindowEffectType.none,
+        WindowEffectType.transparent,
+      ]);
     });
   });
 
@@ -135,7 +135,10 @@ void main() {
     });
 
     test('carries transparency in the alpha call, not in the tint', () {
-      final result = plan(type: WindowEffectType.transparent, effectOpacity: 0.3);
+      final result = plan(
+        type: WindowEffectType.transparent,
+        effectOpacity: 0.3,
+      );
       expect(result.effect, WindowEffect.transparent);
       expect(result.color, Colors.transparent);
       expect(result.alphaValue, 0.3);
@@ -144,8 +147,13 @@ void main() {
     test('leaves transparency below the blur floor alone', () {
       // A barely-there window is what "transparent at 0.05" asks for; only
       // blurs need the floor.
-      expect(plan(type: WindowEffectType.transparent, effectOpacity: 0.05)
-          .alphaValue, 0.05);
+      expect(
+        plan(
+          type: WindowEffectType.transparent,
+          effectOpacity: 0.05,
+        ).alphaValue,
+        0.05,
+      );
     });
 
     test('never asks for a window alpha when no transparency was chosen', () {

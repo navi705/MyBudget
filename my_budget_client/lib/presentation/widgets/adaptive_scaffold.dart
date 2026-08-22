@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/navigation/navigator_keys.dart';
-import 'package:my_budget_client/core/theme/app_spacing.dart';
+import 'package:my_budget_client/core/theme/pane_layout.dart';
 import 'package:my_budget_client/presentation/routes/app_routes.dart';
 import 'package:my_budget_client/presentation/widgets/navigation_item.dart';
 import 'package:my_budget_client/presentation/widgets/multi_level_tooltip.dart';
@@ -22,7 +22,15 @@ class AdaptiveScaffold extends StatefulWidget {
 }
 
 class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
-  bool _isExtended = true;
+  /// Whether the user has collapsed or expanded the rail by hand.
+  ///
+  /// `null` means untouched, and untouched is the only state the pane is
+  /// allowed to answer for: once a person has pressed the toggle, resizing the
+  /// window must not undo their choice.
+  bool? _userExpandedRail;
+
+  /// The rail shows its labels unless the user has said otherwise.
+  bool get _railExpanded => _userExpandedRail ?? true;
 
   int _calculateSelectedIndex(BuildContext context, {required bool isMobile}) {
     final String location = GoRouterState.of(context).uri.toString();
@@ -75,152 +83,200 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    // Get the primary color from the current theme
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The layout follows the box this shell was actually given, not the
+        // host OS: a half-width desktop window has to behave like a phone, and
+        // a tablet like a desktop.
+        //
+        // Publishing that box as a [PaneLayout] first means the rail-or-bar
+        // decision below and every screen underneath ask one authority, rather
+        // than two that disagree (`constraints` here, `MediaQuery.size` there)
+        // right across the ~142dp the rail and its divider take off the window.
+        return PaneLayout(
+          size: Size(constraints.maxWidth, constraints.maxHeight),
+          child: Builder(
+            builder: (context) {
+              // Width alone cannot answer "rail or bar". The rail needs ~446dp
+              // for its toggle plus seven destinations, and a phone in
+              // landscape is 360dp tall while being over 600dp wide: it passed
+              // the width test and dropped its last three destinations off the
+              // bottom, taking Settings - and everything only Settings reaches
+              // - with them. `prefersRail` is width *and* height.
+              final useRail = context.prefersRail;
+              final selectedIndex = _calculateSelectedIndex(
+                context,
+                isMobile: !useRail,
+              );
+
+              return useRail
+                  ? _buildRailScaffold(context, selectedIndex)
+                  : _buildBottomBarScaffold(context, selectedIndex);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  /// Republishes the pane as the *content* box rather than the shell box.
+  ///
+  /// What a screen is given is the window minus the rail, minus its divider,
+  /// minus the bottom bar - and, now that the soft keyboard is allowed to
+  /// resize the body, minus the keyboard too. Measuring inside the [Scaffold]
+  /// body is the one place all of those have already been subtracted.
+  Widget _paneOf(Widget child) {
+    return LayoutBuilder(
+      builder: (context, constraints) => PaneLayout(
+        size: Size(constraints.maxWidth, constraints.maxHeight),
+        child: child,
+      ),
+    );
+  }
+
+  Widget _buildBottomBarScaffold(BuildContext context, int selectedIndex) {
     final primaryColor = Theme.of(context).primaryColor;
     final colorScheme = Theme.of(context).colorScheme;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // The layout follows the width this shell was actually given, not the
-        // host OS: a half-width desktop window has to behave like a phone, and
-        // a tablet like a desktop. `constraints` rather than MediaQuery.size
-        // matters for everything nested inside the rail branch below, where the
-        // content pane is 73dp narrower than the window (72dp rail + 1dp
-        // divider) — mixing the two makes callers disagree about the breakpoint
-        // right in the band where the layout flips.
-        final isMobile = constraints.maxWidth < kMobileBreakpoint;
-        final selectedIndex = _calculateSelectedIndex(
-          context,
-          isMobile: isMobile,
-        );
+    // `resizeToAvoidBottomInset` is deliberately left at its default. The shell
+    // must not decide on behalf of nineteen screens that the soft keyboard may
+    // cover the field being typed into; a screen that genuinely needs the
+    // pinned layout opts out for itself.
+    return Scaffold(
+      body: _paneOf(widget.child),
+      bottomNavigationBar: NavigationBarTheme(
+        data: NavigationBarThemeData(
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            final color = states.contains(WidgetState.selected)
+                ? primaryColor
+                : colorScheme.onSurface.withValues(alpha: 0.7);
+            return TextStyle(
+              fontSize: 12,
+              fontWeight: states.contains(WidgetState.selected)
+                  ? FontWeight.bold
+                  : FontWeight.normal,
+              color: color,
+            );
+          }),
+        ),
+        child: NavigationBar(
+          selectedIndex: selectedIndex,
+          onDestinationSelected: (index) => _onItemTapped(index, context),
+          destinations: widget.destinations.map((item) {
+            Widget iconWidget = Icon(item.icon);
+            if (item.tooltip != null || item.hotkeyId != null) {
+              iconWidget = MultiLevelTooltip(
+                message: item.tooltip ?? item.label,
+                actionId: item.hotkeyId ?? '',
+                description: item.tooltipDescription,
+                child: iconWidget,
+              );
+            }
+            return NavigationDestination(icon: iconWidget, label: item.label);
+          }).toList(),
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        ),
+      ),
+    );
+  }
 
-        if (isMobile) {
-          return Scaffold(
-            resizeToAvoidBottomInset:
-                false, // Prevent keyboard animation & layout thrashing
-            body: widget.child,
-            bottomNavigationBar: NavigationBarTheme(
-              data: NavigationBarThemeData(
-                labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                  final color = states.contains(WidgetState.selected)
-                      ? primaryColor
-                      : colorScheme.onSurface.withValues(alpha: 0.7);
-                  return TextStyle(
-                    fontSize: 12,
-                    fontWeight: states.contains(WidgetState.selected)
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    color: color,
-                  );
-                }),
-              ),
-              child: NavigationBar(
-                selectedIndex: selectedIndex,
-                onDestinationSelected: (index) => _onItemTapped(index, context),
-                destinations: widget.destinations.map((item) {
-                  Widget iconWidget = Icon(item.icon);
-                  if (item.tooltip != null || item.hotkeyId != null) {
-                    iconWidget = MultiLevelTooltip(
-                      message: item.tooltip ?? item.label,
-                      actionId: item.hotkeyId ?? '',
-                      description: item.tooltipDescription,
-                      child: iconWidget,
-                    );
-                  }
-                  return NavigationDestination(
-                    icon: iconWidget,
-                    label: item.label,
-                  );
-                }).toList(),
-                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-              ),
+  Widget _buildRailScaffold(BuildContext context, int selectedIndex) {
+    final primaryColor = Theme.of(context).primaryColor;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // A collapsed rail keeps its labels in a hover-only tooltip, which a touch
+    // device can never summon. Past ~900dp there is room to simply show them,
+    // so that is the default - until the user presses the toggle, after which
+    // `_userExpandedRail` is the only opinion that counts.
+    final bool expanded = _railExpanded;
+    final bool extended = expanded && context.prefersExtendedRail;
+
+    return Scaffold(
+      // On `resizeToAvoidBottomInset`, see the note in
+      // _buildBottomBarScaffold: the keyboard inset is the screen's call.
+      body: Row(
+        children: [
+          NavigationRail(
+            selectedIndex: selectedIndex,
+            onDestinationSelected: (index) => _onItemTapped(index, context),
+            extended: extended,
+            // Belt and braces to the height-aware branch above: whatever the
+            // window is doing, the destinations scroll instead of falling off
+            // the bottom. An unreachable destination is a missing feature.
+            scrollable: true,
+            minWidth: expanded ? 72.0 : 56.0,
+            // `extended` draws each label beside its icon and forbids any
+            // other label type; stacked labels are the sub-900dp expansion.
+            labelType: extended || !expanded
+                ? NavigationRailLabelType.none
+                : NavigationRailLabelType.all,
+            // Use primary color for the indicator (highlight)
+            indicatorColor: primaryColor,
+            // Use white (or onPrimary) for the icon inside the indicator
+            selectedIconTheme: IconThemeData(
+              color: colorScheme.onPrimary,
+              size: expanded ? 24.0 : 20.0,
             ),
-          );
-        } else {
-          return Scaffold(
-            resizeToAvoidBottomInset:
-                false, // Prevent keyboard animation & layout thrashing
-            body: Row(
+            unselectedIconTheme: IconThemeData(
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
+              size: expanded ? 24.0 : 20.0,
+            ),
+            selectedLabelTextStyle: TextStyle(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+            ),
+            leading: Column(
               children: [
-                NavigationRail(
-                  selectedIndex: selectedIndex,
-                  onDestinationSelected: (index) =>
-                      _onItemTapped(index, context),
-                  extended: false,
-                  minWidth: _isExtended ? 72.0 : 56.0,
-                  labelType: _isExtended
-                      ? NavigationRailLabelType.all
-                      : NavigationRailLabelType.none,
-                  // Use primary color for the indicator (highlight)
-                  indicatorColor: primaryColor,
-                  // Use white (or onPrimary) for the icon inside the indicator
-                  selectedIconTheme: IconThemeData(
-                    color: colorScheme.onPrimary,
-                    size: _isExtended ? 24.0 : 20.0,
-                  ),
-                  unselectedIconTheme: IconThemeData(
-                    color: colorScheme.onSurface.withValues(alpha: 0.7),
-                    size: _isExtended ? 24.0 : 20.0,
-                  ),
-                  selectedLabelTextStyle: TextStyle(
+                const SizedBox(height: 8),
+                // Collapsed button doesn't need hotkey/multi-level tooltip for now as it's purely UI state
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _userExpandedRail = !expanded;
+                    });
+                  },
+                  // Dynamic icon based on state. The rail sits on the
+                  // start edge, so under RTL collapsing moves the panel
+                  // right — the arrow has to follow the text direction
+                  // or it points at the screen edge it opens away from.
+                  icon: Icon(
+                    expanded ==
+                            (Directionality.of(context) == TextDirection.rtl)
+                        ? Icons.keyboard_double_arrow_right
+                        : Icons.keyboard_double_arrow_left,
                     color: colorScheme.onSurface,
-                    fontWeight: FontWeight.bold,
+                    size: expanded ? 24.0 : 20.0,
                   ),
-                  leading: Column(
-                    children: [
-                      const SizedBox(height: 8),
-                      // Collapsed button doesn't need hotkey/multi-level tooltip for now as it's purely UI state
-                      IconButton(
-                        onPressed: () {
-                          setState(() {
-                            _isExtended = !_isExtended;
-                          });
-                        },
-                        // Dynamic icon based on state. The rail sits on the
-                        // start edge, so under RTL collapsing moves the panel
-                        // right — the arrow has to follow the text direction
-                        // or it points at the screen edge it opens away from.
-                        icon: Icon(
-                          _isExtended == (Directionality.of(context) ==
-                                  TextDirection.rtl)
-                              ? Icons.keyboard_double_arrow_right
-                              : Icons.keyboard_double_arrow_left,
-                          color: colorScheme.onSurface,
-                          size: _isExtended ? 24.0 : 20.0,
-                        ),
-                        tooltip: _isExtended
-                            ? context.l10n.collapseMenuTooltip
-                            : context.l10n.expandMenuTooltip,
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-                  destinations: widget.destinations.map((item) {
-                    Widget iconWidget = Icon(item.icon);
-                    // For NavigationRail, we can wrap the icon.
-                    // Note: If extended, we might want to attach tooltip to the whole item, but Rail Destination takes icon.
-                    if (item.tooltip != null || item.hotkeyId != null) {
-                      iconWidget = MultiLevelTooltip(
-                        message: item.tooltip ?? item.label,
-                        actionId: item.hotkeyId ?? '',
-                        description: item.tooltipDescription,
-                        // Side position for rail? Default is bottom, which is fine.
-                        child: iconWidget,
-                      );
-                    }
-                    return NavigationRailDestination(
-                      icon: iconWidget,
-                      label: Text(item.label),
-                    );
-                  }).toList(),
+                  tooltip: expanded
+                      ? context.l10n.collapseMenuTooltip
+                      : context.l10n.expandMenuTooltip,
                 ),
-                const VerticalDivider(thickness: 1, width: 1),
-                Expanded(child: widget.child),
+                const SizedBox(height: 8),
               ],
             ),
-          );
-        }
-      },
+            destinations: widget.destinations.map((item) {
+              Widget iconWidget = Icon(item.icon);
+              // For NavigationRail, we can wrap the icon.
+              // Note: If extended, we might want to attach tooltip to the whole item, but Rail Destination takes icon.
+              if (item.tooltip != null || item.hotkeyId != null) {
+                iconWidget = MultiLevelTooltip(
+                  message: item.tooltip ?? item.label,
+                  actionId: item.hotkeyId ?? '',
+                  description: item.tooltipDescription,
+                  // Side position for rail? Default is bottom, which is fine.
+                  child: iconWidget,
+                );
+              }
+              return NavigationRailDestination(
+                icon: iconWidget,
+                label: Text(item.label),
+              );
+            }).toList(),
+          ),
+          const VerticalDivider(thickness: 1, width: 1),
+          Expanded(child: _paneOf(widget.child)),
+        ],
+      ),
     );
   }
 }

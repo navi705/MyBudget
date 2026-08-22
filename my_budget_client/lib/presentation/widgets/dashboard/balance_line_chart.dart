@@ -1,8 +1,10 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/utils/date_display.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/utils/chart_color_utils.dart';
+import 'package:my_budget_client/core/theme/money_colors.dart';
 import 'package:my_budget_client/core/utils/money_formatter.dart';
 
 class BalanceLineChart extends StatelessWidget {
@@ -100,7 +102,7 @@ class BalanceLineChart extends StatelessWidget {
                     return Padding(
                       padding: const EdgeInsets.only(top: 8.0),
                       child: Text(
-                        DateFormat('MM/dd').format(sortedDates[index]),
+                        DateDisplay.dayMonth(context, sortedDates[index]),
                         style: Theme.of(
                           context,
                         ).textTheme.bodySmall?.copyWith(fontSize: 10),
@@ -158,7 +160,8 @@ class BalanceLineChart extends StatelessWidget {
                   final startValue = spots.isNotEmpty ? spots.first.y : 0.0;
                   final currentValue = spot.y;
                   String? percentageText;
-                  Color percentageColor = Colors.green;
+                  final money = MoneyColors.of(context);
+                  Color percentageColor = money.neutral;
 
                   // Only calculate if start value is significant to avoid division by zero
                   if (startValue.abs() > 0.001) {
@@ -166,7 +169,7 @@ class BalanceLineChart extends StatelessWidget {
                     final percent = (diff / startValue) * 100;
                     percentageText =
                         '${diff >= 0 ? '+' : ''}${percent.toStringAsFixed(2)}%';
-                    percentageColor = diff >= 0 ? Colors.green : Colors.red;
+                    percentageColor = money.forAmount(diff);
                   }
 
                   return LineTooltipItem(

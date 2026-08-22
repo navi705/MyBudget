@@ -66,7 +66,9 @@ class _AppWrapperState extends State<AppWrapper> {
       _updateProgress(0.1, 'Verifying settings...');
       try {
         await sl<SettingsRepository>().initializeDefaults();
-        debugPrint('[APP_WRAPPER_DEBUG] Step 1 OK: initializeDefaults complete');
+        debugPrint(
+          '[APP_WRAPPER_DEBUG] Step 1 OK: initializeDefaults complete',
+        );
       } catch (e, st) {
         debugPrint('[APP_WRAPPER_DEBUG] Step 1 FAILED: $e');
         debugPrint('[APP_WRAPPER_DEBUG] Step 1 stack: $st');
@@ -77,9 +79,13 @@ class _AppWrapperState extends State<AppWrapper> {
       // so auto-sync is ready before the user can make any changes.
       // initAutoSync() sets up DB table-update listeners (fast, local).
       // initWebSocket() fires the WS connection attempt in the background.
-      debugPrint('[APP_WRAPPER_DEBUG] Step 1b: Checking ServerSyncService registration...');
+      debugPrint(
+        '[APP_WRAPPER_DEBUG] Step 1b: Checking ServerSyncService registration...',
+      );
       if (sl.isRegistered<ServerSyncService>()) {
-        debugPrint('[APP_WRAPPER_DEBUG] Step 1b: ServerSyncService registered, calling initAutoSync...');
+        debugPrint(
+          '[APP_WRAPPER_DEBUG] Step 1b: ServerSyncService registered, calling initAutoSync...',
+        );
         final serverSync = sl<ServerSyncService>();
         try {
           await serverSync.initAutoSync();
@@ -91,7 +97,9 @@ class _AppWrapperState extends State<AppWrapper> {
           debugPrint('[APP_WRAPPER_DEBUG] Step 1b stack: $st');
         }
       } else {
-        debugPrint('[APP_WRAPPER_DEBUG] Step 1b: ServerSyncService NOT registered, skipping');
+        debugPrint(
+          '[APP_WRAPPER_DEBUG] Step 1b: ServerSyncService NOT registered, skipping',
+        );
       }
 
       // 2. Start Services
@@ -102,12 +110,16 @@ class _AppWrapperState extends State<AppWrapper> {
       sl<SyncService>().init().catchError((e) {
         debugPrint('[APP_WRAPPER_DEBUG] SyncService init error: $e');
       });
-      debugPrint('[APP_WRAPPER_DEBUG] Step 2: SyncService.init() fired (background)');
+      debugPrint(
+        '[APP_WRAPPER_DEBUG] Step 2: SyncService.init() fired (background)',
+      );
 
       // Non-critical background tasks (asynchronous launch)
       // Note: On Windows, compute() can crash, so we run in the main isolate
       // but without 'await' to achieve background effect.
-      debugPrint('[APP_WRAPPER_DEBUG] Step 2b: Firing fetchApiDataInBackground...');
+      debugPrint(
+        '[APP_WRAPPER_DEBUG] Step 2b: Firing fetchApiDataInBackground...',
+      );
       IntilizationData.fetchApiDataInBackground();
 
       // Setup 24h periodic sync timer

@@ -112,84 +112,84 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
         appBar: AppBar(
           title: Text(context.l10n.editAccountTitle(_initialStyle!.name)),
         ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: context.l10n.styleNameLabel,
-                ),
-                validator: (value) => (value == null || value.isEmpty)
-                    ? context.l10n.formValidationPleaseEnterName
-                    : null,
-              ),
-              const SizedBox(height: 24),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(context.l10n.colorLabel),
-                subtitle: Text(_selectedColor.hex.toUpperCase()),
-                trailing: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: _selectedColor,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Theme.of(context).dividerColor),
+        body: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: context.l10n.styleNameLabel,
                   ),
+                  validator: (value) => (value == null || value.isEmpty)
+                      ? context.l10n.formValidationPleaseEnterName
+                      : null,
                 ),
-                onTap: () async {
-                  final newColor = await showColorPickerDialog(
-                    context,
-                    _selectedColor,
-                    pickersEnabled: const {
-                      ColorPickerType.wheel: true,
-                      ColorPickerType.primary: false,
-                      ColorPickerType.accent: false,
-                    },
-                  );
-                  setState(() {
-                    _selectedColor = newColor;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(context.l10n.iconLabel),
-                subtitle: Text(_selectedIconName),
-                trailing: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: IconUtils.getIconWidget(
-                    Style(
-                      id: 'preview',
-                      name: 'preview',
-                      iconName: _selectedIconName,
-                      colorHex: '#FFFFFF', // Color is ignored by the util
-                      iconType: _selectedIconType,
+                const SizedBox(height: 24),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(context.l10n.colorLabel),
+                  subtitle: Text(_selectedColor.hex.toUpperCase()),
+                  trailing: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: _selectedColor,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Theme.of(context).dividerColor),
                     ),
                   ),
+                  onTap: () async {
+                    final newColor = await showColorPickerDialog(
+                      context,
+                      _selectedColor,
+                      pickersEnabled: const {
+                        ColorPickerType.wheel: true,
+                        ColorPickerType.primary: false,
+                        ColorPickerType.accent: false,
+                      },
+                    );
+                    setState(() {
+                      _selectedColor = newColor;
+                    });
+                  },
                 ),
-                onTap: _showIconPicker,
-              ),
-              const SizedBox(height: 32),
-              FilledButton.tonal(
-                onPressed: _onSave,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
+                const SizedBox(height: 16),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(context.l10n.iconLabel),
+                  subtitle: Text(_selectedIconName),
+                  trailing: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: IconUtils.getIconWidget(
+                      Style(
+                        id: 'preview',
+                        name: 'preview',
+                        iconName: _selectedIconName,
+                        colorHex: '#FFFFFF', // Color is ignored by the util
+                        iconType: _selectedIconType,
+                      ),
+                    ),
+                  ),
+                  onTap: _showIconPicker,
                 ),
-                child: Text(context.l10n.stySaveChanges),
-              ),
-            ],
+                const SizedBox(height: 32),
+                FilledButton.tonal(
+                  onPressed: _onSave,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                  ),
+                  child: Text(context.l10n.stySaveChanges),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 }

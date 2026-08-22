@@ -293,10 +293,9 @@ class LocalSmsRepository implements SmsRepository {
       'defaultAccountId': preset.defaultAccountId,
       'defaultCategoryId': preset.defaultCategoryId,
       'rules': preset.rules.map(_ruleToJson).toList(),
-      'categoryKeywords':
-          preset.categoryKeywords
-              .map((kw) => {'keyword': kw.keyword, 'categoryId': kw.categoryId})
-              .toList(),
+      'categoryKeywords': preset.categoryKeywords
+          .map((kw) => {'keyword': kw.keyword, 'categoryId': kw.categoryId})
+          .toList(),
     };
   }
 
@@ -327,15 +326,13 @@ class LocalSmsRepository implements SmsRepository {
               .toList() ??
           [],
       categoryKeywords:
-          (json['categoryKeywords'] as List<dynamic>?)
-              ?.map((e) {
-                final m = e as Map<String, dynamic>;
-                return SmsCategoryKeyword(
-                  keyword: m['keyword'] as String,
-                  categoryId: m['categoryId'] as String,
-                );
-              })
-              .toList() ??
+          (json['categoryKeywords'] as List<dynamic>?)?.map((e) {
+            final m = e as Map<String, dynamic>;
+            return SmsCategoryKeyword(
+              keyword: m['keyword'] as String,
+              categoryId: m['categoryId'] as String,
+            );
+          }).toList() ??
           [],
     );
   }

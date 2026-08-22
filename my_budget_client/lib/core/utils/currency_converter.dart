@@ -26,16 +26,50 @@ class CurrencyConverter {
   /// which currency the rate table is actually built around.
   final String baseCurrency;
 
+  /// The currencies worth pivoting a triangular conversion through, in the
+  /// order they are tried.
+  ///
+  /// [baseCurrency] is what the caller asked for, but callers pass the currency
+  /// the result is displayed in — and a rate table is anchored on whatever
+  /// currency it was fetched against, which is a different thing. This app's
+  /// rates are all stored as `EUR -> X`, so viewing the dashboard in RUB used
+  /// to make every pivot lookup ask for `RUB -> ETH`, find nothing, and report
+  /// ETH, RSD, USD and USDT as unconvertible while the rows to price them sat
+  /// in the table. The anchor is recovered from the data itself, so no setting
+  /// has to be right for a total to add up.
+  late final List<String> _pivots = _resolvePivots();
+
   CurrencyConverter(this.rates, {required this.baseCurrency}) {
     // Ascending by date: _findRate scans in this order, and scanning ascending
     // is what makes a distance tie resolve to the EARLIER row (see below).
-    final sortedRates = rates.toList()..sort((a, b) => a.date.compareTo(b.date));
+    final sortedRates = rates.toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
     for (final rate in sortedRates) {
       _groupedRates
           .putIfAbsent(rate.fromCurrencyCode, () => {})
           .putIfAbsent(rate.toCurrencyCode, () => [])
           .add(rate);
     }
+  }
+
+  /// [baseCurrency], then the currency the stored table is actually anchored
+  /// on — the `from` code that prices the most other currencies.
+  List<String> _resolvePivots() {
+    final pivots = <String>[baseCurrency];
+    String? anchor;
+    int anchorReach = 0;
+    for (final entry in _groupedRates.entries) {
+      if (entry.value.length > anchorReach) {
+        anchor = entry.key;
+        anchorReach = entry.value.length;
+      }
+    }
+    // One pair stored the other way round must not be promoted to pivot: an
+    // anchor is a currency that prices many others.
+    if (anchor != null && anchor != baseCurrency && anchorReach > 1) {
+      pivots.add(anchor);
+    }
+    return pivots;
   }
 
   /// The stored [from]->[to] row whose date is nearest [date], on **either**
@@ -107,11 +141,12 @@ class CurrencyConverter {
       offer(1.0 / inverse.rate, inverse.date);
     }
 
-    // Skipped when either side already IS the pivot — that pairing degenerates
-    // into the direct/inverse lookups already tried above.
-    if (from != baseCurrency && to != baseCurrency) {
-      final baseToFrom = _findRate(baseCurrency, from, date);
-      final baseToTo = _findRate(baseCurrency, to, date);
+    for (final pivot in _pivots) {
+      // Skipped when either side already IS the pivot — that pairing
+      // degenerates into the direct/inverse lookups already tried above.
+      if (from == pivot || to == pivot) continue;
+      final baseToFrom = _findRate(pivot, from, date);
+      final baseToTo = _findRate(pivot, to, date);
       if (baseToFrom != null && baseToTo != null && baseToFrom.rate != 0) {
         // A triangular rate is only as fresh as its STALEST leg — ranking it
         // by the closer leg would let a pairing of (today, three years ago)

@@ -16,6 +16,9 @@ import '../test_app.dart';
 const Size _phone = Size(400, 800);
 const Size _desktop = Size(1200, 800);
 
+/// Wide enough for the rail, narrow enough that it cannot extend.
+const Size _narrowDesktop = Size(700, 800);
+
 const List<NavigationItem> _destinations = [
   NavigationItem(
     label: 'Home',
@@ -99,7 +102,6 @@ void main() {
       expect(find.byType(NavigationRail), findsOneWidget);
       expect(find.byType(NavigationBar), findsNothing);
     });
-
   });
 
   group('AdaptiveScaffold destination parity', () {
@@ -174,28 +176,29 @@ void main() {
       );
 
       expect(
-        tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex,
+        tester
+            .widget<NavigationRail>(find.byType(NavigationRail))
+            .selectedIndex,
         1,
       );
     });
 
-    testWidgets(
-      'a mobile-only route with no destination highlights Settings',
-      (tester) async {
-        // /exchange-rates has no bottom-bar destination; it is reached through
-        // Settings there, so Settings is what must light up.
-        await pumpRouterApp(
-          tester,
-          _buildShellRouter(initialLocation: '/exchange-rates'),
-          surfaceSize: _phone,
-        );
+    testWidgets('a mobile-only route with no destination highlights Settings', (
+      tester,
+    ) async {
+      // /exchange-rates has no bottom-bar destination; it is reached through
+      // Settings there, so Settings is what must light up.
+      await pumpRouterApp(
+        tester,
+        _buildShellRouter(initialLocation: '/exchange-rates'),
+        surfaceSize: _phone,
+      );
 
-        expect(
-          tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-          _destinations.indexWhere((d) => d.route == '/settings'),
-        );
-      },
-    );
+      expect(
+        tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+        _destinations.indexWhere((d) => d.route == '/settings'),
+      );
+    });
 
     testWidgets('an unmatched route falls back to the first destination', (
       tester,
@@ -208,20 +211,58 @@ void main() {
 
       // Wide layout has no Settings fallback rule, so index 0 is expected.
       expect(
-        tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex,
+        tester
+            .widget<NavigationRail>(find.byType(NavigationRail))
+            .selectedIndex,
         0,
       );
     });
   });
 
   group('AdaptiveScaffold rail controls', () {
-    testWidgets('collapse button toggles the rail label mode', (tester) async {
+    testWidgets('collapse button toggles the rail between extended and icons', (
+      tester,
+    ) async {
+      // 1200dp is past kExtendedRailBreakpoint, so the rail opens *extended* -
+      // each label drawn beside its icon. `NavigationRail` forbids any label
+      // type other than `none` while extended, so the label type is not what
+      // the toggle changes at this width; `extended` is.
       await pumpRouterApp(tester, _buildShellRouter(), surfaceSize: _desktop);
 
-      expect(
-        tester.widget<NavigationRail>(find.byType(NavigationRail)).labelType,
-        NavigationRailLabelType.all,
+      final railBefore = tester.widget<NavigationRail>(
+        find.byType(NavigationRail),
       );
+      expect(railBefore.extended, isTrue);
+      expect(railBefore.labelType, NavigationRailLabelType.none);
+      // Extended means the labels are on screen, not hidden in a tooltip.
+      expect(find.text(_destinations.first.label), findsWidgets);
+
+      await tester.tap(find.byIcon(Icons.keyboard_double_arrow_left));
+      await tester.pumpAndSettle();
+
+      final railAfter = tester.widget<NavigationRail>(
+        find.byType(NavigationRail),
+      );
+      expect(railAfter.extended, isFalse);
+      expect(railAfter.labelType, NavigationRailLabelType.none);
+    });
+
+    testWidgets('below the extended breakpoint the toggle drops the labels', (
+      tester,
+    ) async {
+      // Under 900dp there is no room to draw labels beside the icons, so the
+      // expanded rail stacks them (`labelType.all`) and collapsing hides them.
+      await pumpRouterApp(
+        tester,
+        _buildShellRouter(),
+        surfaceSize: _narrowDesktop,
+      );
+
+      final railBefore = tester.widget<NavigationRail>(
+        find.byType(NavigationRail),
+      );
+      expect(railBefore.extended, isFalse);
+      expect(railBefore.labelType, NavigationRailLabelType.all);
 
       await tester.tap(find.byIcon(Icons.keyboard_double_arrow_left));
       await tester.pumpAndSettle();

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "dart": {
+      "type": "stdio",
+      "command": "C:/Users/vrclu/Documents/NewFilePC/Flutter/flutter/bin/cache/dart-sdk/bin/dart.exe",
+      "args": [
+        "mcp-server"
+      ]
+    }
+  }
+}

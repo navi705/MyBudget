@@ -5,7 +5,8 @@ import 'package:my_budget_client/domain/entities/transaction.dart';
 /// toCompanion must populate the exact minor-unit columns for fiat and leave
 /// them NULL for crypto, so every write keeps the minor columns correct.
 void main() {
-  Transaction txn(double amount, String code, {double fee = 0.0}) => Transaction(
+  Transaction txn(double amount, String code, {double fee = 0.0}) =>
+      Transaction(
         description: 'x',
         amount: amount,
         date: DateTime(2024, 1, 1),

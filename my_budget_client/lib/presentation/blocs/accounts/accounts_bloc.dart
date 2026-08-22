@@ -56,20 +56,20 @@ class DeleteAccountAndReassign extends AccountsEvent {
 
 class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
     with BlocShutdownGuard<AccountsEvent, AccountsState> {
-   final AccountRepository _accountRepository;
-   final SettingsRepository _settingsRepository;
-   final CurrencyRepository _currencyRepository;
-   final InflationRepository _inflationRepository;
-   final TransactionRepository _transactionRepository;
-   final AssetRepository _assetRepository;
-   final CategoryRepository _categoryRepository; // Added
-   final FinanceCalculator _financeCalculator; // Added
+  final AccountRepository _accountRepository;
+  final SettingsRepository _settingsRepository;
+  final CurrencyRepository _currencyRepository;
+  final InflationRepository _inflationRepository;
+  final TransactionRepository _transactionRepository;
+  final AssetRepository _assetRepository;
+  final CategoryRepository _categoryRepository; // Added
+  final FinanceCalculator _financeCalculator; // Added
 
-   StreamSubscription<void>? _transactionsSubscription;
-   
-   // Optimization: Cache rate map to avoid rebuilding on every sort
-   Map<String, double>? _cachedRateMap;
-   List<ExchangeRateDomain>? _cachedRates;
+  StreamSubscription<void>? _transactionsSubscription;
+
+  // Optimization: Cache rate map to avoid rebuilding on every sort
+  Map<String, double>? _cachedRateMap;
+  List<ExchangeRateDomain>? _cachedRates;
 
   AccountsBloc({
     required AccountRepository accountRepository,
@@ -1171,10 +1171,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
       // Fetch ALL transactions (FinanceCalculator needs history)
       // OPTIMIZATION: Skip redundant pre-sort — account IDs are order-independent
       // for the transaction fetch. The sort is applied later on accountsWithBalances.
-      final accountIds = accounts
-          .map((e) => e.id)
-          .whereType<String>()
-          .toList();
+      final accountIds = accounts.map((e) => e.id).whereType<String>().toList();
 
       // OPTIMIZATION: Start both futures in parallel to overlap I/O wait times.
       final txFuture = _transactionRepository.getTransactionsWithFilters(
@@ -1456,9 +1453,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
   ) {
     // Optimization: Only rebuild rate map if rates have changed
     if (_cachedRates != rates || _cachedRateMap == null) {
-      _cachedRateMap = {
-        for (var r in rates) r.toCurrencyCode: r.rate,
-      };
+      _cachedRateMap = {for (var r in rates) r.toCurrencyCode: r.rate};
       _cachedRateMap!['EUR'] = 1.0;
       _cachedRates = rates;
     }

@@ -7,7 +7,7 @@ final List<ExchangeRatesCompanion> defaultExchangeRates = [
     toCurrencyCode: 'EUR',
     rate: 0.92,
     date: DateTime.utc(2023, 10, 27),
-    preset: 1
+    preset: 1,
   ),
   // USD to RUB
   ExchangeRatesCompanion.insert(
@@ -15,7 +15,7 @@ final List<ExchangeRatesCompanion> defaultExchangeRates = [
     toCurrencyCode: 'RUB',
     rate: 93.5,
     date: DateTime.utc(2023, 10, 27),
-    preset: 1
+    preset: 1,
   ),
   // EUR to USD
   ExchangeRatesCompanion.insert(
@@ -23,7 +23,7 @@ final List<ExchangeRatesCompanion> defaultExchangeRates = [
     toCurrencyCode: 'USD',
     rate: 1.08,
     date: DateTime.utc(2023, 10, 27),
-    preset: 1
+    preset: 1,
   ),
   // EUR to RUB
   ExchangeRatesCompanion.insert(
@@ -31,7 +31,7 @@ final List<ExchangeRatesCompanion> defaultExchangeRates = [
     toCurrencyCode: 'RUB',
     rate: 101.5,
     date: DateTime.utc(2023, 10, 27),
-    preset: 1
+    preset: 1,
   ),
   // RUB to USD
   ExchangeRatesCompanion.insert(
@@ -39,7 +39,7 @@ final List<ExchangeRatesCompanion> defaultExchangeRates = [
     toCurrencyCode: 'USD',
     rate: 0.0107,
     date: DateTime.utc(2023, 10, 27),
-    preset: 1
+    preset: 1,
   ),
   // RUB to EUR
   ExchangeRatesCompanion.insert(
@@ -47,6 +47,6 @@ final List<ExchangeRatesCompanion> defaultExchangeRates = [
     toCurrencyCode: 'EUR',
     rate: 0.0098,
     date: DateTime.utc(2023, 10, 27),
-    preset: 1
+    preset: 1,
   ),
 ];

@@ -24,10 +24,11 @@ void main() {
 
   /// The rates keyed the way the table keys them, so a test can name one.
   Future<Map<String, ExchangeRate>> ratesByPair() async => {
-        for (final r in await allRates())
-          '${r.fromCurrencyCode}>${r.toCurrencyCode}@'
-              '${r.date.toIso8601String()}': r,
-      };
+    for (final r in await allRates())
+      '${r.fromCurrencyCode}>${r.toCurrencyCode}@'
+              '${r.date.toIso8601String()}':
+          r,
+  };
 
   Future<void> importCsv(String content) =>
       importer.importExchangeRatesContent(content, isCsv: true);
@@ -57,7 +58,8 @@ void main() {
       final rates = await ratesByPair();
       expect(rates.length, 3);
 
-      final eurUsd = rates['EUR>USD@${DateTime(2025, 3, 30).toIso8601String()}']!;
+      final eurUsd =
+          rates['EUR>USD@${DateTime(2025, 3, 30).toIso8601String()}']!;
       expect(eurUsd.rate, 1.0876);
       expect(eurUsd.date, DateTime(2025, 3, 30));
       expect(eurUsd.preset, 0);
@@ -73,14 +75,16 @@ void main() {
       );
     });
 
-    test('a timestamp keeps its time of day rather than sliding to midnight',
-        () async {
-      await importCsv(
-        '$header\r\n'
-        '2025-03-30 23:45:00,EUR,USD,1.0876\r\n',
-      );
-      expect((await allRates()).single.date, DateTime(2025, 3, 30, 23, 45));
-    });
+    test(
+      'a timestamp keeps its time of day rather than sliding to midnight',
+      () async {
+        await importCsv(
+          '$header\r\n'
+          '2025-03-30 23:45:00,EUR,USD,1.0876\r\n',
+        );
+        expect((await allRates()).single.date, DateTime(2025, 3, 30, 23, 45));
+      },
+    );
 
     test('a lower-case header and lower-case codes still resolve', () async {
       await importCsv(
@@ -118,20 +122,25 @@ void main() {
       );
       final rate = (await allRates()).single;
       expect(rate.rate, 1.0876);
-      expect(rate.toCurrencyCode, 'USD',
-          reason: 'a parser pinned to LF welds the \\r onto the last column');
+      expect(
+        rate.toCurrencyCode,
+        'USD',
+        reason: 'a parser pinned to LF welds the \\r onto the last column',
+      );
     });
 
-    test('a blank separator line is skipped, not read as a short row',
-        () async {
-      await importCsv(
-        '$header\r\n'
-        '2025-03-30,EUR,USD,1.0876\r\n'
-        '\r\n'
-        '2025-03-31,EUR,USD,1.0812\r\n',
-      );
-      expect((await allRates()).length, 2);
-    });
+    test(
+      'a blank separator line is skipped, not read as a short row',
+      () async {
+        await importCsv(
+          '$header\r\n'
+          '2025-03-30,EUR,USD,1.0876\r\n'
+          '\r\n'
+          '2025-03-31,EUR,USD,1.0812\r\n',
+        );
+        expect((await allRates()).length, 2);
+      },
+    );
 
     test('an extra unknown column is ignored', () async {
       await importCsv(
@@ -141,31 +150,38 @@ void main() {
       expect((await allRates()).single.rate, 1.0876);
     });
 
-    test('a line repeated with the same rate is the same single rate',
-        () async {
-      await importCsv(
-        '$header\r\n'
-        '2025-03-30,EUR,USD,1.0876\r\n'
-        '2025-03-30,EUR,USD,1.0876\r\n',
-      );
-      expect((await allRates()).single.rate, 1.0876);
-    });
+    test(
+      'a line repeated with the same rate is the same single rate',
+      () async {
+        await importCsv(
+          '$header\r\n'
+          '2025-03-30,EUR,USD,1.0876\r\n'
+          '2025-03-30,EUR,USD,1.0876\r\n',
+        );
+        expect((await allRates()).single.rate, 1.0876);
+      },
+    );
 
-    test('re-importing the same file replaces rather than duplicates',
-        () async {
-      const content = '$header\r\n'
-          '2025-03-30,EUR,USD,1.0876\r\n';
-      await importCsv(content);
-      await importCsv(content);
-      expect((await allRates()).length, 1);
-    });
+    test(
+      're-importing the same file replaces rather than duplicates',
+      () async {
+        const content =
+            '$header\r\n'
+            '2025-03-30,EUR,USD,1.0876\r\n';
+        await importCsv(content);
+        await importCsv(content);
+        expect((await allRates()).length, 1);
+      },
+    );
 
-    test('a later import overwrites the rate for a pair on the same date',
-        () async {
-      await importCsv('$header\r\n2025-03-30,EUR,USD,1.0876\r\n');
-      await importCsv('$header\r\n2025-03-30,EUR,USD,1.0900\r\n');
-      expect((await allRates()).single.rate, 1.09);
-    });
+    test(
+      'a later import overwrites the rate for a pair on the same date',
+      () async {
+        await importCsv('$header\r\n2025-03-30,EUR,USD,1.0876\r\n');
+        await importCsv('$header\r\n2025-03-30,EUR,USD,1.0900\r\n');
+        expect((await allRates()).single.rate, 1.09);
+      },
+    );
   });
 
   group('a malformed file is refused by line, and changes nothing', () {
@@ -175,7 +191,9 @@ void main() {
       // A rate the user already had. Every refusal below has to leave it
       // exactly as it is - the import must not be half-applied, and must not
       // "helpfully" reset anything to 1.0.
-      await db.into(db.exchangeRates).insert(
+      await db
+          .into(db.exchangeRates)
+          .insert(
             ExchangeRatesCompanion.insert(
               fromCurrencyCode: 'EUR',
               toCurrencyCode: 'USD',
@@ -191,18 +209,29 @@ void main() {
     Future<void> expectRefused(String content, Matcher messageMatcher) async {
       await expectLater(
         importCsv(content),
-        throwsA(isA<Exception>()
-            .having((e) => e.toString(), 'message', messageMatcher)),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            messageMatcher,
+          ),
+        ),
       );
 
       final after = await allRates();
-      expect(after.length, before.length,
-          reason: 'a refused file must not leave a partial import behind');
+      expect(
+        after.length,
+        before.length,
+        reason: 'a refused file must not leave a partial import behind',
+      );
       final survivor = after.single;
       expect(survivor.fromCurrencyCode, 'EUR');
       expect(survivor.toCurrencyCode, 'USD');
-      expect(survivor.rate, 1.1234,
-          reason: 'the rate the user already had must not be touched');
+      expect(
+        survivor.rate,
+        1.1234,
+        reason: 'the rate the user already had must not be touched',
+      );
       expect(survivor.date, DateTime(2020, 1, 1));
     }
 
@@ -331,22 +360,24 @@ void main() {
       );
     });
 
-    test('two lines that disagree about the same pair on the same date',
-        () async {
-      // insertOrReplace keyed on (from, to, date, preset) let the last one win
-      // in silence, so the file imported as fewer rates than it has lines.
-      await expectRefused(
-        '$header\r\n'
-        '2025-03-30,EUR,USD,1.0876\r\n'
-        '2025-03-30,EUR,USD,1.5\r\n',
-        allOf(
-          contains('line 3'),
-          contains('line 2'),
-          contains('1.5'),
-          contains('1.0876'),
-        ),
-      );
-    });
+    test(
+      'two lines that disagree about the same pair on the same date',
+      () async {
+        // insertOrReplace keyed on (from, to, date, preset) let the last one win
+        // in silence, so the file imported as fewer rates than it has lines.
+        await expectRefused(
+          '$header\r\n'
+          '2025-03-30,EUR,USD,1.0876\r\n'
+          '2025-03-30,EUR,USD,1.5\r\n',
+          allOf(
+            contains('line 3'),
+            contains('line 2'),
+            contains('1.5'),
+            contains('1.0876'),
+          ),
+        );
+      },
+    );
 
     test('the good rows around a bad one are not imported either', () async {
       await expectRefused(
@@ -363,22 +394,24 @@ void main() {
       expect(dates.contains(DateTime(2025, 4, 1)), isFalse);
     });
 
-    test('a mangled file does not become a pile of today-dated rates of 1.0',
-        () async {
-      // The whole point: the old reader turned this file into three rates of
-      // 1.0 dated now, and reported success. Every amount in a foreign
-      // currency then converted at par.
-      await expectRefused(
-        '$header\r\n'
-        'n/a,EUR,USD,n/a\r\n'
-        'n/a,EUR,JPY,n/a\r\n'
-        'n/a,BTC,USD,n/a\r\n',
-        contains('line 2'),
-      );
-      for (final rate in await allRates()) {
-        expect(rate.rate, isNot(1.0));
-        expect(rate.date.year, 2020);
-      }
-    });
+    test(
+      'a mangled file does not become a pile of today-dated rates of 1.0',
+      () async {
+        // The whole point: the old reader turned this file into three rates of
+        // 1.0 dated now, and reported success. Every amount in a foreign
+        // currency then converted at par.
+        await expectRefused(
+          '$header\r\n'
+          'n/a,EUR,USD,n/a\r\n'
+          'n/a,EUR,JPY,n/a\r\n'
+          'n/a,BTC,USD,n/a\r\n',
+          contains('line 2'),
+        );
+        for (final rate in await allRates()) {
+          expect(rate.rate, isNot(1.0));
+          expect(rate.date.year, 2020);
+        }
+      },
+    );
   });
 }

@@ -34,8 +34,13 @@ void main() {
   late SyncService serviceA;
   late SyncService serviceB;
 
-  Future<void> setDeviceId(AppDatabase db, String id) => db.settingsDao
-      .setSetting(SettingsCompanion(key: const Value('local_device_id'), value: Value(id)));
+  Future<void> setDeviceId(AppDatabase db, String id) =>
+      db.settingsDao.setSetting(
+        SettingsCompanion(
+          key: const Value('local_device_id'),
+          value: Value(id),
+        ),
+      );
 
   Future<SyncService> configuredService(AppDatabase db, String deviceId) async {
     await setDeviceId(db, deviceId);
@@ -52,7 +57,9 @@ void main() {
   // tests below mutate dbA/dbB, so one shared setup for the whole file keeps
   // this suite's runtime sane instead of paying that cost 11 times over.
   setUpAll(() async {
-    syncFolder = await Directory.systemTemp.createTemp('mybudget_sync_roundtrip_');
+    syncFolder = await Directory.systemTemp.createTemp(
+      'mybudget_sync_roundtrip_',
+    );
     dbA = AppDatabase.forTesting(NativeDatabase.memory());
     dbB = AppDatabase.forTesting(NativeDatabase.memory());
     serviceA = await configuredService(dbA, 'device-a');
@@ -207,6 +214,16 @@ void main() {
       ),
     );
 
+    // `insertAccount` anchors the opening balance to the balance it is given,
+    // which is right for a brand new account but leaves A holding
+    // `opening 100.50 + a 12.34 transaction = 112.84` against a stored 100.50 -
+    // an inconsistency only this fixture has, because it inserts transactions
+    // directly instead of through the repository's insert+adjustBalance pair.
+    // Re-anchoring now moves the difference into the anchor, so A is what the
+    // app would actually hold and the balance B rebuilds after the import is
+    // the same 100.50 rather than a number A never agreed to.
+    await dbA.accountsDao.anchorOpeningBalances(['acc_fiat', 'acc_crypto']);
+
     await serviceA.exportNow();
     await serviceB.importNow();
   });
@@ -219,29 +236,35 @@ void main() {
     }
   });
 
-  test('style round trips every field, including enum and null deviceId', () async {
-    final onA = await dbA.stylesDao.getStyleById('style1');
-    final onB = await dbB.stylesDao.getStyleById('style1');
-    expect(onB, isNot(null));
-    expect(onB!.name, 'Style One');
-    expect(onB.iconName, 'heart');
-    expect(onB.colorHex, '#FF00FF');
-    expect(onB.iconType, IconType.custom);
-    expect(onB.isDeleted, isFalse);
-    expect(onB.deviceId, null);
-    expect(onB.modifiedAt, onA!.modifiedAt);
-  });
+  test(
+    'style round trips every field, including enum and null deviceId',
+    () async {
+      final onA = await dbA.stylesDao.getStyleById('style1');
+      final onB = await dbB.stylesDao.getStyleById('style1');
+      expect(onB, isNot(null));
+      expect(onB!.name, 'Style One');
+      expect(onB.iconName, 'heart');
+      expect(onB.colorHex, '#FF00FF');
+      expect(onB.iconType, IconType.custom);
+      expect(onB.isDeleted, isFalse);
+      expect(onB.deviceId, null);
+      expect(onB.modifiedAt, onA!.modifiedAt);
+    },
+  );
 
-  test('category round trips including null parentId/styleId and non-default type', () async {
-    final onA = await dbA.categoriesDao.getCategoryById('cat1');
-    final onB = await dbB.categoriesDao.getCategoryById('cat1');
-    expect(onB, isNot(null));
-    expect(onB!.name, 'Cat One');
-    expect(onB.parentId, null);
-    expect(onB.styleId, null);
-    expect(onB.type, CategoryType.income);
-    expect(onB.modifiedAt, onA!.modifiedAt);
-  });
+  test(
+    'category round trips including null parentId/styleId and non-default type',
+    () async {
+      final onA = await dbA.categoriesDao.getCategoryById('cat1');
+      final onB = await dbB.categoriesDao.getCategoryById('cat1');
+      expect(onB, isNot(null));
+      expect(onB!.name, 'Cat One');
+      expect(onB.parentId, null);
+      expect(onB.styleId, null);
+      expect(onB.type, CategoryType.income);
+      expect(onB.modifiedAt, onA!.modifiedAt);
+    },
+  );
 
   test('account type round trips', () async {
     final onB = await dbB.accountTypesDao.getAccountTypeById('at1');
@@ -257,16 +280,19 @@ void main() {
     expect(onB.currencyCode, 'USD');
   });
 
-  test('custom data source round trips including non-default bools and lastFetchAt', () async {
-    final onB = await dbB.customDataSourcesDao.getDataSourceById('cds1');
-    expect(onB, isNot(null));
-    expect(onB!.name, 'Src One');
-    expect(onB.url, 'https://example.com/api');
-    expect(onB.dataType, 2);
-    expect(onB.enabled, isFalse);
-    expect(onB.autoFetch, isTrue);
-    expect(onB.lastFetchAt, 1700000000000);
-  });
+  test(
+    'custom data source round trips including non-default bools and lastFetchAt',
+    () async {
+      final onB = await dbB.customDataSourcesDao.getDataSourceById('cds1');
+      expect(onB, isNot(null));
+      expect(onB!.name, 'Src One');
+      expect(onB.url, 'https://example.com/api');
+      expect(onB.dataType, 2);
+      expect(onB.enabled, isFalse);
+      expect(onB.autoFetch, isTrue);
+      expect(onB.lastFetchAt, 1700000000000);
+    },
+  );
 
   test('api setting round trips (no isDeleted column on this table)', () async {
     final onB = await dbB.apiSettingsDao.getSettingById('api1');
@@ -276,101 +302,116 @@ void main() {
     expect(onB.lastFetchAt, 1600000000000);
   });
 
-  test('asset entry round trips including optional fields and null accountId', () async {
-    final onB = await dbB.assetEntriesDao.getAssetEntryById('ae1');
-    expect(onB, isNot(null));
-    expect(onB!.assetId, 'BTC-HOLD');
-    expect(onB.name, 'My BTC');
-    expect(onB.date, DateTime(2024, 2, 2));
-    expect(onB.value, 1.2345);
-    expect(onB.quantity, 0.5);
-    expect(onB.assetType, 'crypto');
-    expect(onB.description, 'desc here');
-    expect(onB.currencyCode, 'BTC');
-    expect(onB.accountId, null);
-    expect(onB.source, 'Manual');
-    expect(onB.preset, 2);
-  });
+  test(
+    'asset entry round trips including optional fields and null accountId',
+    () async {
+      final onB = await dbB.assetEntriesDao.getAssetEntryById('ae1');
+      expect(onB, isNot(null));
+      expect(onB!.assetId, 'BTC-HOLD');
+      expect(onB.name, 'My BTC');
+      expect(onB.date, DateTime(2024, 2, 2));
+      expect(onB.value, 1.2345);
+      expect(onB.quantity, 0.5);
+      expect(onB.assetType, 'crypto');
+      expect(onB.description, 'desc here');
+      expect(onB.currencyCode, 'BTC');
+      expect(onB.accountId, null);
+      expect(onB.source, 'Manual');
+      expect(onB.preset, 2);
+    },
+  );
 
-  test('fiat account round trips all fields including exact balanceMinor', () async {
-    final onA = await dbA.accountsDao.getAccountById('acc_fiat');
-    final onB = await dbB.accountsDao.getAccountById('acc_fiat');
-    expect(onB, isNot(null));
-    expect(onB!.name, 'Fiat Acc');
-    expect(onB.description, 'desc');
-    expect(onB.balance, 100.5);
-    expect(onB.currencyCode, 'USD');
-    expect(onB.currencyDesignationId, 'cd_usd');
-    expect(onB.accountTypeId, onA!.accountTypeId);
-    expect(onB.styleId, 'style1');
-    expect(onB.creationDate, DateTime(2023, 5, 5));
-    expect(onB.country, 'US');
-    expect(onB.assetId, null);
-    expect(onB.assetQuantity, 0.0);
-    expect(onB.feeStructure, '{"type":"flat"}');
-    expect(onB.modifiedAt, onA.modifiedAt);
-    expect(onA.balanceMinor, 10050);
-    expect(
-      onB.balanceMinor,
-      10050,
-      reason: 'exact cents must survive the packet, not decay to NULL',
-    );
-  });
+  test(
+    'fiat account round trips all fields including exact balanceMinor',
+    () async {
+      final onA = await dbA.accountsDao.getAccountById('acc_fiat');
+      final onB = await dbB.accountsDao.getAccountById('acc_fiat');
+      expect(onB, isNot(null));
+      expect(onB!.name, 'Fiat Acc');
+      expect(onB.description, 'desc');
+      expect(onB.balance, 100.5);
+      expect(onB.currencyCode, 'USD');
+      expect(onB.currencyDesignationId, 'cd_usd');
+      expect(onB.accountTypeId, onA!.accountTypeId);
+      expect(onB.styleId, 'style1');
+      expect(onB.creationDate, DateTime(2023, 5, 5));
+      expect(onB.country, 'US');
+      expect(onB.assetId, null);
+      expect(onB.assetQuantity, 0.0);
+      expect(onB.feeStructure, '{"type":"flat"}');
+      expect(onB.modifiedAt, onA.modifiedAt);
+      expect(onA.balanceMinor, 10050);
+      expect(
+        onB.balanceMinor,
+        10050,
+        reason: 'exact cents must survive the packet, not decay to NULL',
+      );
+    },
+  );
 
-  test('crypto account round trips with balanceMinor genuinely null on both ends', () async {
-    final onA = await dbA.accountsDao.getAccountById('acc_crypto');
-    final onB = await dbB.accountsDao.getAccountById('acc_crypto');
-    expect(onB, isNot(null));
-    expect(onB!.name, 'Crypto Acc');
-    expect(onB.balance, 0.75);
-    expect(onB.currencyCode, 'BTC');
-    expect(onB.currencyDesignationId, 'cd_btc');
-    expect(onB.styleId, null);
-    expect(onB.assetId, 'BTC');
-    expect(onB.assetQuantity, 0.75);
-    // A crypto account's minor column is NULL by design: the double is its
-    // source of truth, and the packet must not turn that into a number.
-    expect(onA!.balanceMinor, null);
-    expect(onB.balanceMinor, null);
-  });
+  test(
+    'crypto account round trips with balanceMinor genuinely null on both ends',
+    () async {
+      final onA = await dbA.accountsDao.getAccountById('acc_crypto');
+      final onB = await dbB.accountsDao.getAccountById('acc_crypto');
+      expect(onB, isNot(null));
+      expect(onB!.name, 'Crypto Acc');
+      expect(onB.balance, 0.75);
+      expect(onB.currencyCode, 'BTC');
+      expect(onB.currencyDesignationId, 'cd_btc');
+      expect(onB.styleId, null);
+      expect(onB.assetId, 'BTC');
+      expect(onB.assetQuantity, 0.75);
+      // A crypto account's minor column is NULL by design: the double is its
+      // source of truth, and the packet must not turn that into a number.
+      expect(onA!.balanceMinor, null);
+      expect(onB.balanceMinor, null);
+    },
+  );
 
-  test('fiat transaction round trips all fields including exact amountMinor/feeMinor', () async {
-    final onA = await dbA.transactionsDao.getTransactionById('tx_fiat');
-    final onB = await dbB.transactionsDao.getTransactionById('tx_fiat');
-    expect(onB, isNot(null));
-    expect(onB!.description, 'Coffee');
-    expect(onB.amount, 12.34);
-    expect(onB.date, DateTime(2024, 3, 3));
-    expect(onB.accountId, 'acc_fiat');
-    expect(onB.categoryId, 'cat1');
-    expect(onB.currencyCode, 'USD');
-    expect(onB.exchangeRate, null);
-    expect(onB.exchangeRatePreset, null);
-    expect(onB.fee, 0.5);
-    expect(onB.linkedTransactionId, null);
-    expect(onB.modifiedAt, onA!.modifiedAt);
-    expect(onA.amountMinor, 1234);
-    expect(onA.feeMinor, 50);
-    expect(
-      onB.amountMinor,
-      1234,
-      reason: 'exact cents must survive the packet, not decay to NULL',
-    );
-    expect(onB.feeMinor, 50);
-  });
+  test(
+    'fiat transaction round trips all fields including exact amountMinor/feeMinor',
+    () async {
+      final onA = await dbA.transactionsDao.getTransactionById('tx_fiat');
+      final onB = await dbB.transactionsDao.getTransactionById('tx_fiat');
+      expect(onB, isNot(null));
+      expect(onB!.description, 'Coffee');
+      expect(onB.amount, 12.34);
+      expect(onB.date, DateTime(2024, 3, 3));
+      expect(onB.accountId, 'acc_fiat');
+      expect(onB.categoryId, 'cat1');
+      expect(onB.currencyCode, 'USD');
+      expect(onB.exchangeRate, null);
+      expect(onB.exchangeRatePreset, null);
+      expect(onB.fee, 0.5);
+      expect(onB.linkedTransactionId, null);
+      expect(onB.modifiedAt, onA!.modifiedAt);
+      expect(onA.amountMinor, 1234);
+      expect(onA.feeMinor, 50);
+      expect(
+        onB.amountMinor,
+        1234,
+        reason: 'exact cents must survive the packet, not decay to NULL',
+      );
+      expect(onB.feeMinor, 50);
+    },
+  );
 
-  test('crypto transaction round trips with amountMinor/feeMinor genuinely null on both ends', () async {
-    final onA = await dbA.transactionsDao.getTransactionById('tx_crypto');
-    final onB = await dbB.transactionsDao.getTransactionById('tx_crypto');
-    expect(onB, isNot(null));
-    expect(onB!.amount, 0.001);
-    expect(onB.currencyCode, 'BTC');
-    expect(onB.exchangeRate, 45000.12);
-    expect(onB.exchangeRatePreset, 3);
-    expect(onB.fee, 0.0);
-    expect(onA!.amountMinor, null);
-    expect(onA.feeMinor, null);
-    expect(onB.amountMinor, null);
-    expect(onB.feeMinor, null);
-  });
+  test(
+    'crypto transaction round trips with amountMinor/feeMinor genuinely null on both ends',
+    () async {
+      final onA = await dbA.transactionsDao.getTransactionById('tx_crypto');
+      final onB = await dbB.transactionsDao.getTransactionById('tx_crypto');
+      expect(onB, isNot(null));
+      expect(onB!.amount, 0.001);
+      expect(onB.currencyCode, 'BTC');
+      expect(onB.exchangeRate, 45000.12);
+      expect(onB.exchangeRatePreset, 3);
+      expect(onB.fee, 0.0);
+      expect(onA!.amountMinor, null);
+      expect(onA.feeMinor, null);
+      expect(onB.amountMinor, null);
+      expect(onB.feeMinor, null);
+    },
+  );
 }

@@ -251,7 +251,9 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _amountFromController,
-                decoration: InputDecoration(labelText: context.l10n.fltAmountFrom),
+                decoration: InputDecoration(
+                  labelText: context.l10n.fltAmountFrom,
+                ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -259,7 +261,9 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _amountToController,
-                decoration: InputDecoration(labelText: context.l10n.fltAmountTo),
+                decoration: InputDecoration(
+                  labelText: context.l10n.fltAmountTo,
+                ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -472,8 +476,14 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
         ),
       ),
       actions: <Widget>[
-        TextButton(onPressed: _clearFilters, child: Text(context.l10n.clearButton)),
-        TextButton(onPressed: _applyFilters, child: Text(context.l10n.applyButton)),
+        TextButton(
+          onPressed: _clearFilters,
+          child: Text(context.l10n.clearButton),
+        ),
+        TextButton(
+          onPressed: _applyFilters,
+          child: Text(context.l10n.applyButton),
+        ),
       ],
     );
   }

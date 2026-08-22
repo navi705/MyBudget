@@ -1,10 +1,17 @@
-// The only `Theme.of(context).platform` gate in the presentation layer.
+// Where the account row puts its "change" figure.
 //
-// It is purely typographic — mobile puts the "change" figure on its own line,
-// desktop keeps it inline — so the test asserts that both branches carry the
-// same information and differ only in the separator. A gate like this is worth
-// pinning precisely because it is invisible: nothing fails if it flips, the
-// number just silently moves.
+// This used to be the only `Theme.of(context).platform` gate in the
+// presentation layer — mobile stacked the figure onto a second line, desktop
+// kept it inline — and these tests pinned it that way. The gate is gone: it
+// made a 360dp desktop window and a 360dp Android phone lay the same row out
+// differently for a reason no user could see, and the decision is really about
+// width, so `account_list_item.dart` now measures the value column against
+// `_kInlineChangeMinWidth`.
+//
+// The invariant flipped, so the tests flipped with it. What is pinned now is
+// the rule itself: narrow stacks, wide stays inline, and the platform makes no
+// difference at a fixed width. Still worth pinning precisely because it is
+// invisible — nothing fails if it regresses, the number just silently moves.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
@@ -22,17 +29,25 @@ final _account = Account(
   creationDate: DateTime(2024, 1, 1),
 );
 
+/// Narrow enough that the value column cannot hold the change figure inline:
+/// the Android reference width the renders used.
+const Size _narrow = Size(360, 800);
+
+/// Room to spare — the desktop case.
+const Size _wide = Size(900, 800);
+
 Future<void> _pumpItem(
   WidgetTester tester, {
   TargetPlatform? platform,
   Locale locale = const Locale('en'),
+  Size surface = _wide,
 }) async {
   await pumpAppWidget(
     tester,
     AccountListItem(account: _account, prevBalance: 1000),
     platform: platform,
     locale: locale,
-    surfaceSize: const Size(500, 900),
+    surfaceSize: surface,
     aboveApp: (app) => wrapWithBlocs(
       app,
       currencyBloc: createCurrencyBloc(),
@@ -41,7 +56,7 @@ Future<void> _pumpItem(
   );
   // MaterialApp lerps between themes, and ThemeData.lerp keeps the *old*
   // platform until the halfway point — so re-pumping with a different platform
-  // inside one test needs the animation settled before the gate is read.
+  // inside one test needs the animation settled before the row is read.
   await tester.pumpAndSettle();
 }
 
@@ -53,43 +68,59 @@ String _balanceRowText(WidgetTester tester) => tester
 
 void main() {
   group('AccountListItem change separator', () {
-    testWidgets('breaks the line on Android', (tester) async {
-      await _pumpItem(tester, platform: TargetPlatform.android);
+    testWidgets('breaks the line when the value column is narrow', (
+      tester,
+    ) async {
+      await _pumpItem(
+        tester,
+        platform: TargetPlatform.android,
+        surface: _narrow,
+      );
 
       expect(_balanceRowText(tester), contains('\n'));
     });
 
-    testWidgets('breaks the line on iOS', (tester) async {
-      await _pumpItem(tester, platform: TargetPlatform.iOS);
+    testWidgets('stays on one line when there is room for it', (tester) async {
+      await _pumpItem(tester, platform: TargetPlatform.windows);
 
-      expect(_balanceRowText(tester), contains('\n'));
+      expect(_balanceRowText(tester), isNot(contains('\n')));
     });
 
-    for (final platform in [
-      TargetPlatform.windows,
-      TargetPlatform.linux,
-      TargetPlatform.macOS,
-    ]) {
-      testWidgets('stays on one line on $platform', (tester) async {
-        await _pumpItem(tester, platform: platform);
+    // The regression the width rule was written to kill. A 360dp window is
+    // 360dp wide whether it is a phone or a desktop window dragged narrow, and
+    // a 900dp one is roomy on either; before the rule, identical pixels laid
+    // out differently across a platform check no user can see.
+    for (final platform in TargetPlatform.values) {
+      testWidgets('follows width, not platform, on $platform', (tester) async {
+        await _pumpItem(tester, platform: platform, surface: _narrow);
+        expect(
+          _balanceRowText(tester),
+          contains('\n'),
+          reason: 'did not stack at ${_narrow.width}dp on $platform',
+        );
 
-        expect(_balanceRowText(tester), isNot(contains('\n')));
+        await _pumpItem(tester, platform: platform, surface: _wide);
+        expect(
+          _balanceRowText(tester),
+          isNot(contains('\n')),
+          reason: 'stacked at ${_wide.width}dp on $platform',
+        );
       });
     }
 
-    testWidgets('shows the same figures on both sides of the gate', (
+    testWidgets('shows the same figures on both sides of the rule', (
       tester,
     ) async {
       final l10n = await loadL10n();
 
-      await _pumpItem(tester, platform: TargetPlatform.android);
-      final mobile = _balanceRowText(tester);
+      await _pumpItem(tester, surface: _narrow);
+      final stacked = _balanceRowText(tester);
 
-      await _pumpItem(tester, platform: TargetPlatform.windows);
-      final desktop = _balanceRowText(tester);
+      await _pumpItem(tester, surface: _wide);
+      final inline = _balanceRowText(tester);
 
-      expect(mobile.replaceAll('\n', ' '), desktop);
-      for (final text in [mobile, desktop]) {
+      expect(stacked.replaceAll('\n', ' '), inline);
+      for (final text in [stacked, inline]) {
         expect(text, contains(l10n.metricChange));
         expect(text, contains('+50.00%'));
       }
@@ -104,7 +135,7 @@ void main() {
         tester,
         AccountListItem(account: _account),
         platform: TargetPlatform.android,
-        surfaceSize: const Size(500, 900),
+        surfaceSize: _wide,
         aboveApp: (app) => wrapWithBlocs(
           app,
           currencyBloc: createCurrencyBloc(),
@@ -124,11 +155,7 @@ void main() {
       for (final platform in TargetPlatform.values) {
         await _pumpItem(tester, platform: platform);
 
-        expect(
-          tester.takeException(),
-          isNull,
-          reason: 'threw on $platform',
-        );
+        expect(tester.takeException(), isNull, reason: 'threw on $platform');
         expect(find.text(_account.name), findsOneWidget);
       }
     });
@@ -155,7 +182,7 @@ void main() {
         AccountListItem(account: _account, prevBalance: 1000),
         platform: TargetPlatform.android,
         locale: const Locale('ur'),
-        surfaceSize: const Size(360, 800),
+        surfaceSize: _narrow,
         aboveApp: (app) => wrapWithBlocs(
           app,
           currencyBloc: createCurrencyBloc(),

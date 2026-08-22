@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/theme/app_spacing.dart';
+import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/presentation/widgets/navigation/navigation_tab_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/dashboard/dashboard_bloc.dart';
@@ -72,25 +72,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Scaffold(
               // AppBar removed to maximize space
               body: SafeArea(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    // The tab bar sits at the bottom only when the shell put its
-                    // own navigation in a side rail. Keying that off the OS meant
-                    // a narrow desktop window — where the shell falls back to a
-                    // bottom NavigationBar — stacked two bottom bars on top of
-                    // each other. Same breakpoint, measured on this pane's own
-                    // box, keeps the two decisions in agreement.
-                    final isWide = constraints.maxWidth >= kMobileBreakpoint;
-                    return Column(
-                      children: [
-                        if (isWide) const SizedBox(height: 10),
-                        if (!isWide) _buildTabBar(context, state),
-                        _buildUnconvertibleNotice(context, state),
-                        Expanded(child: _buildBody(state, isWide: isWide)),
-                        if (isWide) _buildTabBar(context, state),
-                      ],
-                    );
-                  },
+                // Calendar / Categories / Balance stays at the top at every
+                // size. It used to move to the bottom above 600dp, so dragging
+                // a desktop window 160px narrower teleported the primary tab
+                // control from one edge of the screen to the other. Top is the
+                // Material default, and it is the only position that cannot
+                // collide with the shell's own bottom NavigationBar - which is
+                // what the bottom placement was working around in the first
+                // place (see data_screen.dart, which hit the same collision).
+                child: Column(
+                  children: [
+                    _buildTabBar(context, state),
+                    _buildUnconvertibleNotice(context, state),
+                    Expanded(child: _buildBody(state)),
+                  ],
                 ),
               ),
             ),
@@ -176,12 +171,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     context.read<DashboardBloc>().add(SelectDay(newDate));
   }
 
-  Widget _buildBody(DashboardLoadSuccess state, {required bool isWide}) {
+  Widget _buildBody(DashboardLoadSuccess state) {
     switch (state.activeTabIndex) {
       case 0:
         return _buildCalendarView(state);
       case 1:
-        return _buildCategoryView(state, isWide: isWide);
+        return _buildCategoryView(state);
       case 2:
         return _buildBalanceView(state);
       default:
@@ -191,168 +186,211 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildCalendarView(DashboardLoadSuccess state) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // View Selector & Currency
-          // Calendar with integrated header
-          DashboardCalendar(
-            selectedDay: state.selectedDay,
-            dateStep: state.dateStep,
-            dailyIncomes: state.dailyIncomes,
-            dailyExpenses: state.dailyExpenses,
-            dailyNetWorth: state.dailyNetWorth,
-            currencyCode: state.selectedCurrency,
-            availableCurrencies: state.availableCurrencies
-                .map((e) => e.code)
-                .toList(),
-            onCurrencySelected: (code) {
-              context.read<DashboardBloc>().add(ChangeCurrency(code));
-            },
-            onDateStepChanged: (step) {
-              context.read<DashboardBloc>().add(ChangeDateStep(step));
-            },
-            onDaySelected: (day) {
-              context.read<DashboardBloc>().add(SelectDay(day));
-              // If in Year view, switch to Month view explicitly on selection
-              if (state.dateStep == DateStep.year) {
-                context.read<DashboardBloc>().add(
-                  const ChangeDateStep(DateStep.month),
-                );
-              }
-            },
-            onPrevious: () {
-              final current = state.selectedDay;
-              DateTime newDate;
-              if (state.dateStep == DateStep.month) {
-                newDate = DateTime(
-                  current.year,
-                  current.month - 1,
-                  1,
-                ); // Go to 1st
-              } else {
-                newDate = DateTime(current.year - 1, current.month, 1);
-              }
-              context.read<DashboardBloc>().add(SelectDay(newDate));
-            },
-            onNext: () {
-              final current = state.selectedDay;
-              DateTime newDate;
-              if (state.dateStep == DateStep.month) {
-                newDate = DateTime(current.year, current.month + 1, 1);
-              } else {
-                newDate = DateTime(current.year + 1, current.month, 1);
-              }
-              context.read<DashboardBloc>().add(SelectDay(newDate));
-            },
-            onTitleTap: () => _showDashboardPeriodPicker(context, state),
-          ),
-          const SizedBox(height: 16),
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 700),
-              child: Column(
-                children: [
-                  PeriodSummaryWidget(
-                    dateRangeStart: state.dateRangeStart,
-                    dateRangeEnd: state.dateRangeEnd,
-                    dailyIncomes: state.dailyIncomes,
-                    dailyExpenses: state.dailyExpenses,
-                    currencyCode: state.selectedCurrency,
-                    currencyDesignations: state.currencyDesignations, // Added
-                  ),
-                  const Divider(),
-                  DayBalanceDetails(
-                    accounts: state.accounts,
-                    dayBalances: state.dayBalances,
-                    date: state.selectedDay,
-                    currencyCode: state.selectedCurrency,
-                    styles: state.styles,
-                    currencyDesignations: state.currencyDesignations, // Added
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+    final calendar = DashboardCalendar(
+      selectedDay: state.selectedDay,
+      dateStep: state.dateStep,
+      dailyIncomes: state.dailyIncomes,
+      dailyExpenses: state.dailyExpenses,
+      dailyNetWorth: state.dailyNetWorth,
+      currencyCode: state.selectedCurrency,
+      availableCurrencies: state.availableCurrencies
+          .map((e) => e.code)
+          .toList(),
+      onCurrencySelected: (code) {
+        context.read<DashboardBloc>().add(ChangeCurrency(code));
+      },
+      onDateStepChanged: (step) {
+        context.read<DashboardBloc>().add(ChangeDateStep(step));
+      },
+      onDaySelected: (day) {
+        context.read<DashboardBloc>().add(SelectDay(day));
+        // If in Year view, switch to Month view explicitly on selection
+        if (state.dateStep == DateStep.year) {
+          context.read<DashboardBloc>().add(
+            const ChangeDateStep(DateStep.month),
+          );
+        }
+      },
+      onPrevious: () {
+        final current = state.selectedDay;
+        DateTime newDate;
+        if (state.dateStep == DateStep.month) {
+          newDate = DateTime(current.year, current.month - 1, 1); // Go to 1st
+        } else {
+          newDate = DateTime(current.year - 1, current.month, 1);
+        }
+        context.read<DashboardBloc>().add(SelectDay(newDate));
+      },
+      onNext: () {
+        final current = state.selectedDay;
+        DateTime newDate;
+        if (state.dateStep == DateStep.month) {
+          newDate = DateTime(current.year, current.month + 1, 1);
+        } else {
+          newDate = DateTime(current.year + 1, current.month, 1);
+        }
+        context.read<DashboardBloc>().add(SelectDay(newDate));
+      },
+      onTitleTap: () => _showDashboardPeriodPicker(context, state),
     );
-  }
 
-  Widget _buildCategoryView(
-    DashboardLoadSuccess state, {
-    required bool isWide,
-  }) {
-    return SingleChildScrollView(
-      // Wide layouts already get a 10dp gap above this pane from the tab bar
-      // being moved to the bottom, so only narrow ones need their own top pad.
-      padding: EdgeInsets.fromLTRB(16.0, isWide ? 0.0 : 16.0, 16.0, 16.0),
-      child: Column(
-        children: [
-          DashboardHeader(
-            selectedDay: state.selectedDay,
-            dateStep: state.dateStep,
-            currencyCode: state.selectedCurrency,
-            availableCurrencies: state.availableCurrencies
-                .map((e) => e.code)
-                .toList(),
-            onPrevious: () => context.read<DashboardBloc>().add(
-              SelectDay(
-                state.dateStep == DateStep.month
-                    ? DateTime(
-                        state.selectedDay.year,
-                        state.selectedDay.month - 1,
-                        1,
-                      )
-                    : DateTime(state.selectedDay.year - 1, 1, 1),
+    final summary = Column(
+      children: [
+        PeriodSummaryWidget(
+          dateRangeStart: state.dateRangeStart,
+          dateRangeEnd: state.dateRangeEnd,
+          dailyIncomes: state.dailyIncomes,
+          dailyExpenses: state.dailyExpenses,
+          currencyCode: state.selectedCurrency,
+          currencyDesignations: state.currencyDesignations, // Added
+        ),
+        const Divider(),
+        DayBalanceDetails(
+          accounts: state.accounts,
+          dayBalances: state.dayBalances,
+          date: state.selectedDay,
+          currencyCode: state.selectedCurrency,
+          styles: state.styles,
+          currencyDesignations: state.currencyDesignations, // Added
+        ),
+      ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The grid caps itself at kDashboardCalendarColumnWidth for
+        // readability, so on a maximised desktop window the single column left
+        // the summary and the day's balances pushed below the fold with a wide
+        // empty strip down either side. Above the breakpoint they move beside
+        // the calendar instead, which is what the width was there for.
+        if (constraints.maxWidth >= kDashboardTwoColumnBreakpoint) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: kDashboardPaneMaxWidth,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: kDashboardCalendarColumnWidth,
+                      child: calendar,
+                    ),
+                    const SizedBox(width: 32),
+                    Expanded(child: summary),
+                  ],
+                ),
               ),
             ),
-            onNext: () => context.read<DashboardBloc>().add(
-              SelectDay(
-                state.dateStep == DateStep.month
-                    ? DateTime(
-                        state.selectedDay.year,
-                        state.selectedDay.month + 1,
-                        1,
-                      )
-                    : DateTime(state.selectedDay.year + 1, 1, 1),
-              ),
-            ),
-            onTitleTap: () =>
-                _showDashboardPeriodPicker(context, state), // Fixed
-            onCurrencySelected: (currency) =>
-                _selectDashboardCurrency(context, currency),
-            onDateStepChanged: (step) =>
-                _changeDashboardDateStep(context, step),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          );
+        }
+
+        return SingleChildScrollView(
+          child: Column(
             children: [
-              ChoiceChip(
-                label: Text(context.l10n.dashboardExpensesLabel),
-                selected: !state.isIncomeView,
-                onSelected: (val) =>
-                    context.read<DashboardBloc>().add(ToggleChartType(false)),
-              ),
-              const SizedBox(width: 16),
-              ChoiceChip(
-                label: Text(context.l10n.dashboardIncomeLabel),
-                selected: state.isIncomeView,
-                onSelected: (val) =>
-                    context.read<DashboardBloc>().add(ToggleChartType(true)),
+              calendar,
+              const SizedBox(height: 16),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: kDashboardCalendarColumnWidth,
+                  ),
+                  child: summary,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          CategoryPieChart(
-            categoryConvertedTotals: state.categoryConvertedTotals,
-            categories: state.categories,
-            styles: state.styles,
-            isIncome: state.isIncomeView,
-            currencyCode: state.selectedCurrency, // Added
+        );
+      },
+    );
+  }
+
+  Widget _buildCategoryView(DashboardLoadSuccess state) {
+    return SingleChildScrollView(
+      // One padding at every size: the tab bar sits above this pane whatever
+      // the width, so there is no longer a wide layout that supplies its own
+      // gap and a narrow one that does not.
+      padding: const EdgeInsets.all(16.0),
+      // The header and the period chips centre themselves in whatever width
+      // they are handed, while the chart row below starts at the leading edge.
+      // On a maximised desktop window that left the two visibly out of line
+      // with a wide empty strip down the right; capping the pane keeps them
+      // reading as one block.
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: kDashboardPaneMaxWidth),
+          child: Column(
+            children: [
+              DashboardHeader(
+                selectedDay: state.selectedDay,
+                dateStep: state.dateStep,
+                currencyCode: state.selectedCurrency,
+                availableCurrencies: state.availableCurrencies
+                    .map((e) => e.code)
+                    .toList(),
+                onPrevious: () => context.read<DashboardBloc>().add(
+                  SelectDay(
+                    state.dateStep == DateStep.month
+                        ? DateTime(
+                            state.selectedDay.year,
+                            state.selectedDay.month - 1,
+                            1,
+                          )
+                        : DateTime(state.selectedDay.year - 1, 1, 1),
+                  ),
+                ),
+                onNext: () => context.read<DashboardBloc>().add(
+                  SelectDay(
+                    state.dateStep == DateStep.month
+                        ? DateTime(
+                            state.selectedDay.year,
+                            state.selectedDay.month + 1,
+                            1,
+                          )
+                        : DateTime(state.selectedDay.year + 1, 1, 1),
+                  ),
+                ),
+                onTitleTap: () =>
+                    _showDashboardPeriodPicker(context, state), // Fixed
+                onCurrencySelected: (currency) =>
+                    _selectDashboardCurrency(context, currency),
+                onDateStepChanged: (step) =>
+                    _changeDashboardDateStep(context, step),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ChoiceChip(
+                    label: Text(context.l10n.dashboardExpensesLabel),
+                    selected: !state.isIncomeView,
+                    onSelected: (val) => context.read<DashboardBloc>().add(
+                      ToggleChartType(false),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  ChoiceChip(
+                    label: Text(context.l10n.dashboardIncomeLabel),
+                    selected: state.isIncomeView,
+                    onSelected: (val) => context.read<DashboardBloc>().add(
+                      ToggleChartType(true),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              CategoryPieChart(
+                categoryConvertedTotals: state.categoryConvertedTotals,
+                categories: state.categories,
+                styles: state.styles,
+                isIncome: state.isIncomeView,
+                currencyCode: state.selectedCurrency, // Added
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
