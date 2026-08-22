@@ -17,6 +17,7 @@ import 'package:uuid/uuid.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart';
 import 'package:my_budget_client/core/constants/app_constants.dart';
+import 'package:my_budget_client/core/utils/exchange_rate_validation.dart';
 import 'package:my_budget_client/core/utils/rate_formatter.dart';
 
 part 'add_edit_transaction_event.dart';
@@ -352,13 +353,24 @@ class AddEditTransactionBloc
 
       // Handle Transfer Mode initialization
       if (event.isTransfer) {
-        final transferId = await _getOrCreateTransferCategory();
+        // Opening the form does not depend on the category existing. When it
+        // cannot be made the form still comes up and saving is what says so -
+        // the alternative was the screen never appearing at all, with the
+        // failure landing in the middle of initialisation where nothing puts
+        // it in front of the user.
+        String? transferId;
+        try {
+          transferId = await _getOrCreateTransferCategory();
+        } catch (e) {
+          debugPrint('AddEditTransactionBloc: no transfer category yet: $e');
+        }
+
         // Force selection of system transfer category
         // Fetch it specifically since it might be hidden from standard list
-        Category? transferCat = categories.firstWhereOrNull(
-          (c) => c.id == transferId,
-        );
-        if (transferCat == null) {
+        Category? transferCat = transferId == null
+            ? null
+            : categories.firstWhereOrNull((c) => c.id == transferId);
+        if (transferCat == null && transferId != null) {
           final allCats = await _categoryRepository.getCategories(
             includeSystem: true,
           );
@@ -744,9 +756,13 @@ class AddEditTransactionBloc
       // receiving leg to nothing at all - 1000 leaves the USD account and 0
       // arrives in the EUR one, which loses more than the unconverted case it
       // is standing in for. No exchange rate is ever legitimately zero.
-      if (state.isTransferMode &&
-          state.isForeignCurrency &&
-          (finalExchangeRate == null || finalExchangeRate == 0)) {
+      // A transfer needs a rate at all; any other foreign-currency row may go
+      // in unconverted, but not at a rate that cannot convert. Negatives used
+      // to pass both ways and wrote a receiving leg with the sign flipped, so
+      // the money left one account and was subtracted from the other too.
+      if (state.isForeignCurrency &&
+          (state.isTransferMode || finalExchangeRate != null) &&
+          !isUsableExchangeRate(finalExchangeRate)) {
         emit(
           state.copyWith(
             isSaving: false,
@@ -1053,10 +1069,25 @@ class AddEditTransactionBloc
           .firstWhere((c) => c.name == AppConstants.systemTransferCategoryName)
           .id!;
     } catch (e) {
+      // Re-read rather than give up: two forms saving at once both miss the
+      // category and both create it, and the loser of that race lands here
+      // with the row already written by the winner.
       final categories = await _categoryRepository.getCategories(
         includeSystem: true,
       );
-      return categories.first.id!;
+      final transferCat = categories.firstWhereOrNull(
+        (c) => c.name == AppConstants.systemTransferCategoryName,
+      );
+      if (transferCat?.id != null) return transferCat!.id!;
+
+      // Falling back to whichever category happens to be first filed the
+      // transfer under something like "Groceries" - and read `.first` of a
+      // list that may well be empty, throwing out of the catch that was
+      // there to stop a throw. Both callers put this message on the form.
+      throw StateError(
+        'The transfer category could not be created, so transfers have '
+        'nowhere to go: $e',
+      );
     }
   }
 
@@ -1660,7 +1691,7 @@ class AddEditTransactionBloc
     emit(state.copyWith(isLoadingRates: true, clearValidationError: true));
     try {
       var rateValue = _getEffectiveRate(state);
-      if (rateValue == 0) {
+      if (!isUsableExchangeRate(rateValue)) {
         emit(
           state.copyWith(
             isLoadingRates: false,
@@ -1740,7 +1771,7 @@ class AddEditTransactionBloc
       final nextPreset = maxPreset + 1;
 
       var rateValue = double.tryParse(state.manualExchangeRate);
-      if (rateValue == null) {
+      if (rateValue == null || !isUsableExchangeRate(rateValue)) {
         emit(
           state.copyWith(
             isLoadingRates: false,
@@ -1822,7 +1853,9 @@ class AddEditTransactionBloc
     if (!state.isForeignCurrency || state.date == null) return;
 
     var rateValue = double.tryParse(state.manualExchangeRate);
-    if (rateValue == null) {
+    // Spelled out rather than folded into the helper so the null check still
+    // promotes `rateValue` for the arithmetic below it.
+    if (rateValue == null || !isUsableExchangeRate(rateValue)) {
       emit(state.copyWith(validationError: _invalidRateMessage));
       return;
     }

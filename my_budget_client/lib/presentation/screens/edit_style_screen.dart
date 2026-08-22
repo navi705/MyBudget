@@ -1,4 +1,5 @@
 import 'package:flex_color_picker/flex_color_picker.dart';
+import 'package:my_budget_client/core/utils/hex_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -57,13 +58,8 @@ class _EditStyleScreenState extends State<EditStyleScreen> {
     super.dispose();
   }
 
-  Color _getColorFromHex(String? hexColor) {
-    hexColor = (hexColor ?? '#4CAF50').replaceAll("#", "");
-    if (hexColor.length == 6) {
-      hexColor = "FF$hexColor";
-    }
-    return Color(int.parse("0x$hexColor"));
-  }
+  Color _getColorFromHex(String? hexColor) =>
+      parseHexColor(hexColor ?? '#4CAF50', fallback: const Color(0xFF4CAF50));
 
   void _onSave() {
     if (_formKey.currentState!.validate()) {

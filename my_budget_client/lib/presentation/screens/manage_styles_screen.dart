@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:my_budget_client/core/utils/hex_color.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -304,13 +305,8 @@ class _StyleListItem extends StatefulWidget {
 class _StyleListItemState extends State<_StyleListItem> {
   bool _isHovering = false;
 
-  Color _getColorFromHex(String hexColor) {
-    hexColor = hexColor.replaceAll("#", "");
-    if (hexColor.length == 6) {
-      hexColor = "FF$hexColor";
-    }
-    return Color(int.parse("0x$hexColor"));
-  }
+  Color _getColorFromHex(String hexColor) =>
+      parseHexColor(hexColor, fallback: Colors.grey);
 
   void _showContextMenu(Offset position) {
     final bloc = context.read<StylesBloc>();

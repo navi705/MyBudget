@@ -1,3 +1,4 @@
+import 'package:my_budget_client/core/utils/hex_color.dart';
 import 'package:flutter/material.dart';
 import 'package:my_budget_client/domain/entities/custom_theme.dart';
 
@@ -286,14 +287,13 @@ class AppTheme {
     return surfaceColor.withValues(alpha: opacity);
   }
 
-  /// Parse hex color string to Color
-  static Color parseHex(String hexColor) {
-    hexColor = hexColor.replaceAll('#', '');
-    if (hexColor.length == 6) {
-      hexColor = 'FF$hexColor';
-    }
-    return Color(int.parse('0x$hexColor'));
-  }
+  /// Parse hex color string to Color.
+  ///
+  /// A theme is four of these, and they are read straight out of the settings
+  /// table on every start. One unreadable value used to throw before any theme
+  /// existed at all, which is a launch failure rather than a wrong colour.
+  static Color parseHex(String hexColor) =>
+      parseHexColor(hexColor, fallback: Colors.grey);
 
   /// Convert Color to hex string
   static String toHex(Color color) {

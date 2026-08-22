@@ -800,6 +800,46 @@ class MockCurrencyRepository extends _i1.Mock
           as _i3.Future<List<_i14.CurrencyDesignation>>);
 
   @override
+  _i3.Future<Map<String, int>> getCurrencyUsageCounts() =>
+      (super.noSuchMethod(
+            Invocation.method(#getCurrencyUsageCounts, []),
+            returnValue: _i3.Future<Map<String, int>>.value(<String, int>{}),
+          )
+          as _i3.Future<Map<String, int>>);
+
+  @override
+  _i3.Stream<List<String>> watchFavoriteCurrencyCodes() =>
+      (super.noSuchMethod(
+            Invocation.method(#watchFavoriteCurrencyCodes, []),
+            returnValue: _i3.Stream<List<String>>.empty(),
+          )
+          as _i3.Stream<List<String>>);
+
+  @override
+  _i3.Future<List<String>> getFavoriteCurrencyCodes() =>
+      (super.noSuchMethod(
+            Invocation.method(#getFavoriteCurrencyCodes, []),
+            returnValue: _i3.Future<List<String>>.value(<String>[]),
+          )
+          as _i3.Future<List<String>>);
+
+  @override
+  _i3.Future<void> setFavoriteCurrency(
+    String? code, {
+    required bool? favorite,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(
+              #setFavoriteCurrency,
+              [code],
+              {#favorite: favorite},
+            ),
+            returnValue: _i3.Future<void>.value(),
+            returnValueForMissingStub: _i3.Future<void>.value(),
+          )
+          as _i3.Future<void>);
+
+  @override
   _i3.Stream<void> watchExchangeRateChanges() =>
       (super.noSuchMethod(
             Invocation.method(#watchExchangeRateChanges, []),

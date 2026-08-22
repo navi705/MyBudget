@@ -1,3 +1,5 @@
+import 'package:my_budget_client/core/utils/decimal_input.dart';
+import 'package:my_budget_client/core/utils/exchange_rate_validation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -409,6 +411,9 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
       text: existingRate != null ? existingRate.preset.toString() : '1',
     );
     DateTime selectedDate = existingRate?.date ?? DateTime.now();
+    // A rate of zero passed the `rate != null` check below and was stored, and
+    // every amount converted through that pair then came out as nothing.
+    String? rateError;
 
     showDialog(
       context: context,
@@ -478,11 +483,13 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
                               controller: rateController,
                               decoration: InputDecoration(
                                 labelText: context.l10n.exchRate,
+                                errorText: rateError,
                               ),
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                     decimal: true,
                                   ),
+                              inputFormatters: decimalInputFormatters,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -529,6 +536,13 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
                 onPressed: () {
                   final rate = double.tryParse(rateController.text);
                   final preset = int.tryParse(presetController.text) ?? 1;
+                  if (!isUsableExchangeRate(rate)) {
+                    setState(
+                      () => rateError =
+                          context.l10n.formValidationPleaseEnterValidNumber,
+                    );
+                    return;
+                  }
                   if (fromCurrency.isNotEmpty &&
                       toCurrency != null &&
                       rate != null) {
