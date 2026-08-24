@@ -1366,6 +1366,15 @@ class AppLocalizationsBn extends AppLocalizations {
   String get syncServerSubtitle => 'MyBudget সার্ভারের সাথে সিঙ্ক করুন';
 
   @override
+  String get syncResendEverythingButton => 'সবকিছু আবার পাঠান';
+
+  @override
+  String get syncResendEverythingTitle => 'সবকিছু আবার পাঠাবেন?';
+
+  @override
+  String get syncResendEverythingConfirm => 'এই ডিভাইসের প্রতিটি সারি সার্ভারে পাঠায় এবং সার্ভারকে শুরু থেকে আবার পড়ে। সার্ভারের কপি মুছে ফেলা বা প্রতিস্থাপিত হলে এটি ব্যবহার করুন। এই ডিভাইস থেকে কিছুই মুছে যায় না, পুরো বাজেট একবার স্থানান্তরিত হয়।';
+
+  @override
   String get syncPendingLocalChanges => 'অপেক্ষমান স্থানীয় পরিবর্তনসমূহ:';
 
   @override

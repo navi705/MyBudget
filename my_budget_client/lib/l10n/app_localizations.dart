@@ -2601,6 +2601,24 @@ abstract class AppLocalizations {
   /// **'Sync with a MyBudget Server instance'**
   String get syncServerSubtitle;
 
+  /// No description provided for @syncResendEverythingButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-upload Everything'**
+  String get syncResendEverythingButton;
+
+  /// No description provided for @syncResendEverythingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-upload everything?'**
+  String get syncResendEverythingTitle;
+
+  /// No description provided for @syncResendEverythingConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Sends every row on this device to the server and reads the server again from the beginning. Use it when the server copy was wiped or replaced. Nothing on this device is deleted, and the whole budget is transferred once.'**
+  String get syncResendEverythingConfirm;
+
   /// No description provided for @syncPendingLocalChanges.
   ///
   /// In en, this message translates to:

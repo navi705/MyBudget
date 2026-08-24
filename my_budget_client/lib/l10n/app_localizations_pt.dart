@@ -1366,6 +1366,15 @@ class AppLocalizationsPt extends AppLocalizations {
   String get syncServerSubtitle => 'Sincronizar com uma instância do MyBudget Server';
 
   @override
+  String get syncResendEverythingButton => 'Reenviar tudo';
+
+  @override
+  String get syncResendEverythingTitle => 'Reenviar tudo?';
+
+  @override
+  String get syncResendEverythingConfirm => 'Envia ao servidor todos os registros deste dispositivo e lê o servidor novamente desde o início. Use quando a cópia do servidor tiver sido apagada ou substituída. Nada é excluído neste dispositivo e todo o orçamento é transferido uma vez.';
+
+  @override
   String get syncPendingLocalChanges => 'Alterações locais pendentes:';
 
   @override

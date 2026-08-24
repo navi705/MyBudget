@@ -162,6 +162,72 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
     }
   }
 
+  /// Re-uploads everything to the server and re-reads it from the start.
+  ///
+  /// For a server whose database was wiped or replaced: an ordinary sync sends
+  /// only what is owed, and after a wipe nothing is owed, so the server would
+  /// stay empty. See [ServerSyncService.resendEverything].
+  Future<void> _resendEverything() async {
+    if (_isSyncing) return;
+    final l10n = context.l10n;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.syncResendEverythingTitle),
+        content: Text(l10n.syncResendEverythingConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.cancelButton),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.confirmButton),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    if (!mounted) return;
+
+    // Same guard as the ordinary sync button: resendEverything() ends in a
+    // sync(), which declines without an address and would report success for a
+    // transfer that never left the device.
+    if (normalizeSyncBaseUrl(_serverUrlController.text) == null) {
+      _showSnackbar(l10n.syncUrlNotConfigured, isError: true);
+      return;
+    }
+
+    setState(() => _isSyncing = true);
+    try {
+      await _serverSyncService.resendEverything();
+      final pending = await _serverSyncService.getPendingChangesCount();
+      if (!mounted) return;
+      setState(() => _pendingChanges = pending);
+      _showSnackbar(l10n.syncCompleted);
+    } on SyncAuthException catch (e) {
+      if (mounted) {
+        _showSnackbar(
+          e.status == SyncConnectionStatus.serverNotConfigured
+              ? l10n.syncServerNotConfigured
+              : l10n.syncConnectionUnauthorized,
+          isError: true,
+        );
+      }
+    } catch (e) {
+      debugPrint('Full resend error: $e');
+      if (mounted) {
+        _showSnackbar(l10n.syncFailed(e.toString()), isError: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
+    }
+  }
+
   Future<void> _toggleP2P(bool enabled) async {
     setState(() {
       _isP2PEnabled = enabled;
@@ -546,6 +612,19 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
                     value: _isServerEnabled,
                     onChanged: _toggleServer,
                     contentPadding: EdgeInsets.zero,
+                  ),
+                  // Kept out of the shared action card below on purpose: it
+                  // does nothing for peer-to-peer sync, and it is a full
+                  // transfer rather than the usual few rows.
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isServerEnabled && !_isSyncing
+                          ? _resendEverything
+                          : null,
+                      icon: const Icon(Icons.cloud_upload_outlined),
+                      label: Text(l10n.syncResendEverythingButton),
+                    ),
                   ),
                 ],
               ),

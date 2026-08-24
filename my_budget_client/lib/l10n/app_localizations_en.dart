@@ -1366,6 +1366,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncServerSubtitle => 'Sync with a MyBudget Server instance';
 
   @override
+  String get syncResendEverythingButton => 'Re-upload Everything';
+
+  @override
+  String get syncResendEverythingTitle => 'Re-upload everything?';
+
+  @override
+  String get syncResendEverythingConfirm => 'Sends every row on this device to the server and reads the server again from the beginning. Use it when the server copy was wiped or replaced. Nothing on this device is deleted, and the whole budget is transferred once.';
+
+  @override
   String get syncPendingLocalChanges => 'Pending local changes:';
 
   @override

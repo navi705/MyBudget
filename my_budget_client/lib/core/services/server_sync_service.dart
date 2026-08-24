@@ -816,6 +816,46 @@ class ServerSyncService {
     return result.read<int>('c');
   }
 
+  /// Re-uploads the whole of this device's data, and re-reads the server from
+  /// its first change.
+  ///
+  /// For the one case the incremental protocol cannot recover from by itself:
+  /// the server's copy is gone - wiped, restored from nothing, or replaced by
+  /// an empty database - while every device still believes it has already told
+  /// that server everything. The queue is empty because nothing is owed, so no
+  /// later sync ever offers those rows again; the server would stay empty, and
+  /// this device would go deaf as well, because its pull cursor sits far above
+  /// the sequence numbers the new database starts handing out.
+  ///
+  /// So both halves are reset together, and neither is optional:
+  ///  - every row is queued for upload, so the server is filled from here;
+  ///  - the pull cursor goes back to 0, so a sequence that restarted at 1 is
+  ///    read from the beginning instead of being skipped past forever.
+  ///
+  /// Destructive to nothing: no local row is touched, and everything that
+  /// arrives on the re-pull is the same last-write-wins upsert an ordinary pull
+  /// applies. The price is one full transfer in each direction.
+  Future<void> resendEverything() async {
+    final baseUrl = await _requireBaseUrl();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(serverPullCursorKey, 0);
+    await prefs.setString(serverPullCursorOriginKey, baseUrl);
+
+    await _database.queueEverythingForPush();
+    // The triggers have been firing since the install whether or not sync was
+    // ever on, so the queue this adds to may already hold thousands of entries
+    // for the same rows. One entry per row is all the push needs.
+    await _collapsePushQueue();
+
+    debugPrint(
+      '[ServerSync] Full resend requested: ${await getPendingChangesCount()} '
+      'rows queued for $baseUrl, pull cursor reset to 0.',
+    );
+
+    await sync();
+  }
+
   /// Drops the pull cursor when it was not counted by the server about to be
   /// asked.
   ///
@@ -2180,9 +2220,7 @@ class ServerSyncService {
             ),
             drift_db.Variable((json['feeMinor'] as num?)?.toInt()),
             drift_db.Variable(json['linkedTransactionId'] as String?),
-            drift_db.Variable.withInt(
-              _parseBool(json['needsReview']) ? 1 : 0,
-            ),
+            drift_db.Variable.withInt(_parseBool(json['needsReview']) ? 1 : 0),
             drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
             drift_db.Variable(json['deviceId'] as String?),
             drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),

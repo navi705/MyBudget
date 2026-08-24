@@ -1366,6 +1366,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get syncServerSubtitle => 'مزامنة مع نسخة من MyBudget Server';
 
   @override
+  String get syncResendEverythingButton => 'إعادة رفع كل شيء';
+
+  @override
+  String get syncResendEverythingTitle => 'إعادة رفع كل شيء؟';
+
+  @override
+  String get syncResendEverythingConfirm => 'يرسل كل سجل من هذا الجهاز إلى الخادم ويقرأ الخادم من جديد من البداية. استخدمه عندما تُمحى نسخة الخادم أو تُستبدل. لا يُحذف أي شيء من هذا الجهاز، وتُنقل الميزانية بالكامل مرة واحدة.';
+
+  @override
   String get syncPendingLocalChanges => 'تغييرات محلية معلقة:';
 
   @override

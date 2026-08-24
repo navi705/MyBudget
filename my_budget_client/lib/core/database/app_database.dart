@@ -4555,9 +4555,31 @@ class AppDatabase extends _$AppDatabase {
   /// schemas - and is safe to run twice: a duplicate queue entry costs one
   /// deduped record key in the next push.
   @visibleForTesting
-  Future<void> seedPushQueueParents() async {
+  Future<void> seedPushQueueParents() =>
+      _queueRowsForPush(syncPushQueueSeedTables);
+
+  /// Queues every existing row of every synced table for upload.
+  ///
+  /// The queue records what the server has NOT been told, so it is empty on a
+  /// device that has synced everything it has - which is exactly the state a
+  /// device is in when the server's own copy is thrown away. Nothing else can
+  /// repopulate that server: the rows are not owed, so they are never offered
+  /// again, and the server stays empty for good.
+  ///
+  /// Costs one full upload, the same one-off price the v12 to v13 upgrade paid
+  /// when it seeded the queue from the same list. Safe to run twice - the push
+  /// de-duplicates by record key - and safe to run with rows already queued,
+  /// which then simply go out in the same pass.
+  Future<void> queueEverythingForPush() =>
+      _queueRowsForPush(syncPushQueueTables);
+
+  /// Inserts one queue entry per existing row of each of [tables].
+  ///
+  /// Skips a table this database does not have yet - a migration test builds
+  /// partial schemas.
+  Future<void> _queueRowsForPush(List<String> tables) async {
     final existing = await _existingTables();
-    for (final table in syncPushQueueSeedTables) {
+    for (final table in tables) {
       if (!existing.contains(table)) continue;
       await customStatement(
         'INSERT INTO sync_push_queue (changed_table_name, record_key) '

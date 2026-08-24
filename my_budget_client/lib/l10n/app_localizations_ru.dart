@@ -1366,6 +1366,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get syncServerSubtitle => 'Синхронизация с экземпляром MyBudget Server';
 
   @override
+  String get syncResendEverythingButton => 'Загрузить всё заново';
+
+  @override
+  String get syncResendEverythingTitle => 'Загрузить всё заново?';
+
+  @override
+  String get syncResendEverythingConfirm => 'Отправит на сервер все записи с этого устройства и заново прочтёт сервер с начала. Нужно, если копия на сервере была удалена или заменена. На устройстве ничего не удаляется, весь бюджет передаётся один раз.';
+
+  @override
   String get syncPendingLocalChanges => 'Ожидающие локальные изменения:';
 
   @override

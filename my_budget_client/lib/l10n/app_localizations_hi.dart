@@ -1366,6 +1366,15 @@ class AppLocalizationsHi extends AppLocalizations {
   String get syncServerSubtitle => 'MyBudget सर्वर इंस्टेंस के साथ सिंक करें';
 
   @override
+  String get syncResendEverythingButton => 'सब कुछ दोबारा भेजें';
+
+  @override
+  String get syncResendEverythingTitle => 'सब कुछ दोबारा भेजें?';
+
+  @override
+  String get syncResendEverythingConfirm => 'इस डिवाइस की हर पंक्ति सर्वर पर भेजता है और सर्वर को शुरुआत से दोबारा पढ़ता है। इसका उपयोग तब करें जब सर्वर की कॉपी मिटा दी गई हो या बदल दी गई हो। इस डिवाइस से कुछ नहीं हटाया जाता, पूरा बजट एक बार स्थानांतरित होता है।';
+
+  @override
   String get syncPendingLocalChanges => 'लंबित स्थानीय परिवर्तन:';
 
   @override

@@ -1366,6 +1366,15 @@ class AppLocalizationsUr extends AppLocalizations {
   String get syncServerSubtitle => 'MyBudget Server کے انسٹنس کے ساتھ مطابقت پذیری کریں';
 
   @override
+  String get syncResendEverythingButton => 'سب کچھ دوبارہ اپ لوڈ کریں';
+
+  @override
+  String get syncResendEverythingTitle => 'سب کچھ دوبارہ اپ لوڈ کریں؟';
+
+  @override
+  String get syncResendEverythingConfirm => 'اس ڈیوائس کی ہر سطر سرور کو بھیجتا ہے اور سرور کو شروع سے دوبارہ پڑھتا ہے۔ اسے تب استعمال کریں جب سرور کی کاپی مٹا دی گئی ہو یا بدل دی گئی ہو۔ اس ڈیوائس سے کچھ حذف نہیں ہوتا، پورا بجٹ ایک بار منتقل ہوتا ہے۔';
+
+  @override
   String get syncPendingLocalChanges => 'زیر التواء مقامی تبدیلیاں:';
 
   @override

@@ -1366,6 +1366,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syncServerSubtitle => '与 MyBudget Server 实例同步';
 
   @override
+  String get syncResendEverythingButton => '重新上传全部';
+
+  @override
+  String get syncResendEverythingTitle => '重新上传全部？';
+
+  @override
+  String get syncResendEverythingConfirm => '将本设备的所有记录发送到服务器，并从头重新读取服务器。当服务器上的副本被清空或替换时使用。本设备上的数据不会被删除，整个账本只传输一次。';
+
+  @override
   String get syncPendingLocalChanges => '待处理的本地更改：';
 
   @override
