@@ -82,10 +82,16 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
 
     // If default inflation country changed, trigger a fetch in the background
     if (event.key == 'default_inflation_country') {
+      // The end of the range is this year, not a year typed into the source:
+      // the literal here said 2024, so a country picked after that fetched a
+      // history that stopped before the present and, because the fetch only
+      // asks again once the stored history stops covering the range, never
+      // went back for the years in between.
+      final currentYear = DateTime.now().year;
       unawaited(
         _inflationApiService.fetchInflationForCountry(
           event.value,
-          "2000:2024", // Default range
+          '${currentYear - 25}:$currentYear',
         ),
       );
     }

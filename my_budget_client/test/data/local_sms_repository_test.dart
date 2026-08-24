@@ -433,4 +433,134 @@ void main() {
       );
     });
   });
+
+  group('built-in template upgrades', () {
+    // A built-in is copied into the device's own storage the first time the
+    // user touches it, and the stored copy wins from then on. Without a
+    // version to compare, a fixed pattern or a newly added merchant would
+    // never reach anyone who had already enabled the preset - which is
+    // everyone the preset is for.
+
+    /// A stored built-in as an older app version wrote it: the user's own
+    /// settings, one rule of the shape that shipped then, and [version].
+    Map<String, dynamic> storedBuiltIn({required int version}) => {
+      'id': 'alta_bank',
+      'name': 'Alta_Bank',
+      'senderFilter': 'ALTA',
+      'isBuiltIn': true,
+      'isEnabled': true,
+      'templateVersion': version,
+      'defaultAccountId': 'acc-1',
+      'defaultCategoryId': 'cat-1',
+      'rules': [
+        {
+          'id': 'alta_card_payment',
+          'type': 'expense',
+          'matchPattern': 'Placanje.*karticom',
+          'amountPattern': r'iznos\s+([\d,.]+)',
+        },
+      ],
+      'categoryKeywords': [
+        {'keyword': 'lidl', 'categoryId': 'cat_groceries'},
+      ],
+    };
+
+    test('an older stored copy takes the new rules and keywords', () async {
+      SharedPreferences.setMockInitialValues({
+        'sms_presets': jsonEncode([storedBuiltIn(version: 0)]),
+      });
+
+      final reloaded = (await LocalSmsRepository().getAllPresets()).single;
+
+      expect(reloaded.templateVersion, builtIn().templateVersion);
+      expect(reloaded.rules, builtIn().rules);
+      expect(reloaded.categoryKeywords, builtIn().categoryKeywords);
+    });
+
+    test('the upgrade keeps what the user chose', () async {
+      // The rules are the app's, the account and category are the user's. An
+      // upgrade that reset those would send every imported transaction to the
+      // wrong account until someone noticed.
+      SharedPreferences.setMockInitialValues({
+        'sms_presets': jsonEncode([storedBuiltIn(version: 0)]),
+      });
+
+      final reloaded = (await LocalSmsRepository().getAllPresets()).single;
+
+      expect(reloaded.isEnabled, isTrue);
+      expect(reloaded.defaultAccountId, 'acc-1');
+      expect(reloaded.defaultCategoryId, 'cat-1');
+    });
+
+    test('the upgrade is written back, not redone on every load', () async {
+      // If it is not persisted the version stays behind forever, and the
+      // moment the user edits the preset the old number is saved next to the
+      // new rules - which pins the install to the old template for good.
+      SharedPreferences.setMockInitialValues({
+        'sms_presets': jsonEncode([storedBuiltIn(version: 0)]),
+      });
+
+      await LocalSmsRepository().getAllPresets();
+
+      final prefs = await SharedPreferences.getInstance();
+      final stored =
+          jsonDecode(prefs.getString('sms_presets')!) as List<dynamic>;
+      final row = stored.single as Map<String, dynamic>;
+      expect(row['templateVersion'], builtIn().templateVersion);
+      expect(
+        (row['rules'] as List<dynamic>).length,
+        builtIn().rules.length,
+      );
+    });
+
+    test('a stored copy already on the current version is left alone', () async {
+      // This is what makes an edit an edit: once the stored copy is on the
+      // shipped version, the template stops overwriting it.
+      final edited = storedBuiltIn(version: builtIn().templateVersion);
+      SharedPreferences.setMockInitialValues({
+        'sms_presets': jsonEncode([edited]),
+      });
+
+      final reloaded = (await LocalSmsRepository().getAllPresets()).single;
+
+      expect(reloaded.rules.single.matchPattern, 'Placanje.*karticom');
+      expect(reloaded.categoryKeywords.single.keyword, 'lidl');
+    });
+
+    test('the merchant hints survive the JSON round trip', () async {
+      // The hint names a category only this user has, and it is the whole of
+      // how "Ai" and "VPS" are reached: losing it on a restart would file
+      // every subscription under the generic category instead.
+      await LocalSmsRepository().savePreset(
+        builtIn().copyWith(
+          categoryKeywords: const [
+            SmsCategoryKeyword(
+              keyword: 'anthropic',
+              categoryId: 'cat_subscriptions',
+              categoryNameHint: 'Ai',
+            ),
+          ],
+        ),
+      );
+
+      final reloaded = (await LocalSmsRepository().getAllPresets()).single;
+
+      expect(reloaded.categoryKeywords.single.categoryNameHint, 'Ai');
+    });
+
+    test('the review flag and the description pattern survive the round '
+        'trip', () async {
+      // Both are rule fields the queue depends on: without them a reloaded
+      // preset books cash withdrawals as ordinary spending again.
+      await LocalSmsRepository().savePreset(builtIn().copyWith(isEnabled: true));
+
+      final reloaded = (await LocalSmsRepository().getAllPresets()).single;
+      final withdrawal = reloaded.rules.firstWhere(
+        (r) => r.id == 'alta_cash_withdrawal',
+      );
+
+      expect(withdrawal.forceReview, isTrue);
+      expect(withdrawal.descriptionPattern, isNotNull);
+    });
+  });
 }

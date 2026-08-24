@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
+import 'package:my_budget_client/core/utils/calendar_day.dart';
 
 /// Locale-aware date rendering.
 ///
@@ -86,7 +87,7 @@ class DateDisplay {
     final monday = DateTime(2024, 1, 1);
     return List<String>.generate(7, (i) {
       final weekday = (first - 1 + i) % 7;
-      return format.format(monday.add(Duration(days: weekday)));
+      return format.format(addDays(monday, weekday));
     });
   }
 }

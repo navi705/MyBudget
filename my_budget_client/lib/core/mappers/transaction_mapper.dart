@@ -25,6 +25,7 @@ extension TransactionMapper on drift.Transaction {
       exchangeRatePreset: exchangeRatePreset,
       fee: fee,
       linkedTransactionId: linkedTransactionId,
+      needsReview: needsReview,
     );
   }
 }
@@ -45,6 +46,7 @@ extension TransactionCompanionMapper on Transaction {
       fee: Value(fee),
       feeMinor: Value(_minorOrNull(fee, currencyCode)),
       linkedTransactionId: Value(linkedTransactionId),
+      needsReview: Value(needsReview),
     );
   }
 }

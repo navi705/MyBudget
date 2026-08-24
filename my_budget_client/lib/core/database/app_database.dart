@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:my_budget_client/core/utils/calendar_day.dart';
 import 'package:my_budget_client/core/utils/device_utils.dart' as dev_utils;
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:intl/intl.dart';
@@ -253,6 +254,13 @@ class Transactions extends Table {
   TextColumn get linkedTransactionId =>
       text().nullable()(); // Added: ID of the linked transaction
 
+  // Set on a transaction the app wrote without being sure where it belongs -
+  // an SMS whose merchant matched no keyword, a cash withdrawal, a refund.
+  // The row is real and counts towards every total; the flag only says a
+  // person still has to look at it, and clearing it is what the review queue
+  // on the transactions screen is for.
+  BoolColumn get needsReview => boolean().withDefault(const Constant(false))();
+
   // Sync fields
   IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
   TextColumn get deviceId => text().nullable()();
@@ -488,6 +496,14 @@ const List<String> syncPushQueueSeedTables = [
 const Map<String, Set<String>> syncPushQueueDerivedColumns = {
   'accounts': {'balance', 'balance_minor'},
 };
+
+/// SQL reading this device's sync identity out of the settings table.
+///
+/// A subquery rather than a value bound at trigger-creation time: the identity
+/// is written during seeding, after the triggers of a fresh install exist, and
+/// a trigger body is frozen the moment it is created.
+const String _localDeviceIdSql =
+    "(SELECT value FROM settings WHERE key = 'local_device_id')";
 
 /// SQL rendering a row of [table] into the text held in
 /// [SyncPushQueue.recordKey].
@@ -1629,9 +1645,14 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
 
   Future<List<DbAccount>> getAllAccounts() =>
       (select(accounts)..where((t) => t.isDeleted.equals(false))).get();
+
+  /// Ordered by id rather than left to the query plan: a paged read with no
+  /// ORDER BY is free to return the pages in overlapping orders, so a row
+  /// could arrive twice while another never arrives at all.
   Future<List<DbAccount>> getAccounts({int limit = 10, int offset = 0}) =>
       (select(accounts)
             ..where((t) => t.isDeleted.equals(false))
+            ..orderBy([(t) => OrderingTerm.asc(t.id)])
             ..limit(limit, offset: offset))
           .get();
   Future<DbAccount?> getAccountById(String id) =>
@@ -2060,7 +2081,15 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       query.where((tbl) => tbl.accountTypeId.isIn(accountTypeIds));
     }
 
-    query.orderBy([(t) => OrderingTerm(expression: t.balance, mode: sort)]);
+    // The sort column is not unique, and `LIMIT`/`OFFSET` asks for the
+    // pages in separate queries: rows that tie on it have no order to keep
+    // between one page and the next, so a tie broken differently the second
+    // time repeats a row the user already saw and drops one they never will.
+    // The row's own key is the tiebreak that makes the order total.
+    query.orderBy([
+      (t) => OrderingTerm(expression: t.balance, mode: sort),
+      (t) => OrderingTerm(expression: t.id, mode: sort),
+    ]);
     query.limit(limit, offset: offset);
 
     return query.get();
@@ -2259,9 +2288,13 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
 
   Future<List<Transaction>> getAllTransactions() =>
       (select(transactions)..where((t) => t.isDeleted.equals(false))).get();
+
+  /// See [AccountsDao.getAccounts]: the order has to be given, not inherited
+  /// from whatever plan the query happens to take.
   Future<List<Transaction>> getTransactions({int limit = 10, int offset = 0}) =>
       (select(transactions)
             ..where((t) => t.isDeleted.equals(false))
+            ..orderBy([(t) => OrderingTerm.asc(t.id)])
             ..limit(limit, offset: offset))
           .get();
   Future<Transaction?> getTransactionById(String id) =>
@@ -2416,6 +2449,7 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     List<String>? categoryId,
     List<String>? currencyCode,
     TransactionTypeFilter? transactionType,
+    bool? needsReview,
   }) {
     final query = select(transactions)..where((t) => t.isDeleted.equals(false));
 
@@ -2450,14 +2484,54 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
         query.where((tbl) => tbl.amount.isSmallerThanValue(0));
       }
     }
+    if (needsReview != null) {
+      query.where((tbl) => tbl.needsReview.equals(needsReview));
+    }
 
+    // The sort column is not unique, and `LIMIT`/`OFFSET` asks for the
+    // pages in separate queries: rows that tie on it have no order to keep
+    // between one page and the next, so a tie broken differently the second
+    // time repeats a row the user already saw and drops one they never will.
+    // The row's own key is the tiebreak that makes the order total.
     query.orderBy([
       (t) => OrderingTerm(expression: t.date, mode: sort),
       (t) => OrderingTerm(expression: t.amount, mode: sort),
+      (t) => OrderingTerm(expression: t.id, mode: sort),
     ]);
     query.limit(limit, offset: offset);
 
     return query.get();
+  }
+
+  /// The account [categoryId] was most often written against since [since].
+  ///
+  /// Null when the category has nothing in that window - the signal to leave
+  /// whatever account the form already holds rather than guess.
+  Future<String?> getMostUsedAccountForCategory(
+    String categoryId, {
+    required DateTime since,
+  }) async {
+    final uses = transactions.id.count();
+    final query = selectOnly(transactions)
+      ..addColumns([transactions.accountId, uses])
+      ..where(
+        transactions.isDeleted.equals(false) &
+            transactions.categoryId.equals(categoryId) &
+            transactions.date.isBiggerOrEqualValue(since),
+      )
+      ..groupBy([transactions.accountId])
+      // The account id breaks a tie. Two accounts used the same number of
+      // times have no order of their own, and a form that suggests a
+      // different one every time it is opened is worse than one that never
+      // suggests anything.
+      ..orderBy([
+        OrderingTerm(expression: uses, mode: OrderingMode.desc),
+        OrderingTerm(expression: transactions.accountId),
+      ])
+      ..limit(1);
+
+    final row = await query.getSingleOrNull();
+    return row?.read(transactions.accountId);
   }
 
   Future<int> getCountWithFilters({
@@ -2470,6 +2544,7 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     List<String>? categoryId,
     List<String>? currencyCode,
     TransactionTypeFilter? transactionType,
+    bool? needsReview,
   }) async {
     final query = selectOnly(transactions)
       ..where(transactions.isDeleted.equals(false));
@@ -2504,6 +2579,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       } else if (transactionType == TransactionTypeFilter.expense) {
         query.where(transactions.amount.isSmallerThanValue(0));
       }
+    }
+    if (needsReview != null) {
+      query.where(transactions.needsReview.equals(needsReview));
     }
 
     final countExp = transactions.id.count();
@@ -2949,15 +3027,17 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
           ..sort();
     final ranges = <({DateTime start, DateTime end})>[];
     var rangeStart = days.first;
-    var rangeEnd = rangeStart.add(const Duration(days: 1));
+    var rangeEnd = nextDay(rangeStart);
     for (final day in days.skip(1)) {
-      // Not `day == rangeEnd`: across a DST change a day is 23 or 25 hours, so
-      // adding a nominal day lands beside local midnight, not on it.
+      // `nextDay`, not `add(Duration(days: 1))`: across a clock change a day is
+      // 23 or 25 hours, so a nominal day lands beside local midnight rather
+      // than on it, and the end of a 25-hour day would fall an hour short of
+      // the day it is meant to bound.
       if (day.isAfter(rangeEnd)) {
         ranges.add((start: rangeStart, end: rangeEnd));
         rangeStart = day;
       }
-      rangeEnd = day.add(const Duration(days: 1));
+      rangeEnd = nextDay(day);
     }
     ranges.add((start: rangeStart, end: rangeEnd));
 
@@ -3047,9 +3127,7 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
             _anyOf([
               for (final day in wanted)
                 exchangeRates.date.isBiggerOrEqualValue(day) &
-                    exchangeRates.date.isSmallerThanValue(
-                      day.add(const Duration(days: 1)),
-                    ),
+                    exchangeRates.date.isSmallerThanValue(nextDay(day)),
             ]),
             currencyCodes,
           ),
@@ -3061,28 +3139,10 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   /// when a day falls exactly between two.
   ///
   /// A rate from before the date being converted is the safer of two equals: it
-  /// was quoted by the time the transaction happened.
-  DateTime? _nearestStoredDay(List<DateTime> sorted, DateTime day) {
-    var low = 0;
-    var high = sorted.length;
-    while (low < high) {
-      final mid = (low + high) >> 1;
-      if (sorted[mid].isBefore(day)) {
-        low = mid + 1;
-      } else {
-        high = mid;
-      }
-    }
-
-    final after = low < sorted.length ? sorted[low] : null;
-    final before = low > 0 ? sorted[low - 1] : null;
-    if (after == null) return before;
-    if (before == null) return after;
-
-    final toAfter = after.difference(day).abs();
-    final toBefore = day.difference(before).abs();
-    return toAfter < toBefore ? after : before;
-  }
+  /// was quoted by the time the transaction happened. Shared with the pickers
+  /// in the transactions bloc, which resolved the same tie the other way.
+  DateTime? _nearestStoredDay(List<DateTime> sorted, DateTime day) =>
+      nearestDay(sorted, day);
 
   /// Every calendar day the rate table holds a row on, ascending.
   ///
@@ -3169,7 +3229,17 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
       query.where((t) => t.preset.isIn(presets));
     }
 
-    query.orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
+    // The sort column is not unique, and `LIMIT`/`OFFSET` asks for the
+    // pages in separate queries: rows that tie on it have no order to keep
+    // between one page and the next, so a tie broken differently the second
+    // time repeats a row the user already saw and drops one they never will.
+    // The row's own key is the tiebreak that makes the order total.
+    query.orderBy([
+      (t) => OrderingTerm(expression: t.date, mode: sort),
+      (t) => OrderingTerm(expression: t.fromCurrencyCode, mode: sort),
+      (t) => OrderingTerm(expression: t.toCurrencyCode, mode: sort),
+      (t) => OrderingTerm(expression: t.preset, mode: sort),
+    ]);
     query.limit(limit, offset: offset);
 
     return query.get();
@@ -3618,9 +3688,15 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
     List<int>? presets,
     OrderingMode sort = OrderingMode.desc,
   }) {
+    // See the note on the transactions query: ordering by date alone leaves
+    // the rows that share a date free to swap places between pages.
     final query = select(inflationRates)
       ..limit(limit, offset: offset)
-      ..orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.date, mode: sort),
+        (t) => OrderingTerm(expression: t.country, mode: sort),
+        (t) => OrderingTerm(expression: t.preset, mode: sort),
+      ]);
 
     if (dateFrom != null) {
       query.where((t) => t.date.isBiggerOrEqualValue(dateFrom));
@@ -3648,9 +3724,15 @@ class InflationRatesDao extends DatabaseAccessor<AppDatabase>
     List<int>? presets,
     OrderingMode sort = OrderingMode.desc,
   }) {
+    // See the note on the transactions query: ordering by date alone leaves
+    // the rows that share a date free to swap places between pages.
     final query = select(inflationRates)
       ..limit(limit, offset: offset)
-      ..orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.date, mode: sort),
+        (t) => OrderingTerm(expression: t.country, mode: sort),
+        (t) => OrderingTerm(expression: t.preset, mode: sort),
+      ]);
 
     if (dateFrom != null) {
       query.where((t) => t.date.isBiggerOrEqualValue(dateFrom));
@@ -3958,7 +4040,15 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
       query.where((t) => t.value.isSmallerOrEqualValue(maxValue));
     }
 
-    query.orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
+    // The sort column is not unique, and `LIMIT`/`OFFSET` asks for the
+    // pages in separate queries: rows that tie on it have no order to keep
+    // between one page and the next, so a tie broken differently the second
+    // time repeats a row the user already saw and drops one they never will.
+    // The row's own key is the tiebreak that makes the order total.
+    query.orderBy([
+      (t) => OrderingTerm(expression: t.date, mode: sort),
+      (t) => OrderingTerm(expression: t.id, mode: sort),
+    ]);
     query.limit(limit, offset: offset);
 
     return query.get();
@@ -4020,7 +4110,15 @@ class AssetEntriesDao extends DatabaseAccessor<AppDatabase>
       query.where((t) => t.value.isSmallerOrEqualValue(maxValue));
     }
 
-    query.orderBy([(t) => OrderingTerm(expression: t.date, mode: sort)]);
+    // The sort column is not unique, and `LIMIT`/`OFFSET` asks for the
+    // pages in separate queries: rows that tie on it have no order to keep
+    // between one page and the next, so a tie broken differently the second
+    // time repeats a row the user already saw and drops one they never will.
+    // The row's own key is the tiebreak that makes the order total.
+    query.orderBy([
+      (t) => OrderingTerm(expression: t.date, mode: sort),
+      (t) => OrderingTerm(expression: t.id, mode: sort),
+    ]);
     query.limit(limit, offset: offset);
 
     return query.watch();
@@ -4363,6 +4461,92 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  /// Stamps every row this device writes with its own sync identity.
+  ///
+  /// `device_id` is the second half of the `(modified_at, device_id)` total
+  /// order that decides a conflict, and no write path ever filled it: every
+  /// locally authored row carried NULL. Both tie-breaks read a NULL author as
+  /// the empty string, so two devices that edited the same row within the same
+  /// millisecond compared `'' > ''` - false on both sides and on the server.
+  /// Each end kept its own version, the push was answered 200 without an
+  /// UPDATE, `server_seq` never moved, and no later sync ever offered either
+  /// version again: a permanently and silently divergent row. It needs no
+  /// clock coincidence to happen, because the whole seeded catalogue ships
+  /// with `modified_at = 1` and locale-dependent names.
+  ///
+  /// Triggers rather than call sites, for the same reason
+  /// [_createSyncPushQueueTriggers] gives: there are ~67 places that write a
+  /// synced row and a new one is added every week, while a trigger cannot be
+  /// forgotten by a path nobody has written yet.
+  ///
+  /// A write that names an author keeps it - that is how a row applied from a
+  /// peer or pulled from the server stays attributed to the device that really
+  /// made the edit, which is what makes both ends of a comparison name the
+  /// same two devices. The update trigger fires only when the writer left
+  /// `device_id` exactly as it found it while moving `modified_at`, which is
+  /// the signature of a local edit.
+  Future<void> _createDeviceIdTriggers() async {
+    final existing = await _existingTables();
+    for (final table in syncPushQueueTables) {
+      if (!existing.contains(table)) continue;
+      if (!await _hasColumn(table, 'device_id')) continue;
+      // Addressed by rowid, so one body serves the tables keyed by a single
+      // column and the ones keyed by four.
+      final stamp =
+          'UPDATE $table SET device_id = $_localDeviceIdSql '
+          'WHERE rowid = NEW.rowid;';
+      await customStatement(
+        'DROP TRIGGER IF EXISTS trg_device_id_${table}_insert',
+      );
+      await customStatement(
+        'CREATE TRIGGER trg_device_id_${table}_insert '
+        'AFTER INSERT ON $table '
+        'WHEN NEW.device_id IS NULL AND $_localDeviceIdSql IS NOT NULL '
+        'BEGIN $stamp END',
+      );
+      await customStatement(
+        'DROP TRIGGER IF EXISTS trg_device_id_${table}_update',
+      );
+      if (!await _hasColumn(table, 'modified_at')) continue;
+      await customStatement(
+        'CREATE TRIGGER trg_device_id_${table}_update '
+        'AFTER UPDATE ON $table '
+        'WHEN NEW.device_id IS OLD.device_id '
+        'AND NEW.modified_at IS NOT OLD.modified_at '
+        'AND $_localDeviceIdSql IS NOT NULL '
+        'AND NEW.device_id IS NOT $_localDeviceIdSql '
+        'BEGIN $stamp END',
+      );
+    }
+  }
+
+  /// Puts this device's identity on the seeded rows that predate the triggers.
+  ///
+  /// Only [syncPushQueueSeedTables]: those are the rows that ship with
+  /// `modified_at = 1` and a name translated per locale, so they are exactly
+  /// the ones two devices disagree about with no clock to separate them. The
+  /// bulk reference tables are left alone deliberately - ~283k exchange rates
+  /// carry the same numbers on every install, so a tie there resolves to two
+  /// copies of the same value, and stamping them would queue the lot for
+  /// upload.
+  ///
+  /// The push-queue triggers see this as the content edit it is and queue the
+  /// rows, which is what carries the new stamp to the server; without that the
+  /// device would keep winning ties locally against a server copy it never
+  /// corrected.
+  @visibleForTesting
+  Future<void> stampSeededRowsWithLocalDeviceId() async {
+    final existing = await _existingTables();
+    for (final table in syncPushQueueSeedTables) {
+      if (!existing.contains(table)) continue;
+      if (!await _hasColumn(table, 'device_id')) continue;
+      await customStatement(
+        'UPDATE $table SET device_id = $_localDeviceIdSql '
+        'WHERE device_id IS NULL AND $_localDeviceIdSql IS NOT NULL',
+      );
+    }
+  }
+
   /// Queues every existing row of [syncPushQueueSeedTables] for upload.
   ///
   /// Runs on a fresh install and once more on the upgrade to v16, so a device
@@ -4396,8 +4580,17 @@ class AppDatabase extends _$AppDatabase {
   /// `test/core/sync/sync_service_api_settings_test.dart` "a locally deleted
   /// provider is pushed with its tombstone flag" fail perhaps one run in three.
   ///
-  /// So the test is on the CONTENT: any column other than `modified_at` and the
-  /// [syncPushQueueDerivedColumns] each device computes for itself. `IS NOT`
+  /// So the test is on the CONTENT: any column other than `modified_at`,
+  /// `device_id` and the [syncPushQueueDerivedColumns] each device computes for
+  /// itself.
+  ///
+  /// `device_id` is out because [_createDeviceIdTriggers] writes it in a second
+  /// statement, right after the one that queued the row: counting it queued
+  /// every insert twice. Nothing is lost - the push reads the row as it stands
+  /// when it runs, so it carries the stamp, and an edit that re-stamps a row
+  /// moved `modified_at` to get there. A stamp written on its own, by
+  /// [stampSeededRowsWithLocalDeviceId], is queued by that method's caller
+  /// instead. `IS NOT`
   /// rather than `<>`, because `<>` is NULL — never true — the moment either
   /// side is NULL, which is precisely the insert-a-value-into-an-empty-column
   /// edit that most needs to travel.
@@ -4411,6 +4604,7 @@ class AppDatabase extends _$AppDatabase {
     final columns = [
       for (final row in info)
         if (row.read<String>('name') != 'modified_at' &&
+            row.read<String>('name') != 'device_id' &&
             !derived.contains(row.read<String>('name')))
           row.read<String>('name'),
     ];
@@ -4448,7 +4642,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration {
@@ -4493,6 +4687,12 @@ class AppDatabase extends _$AppDatabase {
         // [syncPushQueueSeedTables].
         debugPrint('[DB_MIGRATION] onCreate: queueing the seeded parents...');
         await seedPushQueueParents();
+        // After the seed, because the identity these stamp with is written by
+        // it - see [_createDeviceIdTriggers].
+        debugPrint('[DB_MIGRATION] onCreate: creating device-id triggers...');
+        await _createDeviceIdTriggers();
+        debugPrint('[DB_MIGRATION] onCreate: stamping the seeded rows...');
+        await stampSeededRowsWithLocalDeviceId();
         debugPrint('[DB_MIGRATION] onCreate END');
       },
       onUpgrade: (Migrator m, int from, int to) async {
@@ -4881,6 +5081,74 @@ class AppDatabase extends _$AppDatabase {
           await m.alterTable(TableMigration(accountTypes));
           await _createSyncPushQueueTriggers();
           debugPrint('[DB_MIGRATION] v16→v17: complete');
+        }
+
+        if (from < 18) {
+          // Every row this device ever wrote carries a NULL author, which is
+          // half of the order that decides a conflict missing - see
+          // [_createDeviceIdTriggers] for what that costs. The triggers fix
+          // everything written from here on; the stamp fixes the seeded
+          // catalogue, which is where equal clocks are the rule rather than a
+          // coincidence. Both are re-runnable.
+          debugPrint('[DB_MIGRATION] v17→v18: device-id triggers...');
+          // Recreated, not left alone: the update trigger's WHEN clause stopped
+          // counting `device_id` in this version - see
+          // [_pushQueueUpdateCondition].
+          await _createSyncPushQueueTriggers();
+          await _createDeviceIdTriggers();
+          debugPrint('[DB_MIGRATION] v17→v18: stamping the seeded rows...');
+          await stampSeededRowsWithLocalDeviceId();
+          // The stamp alone no longer queues anything, and the server has to
+          // hear about it or it keeps resolving these ties against a copy that
+          // has no author at all.
+          await seedPushQueueParents();
+          debugPrint('[DB_MIGRATION] v17→v18: complete');
+        }
+
+        if (from < 19) {
+          // The review queue's flag. Additive and defaulted to false, so every
+          // row already in the database reads as reviewed - which is what a row
+          // a person entered by hand actually is.
+          //
+          // The push-queue triggers enumerate the columns of the table they
+          // watch (see [_pushQueueUpdateCondition]) and were compiled before
+          // this one existed, so clearing the flag would never have been
+          // uploaded. Recreating them is re-runnable, like every other step
+          // here.
+          debugPrint('[DB_MIGRATION] v18->v19: transactions.needs_review...');
+          // Guarded like the other re-runnable steps: an upgrade interrupted
+          // after the ALTER and before the version bump would otherwise fail
+          // on the retry and leave the device stuck one version back forever.
+          if (!await _hasColumn('transactions', 'needs_review')) {
+            await m.addColumn(transactions, transactions.needsReview);
+          }
+          await _createSyncPushQueueTriggers();
+
+          // The category the SMS import files recurring payments into.
+          // Seeding only runs on a fresh install, so a database that already
+          // exists - which is every device this user has - would never get
+          // it, and every subscription would land in "other expense".
+          //
+          // Insert-or-ignore on both rows: a device that has already synced
+          // the row down from a peer that migrated first keeps what it has,
+          // and re-running the step changes nothing. The names come from the
+          // seed lists so they read in the same language as the categories
+          // seeded beside them.
+          debugPrint('[DB_MIGRATION] v18->v19: cat_subscriptions...');
+          final seedLang = _seedLanguageCode;
+          await into(styles).insert(
+            getDefaultStyles(
+              seedLang,
+            ).firstWhere((s) => s.id.value == 'style_subscriptions'),
+            mode: InsertMode.insertOrIgnore,
+          );
+          await into(categories).insert(
+            getDefaultCategories(
+              seedLang,
+            ).firstWhere((c) => c.id.value == 'cat_subscriptions'),
+            mode: InsertMode.insertOrIgnore,
+          );
+          debugPrint('[DB_MIGRATION] v18->v19: complete');
         }
 
         debugPrint('[DB_MIGRATION] onUpgrade complete: from=$from to=$to');
@@ -5613,10 +5881,9 @@ class SmsPresetsDao extends DatabaseAccessor<AppDatabase>
             ..where((t) => t.id.equals(id) & t.isDeleted.equals(false)))
           .getSingleOrNull();
 
-  Future<List<SmsPreset>> getPresetsByIds(List<String> ids) =>
-      (select(smsPresets)
-            ..where((t) => t.id.isIn(ids) & t.isDeleted.equals(false)))
-          .get();
+  Future<List<SmsPreset>> getPresetsByIds(List<String> ids) => (select(
+    smsPresets,
+  )..where((t) => t.id.isIn(ids) & t.isDeleted.equals(false))).get();
 
   /// Writes a preset and queues it for sync.
   ///
@@ -5660,8 +5927,8 @@ class SmsPresetsDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> deletePreset(String id) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final count =
-        await (update(smsPresets)..where((t) => t.id.equals(id))).write(
+    final count = await (update(smsPresets)..where((t) => t.id.equals(id)))
+        .write(
           SmsPresetsCompanion(
             isDeleted: const Value(true),
             modifiedAt: Value(now),

@@ -143,6 +143,7 @@ Future<void> init() async {
       transactionRepository: sl(),
       currencyRepository: sl(),
       accountRepository: sl(),
+      categoryRepository: sl(),
       currencyConverterService: sl(),
       settingsRepository: sl(),
     ),

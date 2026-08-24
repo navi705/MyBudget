@@ -298,6 +298,15 @@ class AppLocalizationsPt extends AppLocalizations {
   String get filterCategoriesDescription => 'Filtrar categorias por tipo (Receita/Despesa)';
 
   @override
+  String get reviewQueueTooltip => 'Fila de revisão';
+
+  @override
+  String get reviewQueueDescription => 'Mostrar apenas as transações que a importação não conseguiu classificar com certeza';
+
+  @override
+  String get needsReviewBadgeLabel => 'Requer revisão';
+
+  @override
   String get selectDateTooltip => 'Selecionar Data';
 
   @override
@@ -863,6 +872,9 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get transferLabel => 'Transferência';
+
+  @override
+  String get transactionModeLabel => 'Transação';
 
   @override
   String get uncategorizedLabel => 'Sem Categoria';
@@ -1785,6 +1797,9 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get hkActionFilterAction => 'Filtrar';
+
+  @override
+  String get hkActionReviewQueue => 'Fila de revisão';
 
   @override
   String get hkActionDashboardCurrency => 'Painel: Moeda';

@@ -46,6 +46,65 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
     on<ResetImport>(_onResetImport);
   }
 
+  /// Everything a row says, so that two rows only count as the same row when
+  /// they really are.
+  ///
+  /// Deduplication used to key on date, amount, from and to alone. That is not
+  /// what makes a transaction distinct: the same amount can leave the same
+  /// account for the same category twice in one day - two fares, two coffees -
+  /// and the two rows differ only in their note, if at all. It also ignored the
+  /// currency, so 100 USD and 100 EUR spent on the same day collapsed into one.
+  /// Every row dropped that way is money the import loses without saying so.
+  ///
+  /// The unit separator joins the fields because a note can hold a comma, a
+  /// dash or a newline, but not a control character the CSV never carries.
+  static String _recordKey(OneMoneyRecord r) => [
+    r.date.toIso8601String(),
+    r.type,
+    r.from,
+    r.to,
+    r.amount,
+    r.currency,
+    r.amount2 ?? '',
+    r.currency2 ?? '',
+    r.notes,
+  ].join('');
+
+  /// The sign the app stores, whichever sign the file wrote.
+  ///
+  /// A OneMoney export writes an expense as a negative number, and the import
+  /// negated it again: every expense arrived as income, so a statement full of
+  /// spending put money into the account it was spent from and the balance the
+  /// same file states was nowhere near the one the app computed. Other exports
+  /// write the same row positive, so the sign in the file is not something to
+  /// trust in either direction - the row's type is what says which way the
+  /// money went.
+  /// The currency code a row is written under.
+  ///
+  /// The mapping step stores a decision, not always a code: choosing to make
+  /// a currency out of the one the file names records the string 'new'. Read
+  /// back as though it were a code, that decision became the row's currency -
+  /// transactions were stored under a currency called NEW, and the account
+  /// holding them fell back to whichever currency happened to be first in the
+  /// list. A row the user asked to keep as its own currency keeps the code the
+  /// file gave it, which is the code the import then creates.
+  String _mappedCurrency(String fileCurrency) {
+    final decision = state.currencyMappings[fileCurrency.trim().toLowerCase()];
+    return decision == null || decision == 'new' ? fileCurrency : decision;
+  }
+
+  /// What a transaction is described as: the note on the row when it carries
+  /// one, [fallback] when it does not.
+  static String _describe(String notes, String fallback) {
+    final note = notes.trim();
+    final description = note.isEmpty ? fallback : note;
+    return description.length > 100
+        ? description.substring(0, 100)
+        : description;
+  }
+  static double _signedAmount(String type, double amount) =>
+      type.trim().toLowerCase() == 'expense' ? -amount.abs() : amount.abs();
+
   String _getCategoryKey(String name, String type) {
     return '${name.trim().toLowerCase()}_${type.trim().toLowerCase()}';
   }
@@ -63,17 +122,37 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
     emit(const ImportState(step: ImportStep.parsing));
 
     try {
-      List<OneMoneyRecord> allRecords = [];
-      List<AccountBalanceRecord> allBalances = [];
+      final allRecords = <OneMoneyRecord>[];
+      final allBalances = <AccountBalanceRecord>[];
+      // How many times a row appears in the single file that repeats it most.
+      // See [_recordKey] for why the count, and not just the key, is what the
+      // deduplication is allowed to work from.
+      final mostInOneFile = <String, int>{};
       for (final file in event.files) {
         final parsedData = await ImportDataUtils.parseOneMoneyCsv(file);
+        final inThisFile = <String, int>{};
+        for (final record in parsedData.records) {
+          final key = _recordKey(record);
+          inThisFile[key] = (inThisFile[key] ?? 0) + 1;
+        }
+        inThisFile.forEach((key, count) {
+          if (count > (mostInOneFile[key] ?? 0)) mostInOneFile[key] = count;
+        });
         allRecords.addAll(parsedData.records);
         allBalances.addAll(parsedData.accountBalances);
       }
 
-      final uniqueRecords = {
-        for (var r in allRecords) '${r.date}-${r.amount}-${r.from}-${r.to}': r,
-      }.values.toList();
+      // Rows are kept in the order they were read, so the import still reads
+      // like the statement it came from.
+      final uniqueRecords = <OneMoneyRecord>[];
+      final kept = <String, int>{};
+      for (final record in allRecords) {
+        final key = _recordKey(record);
+        final already = kept[key] ?? 0;
+        if (already >= (mostInOneFile[key] ?? 0)) continue;
+        kept[key] = already + 1;
+        uniqueRecords.add(record);
+      }
 
       final uniqueBalances = <String, AccountBalanceRecord>{};
       for (var b in allBalances) {
@@ -299,21 +378,32 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
     } else if (state.step == ImportStep.resolvingDuplicates) {
       final existingTransactions = await _transactionRepository
           .getTransactionsWithFilters(limit: 100000);
+      // Day, amount and currency: a transaction already in the database is
+      // only a candidate for the same transaction when all three agree. The
+      // currency was missing from this, so 100 EUR already recorded made a
+      // 100 USD row from the file look like a repeat of it, and the import
+      // stopped to ask about a row nobody had entered twice.
+      String signatureOf(DateTime date, double amount, String currency) =>
+          '${date.toIso8601String().substring(0, 10)}'
+          '-${amount.toStringAsFixed(2)}'
+          '-${currency.trim().toUpperCase()}';
+
       final Set<String> existingTransactionSignatures = existingTransactions
-          .map(
-            (t) =>
-                '${t.date.toIso8601String().substring(0, 10)}-${t.amount.toStringAsFixed(2)}',
-          )
+          .map((t) => signatureOf(t.date, t.amount, t.currencyCode))
           .toSet();
 
       final potentialDuplicates = <OneMoneyRecord>[];
 
       for (final record in state.parsedRecords) {
-        final recordAmount = record.type == 'Expense'
-            ? -record.amount
-            : record.amount;
-        final signature =
-            '${record.date.toIso8601String().substring(0, 10)}-${recordAmount.toStringAsFixed(2)}';
+        final recordAmount = _signedAmount(record.type, record.amount);
+        // The code the row will be written under, which is what the database
+        // already holds for a row imported from an earlier copy of this file.
+        final recordCurrency = _mappedCurrency(record.currency);
+        final signature = signatureOf(
+          record.date,
+          recordAmount,
+          recordCurrency,
+        );
 
         if (existingTransactionSignatures.contains(signature)) {
           potentialDuplicates.add(record);
@@ -404,9 +494,7 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
         accountRecords.sort((a, b) => a.date.compareTo(b.date));
         final earliestRecord = accountRecords.first;
 
-        final currencyCode =
-            state.currencyMappings[earliestRecord.currency.toLowerCase()] ??
-            earliestRecord.currency;
+        final currencyCode = _mappedCurrency(earliestRecord.currency);
         final currency = allCurrencies.firstWhere(
           (c) => c.code.toLowerCase() == currencyCode.toLowerCase(),
           orElse: () => allCurrencies.first,
@@ -561,21 +649,36 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
             // Generate IDs for both transactions to link them
             final debitTransactionId = uuid.v4();
             final creditTransactionId = uuid.v4();
+            // The note on the row is the only part of it the user wrote.
+            // Both legs were described in English by the account they
+            // touched instead, and whatever the row said was dropped -
+            // the one transfer a person would recognise their own words
+            // on came back as 'Transfer to Savings'.
+            final debitDescription = _describe(
+              record.notes,
+              'Transfer to ${record.to}',
+            );
+            final creditDescription = _describe(
+              record.notes,
+              'Transfer from ${record.from}',
+            );
 
             transactionsToInsert.add(
               Transaction(
                 id: debitTransactionId,
                 date: record.date,
-                description: 'Transfer to ${record.to}',
-                amount: -record.amount,
+                description: debitDescription,
+                amount: -record.amount.abs(),
                 accountId: fromAccountId,
                 categoryId: transferCategory.id!,
-                currencyCode: record.currency.toUpperCase(),
+                currencyCode: _mappedCurrency(
+                  record.currency,
+                ).toUpperCase(),
                 linkedTransactionId:
                     creditTransactionId, // Link to credit transaction
               ),
             );
-            final creditAmount = record.amount2 ?? record.amount;
+            final creditAmount = (record.amount2 ?? record.amount).abs();
             final creditCurrency = record.currency2?.isNotEmpty == true
                 ? record.currency2!
                 : record.currency;
@@ -583,11 +686,13 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
               Transaction(
                 id: creditTransactionId,
                 date: record.date,
-                description: 'Transfer from ${record.from}',
+                description: creditDescription,
                 amount: creditAmount,
                 accountId: toAccountId,
                 categoryId: transferCategory.id!,
-                currencyCode: creditCurrency.toUpperCase(),
+                currencyCode: _mappedCurrency(
+                  creditCurrency,
+                ).toUpperCase(),
                 linkedTransactionId:
                     debitTransactionId, // Link to debit transaction
               ),
@@ -603,29 +708,17 @@ class ImportBloc extends Bloc<ImportEvent, ImportState> {
           final categoryId = categoryIdMap[categoryKey];
 
           if (accountId != null && categoryId != null) {
-            var description = record.notes.isNotEmpty
-                ? record.notes
-                : record.to;
-            if (description.length > 100) {
-              description = description.substring(0, 100);
-            }
+            final description = _describe(record.notes, record.to);
 
-            final currencyCode =
-                (state.currencyMappings[record.currency.toLowerCase()] ??
-                        record.currency)
-                    .toUpperCase();
-
-            debugPrint(
-              'DEBUG: currency=${record.currency}, mapped=${state.currencyMappings[record.currency.toLowerCase()]}, final=$currencyCode',
-            );
+            final currencyCode = _mappedCurrency(
+              record.currency,
+            ).toUpperCase();
 
             transactionsToInsert.add(
               Transaction(
                 date: record.date,
                 description: description,
-                amount: record.type.toLowerCase() == 'expense'
-                    ? -record.amount
-                    : record.amount,
+                amount: _signedAmount(record.type, record.amount),
                 accountId: accountId,
                 categoryId:
                     categoryId, // Uses correct ID for that specific Type

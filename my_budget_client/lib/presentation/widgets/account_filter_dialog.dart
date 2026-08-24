@@ -360,20 +360,26 @@ class _AccountFilterDialogState extends State<AccountFilterDialog> {
                       ),
                     ),
                     onTap: () async {
-                      final List<String>? result = await showDialog(
+                      // The shared picker: starred codes first, then the ones
+                      // this person works in. The other currency question on
+                      // this same dialog already asks it that way.
+                      final result = await showDialog<List<Currency>>(
                         context: context,
-                        builder: (_) => MultiSelectDialog<Currency, String>(
-                          items: state.currencies,
-                          selectedIds: _selectedCurrencyIds,
-                          itemBuilder: (item) => Text(item.code),
-                          idGetter: (item) => item.code,
-                          stringGetter: (item) => '${item.name} ${item.code}',
+                        builder: (_) => CurrencySelectionDialog(
+                          allCurrencies: state.currencies,
+                          selectedCurrencies: state.currencies
+                              .where(
+                                (c) => _selectedCurrencyIds.contains(c.code),
+                              )
+                              .toList(),
                         ),
                       );
 
                       if (result != null) {
                         setState(() {
-                          _selectedCurrencyIds = result;
+                          _selectedCurrencyIds = result
+                              .map((c) => c.code)
+                              .toList();
                         });
                       }
                     },

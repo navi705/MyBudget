@@ -14,6 +14,7 @@ import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 import 'package:my_budget_client/presentation/blocs/import/import_bloc.dart';
+import 'package:my_budget_client/presentation/widgets/import_mapping_dialog.dart';
 import 'package:my_budget_client/presentation/widgets/scaffold_with_escape_back.dart';
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
@@ -351,12 +352,13 @@ class _ImportViewState extends State<_ImportView> {
                               if (!context.mounted) return;
                               final selectedId = await showDialog<String>(
                                 context: context,
-                                builder: (_) => _MappingDialog<Account>(
+                                builder: (_) => ImportMappingDialog<Account>(
                                   title: context.l10n.importMapAccountTitle(
                                     accountName,
                                   ),
                                   items: existingAccounts,
                                   itemNameProvider: (account) => account.name,
+                                  itemIdProvider: (account) => account.id,
                                   itemBuilder: (account) {
                                     final stylesState = context
                                         .read<StylesBloc>()
@@ -485,12 +487,13 @@ class _ImportViewState extends State<_ImportView> {
                               if (!context.mounted) return;
                               final selectedId = await showDialog<String>(
                                 context: context,
-                                builder: (_) => _MappingDialog<Category>(
+                                builder: (_) => ImportMappingDialog<Category>(
                                   title: context.l10n.importMapCategoryTitle(
                                     categoryName,
                                   ),
                                   items: existingCategories,
                                   itemNameProvider: (category) => category.name,
+                                  itemIdProvider: (category) => category.id,
                                   itemBuilder: (category) {
                                     final stylesState = context
                                         .read<StylesBloc>()
@@ -619,12 +622,13 @@ class _ImportViewState extends State<_ImportView> {
                               if (!context.mounted) return;
                               final selectedId = await showDialog<String>(
                                 context: context,
-                                builder: (_) => _MappingDialog<Currency>(
+                                builder: (_) => ImportMappingDialog<Currency>(
                                   title: context.l10n.importMapCurrencyTitle(
                                     currencyName,
                                   ),
                                   items: existingCurrencies,
                                   itemNameProvider: (currency) => currency.name,
+                                  itemIdProvider: (currency) => currency.code,
                                   itemBuilder: (currency) =>
                                       Text(currency.name),
                                 ),
@@ -757,8 +761,14 @@ class _ImportViewState extends State<_ImportView> {
                       else
                         Center(
                           child: Text(
+                            // The decision read back in the language the
+                            // buttons offering it were written in: it used to
+                            // come back as the raw 'SKIP' or 'IMPORT' the
+                            // event carries, whatever the app was set to.
                             context.l10n.importDecisionLabel(
-                              resolution.toUpperCase(),
+                              resolution == 'skip'
+                                  ? context.l10n.importSkip
+                                  : context.l10n.importImportAnyway,
                             ),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
@@ -873,101 +883,6 @@ class _ImportViewState extends State<_ImportView> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _MappingDialog<T> extends StatefulWidget {
-  final String title;
-  final List<T> items;
-  final Widget Function(T) itemBuilder;
-  final String Function(T) itemNameProvider;
-
-  const _MappingDialog({
-    required this.title,
-    required this.items,
-    required this.itemBuilder,
-    required this.itemNameProvider,
-  });
-
-  @override
-  State<_MappingDialog<T>> createState() => _MappingDialogState<T>();
-}
-
-class _MappingDialogState<T> extends State<_MappingDialog<T>> {
-  late TextEditingController _searchController;
-  late List<T> _filteredItems;
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController = TextEditingController();
-    _filteredItems = widget.items;
-    _searchController.addListener(_filterItems);
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _filterItems() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      _filteredItems = widget.items.where((item) {
-        return widget.itemNameProvider(item).toLowerCase().contains(query);
-      }).toList();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                labelText: context.l10n.searchHint,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: _filteredItems.length,
-                itemBuilder: (context, index) {
-                  final item = _filteredItems[index];
-                  return ListTile(
-                    title: widget.itemBuilder(item),
-                    onTap: () {
-                      Navigator.of(context).pop((item as dynamic).id);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(context.l10n.cancelButton),
-        ),
-      ],
     );
   }
 }

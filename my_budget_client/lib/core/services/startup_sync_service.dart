@@ -159,12 +159,66 @@ class StartupSyncService {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
+  /// The built-in providers this service knows how to fetch.
+  ///
+  /// An id outside this set fetches nothing. It used to be stamped
+  /// `lastFetchAt` anyway, and the daily guard in [executeStartupSync] then
+  /// read that stamp as "already fetched today", so a provider the app could
+  /// not fetch looked to every later launch like one that had already
+  /// succeeded.
+  @visibleForTesting
+  static const Set<String> builtInApiIds = {
+    'exchange_rates',
+    'inflation',
+    'steam_inventory',
+    'assets',
+  };
+
+  /// The Steam inventory this device is set up to read, or null when it is not
+  /// set up to read one.
+  ///
+  /// Null covers a missing id, a blank one and one that is not a number - all
+  /// three mean there is nothing to ask Steam for, and none of them is a
+  /// failure the user can be told about from here. What matters is that they
+  /// are not mistaken for a completed fetch: the id can be filled in an hour
+  /// later, and a stamp written now would hold the first real fetch until the
+  /// next day.
+  @visibleForTesting
+  static ({int accountId, GameApiSteam game})? steamTargetFor(
+    String? steamId,
+    String? steamGame,
+  ) {
+    final trimmed = steamId?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    final accountId = int.tryParse(trimmed);
+    if (accountId == null) return null;
+    final game = steamGame == null
+        ? GameApiSteam.cs2
+        : GameApiSteam.values.firstWhere(
+            (g) => g.name == steamGame,
+            orElse: () => GameApiSteam.cs2,
+          );
+    return (accountId: accountId, game: game);
+  }
+
+  /// Runs [id]'s fetch, stamping `lastFetchAt` only if one actually ran.
+  ///
+  /// Only a fetch that ran earns a `lastFetchAt` stamp. The stamp is what the
+  /// daily guard skips on, so writing it for a branch that fetched nothing -
+  /// an unknown id, or Steam with no account configured - suppressed the next
+  /// launch's attempt as well, and every launch that day after it.
   Future<void> _fetchBuiltInApi(String id) async {
     debugPrint('[DIAG][StartupSync] _fetchBuiltInApi called with id="$id"');
+    if (!builtInApiIds.contains(id)) {
+      debugPrint('[StartupSyncService] Unknown built-in API ID: $id');
+      return;
+    }
+    var fetched = false;
     try {
       switch (id) {
         case 'exchange_rates':
           await _exchangeRateApiService.fetchRatesForDate(DateTime.now());
+          fetched = true;
           break;
         case 'inflation':
           final countrySetting = await _settingsRepository.getSetting(
@@ -183,6 +237,7 @@ class StartupSyncService {
             countryCode,
             range,
           );
+          fetched = true;
           break;
         case 'steam_inventory':
         case 'assets':
@@ -199,34 +254,26 @@ class StartupSyncService {
             '[DIAG][StartupSync] steam_id setting: ${steamIdSetting?.value}, steam_game setting: ${steamGameSetting?.value}',
           );
 
-          if (steamIdSetting != null && steamIdSetting.value.isNotEmpty) {
-            final accountId = int.tryParse(steamIdSetting.value);
-            if (accountId != null) {
-              GameApiSteam game = GameApiSteam.cs2;
-              if (steamGameSetting != null) {
-                game = GameApiSteam.values.firstWhere(
-                  (g) => g.name == steamGameSetting.value,
-                  orElse: () => GameApiSteam.cs2,
-                );
-              }
-
-              debugPrint(
-                '[StartupSyncService] Fetching Steam items for $game...',
-              );
-              await _steamInventoryApiService.fetchSteamInventoryValue(
-                accountId,
-                game,
-              );
-            }
+          final target = steamTargetFor(
+            steamIdSetting?.value,
+            steamGameSetting?.value,
+          );
+          if (target != null) {
+            debugPrint(
+              '[StartupSyncService] Fetching Steam items for ${target.game}...',
+            );
+            await _steamInventoryApiService.fetchSteamInventoryValue(
+              target.accountId,
+              target.game,
+            );
+            fetched = true;
           }
           break;
-        default:
-          debugPrint(
-            '[DIAG][StartupSync] UNHANDLED built-in API ID: "$id" — no case matched, data will NOT be fetched!',
-          );
-          debugPrint('[StartupSyncService] Unknown built-in API ID: $id');
       }
       // Update lastFetchAt after successful fetch
+      if (!fetched) {
+        return;
+      }
       final setting = await _apiSettingsRepository.getSettingById(id);
       if (setting != null) {
         await _apiSettingsRepository.saveSetting(

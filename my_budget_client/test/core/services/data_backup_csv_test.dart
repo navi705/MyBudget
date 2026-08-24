@@ -513,6 +513,34 @@ void main() {
       expect(descriptions.contains('Good one'), isFalse);
       expect(descriptions.contains('Good two'), isFalse);
     });
+
+    // `double.tryParse` reads 'NaN', 'Infinity' and '-Infinity' happily, so
+    // the null check that used to guard this column let all three through. A
+    // fiat row then took `toMinorUnits` down in the middle of the import
+    // transaction, and a non-fiat row was stored verbatim, where it turned
+    // every total that ever summed it into NaN. Every spelling the parser
+    // accepts is refused here, the same way plain text is.
+    for (final spelling in const ['NaN', 'nan', 'Infinity', '-Infinity']) {
+      test('"$spelling" where the amount belongs', () async {
+        await expectRefused(
+          '$header\r\n'
+          '2025-03-30 12:00:00,$spelling,EUR,Lunch,Продукты 🍎,Кошелёк 💶\r\n',
+          allOf(contains('line 2'), contains('amount'), contains(spelling)),
+        );
+      });
+    }
+
+    test('the same row imports once its amount is a real number', () async {
+      await db.delete(db.transactions).go();
+      await importer.importContent(
+        '$header\r\n'
+        '2025-03-30 12:00:00,1.5,EUR,Lunch,Продукты 🍎,Кошелёк 💶\r\n',
+        isCsv: true,
+      );
+      final imported = await db.transactionsDao.getAllTransactions();
+      expect(imported.length, 1);
+      expect(imported.single.amount, 1.5);
+    });
   });
 
   group('tolerated CSV variations', () {

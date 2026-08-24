@@ -120,8 +120,19 @@ final class RawAmount extends Amount {
 /// rounding half-away-from-zero. Used both for user input and for migrating the
 /// legacy stored doubles. `round()` is what removes the float representation
 /// error: `toMinorUnits(0.1, 2) + toMinorUnits(0.2, 2) == 30`, exactly.
-int toMinorUnits(double major, int decimals) =>
-    (major * CurrencyPrecision.scaleFor(decimals)).round();
+///
+/// Throws on a non-finite [major]. `double.round()` throws for NaN and the
+/// infinities on its own, but as an `UnsupportedError` with no value in it,
+/// raised from inside whatever transaction was writing - a CSV import failed
+/// whole with a message that named neither the row nor the number. There is no
+/// safe silent answer here: any integer this returned for NaN would be money
+/// the app invented.
+int toMinorUnits(double major, int decimals) {
+  if (!major.isFinite) {
+    throw ArgumentError.value(major, 'major', 'not a finite amount');
+  }
+  return (major * CurrencyPrecision.scaleFor(decimals)).round();
+}
 
 /// Parse a decimal string ("123.45", "0,30", "-7") straight into minor units
 /// WITHOUT going through a binary [double], so no representation error can creep

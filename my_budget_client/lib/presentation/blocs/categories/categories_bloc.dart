@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:collection/collection.dart';
+import 'package:my_budget_client/core/utils/calendar_day.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
@@ -228,7 +229,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
     DateTime newDate;
     switch (currentState.dateStep) {
       case DateStep.day:
-        newDate = currentState.activeDate.add(Duration(days: event.direction));
+        newDate = addDays(currentState.activeDate, event.direction);
         break;
       case DateStep.month:
         newDate = DateTime(

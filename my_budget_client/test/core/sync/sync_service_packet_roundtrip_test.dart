@@ -237,7 +237,7 @@ void main() {
   });
 
   test(
-    'style round trips every field, including enum and null deviceId',
+    'style round trips every field, including its enum and its author',
     () async {
       final onA = await dbA.stylesDao.getStyleById('style1');
       final onB = await dbB.stylesDao.getStyleById('style1');
@@ -247,7 +247,11 @@ void main() {
       expect(onB.colorHex, '#FF00FF');
       expect(onB.iconType, IconType.custom);
       expect(onB.isDeleted, isFalse);
-      expect(onB.deviceId, null);
+      // The author travels with the row: A stamped it on the way in, and B
+      // has to keep that stamp rather than overwrite it with its own, or the
+      // two ends of a later tie would name different devices for the same
+      // version and disagree about who won.
+      expect(onB.deviceId, 'device-a');
       expect(onB.modifiedAt, onA!.modifiedAt);
     },
   );

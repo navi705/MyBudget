@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_budget_client/core/utils/calendar_day.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/theme/app_spacing.dart';
@@ -50,7 +51,7 @@ class AssetTabAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     DateTime newDate = state.activeDate;
     if (state.dateStep == DateStep.day) {
-      newDate = newDate.add(Duration(days: i));
+      newDate = addDays(newDate, i);
     } else if (state.dateStep == DateStep.month) {
       newDate = DateTime(newDate.year, newDate.month + i, newDate.day);
     } else if (state.dateStep == DateStep.year) {

@@ -4,6 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
+import 'package:my_budget_client/core/utils/calendar_day.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart'; // Added
 import 'package:my_budget_client/core/utils/currency_converter.dart'; // Added
 import 'package:my_budget_client/core/utils/performance_logger.dart';
@@ -941,9 +942,13 @@ _DashboardComputeResults _calculateDashboardData(
 
     // Pre-calculate Daily Incomes/Expenses for the WHOLE period
     // (Independent of the net-worth walk-back which handles balances)
+    // Both ends compared as days. Widening them by 24 hours to make the
+    // comparison inclusive drifted by an hour across a clock change, which on
+    // the shorter of the two days pulled the day before the range into it.
+    final rangeStartDay = startOfDay(params.dateRangeStart);
+    final rangeEndDay = startOfDay(params.dateRangeEnd);
     final isInRange =
-        date.isAfter(params.dateRangeStart.subtract(const Duration(days: 1))) &&
-        date.isBefore(params.dateRangeEnd.add(const Duration(days: 1)));
+        !date.isBefore(rangeStartDay) && !date.isAfter(rangeEndDay);
 
     // if (isInRange) debugPrint('DEBUG: Incl Tx ${transaction.date} $convertedAmount');
 
@@ -1143,7 +1148,7 @@ _DashboardComputeResults _calculateDashboardData(
         iterDate.month == params.selectedDay.month &&
         iterDate.day == params.selectedDay.day;
     final isDateRangeEnd = iterDate.isAtSameMomentAs(dateRangeEndNormalized);
-    final isLastDayOfMonth = iterDate.add(const Duration(days: 1)).day == 1;
+    final isLastDayOfMonth = nextDay(iterDate).day == 1;
     final shouldStoreChartPoint =
         params.dateStep != DateStep.year ||
         isLastDayOfMonth ||
@@ -1211,7 +1216,15 @@ _DashboardComputeResults _calculateDashboardData(
     }
 
     prevIterDate = iterDate; // Track for next iteration's skip optimization
-    iterDate = iterDate.subtract(const Duration(days: 1));
+    // Not `subtract(Duration(days: 1))`: that subtracts 24 hours, and two days
+    // a year are 23 or 25 hours long wherever the clocks move. One step across
+    // either boundary left `iterDate` an hour off midnight and it never came
+    // back, which is fatal here rather than untidy: `transactionsByDate` and
+    // `dailyNetWorth` are both keyed on the midnight of a day, so from the
+    // boundary backwards every lookup missed. The walk-back stopped undoing
+    // transactions and reported every earlier day at the balance held on the
+    // day the clocks changed.
+    iterDate = previousDay(iterDate);
     daysIterated++;
   }
   debugPrint(

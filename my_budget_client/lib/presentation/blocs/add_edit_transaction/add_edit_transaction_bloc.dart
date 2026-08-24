@@ -78,6 +78,7 @@ class AddEditTransactionBloc
     on<AddEditTransactionDeletePreset>(_onDeletePreset); // Added
     on<AddEditTransactionToggleRateDirection>(_onToggleRateDirection); // Added
     on<AddEditTransactionSwapAccounts>(_onSwapAccounts); // Added
+    on<AddEditTransactionTransferModeChanged>(_onTransferModeChanged);
 
     on<_AddEditTransactionAccountsUpdated>(_onAccountsUpdated);
     on<_AddEditTransactionCategoriesUpdated>(_onCategoriesUpdated);
@@ -351,58 +352,8 @@ class AddEditTransactionBloc
         await _fetchAssetDetails(emit, selectedAccount!);
       }
 
-      // Handle Transfer Mode initialization
       if (event.isTransfer) {
-        // Opening the form does not depend on the category existing. When it
-        // cannot be made the form still comes up and saving is what says so -
-        // the alternative was the screen never appearing at all, with the
-        // failure landing in the middle of initialisation where nothing puts
-        // it in front of the user.
-        String? transferId;
-        try {
-          transferId = await _getOrCreateTransferCategory();
-        } catch (e) {
-          debugPrint('AddEditTransactionBloc: no transfer category yet: $e');
-        }
-
-        // Force selection of system transfer category
-        // Fetch it specifically since it might be hidden from standard list
-        Category? transferCat = transferId == null
-            ? null
-            : categories.firstWhereOrNull((c) => c.id == transferId);
-        if (transferCat == null && transferId != null) {
-          final allCats = await _categoryRepository.getCategories(
-            includeSystem: true,
-          );
-          transferCat = allCats.firstWhereOrNull((c) => c.id == transferId);
-        }
-
-        emit(state.copyWith(selectedCategory: transferCat));
-
-        // The destination is only guessed when there is nothing to guess
-        // between.
-        //
-        // Filling it with "some other account" was how the old form arrived
-        // pre-filled, and with more than two accounts the guess was arbitrary:
-        // the field looked answered, so it read as a decision the user had
-        // made, and a transfer to the wrong account is invisible afterwards -
-        // both legs balance, they are just in the wrong pair of accounts.
-        // Left empty, the field's own validator asks for it before the form
-        // can be saved.
-        //
-        // Asset accounts are excluded for the same reason the To picker
-        // excludes them: they hold a quantity, and a sum of money cannot
-        // arrive in one.
-        if (state.linkedAccount == null) {
-          final destinations = accounts
-              .where(
-                (a) => a.assetId == null && a.id != selectedAccount?.id,
-              )
-              .toList();
-          if (destinations.length == 1) {
-            emit(state.copyWith(linkedAccount: destinations.first));
-          }
-        }
+        await _applyTransferSetup(emit);
       }
 
       // Final check: If we are now in a foreign currency state (e.g. Transfer determined), fetch rates
@@ -512,13 +463,35 @@ class AddEditTransactionBloc
     AddEditTransactionAccountChanged event,
     Emitter<AddEditTransactionState> emit,
   ) async {
-    var newState = state.copyWith(selectedAccount: event.account);
+    // The user answered the question, so the form stops guessing: picking a
+    // category later suggests an account, and a suggestion that overwrites
+    // this pick would be silently moving money to another account.
+    await _applyAccountChange(event.account, emit, chosenByUser: true);
+  }
+
+  /// Everything selecting an account entails - the currency it locks in transfer
+  /// mode, the destination it can invalidate, the asset details and the rates.
+  ///
+  /// Shared by the picker and by the suggestion a category makes, so an account
+  /// that arrives either way leaves the form in the same state. The suggestion
+  /// used to be the picker's [AddEditTransactionAccountChanged] event, which
+  /// marked the account as the user's own choice and stopped later categories
+  /// from suggesting anything.
+  Future<void> _applyAccountChange(
+    Account account,
+    Emitter<AddEditTransactionState> emit, {
+    required bool chosenByUser,
+  }) async {
+    var newState = state.copyWith(
+      selectedAccount: account,
+      accountChosenByUser: chosenByUser ? true : null,
+    );
 
     // FIX: If in Transfer Mode, the 'Currency' field must be locked to the 'From Account'
     // So if the account changes, we MUST update the selectedCurrency to match.
     if (newState.isTransferMode) {
       final accCurrency = state.currencies.firstWhereOrNull(
-        (c) => c.code == event.account.currencyCode,
+        (c) => c.code == account.currencyCode,
       );
       if (accCurrency != null) {
         newState = newState.copyWith(selectedCurrency: accCurrency);
@@ -527,14 +500,14 @@ class AddEditTransactionBloc
 
     // FIX: Clear Linked Account if it becomes invalid (same as Selected)
     // This happens if user switches From Account to the same account as current To Account
-    if (event.account.id == newState.linkedAccount?.id) {
+    if (account.id == newState.linkedAccount?.id) {
       newState = newState.copyWith(clearLinkedAccount: true);
     }
 
     emit(newState);
 
-    if (event.account.assetId != null) {
-      await _fetchAssetDetails(emit, event.account);
+    if (account.assetId != null) {
+      await _fetchAssetDetails(emit, account);
     }
 
     // Refresh after potential changes in _fetchAssetDetails
@@ -550,11 +523,193 @@ class AddEditTransactionBloc
     }
   }
 
-  void _onCategoryChanged(
+  /// Puts the form into transfer mode: the system category, and a destination
+  /// when there is only one it could be.
+  ///
+  /// Shared by the two ways in - a request that already said "transfer"
+  /// ([AddEditTransactionLoad.isTransfer], from the accounts screen) and the
+  /// switch on the form itself ([AddEditTransactionTransferModeChanged]) - so
+  /// a transfer started from either place is the same transfer.
+  Future<void> _applyTransferSetup(
+    Emitter<AddEditTransactionState> emit,
+  ) async {
+    // Opening the form does not depend on the category existing. When it
+    // cannot be made the form still comes up and saving is what says so -
+    // the alternative was the screen never appearing at all, with the
+    // failure landing in the middle of initialisation where nothing puts
+    // it in front of the user.
+    String? transferId;
+    try {
+      transferId = await _getOrCreateTransferCategory();
+    } catch (e) {
+      debugPrint('AddEditTransactionBloc: no transfer category yet: $e');
+    }
+
+    // Force selection of system transfer category.
+    // Fetched specifically, since it is hidden from the standard list.
+    Category? transferCat = transferId == null
+        ? null
+        : state.categories.firstWhereOrNull((c) => c.id == transferId);
+    if (transferCat == null && transferId != null) {
+      final allCats = await _categoryRepository.getCategories(
+        includeSystem: true,
+      );
+      transferCat = allCats.firstWhereOrNull((c) => c.id == transferId);
+    }
+
+    emit(state.copyWith(selectedCategory: transferCat));
+
+    // The destination is only guessed when there is nothing to guess
+    // between.
+    //
+    // Filling it with "some other account" was how the old form arrived
+    // pre-filled, and with more than two accounts the guess was arbitrary:
+    // the field looked answered, so it read as a decision the user had
+    // made, and a transfer to the wrong account is invisible afterwards -
+    // both legs balance, they are just in the wrong pair of accounts.
+    // Left empty, the field's own validator asks for it before the form
+    // can be saved.
+    //
+    // Asset accounts are excluded for the same reason the To picker
+    // excludes them: they hold a quantity, and a sum of money cannot
+    // arrive in one.
+    if (state.linkedAccount == null) {
+      final destinations = state.accounts
+          .where((a) => a.assetId == null && a.id != state.selectedAccount?.id)
+          .toList();
+      if (destinations.length == 1) {
+        emit(state.copyWith(linkedAccount: destinations.first));
+      }
+    }
+  }
+
+  /// The form's own Transaction/Transfer switch.
+  ///
+  /// A transfer used to be reachable from exactly one gesture in the whole app
+  /// - the accounts screen's per-row context menu - and the form had no way to
+  /// become one, so moving money between accounts meant leaving whatever
+  /// screen the user was on, finding the source row and opening its menu. The
+  /// mode is a property of the entry being written, so it belongs on the form
+  /// that writes it; the accounts-screen route still works and now arrives at
+  /// the same state this produces.
+  ///
+  /// An existing entry is not converted in place: a saved transfer is a pair of
+  /// linked rows and a saved transaction is one row, so the switch is offered
+  /// only while writing a new one.
+  Future<void> _onTransferModeChanged(
+    AddEditTransactionTransferModeChanged event,
+    Emitter<AddEditTransactionState> emit,
+  ) async {
+    if (state.isEditing || event.isTransfer == state.isTransferMode) return;
+
+    if (!event.isTransfer) {
+      // The transfer category is a system one and never appears in a picker,
+      // so leaving the mode has to hand the form a category it can show - and
+      // saving requires one.
+      final ordinary = state.categories.firstWhereOrNull(
+        (c) => c.type != CategoryType.transfer,
+      );
+      emit(
+        state.copyWith(
+          isTransferMode: false,
+          clearLinkedAccount: true,
+          selectedCategory: ordinary,
+          clearSelectedCategory: ordinary == null,
+          // The rate belongs to the pair of accounts that no longer exists.
+          manualExchangeRate: '',
+          manualRateIsHistorical: false,
+          clearSelectedExchangeRate: true,
+        ),
+      );
+      return;
+    }
+
+    // Asset accounts hold a quantity, not money, and both pickers on the
+    // transfer form exclude them; staying on one would leave the form in
+    // transfer mode with a From account it refuses to offer.
+    final from = state.selectedAccount?.assetId == null
+        ? state.selectedAccount
+        : state.accounts.firstWhereOrNull((a) => a.assetId == null);
+    // The currency field is locked to the From account for a transfer, the
+    // same way [_onAccountChanged] keeps it locked when that account changes.
+    final fromCurrency = state.currencies.firstWhereOrNull(
+      (c) => c.code == from?.currencyCode,
+    );
+
+    emit(
+      state.copyWith(
+        isTransferMode: true,
+        selectedAccount: from,
+        selectedCurrency: fromCurrency,
+        clearLinkedAccount: true,
+        manualExchangeRate: '',
+        manualRateIsHistorical: false,
+        clearSelectedExchangeRate: true,
+      ),
+    );
+
+    await _applyTransferSetup(emit);
+
+    if (state.isForeignCurrency) {
+      await _fetchRates(
+        emit,
+        state.selectedCurrency,
+        state.selectedAccount,
+        state.date,
+        forceSync: true,
+      );
+    }
+  }
+
+  /// How far back the account suggestion looks. A month is one billing cycle:
+  /// long enough that a category used weekly has a clear winner, short enough
+  /// that an account the user stopped using stops being suggested.
+  static const Duration _accountSuggestionWindow = Duration(days: 30);
+
+  Future<void> _onCategoryChanged(
     AddEditTransactionCategoryChanged event,
     Emitter<AddEditTransactionState> emit,
-  ) {
+  ) async {
     emit(state.copyWith(selectedCategory: event.category));
+
+    // A category is nearly always paid from the same account, so picking one
+    // answers the account question too. Only ever a suggestion:
+    //  - editing: the row already has the account it was written on, and
+    //    changing a saved transaction's account moves two balances;
+    //  - the user already picked: an answer beats a guess;
+    //  - transfer mode: the account is the source leg, and the destination is
+    //    validated against it.
+    final categoryId = event.category.id;
+    if (categoryId == null ||
+        state.isEditing ||
+        state.accountChosenByUser ||
+        state.isTransferMode) {
+      return;
+    }
+
+    String? suggestedId;
+    try {
+      suggestedId = await _transactionRepository.getMostUsedAccountForCategory(
+        categoryId,
+        since: DateTime.now().subtract(_accountSuggestionWindow),
+      );
+    } catch (e) {
+      // A suggestion is a convenience. Losing it must not stop the form from
+      // recording the category the user just picked.
+      debugPrint('AddEditTransactionBloc: account suggestion failed: $e');
+      return;
+    }
+
+    if (suggestedId == null || suggestedId == state.selectedAccount?.id) return;
+    final suggested = state.accounts.firstWhereOrNull(
+      (a) => a.id == suggestedId,
+    );
+    // Asset accounts hold a quantity rather than a sum, and switching to one
+    // turns the form into an asset transaction. That is never something a
+    // category pick should do on its own.
+    if (suggested == null || suggested.assetId != null) return;
+
+    await _applyAccountChange(suggested, emit, chosenByUser: false);
   }
 
   Future<void> _onLinkedAccountChanged(
@@ -716,15 +871,9 @@ class AddEditTransactionBloc
         // Always use manualExchangeRate (which is synced from presets when selected)
         var rateValue = double.tryParse(state.manualExchangeRate);
 
-        // DEBUG: Print inversion state
-        debugPrint(
-          'DEBUG SAVE: manualExchangeRate=${state.manualExchangeRate}, isRateInputInverted=${state.isRateInputInverted}, rateValue=$rateValue',
-        );
-
         // Apply inversion if user toggled to inverted direction
         if (rateValue != null && rateValue != 0 && state.isRateInputInverted) {
           rateValue = 1 / rateValue;
-          debugPrint('DEBUG SAVE: After inversion rateValue=$rateValue');
         }
 
         finalExchangeRate = rateValue;
@@ -771,13 +920,6 @@ class AddEditTransactionBloc
         );
         return;
       }
-
-      debugPrint(
-        'DEBUG SAVE: isAssetTransaction=${state.isAssetTransaction}, isTransferMode=${state.isTransferMode}, isEditing=${state.isEditing}',
-      );
-      debugPrint(
-        'DEBUG SAVE: amount=$amount, categoryId=$categoryId, finalExchangeRate=$finalExchangeRate',
-      );
 
       if (state.isAssetTransaction) {
         // --- ASSET TRANSACTION LOGIC ---
@@ -992,6 +1134,10 @@ class AddEditTransactionBloc
             exchangeRate: finalExchangeRate,
             exchangeRatePreset: finalPreset,
             fee: fee,
+            // Saving the form IS the review: the user has looked at the row
+            // and confirmed or corrected what the import guessed, so it
+            // leaves the queue. Nothing else ever clears the flag.
+            needsReview: false,
           );
           await _transactionRepository.updateTransaction(updatedTransaction);
         } else {
@@ -1011,9 +1157,7 @@ class AddEditTransactionBloc
             exchangeRatePreset: finalPreset,
             fee: fee,
           );
-          debugPrint('DEBUG SAVE: Saving standard new transaction...');
           await _transactionRepository.addTransaction(newTransaction);
-          debugPrint('DEBUG SAVE: Standard transaction saved successfully!');
         }
       }
 

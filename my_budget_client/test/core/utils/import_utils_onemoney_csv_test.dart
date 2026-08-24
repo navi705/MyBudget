@@ -181,6 +181,48 @@ void main() {
         expect(parsed.records.map((r) => r.notes), ['first', 'second']);
       },
     );
+
+    // `double.parse` reads all three of these as numbers, so they came
+    // through the amount column untouched and every total that ever summed
+    // the row was NaN afterwards - a balance no edit to any other transaction
+    // can repair. They are now as unreadable as a letter in the column, and
+    // skip exactly the one row, the same way.
+    for (final spelling in const ['NaN', 'Infinity', '-Infinity']) {
+      test('"$spelling" in the amount column skips only its own row', () async {
+        final parsed = await ImportDataUtils.parseOneMoneyCsv(
+          fileOf(
+            '$_ruHeader\r\n'
+            '15.03.2025,Расход,Кошелёк,Продукты,$spelling,EUR,,,,bad\r\n'
+            '16.03.2025,Расход,Кошелёк,Продукты,-2,EUR,,,,good\r\n',
+          ),
+        );
+        expect(parsed.records.map((r) => r.notes), ['good']);
+      });
+
+      test('"$spelling" in the second amount skips its row too', () async {
+        final parsed = await ImportDataUtils.parseOneMoneyCsv(
+          fileOf(
+            '$_ruHeader\r\n'
+            '15.03.2025,Перевод,Кошелёк,Банк,-2,EUR,$spelling,USD,,bad\r\n'
+            '16.03.2025,Расход,Кошелёк,Продукты,-2,EUR,,,,good\r\n',
+          ),
+        );
+        expect(parsed.records.map((r) => r.notes), ['good']);
+      });
+    }
+
+    test('every finite amount around a non-finite one still arrives', () async {
+      final parsed = await ImportDataUtils.parseOneMoneyCsv(
+        fileOf(
+          '$_ruHeader\r\n'
+          '15.03.2025,Расход,Кошелёк,Продукты,-1,EUR,,,,first\r\n'
+          '15.03.2025,Расход,Кошелёк,Продукты,NaN,EUR,,,,bad\r\n'
+          '16.03.2025,Расход,Кошелёк,Продукты,"-2,5",EUR,,,,second\r\n',
+        ),
+      );
+      expect(parsed.records.map((r) => r.notes), ['first', 'second']);
+      expect(parsed.records.last.amount, -2.5);
+    });
   });
 
   group('the trailing account-balance section', () {

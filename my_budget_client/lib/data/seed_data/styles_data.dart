@@ -168,6 +168,13 @@ List<StylesCompanion> getDefaultStyles(String languageCode) {
       modifiedAt: const Value(1),
     ),
     StylesCompanion.insert(
+      id: const Value('style_subscriptions'),
+      name: t('Subscriptions'),
+      iconName: 'subscriptions',
+      colorHex: '#FF5722', // Deep Orange
+      modifiedAt: const Value(1),
+    ),
+    StylesCompanion.insert(
       id: const Value('style_other_expense'),
       name: t('Other Expense'),
       iconName: 'paid',

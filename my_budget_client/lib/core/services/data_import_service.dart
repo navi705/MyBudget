@@ -1272,9 +1272,14 @@ class DataImportService {
           );
         }
 
+        // `double.tryParse` accepts 'NaN', 'Infinity' and '-Infinity', so the
+        // null check alone let one through: for a fiat row it reached
+        // [toMinorUnits] and took the whole import down, and for a crypto row
+        // it was stored verbatim, where it turned every total that ever
+        // summed it into NaN.
         final amountStr = row[amountIdx].toString().trim();
         final amount = double.tryParse(amountStr);
-        if (amount == null) {
+        if (amount == null || !amount.isFinite) {
           throw Exception(
             'Invalid CSV: line $line has no valid amount '
             '("$amountStr").',

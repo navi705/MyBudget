@@ -4033,6 +4033,21 @@ class $TransactionsTable extends Transactions
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _needsReviewMeta = const VerificationMeta(
+    'needsReview',
+  );
+  @override
+  late final GeneratedColumn<bool> needsReview = GeneratedColumn<bool>(
+    'needs_review',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("needs_review" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _modifiedAtMeta = const VerificationMeta(
     'modifiedAt',
   );
@@ -4086,6 +4101,7 @@ class $TransactionsTable extends Transactions
     fee,
     feeMinor,
     linkedTransactionId,
+    needsReview,
     modifiedAt,
     deviceId,
     isDeleted,
@@ -4207,6 +4223,15 @@ class $TransactionsTable extends Transactions
         ),
       );
     }
+    if (data.containsKey('needs_review')) {
+      context.handle(
+        _needsReviewMeta,
+        needsReview.isAcceptableOrUnknown(
+          data['needs_review']!,
+          _needsReviewMeta,
+        ),
+      );
+    }
     if (data.containsKey('modified_at')) {
       context.handle(
         _modifiedAtMeta,
@@ -4286,6 +4311,10 @@ class $TransactionsTable extends Transactions
         DriftSqlType.string,
         data['${effectivePrefix}linked_transaction_id'],
       ),
+      needsReview: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}needs_review'],
+      )!,
       modifiedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}modified_at'],
@@ -4321,6 +4350,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final double fee;
   final int? feeMinor;
   final String? linkedTransactionId;
+  final bool needsReview;
   final int modifiedAt;
   final String? deviceId;
   final bool isDeleted;
@@ -4338,6 +4368,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     required this.fee,
     this.feeMinor,
     this.linkedTransactionId,
+    required this.needsReview,
     required this.modifiedAt,
     this.deviceId,
     required this.isDeleted,
@@ -4368,6 +4399,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     if (!nullToAbsent || linkedTransactionId != null) {
       map['linked_transaction_id'] = Variable<String>(linkedTransactionId);
     }
+    map['needs_review'] = Variable<bool>(needsReview);
     map['modified_at'] = Variable<int>(modifiedAt);
     if (!nullToAbsent || deviceId != null) {
       map['device_id'] = Variable<String>(deviceId);
@@ -4401,6 +4433,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       linkedTransactionId: linkedTransactionId == null && nullToAbsent
           ? const Value.absent()
           : Value(linkedTransactionId),
+      needsReview: Value(needsReview),
       modifiedAt: Value(modifiedAt),
       deviceId: deviceId == null && nullToAbsent
           ? const Value.absent()
@@ -4430,6 +4463,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       linkedTransactionId: serializer.fromJson<String?>(
         json['linkedTransactionId'],
       ),
+      needsReview: serializer.fromJson<bool>(json['needsReview']),
       modifiedAt: serializer.fromJson<int>(json['modifiedAt']),
       deviceId: serializer.fromJson<String?>(json['deviceId']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
@@ -4452,6 +4486,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'fee': serializer.toJson<double>(fee),
       'feeMinor': serializer.toJson<int?>(feeMinor),
       'linkedTransactionId': serializer.toJson<String?>(linkedTransactionId),
+      'needsReview': serializer.toJson<bool>(needsReview),
       'modifiedAt': serializer.toJson<int>(modifiedAt),
       'deviceId': serializer.toJson<String?>(deviceId),
       'isDeleted': serializer.toJson<bool>(isDeleted),
@@ -4472,6 +4507,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     double? fee,
     Value<int?> feeMinor = const Value.absent(),
     Value<String?> linkedTransactionId = const Value.absent(),
+    bool? needsReview,
     int? modifiedAt,
     Value<String?> deviceId = const Value.absent(),
     bool? isDeleted,
@@ -4493,6 +4529,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     linkedTransactionId: linkedTransactionId.present
         ? linkedTransactionId.value
         : this.linkedTransactionId,
+    needsReview: needsReview ?? this.needsReview,
     modifiedAt: modifiedAt ?? this.modifiedAt,
     deviceId: deviceId.present ? deviceId.value : this.deviceId,
     isDeleted: isDeleted ?? this.isDeleted,
@@ -4526,6 +4563,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       linkedTransactionId: data.linkedTransactionId.present
           ? data.linkedTransactionId.value
           : this.linkedTransactionId,
+      needsReview: data.needsReview.present
+          ? data.needsReview.value
+          : this.needsReview,
       modifiedAt: data.modifiedAt.present
           ? data.modifiedAt.value
           : this.modifiedAt,
@@ -4550,6 +4590,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('fee: $fee, ')
           ..write('feeMinor: $feeMinor, ')
           ..write('linkedTransactionId: $linkedTransactionId, ')
+          ..write('needsReview: $needsReview, ')
           ..write('modifiedAt: $modifiedAt, ')
           ..write('deviceId: $deviceId, ')
           ..write('isDeleted: $isDeleted')
@@ -4572,6 +4613,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     fee,
     feeMinor,
     linkedTransactionId,
+    needsReview,
     modifiedAt,
     deviceId,
     isDeleted,
@@ -4593,6 +4635,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.fee == this.fee &&
           other.feeMinor == this.feeMinor &&
           other.linkedTransactionId == this.linkedTransactionId &&
+          other.needsReview == this.needsReview &&
           other.modifiedAt == this.modifiedAt &&
           other.deviceId == this.deviceId &&
           other.isDeleted == this.isDeleted);
@@ -4612,6 +4655,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<double> fee;
   final Value<int?> feeMinor;
   final Value<String?> linkedTransactionId;
+  final Value<bool> needsReview;
   final Value<int> modifiedAt;
   final Value<String?> deviceId;
   final Value<bool> isDeleted;
@@ -4630,6 +4674,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.fee = const Value.absent(),
     this.feeMinor = const Value.absent(),
     this.linkedTransactionId = const Value.absent(),
+    this.needsReview = const Value.absent(),
     this.modifiedAt = const Value.absent(),
     this.deviceId = const Value.absent(),
     this.isDeleted = const Value.absent(),
@@ -4649,6 +4694,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.fee = const Value.absent(),
     this.feeMinor = const Value.absent(),
     this.linkedTransactionId = const Value.absent(),
+    this.needsReview = const Value.absent(),
     this.modifiedAt = const Value.absent(),
     this.deviceId = const Value.absent(),
     this.isDeleted = const Value.absent(),
@@ -4673,6 +4719,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<double>? fee,
     Expression<int>? feeMinor,
     Expression<String>? linkedTransactionId,
+    Expression<bool>? needsReview,
     Expression<int>? modifiedAt,
     Expression<String>? deviceId,
     Expression<bool>? isDeleted,
@@ -4694,6 +4741,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (feeMinor != null) 'fee_minor': feeMinor,
       if (linkedTransactionId != null)
         'linked_transaction_id': linkedTransactionId,
+      if (needsReview != null) 'needs_review': needsReview,
       if (modifiedAt != null) 'modified_at': modifiedAt,
       if (deviceId != null) 'device_id': deviceId,
       if (isDeleted != null) 'is_deleted': isDeleted,
@@ -4715,6 +4763,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Value<double>? fee,
     Value<int?>? feeMinor,
     Value<String?>? linkedTransactionId,
+    Value<bool>? needsReview,
     Value<int>? modifiedAt,
     Value<String?>? deviceId,
     Value<bool>? isDeleted,
@@ -4734,6 +4783,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       fee: fee ?? this.fee,
       feeMinor: feeMinor ?? this.feeMinor,
       linkedTransactionId: linkedTransactionId ?? this.linkedTransactionId,
+      needsReview: needsReview ?? this.needsReview,
       modifiedAt: modifiedAt ?? this.modifiedAt,
       deviceId: deviceId ?? this.deviceId,
       isDeleted: isDeleted ?? this.isDeleted,
@@ -4785,6 +4835,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
         linkedTransactionId.value,
       );
     }
+    if (needsReview.present) {
+      map['needs_review'] = Variable<bool>(needsReview.value);
+    }
     if (modifiedAt.present) {
       map['modified_at'] = Variable<int>(modifiedAt.value);
     }
@@ -4816,6 +4869,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('fee: $fee, ')
           ..write('feeMinor: $feeMinor, ')
           ..write('linkedTransactionId: $linkedTransactionId, ')
+          ..write('needsReview: $needsReview, ')
           ..write('modifiedAt: $modifiedAt, ')
           ..write('deviceId: $deviceId, ')
           ..write('isDeleted: $isDeleted, ')
@@ -16105,6 +16159,7 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       Value<double> fee,
       Value<int?> feeMinor,
       Value<String?> linkedTransactionId,
+      Value<bool> needsReview,
       Value<int> modifiedAt,
       Value<String?> deviceId,
       Value<bool> isDeleted,
@@ -16125,6 +16180,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<double> fee,
       Value<int?> feeMinor,
       Value<String?> linkedTransactionId,
+      Value<bool> needsReview,
       Value<int> modifiedAt,
       Value<String?> deviceId,
       Value<bool> isDeleted,
@@ -16249,6 +16305,11 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<String> get linkedTransactionId => $composableBuilder(
     column: $table.linkedTransactionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get needsReview => $composableBuilder(
+    column: $table.needsReview,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -16396,6 +16457,11 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get needsReview => $composableBuilder(
+    column: $table.needsReview,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get modifiedAt => $composableBuilder(
     column: $table.modifiedAt,
     builder: (column) => ColumnOrderings(column),
@@ -16530,6 +16596,11 @@ class $$TransactionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get needsReview => $composableBuilder(
+    column: $table.needsReview,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get modifiedAt => $composableBuilder(
     column: $table.modifiedAt,
     builder: (column) => column,
@@ -16656,6 +16727,7 @@ class $$TransactionsTableTableManager
                 Value<double> fee = const Value.absent(),
                 Value<int?> feeMinor = const Value.absent(),
                 Value<String?> linkedTransactionId = const Value.absent(),
+                Value<bool> needsReview = const Value.absent(),
                 Value<int> modifiedAt = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
@@ -16674,6 +16746,7 @@ class $$TransactionsTableTableManager
                 fee: fee,
                 feeMinor: feeMinor,
                 linkedTransactionId: linkedTransactionId,
+                needsReview: needsReview,
                 modifiedAt: modifiedAt,
                 deviceId: deviceId,
                 isDeleted: isDeleted,
@@ -16694,6 +16767,7 @@ class $$TransactionsTableTableManager
                 Value<double> fee = const Value.absent(),
                 Value<int?> feeMinor = const Value.absent(),
                 Value<String?> linkedTransactionId = const Value.absent(),
+                Value<bool> needsReview = const Value.absent(),
                 Value<int> modifiedAt = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
@@ -16712,6 +16786,7 @@ class $$TransactionsTableTableManager
                 fee: fee,
                 feeMinor: feeMinor,
                 linkedTransactionId: linkedTransactionId,
+                needsReview: needsReview,
                 modifiedAt: modifiedAt,
                 deviceId: deviceId,
                 isDeleted: isDeleted,

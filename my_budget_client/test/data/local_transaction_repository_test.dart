@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/data/repositories/local_db/local_transaction_repository.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart' as domain;
+import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
 
 /// Covers the repository's two invariants:
 ///   1. a transaction write and the balance it implies always land together;
@@ -352,6 +353,171 @@ void main() {
         contains('t1'),
       );
       expect((await repo.getTransactionById('t1'))!.categoryId, otherCategory);
+    });
+  });
+
+  group('the account a category is usually paid from', () {
+    // The entry form pre-fills this so the account does not have to be picked
+    // by hand on every entry - the single most repeated action in the app.
+    Future<void> write(
+      String id,
+      String accountId, {
+      required DateTime date,
+      String? category,
+    }) => repo.addTransaction(
+      domain.Transaction(
+        id: id,
+        description: id,
+        amount: -10,
+        date: date,
+        accountId: accountId,
+        categoryId: category ?? categoryId,
+        currencyCode: 'EUR',
+      ),
+    );
+
+    late DateTime now;
+    late DateTime since;
+
+    setUp(() {
+      now = DateTime.now();
+      since = now.subtract(const Duration(days: 30));
+    });
+
+    test('is the one it was used with most inside the window', () async {
+      await write('t1', 'a', date: now.subtract(const Duration(days: 1)));
+      await write('t2', 'b', date: now.subtract(const Duration(days: 2)));
+      await write('t3', 'b', date: now.subtract(const Duration(days: 3)));
+
+      expect(
+        await repo.getMostUsedAccountForCategory(categoryId, since: since),
+        'b',
+      );
+    });
+
+    test('ignores what happened before the window', () async {
+      // An account the user has stopped using stops being suggested. Counting
+      // all of history would keep proposing the account a category was paid
+      // from two years ago.
+      await write('old1', 'a', date: now.subtract(const Duration(days: 200)));
+      await write('old2', 'a', date: now.subtract(const Duration(days: 300)));
+      await write('new1', 'b', date: now.subtract(const Duration(days: 2)));
+
+      expect(
+        await repo.getMostUsedAccountForCategory(categoryId, since: since),
+        'b',
+      );
+    });
+
+    test('is null for a category with nothing in the window', () async {
+      // The form leaves the account alone rather than guessing at one.
+      await write('t1', 'a', date: now.subtract(const Duration(days: 200)));
+
+      expect(
+        await repo.getMostUsedAccountForCategory(categoryId, since: since),
+        isNull,
+      );
+    });
+
+    test('does not count the rows another category was paid on', () async {
+      final otherCategory = (await db.select(db.categories).get())[1].id;
+      await write('t1', 'a', date: now.subtract(const Duration(days: 1)));
+      await write(
+        't2',
+        'b',
+        date: now.subtract(const Duration(days: 1)),
+        category: otherCategory,
+      );
+      await write(
+        't3',
+        'b',
+        date: now.subtract(const Duration(days: 2)),
+        category: otherCategory,
+      );
+
+      expect(
+        await repo.getMostUsedAccountForCategory(categoryId, since: since),
+        'a',
+      );
+    });
+
+    test('skips the rows that were deleted', () async {
+      await write('t1', 'a', date: now.subtract(const Duration(days: 1)));
+      await write('t2', 'b', date: now.subtract(const Duration(days: 2)));
+      await write('t3', 'b', date: now.subtract(const Duration(days: 3)));
+      await repo.deleteTransaction('t2');
+      await repo.deleteTransaction('t3');
+
+      expect(
+        await repo.getMostUsedAccountForCategory(categoryId, since: since),
+        'a',
+      );
+    });
+  });
+
+  group('the review queue filter', () {
+    // The flag is what the SMS import sets when it could not tell which
+    // category a message belongs in. The filter is how the user finds those
+    // rows again; without it the flag would only ever be a badge.
+    Future<void> write(String id, {required bool needsReview}) =>
+        repo.addTransaction(
+          domain.Transaction(
+            id: id,
+            description: id,
+            amount: -10,
+            date: DateTime(2024, 1, 1),
+            accountId: 'a',
+            categoryId: categoryId,
+            currencyCode: 'EUR',
+            needsReview: needsReview,
+          ),
+        );
+
+    setUp(() async {
+      await write('flagged', needsReview: true);
+      await write('clean', needsReview: false);
+    });
+
+    test('true narrows to the queue', () async {
+      final rows = await repo.getTransactionsWithFilters(
+        limit: 50,
+        filters: const TransactionFilters(needsReview: true),
+      );
+
+      expect(rows.map((t) => t.id), ['flagged']);
+      expect(
+        await repo.getCountWithFilters(
+          filters: const TransactionFilters(needsReview: true),
+        ),
+        1,
+      );
+    });
+
+    test('false narrows to what has been reviewed', () async {
+      final rows = await repo.getTransactionsWithFilters(
+        limit: 50,
+        filters: const TransactionFilters(needsReview: false),
+      );
+
+      expect(rows.map((t) => t.id), ['clean']);
+    });
+
+    test('null - the default - leaves both in the list', () async {
+      // Every screen but the queue itself wants this, so it has to be what an
+      // unset filter does rather than something a caller has to ask for.
+      final rows = await repo.getTransactionsWithFilters(
+        limit: 50,
+        filters: const TransactionFilters(),
+      );
+
+      expect(rows.map((t) => t.id), containsAll(['flagged', 'clean']));
+      expect(await repo.getCountWithFilters(), 2);
+    });
+
+    test('the flag survives the round trip through the database', () async {
+      final row = await repo.getTransactionById('flagged');
+
+      expect(row?.needsReview, isTrue);
     });
   });
 }

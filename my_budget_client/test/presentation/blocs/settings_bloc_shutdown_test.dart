@@ -99,8 +99,13 @@ void main() {
           inflationApiService: _FakeInflationApiService(),
         );
 
+        // Subscribing happens after an awaited device-name lookup that runs on
+        // the real event loop, so a fixed pump is a race: wait for the first
+        // subscription to exist before asking for a second one.
         bloc.add(LoadSettings());
-        await pumpEventQueue();
+        while (!settingsController.hasListener) {
+          await pumpEventQueue();
+        }
         bloc.add(LoadSettings());
         await pumpEventQueue();
 

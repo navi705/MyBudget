@@ -298,6 +298,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get filterCategoriesDescription => 'Filtrer les catégories par type (Revenus/Dépenses)';
 
   @override
+  String get reviewQueueTooltip => 'File d\'attente de vérification';
+
+  @override
+  String get reviewQueueDescription => 'Afficher uniquement les transactions que l\'import n\'a pas pu classer avec certitude';
+
+  @override
+  String get needsReviewBadgeLabel => 'À vérifier';
+
+  @override
   String get selectDateTooltip => 'Sélectionner une date';
 
   @override
@@ -863,6 +872,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get transferLabel => 'Transfert';
+
+  @override
+  String get transactionModeLabel => 'Transaction';
 
   @override
   String get uncategorizedLabel => 'Non Catégorisé';
@@ -1785,6 +1797,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get hkActionFilterAction => 'Filtrer';
+
+  @override
+  String get hkActionReviewQueue => 'File d\'attente de vérification';
 
   @override
   String get hkActionDashboardCurrency => 'Tableau de Bord: Devise';

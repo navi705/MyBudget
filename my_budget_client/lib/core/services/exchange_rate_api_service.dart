@@ -2,7 +2,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:my_budget_client/core/utils/platform/io_helper.dart';
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart'
+    show kDebugMode, kIsWeb, debugPrint, visibleForTesting;
+import 'package:my_budget_client/core/utils/calendar_day.dart';
+import 'package:my_budget_client/core/utils/exchange_rate_validation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:my_budget_client/core/utils/currency_history_binary_io.dart';
 import 'package:intl/intl.dart';
@@ -28,21 +31,52 @@ class ExchangeRateApiService {
   static const String _metadataKey = '_metadata';
   static const String _attemptsKey = 'attempts';
 
-  Future<void> fetchRatesForDate(DateTime date) async {
-    final dateKey = DateFormat('yyyy-MM-dd', 'en').format(date);
+  /// Midnight local time on the day [date] falls in.
+  ///
+  /// Every other writer of `exchange_rates` stores a day rather than an
+  /// instant: the bundled history and both import paths parse `yyyy-MM-dd`,
+  /// so every seeded row sits at midnight. The table's primary key is
+  /// `(from, to, date, preset)`, so a row stamped with the moment of a fetch
+  /// is a different key from the same day's seeded row instead of a
+  /// replacement for it - and the startup fetch passes `DateTime.now()`.
+  static DateTime _dayOf(DateTime date) => startOfDay(date);
 
-    final ratesInDb = await (_exchangeRatesDao.select(
-      _exchangeRatesDao.exchangeRates,
-    )..where((tbl) => tbl.date.equals(date))).get();
+  /// Whether today's quote is an acceptable answer for [day].
+  ///
+  /// Only for today and later. A provider that has not published today yet is
+  /// the case the "latest" fallback was written for; a day already past has a
+  /// real rate of its own that today's number is not.
+  @visibleForTesting
+  static bool mayStandInForLatest(DateTime day, DateTime now) =>
+      !_dayOf(day).isBefore(_dayOf(now));
+
+  Future<void> fetchRatesForDate(DateTime date) async {
+    final day = _dayOf(date);
+    final dateKey = DateFormat('yyyy-MM-dd', 'en').format(day);
+
+    // Asked as a range over the day, not an equality on the instant. The
+    // startup fetch hands this `DateTime.now()`, which never equals a stored
+    // midnight, so the guard matched nothing: every launch re-fetched a day it
+    // already had and then wrote a second copy of every EUR pair under a
+    // primary key that differed only in the time the app happened to start.
+    final dayAfter = nextDay(date);
+    final ratesInDb =
+        await (_exchangeRatesDao.select(_exchangeRatesDao.exchangeRates)
+              ..where(
+                (tbl) =>
+                    tbl.date.isBiggerOrEqualValue(day) &
+                    tbl.date.isSmallerThanValue(dayAfter),
+              ))
+            .get();
 
     if (ratesInDb.isNotEmpty) {
       return;
     }
 
     if (kDebugMode && !kIsWeb) {
-      await _handleDebugFetch(date, dateKey);
+      await _handleDebugFetch(day, dateKey);
     } else {
-      await _handleProdFetch(date, dateKey);
+      await _handleProdFetch(day, dateKey);
     }
   }
 
@@ -148,7 +182,13 @@ class ExchangeRateApiService {
           );
         } catch (e) {
           debugPrint('Fetch: Specific date failed, trying latest: $e');
-          // Fallback to latest if specific date (e.g. today) is not yet available
+          // "Latest" is today's quote. It stands in for a day the provider has
+          // not published yet - the case this fallback was written for - but it
+          // is no answer for a day in the past: the provider 404s for anything
+          // before its own history begins, and taking today's numbers for such
+          // a day wrote invented history and then marked the day 'success', so
+          // nothing ever went back for the real rates.
+          if (!mayStandInForLatest(date, DateTime.now())) rethrow;
           rates = await ExternalData.getCurrencyRatesFromLatest();
         }
       }
@@ -184,8 +224,13 @@ class ExchangeRateApiService {
         .map((c) => c.code)
         .toSet();
 
+    // A rate is a multiplier, so zero, a negative and a non-finite are not
+    // slightly wrong values but unusable ones: the file import path has always
+    // refused them and the rate editor now does too, while a provider could
+    // hand any of them straight into the table this writes.
     final companions = rates.entries
         .where((e) => existingCodes.contains(e.key.toUpperCase()))
+        .where((e) => isUsableExchangeRate(e.value))
         .map(
           (e) => ExchangeRatesCompanion(
             fromCurrencyCode: const Value('EUR'),
@@ -205,10 +250,15 @@ class ExchangeRateApiService {
   }
 
   Future<void> fetchRatesForRange(DateTime start, DateTime end) async {
-    DateTime current = start;
-    while (!current.isAfter(end)) {
+    DateTime current = _dayOf(start);
+    final last = _dayOf(end);
+    while (!current.isAfter(last)) {
       await fetchRatesForDate(current);
-      current = current.add(const Duration(days: 1));
+      // Not `add(Duration(days: 1))`: that adds 24 hours, and a local day is
+      // 23 or 25 of them on the two days a year the clocks move. The one that
+      // shortens landed back on the day just fetched, so the range asked for
+      // it twice and the loop ran a day longer than the range it was given.
+      current = nextDay(current);
       await Future.delayed(const Duration(milliseconds: 200)); // Throttling
     }
   }

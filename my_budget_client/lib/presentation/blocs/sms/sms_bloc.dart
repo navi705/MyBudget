@@ -4,9 +4,11 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:my_budget_client/core/utils/sms_parser.dart';
+import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/sms_preset.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
+import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/sms_repository.dart';
 import 'package:my_budget_client/domain/repositories/transaction_repository.dart';
@@ -38,6 +40,7 @@ class SmsBloc extends Bloc<SmsEvent, SmsState>
   final TransactionRepository _transactionRepository;
   final CurrencyRepository _currencyRepository;
   final AccountRepository _accountRepository;
+  final CategoryRepository _categoryRepository;
   final CurrencyConverterService _currencyConverterService;
   final SettingsRepository _settingsRepository;
   final SmsParser _parser = SmsParser();
@@ -48,12 +51,14 @@ class SmsBloc extends Bloc<SmsEvent, SmsState>
     required TransactionRepository transactionRepository,
     required CurrencyRepository currencyRepository,
     required AccountRepository accountRepository,
+    required CategoryRepository categoryRepository,
     required CurrencyConverterService currencyConverterService,
     required SettingsRepository settingsRepository,
   }) : _smsRepository = smsRepository,
        _transactionRepository = transactionRepository,
        _currencyRepository = currencyRepository,
        _accountRepository = accountRepository,
+       _categoryRepository = categoryRepository,
        _currencyConverterService = currencyConverterService,
        _settingsRepository = settingsRepository,
        super(const SmsState()) {
@@ -412,16 +417,26 @@ class SmsBloc extends Bloc<SmsEvent, SmsState>
       'rate: ${finalExchangeRate != null}, date: ${result.date}',
     );
 
+    final (categoryId, uncertainCategory) = await _resolveCategory(
+      result,
+      preset,
+      isIncome: isIncome,
+    );
+
     final transaction = Transaction(
       id: const Uuid().v4(),
       amount: finalAmount,
       currencyCode: finalCurrency,
       date: result.date ?? DateTime.now(),
-      description: preset.name,
-      categoryId: result.categoryId ?? preset.defaultCategoryId ?? 'other',
+      // The merchant when the rule could read one. The preset name is the
+      // fallback and it is the same word on every row it writes - "Alta_Bank"
+      // tells whoever works through the review queue nothing at all.
+      description: result.description ?? preset.name,
+      categoryId: categoryId,
       accountId: accountId,
       exchangeRate: finalExchangeRate,
       exchangeRatePreset: finalExchangeRate != null ? 1 : null,
+      needsReview: result.needsReview || uncertainCategory,
     );
 
     try {
@@ -434,6 +449,55 @@ class SmsBloc extends Bloc<SmsEvent, SmsState>
       _smsLog('Transaction addition FAILED: $e');
       return false;
     }
+  }
+
+  /// The category to file [result] under, and whether the answer is a guess.
+  ///
+  /// A keyword may name a category the user made themselves - "Ai", "VPS" -
+  /// which no id shipped in this app can point at, so the name is looked up
+  /// among the user's own categories before anything else. Everything after
+  /// that is a fallback chain, and it exists because a transaction carrying a
+  /// category id no row answers to is refused by the foreign key and lost:
+  /// this path reads each SMS once and never returns to it.
+  ///
+  /// The second value is true when the category was picked rather than
+  /// recognised, which is what puts the row in the review queue.
+  Future<(String, bool)> _resolveCategory(
+    SmsParseResult result,
+    SmsPreset preset, {
+    required bool isIncome,
+  }) async {
+    final categories = await _categoryRepository.getCategories();
+    bool exists(String? id) =>
+        id != null && categories.any((c) => c.id == id);
+
+    final hint = result.categoryNameHint;
+    if (hint != null) {
+      final named = categories.firstWhereOrNull(
+        (c) => c.name.trim().toLowerCase() == hint.trim().toLowerCase(),
+      );
+      if (named?.id != null) return (named!.id!, false);
+    }
+
+    if (exists(result.categoryId)) return (result.categoryId!, false);
+    if (exists(preset.defaultCategoryId)) {
+      // The preset's own default is a setting, not a reading of the message,
+      // so it is only certain when the message named nothing to begin with -
+      // and in that case the parser has already asked for review.
+      return (preset.defaultCategoryId!, false);
+    }
+
+    // Nothing recognised the message, or what it recognised has since been
+    // deleted. Fall back to the built-in catch-all of the right direction.
+    final wanted = isIncome ? CategoryType.income : CategoryType.expense;
+    final fallbackId = isIncome ? 'cat_other_income' : 'cat_other_expense';
+    if (exists(fallbackId)) return (fallbackId, true);
+
+    final sameType = categories.firstWhereOrNull((c) => c.type == wanted);
+    // With no category of the right type left there is nothing truthful to
+    // pick; the write fails and is counted as a failure by the caller, which
+    // is better than filing income as an expense.
+    return (sameType?.id ?? fallbackId, true);
   }
 
   Future<void> _onRequestPermission(

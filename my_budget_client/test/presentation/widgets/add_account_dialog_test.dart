@@ -47,6 +47,9 @@ const _usdDesignation = CurrencyDesignation(
 
 const _cash = AccountType(id: 'cash', name: 'Cash', languageCode: 'en');
 
+/// A phone in portrait: the narrowest surface the dialog opens on.
+const Size _phone = Size(390, 844);
+
 AccountsLoadSuccess _accountsState(List<AccountType> accountTypes) =>
     AccountsLoadSuccess(
       accounts: const [],
@@ -70,6 +73,8 @@ void main() {
     WidgetTester tester, {
     required List<CurrencyDesignation> designations,
     required List<AccountType> accountTypes,
+    Size surfaceSize = const Size(900, 1400),
+    double textScale = 1.0,
   }) async {
     whenListen(
       accountsBloc,
@@ -88,7 +93,8 @@ void main() {
           child: const Text('open'),
         ),
       ),
-      surfaceSize: const Size(900, 1400),
+      surfaceSize: surfaceSize,
+      textScale: textScale,
       aboveApp: (app) => wrapWithBlocs(
         app,
         settingsBloc: createSettingsBloc(),
@@ -293,6 +299,73 @@ void main() {
         tester.getSize(field(l10n, l10n.accountNameHint)).width,
         greaterThan(250),
       );
+    });
+
+    testWidgets('the whole form can be filled in and saved on a 390dp phone', (
+      tester,
+    ) async {
+      // The rest of this group ran on a surface wide enough that nothing in
+      // the dialog ever had to fit - a phone is the one place it has to. An
+      // overflow anywhere on the way through is a failure on its own; what is
+      // asserted is that the form still reaches the bloc from there.
+      final l10n = await loadL10n();
+      await openDialog(
+        tester,
+        designations: const [_usdDesignation],
+        accountTypes: const [_cash],
+        surfaceSize: _phone,
+      );
+
+      await fillForm(tester, l10n);
+      await tapSave(tester, l10n);
+
+      final account = (accountsBloc.events.single as AddAccount).account;
+      expect(account.name, 'Wallet');
+      expect(account.currencyCode, 'USD');
+      expect(find.byType(AddAccountDialog), findsNothing);
+    });
+
+    testWidgets('the dialog stays inside a 390dp phone', (tester) async {
+      final l10n = await loadL10n();
+      await openDialog(
+        tester,
+        designations: const [_usdDesignation],
+        accountTypes: const [_cash],
+        surfaceSize: _phone,
+      );
+
+      // A field wider than the screen is one whose right-hand end - the end a
+      // balance is read from - is off the phone.
+      final nameField = tester.getRect(field(l10n, l10n.accountNameHint));
+      expect(nameField.left, greaterThanOrEqualTo(0));
+      expect(nameField.right, lessThanOrEqualTo(_phone.width));
+      expect(
+        find.text(l10n.saveButton),
+        findsOneWidget,
+        reason: 'the button that ends the form must be on the screen it ends on',
+      );
+    });
+
+    testWidgets('it can still be filled in with the phone on large text', (
+      tester,
+    ) async {
+      // Twice the text size is a setting someone turns on once and keeps. The
+      // dialog grows with it, the phone does not, and a form that cannot be
+      // completed from there is one an account cannot be created from at all.
+      final l10n = await loadL10n();
+      await openDialog(
+        tester,
+        designations: const [_usdDesignation],
+        accountTypes: const [_cash],
+        surfaceSize: _phone,
+        textScale: 2.0,
+      );
+
+      await fillForm(tester, l10n);
+      await tapSave(tester, l10n);
+
+      expect((accountsBloc.events.single as AddAccount).account.name, 'Wallet');
+      expect(find.byType(AddAccountDialog), findsNothing);
     });
   });
 

@@ -8,7 +8,12 @@ class PriceToDoubleConverter implements JsonConverter<double?, String?> {
   @override
   double? fromJson(String? json) {
     if (json == null) return null;
-    return double.tryParse(json.replaceAll('€', '').replaceAll(',', '.'));
+    // 'NaN' and 'Infinity' parse as doubles. A price is neither, and one of
+    // them stored as an inventory value spreads through every total above it.
+    final price = double.tryParse(
+      json.replaceAll('€', '').replaceAll(',', '.'),
+    );
+    return price != null && price.isFinite ? price : null;
   }
 
   @override

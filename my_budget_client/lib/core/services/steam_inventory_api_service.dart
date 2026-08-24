@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:my_budget_client/core/utils/platform/io_helper.dart';
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart'
+    show kDebugMode, kIsWeb, visibleForTesting;
 import 'package:intl/intl.dart';
 import 'package:my_budget_client/core/database/app_database.dart';
+import 'package:my_budget_client/core/utils/calendar_day.dart';
 import 'package:my_budget_client/data/api/external_data.dart';
 import 'package:drift/drift.dart';
 
@@ -25,26 +27,16 @@ class SteamInventoryApiService {
     final dateKey = DateFormat('yyyy-MM-dd', 'en').format(date);
     final assetId = 'steam_${accountId}_${game.name}';
 
-    // Check JSON file existence first
-    if (!kIsWeb) {
-      if (await IoHelper.exists(_jsonPath)) {
-        try {
-          final content = await IoHelper.readAsString(_jsonPath);
-          final Map<String, dynamic> fullJson = jsonDecode(content);
-          // Also check if we have data for this date
-          if (fullJson.containsKey(dateKey) &&
-              fullJson[dateKey] is Map &&
-              (fullJson[dateKey] as Map).containsKey(game.name)) {
-            return;
-          }
-        } catch (e) {
-          debugPrint("Error checking JSON file: $e");
-        }
-      }
-    }
-
-    final startOfDay = DateTime(date.year, date.month, date.day);
-    final endOfDay = startOfDay.add(const Duration(days: 1));
+    // The only "do we already have this?" test is the one below, against the
+    // database. There used to be one before it, against the debug JSON cache,
+    // which returned the moment that file held today's value - so a device
+    // whose database did not have the entry (a fresh install beside an old
+    // checkout, a reset, a restore from an export) was told it was up to date
+    // and never wrote the row. The cache is a source to read the value FROM,
+    // which is what `_handleDebugFetch` does with it; it is not a record of
+    // what the database holds.
+    final dayStart = startOfDay(date);
+    final dayEnd = nextDay(date);
 
     final entriesInDb =
         await (_assetEntriesDao.select(_assetEntriesDao.assetEntries)
@@ -52,8 +44,8 @@ class SteamInventoryApiService {
               ..where((tbl) => tbl.isDeleted.equals(false))
               ..where(
                 (tbl) =>
-                    tbl.date.isBiggerOrEqualValue(startOfDay) &
-                    tbl.date.isSmallerThanValue(endOfDay),
+                    tbl.date.isBiggerOrEqualValue(dayStart) &
+                    tbl.date.isSmallerThanValue(dayEnd),
               ))
             .get();
 
@@ -97,13 +89,10 @@ class SteamInventoryApiService {
       return;
     }
 
-    if (fullJson.containsKey(dateKey) &&
-        fullJson[dateKey].containsKey(game.name)) {
-      final value = (fullJson[dateKey][game.name] as num).toDouble();
-      if (value > 0) {
-        await _saveInventoryValueToDb(date, value, assetId, game);
-        return;
-      }
+    final cached = cachedValue(fullJson, dateKey, game.name);
+    if (cached != null) {
+      await _saveInventoryValueToDb(date, cached, assetId, game);
+      return;
     }
 
     try {
@@ -180,6 +169,34 @@ class SteamInventoryApiService {
         ),
       );
     }
+  }
+
+  /// The usable value [fullJson] holds for [gameName] on [dateKey], or null.
+  ///
+  /// Every step is checked rather than assumed. The day used to be indexed and
+  /// then asked for `containsKey` straight off a `dynamic`, so a day written as
+  /// anything but a map - which is what an interrupted write or a hand-edit
+  /// leaves behind - threw `NoSuchMethodError` out of the middle of the fetch,
+  /// and a value written as a string threw on the cast. Neither is a failure
+  /// the fetch can do anything about, and both took the whole run down instead
+  /// of falling through to the network the file is only a cache for.
+  ///
+  /// Zero and below are refused for the same reason the network path refuses
+  /// them: an inventory worth nothing is what a failed lookup returns, and
+  /// storing it as an asset's value writes that failure into net worth.
+  @visibleForTesting
+  static double? cachedValue(
+    Map<String, dynamic> fullJson,
+    String dateKey,
+    String gameName,
+  ) {
+    final day = fullJson[dateKey];
+    if (day is! Map) return null;
+    final value = day[gameName];
+    if (value is! num) return null;
+    final asDouble = value.toDouble();
+    if (!asDouble.isFinite || asDouble <= 0) return null;
+    return asDouble;
   }
 
   Future<void> _saveInventoryValueToDb(

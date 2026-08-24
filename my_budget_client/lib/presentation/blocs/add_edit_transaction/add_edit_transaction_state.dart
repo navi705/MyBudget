@@ -34,6 +34,7 @@ class AddEditTransactionState extends Equatable {
     this.isTransferMode = false,
     this.isRateInputInverted = false,
     this.manualRateIsHistorical = false,
+    this.accountChosenByUser = false,
     this.validationError,
   });
 
@@ -87,6 +88,14 @@ class AddEditTransactionState extends Equatable {
   /// Cleared as soon as the field stops describing that stored rate: the user
   /// types over it, picks a preset, or changes the currency pair.
   final bool manualRateIsHistorical;
+
+  /// Whether the account on the form is one the user picked, rather than
+  /// the one the form arrived with.
+  ///
+  /// Picking a category suggests the account that category is usually paid
+  /// from, and a suggestion must never overwrite an answer: once the user
+  /// has chosen an account, the form stops guessing at it.
+  final bool accountChosenByUser;
   final String? validationError; // Error message for user feedback
 
   bool get isEditing =>
@@ -154,6 +163,11 @@ class AddEditTransactionState extends Equatable {
     // so a deleted account would stay selected and keep collecting writes.
     bool clearSelectedAccount = false,
     Category? selectedCategory,
+    // Same reason as clearLinkedAccount: `null` is a meaningful value here -
+    // "the category that was selected is one this form cannot offer any more",
+    // which is what leaving transfer mode with no ordinary category to fall
+    // back to leaves behind.
+    bool clearSelectedCategory = false,
     Currency? selectedCurrency,
     List<ExchangeRateDomain>? availableExchangeRates,
     ExchangeRateDomain? selectedExchangeRate,
@@ -175,6 +189,7 @@ class AddEditTransactionState extends Equatable {
     double? marketRate,
     bool? isRateInputInverted,
     bool? manualRateIsHistorical,
+    bool? accountChosenByUser,
     String? validationError,
     bool clearValidationError = false,
   }) {
@@ -193,7 +208,9 @@ class AddEditTransactionState extends Equatable {
       selectedAccount: clearSelectedAccount
           ? null
           : (selectedAccount ?? this.selectedAccount),
-      selectedCategory: selectedCategory ?? this.selectedCategory,
+      selectedCategory: clearSelectedCategory
+          ? null
+          : (selectedCategory ?? this.selectedCategory),
       selectedCurrency: selectedCurrency ?? this.selectedCurrency,
       availableExchangeRates:
           availableExchangeRates ?? this.availableExchangeRates,
@@ -217,6 +234,7 @@ class AddEditTransactionState extends Equatable {
       isRateInputInverted: isRateInputInverted ?? this.isRateInputInverted,
       manualRateIsHistorical:
           manualRateIsHistorical ?? this.manualRateIsHistorical,
+      accountChosenByUser: accountChosenByUser ?? this.accountChosenByUser,
       validationError: clearValidationError
           ? null
           : (validationError ?? this.validationError),
@@ -253,6 +271,7 @@ class AddEditTransactionState extends Equatable {
     marketRate,
     isRateInputInverted,
     manualRateIsHistorical,
+    accountChosenByUser,
     validationError,
   ];
 }

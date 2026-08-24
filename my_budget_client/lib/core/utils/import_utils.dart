@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:my_budget_client/core/utils/calendar_day.dart';
 import 'package:my_budget_client/core/utils/import_file_data.dart';
 import 'package:path/path.dart' as p;
 import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
@@ -94,6 +95,25 @@ class ImportDataUtils {
     "NOTES",
   ];
 
+  /// A money column read as a number, with the file's comma decimal mark
+  /// rewritten to a dot.
+  ///
+  /// Throws for anything that is not a finite amount, which the row-level
+  /// catch below turns into the same skip a letter in the column already got.
+  /// `double.parse` reads 'NaN', 'Infinity' and '-Infinity' as happily as it
+  /// reads '12.5', and any of the three imported as an amount makes every
+  /// total that ever sums the row NaN - a balance that no edit to any other
+  /// transaction can repair.
+  @visibleForTesting
+  static double parseMoney(Object? raw) {
+    final text = raw.toString().replaceAll(',', '.');
+    final value = double.parse(text);
+    if (!value.isFinite) {
+      throw FormatException('Not a finite amount', text);
+    }
+    return value;
+  }
+
   static Future<ParsedCsvData> parseOneMoneyCsv(ImportFileData file) async {
     try {
       final String fileContent;
@@ -188,13 +208,11 @@ class ImportDataUtils {
               accountBalances.add(
                 AccountBalanceRecord(
                   name: row[0].toString().trim(), // Trim whitespace
-                  // Through the same comma rewrite as the amount column
-                  // below: a Russian export quotes "1234,56", and without it
-                  // the catch under here dropped every balance row of an
-                  // otherwise perfectly readable file.
-                  balance: double.parse(
-                    row[1].toString().replaceAll(',', '.'),
-                  ),
+                  // Through the same reader as the amount column below: a
+                  // Russian export quotes "1234,56", and without the comma
+                  // rewrite the catch under here dropped every balance row of
+                  // an otherwise perfectly readable file.
+                  balance: parseMoney(row[1]),
                   currency: row[2].toString().trim(),
                 ),
               );
@@ -213,17 +231,14 @@ class ImportDataUtils {
           }
 
           try {
-            final double amount = double.parse(
-              row[4].toString().replaceAll(',', '.'),
-            );
+            final double amount = parseMoney(row[4]);
             final notes = row[9].toString();
             final double? amount2 =
                 row.length > 6 && row[6].toString().isNotEmpty
-                ? double.parse(row[6].toString().replaceAll(',', '.'))
+                ? parseMoney(row[6])
                 : null;
             final String? currency2 = row.length > 7 ? row[7].toString() : null;
 
-            debugPrint("Parsing row $i, notes: $notes");
 
             String type = row[1].toString();
             if (isRussian) {
@@ -389,7 +404,7 @@ class ImportDataUtils {
             }
           }
         }
-        currentDate = currentDate.add(const Duration(days: 1));
+        currentDate = nextDay(currentDate);
       }
 
       // 4. Batch insert into DB
@@ -599,7 +614,7 @@ class ImportDataUtils {
         } catch (e) {}
         await Future.delayed(const Duration(milliseconds: 100));
       }
-      currentDate = currentDate.add(const Duration(days: 1));
+      currentDate = nextDay(currentDate);
     }
   }
 }

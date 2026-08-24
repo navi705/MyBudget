@@ -786,7 +786,13 @@ void main() {
       // the stranded rows stranded, forever.
       expect(await queuedKeysFor(db, 'accounts'), {'accEur'});
       expect(await queuedKeysFor(db, 'transactions'), {'t1'});
-      expect(await queuedKeysFor(db, 'categories'), {'c1'});
+      // cat_subscriptions is not one of the device's own rows: the v19 step
+      // inserts it on the way past, and the trigger queues it like any
+      // other write. The other device has to hear about it too.
+      expect(await queuedKeysFor(db, 'categories'), {
+        'c1',
+        'cat_subscriptions',
+      });
       expect(await queuedKeysFor(db, 'api_settings_table'), {'exchange_rates'});
       expect(await queuedKeysFor(db, 'exchange_rates'), {
         'EUR|EUR|1700000000|7',
@@ -799,7 +805,12 @@ void main() {
         "modified_at, is_deleted) "
         "VALUES ('after', 'Made later', '#000000', 'star', 0, 5, 0)",
       );
-      expect(await queuedKeysFor(db, 'styles'), {'after'});
+      // style_subscriptions arrives the same way cat_subscriptions does,
+      // in the v19 step this fixture's upgrade runs through.
+      expect(await queuedKeysFor(db, 'styles'), {
+        'style_subscriptions',
+        'after',
+      });
 
       await db.customStatement(
         "UPDATE styles SET name = 'Renamed', modified_at = 6 "
@@ -811,7 +822,8 @@ void main() {
             "WHERE changed_table_name = 'styles'",
           )
           .getSingle();
-      expect(rows.read<int>('c'), 2, reason: 'an edit is a change to send too');
+      // Three: the row the v19 step seeded, this insert, and its edit.
+      expect(rows.read<int>('c'), 3, reason: 'an edit is a change to send too');
     });
 
     test('a write that does not move modified_at is not queued', () async {
@@ -1498,7 +1510,12 @@ void main() {
       await db.close();
 
       final raw = sqlite3.sqlite3.open(file.path);
-      expect(raw.select('PRAGMA user_version').single['user_version'], 17);
+      // The upgrade runs the whole chain, so this is the version the app
+      // ships, not the one this group is named after.
+      expect(
+        raw.select('PRAGMA user_version').single['user_version'],
+        db.schemaVersion,
+      );
       expect(() => applyIncomingCurrency(raw), returnsNormally);
       expect(() => applyIncomingAccountType(raw), returnsNormally);
       final codes = raw
@@ -1584,7 +1601,14 @@ void main() {
               )
               .map((r) => r['name'])
               .toList(),
-          ['trg_push_queue_${table}_insert', 'trg_push_queue_${table}_update'],
+          [
+            // v18 puts this device's identity on every row it writes; the
+            // rebuild has to leave those behind as well.
+            'trg_device_id_${table}_insert',
+            'trg_device_id_${table}_update',
+            'trg_push_queue_${table}_insert',
+            'trg_push_queue_${table}_update',
+          ],
         );
       }
 
@@ -1639,4 +1663,268 @@ void main() {
       raw.dispose();
     });
   });
+
+  group('v18 -> v19 migration (the review queue and its category)', () {
+    // v18 and v19 differ by one column on `transactions` and by two seeded
+    // rows, so the fixture is a current-schema database with the column
+    // rebuilt away, those rows deleted and `user_version` wound back.
+    late File file;
+
+    /// Rebuilds `transactions` the way v18 declared it - without
+    /// `needs_review`.
+    ///
+    /// DROP COLUMN is refused here: the push-queue triggers name every column
+    /// of the table they watch, so SQLite will not leave one referring to a
+    /// column that is gone. The triggers are copied out of `sqlite_master`
+    /// and put back with the same column removed from them, the way the v16
+    /// fixture does it: a fixture whose triggers differ from a real v18
+    /// device's would let the migration pass here and lose queue entries in
+    /// the field.
+    void stripNeedsReview(sqlite3.Database raw) {
+      final triggers = raw
+          .select(
+            "SELECT sql FROM sqlite_master WHERE type = 'trigger' "
+            "AND tbl_name = 'transactions'",
+          )
+          .map((r) => r['sql'] as String)
+          .toList();
+      expect(
+        triggers.any((t) => t.contains('needs_review')),
+        isTrue,
+        reason: 'the v19 triggers must watch the new column',
+      );
+      final ddl =
+          raw.select(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' "
+                "AND name = 'transactions'",
+              ).single['sql']
+              as String;
+      expect(
+        ddl.contains('"needs_review"'),
+        isTrue,
+        reason: 'the shipped column moved; this fixture no longer builds v18',
+      );
+      final columns = raw
+          .select("PRAGMA table_info('transactions')")
+          .map((r) => r['name'] as String)
+          .where((c) => c != 'needs_review')
+          .map((c) => '"$c"')
+          .join(', ');
+      final v18Ddl = _dropColumnDeclaration(
+        ddl.replaceFirst('"transactions"', '"transactions_v18"'),
+        'needs_review',
+      );
+      expect(
+        v18Ddl.contains('needs_review'),
+        isFalse,
+        reason: 'the column declaration is not shaped as this fixture assumes',
+      );
+
+      raw.execute('PRAGMA foreign_keys = OFF;');
+      // Without this, renaming into the name other tables reference makes
+      // SQLite rewrite their REFERENCES clauses instead of leaving them be.
+      raw.execute('PRAGMA legacy_alter_table = ON;');
+      raw.execute(v18Ddl);
+      raw.execute(
+        'INSERT INTO transactions_v18 ($columns) SELECT $columns '
+        'FROM transactions;',
+      );
+      raw.execute('DROP TABLE transactions;');
+      raw.execute('ALTER TABLE transactions_v18 RENAME TO transactions;');
+      for (final sql in triggers) {
+        // The v18 device's triggers: the same SQL with the comparison of the
+        // column that did not exist for it to watch taken back out.
+        raw.execute(sql.replaceAll(RegExp(r'[^ (]*needs_review[^ )]*'), "''"));
+      }
+      raw.execute('PRAGMA legacy_alter_table = OFF;');
+    }
+
+    setUp(() async {
+      file = File('${tempDir.path}/v18.sqlite');
+      if (file.existsSync()) file.deleteSync();
+      final fresh = AppDatabase.forTesting(NativeDatabase(file));
+      await fresh.customSelect('SELECT 1').get();
+      await fresh.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      stripNeedsReview(raw);
+      // What a device installed before v19 has: no subscriptions category,
+      // and no style behind it.
+      raw.execute("DELETE FROM categories WHERE id = 'cat_subscriptions';");
+      raw.execute("DELETE FROM styles WHERE id = 'style_subscriptions';");
+      raw.execute('DELETE FROM sync_push_queue;');
+      raw.execute('PRAGMA user_version = 18;');
+      raw.dispose();
+    });
+
+    test('the fixture is a v18 device', () async {
+      // Not a test of the fix - a test that the fixture is the state the step
+      // has to upgrade from.
+      final raw = sqlite3.sqlite3.open(file.path);
+      final columns = raw
+          .select("PRAGMA table_info('transactions')")
+          .map((r) => r['name'])
+          .toList();
+      expect(columns, isNot(contains('needs_review')));
+      expect(
+        raw.select("SELECT id FROM categories WHERE id = 'cat_subscriptions'"),
+        isEmpty,
+      );
+      raw.dispose();
+    });
+
+    test('adds the column and keeps the rows already written', () async {
+      final seeded = sqlite3.sqlite3.open(file.path);
+      // Accounts are the user's, not the seed's, so the fixture writes the one
+      // this row hangs off - out of the seeded catalogue, so the foreign keys
+      // are real ones.
+      final designation = seeded
+          .select('SELECT id, currency_code FROM currency_designations LIMIT 1')
+          .single;
+      final accountTypeId =
+          seeded.select('SELECT id FROM account_types LIMIT 1').single['id']
+              as String;
+      final categoryId =
+          seeded.select('SELECT id FROM categories LIMIT 1').single['id']
+              as String;
+      seeded.execute(
+        'INSERT INTO accounts (id, name, balance, currency_code, '
+        'currency_designation_id, account_type_id, creation_date) '
+        'VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [
+          'acc-v18',
+          'Account from before',
+          0.0,
+          designation['currency_code'],
+          designation['id'],
+          accountTypeId,
+          1700000000000,
+        ],
+      );
+      seeded.execute(
+        'INSERT INTO transactions (id, description, amount, date, account_id, '
+        'category_id, currency_code) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [
+          'tx-v18',
+          'written before the upgrade',
+          -12.5,
+          1700000000000,
+          'acc-v18',
+          categoryId,
+          designation['currency_code'],
+        ],
+      );
+      seeded.dispose();
+
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      await db.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      expect(
+        raw.select('PRAGMA user_version').single['user_version'],
+        db.schemaVersion,
+      );
+      final row = raw
+          .select(
+            'SELECT description, needs_review FROM transactions '
+            "WHERE id = 'tx-v18'",
+          )
+          .single;
+      expect(row['description'], 'written before the upgrade');
+      // Nothing has reviewed the rows that were already there, and nothing
+      // flagged them either: the queue starts empty rather than holding the
+      // user's whole history.
+      expect(row['needs_review'], 0);
+      expect(raw.select('PRAGMA foreign_key_check'), isEmpty);
+      raw.dispose();
+    });
+
+    test('seeds the subscriptions category and its style', () async {
+      // Seeding only runs on a fresh install, so without this step the
+      // category the SMS import files subscriptions into would exist on no
+      // device that already had the app.
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      await db.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      final category = raw
+          .select(
+            'SELECT style_id, is_deleted FROM categories '
+            "WHERE id = 'cat_subscriptions'",
+          )
+          .single;
+      expect(category['style_id'], 'style_subscriptions');
+      expect(category['is_deleted'], 0);
+      expect(
+        raw.select("SELECT id FROM styles WHERE id = 'style_subscriptions'"),
+        hasLength(1),
+      );
+      raw.dispose();
+    });
+
+    test('recreates the push-queue triggers around the new column', () async {
+      // The triggers enumerate the columns they compare and were compiled
+      // before this one existed: without recreating them, clearing the flag on
+      // a reviewed row would never be uploaded.
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      await db.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      final triggers = raw
+          .select(
+            "SELECT sql FROM sqlite_master WHERE type = 'trigger' "
+            "AND tbl_name = 'transactions'",
+          )
+          .map((r) => r['sql'] as String)
+          .toList();
+      expect(triggers.any((t) => t.contains('needs_review')), isTrue);
+      raw.dispose();
+    });
+
+    test('a device already on v19 upgrades again without error', () async {
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      await db.close();
+
+      final again = AppDatabase.forTesting(NativeDatabase(file));
+      await expectLater(again.customSelect('SELECT 1').get(), completes);
+      await again.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      expect(
+        raw.select("SELECT id FROM categories WHERE id = 'cat_subscriptions'"),
+        hasLength(1),
+        reason: 'the insert is insert-or-ignore, not a second row',
+      );
+      raw.dispose();
+    });
+  });
+}
+
+/// [ddl] with the declaration of [column] taken out of it.
+///
+/// Not a regex: a declaration carries its own commas - `CHECK ("x" IN (0,
+/// 1))` - so cutting at the first comma leaves half a CHECK behind and the
+/// CREATE TABLE no longer parses. This walks to the first comma that is not
+/// inside brackets instead.
+String _dropColumnDeclaration(String ddl, String column) {
+  final start = ddl.indexOf('"$column"');
+  if (start < 0) return ddl;
+  var depth = 0;
+  for (var i = start; i < ddl.length; i++) {
+    final c = ddl[i];
+    if (c == '(') depth++;
+    if (c == ')') depth--;
+    if (c == ',' && depth == 0) {
+      var end = i + 1;
+      while (end < ddl.length && ddl[end] == ' ') {
+        end++;
+      }
+      return ddl.substring(0, start) + ddl.substring(end);
+    }
+  }
+  return ddl;
 }

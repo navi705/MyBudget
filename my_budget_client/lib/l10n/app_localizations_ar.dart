@@ -298,6 +298,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get filterCategoriesDescription => 'تصفية الفئات حسب النوع (دخل/مصروفات)';
 
   @override
+  String get reviewQueueTooltip => 'قائمة المراجعة';
+
+  @override
+  String get reviewQueueDescription => 'إظهار المعاملات التي لم يتمكن الاستيراد من تصنيفها بثقة فقط';
+
+  @override
+  String get needsReviewBadgeLabel => 'بحاجة إلى مراجعة';
+
+  @override
   String get selectDateTooltip => 'تحديد تاريخ';
 
   @override
@@ -863,6 +872,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get transferLabel => 'تحويل';
+
+  @override
+  String get transactionModeLabel => 'معاملة';
 
   @override
   String get uncategorizedLabel => 'غير مصنف';
@@ -1785,6 +1797,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get hkActionFilterAction => 'تصفية';
+
+  @override
+  String get hkActionReviewQueue => 'قائمة المراجعة';
 
   @override
   String get hkActionDashboardCurrency => 'لوحة المعلومات: العملة';

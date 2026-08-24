@@ -201,14 +201,26 @@ void main() {
         inflationApiService: _FakeInflationApiService(),
       );
 
+      // Loading awaits the device name over device_info_plus's channel BEFORE
+      // it subscribes to the settings stream, and that answer lands on the
+      // real event loop. A fixed `pumpEventQueue` was a bet on it arriving in
+      // time; on a loaded machine it lost, the broadcast controller below then
+      // dropped the one event it was given for want of a listener, and the
+      // bloc sat on its initial state forever. Both halves wait for the thing
+      // they need instead: the subscription, then the emission.
+      final loaded = bloc.stream.firstWhere((s) => s.hotkeys.isNotEmpty);
+
       bloc.add(LoadSettings());
-      await pumpEventQueue();
+      while (!settingsController.hasListener) {
+        await pumpEventQueue();
+      }
       // Nothing stored: the defaults are what a fresh install reads.
       settingsController.add(const []);
-      await pumpEventQueue();
+
+      final state = await loaded.timeout(const Duration(seconds: 10));
 
       expect(
-        bloc.state.hotkeys['back'],
+        state.hotkeys['back'],
         HotKeyUtils.serializeKeys({LogicalKeyboardKey.escape}),
         reason:
             'EscapeBackHandler falls back to Escape, so listing Back as '

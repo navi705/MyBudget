@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/utils/calendar_day.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/core/theme/app_spacing.dart';
 import 'package:my_budget_client/core/theme/money_colors.dart';
@@ -38,14 +39,18 @@ class PeriodSummaryWidget extends StatelessWidget {
     // Better: Iterate from start to end (inclusive)
     // Avoids checking keys outside range if map is huge (it shouldn't be too huge).
 
-    final days = dateRangeEnd.difference(dateRangeStart).inDays + 1;
-    for (int i = 0; i < days; i++) {
-      final d = dateRangeStart.add(Duration(days: i));
-      // Normalize date to remove time just in case, though maps keys should be normalized
-      final key = DateTime(d.year, d.month, d.day);
-
-      totalIncome += dailyIncomes[key] ?? 0;
-      totalExpense += dailyExpenses[key] ?? 0;
+    // Walked a calendar day at a time. Both the day count and the step used
+    // to be nominal 24-hour arithmetic, so a range spanning a clock change
+    // came out wrong twice over: the shorter day was reached under two
+    // different `i` and counted into the totals twice, and the count that
+    // bounded the loop was a day short, so the last day of the range was
+    // dropped. On the longer day it was the other way round - a day skipped.
+    var day = startOfDay(dateRangeStart);
+    final lastDay = startOfDay(dateRangeEnd);
+    while (!day.isAfter(lastDay)) {
+      totalIncome += dailyIncomes[day] ?? 0;
+      totalExpense += dailyExpenses[day] ?? 0;
+      day = nextDay(day);
     }
 
     final net = totalIncome - totalExpense;

@@ -37,6 +37,9 @@ import '../test_app.dart';
 /// Tall enough for Save to be on screen without scrolling.
 const Size _surface = Size(600, 2000);
 
+/// A phone in portrait: the narrowest surface this form is edited on.
+const Size _phone = Size(390, 844);
+
 /// What the database holds: a balance of 100.00 EUR, exact to the cent.
 final Account _stored = Account(
   id: 'a1',
@@ -143,6 +146,8 @@ Future<_RecordingAccountsBloc> _pumpEditAccount(
   Object? failure,
   bool settle = true,
   Size surface = _surface,
+  double textScale = 1.0,
+  Locale locale = const Locale('en'),
   Map<String, String> hotkeys = const {},
 }) async {
   setSurfaceSize(tester, surface);
@@ -189,9 +194,14 @@ Future<_RecordingAccountsBloc> _pumpEditAccount(
     wrapWithBlocs(
       MaterialApp.router(
         routerConfig: router,
-        locale: const Locale('en'),
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        builder: (context, child) => MediaQuery.withClampedTextScaling(
+          minScaleFactor: textScale,
+          maxScaleFactor: textScale,
+          child: child!,
+        ),
       ),
       // EscapeBackHandler and the country field read Settings; the currency
       // field reads Currency; the style tile reads Styles.
@@ -429,6 +439,125 @@ void main() {
 
       expect(find.text('42.0'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+  });
+
+  // The bar at the bottom holds Delete and Save side by side, and only Save is
+  // allowed to take the space that is left. Delete carries an icon and a word,
+  // both of which grow with the text setting, so on a narrow phone at a large
+  // scale the row is the first thing in this form to run out of width - and an
+  // overflow there covers the two buttons the screen exists to offer.
+  group('EditAccountScreen on a phone', () {
+    testWidgets('both buttons fit the bar', (tester) async {
+      await _pumpEditAccount(
+        tester,
+        routed: _asViewed,
+        stored: _stored,
+        surface: _phone,
+      );
+
+      final l10n = await loadL10n();
+      final save = find.widgetWithText(FilledButton, l10n.saveButton);
+      final delete = find.byIcon(Icons.delete_outline);
+      expect(save, findsOneWidget);
+      expect(delete, findsOneWidget);
+      expect(find.text(l10n.deleteButton), findsOneWidget);
+
+      for (final part in [save, delete, find.text(l10n.deleteButton)]) {
+        final rect = tester.getRect(part);
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(rect.right, lessThanOrEqualTo(_phone.width));
+      }
+      expect(
+        tester.getSize(save).height,
+        greaterThanOrEqualTo(48),
+        reason: 'a button under 48dp is one the user has to aim at',
+      );
+    });
+
+    testWidgets('they still fit with the phone set to large text', (
+      tester,
+    ) async {
+      await _pumpEditAccount(
+        tester,
+        routed: _asViewed,
+        stored: _stored,
+        surface: _phone,
+        textScale: 2.0,
+      );
+
+      final l10n = await loadL10n();
+      for (final part in [
+        find.widgetWithText(FilledButton, l10n.saveButton),
+        find.text(l10n.deleteButton),
+        find.byIcon(Icons.delete_outline),
+      ]) {
+        final rect = tester.getRect(part);
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(
+          rect.right,
+          lessThanOrEqualTo(_phone.width),
+          reason: 'both buttons stay on a 390dp screen at any text setting',
+        );
+      }
+    });
+
+    testWidgets('a language with longer words stacks them instead', (
+      tester,
+    ) async {
+      // Russian at twice the text size is where the two words stop fitting
+      // side by side: the bar puts Save over Delete rather than clipping
+      // either of them.
+      await _pumpEditAccount(
+        tester,
+        routed: _asViewed,
+        stored: _stored,
+        surface: _phone,
+        textScale: 2.0,
+        locale: const Locale('ru'),
+      );
+
+      final l10n = await AppLocalizations.delegate.load(const Locale('ru'));
+      final save = tester.getRect(
+        find.widgetWithText(FilledButton, l10n.saveButton),
+      );
+      final delete = tester.getRect(find.byIcon(Icons.delete_outline));
+
+      expect(save.right, lessThanOrEqualTo(_phone.width));
+      expect(
+        delete.top,
+        greaterThanOrEqualTo(save.bottom),
+        reason: 'stacked, so neither word has to be cut short',
+      );
+    });
+
+    testWidgets('the form can still be edited and saved at large text', (
+      tester,
+    ) async {
+      final bloc = await _pumpEditAccount(
+        tester,
+        routed: _asViewed,
+        stored: _stored,
+        surface: _phone,
+        textScale: 2.0,
+      );
+
+      final l10n = await loadL10n();
+      final name = find.widgetWithText(TextFormField, l10n.accountNameHint);
+      await tester.ensureVisible(name);
+      await tester.pumpAndSettle();
+      await tester.enterText(name, 'Renamed');
+      await tester.pumpAndSettle();
+
+      await _tapSave(tester);
+
+      final event = bloc.events.whereType<UpdateAccount>().single;
+      expect(event.account.name, 'Renamed');
+      expect(
+        event.account.balance,
+        _stored.balance,
+        reason: 'the stored balance is what a rename must write back',
+      );
     });
   });
 }

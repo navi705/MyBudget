@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_budget_client/core/utils/calendar_day.dart';
 import 'package:my_budget_client/core/theme/app_spacing.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 import 'package:my_budget_client/presentation/widgets/navigation/navigation_tab_bar.dart';
@@ -175,7 +176,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       newDate = DateTime(current.year + direction, current.month, 1);
     } else {
       // Day
-      newDate = current.add(Duration(days: direction));
+      newDate = addDays(current, direction);
     }
     context.read<DashboardBloc>().add(SelectDay(newDate));
   }

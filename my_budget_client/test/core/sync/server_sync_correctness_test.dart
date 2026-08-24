@@ -77,14 +77,22 @@ void main() {
   /// A style written straight through SQL, the way a peer's row or a pull's
   /// upsert lands: a `modified_at` and a `device_id` chosen by whoever wrote
   /// it, not by this device.
+  /// A style written straight into the table, with the author the caller asks
+  /// for - including none at all.
+  ///
+  /// The insert is followed by an explicit erasure when [deviceId] is null,
+  /// because the database stamps a row that arrives without an author with
+  /// this device's identity. That stamp is the point of the column, and it is
+  /// exactly what a row written before it existed does NOT have: the erasure
+  /// is what makes this helper able to build one.
   Future<void> insertStyleRaw(
     String id, {
     required int modifiedAt,
     String name = 'Local',
     String? deviceId,
     bool isDeleted = false,
-  }) {
-    return db.customInsert(
+  }) async {
+    await db.customInsert(
       'INSERT INTO styles (id, name, color_hex, icon_name, icon_type, '
       'modified_at, device_id, is_deleted) VALUES (?, ?, ?, ?, 0, ?, ?, ?)',
       variables: [
@@ -98,6 +106,13 @@ void main() {
       ],
       updates: {db.styles},
     );
+    if (deviceId == null) {
+      await db.customUpdate(
+        'UPDATE styles SET device_id = NULL WHERE id = ?',
+        variables: [Variable.withString(id)],
+        updates: {db.styles},
+      );
+    }
   }
 
   Map<String, dynamic> styleJson(

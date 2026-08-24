@@ -657,6 +657,24 @@ abstract class AppLocalizations {
   /// **'Filter categories by type (Income/Expense)'**
   String get filterCategoriesDescription;
 
+  /// No description provided for @reviewQueueTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Review queue'**
+  String get reviewQueueTooltip;
+
+  /// No description provided for @reviewQueueDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Show only the transactions the import could not file with certainty'**
+  String get reviewQueueDescription;
+
+  /// No description provided for @needsReviewBadgeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs review'**
+  String get needsReviewBadgeLabel;
+
   /// No description provided for @selectDateTooltip.
   ///
   /// In en, this message translates to:
@@ -1718,6 +1736,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Transfer'**
   String get transferLabel;
+
+  /// No description provided for @transactionModeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction'**
+  String get transactionModeLabel;
 
   /// No description provided for @uncategorizedLabel.
   ///
@@ -3362,6 +3386,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Filter'**
   String get hkActionFilterAction;
+
+  /// No description provided for @hkActionReviewQueue.
+  ///
+  /// In en, this message translates to:
+  /// **'Review Queue'**
+  String get hkActionReviewQueue;
 
   /// No description provided for @hkActionDashboardCurrency.
   ///

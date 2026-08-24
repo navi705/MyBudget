@@ -298,6 +298,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get filterCategoriesDescription => 'Фильтровать категории по типу (Расход/Доход)';
 
   @override
+  String get reviewQueueTooltip => 'Очередь на проверку';
+
+  @override
+  String get reviewQueueDescription => 'Показать только транзакции, в категории которых импорт не уверен';
+
+  @override
+  String get needsReviewBadgeLabel => 'Требует проверки';
+
+  @override
   String get selectDateTooltip => 'Выбрать дату';
 
   @override
@@ -863,6 +872,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get transferLabel => 'Перевод';
+
+  @override
+  String get transactionModeLabel => 'Операция';
 
   @override
   String get uncategorizedLabel => 'Без категории';
@@ -1787,6 +1799,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get hkActionFilterAction => 'Фильтр';
+
+  @override
+  String get hkActionReviewQueue => 'Очередь на проверку';
 
   @override
   String get hkActionDashboardCurrency => 'Сводка: Валюта';

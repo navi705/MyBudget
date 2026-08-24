@@ -298,6 +298,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get filterCategoriesDescription => '按类型筛选分类（收入/支出）';
 
   @override
+  String get reviewQueueTooltip => '待核对队列';
+
+  @override
+  String get reviewQueueDescription => '仅显示导入时无法确定归类的交易';
+
+  @override
+  String get needsReviewBadgeLabel => '需要核对';
+
+  @override
   String get selectDateTooltip => '选择日期';
 
   @override
@@ -863,6 +872,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get transferLabel => '转账';
+
+  @override
+  String get transactionModeLabel => '交易';
 
   @override
   String get uncategorizedLabel => '未分类';
@@ -1785,6 +1797,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get hkActionFilterAction => '筛选';
+
+  @override
+  String get hkActionReviewQueue => '待复核队列';
 
   @override
   String get hkActionDashboardCurrency => '仪表板: 货币';

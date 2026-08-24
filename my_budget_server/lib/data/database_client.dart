@@ -169,6 +169,7 @@ class DatabaseClient {
         fee DOUBLE PRECISION,
         fee_minor BIGINT,
         linked_transaction_id TEXT,
+        needs_review BOOLEAN DEFAULT FALSE,
         modified_at BIGINT DEFAULT 0,
         device_id TEXT,
         is_deleted BOOLEAN DEFAULT FALSE
@@ -184,6 +185,14 @@ class DatabaseClient {
           'ALTER TABLE transactions ADD COLUMN IF NOT EXISTS amount_minor BIGINT');
       await _pool.execute(
           'ALTER TABLE transactions ADD COLUMN IF NOT EXISTS fee_minor BIGINT');
+
+      // Whether a client still wants a person to look at the row. Added after
+      // the first release, so it has to be an ALTER as well as a column in the
+      // CREATE above: a server that has been running keeps its table. Defaults
+      // to FALSE, which is what every row written before the review queue
+      // existed is.
+      await _pool.execute(
+          'ALTER TABLE transactions ADD COLUMN IF NOT EXISTS needs_review BOOLEAN DEFAULT FALSE');
 
       // The balance an account held before its first transaction, and the one
       // number on an account row that is not derivable from anything else.

@@ -13,6 +13,21 @@ class SmsParseResult {
   /// Resolved category ID: keyword match > rule.categoryId (both optional).
   final String? categoryId;
 
+  /// Name of the category the matched keyword would rather have, when it names
+  /// one - see [SmsCategoryKeyword.categoryNameHint]. The caller looks it up
+  /// among the user's own categories and falls back to [categoryId].
+  final String? categoryNameHint;
+
+  /// What the money was spent on, when the message names it - the merchant on
+  /// a card payment. Null leaves the caller to fall back to the preset name.
+  final String? description;
+
+  /// True when nothing in the message identified the category: no keyword
+  /// matched and the rule carries no category of its own, or the rule declared
+  /// itself unable to classify. The transaction is still written - it really
+  /// happened - and lands in the review queue for a person to file.
+  final bool needsReview;
+
   const SmsParseResult({
     required this.isMatch,
     this.type,
@@ -22,6 +37,9 @@ class SmsParseResult {
     this.rawMessage,
     this.ruleId,
     this.categoryId,
+    this.categoryNameHint,
+    this.description,
+    this.needsReview = false,
   });
 
   static const noMatch = SmsParseResult(isMatch: false);
@@ -93,8 +111,24 @@ class SmsParser {
           date = _parseDate(dateMatch.group(0));
         }
       }
-      // Resolve category: keyword match > rule.categoryId
-      final resolvedCategoryId = _resolveCategoryId(smsBody, preset, rule);
+      // What the money was spent on, when the rule knows how to read it.
+      String? description;
+      if (rule.descriptionPattern != null) {
+        final descriptionRegex = _getCachedRegex(
+          rule.descriptionPattern!,
+          caseSensitive: false,
+        );
+        final descriptionMatch = descriptionRegex.firstMatch(smsBody);
+        description = _cleanDescription(descriptionMatch?.group(1));
+      }
+
+      // Resolve category: keyword match > rule.categoryId.
+      // A rule that declares itself unable to classify skips the keywords
+      // outright - see [SmsParsingRule.forceReview] for the case that needs it.
+      final matchedKeyword = rule.forceReview
+          ? null
+          : _matchKeyword(smsBody, preset);
+      final resolvedCategoryId = matchedKeyword?.categoryId ?? rule.categoryId;
 
       return SmsParseResult(
         isMatch: true,
@@ -105,29 +139,50 @@ class SmsParser {
         rawMessage: smsBody,
         ruleId: rule.id,
         categoryId: resolvedCategoryId,
+        categoryNameHint: matchedKeyword?.categoryNameHint,
+        description: description,
+        // A rule that names its own category has already made the call - a
+        // `priliv` is income however the message is worded. Only a message
+        // nothing could classify goes into the queue.
+        needsReview: rule.forceReview || resolvedCategoryId == null,
       );
     }
 
     return SmsParseResult.noMatch;
   }
 
-  /// Resolve category from SMS body.
-  /// Checks [preset.categoryKeywords] first (case-insensitive substring match).
-  /// First keyword found wins. Falls back to [rule.categoryId].
-  String? _resolveCategoryId(
-    String smsBody,
-    SmsPreset preset,
-    SmsParsingRule rule,
-  ) {
-    if (preset.categoryKeywords.isNotEmpty) {
-      final bodyLower = smsBody.toLowerCase();
-      for (final kw in preset.categoryKeywords) {
-        if (bodyLower.contains(kw.keyword.toLowerCase())) {
-          return kw.categoryId;
-        }
+  /// The first [preset.categoryKeywords] entry whose keyword appears in
+  /// [smsBody], or null when none does.
+  ///
+  /// Case-insensitive substring match, first entry wins - so the list is
+  /// ordered from the most specific keyword to the least, and a bank that adds
+  /// a merchant nobody has a keyword for reads as "not classified" rather than
+  /// as whichever category happens to be last.
+  SmsCategoryKeyword? _matchKeyword(String smsBody, SmsPreset preset) {
+    if (preset.categoryKeywords.isEmpty) return null;
+    final bodyLower = smsBody.toLowerCase();
+    for (final kw in preset.categoryKeywords) {
+      if (kw.keyword.isEmpty) continue;
+      if (bodyLower.contains(kw.keyword.toLowerCase())) {
+        return kw;
       }
     }
-    return rule.categoryId;
+    return null;
+  }
+
+  /// Tidies a merchant name into something that fits the description column.
+  ///
+  /// Bank messages pad the name to a fixed width and end it with a stray `>`
+  /// before the city, and the column stops at 100 characters - a longer one
+  /// would be rejected by the database and lose the whole transaction.
+  static String? _cleanDescription(String? raw) {
+    if (raw == null) return null;
+    var cleaned = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+    while (cleaned.endsWith('>') || cleaned.endsWith(',')) {
+      cleaned = cleaned.substring(0, cleaned.length - 1).trimRight();
+    }
+    if (cleaned.isEmpty) return null;
+    return cleaned.length > 100 ? cleaned.substring(0, 100).trimRight() : cleaned;
   }
 
   /// Parse amount string (handles both 1,000.00 and 1.000,00 formats)
@@ -149,7 +204,11 @@ class SmsParser {
       cleaned = cleaned.replaceAll(',', '');
     }
 
-    return double.tryParse(cleaned);
+    // A rule's own regex decides what text lands here, and `double.tryParse`
+    // reads 'NaN' and 'Infinity' as numbers. Neither is an amount, and one
+    // stored as a transaction poisons every sum it reaches.
+    final amount = double.tryParse(cleaned);
+    return amount != null && amount.isFinite ? amount : null;
   }
 
   /// Parse date from SMS (basic implementation)

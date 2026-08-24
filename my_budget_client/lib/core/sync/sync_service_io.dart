@@ -691,8 +691,13 @@ class SyncService {
   ) async {
     // Get local record
     final localData = await _getRecordData(change.tableId, change.recordId);
-    final localModifiedAt = localData?['modifiedAt'] as int? ?? 0;
-    final incomingModifiedAt = change.data?['modifiedAt'] as int? ?? 0;
+    final localModifiedAt = (localData?['modifiedAt'] as num?)?.toInt() ?? 0;
+    // Read through `num`, not `as int?`. Every change of every table carries
+    // this stamp, and JSON has one number type: a peer that renders the clock
+    // as 1.7e12 rather than 1700000000000 used to throw here, and the throw is
+    // caught per change, so that peer's whole packet was skipped one silent
+    // change at a time. See the note above [_transactionFromJson].
+    final incomingModifiedAt = (change.data?['modifiedAt'] as num?)?.toInt() ?? 0;
     final incomingDeviceId = _incomingAuthor(change, fromDevice);
 
     if (change.action == SyncAction.delete) {
@@ -701,7 +706,7 @@ class SyncService {
       // the batch leaves this to the packet clock, which is that delete's
       // closest available upper bound.
       final deleteTimestamp =
-          (change.data?['modifiedAt'] as int?) ?? packetTimestamp;
+          (change.data?['modifiedAt'] as num?)?.toInt() ?? packetTimestamp;
 
       if (localData != null) {
         // Exactly the same total order the upsert path below uses, so a delete
@@ -2080,12 +2085,26 @@ class SyncService {
       'fee': t.fee,
       'feeMinor': t.feeMinor,
       'linkedTransactionId': t.linkedTransactionId,
+      // Added after the first release, so a peer on an older build sends no
+      // such key at all and the reader below defaults it to false rather than
+      // throwing. Nothing about the money depends on it.
+      'needsReview': t.needsReview,
       'modifiedAt': t.modifiedAt,
       'deviceId': t.deviceId,
       'isDeleted': t.isDeleted,
     };
   }
 
+  /// Every number below is read through `num`, never cast straight to `int` or
+  /// `double`.
+  ///
+  /// JSON has one number type and a writer is free to render 1.0 as `1`: the
+  /// `as double?` this used to do on `exchangeRate` threw for such a payload,
+  /// and a throw here does not fail loudly - [_processFile] catches it and
+  /// skips the one change, so the transaction was silently dropped and stayed
+  /// missing, since no later packet re-sends a change already sent. Reading as
+  /// `num` still throws for a value that is not a number at all, which keeps
+  /// the skip for genuinely unreadable payloads.
   TransactionsCompanion _transactionFromJson(Map<String, dynamic> json) {
     final amount = (json['amount'] as num).toDouble();
     final fee = (json['fee'] as num?)?.toDouble() ?? 0.0;
@@ -2101,12 +2120,13 @@ class SyncService {
       accountId: Value(json['accountId'] as String? ?? ''),
       categoryId: Value(json['categoryId'] as String? ?? ''),
       currencyCode: Value(currencyCode),
-      exchangeRate: Value(json['exchangeRate'] as double?),
-      exchangeRatePreset: Value(json['exchangeRatePreset'] as int?),
+      exchangeRate: Value((json['exchangeRate'] as num?)?.toDouble()),
+      exchangeRatePreset: Value((json['exchangeRatePreset'] as num?)?.toInt()),
       fee: Value(fee),
       feeMinor: Value(_minorUnits(json, 'feeMinor', fee, currencyCode)),
       linkedTransactionId: Value(json['linkedTransactionId'] as String?),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      needsReview: Value(json['needsReview'] as bool? ?? false),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
     );
@@ -2190,7 +2210,7 @@ class SyncService {
       assetId: Value(json['assetId'] as String?),
       assetQuantity: Value((json['assetQuantity'] as num?)?.toDouble() ?? 0.0),
       feeStructure: Value(json['feeStructure'] as String?),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
     );
@@ -2216,7 +2236,7 @@ class SyncService {
       parentId: Value(json['parentId'] as String?),
       styleId: Value(json['styleId'] as String?),
       type: Value(_enumAt(CategoryType.values, json['type'])),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
     );
@@ -2245,7 +2265,7 @@ class SyncService {
       name: Value(json['name'] as String? ?? code),
       languageCode: Value(json['languageCode'] as String? ?? 'en'),
       type: Value(_enumAt(TypeCurrency.values, json['type'])),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
     );
   }
@@ -2270,7 +2290,7 @@ class SyncService {
       colorHex: Value(json['colorHex'] as String? ?? '#000000'),
       iconName: Value(json['iconName'] as String? ?? 'star'),
       iconType: Value(_enumAt(IconType.values, json['iconType'])),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
     );
@@ -2310,8 +2330,8 @@ class SyncService {
       currencyCode: Value(json['currencyCode'] as String? ?? 'USD'),
       accountId: Value(json['accountId'] as String?),
       source: Value(json['source'] as String? ?? 'Manual'),
-      preset: Value((json['preset'] as int?) ?? 1),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      preset: Value(((json['preset'] as num?)?.toInt()) ?? 1),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       sourceId: Value(json['sourceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
@@ -2334,7 +2354,7 @@ class SyncService {
       id: Value(json['id'] as String),
       name: Value(json['name'] as String? ?? 'Account Type'),
       languageCode: Value(json['languageCode'] as String? ?? 'en'),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
     );
@@ -2358,7 +2378,7 @@ class SyncService {
       id: Value(json['id'] as String),
       value: Value(json['value'] as String? ?? ''),
       currencyCode: Value(json['currencyCode'] as String? ?? 'USD'),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
     );
@@ -2386,11 +2406,11 @@ class SyncService {
       id: Value(json['id'] as String),
       name: Value(json['name'] as String? ?? 'Custom Data Source'),
       url: Value(json['url'] as String? ?? ''),
-      dataType: Value((json['dataType'] as int?) ?? 0),
+      dataType: Value(((json['dataType'] as num?)?.toInt()) ?? 0),
       enabled: Value(json['enabled'] as bool? ?? true),
       autoFetch: Value(json['autoFetch'] as bool? ?? false),
-      lastFetchAt: Value(json['lastFetchAt'] as int?),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      lastFetchAt: Value((json['lastFetchAt'] as num?)?.toInt()),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
     );
@@ -2418,9 +2438,9 @@ class SyncService {
       fromCurrencyCode: Value(json['fromCurrencyCode'] as String),
       toCurrencyCode: Value(json['toCurrencyCode'] as String),
       rate: Value((json['rate'] as num).toDouble()),
-      preset: Value((json['preset'] as int?) ?? 1),
+      preset: Value(((json['preset'] as num?)?.toInt()) ?? 1),
       date: Value(DateTime.parse(json['date'] as String)),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       sourceId: Value(json['sourceId'] as String?),
     );
@@ -2447,8 +2467,8 @@ class SyncService {
       date: Value(DateTime.parse(json['date'] as String)),
       percent: Value((json['percent'] as num).toDouble()),
       country: Value(json['country'] as String? ?? globalInflationCountry),
-      preset: Value((json['preset'] as int?) ?? 1),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      preset: Value(((json['preset'] as num?)?.toInt()) ?? 1),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       sourceId: Value(json['sourceId'] as String?),
     );
@@ -2501,15 +2521,15 @@ class SyncService {
       backgroundImageBlur: Value(
         (json['backgroundImageBlur'] as num?)?.toDouble() ?? 0.0,
       ),
-      windowEffectType: Value((json['windowEffectType'] as int?) ?? 0),
+      windowEffectType: Value(((json['windowEffectType'] as num?)?.toInt()) ?? 0),
       effectOpacity: Value((json['effectOpacity'] as num?)?.toDouble() ?? 1.0),
       surfaceOpacity: Value(
         (json['surfaceOpacity'] as num?)?.toDouble() ?? 1.0,
       ),
-      themeMode: Value((json['themeMode'] as int?) ?? 0),
+      themeMode: Value(((json['themeMode'] as num?)?.toInt()) ?? 0),
       isPreset: Value(json['isPreset'] as bool? ?? false),
       isActive: Value(json['isActive'] as bool? ?? false),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
     );
@@ -2543,7 +2563,7 @@ class SyncService {
       // An empty rule list parses nothing, which is the only safe reading of a
       // preset that arrived without one.
       rulesJson: Value(json['rulesJson'] as String? ?? '[]'),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       isDeleted: Value(json['isDeleted'] as bool? ?? false),
     );
@@ -2567,7 +2587,7 @@ class SyncService {
       key: Value(json['key'] as String),
       value: Value(json['value'] as String? ?? ''),
       device: Value(json['device'] as String?),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
     );
   }
@@ -2589,8 +2609,8 @@ class SyncService {
       id: Value(json['id'] as String),
       enabled: Value(json['enabled'] as bool? ?? true),
       autoFetch: Value(json['autoFetch'] as bool? ?? false),
-      lastFetchAt: Value(json['lastFetchAt'] as int?),
-      modifiedAt: Value((json['modifiedAt'] as int?) ?? 0),
+      lastFetchAt: Value((json['lastFetchAt'] as num?)?.toInt()),
+      modifiedAt: Value(((json['modifiedAt'] as num?)?.toInt()) ?? 0),
       deviceId: Value(json['deviceId'] as String?),
       // A packet from a build older than schema v12 carries no flag, and the
       // only thing it can mean is "not deleted" - the sender had no way to

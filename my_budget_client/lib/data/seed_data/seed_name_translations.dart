@@ -35,6 +35,7 @@ const Map<String, Map<String, String>> seedNameTranslations = {
     'Beauty': 'Beauty',
     'Steam': 'Steam',
     'Healthcare': 'Healthcare',
+    'Subscriptions': 'Subscriptions',
     'Other Expense': 'Other Expense',
 
     'Default Wallet': 'Default Wallet',
@@ -64,6 +65,7 @@ const Map<String, Map<String, String>> seedNameTranslations = {
     'Beauty': 'Красота',
     'Steam': 'Steam',
     'Healthcare': 'Здоровье',
+    'Subscriptions': 'Подписки',
     'Other Expense': 'Прочие расходы',
 
     'Default Wallet': 'Кошелёк',
@@ -93,6 +95,7 @@ const Map<String, Map<String, String>> seedNameTranslations = {
     'Beauty': 'Belleza',
     'Steam': 'Steam',
     'Healthcare': 'Salud',
+    'Subscriptions': 'Suscripciones',
     'Other Expense': 'Otros gastos',
 
     'Default Wallet': 'Cartera',
@@ -122,6 +125,7 @@ const Map<String, Map<String, String>> seedNameTranslations = {
     'Beauty': 'Beauté',
     'Steam': 'Steam',
     'Healthcare': 'Santé',
+    'Subscriptions': 'Abonnements',
     'Other Expense': 'Autres dépenses',
 
     'Default Wallet': 'Portefeuille',
@@ -151,6 +155,7 @@ const Map<String, Map<String, String>> seedNameTranslations = {
     'Beauty': 'Beleza',
     'Steam': 'Steam',
     'Healthcare': 'Saúde',
+    'Subscriptions': 'Assinaturas',
     'Other Expense': 'Outras despesas',
 
     'Default Wallet': 'Carteira',
@@ -180,6 +185,7 @@ const Map<String, Map<String, String>> seedNameTranslations = {
     'Beauty': 'सुंदरता',
     'Steam': 'स्टीम',
     'Healthcare': 'स्वास्थ्य देखभाल',
+    'Subscriptions': 'सदस्यताएँ',
     'Other Expense': 'अन्य खर्च',
 
     'Default Wallet': 'वॉलेट',
@@ -209,6 +215,7 @@ const Map<String, Map<String, String>> seedNameTranslations = {
     'Beauty': 'সৌন্দর্য',
     'Steam': 'স্টিম',
     'Healthcare': 'স্বাস্থ্যসেবা',
+    'Subscriptions': 'সাবস্ক্রিপশন',
     'Other Expense': 'অন্যান্য খরচ',
 
     'Default Wallet': 'ওয়ালেট',
@@ -238,6 +245,7 @@ const Map<String, Map<String, String>> seedNameTranslations = {
     'Beauty': 'جمال',
     'Steam': 'ستيم',
     'Healthcare': 'رعاية صحية',
+    'Subscriptions': 'الاشتراكات',
     'Other Expense': 'مصاريف أخرى',
 
     'Default Wallet': 'المحفظة',
@@ -267,6 +275,7 @@ const Map<String, Map<String, String>> seedNameTranslations = {
     'Beauty': 'خوبصورتی',
     'Steam': 'سٹیم',
     'Healthcare': 'صحت',
+    'Subscriptions': 'سبسکرپشنز',
     'Other Expense': 'دیگر اخراجات',
 
     'Default Wallet': 'والٹ',
@@ -296,6 +305,7 @@ const Map<String, Map<String, String>> seedNameTranslations = {
     'Beauty': '美容',
     'Steam': 'Steam',
     'Healthcare': '医疗保健',
+    'Subscriptions': '订阅',
     'Other Expense': '其他支出',
 
     'Default Wallet': '钱包',

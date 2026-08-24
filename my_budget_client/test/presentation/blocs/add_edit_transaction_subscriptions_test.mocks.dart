@@ -655,6 +655,21 @@ class MockTransactionRepository extends _i1.Mock
           as _i3.Future<Map<String, double>>);
 
   @override
+  _i3.Future<String?> getMostUsedAccountForCategory(
+    String? categoryId, {
+    required DateTime? since,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(
+              #getMostUsedAccountForCategory,
+              [categoryId],
+              {#since: since},
+            ),
+            returnValue: _i3.Future<String?>.value(),
+          )
+          as _i3.Future<String?>);
+
+  @override
   _i3.Future<void> restoreTransactions(List<_i10.Transaction>? transactions) =>
       (super.noSuchMethod(
             Invocation.method(#restoreTransactions, [transactions]),

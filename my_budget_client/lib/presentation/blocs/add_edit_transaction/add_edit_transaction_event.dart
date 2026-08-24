@@ -234,3 +234,13 @@ class _AddEditTransactionCategoriesUpdated extends AddEditTransactionEvent {
   @override
   List<Object> get props => [categories];
 }
+
+/// Switching the form between writing a transaction and writing a transfer.
+class AddEditTransactionTransferModeChanged extends AddEditTransactionEvent {
+  final bool isTransfer;
+
+  const AddEditTransactionTransferModeChanged(this.isTransfer);
+
+  @override
+  List<Object> get props => [isTransfer];
+}

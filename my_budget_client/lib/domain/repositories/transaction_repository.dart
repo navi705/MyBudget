@@ -64,6 +64,17 @@ abstract class TransactionRepository {
     DateTime? dateTo,
     required String mainCurrencyCode,
   });
+  /// The account [categoryId] was most often used with since [since], or null
+  /// when it has no transactions in that window.
+  ///
+  /// Feeds the entry form's account suggestion: a category is nearly always
+  /// paid from the same place, and re-picking it by hand on every entry is the
+  /// single most repeated action in the app.
+  Future<String?> getMostUsedAccountForCategory(
+    String categoryId, {
+    required DateTime since,
+  });
+
   Future<void> restoreTransactions(List<Transaction> transactions);
 }
 
@@ -95,6 +106,11 @@ class TransactionFilters extends Equatable {
   final List<String>? currencyCode;
   final TransactionTypeFilter transactionType;
 
+  /// Narrows to the review queue when true, to everything already reviewed
+  /// when false. Null - the default - leaves the queue mixed in with the rest,
+  /// which is what every screen but the queue itself wants.
+  final bool? needsReview;
+
   const TransactionFilters({
     this.description,
     this.amountFrom,
@@ -105,6 +121,7 @@ class TransactionFilters extends Equatable {
     this.categoryId,
     this.currencyCode,
     this.transactionType = TransactionTypeFilter.all,
+    this.needsReview,
   });
 
   TransactionFilters copyWith({
@@ -117,6 +134,11 @@ class TransactionFilters extends Equatable {
     List<String>? categoryId,
     List<String>? currencyCode,
     TransactionTypeFilter? transactionType,
+    bool? needsReview,
+    // Every other field is cleared by building a fresh TransactionFilters,
+    // but the queue toggle flips one field of the filters already on screen
+    // and null is what "off" means, which `??` cannot express.
+    bool clearNeedsReview = false,
   }) {
     return TransactionFilters(
       description: description ?? this.description,
@@ -128,6 +150,7 @@ class TransactionFilters extends Equatable {
       categoryId: categoryId ?? this.categoryId,
       currencyCode: currencyCode ?? this.currencyCode,
       transactionType: transactionType ?? this.transactionType,
+      needsReview: clearNeedsReview ? null : (needsReview ?? this.needsReview),
     );
   }
 
@@ -142,5 +165,6 @@ class TransactionFilters extends Equatable {
     categoryId,
     currencyCode,
     transactionType,
+    needsReview,
   ];
 }

@@ -14,6 +14,14 @@ class Transaction extends Equatable {
   final String?
   linkedTransactionId; // Added: ID of the linked transaction (e.g. Cash side of Asset Transfer)
 
+  /// Whether this row still has to be looked at by a person.
+  ///
+  /// Set by the paths that write a transaction without being certain of it -
+  /// today that is the SMS import - and cleared the moment the transaction is
+  /// saved from the edit form. It changes nothing about the amount, so every
+  /// total counts the row either way.
+  final bool needsReview;
+
   const Transaction({
     this.id,
     required this.description,
@@ -26,6 +34,7 @@ class Transaction extends Equatable {
     this.exchangeRatePreset,
     this.fee = 0.0,
     this.linkedTransactionId,
+    this.needsReview = false,
   });
 
   Transaction copyWith({
@@ -40,6 +49,7 @@ class Transaction extends Equatable {
     int? exchangeRatePreset,
     double? fee,
     String? linkedTransactionId,
+    bool? needsReview,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -53,6 +63,7 @@ class Transaction extends Equatable {
       exchangeRatePreset: exchangeRatePreset ?? this.exchangeRatePreset,
       fee: fee ?? this.fee,
       linkedTransactionId: linkedTransactionId ?? this.linkedTransactionId,
+      needsReview: needsReview ?? this.needsReview,
     );
   }
 
@@ -69,6 +80,7 @@ class Transaction extends Equatable {
       'exchangeRatePreset': exchangeRatePreset,
       'fee': fee,
       'linkedTransactionId': linkedTransactionId,
+      'needsReview': needsReview,
     };
   }
 
@@ -85,5 +97,6 @@ class Transaction extends Equatable {
     exchangeRatePreset,
     fee,
     linkedTransactionId,
+    needsReview,
   ];
 }

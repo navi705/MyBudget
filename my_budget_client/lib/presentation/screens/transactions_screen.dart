@@ -348,6 +348,14 @@ class TransactionsScreen extends StatelessWidget {
                 showAdvancedFilterDialog(context, state.nonDateFilters);
               }
             },
+            // The queue toggle, same body as its button in the date bar.
+            // Guarded on selection mode for the same reason as the three
+            // above: the bar the button lives on is off screen there.
+            'review_queue': () {
+              if (!isSelectionMode) {
+                toggleReviewQueue(context.read<TransactionsBloc>(), state);
+              }
+            },
             // The four buttons of the selection bar. The Hot Keys screen offers
             // them unconditionally, so selection mode has to be checked here:
             // it is what puts those buttons on screen, and a press off a normal

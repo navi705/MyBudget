@@ -298,6 +298,15 @@ class AppLocalizationsBn extends AppLocalizations {
   String get filterCategoriesDescription => 'ধরণ অনুযায়ী বিভাগ ফিল্টার করুন (আয়/ব্যয়)';
 
   @override
+  String get reviewQueueTooltip => 'পর্যালোচনার সারি';
+
+  @override
+  String get reviewQueueDescription => 'শুধু সেই লেনদেনগুলি দেখান যেগুলি আমদানি নিশ্চিতভাবে শ্রেণিবদ্ধ করতে পারেনি';
+
+  @override
+  String get needsReviewBadgeLabel => 'পর্যালোচনা প্রয়োজন';
+
+  @override
   String get selectDateTooltip => 'তারিখ নির্বাচন করুন';
 
   @override
@@ -863,6 +872,9 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get transferLabel => 'স্থানান্তর';
+
+  @override
+  String get transactionModeLabel => 'লেনদেন';
 
   @override
   String get uncategorizedLabel => 'অশ্রেণীবদ্ধ';
@@ -1785,6 +1797,9 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get hkActionFilterAction => 'ফিল্টার করুন';
+
+  @override
+  String get hkActionReviewQueue => 'পর্যালোচনার সারি';
 
   @override
   String get hkActionDashboardCurrency => 'ড্যাশবোর্ড: মুদ্রা';

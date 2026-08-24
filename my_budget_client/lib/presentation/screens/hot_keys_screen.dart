@@ -111,6 +111,12 @@ class _HotKeysScreenState extends State<HotKeysScreen> {
                   'id': 'filter_action',
                   'label': context.l10n.hkActionFilterAction,
                 },
+                // Transactions only: the review queue is the one list
+                // that has a flag to filter on.
+                {
+                  'id': 'review_queue',
+                  'label': context.l10n.hkActionReviewQueue,
+                },
                 // Opens the dashboard header's currency picker. Only the
                 // dashboard lets the displayed currency be chosen, so this one
                 // is screen-specific too.

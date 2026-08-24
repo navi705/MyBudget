@@ -57,6 +57,7 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
         // The pane, not the window: the rail takes ~73dp off the left, so a
         // window over the breakpoint can hand this bar a pane under it.
         final isMobile = context.isCompactPane;
+        final queueOnly = state.nonDateFilters.needsReview == true;
 
         final centerWidget = Row(
           mainAxisAlignment: isMobile
@@ -98,6 +99,28 @@ class FilterDate extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
             ],
+            // The review queue: rows the SMS import could not file with
+            // confidence. It is a toggle rather than a control inside the
+            // advanced dialog because working the queue down is a repeated
+            // in-and-out, not a filter you set once.
+            MultiLevelTooltip(
+              message: context.l10n.reviewQueueTooltip,
+              actionId: 'review_queue',
+              description: context.l10n.reviewQueueDescription,
+              child: IconButton(
+                isSelected: queueOnly,
+                icon: Icon(
+                  queueOnly ? Icons.flag : Icons.flag_outlined,
+                  color: queueOnly
+                      ? Theme.of(context).colorScheme.primary
+                      : onSurface,
+                ),
+                onPressed: () => toggleReviewQueue(
+                  context.read<TransactionsBloc>(),
+                  state,
+                ),
+              ),
+            ),
             if (!isMobile) const SizedBox(width: 8),
             // Loose Flexible, not Expanded: with flex 0 the date was laid out
             // unbounded and could push the row past the app bar, and with the
@@ -243,6 +266,22 @@ void showTransactionsCalendar(BuildContext context, TransactionsState state) {
         },
       );
     },
+  );
+}
+
+/// Flips the transactions list between "only the review queue" and
+/// "everything", leaving every other filter where the user put it.
+///
+/// Off is null, not false: false would show only the rows already reviewed,
+/// hiding the queue from a list that is supposed to show both.
+void toggleReviewQueue(TransactionsBloc bloc, TransactionsState state) {
+  final on = state.nonDateFilters.needsReview == true;
+  bloc.add(
+    NonDateFiltersChanged(
+      on
+          ? state.nonDateFilters.copyWith(clearNeedsReview: true)
+          : state.nonDateFilters.copyWith(needsReview: true),
+    ),
   );
 }
 

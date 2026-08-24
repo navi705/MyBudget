@@ -27,25 +27,12 @@ class _FeeStructureEditorState extends State<FeeStructureEditor> {
     _parseRules();
   }
 
+  // Read through the same reader the net-value calculation uses, so what the
+  // editor shows is what the account is actually charged. It used to drop the
+  // whole list the moment one rule would not parse, and the next save wrote
+  // that empty list back over the rules the user could no longer see.
   void _parseRules() {
-    if (widget.initialFeeStructureJson == null ||
-        widget.initialFeeStructureJson!.isEmpty) {
-      _rules = [];
-      return;
-    }
-
-    try {
-      final List<dynamic> jsonList = jsonDecode(
-        widget.initialFeeStructureJson!,
-      );
-      _rules = jsonList
-          .map((json) => FeeCalculator.parseRule(json as Map<String, dynamic>))
-          .whereType<FeeRule>()
-          .toList();
-    } catch (e) {
-      // If parsing fails, start empty or handle error
-      _rules = [];
-    }
+    _rules = FeeCalculator.rulesFrom(widget.initialFeeStructureJson);
   }
 
   void _updateJson() {
@@ -111,11 +98,16 @@ class _FeeStructureEditorState extends State<FeeStructureEditor> {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        _getRuleName(rule),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      // The rule name is a translated phrase and grows with
+                      // the text setting; the delete button beside it does
+                      // not. Let the name wrap rather than push the button
+                      // off the card.
+                      Expanded(
+                        child: Text(
+                          _getRuleName(rule),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                      const Spacer(),
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () => _removeRule(index),
@@ -138,7 +130,10 @@ class _FeeStructureEditorState extends State<FeeStructureEditor> {
               children: [
                 const Icon(Icons.add),
                 const SizedBox(width: 8),
-                Text(l10n.feeAddRule),
+                // "Add fee rule" is three words in some languages and twice
+                // the size at the larger text settings, where it no longer
+                // fits beside the icon on a phone.
+                Flexible(child: Text(l10n.feeAddRule)),
               ],
             ),
           ),

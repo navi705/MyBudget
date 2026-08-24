@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:collection/collection.dart';
+import 'package:my_budget_client/core/utils/calendar_day.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -179,7 +180,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
     DateTime newDate;
     switch (currentState.dateStep) {
       case DateStep.day:
-        newDate = currentState.activeDate.add(Duration(days: event.direction));
+        newDate = addDays(currentState.activeDate, event.direction);
         break;
       case DateStep.month:
         // Move to target month, then snap to end of that month
@@ -383,7 +384,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
       DateTime prevEnd;
       switch (currentState.dateStep) {
         case DateStep.day:
-          prevStart = periodStart.subtract(const Duration(days: 1));
+          prevStart = previousDay(periodStart);
           prevEnd = prevStart;
           break;
         case DateStep.month:
@@ -772,7 +773,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
         // Let's implement correctly.
         switch (currentState.dateStep) {
           case DateStep.day:
-            prevStart = period.start.subtract(const Duration(days: 1));
+            prevStart = previousDay(period.start);
             prevEnd = prevStart; // Single day
             break;
           case DateStep.month:
@@ -1274,24 +1275,9 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
       );
 
       // 4. Period Stats (Previous)
-      DateTime prevStart;
-      DateTime prevEnd;
-
-      switch (currentState.dateStep) {
-        case DateStep.day:
-          prevStart = period.start.subtract(const Duration(days: 1));
-          prevEnd = prevStart;
-          break;
-        case DateStep.month:
-          final p = DateTime(period.start.year, period.start.month - 1, 1);
-          prevStart = p;
-          prevEnd = DateTime(p.year, p.month + 1, 0, 23, 59, 59);
-          break;
-        case DateStep.year:
-          prevStart = DateTime(period.start.year - 1, 1, 1);
-          prevEnd = DateTime(period.start.year - 1, 12, 31, 23, 59, 59);
-          break;
-      }
+      final previous = period.previousFor(currentState.dateStep);
+      final prevStart = previous.start;
+      final prevEnd = previous.end;
 
       final prevSnapshot = snapshot.copyWith(date: prevEnd);
       final prevStats = _financeCalculator.calculatePeriodStats(

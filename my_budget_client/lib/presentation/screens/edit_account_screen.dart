@@ -28,6 +28,16 @@ import 'package:my_budget_client/domain/repositories/account_repository.dart';
 import 'package:my_budget_client/core/di/injection_container.dart'; // Added for sl
 import 'package:my_budget_client/presentation/widgets/fee_structure_editor.dart'; // Added
 
+/// The gap between the two buttons in the bottom bar.
+const double _kButtonGap = 8.0;
+
+/// What a `TextButton.icon` spends on everything that is not the word: the
+/// icon, the gap after it, and the button's own horizontal padding.
+const double _kIconAndPadding = 24.0 + 8.0 + 24.0;
+
+/// What a `FilledButton` spends on its horizontal padding.
+const double _kButtonPadding = 48.0;
+
 class EditAccountScreen extends StatefulWidget {
   final Account account;
 
@@ -38,6 +48,18 @@ class EditAccountScreen extends StatefulWidget {
 }
 
 class _EditAccountScreenState extends State<EditAccountScreen> {
+  /// How wide [text] is on a button at the text setting now in force.
+  double _wordWidth(BuildContext context, String text) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: Theme.of(context).textTheme.labelLarge),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _descriptionController; // ADDED
@@ -272,9 +294,9 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                 : SafeArea(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                      child: Row(
-                        children: [
-                          TextButton.icon(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final deleteButton = TextButton.icon(
                             onPressed: _onDelete,
                             // The theme's destructive colour rather than a raw
                             // red, which fails contrast on several of the dark
@@ -292,18 +314,53 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                             style: TextButton.styleFrom(
                               minimumSize: const Size(0, 48),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: FilledButton.tonal(
-                              onPressed: _onSave,
-                              style: FilledButton.styleFrom(
-                                minimumSize: const Size(0, 48),
-                              ),
-                              child: Text(l10n.saveButton),
+                          );
+                          final saveButton = FilledButton.tonal(
+                            onPressed: _onSave,
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(0, 48),
                             ),
-                          ),
-                        ],
+                            child: Text(l10n.saveButton),
+                          );
+
+                          // Delete is as wide as its own word and Save takes
+                          // whatever is left, so the pair only fits while the
+                          // word is short. It is not, in every language, at
+                          // the larger text settings - and a row that does not
+                          // fit paints the overflow stripe across the only two
+                          // controls this screen offers. Measure the words at
+                          // the setting actually in force and stack them when
+                          // they do not fit side by side.
+                          final needed =
+                              _wordWidth(context, l10n.deleteButton) +
+                              _kIconAndPadding +
+                              _kButtonGap +
+                              _wordWidth(context, l10n.saveButton) +
+                              _kButtonPadding;
+                          if (needed > constraints.maxWidth) {
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: saveButton,
+                                ),
+                                const SizedBox(height: 4),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: deleteButton,
+                                ),
+                              ],
+                            );
+                          }
+                          return Row(
+                            children: [
+                              deleteButton,
+                              const SizedBox(width: _kButtonGap),
+                              Expanded(child: saveButton),
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ),

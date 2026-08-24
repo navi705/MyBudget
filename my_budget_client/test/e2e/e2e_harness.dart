@@ -36,6 +36,9 @@ import 'package:my_budget_client/core/database/app_database.dart';
 import 'package:my_budget_client/core/di/injection_container.dart' as di;
 import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
+import 'package:my_budget_client/presentation/routes/app_router.dart';
+import 'package:my_budget_client/presentation/routes/app_routes.dart';
+import 'package:my_budget_client/presentation/screens/dashboard_screen.dart';
 import 'package:my_budget_client/l10n/app_localizations.dart';
 
 /// The surfaces the flows below are checked on.
@@ -320,6 +323,42 @@ Future<void> settleE2e(WidgetTester tester, {int rounds = 8}) async {
   }
 }
 
+/// The same alternation as [settleE2e], but run until [finder] matches rather
+/// than a fixed number of times.
+///
+/// A count of rounds is a wall-clock budget in disguise: eight of them let the
+/// app have about four hundred milliseconds of real I/O, which is plenty on an
+/// idle machine and not enough on a busy one. The whole suite running in
+/// parallel is a busy one, and the boot below then returned while the app was
+/// still on its loading spinner - so a test failed with "Found 0 widgets with
+/// type DashboardScreen" on a build with nothing wrong with it. Waiting for
+/// the thing to appear costs nothing when it appears at once and does not
+/// depend on how loaded the machine is.
+///
+/// [timeout] is real time, and expiring is a genuine failure: the app never
+/// got where it was going.
+Future<void> settleE2eUntil(
+  WidgetTester tester,
+  Finder finder, {
+  Duration timeout = const Duration(seconds: 60),
+  String? reason,
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (finder.evaluate().isEmpty) {
+    if (DateTime.now().isAfter(deadline)) {
+      throw StateError(
+        reason ??
+            'Timed out after $timeout waiting for ${finder.description} '
+                'to appear.',
+      );
+    }
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+  }
+}
+
 /// Boots the app on [device] and returns once the first screen has settled.
 ///
 /// The database is in-memory and per-boot, so tests neither see each other's
@@ -353,6 +392,26 @@ Future<E2eApp> bootE2eApp(
   await GetIt.I<SettingsRepository>().initializeDefaults();
 
   await tester.pumpWidget(const App());
+
+  // `router` is one global `GoRouter` for the whole process, so it survives
+  // this boot's widget tree and remembers wherever the PREVIOUS test in the
+  // file navigated to. Every test here is written from the dashboard, and the
+  // one that asserts the app boots to it failed for real under
+  // `--test-randomize-ordering-seed` - not because booting is broken, but
+  // because it happened to run after a test that had walked to another screen.
+  // Sending the router home makes the starting point of a test its own
+  // business rather than the previous test's.
+  router.go(AppRoutes.dashboard);
+
+  // Boot is done when the first screen is on it, not when a fixed number of
+  // pumps have gone by: see [settleE2eUntil].
+  await settleE2eUntil(
+    tester,
+    find.byType(DashboardScreen),
+    reason:
+        'The app never reached the dashboard on ${device.name}. Every e2e '
+        'test starts from it, so nothing below this point could have run.',
+  );
   await settleE2e(tester);
 
   return E2eApp._(

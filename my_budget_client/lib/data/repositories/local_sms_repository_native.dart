@@ -74,16 +74,31 @@ class LocalSmsRepository implements SmsRepository {
 
       final result = <SmsPreset>[];
 
-      // A built-in with no stored row has never reached this install - a fresh
-      // profile, or one shipped by an app version newer than the stored data -
-      // so it comes straight from the template.
+      // A template newer than the stored copy rewrites that copy's rules, and
+      // the result has to be written back: otherwise the upgrade is redone on
+      // every launch, and the moment the user edits the preset the old version
+      // number is saved along with the new rules.
+      var templateUpgraded = false;
       for (final builtIn in liveBuiltIns) {
         final storedIndex = customPresets.indexWhere((p) => p.id == builtIn.id);
-        result.add(
-          storedIndex < 0
-              ? builtIn
-              : _mergeBuiltIn(customPresets[storedIndex], builtIn),
-        );
+        // A built-in with no stored row has never reached this install - a
+        // fresh profile, or one shipped by an app version newer than the
+        // stored data - so it comes straight from the template.
+        if (storedIndex < 0) {
+          result.add(builtIn);
+          continue;
+        }
+        final stored = customPresets[storedIndex];
+        final merged = _mergeBuiltIn(stored, builtIn);
+        if (merged.templateVersion != stored.templateVersion) {
+          templateUpgraded = true;
+          debugPrint(
+            '[SmsRepository] Upgraded built-in preset "${builtIn.name}" from '
+            'template v${stored.templateVersion} to '
+            'v${builtIn.templateVersion}',
+          );
+        }
+        result.add(merged);
       }
 
       for (final custom in customPresets) {
@@ -95,7 +110,7 @@ class LocalSmsRepository implements SmsRepository {
       // Migrate: copy default categoryKeywords to presets that have none.
       // Matches by senderFilter (case-insensitive). Skips presets that already
       // have user-configured keywords (non-empty list).
-      bool needsPersist = false;
+      bool needsPersist = templateUpgraded;
       for (int i = 0; i < result.length; i++) {
         final preset = result[i];
         if (preset.categoryKeywords.isEmpty) {
@@ -132,16 +147,25 @@ class LocalSmsRepository implements SmsRepository {
 
   /// The stored copy is what the user has edited and wins field by field; the
   /// template only supplies what that copy cannot carry - fields introduced by
-  /// an app version newer than the row on disk.
+  /// an app version newer than the row on disk, and the rules themselves once
+  /// the app ships a template newer than the one the row was written from.
   SmsPreset _mergeBuiltIn(SmsPreset stored, SmsPreset builtIn) {
+    // A newer template means a pattern was fixed or a merchant was added, and
+    // those belong to the app: the first time the user touched this preset a
+    // copy of that day's rules was frozen onto the device, and nothing shipped
+    // since has ever reached them. What the user owns - the account, the
+    // category, the on/off switch, the name - is left untouched below.
+    final upgrade = builtIn.templateVersion > stored.templateVersion;
+
     return stored.copyWith(
       // The id is what makes a preset built-in; rows written before the flag
       // existed decode as custom and would become editable and deletable.
       isBuiltIn: true,
-      rules: stored.rules.isEmpty ? builtIn.rules : null,
-      categoryKeywords: stored.categoryKeywords.isEmpty
+      rules: upgrade || stored.rules.isEmpty ? builtIn.rules : null,
+      categoryKeywords: upgrade || stored.categoryKeywords.isEmpty
           ? builtIn.categoryKeywords
           : null,
+      templateVersion: upgrade ? builtIn.templateVersion : null,
     );
   }
 
@@ -294,8 +318,15 @@ class LocalSmsRepository implements SmsRepository {
       'defaultCategoryId': preset.defaultCategoryId,
       'rules': preset.rules.map(_ruleToJson).toList(),
       'categoryKeywords': preset.categoryKeywords
-          .map((kw) => {'keyword': kw.keyword, 'categoryId': kw.categoryId})
+          .map(
+            (kw) => {
+              'keyword': kw.keyword,
+              'categoryId': kw.categoryId,
+              'categoryNameHint': kw.categoryNameHint,
+            },
+          )
           .toList(),
+      'templateVersion': preset.templateVersion,
     };
   }
 
@@ -308,6 +339,8 @@ class LocalSmsRepository implements SmsRepository {
       'currencyPattern': rule.currencyPattern,
       'datePattern': rule.datePattern,
       'categoryId': rule.categoryId,
+      'descriptionPattern': rule.descriptionPattern,
+      'forceReview': rule.forceReview,
     };
   }
 
@@ -331,9 +364,14 @@ class LocalSmsRepository implements SmsRepository {
             return SmsCategoryKeyword(
               keyword: m['keyword'] as String,
               categoryId: m['categoryId'] as String,
+              categoryNameHint: m['categoryNameHint'] as String?,
             );
           }).toList() ??
           [],
+      // Absent on every preset stored before templates were versioned, and
+      // zero is the right reading of those: whatever the app ships now is
+      // newer than what they hold.
+      templateVersion: json['templateVersion'] as int? ?? 0,
     );
   }
 
@@ -349,6 +387,8 @@ class LocalSmsRepository implements SmsRepository {
       currencyPattern: json['currencyPattern'] as String?,
       datePattern: json['datePattern'] as String?,
       categoryId: json['categoryId'] as String?,
+      descriptionPattern: json['descriptionPattern'] as String?,
+      forceReview: json['forceReview'] as bool? ?? false,
     );
   }
 }

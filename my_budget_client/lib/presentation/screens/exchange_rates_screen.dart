@@ -1,3 +1,4 @@
+import 'package:my_budget_client/core/utils/calendar_day.dart';
 import 'package:my_budget_client/core/utils/decimal_input.dart';
 import 'package:my_budget_client/core/utils/exchange_rate_validation.dart';
 import 'package:flutter/material.dart';
@@ -105,7 +106,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
 
     DateTime newDate = state.activeDate;
     if (state.dateStep == DateStep.day) {
-      newDate = newDate.add(Duration(days: i));
+      newDate = addDays(newDate, i);
     } else if (state.dateStep == DateStep.month) {
       newDate = DateTime(newDate.year, newDate.month + i, newDate.day);
     } else if (state.dateStep == DateStep.year) {
@@ -729,7 +730,7 @@ class _ExchangeRatesDateAppBar extends StatelessWidget
 
     DateTime newDate = state.activeDate;
     if (state.dateStep == DateStep.day) {
-      newDate = newDate.add(Duration(days: i));
+      newDate = addDays(newDate, i);
     } else if (state.dateStep == DateStep.month) {
       newDate = DateTime(newDate.year, newDate.month + i, newDate.day);
     } else if (state.dateStep == DateStep.year) {
@@ -1011,21 +1012,32 @@ class _ExchangeRatesFilterDialogState
     return ListTile(
       title: Text(label),
       subtitle: Text(displayText),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      // Clearing is its own control now. The picker answers with a currency
+      // or with nothing at all when it is dismissed, and 'nothing' cannot mean
+      // both 'never mind' and 'every currency'.
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (selectedCode != null)
+            IconButton(
+              icon: const Icon(Icons.clear),
+              tooltip: context.l10n.allLabel,
+              onPressed: () => onChanged(null),
+            ),
+          const Icon(Icons.arrow_forward_ios, size: 16),
+        ],
+      ),
       onTap: () async {
-        final results = await showDialog<List<String>>(
+        // The shared picker, so the currency the user works in is at the top
+        // here as well, and a star put on it here is the same star.
+        final picked = await showCurrencyPicker(
           context: context,
-          builder: (context) => MultiSelectDialog<Currency, String>(
-            items: currencies,
-            selectedIds: selectedCode != null ? [selectedCode] : [],
-            itemBuilder: (c) => Text('${c.name} (${c.code})'),
-            idGetter: (c) => c.code,
-            stringGetter: (c) => '${c.name} ${c.code}',
-            isSingleSelect: true,
-          ),
+          currencies: currencies,
+          selectedCurrencyCode: selectedCode,
+          title: label,
         );
-        if (results != null) {
-          onChanged(results.isNotEmpty ? results.first : null);
+        if (picked != null) {
+          onChanged(picked.code);
         }
       },
     );

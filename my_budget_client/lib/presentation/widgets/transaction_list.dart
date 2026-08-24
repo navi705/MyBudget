@@ -520,13 +520,38 @@ class TransactionListItem extends StatelessWidget {
             ),
             child: iconWidget,
           ),
-          title: Text(
-            transactionCategory.category?.name ==
-                    AppConstants.systemTransferCategoryName
-                ? context.l10n.transferLabel
-                : (transactionCategory.category?.name ??
-                      context.l10n.uncategorizedLabel),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          title: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  transactionCategory.category?.name ==
+                          AppConstants.systemTransferCategoryName
+                      ? context.l10n.transferLabel
+                      : (transactionCategory.category?.name ??
+                            context.l10n.uncategorizedLabel),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              // The category on a flagged row is a guess the import made, so
+              // the row has to say so where the category is read - a filter
+              // the user has to switch on first would not.
+              if (transactionCategory.transaction.needsReview) ...[
+                const SizedBox(width: 6),
+                Tooltip(
+                  message: context.l10n.needsReviewBadgeLabel,
+                  child: Icon(
+                    Icons.flag,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
+            ],
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

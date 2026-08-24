@@ -8,6 +8,7 @@ import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart'; // For DateStep
+import 'package:my_budget_client/core/utils/calendar_day.dart';
 import 'package:my_budget_client/domain/services/fee_calculator.dart'; // Added
 
 /// Snapshot of all financial data required for calculations at a specific point in time.
@@ -84,6 +85,43 @@ class DatePeriod {
   final DateTime end;
 
   DatePeriod(this.start, this.end);
+
+  /// The period one [step] before this one.
+  ///
+  /// Days used to be handled inline by the accounts bloc as
+  /// `start.subtract(const Duration(days: 1))` for BOTH ends, which made the
+  /// previous day the single instant of its midnight: [FinanceCalculator
+  /// .calculatePeriodStats] takes the period inclusively, so yesterday's
+  /// income and expense counted only a transaction stamped exactly 00:00:00
+  /// and every day-step comparison on the accounts screen read as
+  /// "yesterday: nothing". Subtracting a duration also walks off midnight the
+  /// two days a year the clocks move - the day after a spring-forward asked
+  /// for 23:00 on the day before yesterday.
+  ///
+  /// Built the same way [FinancialSnapshot.currentPeriod] builds the current
+  /// one, so the two are always the same shape and the comparison is between
+  /// like and like.
+  DatePeriod previousFor(DateStep step) {
+    switch (step) {
+      case DateStep.day:
+        final day = previousDay(start);
+        return DatePeriod(
+          day,
+          DateTime(day.year, day.month, day.day, 23, 59, 59),
+        );
+      case DateStep.month:
+        final first = DateTime(start.year, start.month - 1, 1);
+        return DatePeriod(
+          first,
+          DateTime(first.year, first.month + 1, 0, 23, 59, 59),
+        );
+      case DateStep.year:
+        return DatePeriod(
+          DateTime(start.year - 1, 1, 1),
+          DateTime(start.year - 1, 12, 31, 23, 59, 59),
+        );
+    }
+  }
 }
 
 class PeriodStats {
@@ -338,7 +376,18 @@ class FinanceCalculator {
 
       if (overlapEnd.isAfter(overlapStart)) {
         final overlapDuration = overlapEnd.difference(overlapStart);
-        final yearDuration = const Duration(days: 365); // Simplified
+        // The length of THIS year, not a flat 365 days. A leap year is 366 of
+        // them, so a balance held through one used to be deflated by the
+        // year's inflation raised to 1.0027 - a whole year's rate applied and
+        // then a little more, compounding over every leap year in an account's
+        // life. Measured with the constructor rather than by adding a
+        // duration, so a clock change inside the year is counted the way the
+        // overlap above already counts it.
+        final yearDuration = DateTime(
+          rate.date.year + 1,
+          1,
+          1,
+        ).difference(rateYearStart);
 
         // Fraction of the year covered
         final fraction = overlapDuration.inSeconds / yearDuration.inSeconds;

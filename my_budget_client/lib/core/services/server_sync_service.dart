@@ -1572,6 +1572,9 @@ class ServerSyncService {
     'fee': _round(entry.fee),
     'feeMinor': entry.feeMinor,
     'linkedTransactionId': entry.linkedTransactionId,
+    // Optional on the wire: a server or peer that predates the review queue
+    // neither sends nor stores it, and the reader below defaults it to false.
+    'needsReview': entry.needsReview,
     'modifiedAt': entry.modifiedAt,
     'deviceId': entry.deviceId,
     'isDeleted': entry.isDeleted,
@@ -2125,6 +2128,7 @@ class ServerSyncService {
           'fee',
           'fee_minor',
           'linked_transaction_id',
+          'needs_review',
           'modified_at',
           'device_id',
           'is_deleted',
@@ -2142,6 +2146,7 @@ class ServerSyncService {
           'fee': 'fee',
           'fee_minor': 'feeMinor',
           'linked_transaction_id': 'linkedTransactionId',
+          'needs_review': 'needsReview',
           'is_deleted': 'isDeleted',
         },
         rows: rows,
@@ -2175,6 +2180,9 @@ class ServerSyncService {
             ),
             drift_db.Variable((json['feeMinor'] as num?)?.toInt()),
             drift_db.Variable(json['linkedTransactionId'] as String?),
+            drift_db.Variable.withInt(
+              _parseBool(json['needsReview']) ? 1 : 0,
+            ),
             drift_db.Variable.withInt(json['modifiedAt'] as int? ?? 1),
             drift_db.Variable(json['deviceId'] as String?),
             drift_db.Variable.withInt(_parseBool(json['isDeleted']) ? 1 : 0),

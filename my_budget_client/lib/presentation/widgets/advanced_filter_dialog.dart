@@ -13,6 +13,7 @@ import 'package:my_budget_client/presentation/blocs/settings/settings_bloc.dart'
 import 'package:my_budget_client/presentation/blocs/styles/styles_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/transactions/transactions_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/currency_selection_dialog.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
 import 'package:my_budget_client/core/utils/icon_utils.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
@@ -123,6 +124,11 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
       categoryId: _selectedCategoryId,
       currencyCode: _selectedCurrencyCode,
       transactionType: _selectedTransactionType,
+      // This dialog has no control for the review queue, and it builds the
+      // new filters from scratch: without carrying the flag over, opening
+      // the dialog and pressing Apply would silently leave the queue.
+      // Clear is a different button and clearing it there is intended.
+      needsReview: widget.currentFilters.needsReview,
     );
 
     if (_persistFilters) {
@@ -452,20 +458,29 @@ class _AdvancedFilterDialogState extends State<AdvancedFilterDialog> {
                         }).toList(),
                       ),
                       onTap: () async {
-                        final selectedIds = await showDialog<List<String>>(
+                        // The shared picker, not a plain list of all 341
+                        // currencies: starred codes first, then the ones this
+                        // person actually works in. Asking the same question
+                        // here in a different order made the answer harder to
+                        // find on the screen it is asked from most.
+                        final selected = await showDialog<List<Currency>>(
                           context: context,
-                          builder: (_) => MultiSelectDialog<Currency, String>(
-                            items: state.currencies,
-                            selectedIds: _selectedCurrencyCode,
-                            itemBuilder: (item) => Text(item.name),
-                            idGetter: (item) => item.code,
-                            stringGetter: (item) => '${item.name} ${item.code}',
+                          builder: (_) => CurrencySelectionDialog(
+                            allCurrencies: state.currencies,
+                            selectedCurrencies: state.currencies
+                                .where(
+                                  (c) =>
+                                      _selectedCurrencyCode.contains(c.code),
+                                )
+                                .toList(),
                           ),
                         );
 
-                        if (selectedIds != null) {
+                        if (selected != null) {
                           setState(() {
-                            _selectedCurrencyCode = selectedIds;
+                            _selectedCurrencyCode = selected
+                                .map((c) => c.code)
+                                .toList();
                           });
                         }
                       },

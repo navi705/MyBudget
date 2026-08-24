@@ -215,6 +215,7 @@ Future<void> pumpAppWidget(
   Size? surfaceSize,
   TargetPlatform? platform,
   bool wrapInScaffold = true,
+  double textScale = 1.0,
   Widget Function(Widget app)? aboveApp,
 }) async {
   if (surfaceSize != null) setSurfaceSize(tester, surfaceSize);
@@ -224,6 +225,15 @@ Future<void> pumpAppWidget(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     theme: platform == null ? null : ThemeData(platform: platform),
+    // Left alone at the default so the widget under test sees exactly the tree
+    // it saw before this parameter existed.
+    builder: textScale == 1.0
+        ? null
+        : (context, child) => MediaQuery.withClampedTextScaling(
+            minScaleFactor: textScale,
+            maxScaleFactor: textScale,
+            child: child!,
+          ),
     home: wrapInScaffold ? Scaffold(body: child) : child,
   );
 

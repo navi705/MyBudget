@@ -293,107 +293,119 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
                             padding: const EdgeInsets.all(16.0),
                             child: Form(
                               key: _formKey,
-                              child: state.isAssetTransaction
-                                  ? Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        const _AccountField(),
-                                        const SizedBox(height: 16),
-                                        const _AssetActionToggle(),
-                                        const SizedBox(height: 16),
-                                        Row(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const _EntryModeSelector(),
+                                  state.isAssetTransaction
+                                      ? Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
                                           children: [
-                                            Expanded(
-                                              child: _AmountField(
-                                                controller: _amountController,
-                                                label: context
-                                                    .l10n
-                                                    .quantityFormLabel,
-                                              ),
+                                            const _AccountField(),
+                                            const SizedBox(height: 16),
+                                            const _AssetActionToggle(),
+                                            const SizedBox(height: 16),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: _AmountField(
+                                                    controller:
+                                                        _amountController,
+                                                    label: context
+                                                        .l10n
+                                                        .quantityFormLabel,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 16),
+                                                Expanded(
+                                                  child: _TotalValueField(
+                                                    controller:
+                                                        _totalValueController,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            const SizedBox(width: 16),
-                                            Expanded(
-                                              child: _TotalValueField(
-                                                controller:
-                                                    _totalValueController,
-                                              ),
+                                            const _AssetPriceDisplay(),
+                                            const SizedBox(height: 16),
+                                            const _LinkedAccountField(),
+                                            const SizedBox(height: 16),
+                                            const _DateField(),
+                                            const SizedBox(height: 16),
+                                            _DescriptionField(
+                                              controller:
+                                                  _descriptionController,
                                             ),
+                                            const SizedBox(height: 16),
+                                            _FeeField(
+                                              controller: _feeController,
+                                            ),
+                                            const Divider(),
+                                            if (state.isForeignCurrency) ...[
+                                              const _ExchangeRateSection(),
+                                              const SizedBox(height: 16),
+                                            ],
+                                            const SizedBox(height: 32),
+                                            _SaveButton(formKey: _formKey),
+                                          ],
+                                        )
+                                      : state.isTransferMode
+                                      ? _TransferForm(
+                                          formKey: _formKey,
+                                          amountController: _amountController,
+                                          descriptionController:
+                                              _descriptionController,
+                                        )
+                                      // Asked in the order the user has the
+                                      // answers: the number they are looking at,
+                                      // then where it came from and what it was
+                                      // for. Description led the form and Amount
+                                      // came second, so every entry opened on an
+                                      // optional prose field - a keyboard over the
+                                      // form on a phone - and the number, the
+                                      // account and the category were spread over
+                                      // three screens with the exchange-rate card
+                                      // in the middle of them. Description is
+                                      // optional, so it now sits where optional
+                                      // things belong.
+                                      : Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            _AmountField(
+                                              controller: _amountController,
+                                              focusNode: _amountFocusNode,
+                                            ),
+                                            const SizedBox(height: 16),
+                                            _AccountField(
+                                              label: context.l10n.accountLabel,
+                                            ),
+                                            const SizedBox(height: 16),
+                                            const _CategoryField(),
+                                            const SizedBox(height: 16),
+                                            const _CurrencyField(),
+                                            // The rate and the converted total are
+                                            // consequences of the currency above
+                                            // them, and only appear when it differs
+                                            // from the account's.
+                                            if (state.isForeignCurrency) ...[
+                                              const SizedBox(height: 16),
+                                              const _ExchangeRateSection(),
+                                            ],
+                                            const _ConvertedAmountDisplay(),
+                                            const SizedBox(height: 16),
+                                            const _DateField(),
+                                            const SizedBox(height: 16),
+                                            _DescriptionField(
+                                              controller:
+                                                  _descriptionController,
+                                            ),
+                                            const SizedBox(height: 32),
+                                            _SaveButton(formKey: _formKey),
                                           ],
                                         ),
-                                        const _AssetPriceDisplay(),
-                                        const SizedBox(height: 16),
-                                        const _LinkedAccountField(),
-                                        const SizedBox(height: 16),
-                                        const _DateField(),
-                                        const SizedBox(height: 16),
-                                        _DescriptionField(
-                                          controller: _descriptionController,
-                                        ),
-                                        const SizedBox(height: 16),
-                                        _FeeField(controller: _feeController),
-                                        const Divider(),
-                                        if (state.isForeignCurrency) ...[
-                                          const _ExchangeRateSection(),
-                                          const SizedBox(height: 16),
-                                        ],
-                                        const SizedBox(height: 32),
-                                        _SaveButton(formKey: _formKey),
-                                      ],
-                                    )
-                                  : state.isTransferMode
-                                  ? _TransferForm(
-                                      formKey: _formKey,
-                                      amountController: _amountController,
-                                      descriptionController:
-                                          _descriptionController,
-                                    )
-                                  // Asked in the order the user has the
-                                  // answers: the number they are looking at,
-                                  // then where it came from and what it was
-                                  // for. Description led the form and Amount
-                                  // came second, so every entry opened on an
-                                  // optional prose field - a keyboard over the
-                                  // form on a phone - and the number, the
-                                  // account and the category were spread over
-                                  // three screens with the exchange-rate card
-                                  // in the middle of them. Description is
-                                  // optional, so it now sits where optional
-                                  // things belong.
-                                  : Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        _AmountField(
-                                          controller: _amountController,
-                                          focusNode: _amountFocusNode,
-                                        ),
-                                        const SizedBox(height: 16),
-                                        _AccountField(
-                                          label: context.l10n.accountLabel,
-                                        ),
-                                        const SizedBox(height: 16),
-                                        const _CategoryField(),
-                                        const SizedBox(height: 16),
-                                        const _CurrencyField(),
-                                        // The rate and the converted total are
-                                        // consequences of the currency above
-                                        // them, and only appear when it differs
-                                        // from the account's.
-                                        if (state.isForeignCurrency) ...[
-                                          const SizedBox(height: 16),
-                                          const _ExchangeRateSection(),
-                                        ],
-                                        const _ConvertedAmountDisplay(),
-                                        const SizedBox(height: 16),
-                                        const _DateField(),
-                                        const SizedBox(height: 16),
-                                        _DescriptionField(
-                                          controller: _descriptionController,
-                                        ),
-                                        const SizedBox(height: 32),
-                                        _SaveButton(formKey: _formKey),
-                                      ],
-                                    ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -415,6 +427,66 @@ class __AddEditTransactionViewState extends State<_AddEditTransactionView> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Transaction or transfer, asked at the top of the form.
+///
+/// Moving money between two accounts used to be reachable from exactly one
+/// gesture in the whole app - the accounts screen's per-row context menu, which
+/// on a phone means the row's overflow button. From the transactions screen,
+/// the dashboard or the "+" hotkey there was no way to reach it at all: the
+/// form had a transfer mode but nothing on it could turn that mode on, so the
+/// user had to leave the screen they were entering data on, find the source
+/// account and come back through its menu.
+///
+/// Hidden rather than disabled when it cannot be used: a transfer needs a
+/// second cash account to move money into, and an entry that is already saved
+/// is one row or a linked pair for good - switching would have to rewrite the
+/// other leg.
+class _EntryModeSelector extends StatelessWidget {
+  const _EntryModeSelector();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AddEditTransactionBloc, AddEditTransactionState>(
+      buildWhen: (previous, current) =>
+          previous.isTransferMode != current.isTransferMode ||
+          previous.isEditing != current.isEditing ||
+          previous.accounts != current.accounts,
+      builder: (context, state) {
+        final cashAccounts = state.accounts
+            .where((a) => a.assetId == null)
+            .length;
+        if (state.isEditing || cashAccounts < 2) {
+          return const SizedBox.shrink();
+        }
+
+        final l10n = context.l10n;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: SegmentedButton<bool>(
+            segments: [
+              ButtonSegment<bool>(
+                value: false,
+                icon: const Icon(Icons.receipt_long, size: 18),
+                label: Text(l10n.transactionModeLabel),
+              ),
+              ButtonSegment<bool>(
+                value: true,
+                icon: const Icon(Icons.swap_horiz, size: 18),
+                label: Text(l10n.transferLabel),
+              ),
+            ],
+            selected: {state.isTransferMode},
+            showSelectedIcon: false,
+            onSelectionChanged: (selection) => context
+                .read<AddEditTransactionBloc>()
+                .add(AddEditTransactionTransferModeChanged(selection.first)),
+          ),
+        );
+      },
     );
   }
 }

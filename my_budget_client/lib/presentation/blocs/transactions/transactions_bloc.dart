@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:rxdart/rxdart.dart';
 import 'package:bloc/bloc.dart';
+import 'package:my_budget_client/core/utils/calendar_day.dart';
 import 'package:my_budget_client/core/enums/filter_enums.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:collection/collection.dart';
@@ -100,45 +101,17 @@ Future<_ProcessDataResult> _processTransactionsData(
   final availableRateDates = ratesMapsByDate.keys.toList()
     ..sort((a, b) => a.compareTo(b));
 
-  // Optimize closest date lookup: find insertion point with binary search, then check neighbors
+  // A day with no rates of its own borrows the closest day that has some.
+  // Which day that is now comes from [nearestDay], the one the rate DAO uses,
+  // because this used to answer a tie with the day after and the DAO with the
+  // day before: the same transaction converted at two different rates
+  // depending on whether the list or the DAO had drawn it. It also measured
+  // the gap in whole `inDays`, which truncates, so on the day the clocks go
+  // forward the 23-hour neighbour tied with an exact match.
   if (availableRateDates.isNotEmpty) {
     for (var date in transactionDates) {
       if (!ratesMapsByDate.containsKey(date)) {
-        // Binary search for insertion point
-        int left = 0;
-        int right = availableRateDates.length;
-        while (left < right) {
-          int mid = (left + right) ~/ 2;
-          if (availableRateDates[mid].isBefore(date)) {
-            left = mid + 1;
-          } else {
-            right = mid;
-          }
-        }
-
-        // Find closest date among insertion point and its neighbors
-        DateTime? closestDate;
-        int minDiff = -1;
-
-        // Check the element at insertion point (if exists)
-        if (left < availableRateDates.length) {
-          final diff = availableRateDates[left].difference(date).inDays.abs();
-          minDiff = diff;
-          closestDate = availableRateDates[left];
-        }
-
-        // Check the element before insertion point (if exists)
-        if (left > 0) {
-          final diff = availableRateDates[left - 1]
-              .difference(date)
-              .inDays
-              .abs();
-          if (minDiff == -1 || diff < minDiff) {
-            minDiff = diff;
-            closestDate = availableRateDates[left - 1];
-          }
-        }
-
+        final closestDate = nearestDay(availableRateDates, date);
         if (closestDate != null) {
           ratesMapsByDate[date] = Map.from(ratesMapsByDate[closestDate]!);
         }
@@ -561,35 +534,8 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
         if (ratesByActualDate.containsKey(requestedDate)) {
           _exchangeRateCache[requestedDate] = ratesByActualDate[requestedDate]!;
         } else if (sortedActualDates.isNotEmpty) {
-          // Binary search for closest actual date
-          int left = 0, right = sortedActualDates.length;
-          while (left < right) {
-            final mid = (left + right) ~/ 2;
-            if (sortedActualDates[mid].isBefore(requestedDate)) {
-              left = mid + 1;
-            } else {
-              right = mid;
-            }
-          }
-          DateTime? closestDate;
-          int minDiff = -1;
-          if (left < sortedActualDates.length) {
-            final diff = sortedActualDates[left]
-                .difference(requestedDate)
-                .inDays
-                .abs();
-            minDiff = diff;
-            closestDate = sortedActualDates[left];
-          }
-          if (left > 0) {
-            final diff = sortedActualDates[left - 1]
-                .difference(requestedDate)
-                .inDays
-                .abs();
-            if (minDiff == -1 || diff < minDiff) {
-              closestDate = sortedActualDates[left - 1];
-            }
-          }
+          // Same rule as every other nearest-rate lookup, see [nearestDay].
+          final closestDate = nearestDay(sortedActualDates, requestedDate);
           if (closestDate != null) {
             _exchangeRateCache[requestedDate] = ratesByActualDate[closestDate]!;
           }
@@ -1125,7 +1071,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     DateTime newDate;
     switch (state.dateStep) {
       case DateStep.day:
-        newDate = state.activeDate.add(Duration(days: event.direction));
+        newDate = addDays(state.activeDate, event.direction);
         break;
       case DateStep.month:
         newDate = DateTime(

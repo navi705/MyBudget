@@ -124,6 +124,13 @@ List<CategoriesCompanion> getDefaultCategories(String languageCode) {
       modifiedAt: const Value(1),
     ),
     CategoriesCompanion.insert(
+      id: const Value('cat_subscriptions'),
+      name: t['Subscriptions']!,
+      type: const Value(CategoryType.expense),
+      styleId: const Value('style_subscriptions'),
+      modifiedAt: const Value(1),
+    ),
+    CategoriesCompanion.insert(
       id: const Value('cat_other_expense'),
       name: t['Other Expense']!,
       type: const Value(CategoryType.expense),

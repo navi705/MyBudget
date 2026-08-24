@@ -298,6 +298,15 @@ class AppLocalizationsUr extends AppLocalizations {
   String get filterCategoriesDescription => 'قسم (آمدنی/اخراجات) کے لحاظ سے زمرہ جات فلٹر کریں';
 
   @override
+  String get reviewQueueTooltip => 'جائزے کی قطار';
+
+  @override
+  String get reviewQueueDescription => 'صرف وہ لین دین دکھائیں جنہیں درآمد یقین کے ساتھ درجہ بند نہیں کر سکی';
+
+  @override
+  String get needsReviewBadgeLabel => 'جائزہ درکار';
+
+  @override
   String get selectDateTooltip => 'تاریخ منتخب کریں';
 
   @override
@@ -863,6 +872,9 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get transferLabel => 'منتقلی';
+
+  @override
+  String get transactionModeLabel => 'لین دین';
 
   @override
   String get uncategorizedLabel => 'بغیر کسی زمرے کے';
@@ -1785,6 +1797,9 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get hkActionFilterAction => 'فلٹر';
+
+  @override
+  String get hkActionReviewQueue => 'جائزے کی قطار';
 
   @override
   String get hkActionDashboardCurrency => 'ڈیش بورڈ: کرنسی';

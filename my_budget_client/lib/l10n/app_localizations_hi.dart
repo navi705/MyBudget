@@ -298,6 +298,15 @@ class AppLocalizationsHi extends AppLocalizations {
   String get filterCategoriesDescription => 'प्रकार (आय/व्यय) द्वारा श्रेणियाँ फ़िल्टर करें';
 
   @override
+  String get reviewQueueTooltip => 'समीक्षा कतार';
+
+  @override
+  String get reviewQueueDescription => 'केवल वे लेनदेन दिखाएँ जिन्हें आयात निश्चित रूप से वर्गीकृत नहीं कर सका';
+
+  @override
+  String get needsReviewBadgeLabel => 'समीक्षा आवश्यक';
+
+  @override
   String get selectDateTooltip => 'दिनांक चुनें';
 
   @override
@@ -863,6 +872,9 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get transferLabel => 'स्थानांतरण';
+
+  @override
+  String get transactionModeLabel => 'लेन-देन';
 
   @override
   String get uncategorizedLabel => 'गैर-वर्गीकृत';
@@ -1785,6 +1797,9 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get hkActionFilterAction => 'फ़िल्टर';
+
+  @override
+  String get hkActionReviewQueue => 'समीक्षा कतार';
 
   @override
   String get hkActionDashboardCurrency => 'डैशबोर्ड: मुद्रा';

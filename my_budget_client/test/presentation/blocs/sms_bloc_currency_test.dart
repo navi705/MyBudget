@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
+import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/currency.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
 import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/entities/sms_preset.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
+import 'package:my_budget_client/domain/repositories/category_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
 import 'package:my_budget_client/domain/repositories/settings_repository.dart';
 import 'package:my_budget_client/domain/repositories/sms_repository.dart';
@@ -104,6 +106,16 @@ class _FakeAccountRepository extends Fake implements AccountRepository {
   Stream<List<Account>> watchAccounts() => const Stream.empty();
 }
 
+class _FakeCategoryRepository extends Fake implements CategoryRepository {
+  _FakeCategoryRepository([this.categories = const []]);
+
+  final List<Category> categories;
+
+  @override
+  Future<List<Category>> getCategories({bool includeSystem = false}) async =>
+      categories;
+}
+
 class _FakeSettingsRepository extends Fake implements SettingsRepository {
   @override
   Future<Settings?> getSetting(String key) async => null;
@@ -163,6 +175,10 @@ void main() {
     ),
   ];
 
+  // The preset's own default category, so the bloc's resolution finds it and
+  // the currency assertions below are not fighting a fallback.
+  final categories = [Category(id: 'cat-1', name: 'Test category')];
+
   const preset = SmsPreset(
     id: 'preset-1',
     name: 'Test bank',
@@ -197,6 +213,7 @@ void main() {
       transactionRepository: transactionRepository,
       currencyRepository: _FakeCurrencyRepository(currencies),
       accountRepository: _FakeAccountRepository(account),
+      categoryRepository: _FakeCategoryRepository(categories),
       currencyConverterService: _FakeCurrencyConverterService(rate),
       settingsRepository: _FakeSettingsRepository(),
     );

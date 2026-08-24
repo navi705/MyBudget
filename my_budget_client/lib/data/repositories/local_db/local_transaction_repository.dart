@@ -286,8 +286,20 @@ class LocalTransactionRepository implements TransactionRepository {
           categoryId: filters?.categoryId,
           currencyCode: filters?.currencyCode,
           transactionType: filters?.transactionType,
+          needsReview: filters?.needsReview,
         );
     return transactions.toDomainList();
+  }
+
+  @override
+  Future<String?> getMostUsedAccountForCategory(
+    String categoryId, {
+    required DateTime since,
+  }) {
+    return database.transactionsDao.getMostUsedAccountForCategory(
+      categoryId,
+      since: since,
+    );
   }
 
   @override
@@ -302,6 +314,7 @@ class LocalTransactionRepository implements TransactionRepository {
       categoryId: filters?.categoryId,
       currencyCode: filters?.currencyCode,
       transactionType: filters?.transactionType,
+      needsReview: filters?.needsReview,
     );
   }
 

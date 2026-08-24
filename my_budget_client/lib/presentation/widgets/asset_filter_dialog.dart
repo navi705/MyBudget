@@ -7,6 +7,7 @@ import 'package:my_budget_client/presentation/blocs/asset/asset_bloc.dart';
 import 'package:my_budget_client/presentation/blocs/asset/asset_event.dart';
 import 'package:my_budget_client/presentation/blocs/currency/currency_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/multi_select_dialog.dart';
+import 'package:my_budget_client/presentation/widgets/currency_selection_dialog.dart';
 import 'package:my_budget_client/core/utils/dialog_utils.dart';
 import 'package:my_budget_client/core/extensions/context_extensions.dart';
 
@@ -243,22 +244,28 @@ class _AssetFilterDialogState extends State<AssetFilterDialog> {
                         ),
                         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                         onTap: () async {
+                          // The same picker the rest of the app asks with:
+                          // starred codes first, then the ones already in use.
                           final results =
-                              await DialogUtils.showAppDialog<List<String>>(
+                              await DialogUtils.showAppDialog<List<Currency>>(
                                 context: context,
                                 resizeToAvoidBottomInset: false,
-                                child: MultiSelectDialog<Currency, String>(
-                                  items: currencies,
-                                  selectedIds: _selectedCurrencyCodes,
-                                  itemBuilder: (item) => Text(item.code),
-                                  idGetter: (item) => item.code,
-                                  stringGetter: (item) =>
-                                      '${item.name} (${item.code})',
+                                child: CurrencySelectionDialog(
+                                  allCurrencies: currencies,
+                                  selectedCurrencies: currencies
+                                      .where(
+                                        (c) => _selectedCurrencyCodes.contains(
+                                          c.code,
+                                        ),
+                                      )
+                                      .toList(),
                                 ),
                               );
                           if (results != null) {
                             setState(() {
-                              _selectedCurrencyCodes = results;
+                              _selectedCurrencyCodes = results
+                                  .map((c) => c.code)
+                                  .toList();
                             });
                           }
                         },
