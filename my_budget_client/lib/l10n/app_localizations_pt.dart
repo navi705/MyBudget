@@ -1962,6 +1962,11 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
+  String smsImportDuplicateCount(Object count) {
+    return '$count mensagem(ns) já importada(s)';
+  }
+
+  @override
   String get smsParsingRules => 'Regras de Análise';
 
   @override

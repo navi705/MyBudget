@@ -599,6 +599,7 @@
     "smsSelectDefaultsFirst": "Seleccione primero los predeterminados",
     "smsCustomRange": "Rango Personalizado",
     "smsImportSuccessCount": "Éxito: {count} transacciones importadas",
+    "smsImportDuplicateCount": "{count} mensaje(s) ya importados",
     "smsParsingRules": "Reglas de Análisis",
     "smsNoRules": "No hay reglas definidas. Toque + para añadir una.",
     "smsMatchLabel": "Coincidencia: {pattern}",

@@ -1962,6 +1962,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String smsImportDuplicateCount(Object count) {
+    return '$count 条消息已导入';
+  }
+
+  @override
   String get smsParsingRules => '解析规则';
 
   @override

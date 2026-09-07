@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:my_budget_client/core/utils/region_utils.dart';
+import 'package:my_budget_client/core/constants/app_constants.dart';
 import 'package:my_budget_client/core/database/connection/database_connection.dart';
 import 'package:my_budget_client/core/sync/device_local_settings.dart';
 import 'package:my_budget_client/core/mappers/exchange_rate_mapper.dart';
@@ -504,6 +505,50 @@ const Map<String, Set<String>> syncPushQueueDerivedColumns = {
 /// a trigger body is frozen the moment it is created.
 const String _localDeviceIdSql =
     "(SELECT value FROM settings WHERE key = 'local_device_id')";
+
+/// The device id written on rates this device pulled from its sync server.
+///
+/// The same string the server stamps on the rates it fetches, so a row says
+/// where it came from on both sides. Rows carrying it are excluded from the
+/// server's sync pull, and this device does not push them back up.
+const String kServerRateDeviceId = 'server:rates';
+
+/// The currency codes this database has any use for: the ones its accounts,
+/// transactions and assets are denominated in, the main currency, and EUR.
+///
+/// EUR is unconditional because every published rate is quoted against it, so
+/// a filter that drops it takes the whole table with it. Deliberately not
+/// `currency_designations`: the seed ships a symbol for all 341 currencies, so
+/// that table says nothing about which of them the user holds.
+const String kUsedCurrenciesSql = '''
+  SELECT currency_code AS code FROM accounts
+   UNION SELECT currency_code FROM transactions
+   UNION SELECT currency_code FROM asset_entries
+   UNION SELECT value FROM settings WHERE key = 'main_currency_code'
+   UNION SELECT 'EUR'
+''';
+
+/// SQL matching the bulk-seeded rate rows, and only those.
+///
+/// `preset = 1` on its own is not that set, which is the trap here: the daily
+/// provider fetch (`ExchangeRateApiService._saveRatesToDb`) and a manually
+/// entered default rate (`AddEditTransactionBloc`) both write preset 1 as
+/// well, and no column records where a rate came from. What separates them is
+/// batch size. [ExchangeRatesDao.insertAllExchangeRates] stamps one
+/// `modified_at` across a whole call; the seed passes the entire bundled
+/// history in a single call, a day's fetch is one row per known currency - a
+/// few hundred at most - and a manual entry is one row. One stamp shared by a
+/// thousand rows or more can only be the seed.
+const String seededExchangeRatesFilter = """
+preset = 1
+      AND modified_at IN (
+            SELECT modified_at
+              FROM exchange_rates
+             WHERE preset = 1
+             GROUP BY modified_at
+            HAVING COUNT(*) >= 1000
+          )
+""";
 
 /// SQL rendering a row of [table] into the text held in
 /// [SyncPushQueue.recordKey].
@@ -1749,15 +1794,85 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
-  Future<void> restoreAccount(AccountsCompanion account) async {
-    final toInsert = account.copyWith(
-      modifiedAt: Value(DateTime.now().millisecondsSinceEpoch),
-    );
-    await into(accounts).insert(toInsert, mode: InsertMode.insertOrReplace);
-    // The replace writes every column from a companion built out of the domain
-    // entity, which carries the balance but not the anchor, so the anchor has
-    // to be re-derived from the balance being restored.
-    await anchorOpeningBalances([toInsert.id.value]);
+  /// Puts a deleted account back together with the transactions the delete
+  /// took with it.
+  ///
+  /// [tombstonedTransactionIds] are the rows
+  /// [deleteAccountWithTransactions] soft deleted - the account's own and the
+  /// transfer legs that sit on other accounts - and
+  /// [movedTransactionIds] the rows
+  /// [deleteAccountAndReassignTransactions] handed to another account. Undo
+  /// used to restore the account row alone, so the user got the account back
+  /// empty and the transactions stayed deleted or stayed on the account they
+  /// had been moved to.
+  Future<void> restoreAccount(
+    AccountsCompanion account, {
+    List<String> tombstonedTransactionIds = const [],
+    List<String> movedTransactionIds = const [],
+  }) {
+    return db.transaction(() async {
+      final accountId = account.id.value;
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      // Accounts other than this one whose balance the restore changes: the
+      // ones getting a transfer leg back, and the one that took the reassigned
+      // rows. Read before anything moves, while the rows still name them.
+      final touchedAccountIds = <String>{};
+
+      if (tombstonedTransactionIds.isNotEmpty) {
+        final rows = await (select(
+          db.transactions,
+        )..where((t) => t.id.isIn(tombstonedTransactionIds))).get();
+        touchedAccountIds.addAll(rows.map((t) => t.accountId));
+        await (update(
+          db.transactions,
+        )..where((t) => t.id.isIn(tombstonedTransactionIds))).write(
+          TransactionsCompanion(
+            isDeleted: const Value(false),
+            modifiedAt: Value(now),
+          ),
+        );
+      }
+
+      if (movedTransactionIds.isNotEmpty) {
+        final rows = await (select(
+          db.transactions,
+        )..where((t) => t.id.isIn(movedTransactionIds))).get();
+        touchedAccountIds.addAll(rows.map((t) => t.accountId));
+        await (update(
+          db.transactions,
+        )..where((t) => t.id.isIn(movedTransactionIds))).write(
+          TransactionsCompanion(
+            accountId: Value(accountId),
+            modifiedAt: Value(now),
+          ),
+        );
+      }
+
+      final toInsert = account.copyWith(
+        modifiedAt: Value(now),
+        isDeleted: const Value(false),
+      );
+      await into(accounts).insert(toInsert, mode: InsertMode.insertOrReplace);
+      // The replace writes every column from a companion built out of the
+      // domain entity, which carries the balance but not the anchor, so the
+      // anchor has to be re-derived from the balance being restored. The
+      // transactions go back first for that reason: the anchor is the balance
+      // minus the live transactions, and deriving it from an account that is
+      // still empty would count every restored row twice.
+      await anchorOpeningBalances([accountId]);
+
+      // The accounts that gave a transfer leg back, or handed the reassigned
+      // rows over, are still showing the balance they had without them.
+      touchedAccountIds.remove(accountId);
+      await recomputeBalances(touchedAccountIds);
+
+      await _logChange(accountId, 'upsert');
+      final restoredIds = [...tombstonedTransactionIds, ...movedTransactionIds];
+      if (restoredIds.isNotEmpty) {
+        await _logTransactionChanges(restoredIds, 'upsert');
+      }
+    });
   }
 
   Future<bool> updateAccount(AccountsCompanion account) async {
@@ -2130,17 +2245,24 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     await _logChanges(ids, 'upsert');
   }
 
-  Future<void> deleteAccountWithTransactions(String accountId) {
+  /// Soft deletes [accountId] and everything booked on it, and returns the ids
+  /// of the transactions it took with it so [restoreAccount] can put them back.
+  Future<List<String>> deleteAccountWithTransactions(String accountId) {
     debugPrint(
       '[AccountsDao] Deleting account $accountId with transactions...',
     ); // LOG
     return db.transaction(() async {
       final now = DateTime.now().millisecondsSinceEpoch;
 
-      // 1. Find all transactions for this account to get their IDs and linked IDs
-      final accountTxs = await (select(
-        db.transactions,
-      )..where((t) => t.accountId.equals(accountId))).get();
+      // 1. Find all transactions for this account to get their IDs and linked
+      // IDs. Rows the user had already deleted are skipped: this delete does
+      // not touch them, so Undo must not resurrect them either.
+      final accountTxs =
+          await (select(db.transactions)..where(
+                (t) =>
+                    t.accountId.equals(accountId) & t.isDeleted.equals(false),
+              ))
+              .get();
 
       final txIds = accountTxs.map((t) => t.id).toList();
       final linkedTxIds = accountTxs
@@ -2155,17 +2277,21 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       // and another one is left showing money that no transaction backs.
       final linkedAccountIds = <String>{};
       if (linkedTxIds.isNotEmpty) {
-        final linkedTxs = await (select(
-          db.transactions,
-        )..where((t) => t.id.isIn(linkedTxIds))).get();
+        final linkedTxs =
+            await (select(db.transactions)..where(
+                  (t) => t.id.isIn(linkedTxIds) & t.isDeleted.equals(false),
+                ))
+                .get();
         linkedAccountIds.addAll(linkedTxs.map((t) => t.accountId));
+        // Same reason as above: a leg already deleted stays deleted, and is
+        // dropped here so it is neither re-stamped nor handed to Undo.
+        final liveLinkedIds = linkedTxs.map((t) => t.id).toSet();
+        linkedTxIds.retainWhere(liveLinkedIds.contains);
       }
 
       // 2. Mark account transactions as deleted
       final txUpdate =
-          await (update(
-            db.transactions,
-          )..where((t) => t.accountId.equals(accountId))).write(
+          await (update(db.transactions)..where((t) => t.id.isIn(txIds))).write(
             TransactionsCompanion(
               isDeleted: const Value(true),
               modifiedAt: Value(now),
@@ -2215,24 +2341,33 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       if (linkedTxIds.isNotEmpty) {
         await _logTransactionChanges(linkedTxIds, 'delete');
       }
+      return [...txIds, ...linkedTxIds];
     });
   }
 
-  Future<void> deleteAccountAndReassignTransactions(
+  /// Soft deletes [accountId] after handing its transactions to
+  /// [newAccountId], and returns the ids of the rows that moved so
+  /// [restoreAccount] can bring them home.
+  Future<List<String>> deleteAccountAndReassignTransactions(
     String accountId,
     String newAccountId,
   ) {
     return db.transaction(() async {
       final now = DateTime.now().millisecondsSinceEpoch;
+      // Rows the user had already deleted stay where they are: moving them
+      // would make Undo hand a tombstone back to an account it never sat on.
       final movedTxIds =
-          (await (select(
-                db.transactions,
-              )..where((t) => t.accountId.equals(accountId))).get())
+          (await (select(db.transactions)..where(
+                    (t) =>
+                        t.accountId.equals(accountId) &
+                        t.isDeleted.equals(false),
+                  ))
+                  .get())
               .map((t) => t.id)
               .toList();
       await (update(
         db.transactions,
-      )..where((t) => t.accountId.equals(accountId))).write(
+      )..where((t) => t.id.isIn(movedTxIds))).write(
         TransactionsCompanion(
           accountId: Value(newAccountId),
           modifiedAt: Value(now),
@@ -2252,6 +2387,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       if (movedTxIds.isNotEmpty) {
         await _logTransactionChanges(movedTxIds, 'upsert');
       }
+      return movedTxIds;
     });
   }
 
@@ -2301,6 +2437,30 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       (select(transactions)
             ..where((tbl) => tbl.id.equals(id) & tbl.isDeleted.equals(false)))
           .getSingleOrNull();
+
+  /// Rows on [accountId] stamped exactly [date], excluding any the SMS import
+  /// wrote under its own derived id.
+  ///
+  /// The SMS import recognises its own work by that id, which only covers
+  /// messages imported since the id became derived from the message. Rows
+  /// written before that - and rows written by the file import from a bank
+  /// statement covering the same payments - carry a random uuid, so the id
+  /// check cannot see them and re-running an "All time" import writes a second
+  /// copy of every one of them. The caller compares amounts itself; the
+  /// timestamp is what makes the pair the same payment and it is exact,
+  /// because both copies were derived from the same message.
+  Future<List<Transaction>> getForeignTransactionsAt({
+    required String accountId,
+    required DateTime date,
+  }) =>
+      (select(transactions)..where(
+            (t) =>
+                t.accountId.equals(accountId) &
+                t.date.equals(date) &
+                t.isDeleted.equals(false) &
+                t.id.like('sms%').not(),
+          ))
+          .get();
   Future<List<Transaction>> getTransactionsByCategoryId(String categoryId) =>
       (select(transactions)..where(
             (tbl) =>
@@ -2448,6 +2608,17 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     List<String>? accountId,
     List<String>? categoryId,
     List<String>? currencyCode,
+
+    /// Rows on these accounts are left out of the result.
+    ///
+    /// The positive [accountId] filter cannot express this: a caller that
+    /// wants everything except a handful of accounts would have to name every
+    /// other account, and the list it would have to name grows as the person
+    /// adds accounts.
+    List<String>? excludeAccountId,
+
+    /// Rows in these categories are left out of the result.
+    List<String>? excludeCategoryId,
     TransactionTypeFilter? transactionType,
     bool? needsReview,
   }) {
@@ -2473,6 +2644,12 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     }
     if (categoryId != null && categoryId.isNotEmpty) {
       query.where((tbl) => tbl.categoryId.isIn(categoryId));
+    }
+    if (excludeAccountId != null && excludeAccountId.isNotEmpty) {
+      query.where((tbl) => tbl.accountId.isNotIn(excludeAccountId));
+    }
+    if (excludeCategoryId != null && excludeCategoryId.isNotEmpty) {
+      query.where((tbl) => tbl.categoryId.isNotIn(excludeCategoryId));
     }
     if (currencyCode != null && currencyCode.isNotEmpty) {
       query.where((tbl) => tbl.currencyCode.isIn(currencyCode));
@@ -2527,6 +2704,34 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       ..orderBy([
         OrderingTerm(expression: uses, mode: OrderingMode.desc),
         OrderingTerm(expression: transactions.accountId),
+      ])
+      ..limit(1);
+
+    final row = await query.getSingleOrNull();
+    return row?.read(transactions.accountId);
+  }
+
+  /// The account the most recent transaction was written against.
+  ///
+  /// What a blank form should open on. The fallback it replaces was
+  /// `accounts.first` - the first row SQLite happened to hand back, which is
+  /// neither the account the person last used nor the one they use most, and
+  /// which is why the account had to be corrected on almost every entry.
+  ///
+  /// [getMostUsedAccountForCategory] still wins once a category is picked:
+  /// this only answers "which account, knowing nothing else".
+  Future<String?> getLastUsedAccountId() async {
+    final query = selectOnly(transactions)
+      ..addColumns([transactions.accountId])
+      ..where(transactions.isDeleted.equals(false))
+      ..orderBy([
+        OrderingTerm(expression: transactions.date, mode: OrderingMode.desc),
+        // Same day, same person, two rows: the later write is the later
+        // intent. Without this the pick flips between them at random.
+        OrderingTerm(
+          expression: transactions.modifiedAt,
+          mode: OrderingMode.desc,
+        ),
       ])
       ..limit(1);
 
@@ -2827,51 +3032,175 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
         ? 'WHERE ${whereConditions.join(' AND ')}'
         : '';
 
-    // Step 1: T.Curr -> Base (EUR)
-    // Step 2: Base (EUR) -> Main
-    // Using correlated subqueries is efficient here because exchange_rates has index on (date, from, to)
+    // Every DateTime in this schema is stored the way drift stores one by
+    // default: unix SECONDS. This block used to write `date(date/1000,
+    // 'unixepoch')` on both sides, dividing an already-divided value: 2024-01-15
+    // came out as 1970-01-20, and roughly every date inside a 2.7-year span
+    // collapsed onto the same bucket. The equality then matched a rate from an
+    // arbitrary point in that span, and the totals moved whenever a bucket
+    // boundary was crossed.
+    //
+    // Matching the exact day is not the repair on its own: rates exist for the
+    // days a provider was asked, and a transaction on any other day would find
+    // nothing and fall through to the 1.0 below - reading a foreign amount as
+    // if it were already in the main currency. So the lookup takes the latest
+    // rate quoted on or before the transaction, which is the rate that was in
+    // effect, and only reaches forward for a transaction older than any rate
+    // this database holds. That is also what
+    // [CurrencyConverter.resolveRate] does, so the two screens stop
+    // disagreeing about the same category.
+    //
+    // Both subqueries seek on idx_exchange_rates_composite
+    // (from_currency_code, to_currency_code, date) and stop at the first row.
+    String rateFactor(String fromExpr, String toExpr) =>
+        '''
+            COALESCE(
+              (SELECT r.rate FROM exchange_rates r
+                WHERE r.from_currency_code = $fromExpr
+                  AND r.to_currency_code = $toExpr
+                  AND r.date <= t.date
+                ORDER BY r.date DESC LIMIT 1),
+              (SELECT r.rate FROM exchange_rates r
+                WHERE r.from_currency_code = $fromExpr
+                  AND r.to_currency_code = $toExpr
+                ORDER BY r.date ASC LIMIT 1),
+              (SELECT 1.0 / r.rate FROM exchange_rates r
+                WHERE r.from_currency_code = $toExpr
+                  AND r.to_currency_code = $fromExpr
+                  AND r.rate > 0
+                  AND r.date <= t.date
+                ORDER BY r.date DESC LIMIT 1),
+              (SELECT 1.0 / r.rate FROM exchange_rates r
+                WHERE r.from_currency_code = $toExpr
+                  AND r.to_currency_code = $fromExpr
+                  AND r.rate > 0
+                ORDER BY r.date ASC LIMIT 1),
+              1.0
+            )''';
+
+    // A parent category answers for what was spent inside it, so a transaction
+    // filed under a child counts towards the child and every category above
+    // it. `GROUP BY t.category_id` rolled nothing up: a parent used to show
+    // only the transactions pinned directly to it, which for a parent that
+    // exists purely to group its children was 0.00 next to children holding
+    // real money.
+    //
+    // The base row is the category paired with itself, so a category with no
+    // parent still reports its own total and the query stays a superset of
+    // what it returned before.
+    //
+    // Ancestors are walked without checking `is_deleted`: a soft-deleted
+    // category in the middle of a chain would otherwise cut the branch off
+    // from a live grandparent, and the money would vanish from the screen
+    // rather than move up. The screen only draws live categories, so a
+    // deleted ancestor's row is simply never looked up.
+    //
+    // `depth < 16` is a cycle guard. A parent chain that loops - which nothing
+    // here writes, but nothing here forbids either, since `parent_id` is a
+    // plain self-reference - would otherwise recurse until the query is killed.
+    //
+    // Interpolated, like the rest of this statement, so the bound variables
+    // stay in the order the WHERE clause added them. A code carrying a quote
+    // is not a currency, but escaping costs nothing and the value comes out of
+    // a settings row rather than a fixed list.
+    final mainLiteral = "'${mainCurrencyCode.replaceAll("'", "''")}'";
+
+    // The fee is money that left with the transaction, in the transaction's own
+    // currency, and it was never counted here - a category's total disagreed
+    // with what the account actually moved by the sum of its commissions.
+    //
+    // Subtracted as a magnitude rather than added with its own sign: a fee is
+    // an outflow whichever way the amount points. On an expense (negative) it
+    // deepens the total, on an income (positive) it shaves it, and both are
+    // what the bank did.
+    const netAmount = 't.amount - ABS(t.fee)';
+
+    // The same net amount in the currency's own minor units, where the row
+    // carries them. `amount_minor` is NULL for crypto and commodities, and
+    // `fee_minor` is NULL both there and on rows written before the column
+    // existed, so this expression is only ever read under [exactBranch].
+    const netAmountMinor = 't.amount_minor - ABS(COALESCE(t.fee_minor, 0))';
+
+    // When a row can be added up exactly, in integers, with no conversion.
+    //
+    // Three conditions, all of them necessary: the row is already in the main
+    // currency (so no rate multiplies it back into floating point), it has
+    // minor units at all, and its fee either is zero or has minor units too -
+    // a row with a fee of 0.07 and no `fee_minor` would otherwise silently
+    // drop the commission the double branch does subtract.
+    final exactBranch =
+        't.currency_code = $mainLiteral '
+        'AND t.amount_minor IS NOT NULL '
+        'AND (t.fee = 0 OR t.fee_minor IS NOT NULL)';
 
     final sql =
         '''
+      WITH RECURSIVE category_ancestry(category_id, ancestor_id, depth) AS (
+        SELECT c.id, c.id, 0 FROM categories c
+        UNION ALL
+        SELECT a.category_id, p.parent_id, a.depth + 1
+          FROM category_ancestry a
+          JOIN categories p ON p.id = a.ancestor_id
+         WHERE p.parent_id IS NOT NULL
+           AND a.depth < 16
+      )
       SELECT 
-        t.category_id as categoryId,
-        SUM(
-          t.amount * 
-          -- STEP 1: Transaction Currency -> Base (EUR)
-          CASE 
-            WHEN t.currency_code = 'EUR' THEN 1.0
-            ELSE COALESCE(
-              (SELECT rate FROM exchange_rates WHERE date(date/1000, 'unixepoch') = date(t.date/1000, 'unixepoch') AND from_currency_code = t.currency_code AND to_currency_code = 'EUR'),
-              CASE WHEN (SELECT rate FROM exchange_rates WHERE date(date/1000, 'unixepoch') = date(t.date/1000, 'unixepoch') AND from_currency_code = 'EUR' AND to_currency_code = t.currency_code) > 0 
-                   THEN 1.0 / (SELECT rate FROM exchange_rates WHERE date(date/1000, 'unixepoch') = date(t.date/1000, 'unixepoch') AND from_currency_code = 'EUR' AND to_currency_code = t.currency_code)
-                   ELSE 1.0 END,
-              1.0
-            )
-          END *
-          -- STEP 2: Base (EUR) -> Main Currency
-          CASE 
-            WHEN '$mainCurrencyCode' = 'EUR' THEN 1.0
-            ELSE COALESCE(
-              (SELECT rate FROM exchange_rates WHERE date(date/1000, 'unixepoch') = date(t.date/1000, 'unixepoch') AND from_currency_code = 'EUR' AND to_currency_code = '$mainCurrencyCode'),
-              CASE WHEN (SELECT rate FROM exchange_rates WHERE date(date/1000, 'unixepoch') = date(t.date/1000, 'unixepoch') AND from_currency_code = '$mainCurrencyCode' AND to_currency_code = 'EUR') > 0
-                   THEN 1.0 / (SELECT rate FROM exchange_rates WHERE date(date/1000, 'unixepoch') = date(t.date/1000, 'unixepoch') AND from_currency_code = '$mainCurrencyCode' AND to_currency_code = 'EUR')
-                   ELSE 1.0 END,
-              1.0
-            )
-          END
-        ) as total
+        a.ancestor_id as categoryId,
+        -- The exact half: whole cents, summed as integers. This is the
+        -- single-currency case, which is most rows on most screens, and it
+        -- used to run through the same REAL accumulator as everything else -
+        -- so a category holding a few thousand ordinary purchases drifted off
+        -- the sum of its own transactions by the accumulated slack of binary rounding, and the
+        -- number under a parent disagreed with the numbers under its children.
+        COALESCE(
+          SUM(CASE WHEN $exactBranch THEN $netAmountMinor END),
+          0
+        ) as exactMinor,
+        -- The inexact remainder: foreign-currency rows, which have to be
+        -- multiplied by a rate and cannot be integers, and non-fiat rows,
+        -- which have no minor unit to be exact in.
+        COALESCE(
+          SUM(
+            CASE
+              WHEN $exactBranch THEN 0.0
+              -- Still the no-conversion case, just without exact units: same
+              -- currency, so no pivot, no rate lookup, no round through EUR.
+              WHEN t.currency_code = $mainLiteral THEN $netAmount
+              ELSE ($netAmount)
+                -- STEP 1: Transaction Currency -> Base (EUR)
+                * CASE WHEN t.currency_code = 'EUR' THEN 1.0
+                       ELSE ${rateFactor('t.currency_code', "'EUR'")} END
+                -- STEP 2: Base (EUR) -> Main Currency
+                * CASE WHEN $mainLiteral = 'EUR' THEN 1.0
+                       ELSE ${rateFactor("'EUR'", mainLiteral)} END
+            END
+          ),
+          0.0
+        ) as approxTotal
       FROM transactions t
+      JOIN category_ancestry a ON a.category_id = t.category_id
       $whereClause
-      GROUP BY t.category_id
+      GROUP BY a.ancestor_id
     ''';
 
     final rows = await customSelect(sql, variables: variables).get();
 
+    // One scale for the whole result: every exact row is by definition in the
+    // main currency, so they all divide by the same power of ten. Zero-decimal
+    // currencies (JPY, KRW) scale by 1 and three-decimal ones (BHD, KWD) by
+    // 1000 - dividing those by a hardwired 100 would be off by two orders of
+    // magnitude, which is the whole reason [CurrencyPrecision] exists.
+    final scale = CurrencyPrecision.scaleFor(
+      CurrencyPrecision.decimalsFor(mainCurrencyCode),
+    ).toDouble();
+
     final categoryTotals = <String, double>{};
     for (final row in rows) {
-      categoryTotals[row.read<String>('categoryId')] = row.read<double>(
-        'total',
-      );
+      // The division happens once per category rather than once per row, so
+      // the integer sum stays exact all the way to the last step and only the
+      // converted remainder was ever floating point.
+      categoryTotals[row.read<String>('categoryId')] =
+          row.read<int>('exactMinor') / scale + row.read<double>('approxTotal');
     }
 
     debugPrint('[PERF] SQL Optimized Aggregation: ${sw.elapsedMilliseconds}ms');
@@ -2990,6 +3319,33 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   Future<List<ExchangeRate>> getAllExchangeRates() =>
       select(exchangeRates).get();
 
+  /// Every rate row whose two endpoints are both currencies this database uses
+  /// ([kUsedCurrenciesSql]).
+  ///
+  /// This is what a backup carries. The table holds a row per currency pair per
+  /// day — 432 000 of them on the database this was written against, a 105 MB
+  /// backup file that took two minutes to restore — while a budget prices
+  /// everything in two or three currencies. The rest is reference data: it is
+  /// identical on every install, the server serves it on demand, and a restore
+  /// that leaves it out reproduces the user's money exactly.
+  Future<List<ExchangeRate>> getExchangeRatesForUsedCurrencies() async {
+    final rows = await customSelect(
+      '''
+      SELECT * FROM exchange_rates
+       WHERE from_currency_code IN ($kUsedCurrenciesSql)
+         AND to_currency_code IN ($kUsedCurrenciesSql)
+      ''',
+      readsFrom: {
+        exchangeRates,
+        attachedDatabase.accounts,
+        attachedDatabase.transactions,
+        attachedDatabase.assetEntries,
+        attachedDatabase.settings,
+      },
+    ).get();
+    return rows.map((row) => exchangeRates.map(row.data)).toList();
+  }
+
   /// Lightweight change signal for the exchange_rates table. Fires on every
   /// insert/update/delete WITHOUT materializing any rows — used to invalidate
   /// the in-memory rate cache in [CurrencyConverterService] so a freshly
@@ -3007,12 +3363,19 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
   /// was invisible to the caller and every amount in that currency silently
   /// dropped out of the totals.
   ///
-  /// [currencyCodes], when given, keeps only the rows that touch one of those
-  /// codes on either side. The table holds a row per currency pair per day —
-  /// 341 currencies over 870 days on a phone here, near 300k rows — and a
-  /// screen prices amounts in a handful of them. OR, not AND: a pair with no
-  /// direct row is converted through a pivot, and the two rows that make that
-  /// hop each touch the pivot on one side only.
+  /// [currencyCodes], when given, keeps only the rows BOTH of whose sides are
+  /// one of those codes — or one of the currencies the table quotes from, which
+  /// are added to the set here. The table holds a row per currency pair per day
+  /// — 326 of them per day, 853 days, 432k rows on the database this was
+  /// written against — and a screen prices amounts in a handful of them.
+  ///
+  /// Both sides, not either side. Either side is what a pivot needs — a pair
+  /// with no direct row is converted through one, and the two rows making that
+  /// hop touch the pivot on one side only — but every row in the table is
+  /// quoted from the same pivot, so "touches one of these codes" matched the
+  /// whole day once the pivot was on screen: 326 rows fetched where 5 were
+  /// wanted. Adding the quote currencies to the set keeps both halves of every
+  /// hop and drops the rest.
   Future<List<ExchangeRate>> getAllExchangesRates(
     List<DateTime> dates, {
     Set<String>? currencyCodes,
@@ -3058,9 +3421,10 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
               exchangeRates.date.isSmallerThanValue(range.end),
       ]);
 
+      final codeFilter = await _withCodeFilter(dayRanges, currencyCodes);
       final chunkResults = await (select(
         exchangeRates,
-      )..where((_) => _withCodeFilter(dayRanges, currencyCodes))).get();
+      )..where((_) => codeFilter)).get();
 
       allResults.addAll(chunkResults);
     }
@@ -3072,17 +3436,46 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     return allResults;
   }
 
-  /// [rows] restricted to the pairs that touch one of [currencyCodes].
-  Expression<bool> _withCodeFilter(
+  /// [rows] restricted to the pairs whose two sides are both in [currencyCodes]
+  /// or are a currency the table quotes from. See [getAllExchangesRates] for
+  /// why the quote currencies belong in the set.
+  Future<Expression<bool>> _withCodeFilter(
     Expression<bool> rows,
     Set<String>? currencyCodes,
-  ) {
+  ) async {
     if (currencyCodes == null || currencyCodes.isEmpty) return rows;
-    final codes = currencyCodes.toList();
+    final codes = {...currencyCodes, ...await _quoteCurrencies()}.toList();
     return rows &
-        (exchangeRates.fromCurrencyCode.isIn(codes) |
-            exchangeRates.toCurrencyCode.isIn(codes));
+        exchangeRates.fromCurrencyCode.isIn(codes) &
+        exchangeRates.toCurrencyCode.isIn(codes);
   }
+
+  /// The currencies the table quotes rates FROM — one of them on this data set,
+  /// the euro every published rate is stated against.
+  ///
+  /// Held between calls, and dropped by the same change stream that drops
+  /// [_storedRateDays]: it is asked for on every rate read, and a fresh
+  /// `SELECT DISTINCT` walks the whole composite index each time.
+  Future<Set<String>> _quoteCurrencies() async {
+    final cached = _quoteCurrenciesCache;
+    if (cached != null) return cached;
+
+    _quoteCurrenciesWatch ??= watchExchangeRateChanges().listen((_) {
+      _quoteCurrenciesCache = null;
+    });
+
+    final query = selectOnly(exchangeRates, distinct: true)
+      ..addColumns([exchangeRates.fromCurrencyCode]);
+    final rows = await query.get();
+    final codes = {
+      for (final row in rows) row.read(exchangeRates.fromCurrencyCode)!,
+    };
+    _quoteCurrenciesCache = codes;
+    return codes;
+  }
+
+  Set<String>? _quoteCurrenciesCache;
+  StreamSubscription<void>? _quoteCurrenciesWatch;
 
   /// Rows to stand in for the days in [days] that [found] has nothing for.
   ///
@@ -3122,17 +3515,15 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     final wanted = substitutes.difference(covered);
     if (wanted.isEmpty) return const [];
 
-    return (select(exchangeRates)..where(
-          (_) => _withCodeFilter(
-            _anyOf([
-              for (final day in wanted)
-                exchangeRates.date.isBiggerOrEqualValue(day) &
-                    exchangeRates.date.isSmallerThanValue(nextDay(day)),
-            ]),
-            currencyCodes,
-          ),
-        ))
-        .get();
+    final codeFilter = await _withCodeFilter(
+      _anyOf([
+        for (final day in wanted)
+          exchangeRates.date.isBiggerOrEqualValue(day) &
+              exchangeRates.date.isSmallerThanValue(nextDay(day)),
+      ]),
+      currencyCodes,
+    );
+    return (select(exchangeRates)..where((_) => codeFilter)).get();
   }
 
   /// Whichever day in [sorted] is closest to [day], preferring the earlier one
@@ -3200,6 +3591,21 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
 
   Future<List<ExchangeRate>> getAllExchangesRatesAll() =>
       select(exchangeRates).get();
+
+  /// The distinct days the seeded history already covers.
+  ///
+  /// The startup gap check used to answer this out of
+  /// [getAllExchangesRatesAll]: every rate row - 367k of them on a real
+  /// database - marshalled across the drift isolate port, rebuilt as domain
+  /// objects and date-formatted one by one on the UI isolate, while the first
+  /// frames were being laid out. It only ever wanted the days, and there are a
+  /// few hundred of those.
+  Future<List<DateTime>> getPresetRateDates() {
+    final query = selectOnly(exchangeRates, distinct: true)
+      ..addColumns([exchangeRates.date])
+      ..where(exchangeRates.preset.equals(1));
+    return query.map((row) => row.read(exchangeRates.date)!).get();
+  }
 
   Future<List<ExchangeRate>> getExchangeRatesFiltered({
     int limit = 100,
@@ -3425,6 +3831,43 @@ class ExchangeRatesDao extends DatabaseAccessor<AppDatabase>
     // rates from the same provider, so shipping them buys the peer nothing and
     // costs every export a re-walk of the whole backlog. Manually entered rates
     // still log through addExchangeRate/updateExchangeRate/replaceExchangeRate.
+  }
+
+  /// Stores rates that came from this device's own sync server.
+  ///
+  /// Same rows as [insertAllExchangeRates], with two differences that both
+  /// exist to stop the device sending the server back its own data.
+  ///
+  /// The rows are stamped [kServerRateDeviceId] rather than left for the
+  /// device-id trigger to claim, so what wrote them stays visible; and the
+  /// push-queue entries the insert trigger creates are deleted inside the same
+  /// transaction, the way the server pull already does it. Without that, a
+  /// range fetch would upload every row it just downloaded, the server would
+  /// rewrite each one under this device's id, and the rows would then be handed
+  /// to every other device through the ordinary sync - the exact traffic that
+  /// moving the fetch to the server was meant to remove.
+  Future<void> insertFetchedExchangeRates(
+    List<ExchangeRatesCompanion> rates,
+  ) async {
+    if (rates.isEmpty) return;
+
+    await transaction(() async {
+      final mark = await _pushQueueCeiling();
+      await insertAllExchangeRates([
+        for (final rate in rates)
+          rate.copyWith(deviceId: const Value(kServerRateDeviceId)),
+      ]);
+      await customStatement('DELETE FROM sync_push_queue WHERE id > ?', [mark]);
+    });
+  }
+
+  /// The highest queue entry that existed before a write, so the entries that
+  /// write adds can be told apart from a real local edit waiting to go up.
+  Future<int> _pushQueueCeiling() async {
+    final row = await customSelect(
+      'SELECT COALESCE(MAX(id), 0) AS c FROM sync_push_queue',
+    ).getSingle();
+    return row.read<int>('c');
   }
 
   Future<void> deleteExchangeRates(List<ExchangeRateDomain> rates) {
@@ -4581,10 +5024,18 @@ class AppDatabase extends _$AppDatabase {
     final existing = await _existingTables();
     for (final table in tables) {
       if (!existing.contains(table)) continue;
+      // Resending everything must not put back what the v20 to v21 upgrade
+      // took out. The bundled rate history is identical on every install, so
+      // uploading it tells the server nothing another client would not have
+      // supplied byte for byte - and it is ~283k of the ~284k rows this loop
+      // would otherwise queue, which is the backlog itself, rebuilt.
+      final filter = table == 'exchange_rates'
+          ? ' WHERE NOT ($seededExchangeRatesFilter)'
+          : '';
       await customStatement(
         'INSERT INTO sync_push_queue (changed_table_name, record_key) '
         "SELECT '$table', ${syncPushQueueKeyExpression(table)} "
-        'FROM $table',
+        'FROM $table$filter',
       );
     }
   }
@@ -4663,8 +5114,597 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  /// The two lookups every asset account costs, given an index to seek on.
+  ///
+  /// `asset_entries` shipped with no index at all beyond its primary key, and
+  /// its only declared index is the partial `custom_api` dedup one, which no
+  /// read uses. Every `getAssetData` call therefore scanned the whole table -
+  /// and the accounts screen makes one such call per asset account, on every
+  /// balance switch, so the scan count grows with the number of asset accounts
+  /// while the scan itself grows with the entry history behind all of them.
+  ///
+  /// Both are `(owner, date)` rather than plain `(owner)`: the filter is always
+  /// an owner plus a date window or a `date DESC` ordering, so the trailing
+  /// column turns the sort into a range read off the same index.
+  ///
+  /// Written out here rather than as `@TableIndex` for the reason v8->v9 and
+  /// v13 both record: drift only builds the annotated indexes in `createAll()`,
+  /// which never runs on a database that arrived by upgrade.
+  Future<void> _createAssetEntryIndexes() async {
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_asset_entries_account_date '
+      'ON asset_entries (account_id, date)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_asset_entries_asset_date '
+      'ON asset_entries (asset_id, date)',
+    );
+  }
+
+  /// Collapses transactions that record the same payment twice, keeping one
+  /// row of each pair. Returns how many rows were removed.
+  ///
+  /// "The same payment" is the same account, the same instant, the same
+  /// currency and the same amount down to the minor unit. Deliberately not the
+  /// description: the whole reason these pairs exist is that the two copies
+  /// were written by different importers and disagree about what to call the
+  /// merchant. Crypto rows, which carry no exact minor amount, are keyed on
+  /// the stored double instead — two copies of one payment hold bit-identical
+  /// doubles, so nothing is lost by comparing them exactly.
+  ///
+  /// The survivor is the copy the user has already worked on: reviewed before
+  /// unreviewed, then the older of the two, because the older row is the one
+  /// that has been sitting in their history collecting a hand-picked category.
+  /// A category the survivor is missing is taken from the copy being removed.
+  ///
+  /// Removal is the same soft delete the transaction screen performs — the row
+  /// is tombstoned, the account balance is adjusted by the amount that is no
+  /// longer counted, and both changes are logged for sync — so a pair collapsed
+  /// here converges on every device instead of coming back on the next pull.
+  ///
+  /// Two rows linked to each other are never a pair. That is a transfer whose
+  /// two legs landed on one account, and it matches on every field this keys
+  /// on — same account, same instant, same amount — while being two halves of
+  /// one movement rather than one payment written twice. A transfer that was
+  /// itself imported twice is still collapsed: those four rows are two pairs,
+  /// and neither copy is linked to the other.
+  @visibleForTesting
+  Future<int> removeDuplicateTransactions() async {
+    // The four fields that define one payment, packed into a single text key so
+    // the group-by and the membership test can both be expressed on it.
+    const dupKey =
+        '''account_id || '|' || date || '|' || currency_code || '|' ||
+             CASE WHEN amount_minor IS NOT NULL THEN 'm' || amount_minor
+                  ELSE 'r' || amount END''';
+
+    final rows = await customSelect(
+      '''
+      WITH keyed AS (
+        SELECT id, account_id, amount, amount_minor, currency_code,
+               category_id, needs_review, modified_at, linked_transaction_id,
+               $dupKey AS dup_key
+          FROM transactions
+         WHERE is_deleted = 0
+      )
+      SELECT * FROM keyed
+       WHERE dup_key IN (
+               SELECT dup_key FROM keyed GROUP BY dup_key HAVING COUNT(*) > 1
+             )
+      ''',
+      readsFrom: {transactions},
+    ).get();
+
+    if (rows.isEmpty) return 0;
+
+    final groups = <String, List<QueryRow>>{};
+    for (final row in rows) {
+      groups.putIfAbsent(row.read<String>('dup_key'), () => []).add(row);
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    var removed = 0;
+
+    for (final group in groups.values) {
+      group.sort((a, b) {
+        // needs_review is an INTEGER here: customSelect has no column type to
+        // read it back through.
+        final reviewed = a
+            .read<int>('needs_review')
+            .compareTo(b.read<int>('needs_review'));
+        if (reviewed != 0) return reviewed;
+        final age = a
+            .read<int>('modified_at')
+            .compareTo(b.read<int>('modified_at'));
+        if (age != 0) return age;
+        return a.read<String>('id').compareTo(b.read<String>('id'));
+      });
+
+      // Legs of one transfer, sorted into the group because they agree on
+      // every field the key is built from. The first row stays; a later one
+      // linked to something already kept is a leg and stays with it, and what
+      // is left over is the copies.
+      final kept = <QueryRow>[group.first];
+      final losers = <QueryRow>[];
+      for (final row in group.skip(1)) {
+        final linked = row.read<String?>('linked_transaction_id');
+        final id = row.read<String>('id');
+        final isLeg = kept.any(
+          (k) =>
+              linked == k.read<String>('id') ||
+              k.read<String?>('linked_transaction_id') == id,
+        );
+        (isLeg ? kept : losers).add(row);
+      }
+      if (losers.isEmpty) continue;
+
+      final survivorId = kept.first.read<String>('id');
+      for (final loser in losers) {
+        await _removeDuplicateRow(loser, survivorId, now);
+        removed++;
+      }
+    }
+
+    return removed;
+  }
+
+  /// Tombstones [loser] as a copy of [survivorId].
+  ///
+  /// The row is soft-deleted, the account balance gives back the amount the
+  /// row was counted for, anything still pointing at the removed row is
+  /// re-pointed at the copy that stays, and every change is logged for sync -
+  /// so a pair collapsed here converges on every device instead of coming back
+  /// on the next pull. Shared by the two dedupe passes.
+  Future<void> _removeDuplicateRow(
+    QueryRow loser,
+    String survivorId,
+    int now,
+  ) async {
+    final loserId = loser.read<String>('id');
+    final amount = loser.read<double>('amount');
+    final accountId = loser.read<String>('account_id');
+    final currencyCode = loser.read<String>('currency_code');
+
+    await customUpdate(
+      'UPDATE transactions SET is_deleted = 1, modified_at = ? WHERE id = ?',
+      variables: [Variable(now), Variable(loserId)],
+      updates: {transactions},
+    );
+    await _logMigrationChange('transactions', loserId, 'delete', now);
+
+    // Same statement adjustBalance issues, with the sign flipped: the stored
+    // balance counted this row, and after the tombstone it must not.
+    await customUpdate(
+      'UPDATE accounts SET balance = balance - ?, '
+      'balance_minor = balance_minor - '
+      'CAST(ROUND(? * ($kMinorScaleCase)) AS INTEGER), '
+      'modified_at = ? WHERE id = ? AND currency_code = ?',
+      variables: [
+        Variable(amount),
+        Variable(amount),
+        Variable(now),
+        Variable(accountId),
+        Variable(currencyCode),
+      ],
+      updates: {accounts},
+    );
+    await _logMigrationChange('accounts', accountId, 'upsert', now);
+
+    // Whatever still points at the removed row is pointed at the copy that
+    // stays: a transfer whose two legs were both duplicated would otherwise
+    // keep one leg linked to a tombstone.
+    await customUpdate(
+      'UPDATE transactions SET linked_transaction_id = ?, modified_at = ? '
+      'WHERE linked_transaction_id = ? AND is_deleted = 0 AND id != ?',
+      variables: [
+        Variable(survivorId),
+        Variable(now),
+        Variable(loserId),
+        Variable(survivorId),
+      ],
+      updates: {transactions},
+    );
+  }
+
+  /// The widest clock disagreement two importers are collapsed across.
+  ///
+  /// The offsets actually observed are whole hours - a time zone applied twice
+  /// - and the largest of them is four, from a summer offset of +2 doubled.
+  /// Twelve leaves room for the zones this app is used from without reaching
+  /// the far side of a day.
+  static const _clockShiftWindow = Duration(hours: 12);
+
+  /// Collapses transactions that record the same payment twice with the two
+  /// copies timestamped by clocks that disagree, keeping one row of each pair.
+  /// Returns how many rows were removed.
+  ///
+  /// [removeDuplicateTransactions] keys on the instant exactly, which is what
+  /// two copies of one message agree on when both importers read the same
+  /// timestamp the same way. They do not always: 55 pairs on the database this
+  /// was written against are the same account, the same currency and the same
+  /// amount to the minor unit, sitting exactly two hours apart before the
+  /// spring clock change and exactly four hours apart after it - one importer
+  /// applying the zone offset that the other had already applied. Every one of
+  /// them is counted twice in every total, including three months of salary.
+  ///
+  /// A pair is the same account, the same currency, the same amount, and a gap
+  /// that is either at most two seconds - two messages about one payment
+  /// arriving back to back - or an exact whole number of hours up to
+  /// [_clockShiftWindow]. Whole seconds are what makes this safe: two genuine
+  /// payments of the same size on one card land 7200 seconds apart to the
+  /// second essentially never, while a re-applied zone offset lands there every
+  /// time.
+  ///
+  /// "The same amount" allows the two copies to disagree in the last bits of
+  /// the double. One of the two importers rounds through a 32-bit float, so a
+  /// salary stored as 165261.21 by one is 165261.203125 by the other; the
+  /// minor units are compared with a slack of one for the same reason. The
+  /// doubles still have to agree to within a millionth, which is far tighter
+  /// than the smallest gap between two real amounts.
+  ///
+  /// Rows already linked to another transaction are left alone: a leg of a
+  /// transfer is half of one movement rather than a copy of a payment, and
+  /// removing one would leave the other pointing at a tombstone and the
+  /// balance short by the amount removed.
+  ///
+  /// The survivor is the copy the user has already worked on - reviewed before
+  /// unreviewed - and then the copy that says something: one importer writes
+  /// the bank's own name into every description while the other writes the
+  /// merchant's, and keeping "Alta_Bank" over "LIDL 128 BEOGRA" would lose the
+  /// only thing that tells two payments apart in a list. Removal is the same
+  /// soft delete [removeDuplicateTransactions] performs.
+  @visibleForTesting
+  Future<int> removeClockShiftedDuplicates() async {
+    final rows = await customSelect(
+      '''
+      SELECT id, account_id, date, amount, amount_minor, currency_code,
+             description, needs_review, modified_at
+        FROM transactions
+       WHERE is_deleted = 0
+         AND (linked_transaction_id IS NULL OR linked_transaction_id = '')
+       ORDER BY account_id, date, id
+      ''',
+      readsFrom: {transactions},
+    ).get();
+    if (rows.length < 2) return 0;
+
+    final accountNames = await _accountNamesById();
+    final windowSeconds = _clockShiftWindow.inSeconds;
+
+    // Keyed on the row every copy is a copy of, so a payment written three
+    // times still collapses onto one survivor.
+    final groups = <String, List<QueryRow>>{};
+    final taken = <String>{};
+
+    for (var i = 0; i < rows.length; i++) {
+      final left = rows[i];
+      final leftId = left.read<String>('id');
+      if (taken.contains(leftId)) continue;
+      final accountId = left.read<String>('account_id');
+      final date = left.read<int>('date');
+
+      for (var j = i + 1; j < rows.length; j++) {
+        final right = rows[j];
+        // Ordered by account then date, so once either runs past the row being
+        // matched there is nothing further along that can match it.
+        if (right.read<String>('account_id') != accountId) break;
+        final gap = right.read<int>('date') - date;
+        if (gap > windowSeconds) break;
+        if (!_isClockShift(gap)) continue;
+
+        final rightId = right.read<String>('id');
+        if (taken.contains(rightId)) continue;
+        if (right.read<String>('currency_code') !=
+            left.read<String>('currency_code')) {
+          continue;
+        }
+        if (!_sameAmount(left, right)) continue;
+
+        groups.putIfAbsent(leftId, () => [left]).add(right);
+        taken.add(leftId);
+        taken.add(rightId);
+      }
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    var removed = 0;
+
+    for (final group in groups.values) {
+      group.sort((a, b) => _duplicateSurvivorOrder(a, b, accountNames));
+
+      final survivorId = group.first.read<String>('id');
+      for (final loser in group.skip(1)) {
+        await _removeDuplicateRow(loser, survivorId, now);
+        removed++;
+      }
+    }
+
+    return removed;
+  }
+
+  /// Whether a gap of [seconds] between two otherwise identical rows is two
+  /// clocks disagreeing rather than two payments. See
+  /// [removeClockShiftedDuplicates].
+  bool _isClockShift(int seconds) {
+    if (seconds <= 0) return false;
+    if (seconds <= 2) return true;
+    return seconds % Duration.secondsPerHour == 0;
+  }
+
+  /// Whether two rows carry the same amount, allowing for one of them having
+  /// been rounded through a 32-bit float. See [removeClockShiftedDuplicates].
+  bool _sameAmount(QueryRow left, QueryRow right) {
+    final leftMinor = left.read<int?>('amount_minor');
+    final rightMinor = right.read<int?>('amount_minor');
+    if (leftMinor != null &&
+        rightMinor != null &&
+        (leftMinor - rightMinor).abs() > 1) {
+      return false;
+    }
+
+    final leftAmount = left.read<double>('amount');
+    final rightAmount = right.read<double>('amount');
+    if (leftAmount == rightAmount) return true;
+    final size = leftAmount.abs() >= rightAmount.abs()
+        ? leftAmount.abs()
+        : rightAmount.abs();
+    if (size == 0) return false;
+    return (leftAmount - rightAmount).abs() <= size * 1e-6;
+  }
+
+  /// Orders two copies of one payment so the first is the one worth keeping:
+  /// reviewed before unreviewed, a description the user can read before the
+  /// bank's own name, then the older row and finally the id so the order is
+  /// total. See [removeClockShiftedDuplicates].
+  int _duplicateSurvivorOrder(
+    QueryRow a,
+    QueryRow b,
+    Map<String, String> accountNames,
+  ) {
+    // needs_review is an INTEGER here: customSelect has no column type to read
+    // it back through.
+    final reviewed = a
+        .read<int>('needs_review')
+        .compareTo(b.read<int>('needs_review'));
+    if (reviewed != 0) return reviewed;
+
+    final aNames = _describesPayee(a, accountNames) ? 1 : 0;
+    final bNames = _describesPayee(b, accountNames) ? 1 : 0;
+    if (aNames != bNames) return bNames - aNames;
+
+    final age = a
+        .read<int>('modified_at')
+        .compareTo(b.read<int>('modified_at'));
+    if (age != 0) return age;
+    return a.read<String>('id').compareTo(b.read<String>('id'));
+  }
+
+  /// Whether [row]'s description says something beyond which account the money
+  /// moved on. See [removeClockShiftedDuplicates].
+  bool _describesPayee(QueryRow row, Map<String, String> accountNames) {
+    final description = row.read<String?>('description')?.trim() ?? '';
+    if (description.isEmpty || description == '-') return false;
+    return description != accountNames[row.read<String>('account_id')];
+  }
+
+  /// Every account's name, keyed by id.
+  Future<Map<String, String>> _accountNamesById() async {
+    final rows = await customSelect(
+      'SELECT id, name FROM accounts',
+      readsFrom: {accounts},
+    ).get();
+    return {
+      for (final row in rows) row.read<String>('id'): row.read<String>('name'),
+    };
+  }
+
+  /// How far apart the two halves of one movement of money can sit and still be
+  /// recognised as a pair. A bank sends one message per leg and the import
+  /// timestamps each row from its own message; the gaps observed on real data
+  /// are one to three seconds, and the widest sane reading of "the same moment"
+  /// is what this wants to be.
+  static const _transferPairWindow = Duration(seconds: 120);
+
+  /// Links pairs of rows that are the two halves of one movement of money, so
+  /// that neither half is counted as income or as expense. Returns the number
+  /// of pairs linked.
+  ///
+  /// One movement looks like this in the table: an amount leaves an account and
+  /// the same amount arrives back on it a second or two later, with nothing
+  /// tying the two rows together. A bank sends a message per leg of a currency
+  /// exchange or a cash operation, the import wrote a row per message, and the
+  /// pair nets to zero in the account balance while adding its whole size to
+  /// both totals on the dashboard - 47 pairs and 982513 RSD of inflation on the
+  /// database this was written against, 727442 of it inside one month, against
+  /// months that otherwise run to 150k.
+  ///
+  /// The v23->v24 dedupe cannot reach these: its key carries the sign, so -7000
+  /// and +7000 are two different payments to it. That is the right answer.
+  /// These rows are not two copies of one payment - both are real, and removing
+  /// either would leave the account balance wrong by the amount removed. They
+  /// only need to be recognised as one movement, which is what a mutual link
+  /// and the transfer category say, and what the dashboard already excludes on.
+  ///
+  /// A pair is: the same account, the same currency, opposite signs, at most
+  /// [_transferPairWindow] apart, and amounts equal to within 2%. The tolerance
+  /// is there because the two legs of an exchange are one foreign amount
+  /// converted at two slightly different rates - 6000 EUR arriving as 704267.64
+  /// RSD against 707515.20 RSD leaving, 0.46% apart. Rows that already carry a
+  /// link are left alone, each row is used at most once, and the nearest
+  /// candidate in time wins.
+  ///
+  /// Nothing is deleted and no balance moves.
+  @visibleForTesting
+  Future<int> linkOffsettingTransfers() async {
+    final rows = await customSelect(
+      '''
+      SELECT id, account_id, date, amount, currency_code
+        FROM transactions
+       WHERE is_deleted = 0
+         AND amount != 0
+         AND (linked_transaction_id IS NULL OR linked_transaction_id = '')
+       ORDER BY account_id, date, id
+      ''',
+      readsFrom: {transactions},
+    ).get();
+    if (rows.length < 2) return 0;
+
+    final transferCategoryId = await _transferCategoryId();
+
+    final windowSeconds = _transferPairWindow.inSeconds;
+    final paired = <String>{};
+    final now = DateTime.now().millisecondsSinceEpoch;
+    var pairs = 0;
+
+    for (var i = 0; i < rows.length; i++) {
+      final left = rows[i];
+      final leftId = left.read<String>('id');
+      if (paired.contains(leftId)) continue;
+      final accountId = left.read<String>('account_id');
+      final date = left.read<int>('date');
+      final amount = left.read<double>('amount');
+      final currencyCode = left.read<String>('currency_code');
+
+      for (var j = i + 1; j < rows.length; j++) {
+        final right = rows[j];
+        // Ordered by account then date, so once either runs past the row being
+        // matched there is nothing further along that can match it.
+        if (right.read<String>('account_id') != accountId) break;
+        if (right.read<int>('date') - date > windowSeconds) break;
+
+        final rightId = right.read<String>('id');
+        if (paired.contains(rightId)) continue;
+        if (right.read<String>('currency_code') != currencyCode) continue;
+
+        if (!_offsets(amount, right.read<double>('amount'))) continue;
+
+        await _markTransferLeg(leftId, rightId, transferCategoryId, now);
+        await _markTransferLeg(rightId, leftId, transferCategoryId, now);
+        paired.add(leftId);
+        paired.add(rightId);
+        pairs++;
+        break;
+      }
+    }
+
+    return pairs;
+  }
+
+  /// Whether [amount] and [other] are the two sides of one movement of money:
+  /// opposite signs, equal to within 2%. See [linkOffsettingTransfers] for what
+  /// the tolerance is for.
+  bool _offsets(double amount, double other) {
+    if (amount * other >= 0) return false;
+    final size = amount.abs() >= other.abs() ? amount.abs() : other.abs();
+    return (amount + other).abs() <= size * 0.02;
+  }
+
+  /// Links [transactionId] to the row holding the other half of the same
+  /// movement of money and returns that row's id, or null when there is none.
+  ///
+  /// The live counterpart of the v24->v25 migration: the same rule, applied to
+  /// one row as it is written, so the pairs that migration had to go back and
+  /// find are never created again. See [linkOffsettingTransfers].
+  ///
+  /// The nearest candidate in time wins, and a row that already carries a link
+  /// is neither matched nor rematched.
+  Future<String?> linkOffsettingTransferFor(String transactionId) async {
+    final row = await customSelect(
+      'SELECT account_id, date, amount, currency_code FROM transactions '
+      "WHERE id = ? AND is_deleted = 0 AND amount != 0 "
+      "AND (linked_transaction_id IS NULL OR linked_transaction_id = '')",
+      variables: [Variable(transactionId)],
+      readsFrom: {transactions},
+    ).getSingleOrNull();
+    if (row == null) return null;
+
+    final date = row.read<int>('date');
+    final amount = row.read<double>('amount');
+    final windowSeconds = _transferPairWindow.inSeconds;
+
+    final candidates = await customSelect(
+      'SELECT id, amount FROM transactions '
+      'WHERE is_deleted = 0 AND id != ? AND account_id = ? '
+      'AND currency_code = ? AND date BETWEEN ? AND ? '
+      "AND (linked_transaction_id IS NULL OR linked_transaction_id = '') "
+      'ORDER BY ABS(date - ?)',
+      variables: [
+        Variable(transactionId),
+        Variable(row.read<String>('account_id')),
+        Variable(row.read<String>('currency_code')),
+        Variable(date - windowSeconds),
+        Variable(date + windowSeconds),
+        Variable(date),
+      ],
+      readsFrom: {transactions},
+    ).get();
+
+    for (final candidate in candidates) {
+      if (!_offsets(amount, candidate.read<double>('amount'))) continue;
+
+      final otherId = candidate.read<String>('id');
+      final transferCategoryId = await _transferCategoryId();
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await _markTransferLeg(transactionId, otherId, transferCategoryId, now);
+      await _markTransferLeg(otherId, transactionId, transferCategoryId, now);
+      return otherId;
+    }
+
+    return null;
+  }
+
+  /// The id of the category transfers are filed under, or null when the seeded
+  /// row is missing - in which case the link alone is left to speak for the
+  /// pair, which is already enough for the dashboard to drop it.
+  Future<String?> _transferCategoryId() async {
+    final row = await customSelect(
+      'SELECT id FROM categories WHERE name = ? LIMIT 1',
+      variables: [Variable(AppConstants.systemTransferCategoryName)],
+      readsFrom: {categories},
+    ).getSingleOrNull();
+    return row?.read<String>('id');
+  }
+
+  /// Points [id] at [otherId] and files it under the transfer category, leaving
+  /// the amount and the account alone. See [linkOffsettingTransfers].
+  Future<void> _markTransferLeg(
+    String id,
+    String otherId,
+    String? transferCategoryId,
+    int now,
+  ) async {
+    await customUpdate(
+      'UPDATE transactions SET linked_transaction_id = ?, '
+      'category_id = COALESCE(?, category_id), modified_at = ? WHERE id = ?',
+      variables: [
+        Variable(otherId),
+        Variable(transferCategoryId),
+        Variable(now),
+        Variable(id),
+      ],
+      updates: {transactions},
+    );
+    await _logMigrationChange('transactions', id, 'upsert', now);
+  }
+
+  Future<void> _logMigrationChange(
+    String table,
+    String recordId,
+    String action,
+    int timestamp,
+  ) async {
+    await into(syncLog).insert(
+      SyncLogCompanion(
+        changedTableName: Value(table),
+        recordId: Value(recordId),
+        action: Value(action),
+        timestamp: Value(timestamp),
+        exported: const Value(false),
+      ),
+    );
+  }
+
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 26;
 
   @override
   MigrationStrategy get migration {
@@ -4687,6 +5727,10 @@ class AppDatabase extends _$AppDatabase {
           'ON asset_entries (asset_id, date, source) '
           "WHERE source = 'custom_api'",
         );
+        debugPrint(
+          '[DB_MIGRATION] onCreate: creating asset_entries read indexes...',
+        );
+        await _createAssetEntryIndexes();
         // After the seed, not before: every install lays down the same bundled
         // rows under the same stable ids, so queueing them would upload ~283k
         // exchange rates the server either already has or would get, byte for
@@ -5173,6 +6217,225 @@ class AppDatabase extends _$AppDatabase {
           debugPrint('[DB_MIGRATION] v18->v19: complete');
         }
 
+        if (from < 20) {
+          // Repair for the SMS re-import that wrote the whole inbox a second
+          // time. Until this version nothing tied a transaction back to the
+          // message that produced it - every import minted a fresh UUID - so
+          // re-running "All time" to pick up the new per-merchant categories
+          // inserted a duplicate of every row, and each duplicate moved the
+          // account balance again. The import now derives the id from the
+          // message, so this can only ever have to run once.
+          //
+          // Soft-delete, not delete: the rows stay in the table with
+          // is_deleted = 1, which is also what carries the removal to the
+          // other devices instead of letting them push their copies back on
+          // the next pull. It is also the undo - flipping the flag back
+          // restores anything this took that it should not have.
+          //
+          // What it can get wrong: two rows that a person really did enter
+          // twice, on the same account, the same currency, the same
+          // description and the same timestamp to the millisecond, are
+          // indistinguishable from an import duplicate and one of them will
+          // be flagged. Transfers are excluded outright - they come in linked
+          // pairs and collapsing one half would strand the other.
+          debugPrint(
+            '[DB_MIGRATION] v19->v20: collapsing import duplicates...',
+          );
+          final tombstonedAt = DateTime.now().millisecondsSinceEpoch;
+          final collapsed = await customUpdate(
+            '''
+            UPDATE transactions
+               SET is_deleted = 1,
+                   modified_at = ?
+             WHERE is_deleted = 0
+               AND linked_transaction_id IS NULL
+               AND rowid NOT IN (
+                     SELECT MIN(rowid)
+                       FROM transactions
+                      WHERE is_deleted = 0
+                        AND linked_transaction_id IS NULL
+                      GROUP BY account_id, date, amount, currency_code,
+                               description
+                   )
+            ''',
+            variables: [Variable<int>(tombstonedAt)],
+            updates: {transactions},
+          );
+          debugPrint(
+            '[DB_MIGRATION] v19->v20: $collapsed duplicate rows tombstoned',
+          );
+
+          if (collapsed > 0) {
+            // Every balance the duplicates touched is now overstated by
+            // exactly them. Rebuilding from the opening-balance anchor is the
+            // only way to put it right: the running balance is materialised,
+            // so there is no delta to subtract that is not itself derived
+            // from the rows that just went away. Every account is rebuilt
+            // rather than only the ones that lost a row - it is a handful of
+            // accounts, and a rebuild is idempotent for the untouched ones.
+            final accountIds = await select(accounts).map((a) => a.id).get();
+            await accountsDao.recomputeBalances(accountIds);
+            debugPrint(
+              '[DB_MIGRATION] v19->v20: rebuilt ${accountIds.length} balances',
+            );
+          }
+          debugPrint('[DB_MIGRATION] v19->v20: complete');
+        }
+
+        if (from < 21) {
+          // The v12 to v13 upgrade seeded the push queue from every synced
+          // table, which handed the server ~367k queue entries for the bundled
+          // rate history - reference data that every install already lays down
+          // under the same keys, so no client has ever needed another client
+          // to send it. The queue drains oldest-first, so those entries sit in
+          // front of everything a person actually did.
+          //
+          // Deleted, not tombstoned: a queue entry is a note saying "the
+          // server has not been told about this row", and dropping the note
+          // leaves the row itself untouched. Nothing is lost that a later edit
+          // to that rate would not re-queue.
+          debugPrint(
+            '[DB_MIGRATION] v20->v21: dropping seeded rates from the push queue...',
+          );
+          final trimmed = await customUpdate(
+            '''
+            DELETE FROM sync_push_queue
+             WHERE changed_table_name = 'exchange_rates'
+               AND record_key IN (
+                     SELECT ${syncPushQueueKeyExpression('exchange_rates')}
+                       FROM exchange_rates
+                      WHERE $seededExchangeRatesFilter
+                   )
+            ''',
+            updates: {syncPushQueue},
+          );
+          debugPrint(
+            '[DB_MIGRATION] v20->v21: $trimmed seeded rate entries dropped',
+          );
+          debugPrint('[DB_MIGRATION] v20->v21: complete');
+        }
+
+        if (from < 22) {
+          debugPrint(
+            '[DB_MIGRATION] v21->v22: creating asset_entries read indexes...',
+          );
+          await _createAssetEntryIndexes();
+          debugPrint('[DB_MIGRATION] v21->v22: complete');
+        }
+
+        if (from < 23) {
+          // The bundled history used to be every currency the data set
+          // publishes - roughly 700 of them - for every day since 2024-04-01,
+          // which is ~283 000 rows a device carried to convert between the two
+          // or three currencies its owner actually holds. The asset now ships
+          // the last 30 days and the rest comes from the server on demand, so
+          // the rows for currencies nothing references are dead weight in
+          // every query that scans this table.
+          //
+          // Only rows nobody typed: a hand-entered or hand-corrected rate is
+          // the one thing here that cannot be fetched again, so the delete is
+          // restricted to rows written by the seed (a bulk write of a whole
+          // day) or by the server fetch (stamped with its device id). A rate
+          // the user edited has neither mark and stays.
+          //
+          // Deleted outright rather than tombstoned: these rows are reference
+          // data, identical on every install, and re-fetchable. There is no
+          // sync_log entry either, so this stays local - a peer that still
+          // wants JPY keeps its own copy instead of being told to drop it.
+          debugPrint(
+            '[DB_MIGRATION] v22->v23: pruning rates for unused currencies...',
+          );
+
+          // A row is kept only if both of its endpoints are in use. EUR is in
+          // the set unconditionally: every published rate is quoted against
+          // it, so dropping the base would take the entire table with it.
+          //
+          // Deliberately not `currency_designations`: the seed ships a symbol
+          // for all 341 currencies, so that table says nothing about which of
+          // them the user holds - joining it in would keep every row and make
+          // this step a no-op.
+          const usedCurrencies = kUsedCurrenciesSql;
+
+          const prunable =
+              '''
+            (from_currency_code NOT IN ($usedCurrencies)
+              OR to_currency_code NOT IN ($usedCurrencies))
+            AND (device_id = '$kServerRateDeviceId'
+                 OR ($seededExchangeRatesFilter))
+          ''';
+
+          // The queue entries first, while the rows they name still exist:
+          // the key is built from the row, so after the delete there is
+          // nothing left to match them against.
+          await customUpdate(
+            '''
+            DELETE FROM sync_push_queue
+             WHERE changed_table_name = 'exchange_rates'
+               AND record_key IN (
+                     SELECT ${syncPushQueueKeyExpression('exchange_rates')}
+                       FROM exchange_rates
+                      WHERE $prunable
+                   )
+            ''',
+            updates: {syncPushQueue},
+          );
+
+          final pruned = await customUpdate(
+            'DELETE FROM exchange_rates WHERE $prunable',
+            updates: {exchangeRates},
+          );
+          debugPrint('[DB_MIGRATION] v22->v23: $pruned rate rows removed');
+          debugPrint('[DB_MIGRATION] v22->v23: complete');
+        }
+
+        if (from < 24) {
+          // The SMS import derives a transaction's id from the message it came
+          // from, so a message imported twice now lands on the same row. Every
+          // copy written before that - and everything a bank statement put in
+          // for the same payments - carries a random uuid instead, and those
+          // pairs are still sitting in the table: 116 of them on the database
+          // this was written against, each one counted twice in every total.
+          //
+          // Nothing running at read time can collapse them: the two copies
+          // disagree on the description (one carries the bank's name, the
+          // other the merchant's), so they are the same payment only by
+          // account, instant and amount.
+          debugPrint(
+            '[DB_MIGRATION] v23->v24: removing duplicate transactions...',
+          );
+          final removed = await removeDuplicateTransactions();
+          debugPrint('[DB_MIGRATION] v23->v24: $removed duplicates removed');
+          debugPrint('[DB_MIGRATION] v23->v24: complete');
+        }
+
+        if (from < 25) {
+          // Rows that record one movement of money as an unrelated expense and
+          // an unrelated income, seconds apart on one account. They net out in
+          // the balance and double-count in every total on the dashboard, and
+          // the v23->v24 dedupe leaves them alone by design - see
+          // linkOffsettingTransfers for why the sign in its key is right.
+          debugPrint(
+            '[DB_MIGRATION] v24->v25: linking offsetting transfers...',
+          );
+          final pairs = await linkOffsettingTransfers();
+          debugPrint('[DB_MIGRATION] v24->v25: $pairs transfer pairs linked');
+          debugPrint('[DB_MIGRATION] v24->v25: complete');
+        }
+
+        if (from < 26) {
+          // The same payment written twice by two importers whose clocks
+          // disagree by a whole number of hours - a time zone applied twice.
+          // The v23->v24 dedupe keys on the instant exactly and cannot see
+          // them; see removeClockShiftedDuplicates for what makes a whole-hour
+          // gap safe to collapse.
+          debugPrint(
+            '[DB_MIGRATION] v25->v26: removing clock-shifted duplicates...',
+          );
+          final shifted = await removeClockShiftedDuplicates();
+          debugPrint('[DB_MIGRATION] v25->v26: $shifted duplicates removed');
+          debugPrint('[DB_MIGRATION] v25->v26: complete');
+        }
+
         debugPrint('[DB_MIGRATION] onUpgrade complete: from=$from to=$to');
       },
       beforeOpen: (details) async {
@@ -5185,18 +6448,32 @@ class AppDatabase extends _$AppDatabase {
         await customStatement('PRAGMA foreign_keys = ON');
         debugPrint('[DB_MIGRATION] beforeOpen: PRAGMA foreign_keys = ON done');
 
-        // Repair corrupted modifiedAt columns (fix for previous batchUpdateBalances bug)
-        // Reset to current time to ensure they are treated as valid updates
-        final now = DateTime.now().millisecondsSinceEpoch;
-        debugPrint(
-          '[DB_MIGRATION] beforeOpen: executing corrupted modified_at repair...',
-        );
-        await customStatement(
-          "UPDATE accounts SET modified_at = $now WHERE typeof(modified_at) = 'text'",
-        );
-        debugPrint(
-          '[DB_MIGRATION] beforeOpen END: corrupted modified_at repaired',
-        );
+        // Repair corrupted modifiedAt columns (fix for previous
+        // batchUpdateBalances bug). Reset to current time to ensure they are
+        // treated as valid updates.
+        //
+        // Only on an upgrade. The bug that wrote text into the column is long
+        // gone, so nothing can reintroduce the corruption between two opens of
+        // the same version - but `typeof()` is unindexable, so leaving the
+        // repair unconditional meant a full scan of `accounts` plus a write
+        // transaction opened ahead of the first query, on every single launch,
+        // forever.
+        if (!details.wasCreated && details.hadUpgrade) {
+          final now = DateTime.now().millisecondsSinceEpoch;
+          debugPrint(
+            '[DB_MIGRATION] beforeOpen: executing corrupted modified_at repair...',
+          );
+          await customStatement(
+            "UPDATE accounts SET modified_at = $now WHERE typeof(modified_at) = 'text'",
+          );
+          debugPrint(
+            '[DB_MIGRATION] beforeOpen END: corrupted modified_at repaired',
+          );
+        } else {
+          debugPrint(
+            '[DB_MIGRATION] beforeOpen END: no upgrade, modified_at repair skipped',
+          );
+        }
       },
     );
   }

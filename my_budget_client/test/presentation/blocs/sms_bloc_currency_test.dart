@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
@@ -79,6 +80,27 @@ class _FakeTransactionRepository extends Fake implements TransactionRepository {
     }
     added.add(transaction);
   }
+
+  /// Stands in for the primary key: the real table would refuse a second row
+  /// under an id it already holds, and this is what the bloc asks first.
+  @override
+  Future<Transaction?> getTransactionById(String id) async =>
+      added.firstWhereOrNull((t) => t.id == id);
+
+  /// Mirrors the second duplicate guard's SQL: rows on the same account at the
+  /// same instant that this import did not write itself.
+  @override
+  Future<Transaction?> findExistingImportedTransaction({
+    required String accountId,
+    required DateTime date,
+    required double amount,
+  }) async => added.firstWhereOrNull(
+    (t) =>
+        !(t.id ?? '').startsWith('sms') &&
+        t.accountId == accountId &&
+        t.date == date &&
+        (t.amount - amount).abs() < 0.005,
+  );
 
   @override
   Stream<void> watchTransactionChanges() => const Stream.empty();

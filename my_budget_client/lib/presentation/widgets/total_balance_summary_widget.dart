@@ -9,7 +9,129 @@ import 'package:my_budget_client/presentation/blocs/accounts/accounts_bloc.dart'
 import 'package:my_budget_client/presentation/blocs/currency_converter/currency_converter_bloc.dart';
 import 'package:my_budget_client/presentation/widgets/currency_selection_dialog.dart';
 
-class TotalBalanceSummaryWidget extends StatelessWidget {
+/// The ten figures one currency card shows, and the currencies it could not
+/// price.
+///
+/// A value rather than ten locals, so the arithmetic can be done once and
+/// looked up on later builds instead of re-run. See [_TotalBalanceCache].
+class _CurrencyTotals {
+  final double nominalBalance;
+  final double realBalance;
+  final double prevBalance;
+  final double prevRealBalance;
+  final double nominalIncome;
+  final double realIncome;
+  final double prevIncome;
+  final double prevRealIncome;
+  final double nominalExpense;
+  final double prevExpense;
+
+  /// Codes no rate could price, collected off the nominal-balance pass — the
+  /// same pass that reported them before.
+  final Set<String> unconvertible;
+
+  const _CurrencyTotals({
+    required this.nominalBalance,
+    required this.realBalance,
+    required this.prevBalance,
+    required this.prevRealBalance,
+    required this.nominalIncome,
+    required this.realIncome,
+    required this.prevIncome,
+    required this.prevRealIncome,
+    required this.nominalExpense,
+    required this.prevExpense,
+    required this.unconvertible,
+  });
+}
+
+/// Everything derived from one pair of bloc states.
+///
+/// Rebuilt only when one of the two states is replaced, so a rebuild that is
+/// not about the data — a theme change, a text-scale change, the parent
+/// relaying out — costs a map lookup instead of ten walks of every account.
+class _TotalBalanceCache {
+  final AccountsLoadSuccess accountsState;
+  final CurrencyConverterLoadSuccess converterState;
+
+  /// The whole currency catalogue by code.
+  ///
+  /// This replaces a `firstWhere` in a try/catch used as control flow: a linear
+  /// scan of ~180 currencies per distinct account currency, plus a thrown and
+  /// caught exception on every miss, on every build.
+  final Map<String, Currency> currencyByCode;
+
+  final Map<String, _CurrencyTotals> totals = {};
+
+  _TotalBalanceCache(this.accountsState, this.converterState)
+    : currencyByCode = _indexByCode(converterState.allCurrencies);
+
+  static Map<String, Currency> _indexByCode(List<Currency> currencies) {
+    final index = <String, Currency>{};
+    // `putIfAbsent`, not a map literal: `firstWhere` returned the first match
+    // for a code and a literal would keep the last.
+    for (final currency in currencies) {
+      index.putIfAbsent(currency.code, () => currency);
+    }
+    return index;
+  }
+
+  bool matches(
+    AccountsLoadSuccess accounts,
+    CurrencyConverterLoadSuccess converter,
+  ) =>
+      identical(accountsState, accounts) &&
+      identical(converterState, converter);
+
+  /// The figures for [currency] over [accounts], worked out at most once per
+  /// [cacheKey] per pair of states.
+  ///
+  /// The key names the card, not the currency: Total Net Worth prices every
+  /// account into a currency while the breakdown prices only the accounts
+  /// already in it, so the same code asks two different questions.
+  _CurrencyTotals totalsFor(
+    String cacheKey,
+    Currency currency,
+    List<Account> accounts,
+  ) {
+    return totals[cacheKey] ??= _compute(currency, accounts);
+  }
+
+  _CurrencyTotals _compute(Currency currency, List<Account> accounts) {
+    final converter = converterState.converter;
+    final baseCurrencyCode = converterState.baseCurrencyCode;
+    final date = accountsState.activeDate;
+    final unconvertible = <String>{};
+
+    double total(Map<String, double>? balancesOverride, {Set<String>? report}) {
+      return totalBalanceFor(
+        currency: currency,
+        accounts: accounts,
+        converter: converter,
+        baseCurrencyCode: baseCurrencyCode,
+        date: date,
+        balancesOverride: balancesOverride,
+        unconvertible: report,
+      );
+    }
+
+    return _CurrencyTotals(
+      nominalBalance: total(null, report: unconvertible),
+      realBalance: total(accountsState.realBalances),
+      prevBalance: total(accountsState.previousPeriodBalances),
+      prevRealBalance: total(accountsState.previousPeriodRealBalances),
+      nominalIncome: total(accountsState.accountIncomes),
+      realIncome: total(accountsState.accountRealIncomes),
+      prevIncome: total(accountsState.previousAccountIncomes),
+      prevRealIncome: total(accountsState.previousAccountRealIncomes),
+      nominalExpense: total(accountsState.accountExpenses),
+      prevExpense: total(accountsState.previousAccountExpenses),
+      unconvertible: unconvertible,
+    );
+  }
+}
+
+class TotalBalanceSummaryWidget extends StatefulWidget {
   final AccountsLoadSuccess accountsState;
   final CurrencyConverterLoadSuccess converterState;
 
@@ -20,17 +142,59 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
   });
 
   @override
+  State<TotalBalanceSummaryWidget> createState() =>
+      _TotalBalanceSummaryWidgetState();
+}
+
+class _TotalBalanceSummaryWidgetState extends State<TotalBalanceSummaryWidget> {
+  _TotalBalanceCache? _cache;
+
+  // Whether each card's figures have ever been asked for.
+  //
+  // Both tiles open collapsed, and an `ExpansionTile` builds the `children`
+  // list its caller passes whether or not it is going to show it — so a screen
+  // nobody expanded still ran ten `totalBalanceFor` walks of every account per
+  // selected currency, and again per distinct account currency, on every
+  // build. These latch on first expansion instead.
+  //
+  // A latch rather than the live expansion flag: `ExpansionTile` keeps its
+  // children mounted while it animates shut, and emptying the list the moment
+  // the tile closes would make the card vanish instead of sliding up. The cost
+  // of latching is that a card opened once keeps recomputing when its data
+  // changes; the cache above means that is once per data change, not once per
+  // build.
+  bool _netWorthOpened = false;
+  bool _breakdownOpened = false;
+
+  _TotalBalanceCache get _data {
+    final cache = _cache;
+    if (cache != null &&
+        cache.matches(widget.accountsState, widget.converterState)) {
+      return cache;
+    }
+    return _cache = _TotalBalanceCache(
+      widget.accountsState,
+      widget.converterState,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final converterState = widget.converterState;
+    final accountsState = widget.accountsState;
+
     if (converterState.selectedCurrencies.isEmpty &&
         accountsState.accounts.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    final data = _data;
+
     final accountCurrencies = accountsState.accounts
         .map((a) => a.currencyCode)
         .toSet()
-        .map((code) => _getCurrencyByCode(code))
+        .map((code) => data.currencyByCode[code])
         .whereType<Currency>()
         .toList();
 
@@ -38,7 +202,7 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
     // If none selected, fallback to Base Currency
     List<Currency> currenciesToShow = converterState.selectedCurrencies;
     if (currenciesToShow.isEmpty) {
-      final base = _getCurrencyByCode(converterState.baseCurrencyCode);
+      final base = data.currencyByCode[converterState.baseCurrencyCode];
       if (base != null) {
         currenciesToShow = [base];
       }
@@ -58,6 +222,11 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
               child: ExpansionTile(
                 tilePadding: EdgeInsets.zero,
                 initiallyExpanded: false, // Auto-expand if showing Total
+                onExpansionChanged: (expanded) {
+                  if (expanded && !_netWorthOpened) {
+                    setState(() => _netWorthOpened = true);
+                  }
+                },
                 title: Text(
                   l10n.totalNetWorth,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -92,22 +261,25 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                     }
                   },
                 ),
-                children: [
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8.0,
-                    runSpacing: 8.0,
-                    alignment: WrapAlignment.start,
-                    children: currenciesToShow.map((currency) {
-                      return _buildCurrencySection(
-                        context,
-                        currency,
-                        accountsState.accounts, // Use ALL accounts
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 16),
-                ],
+                children: _netWorthOpened
+                    ? [
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8.0,
+                          runSpacing: 8.0,
+                          alignment: WrapAlignment.start,
+                          children: currenciesToShow.map((currency) {
+                            return _buildCurrencySection(
+                              context,
+                              'net:${currency.code}',
+                              currency,
+                              accountsState.accounts, // Use ALL accounts
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 16),
+                      ]
+                    : const [],
               ),
             ),
           ],
@@ -120,6 +292,11 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
               ).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
                 tilePadding: EdgeInsets.zero,
+                onExpansionChanged: (expanded) {
+                  if (expanded && !_breakdownOpened) {
+                    setState(() => _breakdownOpened = true);
+                  }
+                },
                 title: Text(
                   l10n.currencyBreakdown,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -128,26 +305,29 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                   ),
                 ),
                 initiallyExpanded: false,
-                children: [
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8.0,
-                    runSpacing: 8.0,
-                    alignment: WrapAlignment.start,
-                    children: accountCurrencies.map((currency) {
-                      // Filter accounts matching this currency
-                      final filteredAccounts = accountsState.accounts
-                          .where((a) => a.currencyCode == currency.code)
-                          .toList();
+                children: _breakdownOpened
+                    ? [
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8.0,
+                          runSpacing: 8.0,
+                          alignment: WrapAlignment.start,
+                          children: accountCurrencies.map((currency) {
+                            // Filter accounts matching this currency
+                            final filteredAccounts = accountsState.accounts
+                                .where((a) => a.currencyCode == currency.code)
+                                .toList();
 
-                      return _buildCurrencySection(
-                        context,
-                        currency,
-                        filteredAccounts,
-                      );
-                    }).toList(),
-                  ),
-                ],
+                            return _buildCurrencySection(
+                              context,
+                              'breakdown:${currency.code}',
+                              currency,
+                              filteredAccounts,
+                            );
+                          }).toList(),
+                        ),
+                      ]
+                    : const [],
               ),
             ),
           ],
@@ -156,91 +336,14 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
     );
   }
 
-  Currency? _getCurrencyByCode(String code) {
-    try {
-      return converterState.allCurrencies.firstWhere((c) => c.code == code);
-    } catch (_) {
-      return null;
-    }
-  }
-
   Widget _buildCurrencySection(
     BuildContext context,
+    String cacheKey,
     Currency currency,
     List<Account> accounts,
   ) {
     final l10n = context.l10n;
-    // 1. Balance
-    final unconvertible = <String>{};
-    final nominalBalance = totalBalanceFor(
-      currency: currency,
-      accounts: accounts,
-      converter: converterState.converter,
-      baseCurrencyCode: converterState.baseCurrencyCode,
-      date: accountsState.activeDate,
-      unconvertible: unconvertible,
-    );
-
-    final realBalance = totalBalanceFor(
-      currency: currency,
-      accounts: accounts,
-      converter: converterState.converter,
-      baseCurrencyCode: converterState.baseCurrencyCode,
-      date: accountsState.activeDate,
-      balancesOverride: accountsState.realBalances,
-    );
-
-    final prevBalance = totalBalanceFor(
-      currency: currency,
-      accounts: accounts,
-      converter: converterState.converter,
-      baseCurrencyCode: converterState.baseCurrencyCode,
-      date: accountsState.activeDate,
-      balancesOverride: accountsState.previousPeriodBalances,
-    );
-
-    final prevRealBalance = totalBalanceFor(
-      currency: currency,
-      accounts: accounts,
-      converter: converterState.converter,
-      baseCurrencyCode: converterState.baseCurrencyCode,
-      date: accountsState.activeDate,
-      balancesOverride: accountsState.previousPeriodRealBalances,
-    );
-
-    // 2. Income
-    final nominalIncome = _calcTotal(
-      currency,
-      accountsState.accountIncomes,
-      accounts,
-    );
-    final realIncome = _calcTotal(
-      currency,
-      accountsState.accountRealIncomes,
-      accounts,
-    );
-    final prevIncome = _calcTotal(
-      currency,
-      accountsState.previousAccountIncomes,
-      accounts,
-    );
-    final prevRealIncome = _calcTotal(
-      currency,
-      accountsState.previousAccountRealIncomes,
-      accounts,
-    );
-
-    // 3. Expense
-    final nominalExpense = _calcTotal(
-      currency,
-      accountsState.accountExpenses,
-      accounts,
-    );
-    final prevExpense = _calcTotal(
-      currency,
-      accountsState.previousAccountExpenses,
-      accounts,
-    );
+    final totals = _data.totalsFor(cacheKey, currency, accounts);
 
     return Card(
       child: Padding(
@@ -264,10 +367,10 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                   _buildMetricColumn(
                     context,
                     l10n.metricBalance,
-                    nominalBalance,
-                    prevBalance,
-                    realBalance,
-                    prevRealBalance,
+                    totals.nominalBalance,
+                    totals.prevBalance,
+                    totals.realBalance,
+                    totals.prevRealBalance,
                     Colors.blue,
                     currency.code,
                   ),
@@ -275,10 +378,10 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                   _buildMetricColumn(
                     context,
                     l10n.metricIncome,
-                    nominalIncome,
-                    prevIncome,
-                    realIncome, // Restore Real Income
-                    prevRealIncome,
+                    totals.nominalIncome,
+                    totals.prevIncome,
+                    totals.realIncome, // Restore Real Income
+                    totals.prevRealIncome,
                     MoneyColors.of(context).inflow,
                     currency.code,
                   ),
@@ -286,8 +389,8 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
                   _buildMetricColumn(
                     context,
                     l10n.metricExpense,
-                    nominalExpense,
-                    prevExpense,
+                    totals.nominalExpense,
+                    totals.prevExpense,
                     null, // Hide Real Expense
                     null,
                     MoneyColors.of(context).outflow,
@@ -298,12 +401,12 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
             ),
             // A total that quietly leaves out an account is a wrong number
             // presented as a right one. Say which currencies had no rate.
-            if (unconvertible.isNotEmpty)
+            if (totals.unconvertible.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
                 child: Text(
                   l10n.dashboardUnconvertibleCurrencies(
-                    (unconvertible.toList()..sort()).join(', '),
+                    (totals.unconvertible.toList()..sort()).join(', '),
                   ),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: MoneyColors.of(context).unconvertible,
@@ -416,21 +519,6 @@ class TotalBalanceSummaryWidget extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-
-  double _calcTotal(
-    Currency currency,
-    Map<String, double> balances,
-    List<Account> accounts,
-  ) {
-    return totalBalanceFor(
-      currency: currency,
-      accounts: accounts,
-      converter: converterState.converter,
-      baseCurrencyCode: converterState.baseCurrencyCode,
-      date: accountsState.activeDate,
-      balancesOverride: balances,
     );
   }
 }

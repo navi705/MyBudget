@@ -1,5 +1,4 @@
 import 'dart:ui';
-import 'package:collection/collection.dart';
 import 'package:my_budget_client/core/utils/hex_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -42,6 +41,56 @@ const double _kInlineChangeMinWidth = 260.0;
 /// Width cap on a stat row's label, so whatever the label does not use falls
 /// through to the number beside it.
 const double _kStatLabelMaxWidth = 96.0;
+
+// ---------------------------------------------------------------------------
+// Lookup indexes for the two catalogues every row reads.
+//
+// A row used to `firstWhereOrNull` its way through the whole designation list
+// and then through the whole style list on every single build. That is two
+// linear scans per visible row per emit, and one tap on the accounts date
+// chevrons emits about three times — so a screenful of twelve rows paid for
+// seventy-two scans of two catalogues that had not changed.
+//
+// The index hangs off the bloc state it was built from, via an [Expando]:
+// every row in a frame sees the same state object and so shares one index, and
+// there is nothing to invalidate — a new state has no index yet, and the old
+// index is collected with the old state.
+// ---------------------------------------------------------------------------
+
+final Expando<Map<String, CurrencyDesignation>> _designationIndexes = Expando(
+  'designationsById',
+);
+
+Map<String, CurrencyDesignation> _designationsById(CurrencyLoadSuccess state) {
+  final cached = _designationIndexes[state];
+  if (cached != null) return cached;
+
+  final index = <String, CurrencyDesignation>{};
+  // `putIfAbsent`, not a map literal: `firstWhereOrNull` returned the *first*
+  // match and a `{for (...) d.id: d}` literal keeps the last, so a duplicated
+  // id would silently start resolving to a different row.
+  for (final designation in state.designations) {
+    index.putIfAbsent(designation.id, () => designation);
+  }
+  return _designationIndexes[state] = index;
+}
+
+// Keyed on `String?` rather than `String`: `Style.id` is nullable and so is
+// `Account.styleId`, and `firstWhereOrNull((s) => s.id == account.styleId)`
+// matched a null id against a null styleId. Dropping the null key here would
+// quietly hand those accounts the grey default style instead.
+final Expando<Map<String?, Style>> _styleIndexes = Expando('stylesById');
+
+Map<String?, Style> _stylesById(StylesLoadSuccess state) {
+  final cached = _styleIndexes[state];
+  if (cached != null) return cached;
+
+  final index = <String?, Style>{};
+  for (final style in state.styles) {
+    index.putIfAbsent(style.id, () => style);
+  }
+  return _styleIndexes[state] = index;
+}
 
 class AccountListItem extends StatelessWidget {
   final Account account;
@@ -274,9 +323,8 @@ class AccountListItem extends StatelessWidget {
       builder: (context, currencyState) {
         CurrencyDesignation? designation;
         if (currencyState is CurrencyLoadSuccess) {
-          designation = currencyState.designations.firstWhereOrNull(
-            (d) => d.id == account.currencyDesignationId,
-          );
+          designation =
+              _designationsById(currencyState)[account.currencyDesignationId];
         }
         final symbol = designation?.value ?? '';
 
@@ -284,9 +332,7 @@ class AccountListItem extends StatelessWidget {
           builder: (context, styleState) {
             Style? style;
             if (styleState is StylesLoadSuccess) {
-              style = styleState.styles.firstWhereOrNull(
-                (s) => s.id == account.styleId,
-              );
+              style = _stylesById(styleState)[account.styleId];
             }
 
             final finalStyle =

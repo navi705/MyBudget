@@ -131,13 +131,16 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     _initialAccount = account;
     _nameController.text = account.name;
     _descriptionController.text = account.description ?? '';
-    _balanceController.text = account.balance.toString();
+    _balanceController.text = decimalFieldText(
+      account.balance,
+      currencyCode: account.currencyCode,
+    );
     _selectedCurrencyCode = account.currencyCode;
     _selectedCurrencyDesignationId = account.currencyDesignationId;
     _selectedStyleId = account.styleId;
     _selectedAccountTypeId = account.accountTypeId;
     _selectedAssetId = account.assetId;
-    _assetQuantityController.text = account.assetQuantity.toString();
+    _assetQuantityController.text = decimalFieldText(account.assetQuantity);
     _feeStructureJson = account.feeStructure;
   }
 

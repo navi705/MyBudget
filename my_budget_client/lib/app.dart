@@ -268,7 +268,18 @@ class _AppShellState extends State<_AppShell> {
       builder: (context, themeState) {
         return BlocBuilder<SettingsBloc, SettingsState>(
           builder: (context, settingsState) {
-            if (!themeState.isLoaded || themeState.activeTheme == null) {
+            // The whole app used to be a spinner until `isLoaded` turned true,
+            // which is three database reads after the native splash has already
+            // gone - so the launch read as splash, spinner, app. ThemeBloc now
+            // starts on a built-in theme that is known without touching the
+            // database, so the shell can be built on frame one and simply
+            // rebuild when the saved theme lands.
+            //
+            // The null check stays as a floor, not as a load gate: nothing in
+            // the bloc clears `activeTheme`, but a MaterialApp cannot be built
+            // without one.
+            final theme = themeState.activeTheme;
+            if (theme == null) {
               return const MaterialApp(
                 home: Scaffold(
                   body: Center(child: CircularProgressIndicator()),
@@ -276,7 +287,6 @@ class _AppShellState extends State<_AppShell> {
               );
             }
 
-            final theme = themeState.activeTheme!;
             _deriveTheme(theme);
 
             final backgroundImage = _backgroundImage;

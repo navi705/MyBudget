@@ -44,6 +44,9 @@ abstract class CurrencyRepository {
 
   Future<List<ExchangeRateDomain>> getLatestExchangeRates(DateTime date);
   Future<List<ExchangeRateDomain>> getLatestExchangeRatesAll();
+  /// Distinct dates that already have preset (seeded) exchange rate data,
+  /// without pulling every exchange rate row across the isolate boundary.
+  Future<List<DateTime>> getPresetRateDates();
   /// [currencyCodes], when given, limits the result to the pairs that touch
   /// one of those codes on either side.
   Future<List<ExchangeRateDomain>> getLatestExchangeRatesByList(

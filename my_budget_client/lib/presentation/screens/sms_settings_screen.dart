@@ -739,18 +739,37 @@ class _SmsPresetEditorScreenState extends State<SmsPresetEditorScreen> {
                 child: LinearProgressIndicator(),
               );
             }
-            if (state.createdTransactionsCount > 0) {
-              return Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Text(
+            // "0 imported" and "0 imported, 41 already on file" are the same
+            // screen to a user who cannot see the second half, and re-running
+            // "All time" over an inbox that is already imported produces
+            // exactly that. Both counters are shown, so a run that did nothing
+            // says which kind of nothing it did.
+            final lines = <Widget>[
+              if (state.createdTransactionsCount > 0)
+                Text(
                   context.l10n.smsImportSuccessCount(
                     state.createdTransactionsCount,
                   ),
                   style: const TextStyle(color: Colors.green),
                 ),
-              );
-            }
-            return const SizedBox.shrink();
+              if (state.duplicateTransactionsCount > 0)
+                Text(
+                  context.l10n.smsImportDuplicateCount(
+                    state.duplicateTransactionsCount,
+                  ),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ];
+            if (lines.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: lines,
+              ),
+            );
           },
         ),
       ],

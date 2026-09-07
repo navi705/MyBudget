@@ -5,7 +5,13 @@ import 'package:my_budget_client/core/utils/platform/io_helper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 
-/// Debug-only timing log.
+/// Timing log for the development builds.
+///
+/// Active in debug *and* profile, off in release. It used to be debug-only,
+/// which left the one build that measures anything honestly - profile, with a
+/// real AOT compile and no assertions - printing nothing at all, so a lag the
+/// user reports on a shipped build could only be reproduced under the debug
+/// interpreter where every number is inflated.
 ///
 /// [stop] returns a future so the call sites can `await` it, but it no longer
 /// waits for anything: it takes the reading and hands the line to a writer that
@@ -38,14 +44,14 @@ class PerformanceLogger {
   Future<String>? _logPath;
 
   void start(String label) {
-    if (kDebugMode) {
+    if (!kReleaseMode) {
       final stopwatch = Stopwatch()..start();
       _stopwatches[label] = stopwatch;
     }
   }
 
   Future<void> stop(String label) async {
-    if (!kDebugMode) return;
+    if (kReleaseMode) return;
     final stopwatch = _stopwatches.remove(label);
     if (stopwatch == null) return;
     stopwatch.stop();

@@ -599,6 +599,7 @@
     "smsSelectDefaultsFirst": "Сначала выберите значения по умолчанию",
     "smsCustomRange": "Свой диапазон",
     "smsImportSuccessCount": "Успешно: импортировано {count} транзакций",
+    "smsImportDuplicateCount": "{count} сообщений уже импортировано",
     "smsParsingRules": "Правила разбора",
     "smsNoRules": "Правила не заданы. Нажмите +, чтобы добавить.",
     "smsMatchLabel": "Совпадение: {pattern}",

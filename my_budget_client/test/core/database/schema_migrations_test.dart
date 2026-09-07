@@ -1902,6 +1902,466 @@ void main() {
       raw.dispose();
     });
   });
+
+  group('v19 -> v20 migration (collapses the re-imported duplicates)', () {
+    // v20 adds no columns, so the fixture is a current-schema database with
+    // `user_version` wound back and the rows a re-imported inbox would have
+    // left behind written into it.
+    late File file;
+    late String currencyCode;
+
+    /// The seeded catalogue row the fixture's accounts hang off, so every
+    /// foreign key in here is a real one.
+    late String designationId;
+    late String accountTypeId;
+    late String categoryId;
+
+    setUp(() async {
+      file = File('${tempDir.path}/v19.sqlite');
+      if (file.existsSync()) file.deleteSync();
+      final fresh = AppDatabase.forTesting(NativeDatabase(file));
+      await fresh.customSelect('SELECT 1').get();
+      await fresh.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      final designation = raw
+          .select('SELECT id, currency_code FROM currency_designations LIMIT 1')
+          .single;
+      designationId = designation['id'] as String;
+      currencyCode = designation['currency_code'] as String;
+      accountTypeId =
+          raw.select('SELECT id FROM account_types LIMIT 1').single['id']
+              as String;
+      categoryId =
+          raw.select('SELECT id FROM categories LIMIT 1').single['id']
+              as String;
+
+      void insertAccount(String id, double opening, double balance) {
+        raw.execute(
+          'INSERT INTO accounts (id, name, balance, opening_balance, '
+          'currency_code, currency_designation_id, account_type_id, '
+          'creation_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            id,
+            id,
+            balance,
+            opening,
+            currencyCode,
+            designationId,
+            accountTypeId,
+            1700000000000,
+          ],
+        );
+      }
+
+      void insertTx(
+        String id,
+        String accountId,
+        String description,
+        double amount,
+        int date, {
+        String? linkedTransactionId,
+      }) {
+        raw.execute(
+          'INSERT INTO transactions (id, description, amount, date, '
+          'account_id, category_id, currency_code, linked_transaction_id) '
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            id,
+            description,
+            amount,
+            date,
+            accountId,
+            categoryId,
+            currencyCode,
+            linkedTransactionId,
+          ],
+        );
+      }
+
+      // The account the duplicated import landed on. Its balance is what the
+      // duplicates left: the anchor plus all three rows, one of which is the
+      // second copy of another. Minor columns stay NULL so the rebuild takes
+      // the double path and the arithmetic in the assertions is the plain
+      // one.
+      insertAccount('acc-dup', 100.0, 70.0);
+      insertTx('tx-a', 'acc-dup', 'ATM BPS- MAXI V', -10.0, 1700000000000);
+      // Same account, same description, same amount, same millisecond: what
+      // re-running the import produced, distinguishable only by its id.
+      insertTx('tx-a-copy', 'acc-dup', 'ATM BPS- MAXI V', -10.0, 1700000000000);
+      // Same money, one second apart. A different message, and it has to
+      // survive.
+      insertTx('tx-b', 'acc-dup', 'ATM BPS- MAXI V', -10.0, 1700000001000);
+
+      // A transfer's two halves are identical in everything this groups on.
+      // Collapsing one would strand the other, so they are excluded outright.
+      insertAccount('acc-tr', 0.0, 0.0);
+      insertTx(
+        'tx-tr-1',
+        'acc-tr',
+        'moved',
+        -5.0,
+        1700000000000,
+        linkedTransactionId: 'tx-tr-2',
+      );
+      insertTx(
+        'tx-tr-2',
+        'acc-tr',
+        'moved',
+        -5.0,
+        1700000000000,
+        linkedTransactionId: 'tx-tr-1',
+      );
+
+      raw.execute('DELETE FROM sync_push_queue;');
+      raw.execute('PRAGMA user_version = 19;');
+      raw.dispose();
+    });
+
+    Future<sqlite3.Database> migrate() async {
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      await db.close();
+      return sqlite3.sqlite3.open(file.path);
+    }
+
+    test('tombstones the copy and keeps the original', () async {
+      final raw = await migrate();
+      int deletedOf(String id) =>
+          raw.select('SELECT is_deleted FROM transactions WHERE id = ?', [
+                id,
+              ]).single['is_deleted']
+              as int;
+
+      // The survivor is the lower rowid, which is the row that was there
+      // first - the copy is the one that goes.
+      expect(deletedOf('tx-a'), 0);
+      expect(deletedOf('tx-a-copy'), 1);
+      expect(
+        deletedOf('tx-b'),
+        0,
+        reason: 'one second apart is a different message',
+      );
+      raw.dispose();
+    });
+
+    test('leaves the two halves of a transfer alone', () async {
+      final raw = await migrate();
+      final rows = raw.select(
+        "SELECT is_deleted FROM transactions WHERE account_id = 'acc-tr'",
+      );
+      expect(rows.map((r) => r['is_deleted']), everyElement(0));
+      raw.dispose();
+    });
+
+    test('rebuilds the balance the duplicate had moved', () async {
+      final raw = await migrate();
+      final balance =
+          raw.select(
+                "SELECT balance FROM accounts WHERE id = 'acc-dup'",
+              ).single['balance']
+              as double;
+      // 100 anchor, two surviving rows of -10. The third -10 went with the
+      // copy, and the balance has to stop counting it.
+      expect(balance, closeTo(80.0, 0.0001));
+      raw.dispose();
+    });
+
+    test('queues the tombstone so the peers hear about it', () async {
+      final raw = await migrate();
+      final queued = raw.select(
+        "SELECT record_key FROM sync_push_queue WHERE changed_table_name = "
+        "'transactions'",
+      );
+      expect(
+        queued.map((r) => r['record_key']),
+        contains('tx-a-copy'),
+        reason: 'a removal the peers never hear about comes back on the '
+            'next pull',
+      );
+      raw.dispose();
+    });
+  });
+
+  group('v20 -> v21 migration (drops the seeded rates from the push queue)', () {
+    // v21 adds no columns either. The fixture is a current-schema database
+    // wound back to 20 with three preset-1 batches in it, told apart only by
+    // how many rows share a `modified_at`: that is the whole discriminator
+    // the migration has, so it is the whole point of the fixture.
+    late File file;
+    late String fromCode;
+    late String toCode;
+
+    /// One `modified_at` across a batch far larger than any provider fetch:
+    /// the bundled history, and the only thing the trim is allowed to take.
+    const seedStamp = 1000;
+    const seedRows = 1200;
+
+    /// A day's fetch. Preset 1 as well, one row per known currency, so a few
+    /// hundred at most - under the threshold, and it has to survive.
+    const fetchStamp = 2000;
+    const fetchRows = 300;
+
+    /// A rate the person typed in as their default. Preset 1, one row.
+    const manualStamp = 3000;
+
+    setUp(() async {
+      AppDatabase.seedExchangeRatesOnCreate = false;
+      file = File('${tempDir.path}/v20.sqlite');
+      if (file.existsSync()) file.deleteSync();
+      final fresh = AppDatabase.forTesting(NativeDatabase(file));
+      await fresh.customSelect('SELECT 1').get();
+      await fresh.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      final codes = raw.select('SELECT code FROM currencies LIMIT 2');
+      fromCode = codes.first['code'] as String;
+      toCode = codes.last['code'] as String;
+
+      void insertRate(int date, int preset, int modifiedAt) {
+        raw.execute(
+          'INSERT INTO exchange_rates (from_currency_code, to_currency_code, '
+          'rate, preset, date, modified_at) VALUES (?, ?, ?, ?, ?, ?)',
+          [fromCode, toCode, 1.5, preset, date, modifiedAt],
+        );
+      }
+
+      for (var i = 0; i < seedRows; i++) {
+        insertRate(i, 1, seedStamp);
+      }
+      for (var i = 0; i < fetchRows; i++) {
+        insertRate(100000 + i, 1, fetchStamp);
+      }
+      insertRate(200000, 1, manualStamp);
+      // A custom source writes preset 2, in bulk. Sharing the seed's stamp
+      // and its size, so the only thing keeping it is the preset.
+      for (var i = 0; i < 5; i++) {
+        insertRate(300000 + i, 2, seedStamp);
+      }
+
+      // The triggers queued all of that on the way in and may have restamped
+      // it. Set the stamps last, then rebuild the queue by hand, so what the
+      // migration reads is exactly what this fixture says it is.
+      raw.execute(
+        'UPDATE exchange_rates SET modified_at = ? WHERE date < 100000',
+        [seedStamp],
+      );
+      raw.execute(
+        'UPDATE exchange_rates SET modified_at = ? '
+        'WHERE date >= 100000 AND date < 200000',
+        [fetchStamp],
+      );
+      raw.execute('UPDATE exchange_rates SET modified_at = ? WHERE date = ?', [
+        manualStamp,
+        200000,
+      ]);
+      raw.execute(
+        'UPDATE exchange_rates SET modified_at = ? WHERE preset = 2',
+        [seedStamp],
+      );
+
+      raw.execute('DELETE FROM sync_push_queue;');
+      raw.execute(
+        "INSERT INTO sync_push_queue (changed_table_name, record_key) "
+        "SELECT 'exchange_rates', from_currency_code || '|' || "
+        "to_currency_code || '|' || date || '|' || preset FROM exchange_rates",
+      );
+      // Two entries that are not rates at all. The trim names one table; if it
+      // ever stops doing so, these are what says it.
+      raw.execute(
+        "INSERT INTO sync_push_queue (changed_table_name, record_key) "
+        "VALUES ('transactions', 'tx-1'), ('accounts', 'acc-1')",
+      );
+
+      raw.execute('PRAGMA user_version = 20;');
+      raw.dispose();
+    });
+
+    tearDown(() {
+      AppDatabase.seedExchangeRatesOnCreate = true;
+    });
+
+    Future<sqlite3.Database> migrate() async {
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      await db.close();
+      return sqlite3.sqlite3.open(file.path);
+    }
+
+    /// How many distinct rate rows carrying [stamp] are still owed to the
+    /// server. DISTINCT because the resend path inserts unconditionally - a
+    /// row already queued ends up with two entries and one record key, which
+    /// is what the push itself collapses.
+    int queuedRatesWithStamp(sqlite3.Database raw, int stamp) =>
+        raw.select(
+              'SELECT COUNT(DISTINCT q.record_key) AS c FROM sync_push_queue q '
+              'JOIN exchange_rates r ON q.record_key = '
+              "r.from_currency_code || '|' || r.to_currency_code || '|' || "
+              "r.date || '|' || r.preset "
+              "WHERE q.changed_table_name = 'exchange_rates' "
+              'AND r.modified_at = ?',
+              [stamp],
+            ).single['c']
+            as int;
+
+    test('drops the seeded batch', () async {
+      final raw = await migrate();
+      expect(queuedRatesWithStamp(raw, seedStamp), 5,
+          reason: 'only the five preset-2 rows sharing that stamp survive');
+      raw.dispose();
+    });
+
+    test("keeps a day's fetch and a hand-entered rate", () async {
+      final raw = await migrate();
+      expect(
+        queuedRatesWithStamp(raw, fetchStamp),
+        fetchRows,
+        reason: 'preset 1 is not the same question as "came from the seed"',
+      );
+      expect(queuedRatesWithStamp(raw, manualStamp), 1);
+      raw.dispose();
+    });
+
+    test('leaves the other tables queued', () async {
+      final raw = await migrate();
+      final rows = raw.select(
+        "SELECT record_key FROM sync_push_queue WHERE changed_table_name "
+        "IN ('transactions', 'accounts')",
+      );
+      expect(rows.map((r) => r['record_key']), containsAll(['tx-1', 'acc-1']));
+      raw.dispose();
+    });
+
+    test('resending everything does not put the seed back', () async {
+      (await migrate()).dispose();
+
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      await db.queueEverythingForPush();
+      await db.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      expect(
+        queuedRatesWithStamp(raw, seedStamp),
+        5,
+        reason: 'the resend path rebuilt the backlog the upgrade just cleared',
+      );
+      expect(queuedRatesWithStamp(raw, fetchStamp), fetchRows);
+      expect(queuedRatesWithStamp(raw, manualStamp), 1);
+      raw.dispose();
+    });
+  });
+
+  group('v21 -> v22 migration (indexes the asset_entries reads)', () {
+    // No columns again. What v22 adds is two indexes, and the thing worth
+    // pinning is not that the CREATE ran - it is that the planner picks them
+    // up, because an index the query never matches costs writes and buys
+    // nothing.
+    late File file;
+
+    setUp(() async {
+      AppDatabase.seedExchangeRatesOnCreate = false;
+      file = File('${tempDir.path}/v21.sqlite');
+      if (file.existsSync()) file.deleteSync();
+      final fresh = AppDatabase.forTesting(NativeDatabase(file));
+      await fresh.customSelect('SELECT 1').get();
+      await fresh.close();
+
+      // Wind back to what a v21 database looked like: the indexes did not
+      // exist there, so drop the ones onCreate just built.
+      final raw = sqlite3.sqlite3.open(file.path);
+      raw.execute('DROP INDEX IF EXISTS idx_asset_entries_account_date');
+      raw.execute('DROP INDEX IF EXISTS idx_asset_entries_asset_date');
+      raw.execute('PRAGMA user_version = 21');
+      raw.dispose();
+    });
+
+    tearDown(() {
+      AppDatabase.seedExchangeRatesOnCreate = true;
+    });
+
+    Set<String> indexNames(sqlite3.Database raw) => raw
+        .select(
+          "SELECT name FROM sqlite_master WHERE type = 'index' "
+          "AND tbl_name = 'asset_entries'",
+        )
+        .map((row) => row['name'] as String)
+        .toSet();
+
+    test('creates both indexes on an upgraded database', () async {
+      final before = sqlite3.sqlite3.open(file.path);
+      expect(
+        indexNames(before),
+        isNot(contains('idx_asset_entries_account_date')),
+        reason: 'fixture was not actually wound back',
+      );
+      before.dispose();
+
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      await db.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      expect(
+        indexNames(raw),
+        containsAll([
+          'idx_asset_entries_account_date',
+          'idx_asset_entries_asset_date',
+        ]),
+      );
+      raw.dispose();
+    });
+
+    test('the planner seeks on them instead of scanning', () async {
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      await db.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      String planFor(String sql) => raw
+          .select('EXPLAIN QUERY PLAN $sql')
+          .map((row) => row['detail'] as String)
+          .join(' | ');
+
+      // The shape getAssetData builds for one asset account: an owner plus a
+      // date window, ordered by date.
+      final accountPlan = planFor(
+        'SELECT * FROM asset_entries '
+        "WHERE is_deleted = 0 AND account_id = 'a' "
+        'AND date >= 0 AND date <= 99 ORDER BY date DESC',
+      );
+      expect(
+        accountPlan,
+        contains('idx_asset_entries_account_date'),
+        reason: 'account lookups still scan the table: $accountPlan',
+      );
+
+      final assetPlan = planFor(
+        'SELECT * FROM asset_entries '
+        "WHERE is_deleted = 0 AND asset_id = 'x' ORDER BY date DESC",
+      );
+      expect(
+        assetPlan,
+        contains('idx_asset_entries_asset_date'),
+        reason: 'asset lookups still scan the table: $assetPlan',
+      );
+      raw.dispose();
+    });
+
+    test('is idempotent - a second open does not fail on the indexes', () async {
+      final first = AppDatabase.forTesting(NativeDatabase(file));
+      await first.customSelect('SELECT 1').get();
+      await first.close();
+
+      final second = AppDatabase.forTesting(NativeDatabase(file));
+      await second.customSelect('SELECT 1').get();
+      await second.close();
+
+      final raw = sqlite3.sqlite3.open(file.path);
+      expect(indexNames(raw), contains('idx_asset_entries_account_date'));
+      raw.dispose();
+    });
+  });
 }
 
 /// [ddl] with the declaration of [column] taken out of it.

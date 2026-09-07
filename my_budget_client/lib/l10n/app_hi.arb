@@ -599,6 +599,7 @@
     "smsSelectDefaultsFirst": "पहले डिफ़ॉल्ट चुनें",
     "smsCustomRange": "कस्टम रेंज",
     "smsImportSuccessCount": "सफल: {count} लेन-देन आयात किए गए",
+    "smsImportDuplicateCount": "{count} संदेश पहले ही आयात किए जा चुके हैं",
     "smsParsingRules": "पार्सिंग नियम",
     "smsNoRules": "कोई नियम परिभाषित नहीं। जोड़ने के लिए + पर टैप करें।",
     "smsMatchLabel": "मैच: {pattern}",

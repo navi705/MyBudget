@@ -599,6 +599,7 @@
     "smsSelectDefaultsFirst": "حدد الافتراضيات أولاً",
     "smsCustomRange": "نطاق مخصص",
     "smsImportSuccessCount": "نجح: تم استيراد {count} معاملات",
+    "smsImportDuplicateCount": "تم استيراد {count} رسالة بالفعل",
     "smsParsingRules": "قواعد التحليل",
     "smsNoRules": "لم يتم تعريف قواعد. انقر + لإضافة واحدة.",
     "smsMatchLabel": "المطابقة: {pattern}",

@@ -10,9 +10,18 @@ import 'dart:convert';
 import 'package:my_budget_client/core/di/injection_container.dart' as di;
 import 'package:my_budget_client/core/di/injection_container.dart'; // for sl
 
-Future<void> _fetchApiDataInIsolate(bool shouldInit) async {
-  // If we are on the main isolate, DI is already initialized.
-  // We only need to init if we are in a truly separate isolate (which we aren't right now).
+/// The startup work that does not have to finish before the app is shown.
+///
+/// Named `_fetchApiDataInIsolate` until now, which was the source of a
+/// persistent misreading: this runs on the *calling* isolate - the UI one -
+/// and always has. `app_wrapper.dart` fires it without awaiting, and that only
+/// takes it off the critical path. Anything heavy in here still competes with
+/// frames, which is why the multi-megabyte currency-history decodes inside
+/// [ImportDataUtils.getCurrenciesInitial] now post themselves to a real worker
+/// rather than relying on this call being un-awaited.
+Future<void> _runBackgroundStartupWork(bool shouldInit) async {
+  // DI is already initialized on the main isolate, which is where this runs.
+  // The guard is for a caller that is genuinely somewhere else.
   if (shouldInit && !sl.isRegistered<StartupSyncService>()) {
     await di.init();
   }
@@ -118,7 +127,13 @@ class IntilizationData {
 
   /// Fetches API data and performs seeding in the background.
   static void fetchApiDataInBackground() {
-    _fetchApiDataInIsolate(true);
+    // The result is deliberately dropped, so the failure has to be caught here:
+    // an un-awaited Future that throws goes to the zone's uncaught-error
+    // handler, and on a release build that is a crash report for work the app
+    // is explicitly happy to do without.
+    _runBackgroundStartupWork(true).catchError((Object e) {
+      debugPrint('[INIT_DEBUG] Background startup work failed: $e');
+    });
   }
 
   static Future<void> initilizate() async {

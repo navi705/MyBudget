@@ -20,6 +20,35 @@ import 'package:my_budget_client/domain/repositories/inflation_repository.dart';
 import 'package:my_budget_client/presentation/blocs/sms/sms_bloc.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+/// Moves a bloc's opening fetch off the first frame.
+///
+/// Nine blocs used to fire their load event the moment their provider was
+/// built, and `app.dart` plus the dashboard route read most of them at once -
+/// so the exact frames in which the app has to paint for the first time were
+/// also the frames in which eight or nine database round-trips landed and their
+/// rows were mapped into entities. drift runs the SQL on a background isolate,
+/// but every row still crosses the port and is materialised here on the UI
+/// isolate, so that mapping is time the first frame does not have.
+///
+/// The bloc is still constructed eagerly, so `context.read` works from the very
+/// first build; only the fetch moves. Nothing regresses by waiting one frame:
+/// a bloc event is processed asynchronously regardless, so every consumer of
+/// these blocs already had to render an initial/loading state before the data
+/// arrived. The two blocs the first frame genuinely reads - theme (paints the
+/// shell) and settings (supplies the locale to MaterialApp.router) - are
+/// deliberately left eager.
+extension _DeferredLoad<E, S> on Bloc<E, S> {
+  void loadAfterFirstFrame(E event) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // The provider can be disposed before the callback runs - a restart, or
+      // a hot reload that rebuilds the tree - and adding to a closed bloc
+      // throws.
+      if (isClosed) return;
+      add(event);
+    });
+  }
+}
+
 class AppProviders extends StatelessWidget {
   final Widget child;
   const AppProviders({super.key, required this.child});
@@ -34,30 +63,41 @@ class AppProviders extends StatelessWidget {
       ],
       child: MultiBlocProvider(
         providers: [
+          // Eager: MaterialApp.router below is keyed on the locale this bloc
+          // holds, so the first frame reads it.
           BlocProvider(
             create: (context) => di.sl<SettingsBloc>()..add(LoadSettings()),
           ),
+          // Deferred to the first post-frame callback - see [_DeferredLoad].
           BlocProvider(
-            create: (context) => di.sl<AccountsBloc>()..add(LoadAccounts()),
-          ),
-          BlocProvider(
-            create: (context) => di.sl<CurrencyBloc>()..add(LoadCurrencies()),
-          ),
-          BlocProvider(
-            create: (context) => di.sl<StylesBloc>()..add(LoadStyles()),
-          ),
-          BlocProvider(
-            create: (context) => di.sl<CategoriesBloc>()..add(LoadCategories()),
+            create: (context) =>
+                di.sl<AccountsBloc>()..loadAfterFirstFrame(LoadAccounts()),
           ),
           BlocProvider(
             create: (context) =>
-                di.sl<TransactionsBloc>()..add(const InitialLoadTransactions()),
+                di.sl<CurrencyBloc>()..loadAfterFirstFrame(LoadCurrencies()),
           ),
           BlocProvider(
             create: (context) =>
-                di.sl<CurrencyConverterBloc>()..add(LoadCurrencyConverter()),
+                di.sl<StylesBloc>()..loadAfterFirstFrame(LoadStyles()),
+          ),
+          BlocProvider(
+            create: (context) =>
+                di.sl<CategoriesBloc>()..loadAfterFirstFrame(LoadCategories()),
+          ),
+          BlocProvider(
+            create: (context) =>
+                di.sl<TransactionsBloc>()
+                  ..loadAfterFirstFrame(const InitialLoadTransactions()),
+          ),
+          BlocProvider(
+            create: (context) =>
+                di.sl<CurrencyConverterBloc>()
+                  ..loadAfterFirstFrame(LoadCurrencyConverter()),
           ),
           BlocProvider(create: (context) => di.sl<DashboardBloc>()),
+          // Eager: the app shell is painted from this bloc's theme, and its
+          // seeded fallback is what lets frame one exist at all.
           BlocProvider(
             create: (context) =>
                 di.sl<ThemeBloc>()..add(const LoadThemeSettings()),

@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:drift/drift.dart';
 import 'package:my_budget_client/core/database/app_database.dart' as db;
 import 'package:my_budget_client/core/mappers/transaction_mapper.dart';
@@ -176,6 +177,30 @@ class LocalTransactionRepository implements TransactionRepository {
   }
 
   @override
+  Future<Transaction?> findExistingImportedTransaction({
+    required String accountId,
+    required DateTime date,
+    required double amount,
+  }) async {
+    final candidates = await database.transactionsDao.getForeignTransactionsAt(
+      accountId: accountId,
+      date: date,
+    );
+    // Compared with a tolerance rather than `==`: the two copies took
+    // different routes to the same figure - one straight from the message,
+    // one through a stored exchange rate - and doubles that agree to well
+    // under a minor unit are the same amount.
+    final match = candidates.firstWhereOrNull(
+      (t) => (t.amount - amount).abs() < 0.005,
+    );
+    return match?.toDomain();
+  }
+
+  @override
+  Future<String?> linkOffsettingTransfer(String transactionId) =>
+      database.linkOffsettingTransferFor(transactionId);
+
+  @override
   Future<List<Transaction>> getTransactionsByIds(List<String> ids) async {
     final transactions = await database.transactionsDao.getTransactionsByIds(
       ids,
@@ -285,6 +310,8 @@ class LocalTransactionRepository implements TransactionRepository {
           accountId: filters?.accountId,
           categoryId: filters?.categoryId,
           currencyCode: filters?.currencyCode,
+          excludeAccountId: filters?.excludeAccountId,
+          excludeCategoryId: filters?.excludeCategoryId,
           transactionType: filters?.transactionType,
           needsReview: filters?.needsReview,
         );
@@ -300,6 +327,11 @@ class LocalTransactionRepository implements TransactionRepository {
       categoryId,
       since: since,
     );
+  }
+
+  @override
+  Future<String?> getLastUsedAccountId() {
+    return database.transactionsDao.getLastUsedAccountId();
   }
 
   @override

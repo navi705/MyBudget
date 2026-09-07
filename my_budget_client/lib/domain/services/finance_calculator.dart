@@ -143,6 +143,61 @@ class PeriodStats {
 }
 
 class FinanceCalculator {
+  // --- Derived-data caches ---------------------------------------------------
+  //
+  // Everything in this block is DERIVED from a snapshot's rate and inflation
+  // lists, and one date-period switch on the accounts screen hands the very
+  // same two lists to calculateBalances, calculateTotalNetWorth,
+  // calculateCurrencyBreakdown, calculateAssetStats and calculatePeriodStats
+  // (that last one twice - this period and the previous one, for the delta).
+  // Each of those used to re-group every exchange rate into a fresh nested map
+  // and re-sort every per-pair list from scratch: five-plus O(n log n) rebuilds
+  // per gesture over rate rows that were identical from the first rebuild to
+  // the last. On top of that sat one rate resolution per ACCOUNT and one per
+  // TRANSACTION ROW, each rescanning up to four pair lists (direct, inverse,
+  // two pivot legs) for an answer a sibling call had already worked out.
+  //
+  // Validity is checked, never assumed. A cached index is reused only when the
+  // caller hands back the very same List instance AND that instance still
+  // hashes to what it hashed to when the index was built. Identity alone would
+  // survive `rates.add(...)` on the growable list the bloc state holds, and a
+  // cache that keeps answering from rates the user has since edited is the
+  // "totals stay wrong until you restart the app" bug - strictly worse than the
+  // lag it fixes. The fingerprint is an O(n) walk over immutable value objects;
+  // what it guards is an O(n log n) rebuild plus a map and a list allocation
+  // per currency pair.
+  //
+  // Not thread-safe, and does not need to be: every method here is synchronous,
+  // so no await can interleave inside one, and Dart runs them on a single
+  // isolate. The instance is nonetheless SHARED - injection_container registers
+  // one lazy singleton (the accounts bloc's), while dashboard_bloc news up its
+  // own - so two callers alternating with DIFFERENT rate lists would thrash
+  // these caches back to today's cost. They do not share an instance today, and
+  // if they ever do, the answers stay correct; only the speedup is lost.
+
+  List<ExchangeRateDomain>? _rateSource;
+  int _rateSourceHash = 0;
+  Map<String, Map<String, List<ExchangeRateDomain>>>? _rateIndex;
+
+  List<InflationRateDomain>? _inflationSource;
+  int _inflationSourceHash = 0;
+  Map<String, List<InflationRateDomain>>? _inflationIndex;
+
+  /// Resolved rates, keyed by everything the answer depends on that the index
+  /// generation does not already pin down: the pair, the exact instant, and the
+  /// currency the pivots are picked for. Dropped whenever an index is rebuilt,
+  /// so an entry can never outlive the rows it was derived from.
+  final Map<(String, String, int, String), double?> _resolvedRates = {};
+
+  /// The same contract for inflation: (country, start instant, end instant).
+  final Map<(String, int, int), double> _resolvedMultipliers = {};
+
+  /// These maps grow with USE, not with the data - a walk-back over a year asks
+  /// a fresh question per day - and the calculator is a process-lifetime
+  /// singleton. Dropping the whole map on overflow re-earns entries that are,
+  /// by the time it happens, overwhelmingly cold.
+  static const int _memoLimit = 20000;
+
   /// Returns map of AccountId -> Nominal Balance
   ///
   /// For Asset Accounts: Quantity * Price at [data.date]
@@ -298,19 +353,9 @@ class FinanceCalculator {
   }) {
     balances ??= calculateBalances(data);
     final realBalances = <String, double>{};
-    // Optimisation: Pre-calculate multipliers per country
-    // Group inflation rates by country
-    final ratesByCountry = <String, List<InflationRateDomain>>{};
-    for (final r in data.inflationRates) {
-      if (r.country != null) {
-        ratesByCountry.putIfAbsent(r.country!, () => []).add(r);
-      }
-    }
-
-    // Optimization: Pre-sort inflation rates once
-    for (final rates in ratesByCountry.values) {
-      rates.sort((a, b) => a.date.compareTo(b.date));
-    }
+    // Grouped and sorted once per rate LIST rather than once per call - see
+    // [_buildInflationIndex].
+    final ratesByCountry = _buildInflationIndex(data.inflationRates);
 
     // Finding #3: Build account lookup map once for O(1) access
     // instead of O(A) firstWhere scan inside the loop.
@@ -331,19 +376,16 @@ class FinanceCalculator {
       // This shows purchasing power relative to when the account started.
       final anchorDate = account.creationDate;
 
-      double multiplier = 1.0;
-      if (country != null) {
-        // Multipliers are now specific to (Anchor -> Current Date), not just Country
-        // We cannot easily memoize by Country alone unless we assume same creation date.
-        // For correctness, we calculate per account.
-        // Optimization: We could cache (Country, AnchorDate) -> Multiplier if needed.
-
-        multiplier = _calculateInflationMultiplier(
-          anchorDate,
-          data.date,
-          ratesByCountry[country] ?? [],
-        );
-      }
+      // A multiplier is specific to (Country, Anchor, Current Date), so all
+      // three are the memo key: keyed on country alone, as the old note here
+      // wondered about, an account would inherit the deflation of some other
+      // account's creation date.
+      double multiplier = _inflationMultiplier(
+        country,
+        anchorDate,
+        data.date,
+        ratesByCountry,
+      );
 
       // Avoid division by zero (though multiplier starts at 1.0 and goes up with positive inflation)
       if (multiplier == 0) multiplier = 1.0;
@@ -496,9 +538,22 @@ class FinanceCalculator {
   /// Only includes rates with [ExchangeRateDomain.preset] == 1.
   /// Each inner list is sorted descending by date (most recent first).
   /// Call once per snapshot and pass the result to [_getExchangeRate].
+  ///
+  /// Cached per rate list - see the cache notes at the top of the class. The
+  /// grouping order and the sort are untouched, so a rebuilt index is
+  /// element-for-element what the old unconditional build produced and two rows
+  /// sharing a date still resolve to the same one.
   Map<String, Map<String, List<ExchangeRateDomain>>> _buildRateIndex(
     List<ExchangeRateDomain> rates,
   ) {
+    final cached = _rateIndex;
+    final hash = Object.hashAll(rates);
+    if (cached != null &&
+        identical(_rateSource, rates) &&
+        _rateSourceHash == hash) {
+      return cached;
+    }
+
     final index = <String, Map<String, List<ExchangeRateDomain>>>{};
     for (final rate in rates) {
       if (rate.preset != 1) continue;
@@ -513,7 +568,90 @@ class FinanceCalculator {
         list.sort((a, b) => b.date.compareTo(a.date));
       }
     }
+
+    // Every resolved rate was derived from the rows we just replaced; they say
+    // nothing about these ones.
+    _resolvedRates.clear();
+    _rateSource = rates;
+    _rateSourceHash = hash;
+    _rateIndex = index;
     return index;
+  }
+
+  /// Inflation rates grouped by country, each group sorted ascending by date.
+  ///
+  /// Built exactly the way the two inline copies it replaces were built - drop
+  /// rows with no country, group in list order, sort each group ascending - so
+  /// [_calculateInflationMultiplier] multiplies the same rates in the same
+  /// order. That order is load-bearing: floating-point multiplication is not
+  /// associative, and this change must not move a single returned figure.
+  ///
+  /// Cached on the same terms as [_buildRateIndex]. The lists handed out are
+  /// shared across calls: read them, never sort or add to them.
+  Map<String, List<InflationRateDomain>> _buildInflationIndex(
+    List<InflationRateDomain> rates,
+  ) {
+    final cached = _inflationIndex;
+    final hash = Object.hashAll(rates);
+    if (cached != null &&
+        identical(_inflationSource, rates) &&
+        _inflationSourceHash == hash) {
+      return cached;
+    }
+
+    final index = <String, List<InflationRateDomain>>{};
+    for (final r in rates) {
+      if (r.country != null) {
+        index.putIfAbsent(r.country!, () => []).add(r);
+      }
+    }
+    for (final group in index.values) {
+      group.sort((a, b) => a.date.compareTo(b.date));
+    }
+
+    _resolvedMultipliers.clear();
+    _inflationSource = rates;
+    _inflationSourceHash = hash;
+    _inflationIndex = index;
+    return index;
+  }
+
+  /// [_calculateInflationMultiplier] for [country], memoized on the exact
+  /// (country, start instant, end instant) triple.
+  ///
+  /// calculatePeriodStats asks this once per transaction row and
+  /// calculateRealBalances once per account, and the question repeats hard:
+  /// every account opened on the same day in the same country, and every
+  /// transaction sharing an instant, asked for a number that was then
+  /// recomputed by walking that country's entire rate history again.
+  ///
+  /// Answers are only served against the index this class built and still owns.
+  /// An index from anywhere else resolves from scratch, because nothing here
+  /// knows which rows are in it.
+  double _inflationMultiplier(
+    String? country,
+    DateTime start,
+    DateTime end,
+    Map<String, List<InflationRateDomain>> index,
+  ) {
+    if (country == null) return 1.0;
+    final rates = index[country] ?? const <InflationRateDomain>[];
+    if (!identical(index, _inflationIndex)) {
+      return _calculateInflationMultiplier(start, end, rates);
+    }
+
+    final key = (
+      country,
+      start.microsecondsSinceEpoch,
+      end.microsecondsSinceEpoch,
+    );
+    final hit = _resolvedMultipliers[key];
+    if (hit != null) return hit;
+
+    final value = _calculateInflationMultiplier(start, end, rates);
+    if (_resolvedMultipliers.length >= _memoLimit) _resolvedMultipliers.clear();
+    _resolvedMultipliers[key] = value;
+    return value;
   }
 
   /// Most recent [from]->[to] rate dated at or before [date], or null.
@@ -528,12 +666,25 @@ class FinanceCalculator {
   ) {
     final candidates = rateIndex[from]?[to];
     if (candidates == null) return null;
-    // Lists are pre-sorted descending by date, so the first row that is not
-    // in the future is also the closest one behind [date].
-    for (final r in candidates) {
-      if (!r.date.isAfter(date)) return r;
+    // Lists are pre-sorted descending by date, so "not in the future" is a
+    // monotone predicate over the list: false while we are still above [date],
+    // true from the first eligible row onwards. Binary-searching for that first
+    // true row lands on the row the linear scan returned - the LOWEST eligible
+    // index, so two rows sharing a date still break the tie the same way -
+    // while a pair carrying a year of daily rows costs nine comparisons rather
+    // than up to three hundred and sixty-five, per leg, per lookup, per
+    // transaction row.
+    var lo = 0;
+    var hi = candidates.length;
+    while (lo < hi) {
+      final mid = lo + ((hi - lo) >> 1);
+      if (candidates[mid].date.isAfter(date)) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
     }
-    return null;
+    return lo < candidates.length ? candidates[lo] : null;
   }
 
   /// The currencies worth pivoting a triangular conversion through: the
@@ -600,6 +751,19 @@ class FinanceCalculator {
   ) {
     if (from == to) return 1.0;
 
+    // Memoized on every input the answer depends on: the pair, the exact
+    // instant, the currency the pivots are chosen for, and - through the index
+    // generation, which clears this map - the rate rows themselves.
+    // calculateTotalNetWorth and calculateCurrencyBreakdown each ask
+    // (accountCurrency -> base) at the SAME snapshot date once per account, and
+    // calculatePeriodStats asks once per transaction row; every miss walks up
+    // to four pair lists and ranks three candidates. Same shape as
+    // CurrencyConverter._resolved, plus the key components this class needs
+    // because its index, unlike that one's, is not final.
+    final memoized = identical(rateIndex, _rateIndex);
+    final key = (from, to, date.microsecondsSinceEpoch, mainCurrency);
+    if (memoized && _resolvedRates.containsKey(key)) return _resolvedRates[key];
+
     double? bestRate;
     DateTime? bestDate;
 
@@ -641,6 +805,12 @@ class FinanceCalculator {
       }
     }
 
+    if (memoized) {
+      // Null is an answer too: for this generation of rows the pair is simply
+      // underivable, and re-deriving nothing costs the same four scans.
+      if (_resolvedRates.length >= _memoLimit) _resolvedRates.clear();
+      _resolvedRates[key] = bestRate;
+    }
     return bestRate;
   }
 
@@ -672,17 +842,10 @@ class FinanceCalculator {
     double totalIncome = 0.0;
     double totalExpense = 0.0;
 
-    // Map Category types for quick lookup
-    final ratesByCountry = <String, List<InflationRateDomain>>{};
-    for (final r in data.inflationRates) {
-      if (r.country != null) {
-        ratesByCountry.putIfAbsent(r.country!, () => []).add(r);
-      }
-    }
-    // Optimization: Pre-sort inflation rates once
-    for (final rates in ratesByCountry.values) {
-      rates.sort((a, b) => a.date.compareTo(b.date));
-    }
+    // Grouped and sorted once per rate LIST rather than once per call - see
+    // [_buildInflationIndex]. This method runs TWICE per period switch (current
+    // period and previous), and each run used to redo the grouping and the sort.
+    final ratesByCountry = _buildInflationIndex(data.inflationRates);
 
     // Map Category types for quick lookup
     final categoryTypes = <String, CategoryType>{};
@@ -742,11 +905,12 @@ class FinanceCalculator {
       double multiplier = 1.0;
       final country = account?.country ?? defaultCountry;
 
-      if (country != null && account != null) {
-        multiplier = _calculateInflationMultiplier(
+      if (account != null) {
+        multiplier = _inflationMultiplier(
+          country,
           account.creationDate,
           tx.date,
-          ratesByCountry[country] ?? [],
+          ratesByCountry,
         );
       }
 

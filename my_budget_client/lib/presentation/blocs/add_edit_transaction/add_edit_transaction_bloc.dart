@@ -19,6 +19,7 @@ import 'package:my_budget_client/domain/repositories/asset_repository.dart';
 import 'package:my_budget_client/core/constants/app_constants.dart';
 import 'package:my_budget_client/core/utils/exchange_rate_validation.dart';
 import 'package:my_budget_client/core/utils/rate_formatter.dart';
+import 'package:my_budget_client/core/utils/decimal_input.dart';
 
 part 'add_edit_transaction_event.dart';
 part 'add_edit_transaction_state.dart';
@@ -199,12 +200,30 @@ class AddEditTransactionBloc
       }
 
       if (selectedAccount == null && accounts.isNotEmpty) {
-        // Same reasoning as the transfer pick above: falling back to
-        // `accounts.first` could land on an asset account and turn the
-        // requested transfer into an asset trade.
-        selectedAccount = event.isTransfer
-            ? accounts.firstWhereOrNull((a) => a.assetId == null)
-            : accounts.first;
+        // Nothing has named an account, so the form has to guess one.
+        //
+        // It used to guess `accounts.first` - whichever row SQLite handed back
+        // first, in no order the user can see or predict. People enter
+        // transactions in runs from the same wallet, so the account the last
+        // transaction was written on is a far better opening bid, and it is one
+        // query rather than a scan.
+        //
+        // Only for a blank form: a saved transaction whose account has since
+        // been deleted keeps the old behaviour, because re-pointing it is a
+        // correction the user has to make deliberately, not something the form
+        // should decide while reopening it.
+        //
+        // Transfers keep their own pick: same reasoning as the transfer branch
+        // above, falling back to an asset account would turn the requested
+        // transfer into an asset trade.
+        final isSavedEdit = initialTransaction?.id?.isNotEmpty ?? false;
+        if (event.isTransfer) {
+          selectedAccount = accounts.firstWhereOrNull((a) => a.assetId == null);
+        } else if (isSavedEdit) {
+          selectedAccount = accounts.first;
+        } else {
+          selectedAccount = await _lastUsedAccount(accounts) ?? accounts.first;
+        }
       }
 
       final selectedCategory = initialTransaction != null
@@ -243,10 +262,14 @@ class AddEditTransactionBloc
           // every reopened expense and every transfer, in a field that cannot
           // produce one, and the converted-amount preview parsed the same
           // string and showed a negative arriving balance.
-          amount: initialTransaction == null
-              ? ''
-              : initialTransaction.amount.abs().toString(),
-          fee: initialTransaction?.fee.toString() ?? '', // Added
+          amount: decimalFieldText(
+            initialTransaction?.amount.abs(),
+            currencyCode: initialTransaction?.currencyCode,
+          ),
+          fee: decimalFieldText(
+            initialTransaction?.fee,
+            currencyCode: initialTransaction?.currencyCode,
+          ),
           selectedAccount: selectedAccount,
           selectedCategory: selectedCategory,
           isTransferMode:
@@ -269,6 +292,25 @@ class AddEditTransactionBloc
           mainCurrencyCode: mainCurrencyCode,
         ),
       );
+
+      // The category can arrive already decided, without the picker ever being
+      // touched: tapping a tile on the Categories screen opens this form with a
+      // prototype transaction that carries the category and an empty account
+      // id. That path dispatches no CategoryChanged, so the account suggestion
+      // - which used to hang off that event alone - never ran on the entry
+      // point it was asked for, and the form fell back to whatever row the
+      // account table handed back first.
+      //
+      // `accountId != null` means the request already named an account (opened
+      // from a wallet), which is an answer, not a question. `isEditing` reads
+      // the transaction's id, and the prototype's is empty, so a real edit is
+      // still excluded while the prototype is let through.
+      if (event.accountId == null &&
+          !state.isEditing &&
+          !state.isTransferMode &&
+          selectedCategory?.id != null) {
+        await _suggestAccountForCategory(selectedCategory!.id!, emit);
+      }
 
       // Trigger fetch if foreign currency
       if (selectedCurrency?.code != mainCurrencyCode) {
@@ -301,7 +343,10 @@ class AddEditTransactionBloc
             if (isAsset) {
               // Asset Transaction: Restore Total Value (Cash Amount)
               // Linked Tx Amount is the cash value.
-              restoredTotalValue = linkedTx.amount.abs().toString();
+              restoredTotalValue = decimalFieldText(
+                linkedTx.amount.abs(),
+                currencyCode: linkedTx.currencyCode,
+              );
             } else {
               // Standard Transfer: Restore Exchange Rate.
               //
@@ -672,6 +717,46 @@ class AddEditTransactionBloc
   ) async {
     emit(state.copyWith(selectedCategory: event.category));
 
+    final categoryId = event.category.id;
+    if (categoryId == null) return;
+    await _suggestAccountForCategory(categoryId, emit);
+  }
+
+  /// The account the newest transaction was written on, when it is one a blank
+  /// form can legitimately open on.
+  ///
+  /// Null - meaning "fall through to the next guess" - when there are no
+  /// transactions yet, when that account has since been deleted, or when it is
+  /// an asset account: those hold a quantity rather than a sum, and opening on
+  /// one turns the entry form into an asset trade. Same rule the category
+  /// suggestion applies.
+  Future<Account?> _lastUsedAccount(List<Account> accounts) async {
+    String? lastId;
+    try {
+      lastId = await _transactionRepository.getLastUsedAccountId();
+    } catch (e) {
+      // A better default is a convenience; losing it must not stop the form
+      // from opening.
+      debugPrint('AddEditTransactionBloc: last-used account lookup failed: $e');
+      return null;
+    }
+    if (lastId == null) return null;
+    final account = accounts.firstWhereOrNull((a) => a.id == lastId);
+    if (account == null || account.assetId != null) return null;
+    return account;
+  }
+
+  /// Pre-fills the account [categoryId] is usually paid from, when the form is
+  /// still at a point where a guess is welcome.
+  ///
+  /// Kept apart from the category handler because the in-form picker is not the
+  /// only way a category is chosen - see the prototype-transaction path in
+  /// [_onLoad], which settles the category before this bloc sees a single
+  /// event.
+  Future<void> _suggestAccountForCategory(
+    String categoryId,
+    Emitter<AddEditTransactionState> emit,
+  ) async {
     // A category is nearly always paid from the same account, so picking one
     // answers the account question too. Only ever a suggestion:
     //  - editing: the row already has the account it was written on, and
@@ -679,11 +764,7 @@ class AddEditTransactionBloc
     //  - the user already picked: an answer beats a guess;
     //  - transfer mode: the account is the source leg, and the destination is
     //    validated against it.
-    final categoryId = event.category.id;
-    if (categoryId == null ||
-        state.isEditing ||
-        state.accountChosenByUser ||
-        state.isTransferMode) {
+    if (state.isEditing || state.accountChosenByUser || state.isTransferMode) {
       return;
     }
 

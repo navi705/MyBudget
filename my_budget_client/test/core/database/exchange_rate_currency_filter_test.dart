@@ -47,22 +47,40 @@ void main() {
     expect(rates.map((r) => r.toCurrencyCode), ['EUR']);
   });
 
-  test('a code on the from side counts as a match', () async {
-    await storeRate('GBP', 'JPY', day(10));
+  test('a code on one side only is not enough', () async {
+    // Both sides have to be wanted. Either side is what the filter used to
+    // ask, and since every row in a real table is quoted from the same pivot,
+    // that matched the whole day the moment the pivot was on screen: 326 rows
+    // fetched where five were wanted, per day, on every month switch.
     await storeRate('USD', 'JPY', day(10));
+    await storeRate('USD', 'GBP', day(10));
 
     final rates = await db.exchangeRatesDao.getAllExchangesRates(
       [day(10)],
       currencyCodes: {'GBP'},
     );
 
-    expect(rates.map((r) => r.fromCurrencyCode), ['GBP']);
+    expect(rates.map((r) => r.toCurrencyCode), ['GBP']);
+  });
+
+  test('a pair between two wanted codes comes back whole', () async {
+    await storeRate('GBP', 'JPY', day(10));
+    await storeRate('GBP', 'CHF', day(10));
+
+    final rates = await db.exchangeRatesDao.getAllExchangesRates(
+      [day(10)],
+      currencyCodes: {'GBP', 'JPY'},
+    );
+
+    expect(rates.map((r) => r.toCurrencyCode), ['JPY']);
   });
 
   test('the two halves of a triangular hop both survive the filter', () async {
     // EUR -> JPY has no row of its own; the converter pivots through USD, and
-    // each leg of that hop touches a wanted code on one side only. An AND over
-    // the pair would drop both and report JPY as unconvertible.
+    // each leg of that hop touches a wanted code on one side only. The filter
+    // keeps them because USD is a currency the table quotes from, and those
+    // are added to the wanted set - without that, both legs would be dropped
+    // and JPY reported as unconvertible.
     await storeRate('USD', 'EUR', day(10));
     await storeRate('USD', 'JPY', day(10));
     await storeRate('USD', 'GBP', day(10));

@@ -599,6 +599,7 @@
     "smsSelectDefaultsFirst": "请先选择默认值",
     "smsCustomRange": "自定义范围",
     "smsImportSuccessCount": "成功: 已导入 {count} 笔交易",
+    "smsImportDuplicateCount": "{count} 条消息已导入",
     "smsParsingRules": "解析规则",
     "smsNoRules": "尚未定义规则。点击 + 添加一个。",
     "smsMatchLabel": "匹配: {pattern}",

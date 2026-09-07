@@ -42,12 +42,35 @@ class CurrencyConverterLoadSuccess extends CurrencyConverterState {
     List<Currency>? selectedCurrencies,
     String? baseCurrencyCode,
   }) {
-    return CurrencyConverterLoadSuccess(
+    final nextRates = exchangeRates ?? this.exchangeRates;
+    final nextBase = baseCurrencyCode ?? this.baseCurrencyCode;
+
+    final next = CurrencyConverterLoadSuccess(
       allCurrencies: allCurrencies ?? this.allCurrencies,
-      exchangeRates: exchangeRates ?? this.exchangeRates,
+      exchangeRates: nextRates,
       selectedCurrencies: selectedCurrencies ?? this.selectedCurrencies,
-      baseCurrencyCode: baseCurrencyCode ?? this.baseCurrencyCode,
+      baseCurrencyCode: nextBase,
     );
+
+    // The converter was cached per state *instance*, so every copy threw it
+    // away along with the `_resolved` memo behind it - and a copy is what
+    // adding one display currency, or a date change that lands on the same
+    // rows, produces. The next build then re-grouped the whole rate table in
+    // the constructor and re-ranked direct/inverse/triangular candidates for
+    // every pair the discarded converter had just answered, once per account
+    // per currency card.
+    //
+    // It is only safe to carry when both inputs it was built from are the
+    // same: a converter built on one rate set would otherwise price the next
+    // one, which is a stale-number bug and strictly worse than the rebuild.
+    // Reference identity, not content equality, is the test - the rate list is
+    // only ever replaced wholesale, and walking it on every copy would cost
+    // roughly what rebuilding the grouping costs.
+    if (identical(nextRates, this.exchangeRates) &&
+        nextBase == this.baseCurrencyCode) {
+      next._converter = _converter;
+    }
+    return next;
   }
 
   @override

@@ -599,6 +599,7 @@
     "smsSelectDefaultsFirst": "প্রথমে ডিফল্ট নির্বাচন করুন",
     "smsCustomRange": "কাস্টম পরিসীমা",
     "smsImportSuccessCount": "সফল: {count}টি লেনদেন আমদানি হয়েছে",
+    "smsImportDuplicateCount": "{count}টি বার্তা ইতিমধ্যে আমদানি হয়েছে",
     "smsParsingRules": "বিশ্লেষণের নিয়ম",
     "smsNoRules": "কোন নিয়ম নির্ধারিত হয়নি। যোগ করতে + চাপুন।",
     "smsMatchLabel": "ম্যাচ: {pattern}",

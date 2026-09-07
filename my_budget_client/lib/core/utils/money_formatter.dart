@@ -89,9 +89,32 @@ class MoneyFormatter {
   /// of a number that big costs nothing at a glance; losing all of them does.
   static String formatCompact(double value, String currencyCode) {
     if (!value.isFinite) return unknownPlaceholder;
-    if (value.abs() < _compactFrom) return format(value, currencyCode);
-    return NumberFormat.compact(locale: 'en_US').format(value);
+    final magnitude = value.abs();
+    if (magnitude >= _compactFrom) {
+      return NumberFormat.compact(locale: 'en_US').format(value);
+    }
+    if (magnitude >= _wholeUnitsFrom) {
+      return NumberFormat(
+        _wholeUnitPattern,
+        'en_US',
+      ).format(value).replaceAll(',', groupSeparator);
+    }
+    return format(value, currencyCode);
   }
+
+  /// Magnitude at which [formatCompact] stops printing the fraction digits.
+  ///
+  /// Four figures with cents is '1 408.82' - eleven characters once a sign and
+  /// a symbol are on it, in a cell a seventh of the screen wide. The FittedBox
+  /// shrank that to a size no one can read while the two-figure cell beside it
+  /// stayed full size, which is what a month holding a salary looked like. The
+  /// cents are the part worth dropping: at four figures they are under a tenth
+  /// of a percent, and the day's exact total is one tap away.
+  static const double _wholeUnitsFrom = 1000;
+
+  /// Grouped, no fraction digits. Uses ',' like every other pattern here and
+  /// is post-processed to [groupSeparator] the same way [format] is.
+  static const String _wholeUnitPattern = '#,##0';
 
   /// Magnitude at which [formatCompact] stops printing every digit. Five
   /// figures plus a group separator, a sign and a symbol is about as much as a

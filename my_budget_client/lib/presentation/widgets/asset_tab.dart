@@ -43,10 +43,13 @@ class _AssetTabContent extends StatelessWidget {
     final nameController = TextEditingController(text: asset?.name ?? '');
     final assetIdController = TextEditingController(text: asset?.assetId ?? '');
     final valueController = TextEditingController(
-      text: asset?.value.toString() ?? '',
+      text: decimalFieldText(asset?.value),
     );
+    // The 1.0 is the default for a brand new asset, not a rendering of zero:
+    // one unit is the quantity most entries want. An existing asset shows what
+    // it actually holds, blank included.
     final quantityController = TextEditingController(
-      text: asset?.quantity.toString() ?? '1.0',
+      text: asset == null ? '1.0' : decimalFieldText(asset.quantity),
     );
     final assetTypeController = TextEditingController(
       text: asset?.assetType ?? '',

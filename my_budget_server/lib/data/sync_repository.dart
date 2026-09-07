@@ -1,5 +1,6 @@
 import 'package:postgres/postgres.dart';
 import 'package:my_budget_server/data/database_client.dart';
+import 'package:my_budget_server/rates/rate_store.dart';
 
 /// One table's slice of a pull page, before the slices are merged into the
 /// single cursor the client stores.
@@ -905,6 +906,23 @@ class SyncRepository {
 
     final tableConfigs = tableConfigsMap.entries.toList();
 
+    // Extra WHERE clauses for tables where not every row belongs in the pull.
+    //
+    // The rates this server fetches itself are the only case so far, and they
+    // are a large one: a full backfill is hundreds of thousands of rows, all
+    // written at once, all with a fresh `server_seq`. Left in, the next pull on
+    // every device would drag the entire published history down the wire and
+    // into that device's database - the exact cost moving the fetch to the
+    // server was meant to remove. Devices read those through `/api/rates`
+    // instead, on demand, for the currencies they actually hold.
+    //
+    // Rows a device pushed up itself keep syncing normally: the filter names
+    // this server's own marker device rather than a preset, so a manually
+    // entered or imported rate still reaches the user's other devices.
+    const extraFilters = {
+      'exchange_rates': "device_id IS DISTINCT FROM '$kServerRateDeviceId'",
+    };
+
     // All sixteen reads in one transaction, holding the push lock in shared
     // mode.
     //
@@ -931,10 +949,17 @@ class SyncRepository {
         // `server_seq` is unique across every table, so it is already a total
         // order - no primary-key tiebreaker is needed to keep paging stable,
         // and no page can end mid-way through a group of rows sharing a value.
+        // Applied inside the same predicate rather than after the fact: the
+        // LIMIT has to count rows the client will actually receive, or a page
+        // of excluded rows would come back empty while the table still had
+        // changes waiting behind them.
+        final extra = extraFilters[tableName];
+        final filter = extra == null ? '' : 'AND $extra ';
+
         final result = await session.execute(
           Sql.named(
             'SELECT * FROM $tableName WHERE server_seq > @lastSync '
-            'ORDER BY server_seq ASC LIMIT @limit',
+            '${filter}ORDER BY server_seq ASC LIMIT @limit',
           ),
           parameters: {'lastSync': lastSync, 'limit': limit},
         );

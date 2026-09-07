@@ -1962,6 +1962,11 @@ class AppLocalizationsUr extends AppLocalizations {
   }
 
   @override
+  String smsImportDuplicateCount(Object count) {
+    return '$count پیغامات پہلے ہی درآمد ہو چکے ہیں';
+  }
+
+  @override
   String get smsParsingRules => 'تجزیہ کے اصول';
 
   @override

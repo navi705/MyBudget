@@ -1964,6 +1964,11 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String smsImportDuplicateCount(Object count) {
+    return '$count сообщений уже импортировано';
+  }
+
+  @override
   String get smsParsingRules => 'Правила разбора';
 
   @override

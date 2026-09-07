@@ -1,9 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
-import '../../core/utils/exchange_rate_validation.dart';
 import '../models/steam_inventory_model.dart';
 import '../models/world_bank_inflation_model.dart';
 
@@ -41,79 +39,14 @@ class ExternalData {
     }
   }
 
-  static Future<Map<String, double>> getCurrencyRatesFromFreeExchangeRates(
-    DateTime date,
-  ) async {
-    final uri = Uri.https(
-      "cdn.jsdelivr.net",
-      "/npm/@fawazahmed0/currency-api@${DateFormat('yyyy-MM-dd', 'en').format(date)}/v1/currencies/eur.json",
-    );
-    try {
-      final response = await http.get(uri);
-      if (response.statusCode == 200) {
-        return ratesFrom(jsonDecode(response.body));
-      } else {
-        throw Exception(
-          'API request failed with status: ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      throw Exception('Failed to fetch currency rates: $e');
-    }
-  }
-
-  static Future<Map<String, double>> getCurrencyRatesFromLatest() async {
-    final uri = Uri.https(
-      "cdn.jsdelivr.net",
-      "/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json",
-    );
-    try {
-      final response = await http.get(uri);
-      if (response.statusCode == 200) {
-        return ratesFrom(jsonDecode(response.body));
-      } else {
-        throw Exception(
-          'API request failed with status: ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      throw Exception('Failed to fetch latest currency rates: $e');
-    }
-  }
-
-  /// The EUR rates in a currency-api answer.
-  ///
-  /// A rate that cannot be read is dropped and the rest of the answer is
-  /// kept. It used to throw instead, from inside the loop, so one entry the
-  /// provider rendered as something other than a number cost the whole day's
-  /// rates for every currency in the file - and the caller then fell back to
-  /// today's quote for a day that had a real one of its own.
-  ///
-  /// Rates are checked as well as read: a multiplier of zero converts every
-  /// amount to nothing, a negative one flips its sign, and a non-finite one
-  /// poisons every balance it reaches. `_saveRatesToDb` refuses these too;
-  /// dropping them here keeps a caller that does not from writing them.
-  @visibleForTesting
-  static Map<String, double> ratesFrom(dynamic body) {
-    if (body is! Map) return {};
-    final data = body['eur'];
-    if (data is! Map) return {};
-    final Map<String, double> dictionary = {};
-    data.forEach((key, value) {
-      if (key is! String) return;
-      final double? rate = value is num
-          ? value.toDouble()
-          : value is String
-          ? double.tryParse(value.trim())
-          : null;
-      if (rate == null || !isUsableExchangeRate(rate)) {
-        debugPrint('[ExternalData] Skipping unusable rate for $key: $value');
-        return;
-      }
-      dictionary[key] = rate;
-    });
-    return dictionary;
-  }
+  // The exchange-rate fetchers that used to live here are gone.
+  //
+  // They asked `cdn.jsdelivr.net` for one day of quotes at a time, on every
+  // device, for every day of history the device did not have. The sync server
+  // now fetches that history once and serves it to every device it has;
+  // `ServerRateService` is what asks it, and nothing in the app talks to a
+  // rate provider directly any more. The Steam and World Bank fetchers below
+  // still do, because no server-side equivalent exists for them yet.
 
   static Future<double> getSteamInventoryValue(
     int accountId,

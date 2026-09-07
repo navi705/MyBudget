@@ -41,6 +41,121 @@ import 'package:my_budget_client/core/utils/dialog_utils.dart';
 /// only honest assertion is a bare `200`, which drifts the moment this changes.
 const double kAccountsEmptyAreaTargetHeight = 200.0;
 
+// ---------------------------------------------------------------------------
+// `buildWhen` predicates.
+//
+// This screen had four unguarded `BlocBuilder<AccountsBloc, AccountsState>`,
+// so all four re-ran for every state the bloc emitted — and one tap on a date
+// chevron emits about three times (the date moves, then the balances land,
+// then the previous-period figures do). Twelve builder runs, each redoing
+// linear scans and currency arithmetic, for one gesture.
+//
+// A `buildWhen` that misses a field its builder displays is a stale-UI bug, so
+// each predicate below is derived from what that builder actually reads —
+// including the fields it captures into a callback, because a captured state
+// is as stale as the build that captured it. Everything is compared with `==`,
+// which for the collection fields is reference identity: `AccountsLoadSuccess.
+// copyWith` carries the same instance through when a field is not replaced, so
+// identity is exactly "this emit did not touch it".
+// ---------------------------------------------------------------------------
+
+/// True when anything either app bar draws has changed.
+///
+/// Deliberately blind to every balance, income and expense map: the bars show
+/// none of them, and those are the fields a date change actually rewrites.
+bool _appBarInputsChanged(AccountsState previous, AccountsState current) {
+  if (previous is! AccountsLoadSuccess || current is! AccountsLoadSuccess) {
+    // Every state but the loaded one draws the same bare title bar.
+    return previous.runtimeType != current.runtimeType;
+  }
+  return
+  // Which of the two bars is on screen, and what the selection one says.
+  previous.isSelectionModeActive != current.isSelectionModeActive ||
+      previous.selectedAccountIds != current.selectedAccountIds ||
+      // _isAllSelected weighs the selection against the row count, and
+      // _changeTypeOfSelection is handed the account types off the state the
+      // bar captured.
+      previous.accounts.length != current.accounts.length ||
+      previous.accountTypes != current.accountTypes ||
+      // The date bar: its label, the calendar sheet it opens, its sort glyph,
+      // the filters it hands the filter dialog, and its counter.
+      previous.activeDate != current.activeDate ||
+      previous.dateStep != current.dateStep ||
+      previous.sortAscending != current.sortAscending ||
+      previous.filters != current.filters ||
+      previous.totalCount != current.totalCount;
+}
+
+/// True when anything [TotalBalanceSummaryWidget] adds up has changed.
+///
+/// Not `historicalBalances`: the summary's nominal figures come from
+/// `account.balance` on the accounts themselves, and its other three come from
+/// the override maps named below. Not `accountRealExpenses` either — the
+/// expense column deliberately hides its real figure.
+bool _summaryInputsChanged(AccountsState previous, AccountsState current) {
+  if (previous is! AccountsLoadSuccess || current is! AccountsLoadSuccess) {
+    return previous.runtimeType != current.runtimeType;
+  }
+  return previous.accounts != current.accounts ||
+      // Every total is priced as of this date.
+      previous.activeDate != current.activeDate ||
+      previous.realBalances != current.realBalances ||
+      previous.previousPeriodBalances != current.previousPeriodBalances ||
+      previous.previousPeriodRealBalances !=
+          current.previousPeriodRealBalances ||
+      previous.accountIncomes != current.accountIncomes ||
+      previous.accountRealIncomes != current.accountRealIncomes ||
+      previous.previousAccountIncomes != current.previousAccountIncomes ||
+      previous.previousAccountRealIncomes !=
+          current.previousAccountRealIncomes ||
+      previous.accountExpenses != current.accountExpenses ||
+      previous.previousAccountExpenses != current.previousAccountExpenses;
+}
+
+/// True when anything an account row shows — or its context menu reads — has
+/// changed.
+///
+/// This is the widest of the three, because a row displays nearly every
+/// per-account map on the state. What it leaves out is the whole point:
+/// `filters`, `sortAscending`, `totalCount`, `dateStep` and `activeDate` are
+/// the date bar's business, and `error`/`recentlyDeletedAccount` are already
+/// handled by the two `BlocListener`s above the list.
+bool _accountRowsInputsChanged(AccountsState previous, AccountsState current) {
+  if (previous is! AccountsLoadSuccess || current is! AccountsLoadSuccess) {
+    // The spinner, the empty state, the error view and the loaded list are
+    // four different subtrees, so any change of state class rebuilds.
+    return previous.runtimeType != current.runtimeType;
+  }
+  return previous.accounts != current.accounts ||
+      previous.hasReachedMax != current.hasReachedMax ||
+      previous.isHistorical != current.isHistorical ||
+      previous.historicalBalances != current.historicalBalances ||
+      previous.isSelectionModeActive != current.isSelectionModeActive ||
+      previous.selectedAccountIds != current.selectedAccountIds ||
+      previous.assetStats != current.assetStats ||
+      previous.realBalances != current.realBalances ||
+      previous.inflationLosses != current.inflationLosses ||
+      previous.accountIncomes != current.accountIncomes ||
+      previous.accountExpenses != current.accountExpenses ||
+      previous.accountRealIncomes != current.accountRealIncomes ||
+      previous.accountRealExpenses != current.accountRealExpenses ||
+      previous.previousPeriodBalances != current.previousPeriodBalances ||
+      previous.previousPeriodRealBalances !=
+          current.previousPeriodRealBalances ||
+      previous.previousAccountIncomes != current.previousAccountIncomes ||
+      previous.previousAccountExpenses != current.previousAccountExpenses ||
+      previous.previousAccountRealIncomes !=
+          current.previousAccountRealIncomes ||
+      previous.previousAccountRealExpenses !=
+          current.previousAccountRealExpenses ||
+      // Not drawn, but captured: _showContextMenu is handed this state and
+      // reads the account types for its change-type dialog and the unfiltered
+      // transferable count for its transfer guard.
+      previous.accountTypes != current.accountTypes ||
+      previous.unfilteredTransferableAccountCount !=
+          current.unfilteredTransferableAccountCount;
+}
+
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
 
@@ -588,6 +703,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
             context.isCompactPane ? kToolbarHeight * 1.8 : kToolbarHeight,
           ),
           child: BlocBuilder<AccountsBloc, AccountsState>(
+            // Watches: which bar is on screen, the selection, the row count and
+            // account types it captures, and the date bar's date/step/sort/
+            // filters/total. See [_appBarInputsChanged].
+            buildWhen: _appBarInputsChanged,
             builder: (context, state) {
               if (state is! AccountsLoadSuccess) {
                 return AppBar(title: Text(l10n.accountsAppBarTitle));
@@ -694,11 +813,23 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   slivers: [
                     SliverToBoxAdapter(
                       child: BlocBuilder<AccountsBloc, AccountsState>(
+                        // Watches: the accounts, the active date the totals are
+                        // priced at, and the six per-account maps the summary's
+                        // balance, income and expense columns sum. See
+                        // [_summaryInputsChanged].
+                        buildWhen: _summaryInputsChanged,
                         builder: (context, accountsState) {
                           return BlocBuilder<
                             CurrencyConverterBloc,
                             CurrencyConverterState
                           >(
+                            // Watches: the loaded converter. Every other state
+                            // draws the same empty box, so a reload's
+                            // Initial -> InProgress -> Initial churn is not
+                            // worth rebuilding the summary for.
+                            buildWhen: (previous, current) =>
+                                previous is CurrencyConverterLoadSuccess ||
+                                current is CurrencyConverterLoadSuccess,
                             builder: (context, converterState) {
                               if (accountsState is AccountsLoadSuccess &&
                                   converterState
@@ -715,6 +846,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
                       ),
                     ),
                     BlocBuilder<AccountsBloc, AccountsState>(
+                      // Watches: everything a row draws (the accounts, the
+                      // balance/income/expense maps, the asset stats, the
+                      // selection) plus the account types and transferable
+                      // count its context menu reads off the captured state.
+                      // See [_accountRowsInputsChanged].
+                      buildWhen: _accountRowsInputsChanged,
                       builder: (context, state) {
                         if (state is AccountsLoadInProgress) {
                           return const SliverFillRemaining(
@@ -750,6 +887,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           // use — it goes on the list, not on the whole
                           // CustomScrollView, so the empty, loading and error
                           // states keep filling the viewport exactly.
+                          // Row position by account id, built the first time
+                          // Flutter asks — which is only when it is trying to
+                          // re-locate a keyed child it already has, so a list
+                          // that is merely rebuilt in place never pays for it.
+                          Map<String, int>? rowIndexById;
+
                           return SliverPadding(
                             padding: const EdgeInsets.only(
                               bottom: kFabScrollBottomInset,
@@ -759,6 +902,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                                 (context, index) {
                                   if (index >= filteredAccounts.length) {
                                     return const Center(
+                                      key: ValueKey('accounts-loading-tail'),
                                       child: Padding(
                                         padding: EdgeInsets.all(16.0),
                                         child: CircularProgressIndicator(),
@@ -779,7 +923,17 @@ class _AccountsScreenState extends State<AccountsScreen> {
                                   final bloc = context.read<AccountsBloc>();
 
                                   return AccountListItem(
-                                    account: account.copyWith(balance: balance),
+                                    key: ValueKey(account.id ?? 'row-$index'),
+                                    // The copy exists only to carry a
+                                    // historical balance. It used to be made
+                                    // unconditionally, so every visible row
+                                    // allocated a fresh Account on every
+                                    // rebuild to hold the balance it already
+                                    // had — which is every rebuild outside a
+                                    // historical date.
+                                    account: balance == account.balance
+                                        ? account
+                                        : account.copyWith(balance: balance),
                                     assetStats: state.assetStats[account.id],
                                     isSelected: isSelected,
                                     realBalance: state.realBalances[account.id],
@@ -844,6 +998,26 @@ class _AccountsScreenState extends State<AccountsScreen> {
                                       );
                                     },
                                   );
+                                },
+                                // Without keys Flutter matches children by
+                                // index alone, so deleting or re-sorting a row
+                                // handed every element below it a different
+                                // account and rebuilt the lot. The id is the
+                                // one stable thing about a row; the index
+                                // fallback only covers unsaved accounts, which
+                                // have no id yet.
+                                findChildIndexCallback: (key) {
+                                  if (key is! ValueKey<String>) return null;
+                                  rowIndexById ??= {
+                                    for (
+                                      var i = 0;
+                                      i < filteredAccounts.length;
+                                      i++
+                                    )
+                                      if (filteredAccounts[i].id != null)
+                                        filteredAccounts[i].id!: i,
+                                  };
+                                  return rowIndexById![key.value];
                                 },
                                 childCount: state.hasReachedMax
                                     ? filteredAccounts.length

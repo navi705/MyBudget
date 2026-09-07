@@ -72,7 +72,11 @@ class ManageStylesScreen extends StatelessWidget {
                 : AppBar(title: Text(context.l10n.manageIconsTitle)),
             body: Builder(
               builder: (context) {
-                if (state is StylesLoadInProgress) {
+                // StylesInitial is the state the bloc sits in until the load
+                // it was just asked for produces anything, so it is a spinner
+                // too. It used to fall through to the failure text below, and
+                // every mount of this screen opened on "failed to load".
+                if (state is StylesLoadInProgress || state is StylesInitial) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (state is StylesLoadSuccess) {

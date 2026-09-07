@@ -599,6 +599,7 @@
     "smsSelectDefaultsFirst": "Sélectionnez d'abord les valeurs par défaut",
     "smsCustomRange": "Plage Personnalisée",
     "smsImportSuccessCount": "Succès: {count} transactions importées",
+    "smsImportDuplicateCount": "{count} message(s) déjà importés",
     "smsParsingRules": "Règles d'Analyse",
     "smsNoRules": "Aucune règle définie. Appuyez sur + pour en ajouter une.",
     "smsMatchLabel": "Correspondance: {pattern}",

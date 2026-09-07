@@ -163,16 +163,15 @@ class MockAccountRepository extends _i1.Mock implements _i2.AccountRepository {
           as _i3.Future<void>);
 
   @override
-  _i3.Future<void> deleteAccountWithTransactions(String? accountId) =>
+  _i3.Future<List<String>> deleteAccountWithTransactions(String? accountId) =>
       (super.noSuchMethod(
             Invocation.method(#deleteAccountWithTransactions, [accountId]),
-            returnValue: _i3.Future<void>.value(),
-            returnValueForMissingStub: _i3.Future<void>.value(),
+            returnValue: _i3.Future<List<String>>.value(<String>[]),
           )
-          as _i3.Future<void>);
+          as _i3.Future<List<String>>);
 
   @override
-  _i3.Future<void> deleteAccountAndReassignTransactions(
+  _i3.Future<List<String>> deleteAccountAndReassignTransactions(
     String? accountId,
     String? newAccountId,
   ) =>
@@ -181,15 +180,25 @@ class MockAccountRepository extends _i1.Mock implements _i2.AccountRepository {
               accountId,
               newAccountId,
             ]),
-            returnValue: _i3.Future<void>.value(),
-            returnValueForMissingStub: _i3.Future<void>.value(),
+            returnValue: _i3.Future<List<String>>.value(<String>[]),
           )
-          as _i3.Future<void>);
+          as _i3.Future<List<String>>);
 
   @override
-  _i3.Future<void> restoreAccount(_i4.Account? account) =>
+  _i3.Future<void> restoreAccount(
+    _i4.Account? account, {
+    List<String>? tombstonedTransactionIds,
+    List<String>? movedTransactionIds,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#restoreAccount, [account]),
+            Invocation.method(
+              #restoreAccount,
+              [account],
+              {
+                #tombstonedTransactionIds: tombstonedTransactionIds,
+                #movedTransactionIds: movedTransactionIds,
+              },
+            ),
             returnValue: _i3.Future<void>.value(),
             returnValueForMissingStub: _i3.Future<void>.value(),
           )
@@ -502,6 +511,22 @@ class MockTransactionRepository extends _i1.Mock
           as _i3.Future<_i10.Transaction?>);
 
   @override
+  _i3.Future<_i10.Transaction?> findExistingImportedTransaction({
+    required String? accountId,
+    required DateTime? date,
+    required double? amount,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#findExistingImportedTransaction, [], {
+              #accountId: accountId,
+              #date: date,
+              #amount: amount,
+            }),
+            returnValue: _i3.Future<_i10.Transaction?>.value(),
+          )
+          as _i3.Future<_i10.Transaction?>);
+
+  @override
   _i3.Future<List<_i10.Transaction>> getTransactionsByIds(List<String>? ids) =>
       (super.noSuchMethod(
             Invocation.method(#getTransactionsByIds, [ids]),
@@ -510,6 +535,14 @@ class MockTransactionRepository extends _i1.Mock
             ),
           )
           as _i3.Future<List<_i10.Transaction>>);
+
+  @override
+  _i3.Future<String?> linkOffsettingTransfer(String? transactionId) =>
+      (super.noSuchMethod(
+            Invocation.method(#linkOffsettingTransfer, [transactionId]),
+            returnValue: _i3.Future<String?>.value(),
+          )
+          as _i3.Future<String?>);
 
   @override
   _i3.Future<void> addTransaction(_i10.Transaction? transaction) =>
@@ -665,6 +698,14 @@ class MockTransactionRepository extends _i1.Mock
               [categoryId],
               {#since: since},
             ),
+            returnValue: _i3.Future<String?>.value(),
+          )
+          as _i3.Future<String?>);
+
+  @override
+  _i3.Future<String?> getLastUsedAccountId() =>
+      (super.noSuchMethod(
+            Invocation.method(#getLastUsedAccountId, []),
             returnValue: _i3.Future<String?>.value(),
           )
           as _i3.Future<String?>);
@@ -883,6 +924,14 @@ class MockCurrencyRepository extends _i1.Mock
             ),
           )
           as _i3.Future<List<_i15.ExchangeRateDomain>>);
+
+  @override
+  _i3.Future<List<DateTime>> getPresetRateDates() =>
+      (super.noSuchMethod(
+            Invocation.method(#getPresetRateDates, []),
+            returnValue: _i3.Future<List<DateTime>>.value(<DateTime>[]),
+          )
+          as _i3.Future<List<DateTime>>);
 
   @override
   _i3.Future<List<_i15.ExchangeRateDomain>> getLatestExchangeRatesByList(

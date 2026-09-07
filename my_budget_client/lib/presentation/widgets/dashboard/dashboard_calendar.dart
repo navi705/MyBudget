@@ -276,20 +276,32 @@ class DashboardCalendar extends StatelessWidget {
               ),
               const Spacer(),
               // Stats (Income/Expense)
-              if (income > 0 || expense > 0) ...[
-                if (income > 0)
-                  _buildMiniStat(
-                    context,
-                    '+${MoneyFormatter.formatCompact(income, currencyCode)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
-                    MoneyColors.of(context).inflow,
+              //
+              // One FittedBox around both lines rather than one around each:
+              // scaled apart, a four-figure income and a two-figure expense in
+              // the same cell came out at two visibly different font sizes,
+              // which reads as a rendering fault. Sharing the box, they shrink
+              // together and stay a matched pair.
+              if (income > 0 || expense > 0)
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (income > 0)
+                        _miniStatText(
+                          '+${MoneyFormatter.formatCompact(income, currencyCode)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
+                          MoneyColors.of(context).inflow,
+                        ),
+                      if (expense > 0)
+                        _miniStatText(
+                          '−${MoneyFormatter.formatCompact(expense, currencyCode)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
+                          MoneyColors.of(context).outflow,
+                        ),
+                    ],
                   ),
-                if (expense > 0)
-                  _buildMiniStat(
-                    context,
-                    '−${MoneyFormatter.formatCompact(expense, currencyCode)} ${NumberFormat.simpleCurrency(name: currencyCode).currencySymbol}',
-                    MoneyColors.of(context).outflow,
-                  ),
-              ],
+                ),
               const Spacer(),
             ],
           ),
@@ -404,16 +416,17 @@ class DashboardCalendar extends StatelessWidget {
     );
   }
 
-  Widget _buildMiniStat(BuildContext context, String text, Color color) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontSize: 12, // Increased from 10
-          fontWeight: FontWeight.w600,
-        ),
+  /// One amount line of a day cell. Unscaled on its own — the caller's
+  /// FittedBox scales it together with the other line.
+  Widget _miniStatText(String text, Color color) {
+    return Text(
+      text,
+      maxLines: 1,
+      softWrap: false,
+      style: TextStyle(
+        color: color,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
+import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:collection/collection.dart';
 import 'package:my_budget_client/core/utils/calendar_day.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
@@ -48,7 +49,16 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
        _transactionRepository = transactionRepository,
        _currencyRepository = currencyRepository,
        super(CategoriesInitial()) {
-    on<LoadCategories>(_onLoadCategories);
+    // Every date control on this screen emits its new date and then adds a
+    // LoadCategories, and the load behind it is a per-category aggregate over
+    // the whole transaction table. Under the default `concurrent` transformer
+    // a held chevron started one of those per tap and let them all finish, so
+    // the grid could settle on totals for a month the app bar had already
+    // left - and paid for every month in between on the way.
+    //
+    // Only the read is restartable. Nothing that writes is: a cancelled write
+    // is a lost write.
+    on<LoadCategories>(_onLoadCategories, transformer: restartable());
     on<LoadMoreCategories>(_onLoadMoreCategories);
     on<AddCategory>(_onAddCategory);
     on<UpdateCategory>(_onUpdateCategory);
@@ -323,6 +333,10 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
   ) async {
     PerformanceLogger().start('Categories Screen Load');
     final currentState = state;
+    // One instant, read once: the window below and the state emitted at the
+    // end of this handler have to agree about which day "now" is, or the first
+    // load computes a window the app bar then contradicts.
+    final firstLoadDate = DateTime.now();
     if (currentState is! CategoriesLoadSuccess) {
       emit(CategoriesLoadInProgress());
     }
@@ -338,37 +352,54 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
         filters = CategoryFilters.fromJsonString(savedFilters.value);
       }
 
+      // The window has to come from the state this load is about to EMIT, not
+      // only from the one it started in. The very first load runs against
+      // CategoriesInitial, so both bounds stayed null and the totals covered
+      // every transaction ever recorded - under an app bar already reading
+      // the current month, because the state emitted below defaults to
+      // DateStep.month around today. Every number then collapsed to the real
+      // month the first time anything caused a reload, with nothing on screen
+      // to say which of the two the user had been looking at.
+      final activeDate = currentState is CategoriesLoadSuccess
+          ? currentState.activeDate
+          : firstLoadDate;
+      final filterMode = currentState is CategoriesLoadSuccess
+          ? currentState.filterMode
+          : FilterMode.date;
+      final dateStep = currentState is CategoriesLoadSuccess
+          ? currentState.dateStep
+          : DateStep.month;
+      final activeDateRange = currentState is CategoriesLoadSuccess
+          ? currentState.activeDateRange
+          : null;
+
       DateTime? dateFrom;
       DateTime? dateTo;
 
-      if (currentState is CategoriesLoadSuccess) {
-        if (currentState.filterMode == FilterMode.date) {
-          switch (currentState.dateStep) {
-            case DateStep.day:
-              dateFrom = currentState.activeDate;
-              dateTo = currentState.activeDate;
-              break;
-            case DateStep.month:
-              dateFrom = DateTime(
-                currentState.activeDate.year,
-                currentState.activeDate.month,
-                1,
-              );
-              dateTo = DateTime(
-                currentState.activeDate.year,
-                currentState.activeDate.month + 1,
-                0,
-              );
-              break;
-            case DateStep.year:
-              dateFrom = DateTime(currentState.activeDate.year, 1, 1);
-              dateTo = DateTime(currentState.activeDate.year, 12, 31);
-              break;
-          }
-        } else {
-          dateFrom = currentState.activeDateRange?.start;
-          dateTo = currentState.activeDateRange?.end;
+      if (filterMode == FilterMode.date) {
+        switch (dateStep) {
+          case DateStep.day:
+            dateFrom = _startOfDay(activeDate);
+            dateTo = _endOfDay(activeDate);
+            break;
+          case DateStep.month:
+            dateFrom = DateTime(activeDate.year, activeDate.month, 1);
+            dateTo = _endOfDay(
+              DateTime(activeDate.year, activeDate.month + 1, 0),
+            );
+            break;
+          case DateStep.year:
+            dateFrom = DateTime(activeDate.year, 1, 1);
+            dateTo = _endOfDay(DateTime(activeDate.year, 12, 31));
+            break;
         }
+      } else {
+        dateFrom = activeDateRange == null
+            ? null
+            : _startOfDay(activeDateRange.start);
+        dateTo = activeDateRange == null
+            ? null
+            : _endOfDay(activeDateRange.end);
       }
 
       final mainCurrencyCode =
@@ -433,6 +464,11 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
         return filters.sort == Sort.ascending ? comparison : -comparison;
       });
 
+      // Restartable cancels the handler at an await, and emitting after that
+      // throws rather than being quietly ignored. Every emit below therefore
+      // checks first - a superseded load has nothing left to say.
+      if (emit.isDone) return;
+
       if (currentState is CategoriesLoadSuccess) {
         emit(
           currentState.copyWith(
@@ -451,7 +487,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
             categoriesWithTotals: filteredItems,
             allCategories: categories,
             hasReachedMax: true,
-            activeDate: DateTime.now(),
+            activeDate: firstLoadDate,
             filters: filters,
             mainCurrencyCode: mainCurrencyCode,
             currencyDesignations: currencyDesignations,
@@ -461,6 +497,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
     } catch (e, s) {
       PerformanceLogger().stop('Categories Screen Load');
       debugPrint('Error loading categories: $e\n$s');
+      if (emit.isDone) return;
       emit(CategoriesLoadFailure());
     }
   }
@@ -614,3 +651,19 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState>
     }
   }
 }
+
+/// Midnight at the start of [date]'s day.
+DateTime _startOfDay(DateTime date) =>
+    DateTime(date.year, date.month, date.day);
+
+/// The last instant of [date]'s day.
+///
+/// The period bounds used to be plain midnights compared with `t.date <= ?`,
+/// and a transaction carries a real time of day - it is stamped
+/// `DateTime.now()` when it is written. So the last day of every period fell
+/// outside its own period: rent paid on the 31st was missing from that month,
+/// anything on Dec 31 was missing from that year, and the day view, whose two
+/// bounds were the same midnight, matched a single instant and showed 0.00 for
+/// every category.
+DateTime _endOfDay(DateTime date) =>
+    DateTime(date.year, date.month, date.day, 23, 59, 59, 999);

@@ -395,6 +395,72 @@ void main() {
     });
   });
 
+  group('exchange rate filtering', () {
+    test(
+      'drops rate rows for currencies nothing references while keeping the '
+      'ones the accounts, transactions and main currency use, plus EUR',
+      () async {
+        // CHF is held by nothing in the fixture but a transaction priced in
+        // it - proving the filter reaches into `transactions.currency_code`
+        // and not just `accounts.currency_code`. AUD/NZD are referenced by
+        // neither and must be gone; EUR/JPY are already kept by the fixture's
+        // accounts and are the control that shows a used pair survives.
+        await db
+            .into(db.transactions)
+            .insert(
+              TransactionsCompanion.insert(
+                id: const Value('bk_tx_chf'),
+                description: 'Ski pass',
+                amount: 42.0,
+                amountMinor: const Value(4200),
+                date: DateTime(2025, 4, 2, 10, 0),
+                accountId: 'bk_acc_eur',
+                categoryId: 'bk_cat_food',
+                currencyCode: 'CHF',
+              ),
+            );
+        await db
+            .into(db.exchangeRates)
+            .insert(
+              ExchangeRatesCompanion.insert(
+                fromCurrencyCode: 'EUR',
+                toCurrencyCode: 'CHF',
+                rate: 0.95,
+                preset: 1,
+                date: DateTime(2025, 4, 2),
+              ),
+            );
+        await db
+            .into(db.exchangeRates)
+            .insert(
+              ExchangeRatesCompanion.insert(
+                fromCurrencyCode: 'AUD',
+                toCurrencyCode: 'NZD',
+                rate: 1.08,
+                preset: 1,
+                date: DateTime(2025, 4, 2),
+              ),
+            );
+
+        final data =
+            jsonDecode(await exporter.buildJsonBackup())
+                as Map<String, dynamic>;
+        final pairs = (data['exchange_rates'] as List)
+            .cast<Map<String, dynamic>>()
+            .map((r) => '${r['fromCurrencyCode']}->${r['toCurrencyCode']}')
+            .toSet();
+
+        expect(pairs, contains('EUR->JPY'));
+        expect(pairs, contains('EUR->CHF'));
+        expect(
+          pairs,
+          isNot(contains('AUD->NZD')),
+          reason: 'neither AUD nor NZD is used by anything in this database',
+        );
+      },
+    );
+  });
+
   group('money exactness', () {
     setUp(() async {
       final backup = await exporter.buildJsonBackup();

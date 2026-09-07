@@ -37,13 +37,13 @@ class _FailingAccountRepository extends Fake implements AccountRepository {
   Future<void> updateAccount(Account account) async => throw failure;
 
   @override
-  Future<void> deleteAccountWithTransactions(String id) async {
+  Future<List<String>> deleteAccountWithTransactions(String id) async {
     deleted.add(id);
     throw failure;
   }
 
   @override
-  Future<void> deleteAccountAndReassignTransactions(
+  Future<List<String>> deleteAccountAndReassignTransactions(
     String accountId,
     String newAccountId,
   ) async {
@@ -52,7 +52,11 @@ class _FailingAccountRepository extends Fake implements AccountRepository {
   }
 
   @override
-  Future<void> restoreAccount(Account account) async {
+  Future<void> restoreAccount(
+    Account account, {
+    List<String> tombstonedTransactionIds = const [],
+    List<String> movedTransactionIds = const [],
+  }) async {
     restored.add(account);
     throw failure;
   }

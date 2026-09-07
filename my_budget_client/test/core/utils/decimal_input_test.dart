@@ -39,10 +39,12 @@ void main() {
       expect(typed(decimalInputFormatters, r'1a2$3 4'), '1234');
     });
 
-    test('a minus is rejected, because these fields have no negative value',
-        () {
-      expect(typed(decimalInputFormatters, '-40'), '40');
-    });
+    test(
+      'a minus is rejected, because these fields have no negative value',
+      () {
+        expect(typed(decimalInputFormatters, '-40'), '40');
+      },
+    );
 
     test('the caret stays where the user left it', () {
       // The rewrite is length-preserving, so a selection into the old text is
@@ -74,6 +76,47 @@ void main() {
 
     test('normalises the comma the same way the unsigned list does', () {
       expect(typed(signedDecimalInputFormatters, '0,3'), '0.3');
+    });
+  });
+
+  group('decimalFieldText rounds money to its currency', () {
+    test('a balance carrying float noise is offered at cents', () {
+      // What the account form used to put in the field: a salary imported
+      // through a 32-bit float, expanded to every digit the double holds.
+      expect(decimalFieldText(158265.09375, currencyCode: 'RSD'), '158265.09');
+    });
+
+    test('trailing zeros go so an exact amount reads plainly', () {
+      expect(decimalFieldText(12.0, currencyCode: 'EUR'), '12');
+      expect(decimalFieldText(12.5, currencyCode: 'EUR'), '12.5');
+    });
+
+    test('a zero-decimal currency is offered whole', () {
+      expect(decimalFieldText(1200.4, currencyCode: 'JPY'), '1200');
+    });
+
+    test('a three-decimal currency keeps its third digit', () {
+      expect(decimalFieldText(12.3456, currencyCode: 'KWD'), '12.346');
+    });
+
+    test('an amount that rounds away is blank like any other zero', () {
+      // The readers all parse back through `?? 0.0`, so blank and zero mean
+      // the same thing to them - and 0.004 is not an amount in euros.
+      expect(decimalFieldText(0.004, currencyCode: 'EUR'), '');
+    });
+
+    test('a crypto holding keeps every digit it was given', () {
+      expect(decimalFieldText(0.00012345, currencyCode: 'BTC'), '0.00012345');
+    });
+
+    test('without a currency nothing is rounded', () {
+      // The exchange rate, asset quantity and inflation fields pass no code.
+      expect(decimalFieldText(0.0123456789), '0.0123456789');
+    });
+
+    test('zero and null are still blank', () {
+      expect(decimalFieldText(null, currencyCode: 'EUR'), '');
+      expect(decimalFieldText(0, currencyCode: 'EUR'), '');
     });
   });
 }

@@ -599,6 +599,7 @@
     "smsSelectDefaultsFirst": "پہلے ڈیفالٹ منتخب کریں",
     "smsCustomRange": "حسب ضرورت رینج",
     "smsImportSuccessCount": "کامیاب: {count} لین دین درآمد ہوئے",
+    "smsImportDuplicateCount": "{count} پیغامات پہلے ہی درآمد ہو چکے ہیں",
     "smsParsingRules": "تجزیہ کے اصول",
     "smsNoRules": "کوئی اصول متعین نہیں۔ شامل کرنے کے لیے + دبائیں۔",
     "smsMatchLabel": "میچ: {pattern}",

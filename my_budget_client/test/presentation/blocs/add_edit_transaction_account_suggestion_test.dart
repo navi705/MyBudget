@@ -13,6 +13,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
 import 'package:my_budget_client/domain/entities/category_type.dart';
+import 'package:my_budget_client/domain/entities/currency.dart';
+import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
 import 'package:my_budget_client/domain/repositories/asset_repository.dart';
@@ -26,16 +28,32 @@ import 'package:my_budget_client/presentation/blocs/add_edit_transaction/add_edi
 /// part of the contract: a category paid from an account the user abandoned
 /// months ago must stop being suggested.
 class _FakeTransactionRepository extends Fake implements TransactionRepository {
-  _FakeTransactionRepository({this.answer, this.fail = false});
+  _FakeTransactionRepository({
+    this.answer,
+    this.fail = false,
+    this.lastUsedAccountId,
+  });
 
   final String? answer;
   final bool fail;
+
+  /// What the newest transaction was written on, or null for a database with
+  /// no transactions in it yet.
+  final String? lastUsedAccountId;
+
   final List<String> asked = [];
   DateTime? askedSince;
+  bool askedLastUsed = false;
   Transaction? updated;
 
   @override
   Stream<void> watchTransactionChanges() => const Stream.empty();
+
+  @override
+  Future<String?> getLastUsedAccountId() async {
+    askedLastUsed = true;
+    return lastUsedAccountId;
+  }
 
   @override
   Future<String?> getMostUsedAccountForCategory(
@@ -57,17 +75,40 @@ class _FakeTransactionRepository extends Fake implements TransactionRepository {
 class _FakeAccountRepository extends Fake implements AccountRepository {
   @override
   Stream<List<Account>> watchAccounts() => const Stream.empty();
+
+  @override
+  Future<List<Account>> getAccounts() async => [_wallet, _card, _assetAccount];
 }
 
 class _FakeCategoryRepository extends Fake implements CategoryRepository {
   @override
   Stream<List<Category>> watchCategories({bool includeSystem = false}) =>
       const Stream.empty();
+
+  @override
+  Future<List<Category>> getCategories({bool includeSystem = false}) async => [
+    _groceries,
+  ];
 }
 
-class _FakeCurrencyRepository extends Fake implements CurrencyRepository {}
+class _FakeCurrencyRepository extends Fake implements CurrencyRepository {
+  // One currency, matching every account and the main currency, so no rate
+  // fetch runs and the account pick is all the load does.
+  @override
+  Future<List<Currency>> getCurrencies() async => const [
+    Currency(
+      name: 'Euro',
+      code: 'EUR',
+      languageCode: 'en',
+      type: TypeCurrency.currency,
+    ),
+  ];
+}
 
-class _FakeSettingsRepository extends Fake implements SettingsRepository {}
+class _FakeSettingsRepository extends Fake implements SettingsRepository {
+  @override
+  Future<Settings?> getSetting(String key) async => null;
+}
 
 class _FakeAssetRepository extends Fake implements AssetRepository {}
 
@@ -147,10 +188,7 @@ void main() {
       // A month back: one billing cycle, so a category used weekly has a clear
       // winner and an account dropped two months ago is already gone.
       final since = transactionRepository.askedSince!;
-      expect(
-        DateTime.now().difference(since).inDays,
-        inInclusiveRange(29, 31),
-      );
+      expect(DateTime.now().difference(since).inDays, inInclusiveRange(29, 31));
     },
   );
 
@@ -290,6 +328,108 @@ void main() {
       expect(saved!.id, 'tx-imported');
       expect(saved.needsReview, isFalse);
       expect(saved.categoryId, 'cat-groceries');
+    },
+  );
+
+  // ---------------------------------------------------------------------
+  // The load path. Neither of the two entry points below dispatches a
+  // CategoryChanged or an AccountChanged, which is exactly why the suggestion
+  // used to miss them: it was wired to the in-form picker and nothing else.
+  // ---------------------------------------------------------------------
+
+  blocTest<AddEditTransactionBloc, AddEditTransactionState>(
+    'a category tile opens the form on the account that category is usually '
+    'paid from',
+    setUp: () {
+      transactionRepository = _FakeTransactionRepository(answer: 'acc-card');
+    },
+    build: build,
+    act: (bloc) => bloc.add(
+      AddEditTransactionLoad(
+        // What the Categories screen pushes: a prototype carrying the category
+        // that was tapped, an empty id (so it is not an edit) and an empty
+        // account id (so nothing has been chosen).
+        transaction: Transaction(
+          id: '',
+          description: '',
+          amount: 0,
+          date: DateTime(2025, 3, 15),
+          accountId: '',
+          categoryId: 'cat-groceries',
+          currencyCode: 'EUR',
+        ),
+      ),
+    ),
+    verify: (bloc) {
+      expect(bloc.state.selectedCategory, _groceries);
+      expect(
+        bloc.state.selectedAccount,
+        _card,
+        reason: 'the empty account id used to fall through to accounts.first',
+      );
+      expect(transactionRepository.asked, ['cat-groceries']);
+      // Still a suggestion, not an answer: the user has not touched the
+      // account picker.
+      expect(bloc.state.accountChosenByUser, isFalse);
+    },
+  );
+
+  blocTest<AddEditTransactionBloc, AddEditTransactionState>(
+    'a blank form opens on the account the last transaction was written on',
+    setUp: () {
+      transactionRepository = _FakeTransactionRepository(
+        lastUsedAccountId: 'acc-card',
+      );
+    },
+    build: build,
+    act: (bloc) => bloc.add(const AddEditTransactionLoad()),
+    verify: (bloc) {
+      // _wallet is accounts.first, which is what this used to land on.
+      expect(bloc.state.selectedAccount, _card);
+      expect(transactionRepository.askedLastUsed, isTrue);
+    },
+  );
+
+  blocTest<AddEditTransactionBloc, AddEditTransactionState>(
+    'a blank form on an empty database still opens on something',
+    setUp: () {
+      transactionRepository = _FakeTransactionRepository();
+    },
+    build: build,
+    act: (bloc) => bloc.add(const AddEditTransactionLoad()),
+    verify: (bloc) => expect(bloc.state.selectedAccount, _wallet),
+  );
+
+  blocTest<AddEditTransactionBloc, AddEditTransactionState>(
+    'the last account used is ignored when it holds an asset',
+    setUp: () {
+      transactionRepository = _FakeTransactionRepository(
+        lastUsedAccountId: 'acc-asset',
+      );
+    },
+    build: build,
+    act: (bloc) => bloc.add(const AddEditTransactionLoad()),
+    verify: (bloc) {
+      // Opening the entry form on an asset account turns it into a Buy/Sell,
+      // which is never something a default should decide.
+      expect(bloc.state.selectedAccount, _wallet);
+    },
+  );
+
+  blocTest<AddEditTransactionBloc, AddEditTransactionState>(
+    'an account named by the caller beats the last one used',
+    setUp: () {
+      transactionRepository = _FakeTransactionRepository(
+        lastUsedAccountId: 'acc-card',
+      );
+    },
+    build: build,
+    act: (bloc) =>
+        bloc.add(const AddEditTransactionLoad(accountId: 'acc-wallet')),
+    verify: (bloc) {
+      // Opening "Add" from a wallet is an answer, not a question.
+      expect(bloc.state.selectedAccount, _wallet);
+      expect(transactionRepository.askedLastUsed, isFalse);
     },
   );
 }

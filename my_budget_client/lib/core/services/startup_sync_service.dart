@@ -42,11 +42,13 @@ class StartupSyncService {
       );
       if (serverEnabledSetting?.value == 'true') {
         debugPrint('[StartupSyncService] Starting Server Sync...');
-        // Initialize WebSocket connection for the session
-        await _serverSyncService.initWebSocket();
-        // Initialize DB Auto-Sync (Instant Push) + periodic fallback timer
-        await _serverSyncService.initAutoSync();
-        // Perform initial sync
+        // No initWebSocket()/initAutoSync() here. AppWrapper already runs both
+        // in its step 1b, before the app is even shown, precisely so auto-sync
+        // is live before the user can change anything — and this method is
+        // reached from AppWrapper's step 2b and from its 24h timer, i.e.
+        // always after that. Repeating them bought nothing (they are
+        // idempotent) but did dial a second socket attempt and re-register the
+        // table listener while the first was still in flight.
         await _serverSyncService.sync();
       }
     } catch (e) {
@@ -93,6 +95,12 @@ class StartupSyncService {
     debugPrint(
       '[DIAG][StartupSync] Found ${apiSettings.length} built-in API settings: ${apiSettings.map((s) => '${s.id}(enabled=${s.enabled},autoFetch=${s.autoFetch},lastFetchAt=${s.lastFetchAt})').join(', ')}',
     );
+    // The selection stays exactly as it was — same enabled/autoFetch gate,
+    // same once-a-day guard, same order — only the waiting is shared. These
+    // fetches are independent HTTP calls to unrelated providers, and running
+    // them one after another meant the slowest one delayed every fetch behind
+    // it while the app sat there doing nothing.
+    final builtInJobs = <Future<void> Function()>[];
     for (final setting in apiSettings) {
       debugPrint(
         '[DIAG][StartupSync] Processing built-in API: ${setting.id}, enabled=${setting.enabled}, autoFetch=${setting.autoFetch}',
@@ -105,20 +113,25 @@ class StartupSyncService {
           );
           continue;
         }
-        debugPrint('[StartupSyncService] Fetching ${setting.id}...');
-        await _fetchBuiltInApi(setting.id);
+        final id = setting.id;
+        builtInJobs.add(() {
+          debugPrint('[StartupSyncService] Fetching $id...');
+          return _fetchBuiltInApi(id);
+        });
       } else {
         debugPrint(
           '[DIAG][StartupSync] Skipping ${setting.id}: enabled=${setting.enabled}, autoFetch=${setting.autoFetch}',
         );
       }
     }
+    await _runBounded(builtInJobs);
 
     // 5. Process Custom Data Sources
     final customSources = await _customDataSourceRepository.getAllDataSources();
     debugPrint(
       '[DIAG][StartupSync] Found ${customSources.length} custom data sources: ${customSources.map((s) => '${s.name}(enabled=${s.enabled},autoFetch=${s.autoFetch},dataType=${s.dataType},lastFetchAt=${s.lastFetchAt})').join(', ')}',
     );
+    final customJobs = <Future<void> Function()>[];
     for (final source in customSources) {
       debugPrint(
         '[DIAG][StartupSync] Processing custom source: ${source.name}, enabled=${source.enabled}, autoFetch=${source.autoFetch}',
@@ -131,32 +144,75 @@ class StartupSyncService {
           );
           continue;
         }
-        debugPrint(
-          '[StartupSyncService] Fetching custom source: ${source.name} (${source.url})...',
-        );
-        try {
-          await _customApiService.fetchCustomData(source.url);
-          // Update lastFetchAt
-          await _customDataSourceRepository.saveDataSource(
-            source.copyWith(lastFetchAt: DateTime.now()),
-          );
-        } catch (e) {
+        customJobs.add(() async {
           debugPrint(
-            '[StartupSyncService] Error fetching custom source ${source.name}: $e',
+            '[StartupSyncService] Fetching custom source: ${source.name} (${source.url})...',
           );
-        }
+          try {
+            await _customApiService.fetchCustomData(source.url);
+            // Update lastFetchAt
+            await _customDataSourceRepository.saveDataSource(
+              source.copyWith(lastFetchAt: DateTime.now()),
+            );
+          } catch (e) {
+            debugPrint(
+              '[StartupSyncService] Error fetching custom source ${source.name}: $e',
+            );
+          }
+        });
       } else {
         debugPrint(
           '[DIAG][StartupSync] Skipping custom source ${source.name}: enabled=${source.enabled}, autoFetch=${source.autoFetch}',
         );
       }
     }
+    await _runBounded(customJobs);
 
     debugPrint('[StartupSyncService] Startup sync completed.');
   }
 
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  /// How many startup fetches may be in flight at once.
+  ///
+  /// Bounded rather than a bare `Future.wait` over everything: the custom
+  /// sources are a user-supplied list of arbitrary length, and firing all of
+  /// them at a phone's radio at once is how a startup gets slower, not faster.
+  /// Four covers the built-in providers in one wave and keeps a long custom
+  /// list moving without a stampede.
+  static const int _fetchConcurrency = 4;
+
+  /// Runs [jobs] with at most [_fetchConcurrency] outstanding, and returns only
+  /// once all of them have settled.
+  ///
+  /// A job that throws is logged and dropped: one dead provider (or one
+  /// unreachable custom URL) must not cancel the fetches that would otherwise
+  /// have succeeded, which is what a plain `Future.wait` would have done the
+  /// moment the first one failed.
+  Future<void> _runBounded(List<Future<void> Function()> jobs) async {
+    if (jobs.isEmpty) return;
+
+    var next = 0;
+    Future<void> worker() async {
+      while (true) {
+        // Read-and-advance is atomic here because Dart's event loop never
+        // interleaves two workers between these two lines.
+        final index = next++;
+        if (index >= jobs.length) return;
+        try {
+          await jobs[index]();
+        } catch (e) {
+          debugPrint('[StartupSyncService] Startup fetch failed: $e');
+        }
+      }
+    }
+
+    final workerCount = jobs.length < _fetchConcurrency
+        ? jobs.length
+        : _fetchConcurrency;
+    await Future.wait([for (var i = 0; i < workerCount; i++) worker()]);
   }
 
   /// The built-in providers this service knows how to fetch.

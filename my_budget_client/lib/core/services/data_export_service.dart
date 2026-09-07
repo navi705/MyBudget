@@ -51,7 +51,12 @@ class DataExportService {
     final accountTypes = await _db.select(_db.accountTypes).get();
     final currencies = await _db.select(_db.currencies).get();
     final designations = await _db.select(_db.currencyDesignations).get();
-    final rates = await _db.select(_db.exchangeRates).get();
+    // Only the pairs this database prices something in. See
+    // ExchangeRatesDao.getExchangeRatesForUsedCurrencies: the rest is
+    // re-fetchable reference data, and carrying it made the backup two orders
+    // of magnitude bigger than the money in it.
+    final rates = await _db.exchangeRatesDao
+        .getExchangeRatesForUsedCurrencies();
     final assetEntries = await _db.select(_db.assetEntries).get();
 
     // Missing tables in previous version

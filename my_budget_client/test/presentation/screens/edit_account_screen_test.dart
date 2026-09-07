@@ -238,8 +238,23 @@ void main() {
     ) async {
       await _pumpEditAccount(tester, routed: _asViewed, stored: _stored);
 
-      expect(find.text('100.0'), findsOneWidget);
-      expect(find.text('42.0'), findsNothing);
+      expect(find.text('100'), findsOneWidget);
+      expect(find.text('42'), findsNothing);
+    });
+
+    testWidgets('offers the balance at the precision the currency has', (
+      tester,
+    ) async {
+      // A balance an importer round-tripped through a 32-bit float. The field
+      // used to show every digit the double holds, so editing it meant
+      // deleting '158265.09375' by hand.
+      await _pumpEditAccount(
+        tester,
+        routed: _asViewed,
+        stored: _stored.copyWith(balance: 158265.09375, balanceMinor: 15826509),
+      );
+
+      expect(find.text('158265.09'), findsOneWidget);
     });
 
     testWidgets('reads the row back by the routed id', (tester) async {
@@ -297,7 +312,7 @@ void main() {
       );
 
       await tester.enterText(
-        find.widgetWithText(TextFormField, '100.0'),
+        find.widgetWithText(TextFormField, '100'),
         '250.5',
       );
       await tester.pumpAndSettle();
@@ -329,11 +344,11 @@ void main() {
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       // Nothing to edit yet, so nothing of the routed figure is on screen.
-      expect(find.text('42.0'), findsNothing);
+      expect(find.text('42'), findsNothing);
 
       gate.complete();
       await tester.pumpAndSettle();
-      expect(find.text('100.0'), findsOneWidget);
+      expect(find.text('100'), findsOneWidget);
     });
   });
 
@@ -428,7 +443,7 @@ void main() {
 
       // Best effort: there is nothing better to edit, and the form has to open
       // on something rather than hang.
-      expect(find.text('42.0'), findsOneWidget);
+      expect(find.text('42'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
@@ -437,7 +452,7 @@ void main() {
     ) async {
       await _pumpEditAccount(tester, routed: _asViewed, stored: null);
 
-      expect(find.text('42.0'), findsOneWidget);
+      expect(find.text('42'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
   });

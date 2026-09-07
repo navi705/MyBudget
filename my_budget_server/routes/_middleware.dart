@@ -3,10 +3,28 @@ import 'package:my_budget_server/auth/bearer_auth.dart';
 import 'package:my_budget_server/data/database_client.dart';
 import 'package:my_budget_server/data/sync_repository.dart';
 import 'package:my_budget_server/http/api_responses.dart';
+import 'package:my_budget_server/rates/rate_provider.dart';
+import 'package:my_budget_server/rates/rate_refresher.dart';
+import 'package:my_budget_server/rates/rate_store.dart';
 
 final _dbClient = DatabaseClient();
 final _syncRepo = SyncRepository(_dbClient);
+final _rateStore = RateStore(_dbClient);
 final _auth = BearerAuth.fromEnvironment();
+
+/// Fetches the published exchange rates this server serves to its devices.
+///
+/// Built once per process and started after the first successful schema
+/// initialisation. It is deliberately not started at import time: the refresher
+/// writes to the database on its first tick, and doing that before the tables
+/// exist would fail every run until a request happened to create them.
+final _rateRefresher = RateRefresher(
+  store: _rateStore,
+  provider: FawazCurrencyApi(
+    baseCurrency: RateRefreshConfig.fromEnvironment().baseCurrency,
+  ),
+  config: RateRefreshConfig.fromEnvironment(),
+);
 
 // Shared Future to track schema initialization.
 Future<void>? _initFuture;
@@ -77,6 +95,9 @@ Handler middleware(Handler handler) {
 
     try {
       await _initFuture;
+      // Only once the tables are known to exist, and only once per process:
+      // start() is a no-op on an already-running refresher.
+      _rateRefresher.start();
     } catch (e, stackTrace) {
       _initFuture = null; // Allow retry on next request
       // The exception text names the host, port and user it failed to connect
@@ -87,6 +108,7 @@ Handler middleware(Handler handler) {
     final innerHandler = handler
         .use(requestLogger())
         .use(provider<SyncRepository>((_) => _syncRepo))
+        .use(provider<RateStore>((_) => _rateStore))
         .use(provider<DatabaseClient>((_) => _dbClient));
 
     return innerHandler(context);

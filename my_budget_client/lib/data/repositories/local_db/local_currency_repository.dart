@@ -201,6 +201,11 @@ class LocalCurrencyRepository implements CurrencyRepository {
   }
 
   @override
+  Future<List<DateTime>> getPresetRateDates() {
+    return database.exchangeRatesDao.getPresetRateDates();
+  }
+
+  @override
   Stream<void> watchExchangeRateChanges() =>
       database.exchangeRatesDao.watchExchangeRateChanges();
 

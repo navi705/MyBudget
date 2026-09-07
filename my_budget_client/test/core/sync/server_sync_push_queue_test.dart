@@ -37,6 +37,10 @@ void main() {
   /// Status code the mock server answers a push with.
   late int pushStatus;
 
+  /// Answers one push with a status of its own, by inspecting the body. Null
+  /// (the default) means every push gets [pushStatus].
+  int? Function(Map<String, dynamic> body)? pushStatusFor;
+
   /// Run inside the push handler, before it answers — the window between the
   /// upload leaving and the acknowledgement arriving.
   Future<void> Function()? duringPush;
@@ -73,6 +77,7 @@ void main() {
       .toList();
 
   setUp(() async {
+    pushStatusFor = null;
     SharedPreferences.setMockInitialValues({});
     db = AppDatabase.forTesting(NativeDatabase.memory());
     // Drift opens the connection lazily, so onCreate — which seeds ~283k
@@ -98,13 +103,17 @@ void main() {
       settingsRepository: settingsRepository,
       httpClient: MockClient((request) async {
         if (request.method == 'POST') {
-          pushBodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          pushBodies.add(body);
           if (duringPush != null) {
             final hook = duringPush;
             duringPush = null;
             await hook!();
           }
-          return http.Response('{"status":"ok"}', pushStatus);
+          return http.Response(
+            '{"status":"ok"}',
+            pushStatusFor?.call(body) ?? pushStatus,
+          );
         }
         return http.Response(jsonEncode(emptyPage()), 200);
       }),
@@ -244,6 +253,53 @@ void main() {
       expect(await queue(), isEmpty);
     },
   );
+
+  test('one table the server refuses does not strand the others', () async {
+    // The live failure this pins: the server answered 500 for `languages`,
+    // which is the FIRST table the push sends. The whole push ran inside one
+    // try, so every table behind it was abandoned — the queue could not drain,
+    // and each retry re-ran the identical doomed cycle against a backlog that
+    // only grew.
+    await db.customStatement(
+      'INSERT INTO languages (language_code, language, modified_at) '
+      "VALUES ('zz', 'Testish', 1)",
+    );
+    await insertStyleRaw('s1', modifiedAt: 1);
+
+    pushStatusFor = (body) => body.containsKey('languages') ? 500 : 200;
+
+    await expectLater(
+      service.sync(),
+      throwsA(isA<Exception>()),
+      reason:
+          'the cycle still reports failure, so the retry ladder is unchanged',
+    );
+
+    expect(
+      service.lastPushFailures,
+      {'languages'},
+      reason: 'the table that failed is named, not just the cycle',
+    );
+    expect(
+      pushed('styles').map((r) => r['id']),
+      contains('s1'),
+      reason: 'the tables behind the failing one were still offered',
+    );
+    expect(
+      (await queue()).map((e) => e.table),
+      ['languages'],
+      reason:
+          'only the refused table stays queued; everything the server '
+          'acknowledged has drained',
+    );
+
+    // And the refused table goes out on the next cycle, unchanged.
+    pushStatusFor = null;
+    pushBodies = [];
+    await service.sync();
+    expect(pushed('languages').map((r) => r['languageCode']), contains('zz'));
+    expect(await queue(), isEmpty);
+  });
 
   test(
     'a device-local setting is never uploaded, and does not sit in the queue forever',

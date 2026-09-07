@@ -630,6 +630,7 @@
     "smsSelectDefaultsFirst": "Select defaults first",
     "smsCustomRange": "Custom Range",
     "smsImportSuccessCount": "Success: {count} transactions imported",
+    "smsImportDuplicateCount": "{count} message(s) already imported",
     "smsParsingRules": "Parsing Rules",
     "smsNoRules": "No rules defined. Tap + to add one.",
     "smsMatchLabel": "Match: {pattern}",

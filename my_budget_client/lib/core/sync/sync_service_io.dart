@@ -387,7 +387,11 @@ class SyncService {
         '[SYNC_DEBUG] Encoding ${changes.length} changes to binary (GZIP)...',
       );
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final bytes = SyncBinaryFormat.encode(
+      // Async, so the per-change `jsonEncode` and the gzip pass run on a worker
+      // isolate. This is called from the app's close path with the whole export
+      // backlog in hand, and doing that arithmetic on the UI isolate froze the
+      // frame loop while the window was trying to shut.
+      final bytes = await SyncBinaryFormat.encodeAsync(
         deviceId: _localDeviceId!,
         timestamp: timestamp,
         changes: changes,
@@ -697,7 +701,8 @@ class SyncService {
     // as 1.7e12 rather than 1700000000000 used to throw here, and the throw is
     // caught per change, so that peer's whole packet was skipped one silent
     // change at a time. See the note above [_transactionFromJson].
-    final incomingModifiedAt = (change.data?['modifiedAt'] as num?)?.toInt() ?? 0;
+    final incomingModifiedAt =
+        (change.data?['modifiedAt'] as num?)?.toInt() ?? 0;
     final incomingDeviceId = _incomingAuthor(change, fromDevice);
 
     if (change.action == SyncAction.delete) {
@@ -2521,7 +2526,9 @@ class SyncService {
       backgroundImageBlur: Value(
         (json['backgroundImageBlur'] as num?)?.toDouble() ?? 0.0,
       ),
-      windowEffectType: Value(((json['windowEffectType'] as num?)?.toInt()) ?? 0),
+      windowEffectType: Value(
+        ((json['windowEffectType'] as num?)?.toInt()) ?? 0,
+      ),
       effectOpacity: Value((json['effectOpacity'] as num?)?.toDouble() ?? 1.0),
       surfaceOpacity: Value(
         (json['surfaceOpacity'] as num?)?.toDouble() ?? 1.0,

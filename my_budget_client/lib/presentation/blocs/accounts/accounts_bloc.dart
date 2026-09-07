@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:collection/collection.dart';
 import 'package:my_budget_client/core/utils/calendar_day.dart';
 import 'package:my_budget_client/core/utils/performance_logger.dart';
@@ -13,7 +14,7 @@ import 'package:equatable/equatable.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/account_type.dart';
 import 'package:my_budget_client/domain/entities/exchange_rate.dart';
-// import 'package:my_budget_client/domain/entities/settings.dart';
+import 'package:my_budget_client/domain/entities/settings.dart';
 import 'package:my_budget_client/domain/entities/inflation_rate.dart';
 import 'package:my_budget_client/domain/repositories/account_repository.dart';
 import 'package:my_budget_client/domain/repositories/currency_repository.dart';
@@ -25,6 +26,7 @@ import 'package:my_budget_client/domain/repositories/category_repository.dart'; 
 import 'package:my_budget_client/domain/entities/asset_data.dart'; // Added
 import 'package:my_budget_client/domain/entities/transaction.dart';
 import 'package:my_budget_client/domain/entities/category.dart'; // Added
+import 'package:my_budget_client/domain/entities/category_type.dart';
 
 import 'package:my_budget_client/domain/services/finance_calculator.dart'; // Added
 import 'package:my_budget_client/domain/value_objects/currency_precision.dart';
@@ -66,6 +68,41 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
   final CategoryRepository _categoryRepository; // Added
   final FinanceCalculator _financeCalculator; // Added
 
+  /// "However many match" — the transaction fetches below feed sums that are
+  /// wrong if a single row is missing, so there is no smaller honest number.
+  ///
+  /// `getTransactionsWithFilters` takes a paging limit and offers no way to say
+  /// "all", which is why a literal 1000000 was scattered through this file with
+  /// nothing to explain it. Naming it at least says out loud that the bound is
+  /// not a product decision. The real fix is to stop shipping the rows across
+  /// the isolate port at all and have SQL return the aggregate — see the
+  /// per-call notes below for what each fetch actually reduces to.
+  static const int _allMatchingRows = 1000000;
+
+  /// Every asset price entry, not the newest page of them.
+  ///
+  /// [AssetRepository.getAssetData] defaults to `limit: 50` and every call site
+  /// in this file used to take that default. The calculator needs an asset's
+  /// *earliest* entry (to know the asset did not exist yet at the target date)
+  /// and the entry closest at or before the target date; the default handed it
+  /// the 50 most recent entries across ALL assets instead. Past 50 entries the
+  /// asset accounts' balances and asset stats were silently wrong — an account
+  /// whose prices were all older than the newest 50 rows read as "asset did not
+  /// exist", i.e. a balance of 0 — and moving the date backwards made it worse,
+  /// because the further back the target date, the more of the entries that
+  /// bracket it had been paged away.
+  static const int _allAssetEntries = 1000000;
+
+  // What the last account delete took with it, so Undo can put it back: the
+  // transactions it tombstoned, or the ones it handed to another account. Not
+  // in AccountsState - the SnackBar needs the account and nothing else, and
+  // these would have to be threaded through all three state subclasses to sit
+  // beside it. Kept with the id of the account they belong to so a payload
+  // left over from an earlier delete cannot be applied to a different one.
+  String? _undoAccountId;
+  List<String> _undoTombstonedTxIds = const [];
+  List<String> _undoMovedTxIds = const [];
+
   StreamSubscription<void>? _transactionsSubscription;
   // The accounts table itself, not only the transactions posted against it.
   // The screen no longer reloads on every mount (the shell route remounts it
@@ -103,7 +140,22 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
     on<UndoDeleteAccount>(_onUndoDeleteAccount);
     on<SortAccounts>(_onSortAccounts);
     on<FiltersChanged>(_onFiltersChanged);
-    on<LoadHistoricalBalances>(_onLoadHistoricalBalances);
+    // The one handler on this bloc that is both expensive and pure: it reads,
+    // recomputes and re-emits, and writes nothing. Under the default
+    // `concurrent` transformer, holding a chevron down (or repeating the
+    // hotkey) started a full run per tap and let them finish in whatever order
+    // the database happened to return — so the grid could settle on the
+    // balances for a date the app bar had already navigated away from, and the
+    // only way back was to nudge the date again. `restartable` makes the newest
+    // date win, and the runs it supersedes were pure waste anyway.
+    //
+    // Deliberately NOT applied to anything that writes (Add/Update/Delete/Undo
+    // and the bulk variants): those must all reach the repository even when the
+    // user fires them in quick succession, and a cancelled write is a lost one.
+    on<LoadHistoricalBalances>(
+      _onLoadHistoricalBalances,
+      transformer: restartable(),
+    );
     on<ClearHistoricalBalances>(_onClearHistoricalBalances);
     on<ToggleSelectionMode>(_onToggleSelectionMode);
     on<ToggleAccountSelection>(_onToggleAccountSelection);
@@ -166,6 +218,27 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
     return account.balance - (majorSums[account.id] ?? 0.0);
   }
 
+  /// The visible period for [date]/[step].
+  ///
+  /// Scoping a transaction fetch to a period means knowing the period's bounds
+  /// *before* the fetch, while the calculator only exposes them off a fully
+  /// built [FinancialSnapshot]. Deriving them from an empty snapshot rather
+  /// than re-deriving them by hand is what keeps the fetch window and the
+  /// window [FinanceCalculator.calculatePeriodStats] later filters on from
+  /// drifting apart: a hand-rolled bound that is even a second short drops real
+  /// transactions out of the period stats and nothing reports it.
+  DatePeriod _periodFor(DateTime date, DateStep step) => FinancialSnapshot(
+    accounts: const [],
+    transactions: const [],
+    assetData: const [],
+    categories: const [],
+    exchangeRates: const [],
+    inflationRates: const [],
+    date: date,
+    dateStep: step,
+    baseCurrency: 'EUR',
+  ).currentPeriod;
+
   void _onDatePeriodNavigated(
     DatePeriodNavigated event,
     Emitter<AccountsState> emit,
@@ -209,6 +282,15 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
         break;
     }
     debugPrint('DEBUG DatePeriodNavigated: newDate=$newDate');
+    // Two emits per gesture, and the first one is deliberate: it carries
+    // nothing but the new date, so the app bar moves on the tap instead of
+    // after the read. The second carries the recomputed figures and cannot be
+    // folded into it without holding the date back until the database answers.
+    //
+    // What the second emit no longer does is repeat itself: LoadHistoricalBalances
+    // is registered `restartable`, so a held-down chevron now costs one date
+    // emit per tap and a single recompute at the end, not a full recompute and
+    // a full rebuild per tap. See the handler registration above.
     emit(currentState.copyWith(activeDate: newDate));
     add(LoadHistoricalBalances(newDate));
   }
@@ -302,7 +384,10 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
         ),
         _currencyRepository.getLatestExchangeRates(DateTime.now()),
         _inflationRepository.getInflationRates(),
-        _assetRepository.getAssetData(), // Include assets in initial fetch
+        // Include assets in initial fetch. Explicitly unbounded: the default
+        // `limit: 50` silently truncated the price history feeding every asset
+        // balance and every asset stat — see [_allAssetEntries].
+        _assetRepository.getAssetData(limit: _allAssetEntries),
         _categoryRepository.getCategories(), // Added
         // Every account, with no AccountFilters applied. The paginated fetch
         // above is what the grid shows, so counting it answers "how many match
@@ -403,36 +488,66 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
           .map((a) => a.id!)
           .toList();
 
+      // Transfers and rows on asset accounts are thrown away by
+      // [FinanceCalculator.calculatePeriodStats] the moment it looks at them,
+      // and the period fetch below exists only to feed that call. Every row it
+      // ships costs a serialization across drift's isolate port whether the
+      // calculator keeps it or not, so the two discards moved into SQL. The
+      // predicates are the calculator's own, read off the same two lists the
+      // snapshot hands it, so what survives is unchanged row for row.
+      //
+      // A category id missing from [categories] stays in the result on purpose:
+      // the calculator cannot type such a row either, and treats it as spend.
+      final transferCategoryIds = categories
+          .where((c) => c.type == CategoryType.transfer && c.id != null)
+          .map((c) => c.id!)
+          .toList();
+
       // --- Targeted transaction loads (replace the full-history fetch) ---
+      //
+      // Nothing here reads anything another one of them produces, yet they used
+      // to be awaited one at a time. Each is its own hop to the database
+      // isolate and back, so the screen paid six latencies end to end where it
+      // only ever needed the slowest. The linked-cash chase below is the one
+      // read that genuinely has to wait — it is keyed by ids that only exist
+      // once the asset rows have come back.
       PerformanceLogger().start('Accounts: getTransactionsWithFilters');
-      final futureSums = await _transactionRepository.getFutureSumsExact(
-        currentState.activeDate,
-      );
-      final prevFutureSums = await _transactionRepository.getFutureSumsExact(
-        prevEnd,
-      );
-      // Exact integer-minor counterparts (fiat only) — used to derive drift-free
-      // balances; crypto accounts fall back to the double sums above.
-      final futureSumsMinor = await _transactionRepository
-          .getFutureSumsExactMinor(currentState.activeDate);
-      final prevFutureSumsMinor = await _transactionRepository
-          .getFutureSumsExactMinor(prevEnd);
-      // Period-range transactions cover both current and previous period
-      // (prevStart..periodEnd); used for income/expense stats only.
-      final periodTransactions = await _transactionRepository
-          .getTransactionsWithFilters(
-            filters: TransactionFilters(dateFrom: prevStart, dateTo: periodEnd),
-            limit: 1000000,
-          );
-      // Asset accounts need their own history plus any linked cash transactions
-      // (which may live on other accounts) for asset stats.
+      final txResults = await Future.wait([
+        _transactionRepository.getFutureSumsExact(currentState.activeDate),
+        _transactionRepository.getFutureSumsExact(prevEnd),
+        // Exact integer-minor counterparts (fiat only) — used to derive
+        // drift-free balances; crypto accounts fall back to the double sums.
+        _transactionRepository.getFutureSumsExactMinor(currentState.activeDate),
+        _transactionRepository.getFutureSumsExactMinor(prevEnd),
+        // Period-range transactions cover both current and previous period
+        // (prevStart..periodEnd); used for income/expense stats only.
+        _transactionRepository.getTransactionsWithFilters(
+          filters: TransactionFilters(
+            dateFrom: prevStart,
+            dateTo: periodEnd,
+            excludeAccountId: assetAccountIds,
+            excludeCategoryId: transferCategoryIds,
+          ),
+          limit: _allMatchingRows,
+        ),
+        // Asset accounts need their own history for asset stats; the linked
+        // cash legs (which may live on other accounts) are chased below.
+        if (assetAccountIds.isNotEmpty)
+          _transactionRepository.getTransactionsWithFilters(
+            filters: TransactionFilters(accountId: assetAccountIds),
+            limit: _allMatchingRows,
+          ),
+      ]);
+
+      final futureSums = txResults[0] as Map<String, double>;
+      final prevFutureSums = txResults[1] as Map<String, double>;
+      final futureSumsMinor = txResults[2] as Map<String, int>;
+      final prevFutureSumsMinor = txResults[3] as Map<String, int>;
+      final periodTransactions = txResults[4] as List<Transaction>;
+
       List<Transaction> assetTransactions = const [];
       if (assetAccountIds.isNotEmpty) {
-        assetTransactions = await _transactionRepository
-            .getTransactionsWithFilters(
-              filters: TransactionFilters(accountId: assetAccountIds),
-              limit: 1000000,
-            );
+        assetTransactions = txResults[5] as List<Transaction>;
         final linkedIds = assetTransactions
             .map((t) => t.linkedTransactionId)
             .whereType<String>()
@@ -679,15 +794,130 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
         }
         PerformanceLogger().stop('Accounts Screen Load More');
       } else {
-        // Fetch Assets early
-        final assets = await _assetRepository.getAssetData();
+        // Everything the calculator needs for the newly paged-in accounts:
+        // unrelated reads that were awaited one after another, on the scroll
+        // gesture that appends a page. Only the transaction fetch depends on
+        // anything at hand (the ids of the accounts just returned), and those
+        // ids are already known here, so they can all go at once.
+        //
+        // That transaction fetch used to be `accountId: newAccountIds` with no
+        // date bound — the complete history of every account the scroll had
+        // just appended, serialized row by row across the isolate port, on a
+        // gesture that fires at every 90% of the list. Reduced the same way the
+        // historical-balance path is (see _onLoadHistoricalBalances): standard
+        // accounts are a SQL sum and need no rows at all, only asset accounts
+        // genuinely need their history, and the period stats never look outside
+        // the visible period and the one before it.
+        final newAccountIds = accounts.map((e) => e.id!).toList();
+        final newAssetAccountIds = accounts
+            .where((a) => a.assetId != null && a.id != null)
+            .map((a) => a.id!)
+            .toList();
+        final hasAssetAccounts = newAssetAccountIds.isNotEmpty;
 
-        // Load additional data needed for Calculator
-        final inflationRates = await _inflationRepository.getInflationRates();
-        final defaultCountrySetting = await _settingsRepository.getSetting(
-          'default_inflation_country',
+        // Transfers and rows on asset accounts are thrown away by
+        // [FinanceCalculator.calculatePeriodStats] the moment it looks at them,
+        // and the period fetch below exists only to feed that call. Every row it
+        // ships costs a serialization across drift's isolate port whether the
+        // calculator keeps it or not, so the two discards moved into SQL. The
+        // predicates are the calculator's own, read off the same two lists the
+        // snapshot hands it, so what survives is unchanged row for row.
+        //
+        // A category id missing from [categories] stays in the result on purpose:
+        // the calculator cannot type such a row either, and treats it as spend.
+        final transferCategoryIds = currentState.categories
+            .where((c) => c.type == CategoryType.transfer && c.id != null)
+            .map((c) => c.id!)
+            .toList();
+
+        // Period boundaries have to be known before the fetch, since they bound
+        // it. Same values snapshotForNew.currentPeriod would produce below —
+        // they are built from the same date and step.
+        final period = _periodFor(
+          currentState.activeDate,
+          currentState.dateStep,
         );
+
+        // Previous Period Stats for New
+        DateTime prevStart;
+        DateTime prevEnd;
+        // Kept as-is rather than swapped for DatePeriod.previousFor: for a day
+        // step this collapses the previous period to the single instant of its
+        // midnight, and that quirk is what the numbers on screen have always
+        // been. Changing it here would change displayed values under cover of
+        // a performance fix.
+        switch (currentState.dateStep) {
+          case DateStep.day:
+            prevStart = previousDay(period.start);
+            prevEnd = prevStart; // Single day
+            break;
+          case DateStep.month:
+            final p = DateTime(period.start.year, period.start.month - 1, 1);
+            prevStart = p;
+            prevEnd = DateTime(p.year, p.month + 1, 0, 23, 59, 59);
+            break;
+          case DateStep.year:
+            prevStart = DateTime(period.start.year - 1, 1, 1);
+            prevEnd = DateTime(period.start.year - 1, 12, 31, 23, 59, 59);
+            break;
+        }
+
+        final moreResults = await Future.wait<Object?>([
+          _inflationRepository.getInflationRates(),
+          _settingsRepository.getSetting('default_inflation_country'),
+          _transactionRepository.getFutureSumsExact(currentState.activeDate),
+          _transactionRepository.getFutureSumsExact(prevEnd),
+          _transactionRepository.getFutureSumsExactMinor(
+            currentState.activeDate,
+          ),
+          _transactionRepository.getFutureSumsExactMinor(prevEnd),
+          _transactionRepository.getTransactionsWithFilters(
+            filters: TransactionFilters(
+              accountId: newAccountIds,
+              dateFrom: prevStart,
+              dateTo: period.end,
+              excludeAccountId: newAssetAccountIds,
+              excludeCategoryId: transferCategoryIds,
+            ),
+            limit: _allMatchingRows,
+          ),
+          if (hasAssetAccounts) ...[
+            _transactionRepository.getTransactionsWithFilters(
+              filters: TransactionFilters(accountId: newAssetAccountIds),
+              limit: _allMatchingRows,
+            ),
+            // Only read when a newly paged account is actually asset-backed.
+            _assetRepository.getAssetData(limit: _allAssetEntries),
+          ],
+        ]);
+
+        final inflationRates = moreResults[0] as List<InflationRateDomain>;
+        final defaultCountrySetting = moreResults[1] as Settings?;
         final defaultCountry = defaultCountrySetting?.value ?? 'SRB';
+        final futureSums = moreResults[2] as Map<String, double>;
+        final prevFutureSums = moreResults[3] as Map<String, double>;
+        final futureSumsMinor = moreResults[4] as Map<String, int>;
+        final prevFutureSumsMinor = moreResults[5] as Map<String, int>;
+        final periodTransactions = moreResults[6] as List<Transaction>;
+
+        List<Transaction> assetTransactions = const [];
+        List<AssetDataDomain> assets = const [];
+        if (hasAssetAccounts) {
+          assetTransactions = moreResults[7] as List<Transaction>;
+          assets = moreResults[8] as List<AssetDataDomain>;
+          // The cash leg of a trade lives on the cash account, which is not
+          // necessarily in this page — chase it by id, as _onLoadAccounts does.
+          final linkedIds = assetTransactions
+              .map((t) => t.linkedTransactionId)
+              .whereType<String>()
+              .toList();
+          if (linkedIds.isNotEmpty) {
+            final linked = await _transactionRepository.getTransactionsByIds(
+              linkedIds,
+            );
+            assetTransactions = [...assetTransactions, ...linked];
+          }
+        }
 
         // Merge new accounts with existing for full sort and calc
         // (FinanceCalculator usually needs full context for sorting,
@@ -707,13 +937,6 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
         // But we don't store 'allTransactions' in state, only derived stats.
         // So we might need to fetch for new accounts, calculate their stats, and merge into state maps.
 
-        final newAccountIds = accounts.map((e) => e.id!).toList();
-        final newTransactions = await _transactionRepository
-            .getTransactionsWithFilters(
-              filters: TransactionFilters(accountId: newAccountIds),
-              limit: 1000000,
-            );
-
         // We probably need transaction history for existing accounts to maintain TOTAL stats?
         // State has 'accountIncomes', 'realBalances' etc.
         // We can just ADD new entries to these maps.
@@ -725,7 +948,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
 
         final snapshotForNew = FinancialSnapshot(
           accounts: accounts,
-          transactions: newTransactions,
+          transactions: const [],
           assetData: assets,
           categories: currentState.categories, // Added
           exchangeRates: currentState.exchangeRates,
@@ -734,10 +957,33 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
           dateStep: currentState.dateStep,
           baseCurrency: 'EUR',
         );
-
-        final newNominalBalances = _financeCalculator.calculateBalances(
-          snapshotForNew,
+        final assetSnapshotForNew = snapshotForNew.copyWith(
+          transactions: assetTransactions,
         );
+        final periodSnapshotForNew = snapshotForNew.copyWith(
+          transactions: periodTransactions,
+        );
+
+        // Standard accounts: storedBalance - SUM(amount after activeDate),
+        // straight from SQL. Asset accounts keep the calculator.
+        final newNominalBalances = <String, double>{};
+        for (final account in accounts) {
+          if (account.assetId == null) {
+            newNominalBalances[account.id!] = _nominalBalance(
+              account,
+              futureSums,
+              futureSumsMinor,
+            );
+          }
+        }
+        if (hasAssetAccounts) {
+          final assetBalances = _financeCalculator.calculateBalances(
+            assetSnapshotForNew,
+          );
+          for (final id in newAssetAccountIds) {
+            newNominalBalances[id] = assetBalances[id] ?? 0.0;
+          }
+        }
         final newRealBalances = _financeCalculator.calculateRealBalances(
           snapshotForNew,
           defaultCountry: defaultCountry,
@@ -753,52 +999,46 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
         }
 
         final newAssetStats = _financeCalculator.calculateAssetStats(
-          snapshotForNew,
+          assetSnapshotForNew,
           balances: newNominalBalances,
         );
 
-        // Period Stats for New
-        final period = snapshotForNew.currentPeriod;
+        // Period Stats for New — boundaries were resolved before the fetch,
+        // and the fetch was bounded by them.
         final newCurrentStats = _financeCalculator.calculatePeriodStats(
-          snapshotForNew,
+          periodSnapshotForNew,
           period,
           defaultCountry: defaultCountry,
         );
-
-        // Previous Period Stats for New
-        DateTime prevStart;
-        DateTime prevEnd;
-        // Replicate logic or use helper if we exposed one.
-        // Since we didn't expose 'getPreviousPeriod', manual again or just ignore if load more?
-        // Let's implement correctly.
-        switch (currentState.dateStep) {
-          case DateStep.day:
-            prevStart = previousDay(period.start);
-            prevEnd = prevStart; // Single day
-            break;
-          case DateStep.month:
-            final p = DateTime(period.start.year, period.start.month - 1, 1);
-            prevStart = p;
-            prevEnd = DateTime(p.year, p.month + 1, 0, 23, 59, 59);
-            break;
-          case DateStep.year:
-            prevStart = DateTime(period.start.year - 1, 1, 1);
-            prevEnd = DateTime(period.start.year - 1, 12, 31, 23, 59, 59);
-            break;
-        }
 
         final snapshotPrev = snapshotForNew.copyWith(
           date: prevEnd,
         ); // Date doesn't affect stats as much as period param, but good practice
         final newPrevStats = _financeCalculator.calculatePeriodStats(
-          snapshotPrev,
+          periodSnapshotForNew.copyWith(date: prevEnd),
           DatePeriod(prevStart, prevEnd),
           defaultCountry: defaultCountry,
         );
 
-        final prevNominalBalances = _financeCalculator.calculateBalances(
-          snapshotPrev,
-        );
+        // Same standard/asset split as above, one cutoff earlier.
+        final prevNominalBalances = <String, double>{};
+        for (final account in accounts) {
+          if (account.assetId == null) {
+            prevNominalBalances[account.id!] = _nominalBalance(
+              account,
+              prevFutureSums,
+              prevFutureSumsMinor,
+            );
+          }
+        }
+        if (hasAssetAccounts) {
+          final prevAssetBalances = _financeCalculator.calculateBalances(
+            assetSnapshotForNew.copyWith(date: prevEnd),
+          );
+          for (final id in newAssetAccountIds) {
+            prevNominalBalances[id] = prevAssetBalances[id] ?? 0.0;
+          }
+        }
         final prevRealBalances = _financeCalculator.calculateRealBalances(
           snapshotPrev,
           defaultCountry: defaultCountry,
@@ -991,7 +1231,12 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
       (acc) => acc.id == event.id,
     );
     try {
-      await _accountRepository.deleteAccountWithTransactions(event.id);
+      _rememberUndo(
+        event.id,
+        tombstoned: await _accountRepository.deleteAccountWithTransactions(
+          event.id,
+        ),
+      );
     } catch (e) {
       debugPrint('ERROR deleting account: $e');
       if (isShuttingDown) return;
@@ -1020,7 +1265,12 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
       (acc) => acc.id == event.accountId,
     );
     try {
-      await _accountRepository.deleteAccountWithTransactions(event.accountId);
+      _rememberUndo(
+        event.accountId,
+        tombstoned: await _accountRepository.deleteAccountWithTransactions(
+          event.accountId,
+        ),
+      );
     } catch (e) {
       debugPrint('[AccountsBloc] ERROR deleting account: $e');
       if (isShuttingDown) return;
@@ -1049,9 +1299,12 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
       (acc) => acc.id == event.accountId,
     );
     try {
-      await _accountRepository.deleteAccountAndReassignTransactions(
+      _rememberUndo(
         event.accountId,
-        event.newAccountId,
+        moved: await _accountRepository.deleteAccountAndReassignTransactions(
+          event.accountId,
+          event.newAccountId,
+        ),
       );
     } catch (e) {
       debugPrint('[AccountsBloc] ERROR reassigning and deleting account: $e');
@@ -1079,9 +1332,17 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
         currentState.recentlyDeletedAccount == null) {
       return;
     }
+    final account = currentState.recentlyDeletedAccount!;
+    // Only the payload recorded for this very account: anything left over from
+    // an earlier delete names rows that have nothing to do with it.
+    final forThisAccount = _undoAccountId == account.id;
     try {
       await _accountRepository.restoreAccount(
-        currentState.recentlyDeletedAccount!,
+        account,
+        tombstonedTransactionIds: forThisAccount
+            ? _undoTombstonedTxIds
+            : const [],
+        movedTransactionIds: forThisAccount ? _undoMovedTxIds : const [],
       );
     } catch (e) {
       debugPrint('[AccountsBloc] ERROR restoring account: $e');
@@ -1091,6 +1352,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
       return;
     }
     if (isShuttingDown) return;
+    _forgetUndo();
     emit(
       currentState.copyWith(
         clearRecentlyDeletedAccount: true,
@@ -1100,6 +1362,23 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
     add(LoadAccounts()); // Reload list
   }
 
+  /// Records what a delete of [accountId] took with it, for [UndoDeleteAccount].
+  void _rememberUndo(
+    String accountId, {
+    List<String> tombstoned = const [],
+    List<String> moved = const [],
+  }) {
+    _undoAccountId = accountId;
+    _undoTombstonedTxIds = tombstoned;
+    _undoMovedTxIds = moved;
+  }
+
+  void _forgetUndo() {
+    _undoAccountId = null;
+    _undoTombstonedTxIds = const [];
+    _undoMovedTxIds = const [];
+  }
+
   void _onClearRecentlyDeletedAccount(
     ClearRecentlyDeletedAccount event,
     Emitter<AccountsState> emit,
@@ -1107,6 +1386,7 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
     debugPrint(
       '[SnackBarDebug] AccountsBloc: Clearing recentlyDeletedAccount (Explicit Clear)',
     );
+    _forgetUndo();
     emit(state.copyWith(clearRecentlyDeletedAccount: true));
   }
 
@@ -1173,41 +1453,140 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
         ),
         _currencyRepository.getLatestExchangeRates(DateTime.now()),
         _inflationRepository.getInflationRates(),
-        _assetRepository.getAssetData(),
         _categoryRepository.getCategories(), // Added
+        _settingsRepository.getSetting('default_inflation_country'),
       ]);
+      // Superseded by a newer date before the first hop even returned: the
+      // remaining reads and the whole calculator pass below would be thrown
+      // away by the emitter anyway, so stop paying for them here.
+      if (emit.isDone) return;
 
       final accounts = results[0] as List<Account>;
       final exchangeRates = results[1] as List<ExchangeRateDomain>;
       final inflationRates = results[2] as List<InflationRateDomain>;
-      final assets = results[3] as List<AssetDataDomain>;
-      final categories = results[4] as List<Category>; // Added
-
-      // Fetch ALL transactions (FinanceCalculator needs history)
-      // OPTIMIZATION: Skip redundant pre-sort — account IDs are order-independent
-      // for the transaction fetch. The sort is applied later on accountsWithBalances.
-      final accountIds = accounts.map((e) => e.id).whereType<String>().toList();
-
-      // OPTIMIZATION: Start both futures in parallel to overlap I/O wait times.
-      final txFuture = _transactionRepository.getTransactionsWithFilters(
-        filters: TransactionFilters(accountId: accountIds),
-        limit: 1000000,
-      );
-      final settingFuture = _settingsRepository.getSetting(
-        'default_inflation_country',
-      );
-
-      PerformanceLogger().start('Accounts: getTransactionsWithFilters');
-      final allTransactions = await txFuture;
-      await PerformanceLogger().stop('Accounts: getTransactionsWithFilters');
-
-      final defaultCountrySetting = await settingFuture;
+      final categories = results[3] as List<Category>; // Added
+      final defaultCountrySetting = results[4] as Settings?;
       final defaultCountry = defaultCountrySetting?.value ?? 'SRB';
 
-      // 2. Construct Snapshot at Target Date
+      final accountIds = accounts.map((e) => e.id).whereType<String>().toList();
+      final assetAccountIds = accounts
+          .where((a) => a.assetId != null && a.id != null)
+          .map((a) => a.id!)
+          .toList();
+      final hasAssetAccounts = assetAccountIds.isNotEmpty;
+
+      // The period this date lands in, plus the one before it. Both are needed
+      // before the fetch below, because they are what bounds it.
+      final period = _periodFor(event.date, currentState.dateStep);
+      final previous = period.previousFor(currentState.dateStep);
+      final prevStart = previous.start;
+      final prevEnd = previous.end;
+
+      // --- Targeted reads (this used to be the whole transaction table) ---
+      //
+      // Every tap on a date chevron pulled `getTransactionsWithFilters(
+      // accountId: <every displayed account>)` with no date bound — the entire
+      // history of every account on screen — and then walked it seven times in
+      // Dart. drift runs the SQL off the UI isolate, but each returned row is
+      // serialized across the isolate port and re-materialized here, so the
+      // cost of that fetch is the row count, and the row count grows forever
+      // while the answer it feeds does not. That is the lag the chevrons had.
+      //
+      // What the rows were actually for, and what each part now costs:
+      //  * standard-account balances: reverse calc, balanceAt(cutoff) ==
+      //    storedBalance - SUM(amount after cutoff). SQL can return the sum, so
+      //    these accounts need ZERO rows — same aggregates _onLoadAccounts
+      //    already uses.
+      //  * asset accounts: genuinely need rows (quantity accumulates per
+      //    transaction, fees are per row, cost basis reads the linked cash
+      //    leg), so they still get theirs — and only theirs.
+      //  * period stats: only ever look at transactions inside
+      //    prevStart..period.end, and discard the rest.
+      //
+      // The account filter is kept on the period fetch on purpose: these stats
+      // have always been scoped to the accounts on screen here, and dropping
+      // that would silently fold hidden accounts into the header totals.
+      // Transfers and rows on asset accounts are thrown away by
+      // [FinanceCalculator.calculatePeriodStats] the moment it looks at them,
+      // and the period fetch below exists only to feed that call. Every row it
+      // ships costs a serialization across drift's isolate port whether the
+      // calculator keeps it or not, so the two discards moved into SQL. The
+      // predicates are the calculator's own, read off the same two lists the
+      // snapshot hands it, so what survives is unchanged row for row.
+      //
+      // A category id missing from [categories] stays in the result on purpose:
+      // the calculator cannot type such a row either, and treats it as spend.
+      final transferCategoryIds = categories
+          .where((c) => c.type == CategoryType.transfer && c.id != null)
+          .map((c) => c.id!)
+          .toList();
+
+      PerformanceLogger().start('Accounts: getTransactionsWithFilters');
+      final txResults = await Future.wait<Object?>([
+        _transactionRepository.getFutureSumsExact(event.date),
+        _transactionRepository.getFutureSumsExact(prevEnd),
+        // Exact integer-minor counterparts (fiat only) — used to derive
+        // drift-free balances; crypto/commodity accounts have a null
+        // amountMinor and fall back to the double sums.
+        _transactionRepository.getFutureSumsExactMinor(event.date),
+        _transactionRepository.getFutureSumsExactMinor(prevEnd),
+        _transactionRepository.getTransactionsWithFilters(
+          filters: TransactionFilters(
+            accountId: accountIds,
+            dateFrom: prevStart,
+            dateTo: period.end,
+            excludeAccountId: assetAccountIds,
+            excludeCategoryId: transferCategoryIds,
+          ),
+          limit: _allMatchingRows,
+        ),
+        if (hasAssetAccounts) ...[
+          _transactionRepository.getTransactionsWithFilters(
+            filters: TransactionFilters(accountId: assetAccountIds),
+            limit: _allMatchingRows,
+          ),
+          // Only read when something on screen is actually asset-backed: with
+          // no asset account the entries are dead weight that nothing indexes.
+          _assetRepository.getAssetData(limit: _allAssetEntries),
+        ],
+      ]);
+      await PerformanceLogger().stop('Accounts: getTransactionsWithFilters');
+      if (emit.isDone) return;
+
+      final futureSums = txResults[0] as Map<String, double>;
+      final prevFutureSums = txResults[1] as Map<String, double>;
+      final futureSumsMinor = txResults[2] as Map<String, int>;
+      final prevFutureSumsMinor = txResults[3] as Map<String, int>;
+      final periodTransactions = txResults[4] as List<Transaction>;
+
+      List<Transaction> assetTransactions = const [];
+      List<AssetDataDomain> assets = const [];
+      if (hasAssetAccounts) {
+        assetTransactions = txResults[5] as List<Transaction>;
+        assets = txResults[6] as List<AssetDataDomain>;
+        // Cost basis reads the cash leg of each trade, and that leg lives on
+        // the cash account, not the asset one. The old full-history fetch was
+        // filtered to the *displayed* accounts, so a trade paid from an account
+        // the filter or the page boundary hid contributed nothing to invested /
+        // realized — the same chase _onLoadAccounts does, for the same reason.
+        final linkedIds = assetTransactions
+            .map((t) => t.linkedTransactionId)
+            .whereType<String>()
+            .toList();
+        if (linkedIds.isNotEmpty) {
+          final linked = await _transactionRepository.getTransactionsByIds(
+            linkedIds,
+          );
+          if (emit.isDone) return;
+          assetTransactions = [...assetTransactions, ...linked];
+        }
+      }
+
+      // 2. Construct Snapshots at Target Date — each carries only the
+      // transactions the calculation reading it actually looks at.
       final snapshot = FinancialSnapshot(
         accounts: accounts,
-        transactions: allTransactions,
+        transactions: const [],
         assetData: assets,
         categories: categories, // Added
         exchangeRates: exchangeRates,
@@ -1216,14 +1595,36 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
         dateStep: currentState.dateStep,
         baseCurrency: 'EUR',
       );
+      final assetSnapshot = snapshot.copyWith(transactions: assetTransactions);
+      final periodSnapshot = snapshot.copyWith(
+        transactions: periodTransactions,
+      );
 
       PerformanceLogger().start('FinanceCalculator: Calculations');
 
-      // NOTE: Same redundancy as in _onLoadAccounts (see comment there).
-      // calculateRealBalances and calculateAssetStats internally call calculateBalances.
-
-      // 1. Nominal Balances
-      final nominalBalances = _financeCalculator.calculateBalances(snapshot);
+      // 1. Nominal Balances.
+      //    Standard accounts: storedBalance - SUM(amount strictly after the
+      //    target date), straight from SQL — the same rule calculateBalances
+      //    applies, with no history walked in Dart.
+      //    Asset accounts: still the calculator, fed only their own rows.
+      final nominalBalances = <String, double>{};
+      for (final account in accounts) {
+        if (account.assetId == null) {
+          nominalBalances[account.id!] = _nominalBalance(
+            account,
+            futureSums,
+            futureSumsMinor,
+          );
+        }
+      }
+      if (hasAssetAccounts) {
+        final assetBalances = _financeCalculator.calculateBalances(
+          assetSnapshot,
+        );
+        for (final id in assetAccountIds) {
+          nominalBalances[id] = assetBalances[id] ?? 0.0;
+        }
+      }
 
       // FIX: Force 0 balance for accounts not created yet
       for (final account in accounts) {
@@ -1260,28 +1661,25 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
         }
       }
 
-      // 3. Asset Stats (Added)
+      // 3. Asset Stats (Added) — asset accounts only, so the asset snapshot
+      // holds everything it reads.
       final assetStats = _financeCalculator.calculateAssetStats(
-        snapshot,
+        assetSnapshot,
         balances: nominalBalances,
       );
 
-      // 3. Period Stats (Current)
-      final period = snapshot.currentPeriod;
+      // 3. Period Stats (Current) — period boundaries were resolved before the
+      // fetch, and the fetch was bounded by them.
       final currentStats = _financeCalculator.calculatePeriodStats(
-        snapshot,
+        periodSnapshot,
         period,
         defaultCountry: defaultCountry,
       );
 
       // 4. Period Stats (Previous)
-      final previous = period.previousFor(currentState.dateStep);
-      final prevStart = previous.start;
-      final prevEnd = previous.end;
-
       final prevSnapshot = snapshot.copyWith(date: prevEnd);
       final prevStats = _financeCalculator.calculatePeriodStats(
-        prevSnapshot,
+        periodSnapshot.copyWith(date: prevEnd),
         DatePeriod(prevStart, prevEnd),
         defaultCountry: defaultCountry,
       );
@@ -1298,8 +1696,26 @@ class AccountsBloc extends Bloc<AccountsEvent, AccountsState>
         }
       }
 
-      // 6. Previous Period Balances
-      final prevBalances = _financeCalculator.calculateBalances(prevSnapshot);
+      // 6. Previous Period Balances — same standard/asset split as above, one
+      // cutoff earlier.
+      final prevBalances = <String, double>{};
+      for (final account in accounts) {
+        if (account.assetId == null) {
+          prevBalances[account.id!] = _nominalBalance(
+            account,
+            prevFutureSums,
+            prevFutureSumsMinor,
+          );
+        }
+      }
+      if (hasAssetAccounts) {
+        final prevAssetBalances = _financeCalculator.calculateBalances(
+          assetSnapshot.copyWith(date: prevEnd),
+        );
+        for (final id in assetAccountIds) {
+          prevBalances[id] = prevAssetBalances[id] ?? 0.0;
+        }
+      }
       final prevRealBalances = _financeCalculator.calculateRealBalances(
         prevSnapshot,
         defaultCountry: defaultCountry,

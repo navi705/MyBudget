@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:my_budget_client/core/utils/platform/platform_utils.dart';
 import 'package:archive/archive.dart';
 import 'dart:typed_data';
@@ -92,59 +93,56 @@ class SyncBinaryFormat {
   static const List<int> _header = [0x53, 0x59, 0x4E, 0x43]; // "SYNC"
   static const int _version = 1;
 
-  /// Encode changes to binary format (gzip compressed)
+  /// Encode changes to binary format (gzip compressed).
+  ///
+  /// Runs on the calling isolate. Prefer [encodeAsync] from anything the user
+  /// is waiting on — see the note there for what this costs.
   static Uint8List encode({
     required String deviceId,
     required int timestamp,
     required List<SyncChange> changes,
-  }) {
-    final builder = BytesBuilder();
+  }) => encodeSyncPacketJob(_encodeJob(deviceId, timestamp, changes));
 
-    // Header
-    builder.add(_header);
+  /// [encode] with the per-change `jsonEncode` and the gzip pass moved off the
+  /// calling isolate.
+  ///
+  /// Both are pure CPU proportional to the number of changes, and the one
+  /// caller that matters — the export the app fires while it is closing —
+  /// ran them on the UI isolate, where they block the frame loop and the
+  /// platform's teardown at the exact moment the window is trying to go away.
+  /// `compute` is a no-op wrapper on web (no isolates there), so this stays
+  /// correct on every platform and is only actually parallel where it can be.
+  static Future<Uint8List> encodeAsync({
+    required String deviceId,
+    required int timestamp,
+    required List<SyncChange> changes,
+  }) => compute(encodeSyncPacketJob, _encodeJob(deviceId, timestamp, changes));
 
-    // Version
-    builder.addByte(_version);
-
-    // Device ID (36 bytes UUID)
-    final deviceIdBytes = utf8.encode(deviceId.padRight(36).substring(0, 36));
-    builder.add(deviceIdBytes);
-
-    // Timestamp (8 bytes)
-    builder.add(_int64ToBytes(timestamp));
-
-    // Change count (4 bytes)
-    builder.add(_uint32ToBytes(changes.length));
-
-    // Changes
-    for (final change in changes) {
-      // Table ID (1 byte)
-      builder.addByte(change.tableId.value);
-
-      // Record ID (length + bytes)
-      final recordIdBytes = utf8.encode(change.recordId);
-      builder.addByte(recordIdBytes.length);
-      builder.add(recordIdBytes);
-
-      // Action (1 byte)
-      builder.addByte(change.action.value);
-
-      // Data (length + JSON bytes). The block is written for a delete too, so
-      // its clock reaches the peer; the layout is unchanged, so a build that
-      // reads only an upsert's payload steps over it exactly as before.
-      if (change.data != null) {
-        final dataBytes = utf8.encode(jsonEncode(change.data));
-        builder.add(_uint32ToBytes(dataBytes.length));
-        builder.add(dataBytes);
-      } else {
-        builder.add(_uint32ToBytes(0));
-      }
-    }
-
-    // Compress with gzip
-    final uncompressed = builder.takeBytes();
-    return Uint8List.fromList(GZipEncoder().encode(uncompressed)!);
-  }
+  /// Flattens the job into nothing but strings, ints, lists and maps.
+  ///
+  /// [SyncChange] itself would very likely survive the isolate port, but the
+  /// port's contract is about transferable *values*, and a change carries an
+  /// enum and a free-form payload map. Spelling the four fields out is one
+  /// cheap loop with no CPU in it (the encoding is what we are moving), and it
+  /// makes the boundary impossible to break by adding a field to [SyncChange]
+  /// later.
+  static Map<String, Object?> _encodeJob(
+    String deviceId,
+    int timestamp,
+    List<SyncChange> changes,
+  ) => {
+    'deviceId': deviceId,
+    'timestamp': timestamp,
+    'changes': [
+      for (final change in changes)
+        <Object?>[
+          change.tableId.value,
+          change.recordId,
+          change.action.value,
+          change.data,
+        ],
+    ],
+  };
 
   /// Decode binary format (gzip compressed)
   static SyncPacket decode(Uint8List data) {
@@ -271,4 +269,69 @@ class SyncPacket {
     required this.timestamp,
     required this.changes,
   });
+}
+
+/// Builds one gzipped packet out of the flattened job [SyncBinaryFormat] hands
+/// it.
+///
+/// Top-level, and taking a single plain-value argument, because that is what
+/// `compute` requires of an isolate entry point — it cannot start from a
+/// closure or an instance method. It is the whole of the old `encode` body,
+/// unchanged byte for byte in what it produces; the only difference is that a
+/// change now arrives as `[tableId, recordId, action, data]` instead of as a
+/// [SyncChange].
+Uint8List encodeSyncPacketJob(Map<String, Object?> job) {
+  final deviceId = job['deviceId']! as String;
+  final timestamp = job['timestamp']! as int;
+  final changes = job['changes']! as List<Object?>;
+
+  final builder = BytesBuilder();
+
+  // Header
+  builder.add(SyncBinaryFormat._header);
+
+  // Version
+  builder.addByte(SyncBinaryFormat._version);
+
+  // Device ID (36 bytes UUID)
+  final deviceIdBytes = utf8.encode(deviceId.padRight(36).substring(0, 36));
+  builder.add(deviceIdBytes);
+
+  // Timestamp (8 bytes)
+  builder.add(SyncBinaryFormat._int64ToBytes(timestamp));
+
+  // Change count (4 bytes)
+  builder.add(SyncBinaryFormat._uint32ToBytes(changes.length));
+
+  // Changes
+  for (final change in changes) {
+    final fields = change! as List<Object?>;
+
+    // Table ID (1 byte)
+    builder.addByte(fields[0]! as int);
+
+    // Record ID (length + bytes)
+    final recordIdBytes = utf8.encode(fields[1]! as String);
+    builder.addByte(recordIdBytes.length);
+    builder.add(recordIdBytes);
+
+    // Action (1 byte)
+    builder.addByte(fields[2]! as int);
+
+    // Data (length + JSON bytes). The block is written for a delete too, so
+    // its clock reaches the peer; the layout is unchanged, so a build that
+    // reads only an upsert's payload steps over it exactly as before.
+    final data = fields[3];
+    if (data != null) {
+      final dataBytes = utf8.encode(jsonEncode(data));
+      builder.add(SyncBinaryFormat._uint32ToBytes(dataBytes.length));
+      builder.add(dataBytes);
+    } else {
+      builder.add(SyncBinaryFormat._uint32ToBytes(0));
+    }
+  }
+
+  // Compress with gzip
+  final uncompressed = builder.takeBytes();
+  return Uint8List.fromList(GZipEncoder().encode(uncompressed)!);
 }

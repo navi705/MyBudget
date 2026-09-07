@@ -89,12 +89,27 @@ void main() {
     // The calendar cells are a seventh of the screen wide and hold two amounts
     // each, inside a FittedBox. A six-figure total did not overflow there — it
     // shrank, so far past its neighbours that it stopped being readable.
-    test('anything under five figures is printed in full', () {
+    test('anything under four figures is printed in full', () {
       expect(MoneyFormatter.formatCompact(0, 'EUR'), '0.00');
       expect(MoneyFormatter.formatCompact(-87.61, 'EUR'), '-87.61');
+      expect(MoneyFormatter.formatCompact(999.99, 'EUR'), '999.99');
+    });
+
+    // A month holding a salary put '+1 408.82 EUR' in a cell beside a
+    // two-figure expense, and the FittedBox shrank the pair to an unreadable
+    // size. Four figures keep every digit that matters and lose the cents.
+    test('four figures keep their digits but drop the cents', () {
+      expect(
+        MoneyFormatter.formatCompact(1408.82, 'EUR'),
+        '1${MoneyFormatter.groupSeparator}409',
+      );
+      expect(
+        MoneyFormatter.formatCompact(-1408.82, 'EUR'),
+        '-1${MoneyFormatter.groupSeparator}409',
+      );
       expect(
         MoneyFormatter.formatCompact(9999.99, 'EUR'),
-        '9${MoneyFormatter.groupSeparator}999.99',
+        '10${MoneyFormatter.groupSeparator}000',
       );
     });
 

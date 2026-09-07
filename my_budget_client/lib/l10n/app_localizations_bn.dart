@@ -1962,6 +1962,11 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
+  String smsImportDuplicateCount(Object count) {
+    return '$countটি বার্তা ইতিমধ্যে আমদানি হয়েছে';
+  }
+
+  @override
   String get smsParsingRules => 'বিশ্লেষণের নিয়ম';
 
   @override

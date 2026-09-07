@@ -121,6 +121,8 @@ class FakeCurrencyRepository implements CurrencyRepository {
   Future<List<ExchangeRateDomain>> getLatestExchangeRatesAll() =>
       throw UnimplementedError();
   @override
+  Future<List<DateTime>> getPresetRateDates() => throw UnimplementedError();
+  @override
   Future<List<ExchangeRateDomain>> getLatestExchangeRatesByList(
     List<DateTime> date, {
     Set<String>? currencyCodes,
@@ -560,6 +562,102 @@ void main() {
         mainCurrencyCode: 'USD',
       );
       expect(converted, isNull);
+    });
+  });
+
+  group('a pair that cannot be resolved', () {
+    // The user asked for local-first with a top-up only on a real miss. This
+    // is the miss: nothing polls, nothing prefetches, and a device whose
+    // stored history already answers never reaches the hook at all.
+    test('asks for the pair it could not resolve', () async {
+      final repo = FakeCurrencyRepository([]);
+      final asked = <String>[];
+      final service = CurrencyConverterService(
+        repo,
+        onRateMiss: (from, to, date) async => asked.add('$from>$to'),
+      );
+
+      final result = await service.getExchangeRate(
+        fromCurrencyCode: 'USD',
+        toCurrencyCode: 'ZZZ',
+        date: DateTime(2025, 1, 1),
+        mainCurrencyCode: 'USD',
+      );
+
+      expect(result, isNull);
+      expect(asked, ['USD>ZZZ']);
+    });
+
+    test('a resolved pair asks for nothing', () async {
+      final target = DateTime(2025, 4, 1);
+      final repo = FakeCurrencyRepository([_rate('USD', 'EUR', 0.9, target)]);
+      var asked = 0;
+      final service = CurrencyConverterService(
+        repo,
+        onRateMiss: (from, to, date) async => asked++,
+      );
+
+      await service.getExchangeRate(
+        fromCurrencyCode: 'USD',
+        toCurrencyCode: 'EUR',
+        date: target,
+        mainCurrencyCode: 'USD',
+      );
+
+      expect(asked, 0);
+    });
+
+    test('the answer is not held up by the fetch', () async {
+      // The caller is a conversion in a render path: awaiting a network round
+      // trip there would stall the frame for every row that misses.
+      final repo = FakeCurrencyRepository([]);
+      final blocked = Completer<void>();
+      final service = CurrencyConverterService(
+        repo,
+        onRateMiss: (from, to, date) => blocked.future,
+      );
+
+      await expectLater(
+        service.getExchangeRate(
+          fromCurrencyCode: 'USD',
+          toCurrencyCode: 'ZZZ',
+          date: DateTime(2025, 1, 1),
+          mainCurrencyCode: 'USD',
+        ),
+        completes,
+      );
+      blocked.complete();
+    });
+
+    test('a rate arriving later is picked up rather than staying cached',
+        () async {
+      // The miss is cached as "no rate". The write that the fetch makes is
+      // what clears it - without that the screen keeps its blank forever.
+      final target = DateTime(2025, 4, 1);
+      final repo = FakeCurrencyRepository([]);
+      final service = CurrencyConverterService(repo);
+
+      expect(
+        await service.getExchangeRate(
+          fromCurrencyCode: 'USD',
+          toCurrencyCode: 'EUR',
+          date: target,
+          mainCurrencyCode: 'USD',
+        ),
+        isNull,
+      );
+
+      repo.rates.add(_rate('USD', 'EUR', 0.9, target));
+      repo.emitRateChange();
+      await Future<void>.delayed(Duration.zero);
+
+      final second = await service.getExchangeRate(
+        fromCurrencyCode: 'USD',
+        toCurrencyCode: 'EUR',
+        date: target,
+        mainCurrencyCode: 'USD',
+      );
+      expect(second?.rate, 0.9);
     });
   });
 }

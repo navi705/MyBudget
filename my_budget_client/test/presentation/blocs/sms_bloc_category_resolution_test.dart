@@ -9,6 +9,7 @@
 // this path reads each message once and never comes back to it.
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_budget_client/domain/entities/account.dart';
 import 'package:my_budget_client/domain/entities/category.dart';
@@ -67,6 +68,28 @@ class _FakeTransactionRepository extends Fake implements TransactionRepository {
   Future<void> addTransaction(Transaction transaction) async {
     added.add(transaction);
   }
+
+  /// Backs the bloc's "have I written this message already?" check, and stands
+  /// in for the primary key: adding the same id twice would be refused by the
+  /// real table.
+  @override
+  Future<Transaction?> getTransactionById(String id) async =>
+      added.firstWhereOrNull((t) => t.id == id);
+
+  /// Mirrors the second duplicate guard's SQL: rows on the same account at the
+  /// same instant that this import did not write itself.
+  @override
+  Future<Transaction?> findExistingImportedTransaction({
+    required String accountId,
+    required DateTime date,
+    required double amount,
+  }) async => added.firstWhereOrNull(
+    (t) =>
+        !(t.id ?? '').startsWith('sms') &&
+        t.accountId == accountId &&
+        t.date == date &&
+        (t.amount - amount).abs() < 0.005,
+  );
 
   @override
   Stream<void> watchTransactionChanges() => const Stream.empty();

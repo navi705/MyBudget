@@ -802,6 +802,137 @@ void main() {
     );
   });
 
+  group('undoing an account delete', () {
+    // What Undo on the accounts screen runs: the ids the delete returned are
+    // handed straight back to restoreAccount. Restoring the account row alone
+    // gave the user the account back empty.
+    setUp(() async {
+      await repo.addAccount(account('a'));
+      await repo.addAccount(account('b'));
+      await insertTransaction(
+        'out',
+        -100,
+        accountId: 'a',
+        linkedTransactionId: 'in',
+      );
+      await insertTransaction(
+        'in',
+        100,
+        accountId: 'b',
+        linkedTransactionId: 'out',
+      );
+    });
+
+    test('brings back the transactions the delete took with it', () async {
+      final deleted = await repo.deleteAccountWithTransactions('a');
+      expect(deleted, containsAll(['out', 'in']));
+
+      await repo.restoreAccount(
+        account('a', balance: -100),
+        tombstonedTransactionIds: deleted,
+      );
+
+      final live = await (db.select(
+        db.transactions,
+      )..where((t) => t.isDeleted.equals(false))).get();
+      expect(live.map((t) => t.id), containsAll(['out', 'in']));
+    });
+
+    test('gives the counterpart account its leg back', () async {
+      // Deleting a took the +100 leg off b; Undo has to put the money back or
+      // b keeps showing a balance its own history no longer explains.
+      final deleted = await repo.deleteAccountWithTransactions('a');
+      await repo.restoreAccount(
+        account('a', balance: -100),
+        tombstonedTransactionIds: deleted,
+      );
+
+      final b = await row('b');
+      expect(b.balance, 100.0);
+      expect(b.balanceMinor, 10000);
+    });
+
+    test('the restored account keeps the anchor its balance implies', () async {
+      // anchorOpeningBalances derives the opening balance from the balance
+      // minus the live transactions, so the transactions have to be back
+      // before the account row is written - otherwise the -100 is counted
+      // twice and the account opens at -100 that never existed.
+      final deleted = await repo.deleteAccountWithTransactions('a');
+      await repo.restoreAccount(
+        account('a', balance: -100),
+        tombstonedTransactionIds: deleted,
+      );
+
+      final restored = await row('a');
+      expect(restored.isDeleted, isFalse);
+      expect(restored.balance, -100.0);
+      expect(restored.openingBalance, 0.0);
+    });
+
+    test('a transaction deleted before the account stays deleted', () async {
+      await insertTransaction('older', -5, accountId: 'a');
+      await (db.update(db.transactions)..where((t) => t.id.equals('older')))
+          .write(const TransactionsCompanion(isDeleted: Value(true)));
+
+      final deleted = await repo.deleteAccountWithTransactions('a');
+      expect(deleted, isNot(contains('older')));
+
+      await repo.restoreAccount(
+        account('a', balance: -100),
+        tombstonedTransactionIds: deleted,
+      );
+
+      final older = await (db.select(
+        db.transactions,
+      )..where((t) => t.id.equals('older'))).getSingle();
+      expect(older.isDeleted, isTrue);
+    });
+
+    test('the restore is logged so peers see it too', () async {
+      final deleted = await repo.deleteAccountWithTransactions('a');
+      await db.delete(db.syncLog).go();
+
+      await repo.restoreAccount(
+        account('a', balance: -100),
+        tombstonedTransactionIds: deleted,
+      );
+
+      // Nothing was logged at all before this: Undo was invisible to sync, so
+      // the next pull brought the delete straight back.
+      expect(
+        (await logsFor(
+          'accounts',
+        )).where((l) => l.action == 'upsert').map((l) => l.recordId),
+        contains('a'),
+      );
+      expect(
+        (await logsFor(
+          'transactions',
+        )).where((l) => l.action == 'upsert').map((l) => l.recordId),
+        containsAll(['out', 'in']),
+      );
+    });
+
+    test('undoing a reassign brings the transactions home', () async {
+      final moved = await repo.deleteAccountAndReassignTransactions('a', 'b');
+      expect(moved, contains('out'));
+
+      await repo.restoreAccount(
+        account('a', balance: -100),
+        movedTransactionIds: moved,
+      );
+
+      final out = await (db.select(
+        db.transactions,
+      )..where((t) => t.id.equals('out'))).getSingle();
+      expect(out.accountId, 'a');
+      // b took the -100 with the reassign and gives it back with the undo,
+      // leaving it with the +100 leg it started with.
+      final b = await row('b');
+      expect(b.balance, 100.0);
+    });
+  });
+
   group('account types', () {
     test(
       'a soft-deleted account type is not returned by getAccountTypes',

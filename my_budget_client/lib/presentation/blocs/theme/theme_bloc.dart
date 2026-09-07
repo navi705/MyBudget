@@ -25,7 +25,19 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     required ThemeRepository themeRepository,
   }) : _settingsRepository = settingsRepository,
        _themeRepository = themeRepository,
-       super(const ThemeState()) {
+       // Start on the built-in fallback rather than on nothing.
+       //
+       // The app shell paints a bare spinner for as long as `activeTheme` is
+       // null, and that wait is three database round-trips long - after the
+       // native splash has already been torn down, so the launch read as
+       // splash, spinner, app. A theme good enough to paint with is known
+       // synchronously, so there is no reason for a single frame of the app to
+       // be unpaintable. `isLoaded` stays false: it now means "the saved theme
+       // has been read", which is still what the window-effect listener and
+       // the settings screen need to wait for.
+       super(
+         ThemeState(activeTheme: _fallbackTheme, presets: defaultThemePresets),
+       ) {
     on<LoadThemeSettings>(_onLoadThemeSettings);
     on<SelectThemePreset>(_onSelectThemePreset);
     on<SaveThemePreset>(_onSaveThemePreset);
@@ -38,7 +50,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
   /// Mirrors the first-run choice further down, so a user whose theme fails to
   /// load sees the same defaults a fresh install would rather than an
   /// arbitrary preset.
-  CustomTheme get _fallbackTheme {
+  static CustomTheme get _fallbackTheme {
     final wantsDark =
         PlatformDispatcher.instance.platformBrightness == Brightness.dark;
     return defaultThemePresets.firstWhere(
@@ -95,8 +107,17 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
   }
 
   Future<ThemeState> _loadThemeSettings() async {
-    // 1. Check if we have any themes
-    List<CustomTheme> themes = await _themeRepository.getAllThemes();
+    // 1. The theme list and the active row are two independent queries, and
+    //    they used to be awaited one after the other - two full round-trips to
+    //    the database isolate stacked in front of the first real frame. Neither
+    //    reads the other's answer, so the wait is only as long as the slower
+    //    one.
+    final reads = await Future.wait([
+      _themeRepository.getAllThemes(),
+      _themeRepository.getActiveTheme(),
+    ]);
+    List<CustomTheme> themes = reads[0] as List<CustomTheme>;
+    CustomTheme? activeTheme = reads[1] as CustomTheme?;
 
     // 2. Seed default presets if none exist
     if (themes.isEmpty) {
@@ -106,8 +127,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
       themes = await _themeRepository.getAllThemes();
     }
 
-    // 3. Get active theme
-    CustomTheme? activeTheme = await _themeRepository.getActiveTheme();
+    // 3. Active theme (read above, alongside the list)
     debugPrint(
       '[THEME_DEBUG] Loaded activeTheme from repo: ${activeTheme?.id}',
     );

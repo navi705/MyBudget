@@ -16,7 +16,18 @@ class CurrencyConverterService {
 
   StreamSubscription<void>? _ratesChangedSub;
 
-  CurrencyConverterService(this._currencyRepository) {
+  /// Asked for a pair this service could not resolve from what is stored.
+  ///
+  /// Optional, and null in every test and on any device with no server: a
+  /// conversion that cannot be made still answers null the way it always did,
+  /// this only gives the app a chance to have the rate next time.
+  final Future<void> Function(String from, String to, DateTime date)?
+  _onRateMiss;
+
+  CurrencyConverterService(
+    this._currencyRepository, {
+    Future<void> Function(String from, String to, DateTime date)? onRateMiss,
+  }) : _onRateMiss = onRateMiss {
     // The cache is only sound while the underlying rate table is unchanged.
     // Adding a manual rate, importing history or refreshing from an API all
     // write to exchange_rates — drop the cache so the next lookup re-reads.
@@ -200,6 +211,16 @@ class CurrencyConverterService {
         date: bestDate!,
         preset: preset,
       );
+    }
+    if (result == null) {
+      // Deliberately not awaited: this runs once per row of a list being
+      // built, and a network round trip in that path would stall the frame.
+      // The fetch writes to exchange_rates, that write clears this cache
+      // through the subscription above, and the screen re-reads.
+      final onMiss = _onRateMiss;
+      if (onMiss != null) {
+        unawaited(onMiss(fromCurrencyCode, toCurrencyCode, date));
+      }
     }
     if (_cache.length >= _maxCacheSize) {
       _cache.remove(_cache.keys.first);

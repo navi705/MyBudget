@@ -1962,6 +1962,11 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String smsImportDuplicateCount(Object count) {
+    return 'تم استيراد $count رسالة بالفعل';
+  }
+
+  @override
   String get smsParsingRules => 'قواعد التحليل';
 
   @override

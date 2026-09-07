@@ -23,12 +23,26 @@ abstract class AccountRepository {
   Future<void> updateAccount(Account account);
   Future<void> deleteAccount(String id);
   Future<void> deleteMultipleAccounts(List<String> accountIds);
-  Future<void> deleteAccountWithTransactions(String accountId);
-  Future<void> deleteAccountAndReassignTransactions(
+
+  /// Deletes [accountId] with everything booked on it, returning the ids of
+  /// the transactions that went with it so [restoreAccount] can undo it.
+  Future<List<String>> deleteAccountWithTransactions(String accountId);
+
+  /// Deletes [accountId] after moving its transactions to [newAccountId],
+  /// returning the ids that moved so [restoreAccount] can undo it.
+  Future<List<String>> deleteAccountAndReassignTransactions(
     String accountId,
     String newAccountId,
   );
-  Future<void> restoreAccount(Account account);
+
+  /// Restores [account] together with the transactions a delete took with it:
+  /// [tombstonedTransactionIds] were soft deleted, [movedTransactionIds] were
+  /// handed to another account. Both come from the delete that is being undone.
+  Future<void> restoreAccount(
+    Account account, {
+    List<String> tombstonedTransactionIds,
+    List<String> movedTransactionIds,
+  });
   Future<Map<String, double>> getBalancesAtDate(DateTime date);
   Future<int> getCountWithFilters({List<String>? accountTypeIds});
 

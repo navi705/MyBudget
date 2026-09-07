@@ -45,6 +45,7 @@ import 'package:my_budget_client/domain/services/currency_converter_service.dart
 
 import 'package:my_budget_client/core/services/startup_sync_service.dart';
 import 'package:my_budget_client/core/services/custom_api_service.dart';
+import 'package:my_budget_client/core/services/server_rate_service.dart';
 import 'package:my_budget_client/core/services/server_sync_service.dart';
 
 import '../../data/repositories/local_db/local_account_repository.dart';
@@ -165,12 +166,26 @@ Future<void> init() async {
     () => ServerSyncService(database: sl(), settingsRepository: sl()),
   );
   sl.registerLazySingleton(() => FinanceCalculator());
-  sl.registerLazySingleton(() => CurrencyConverterService(sl()));
+  sl.registerLazySingleton(
+    () => CurrencyConverterService(
+      sl(),
+      // Resolved at call time, not here: the converter is built early and the
+      // rate service is not, and nothing in the rate service points back at
+      // the converter, so there is no cycle to break - only an ordering to
+      // avoid depending on.
+      onRateMiss: (from, to, date) => sl<ExchangeRateApiService>()
+          .fillMissingRates(currencyCodes: [from, to], date: date),
+    ),
+  );
+  sl.registerLazySingleton(
+    () => ServerRateService(settingsRepository: sl()),
+  );
   sl.registerLazySingleton(
     () => ExchangeRateApiService(
       sl<AppDatabase>().exchangeRatesDao,
       sl<AppDatabase>().apiFetchStatusesDao,
       sl<AppDatabase>().currenciesDao,
+      serverRates: sl<ServerRateService>(),
     ),
   );
   sl.registerLazySingleton(

@@ -3705,6 +3705,12 @@ abstract class AppLocalizations {
   /// **'Success: {count} transactions imported'**
   String smsImportSuccessCount(Object count);
 
+  /// No description provided for @smsImportDuplicateCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} message(s) already imported'**
+  String smsImportDuplicateCount(Object count);
+
   /// No description provided for @smsParsingRules.
   ///
   /// In en, this message translates to:

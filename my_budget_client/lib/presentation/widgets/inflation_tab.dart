@@ -36,7 +36,7 @@ class _InflationTabContent extends StatelessWidget {
     final bloc = context.read<InflationBloc>();
     final l10n = context.l10n;
     final percentController = TextEditingController(
-      text: rate?.percent.toString() ?? '',
+      text: decimalFieldText(rate?.percent),
     );
     String? selectedCountry = rate?.country;
     String? percentError;

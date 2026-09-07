@@ -406,7 +406,7 @@ class _ExchangeRatesViewState extends State<_ExchangeRatesView> {
     String fromCurrency = existingRate?.fromCurrencyCode ?? 'EUR';
     String? toCurrency = existingRate?.toCurrencyCode;
     final rateController = TextEditingController(
-      text: existingRate != null ? existingRate.rate.toString() : '',
+      text: decimalFieldText(existingRate?.rate),
     );
     final presetController = TextEditingController(
       text: existingRate != null ? existingRate.preset.toString() : '1',

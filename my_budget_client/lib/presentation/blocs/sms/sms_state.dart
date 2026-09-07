@@ -16,6 +16,15 @@ class SmsState extends Equatable {
   /// write can no longer be reported to the user as a successful import.
   final int failedTransactionsCount;
 
+  /// Messages that were already imported by an earlier run and so wrote
+  /// nothing this time.
+  ///
+  /// Its own counter rather than part of [failedTransactionsCount]: re-running
+  /// "All time" over an inbox that has already been imported is a normal thing
+  /// to do, and without this the screen reports the whole run as zero and
+  /// leaves the user unable to tell "nothing new" from "nothing worked".
+  final int duplicateTransactionsCount;
+
   const SmsState({
     this.isLoading = false,
     this.hasPermission = false,
@@ -27,6 +36,7 @@ class SmsState extends Equatable {
     this.lastSyncTimestamp,
     this.createdTransactionsCount = 0,
     this.failedTransactionsCount = 0,
+    this.duplicateTransactionsCount = 0,
   });
 
   SmsState copyWith({
@@ -40,6 +50,7 @@ class SmsState extends Equatable {
     DateTime? lastSyncTimestamp,
     int? createdTransactionsCount,
     int? failedTransactionsCount,
+    int? duplicateTransactionsCount,
   }) {
     return SmsState(
       isLoading: isLoading ?? this.isLoading,
@@ -54,6 +65,8 @@ class SmsState extends Equatable {
           createdTransactionsCount ?? this.createdTransactionsCount,
       failedTransactionsCount:
           failedTransactionsCount ?? this.failedTransactionsCount,
+      duplicateTransactionsCount:
+          duplicateTransactionsCount ?? this.duplicateTransactionsCount,
     );
   }
 
@@ -69,5 +82,6 @@ class SmsState extends Equatable {
     lastSyncTimestamp,
     createdTransactionsCount,
     failedTransactionsCount,
+    duplicateTransactionsCount,
   ];
 }

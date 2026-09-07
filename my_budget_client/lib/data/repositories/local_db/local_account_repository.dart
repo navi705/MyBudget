@@ -75,8 +75,16 @@ class LocalAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<void> restoreAccount(Account account) async {
-    await database.accountsDao.restoreAccount(account.toCompanion());
+  Future<void> restoreAccount(
+    Account account, {
+    List<String> tombstonedTransactionIds = const [],
+    List<String> movedTransactionIds = const [],
+  }) async {
+    await database.accountsDao.restoreAccount(
+      account.toCompanion(),
+      tombstonedTransactionIds: tombstonedTransactionIds,
+      movedTransactionIds: movedTransactionIds,
+    );
   }
 
   @override
@@ -123,18 +131,20 @@ class LocalAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<void> deleteAccountWithTransactions(String accountId) async {
+  Future<List<String>> deleteAccountWithTransactions(String accountId) async {
     debugPrint(
       '[LocalRepo] Requesting deleteAccountWithTransactions for $accountId',
     );
-    await database.accountsDao.deleteAccountWithTransactions(accountId);
+    final deletedTxIds = await database.accountsDao
+        .deleteAccountWithTransactions(accountId);
     debugPrint(
       '[LocalRepo] Finished deleteAccountWithTransactions for $accountId',
     );
+    return deletedTxIds;
   }
 
   @override
-  Future<void> deleteAccountAndReassignTransactions(
+  Future<List<String>> deleteAccountAndReassignTransactions(
     String accountId,
     String newAccountId,
   ) {

@@ -140,6 +140,34 @@ class ServerSyncService {
   /// Upper bound on back-to-back passes inside one [sync] call.
   static const int _maxSyncPasses = 3;
 
+  /// How long the WebSocket handshake gets before the dial is written off.
+  ///
+  /// `WebSocketChannel.ready` has no timeout of its own, so a proxy that
+  /// accepts the TCP connection and then never answers the upgrade left the
+  /// dial suspended for as long as the OS was willing to hold the socket —
+  /// with `_isConnecting` latched true the whole time, which is what
+  /// [initWebSocket] and [_connectWebSocket] refuse to dial over. The ladder
+  /// could not fire either, because nothing had failed yet.
+  static const Duration _handshakeTimeout = Duration(seconds: 20);
+
+  /// Whether the last completed [sync] threw.
+  ///
+  /// Read by the catch-up sync a successful handshake fires: a server that is
+  /// flapping produces a reconnect every few seconds, and each one used to
+  /// drag a full pull-and-push behind it. When the previous cycle already
+  /// failed there is no reason to believe this one will not, and the 5-minute
+  /// fallback timer is still there to find out — so the catch-up is skipped
+  /// until a cycle succeeds again.
+  bool _lastSyncFailed = false;
+
+  /// The tables whose upload failed in the most recent [_push], for diagnostics.
+  ///
+  /// A push no longer stops at the first table the server refuses, so "the push
+  /// failed" is no longer the whole story: this says which part of it did.
+  @visibleForTesting
+  Set<String> get lastPushFailures => Set.unmodifiable(_lastPushFailures);
+  Set<String> _lastPushFailures = const {};
+
   /// Consecutive failed WebSocket connection attempts, for exponential backoff.
   int _reconnectAttempts = 0;
   Timer? _reconnectTimer;
@@ -343,8 +371,10 @@ class ServerSyncService {
           'leaving the rest to the next trigger.',
         );
       }
+      _lastSyncFailed = false;
     } catch (e) {
       debugPrint('[ServerSync] Sync cycle error: $e');
+      _lastSyncFailed = true;
       rethrow;
     } finally {
       _isSyncingInternal = false;
@@ -503,7 +533,7 @@ class ServerSyncService {
       // reset is armed instead, and only a connection that survives
       // [_connectionStabilityWindow] gets to fire it — onDone and onError
       // cancel it above.
-      await _channel!.ready;
+      await _channel!.ready.timeout(_handshakeTimeout);
       debugPrint('[WS_CLIENT] Stream listener registered, connection active');
 
       // The socket can die between the listener registering and `ready`
@@ -523,11 +553,25 @@ class ServerSyncService {
       // doorbell for changes made WHILE a client is listening. Without this
       // catch-up pull, anything that changed during the outage waited for the
       // 5-minute fallback timer.
-      unawaited(
-        sync().catchError(
-          (Object e) => debugPrint('[WS_CLIENT] Reconnect sync failed: $e'),
-        ),
-      );
+      //
+      // Unless the last cycle failed. A flapping server reconnects every few
+      // seconds, and each reconnect used to launch a whole pull-and-push that
+      // was going to fail exactly the way the previous one did — a full
+      // 20,000-row page and the entire push queue, per flap. Nothing is lost by
+      // waiting: the fallback timer runs the same cycle five minutes later, and
+      // a cycle that succeeds re-arms this one.
+      if (_lastSyncFailed) {
+        debugPrint(
+          '[WS_CLIENT] Skipping the catch-up sync — the previous cycle '
+          'failed. The 5-minute fallback timer will retry it.',
+        );
+      } else {
+        unawaited(
+          sync().catchError(
+            (Object e) => debugPrint('[WS_CLIENT] Reconnect sync failed: $e'),
+          ),
+        );
+      }
     } catch (e) {
       _pingTimer?.cancel();
       _pingTimer = null;
@@ -699,81 +743,89 @@ class ServerSyncService {
     debugPrint('[ServerSync] Initializing DB Auto-Sync...');
     await _dbSubscription?.cancel();
 
-    // Listen to all table updates
-    _dbSubscription = _database.tableUpdates().listen((updates) {
-      // 1. Loop protection: rows we just wrote during a pull echo back through
-      // this same stream. Ignore only THOSE — the old check ignored everything
-      // for the whole sync cycle, so a user edit made while a sync was running
-      // was dropped and waited up to 5 minutes for the fallback timer.
-      if (_isApplyingRemoteChanges) return;
+    // Subscribe to exactly the tables that can trigger a sync, and let drift
+    // do the filtering.
+    //
+    // This used to be an unfiltered `tableUpdates()` with the same list applied
+    // in Dart below. Drift runs on a background isolate, so every single write
+    // to every single table — the push queue's own bookkeeping, the sync log,
+    // the processed-file markers, the seeding of ~367k exchange rates — was
+    // serialised across the isolate port and woken up here only to be thrown
+    // away. Naming the tables means the notification is never sent at all.
+    //
+    // The list is the Dart filter's list, verbatim: `custom_themes` is
+    // deliberately absent from both, and adding it here would start syncing on
+    // a table that never used to trigger one.
+    _dbSubscription = _database
+        .tableUpdates(
+          drift_db.TableUpdateQuery.onAllTables([
+            _database.transactions,
+            _database.accounts,
+            _database.categories,
+            _database.settings,
+            _database.styles,
+            _database.currencies,
+            _database.languages,
+            _database.accountTypes,
+            _database.assetEntries,
+            _database.customDataSources,
+            _database.smsPresets,
+            _database.apiSettingsTable,
+            _database.currencyDesignations,
+            _database.exchangeRates,
+            _database.inflationRates,
+          ]),
+        )
+        .listen((updates) {
+          // Loop protection: rows we just wrote during a pull echo back
+          // through this same stream. Ignore only THOSE — the old check
+          // ignored everything for the whole sync cycle, so a user edit made
+          // while a sync was running was dropped and waited up to 5 minutes
+          // for the fallback timer.
+          if (_isApplyingRemoteChanges) return;
 
-      // 2. Filter: Only trigger for data tables (ignore logs/metadata if any)
-      final relevantTables = {
-        'transactions',
-        'accounts',
-        'categories',
-        'settings',
-        'styles',
-        'currencies',
-        'languages',
-        'account_types',
-        'asset_entries',
-        'custom_data_sources',
-        'sms_presets',
-        'api_settings_table',
-        'currency_designations',
-        'exchange_rates',
-        'inflation_rates',
-      };
-
-      final hasRelevantChanges = updates.any(
-        (u) => relevantTables.contains(u.table),
-      );
-
-      if (hasRelevantChanges) {
-        // 3. Debounce
-        if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-        _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
-          debugPrint(
-            '[ServerSync] Auto-sync triggered by DB changes: ${updates.map((e) => e.table).join(', ')}',
-          );
-          try {
-            await sync();
-          } on SyncAuthException catch (e) {
-            // No retry: the same token will be refused again in thirty
-            // seconds, and again five minutes later. Retrying only buries the
-            // one line that says what is actually wrong under a repeating
-            // failure the user cannot distinguish from a flaky network.
+          // Debounce
+          if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+          _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
             debugPrint(
-              '[ServerSync] Auto-sync refused by the server (${e.status.name}). '
-              'Not retrying — check the sync token in Settings.',
+              '[ServerSync] Auto-sync triggered by DB changes: ${updates.map((e) => e.table).join(', ')}',
             );
-          } catch (e) {
-            debugPrint(
-              '[ServerSync] Auto-sync failed: $e. Scheduling retry...',
-            );
-            // Simple retry mechanism: try again in 30 seconds if it failed
-            // We check _isEnabled again just in case the user disabled it in the meantime
-            if (await _isEnabled() &&
-                await _getBaseUrl() != null &&
-                !_isDisposed) {
-              // Held in a field so stop()/dispose() can cancel it — the bare
-              // Timer here used to outlive teardown and fire a sync against a
-              // service the app had already torn down.
-              _retryTimer?.cancel();
-              _retryTimer = Timer(
-                const Duration(seconds: 30),
-                () => unawaited(
-                  sync().catchError(
-                    (Object e) => debugPrint('[ServerSync] Retry failed: $e'),
-                  ),
-                ),
+            try {
+              await sync();
+            } on SyncAuthException catch (e) {
+              // No retry: the same token will be refused again in thirty
+              // seconds, and again five minutes later. Retrying only buries the
+              // one line that says what is actually wrong under a repeating
+              // failure the user cannot distinguish from a flaky network.
+              debugPrint(
+                '[ServerSync] Auto-sync refused by the server (${e.status.name}). '
+                'Not retrying — check the sync token in Settings.',
               );
+            } catch (e) {
+              debugPrint(
+                '[ServerSync] Auto-sync failed: $e. Scheduling retry...',
+              );
+              // Simple retry mechanism: try again in 30 seconds if it failed
+              // We check _isEnabled again just in case the user disabled it in the meantime
+              if (await _isEnabled() &&
+                  await _getBaseUrl() != null &&
+                  !_isDisposed) {
+                // Held in a field so stop()/dispose() can cancel it — the bare
+                // Timer here used to outlive teardown and fire a sync against a
+                // service the app had already torn down.
+                _retryTimer?.cancel();
+                _retryTimer = Timer(
+                  const Duration(seconds: 30),
+                  () => unawaited(
+                    sync().catchError(
+                      (Object e) => debugPrint('[ServerSync] Retry failed: $e'),
+                    ),
+                  ),
+                );
+              }
             }
-          }
+          });
         });
-      }
-    });
 
     // Periodic fallback timer: sync every 5 minutes regardless of DB changes or
     // WebSocket notifications, to catch any missed updates.
@@ -1014,168 +1066,238 @@ class ServerSyncService {
 
     debugPrint('[ServerSync] Starting queued push up to entry $ceiling...');
 
-    try {
-      await _pushQueuedTable(
+    // Parents first, then the tables that reference them: a child uploaded
+    // before its parent is refused by the server's foreign keys.
+    final jobs = <(String, Future<void> Function())>[
+      (
         'languages',
-        'languages',
-        _database.languages,
-        (l) => {
-          'languageCode': l.languageCode,
-          'language': l.language,
-          'modifiedAt': l.modifiedAt,
-          'deviceId': l.deviceId,
-        },
-        ceiling,
-      );
-
-      await _pushQueuedTable(
+        () => _pushQueuedTable(
+          'languages',
+          'languages',
+          _database.languages,
+          (l) => {
+            'languageCode': l.languageCode,
+            'language': l.language,
+            'modifiedAt': l.modifiedAt,
+            'deviceId': l.deviceId,
+          },
+          ceiling,
+        ),
+      ),
+      (
         'currencies',
-        'currencies',
-        _database.currencies,
-        (c) => {
-          'code': c.code,
-          'name': c.name,
-          'languageCode': c.languageCode,
-          'type': c.type.index,
-          'modifiedAt': c.modifiedAt,
-          'deviceId': c.deviceId,
-        },
-        ceiling,
-      );
-
-      await _pushQueuedTable(
+        () => _pushQueuedTable(
+          'currencies',
+          'currencies',
+          _database.currencies,
+          (c) => {
+            'code': c.code,
+            'name': c.name,
+            'languageCode': c.languageCode,
+            'type': c.type.index,
+            'modifiedAt': c.modifiedAt,
+            'deviceId': c.deviceId,
+          },
+          ceiling,
+        ),
+      ),
+      (
         'settings',
-        'settings',
-        _database.settings,
-        _settingToJson,
-        ceiling,
-        // The entries for these are still drained, only their rows are never
-        // uploaded: a filter that skipped the entries too would leave them in
-        // the queue forever, re-read on every push and counted as a backlog
-        // that no amount of syncing could clear.
-        rowFilter:
-            'key NOT IN (${_deviceLocalSettingKeys.map((k) => "'$k'").join(', ')})',
-      );
-
-      await _pushQueuedTable(
+        () => _pushQueuedTable(
+          'settings',
+          'settings',
+          _database.settings,
+          _settingToJson,
+          ceiling,
+          // The entries for these are still drained, only their rows are never
+          // uploaded: a filter that skipped the entries too would leave them in
+          // the queue forever, re-read on every push and counted as a backlog
+          // that no amount of syncing could clear.
+          rowFilter:
+              'key NOT IN (${_deviceLocalSettingKeys.map((k) => "'$k'").join(', ')})',
+        ),
+      ),
+      (
         'api_settings_table',
-        'api_settings',
-        _database.apiSettingsTable,
-        _apiSettingsToJson,
-        ceiling,
-      );
-
-      await _pushQueuedTable(
+        () => _pushQueuedTable(
+          'api_settings_table',
+          'api_settings',
+          _database.apiSettingsTable,
+          _apiSettingsToJson,
+          ceiling,
+        ),
+      ),
+      (
         'styles',
-        'styles',
-        _database.styles,
-        _styleToJson,
-        ceiling,
-      );
-
-      await _pushQueuedTable(
+        () => _pushQueuedTable(
+          'styles',
+          'styles',
+          _database.styles,
+          _styleToJson,
+          ceiling,
+        ),
+      ),
+      (
         'custom_themes',
-        'custom_themes',
-        _database.customThemes,
-        _customThemeToJson,
-        ceiling,
-      );
-
-      await _pushQueuedTable(
+        () => _pushQueuedTable(
+          'custom_themes',
+          'custom_themes',
+          _database.customThemes,
+          _customThemeToJson,
+          ceiling,
+        ),
+      ),
+      (
         'account_types',
-        'account_types',
-        _database.accountTypes,
-        _accountTypeToJson,
-        ceiling,
-      );
-
-      await _pushQueuedTable(
+        () => _pushQueuedTable(
+          'account_types',
+          'account_types',
+          _database.accountTypes,
+          _accountTypeToJson,
+          ceiling,
+        ),
+      ),
+      (
         'currency_designations',
-        'currency_designations',
-        _database.currencyDesignations,
-        _currencyDesignationToJson,
-        ceiling,
-      );
-
-      await _pushQueuedTable(
+        () => _pushQueuedTable(
+          'currency_designations',
+          'currency_designations',
+          _database.currencyDesignations,
+          _currencyDesignationToJson,
+          ceiling,
+        ),
+      ),
+      (
         'categories',
-        'categories',
-        _database.categories,
-        _categoryToJson,
-        ceiling,
-      );
-
-      await _pushQueuedTable(
+        () => _pushQueuedTable(
+          'categories',
+          'categories',
+          _database.categories,
+          _categoryToJson,
+          ceiling,
+        ),
+      ),
+      (
         'exchange_rates',
-        'exchange_rates',
-        _database.exchangeRates,
-        _exchangeRateToJson,
-        ceiling,
-      );
-
-      await _pushQueuedTable(
+        () => _pushQueuedTable(
+          'exchange_rates',
+          'exchange_rates',
+          _database.exchangeRates,
+          _exchangeRateToJson,
+          ceiling,
+        ),
+      ),
+      (
         'inflation_rates',
-        'inflation_rates',
-        _database.inflationRates,
-        _inflationRateToJson,
-        ceiling,
-      );
-
-      await _pushQueuedTable(
+        () => _pushQueuedTable(
+          'inflation_rates',
+          'inflation_rates',
+          _database.inflationRates,
+          _inflationRateToJson,
+          ceiling,
+        ),
+      ),
+      (
         'custom_data_sources',
-        'custom_data_sources',
-        _database.customDataSources,
-        _customDataSourceToJson,
-        ceiling,
-      );
-
-      await _pushQueuedTable(
+        () => _pushQueuedTable(
+          'custom_data_sources',
+          'custom_data_sources',
+          _database.customDataSources,
+          _customDataSourceToJson,
+          ceiling,
+        ),
+      ),
+      (
         'sms_presets',
-        'sms_presets',
-        _database.smsPresets,
-        _smsPresetToJson,
-        ceiling,
-      );
-
+        () => _pushQueuedTable(
+          'sms_presets',
+          'sms_presets',
+          _database.smsPresets,
+          _smsPresetToJson,
+          ceiling,
+        ),
+      ),
       // Dependent Tables
-      await _pushQueuedTable(
+      (
         'accounts',
-        'accounts',
-        _database.accounts,
-        _accountToJson,
-        ceiling,
-      );
-
-      await _pushQueuedTable(
+        () => _pushQueuedTable(
+          'accounts',
+          'accounts',
+          _database.accounts,
+          _accountToJson,
+          ceiling,
+        ),
+      ),
+      (
         'asset_entries',
-        'asset_entries',
-        _database.assetEntries,
-        _assetEntryToJson,
-        ceiling,
-      );
-
-      await _pushQueuedTable(
+        () => _pushQueuedTable(
+          'asset_entries',
+          'asset_entries',
+          _database.assetEntries,
+          _assetEntryToJson,
+          ceiling,
+        ),
+      ),
+      (
         'transactions',
-        'transactions',
-        _database.transactions,
-        _transactionToJson,
-        ceiling,
-      );
+        () => _pushQueuedTable(
+          'transactions',
+          'transactions',
+          _database.transactions,
+          _transactionToJson,
+          ceiling,
+        ),
+      ),
+    ];
 
-      // No watermark is written. `server_last_push_timestamp` is gone from
-      // every read path in this class: what has been sent is now recorded per
-      // row, by the absence of a queue entry, which is the only record a clock
-      // could never keep.
-      totalPushStopwatch.stop();
-      debugPrint(
-        '[PERF] Total Push: ${totalPushStopwatch.elapsedMilliseconds}ms',
+    // One table's failure is that table's failure, and nothing else's.
+    //
+    // The push used to run as a single `try`, so the FIRST table the server
+    // refused aborted the whole thing — and the first table in the order is
+    // always `languages`. A server that answers 500 for that one payload
+    // therefore stranded every other table behind it: the queue could not
+    // drain, the backlog only grew, and every timer, doorbell, reconnect and
+    // startup ran the identical doomed cycle again. Draining the fifteen tables
+    // the server IS willing to take is strictly better than draining none, and
+    // it costs nothing in correctness — [_pushQueuedTable] removes only the
+    // entries the server has acknowledged, so the failing table's rows stay
+    // queued exactly as they were and go out again on the next cycle.
+    final failures = <String, Object>{};
+    for (final (tableName, push) in jobs) {
+      try {
+        await push();
+      } on SyncAuthException {
+        // Not this table's problem: the credentials are wrong for all sixteen,
+        // and the callers deliberately do not retry on this. Carrying on
+        // through the list would only produce fifteen more 401s.
+        rethrow;
+      } catch (e) {
+        failures[tableName] = e;
+        debugPrint(
+          '[ServerSync] Push for $tableName failed — its entries stay queued, '
+          'continuing with the remaining tables: $e',
+        );
+      }
+    }
+    _lastPushFailures = failures.keys.toSet();
+
+    // No watermark is written. `server_last_push_timestamp` is gone from
+    // every read path in this class: what has been sent is now recorded per
+    // row, by the absence of a queue entry, which is the only record a clock
+    // could never keep.
+    totalPushStopwatch.stop();
+    debugPrint(
+      '[PERF] Total Push: ${totalPushStopwatch.elapsedMilliseconds}ms',
+    );
+
+    if (failures.isNotEmpty) {
+      // Still thrown, so the cycle counts as failed and the retry ladder around
+      // [sync] behaves exactly as it did. What changed is how much the app has
+      // already got done by the time it is thrown.
+      throw Exception(
+        'Push failed for ${failures.length} of ${jobs.length} tables: '
+        '${failures.entries.map((e) => '${e.key} (${e.value})').join('; ')}',
       );
-    } catch (e) {
-      // Nothing to roll back: entries are deleted one acknowledged batch at a
-      // time, so everything the server never confirmed is still queued and the
-      // tables after the failing one have not been touched at all.
-      debugPrint('[ServerSync] Error during queued push: $e');
-      rethrow;
     }
   }
 

@@ -15,6 +15,14 @@ services:
       # Without it the server answers 503 to every /api and /ws request
       # rather than serving the budget to anyone who finds the port.
       - SYNC_TOKEN=${SYNC_TOKEN:?set SYNC_TOKEN, e.g. openssl rand -hex 32}
+      # Exchange rates. The server fetches them once for every device; see
+      # README.md for the full list of RATES_* settings and their defaults.
+      # Left unset, it fetches EUR-based rates back to 2024-04-01 every six
+      # hours. Set RATES_ENABLED=false to stop fetching and serve only what is
+      # already stored.
+      - RATES_ENABLED=${RATES_ENABLED:-true}
+      - RATES_BASE=${RATES_BASE:-EUR}
+      - RATES_BACKFILL_FROM=${RATES_BACKFILL_FROM:-2024-04-01}
     depends_on:
       db:
         condition: service_healthy

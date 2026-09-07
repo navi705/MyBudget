@@ -3,6 +3,12 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:my_budget_client/core/utils/currency_history_binary_io.dart';
 
+/// Days of history the asset carries.
+///
+/// Dates sort correctly as strings here because the file is keyed by
+/// `yyyy-MM-dd`.
+const int _bundledDays = 30;
+
 void main() async {
   debugPrint('Step 1: Script Started');
   final jsonPath =
@@ -39,6 +45,26 @@ void main() async {
     });
 
     debugPrint('JSON Decoded. Dates: ${historyMap.length}');
+
+    // Only the tail of the history ships. The whole file is every currency
+    // the data set publishes for every day since 2024-04-01 - 2.13 MB of
+    // asset and ~283 000 rows seeded into `exchange_rates` on first launch,
+    // to convert between the two or three currencies a person actually holds.
+    // The server holds the rest and the device asks for the days it misses,
+    // so what the asset is for is a bare install with no server: enough
+    // recent history that today's balances resolve offline.
+    final newest = historyMap.keys.toList()..sort();
+    final kept = newest.length <= _bundledDays
+        ? newest
+        : newest.sublist(newest.length - _bundledDays);
+    final trimmed = {for (final date in kept) date: historyMap[date]!};
+    debugPrint(
+      'Trimmed to the newest $_bundledDays dates: ${trimmed.length} kept, '
+      '${historyMap.length - trimmed.length} dropped',
+    );
+    historyMap
+      ..clear()
+      ..addAll(trimmed);
 
     debugPrint('Step 3: Writing Binary file to $binPath...');
     // We use the centralized CurrencyHistoryBinaryIO which handles GZip
